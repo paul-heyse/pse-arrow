@@ -9,5 +9,5 @@ mod fixtures;
 mod global_certification;
 mod native_outcomes;
 mod physical_nlp;
-mod publication_resource;
+mod connected_results_resource;
 mod vessel_fit;

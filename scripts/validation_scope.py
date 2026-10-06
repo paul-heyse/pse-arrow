@@ -48,7 +48,6 @@ def declared(name: str) -> Gate:
             "check",
             "clippy-default",
             "clippy-no-default",
-            "inspection-fixture",
         }
         else "python-product"
         if name in {"native-python", "py-sync-native", "python-stubs"}
@@ -103,8 +102,7 @@ GROUPS = {
         "codegen-relations-check",
         "codegen-python-check",
         "codegen-docs-check",
-        "codegen-postgres-check",
-        "codegen-queries-check",
+        "codegen-surreal-check",
         "codegen-bindgen-check",
         "codegen-schemas-check",
         "codegen-hakari-check",
@@ -113,7 +111,7 @@ GROUPS = {
         "codegen-rust-contracts-check",
         "codegen-python-check",
         "codegen-docs-check",
-        "codegen-postgres-check",
+        "codegen-surreal-check",
     ),
     "features-powerset": ("features-combinations", "features-no-default"),
     "governance": ("governance-tests", "codegen-check", "family-check"),
@@ -211,9 +209,6 @@ def comprehensive() -> list[Gate]:
         ),
         Gate("doctest", input_scope="rust-product"),
         native_gate(),
-        Gate(
-            "inspection-fixture", ("{output}/inspection",), input_scope="rust-product"
-        ),
         Gate(
             "native-python",
             ("{output}",),
@@ -353,7 +348,7 @@ PRODUCT_ENVIRONMENT = (
     "OMP_NUM_THREADS",
     "OPENBLAS_NUM_THREADS",
     "MKL_NUM_THREADS",
-    "PSE_DATABASE_URL",
+    "PSE_SURREAL_STATE",
     "PSE_MEMORY_MAX",
     "SYMBOLICA_LICENSE",
     "LOCAL_NATIVE_ENVIRONMENT",
@@ -422,6 +417,6 @@ FUNCTIONAL_SCOPES = {
     ),
     "lifecycle": native_gate(
         "functional-lifecycle",
-        "package(pse-runtime) | package(pse-operations) | package(pse-tests-lifecycle) | (package(pse-tests-conformance) & test(acceptance::publication_resource::))",
+        "package(pse-runtime) | package(pse-operations) | package(pse-tests-lifecycle) | (package(pse-tests-conformance) & test(acceptance::connected_results_resource::))",
     ),
 }

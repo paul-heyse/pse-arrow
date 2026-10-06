@@ -98,11 +98,6 @@ fn tagged_arms_project_to_native_fields_and_all_generated_contracts() {
     let registry = fixture(value.clone()).unwrap();
     let relation = registry.relation("authored.native_fields").unwrap();
     let execution = arrow::relation_schema(&registry, relation).unwrap();
-    let storage = pse_schema::delta::relation_schema(&registry, relation).unwrap();
-    assert_eq!(
-        pse_schema::delta::execution_schema(&storage).unwrap(),
-        execution
-    );
     assert_eq!(
         TaggedAlternative::from_field(execution.field(1)).unwrap(),
         Some(declaration)
@@ -273,12 +268,11 @@ fn collection_facets_preserve_empty_order_and_unique_meanings_across_projections
 }
 
 #[test]
-fn string_enums_keep_their_domain_in_execution_and_durable_fields() {
+fn string_enums_keep_their_domain_in_execution_fields() {
     let registry = fixture(F::extended(pse_schema::model::ExtensionUse::Bound)).unwrap();
     let relation = registry.relation("authored.native_fields").unwrap();
     let execution = arrow::relation_schema(&registry, relation).unwrap();
-    let storage = pse_schema::delta::relation_schema(&registry, relation).unwrap();
-    for schema in [&execution, &storage] {
+    for schema in [&execution] {
         let DataType::Struct(fields) = schema.field(1).data_type() else {
             panic!("bound structure");
         };
@@ -309,18 +303,12 @@ fn string_enums_keep_their_domain_in_execution_and_durable_fields() {
 }
 
 #[test]
-fn bounded_signed_domains_project_to_languages_and_durable_storage() {
+fn bounded_signed_domains_project_to_languages_and_arrow() {
     use pse_schema::model::IntegerRange;
     let registry = fixture(F::list(F::nonnegative(255).optional())).unwrap();
     let relation = registry.relation("authored.native_fields").unwrap();
     let execution = arrow::relation_schema(&registry, relation).unwrap();
-    let storage = pse_schema::delta::relation_schema(&registry, relation).unwrap();
-    let reconstructed = pse_schema::delta::execution_schema(&storage).unwrap();
-    let DataType::List(stored_element) = storage.field(1).data_type() else {
-        panic!("list")
-    };
-    assert_eq!(stored_element.data_type(), &DataType::Int64);
-    for schema in [&execution, &reconstructed] {
+    for schema in [&execution] {
         let DataType::List(child) = schema.field(1).data_type() else {
             panic!("list")
         };

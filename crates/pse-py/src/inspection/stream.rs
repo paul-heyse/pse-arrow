@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 use super::errors;
-use pse_catalog::inspection::{TableReader, stream::BatchStream};
+use pse_engine::arrow_stream::BatchStream;
 use pyo3::{prelude::*, types::PyCapsule};
 use pyo3_arrow::{PyRecordBatchReader, PySchema};
 use std::sync::Arc;
@@ -27,20 +27,15 @@ impl TableStream {
             Box::new(move || Ok(next.take())),
         )))
     }
-    pub(crate) fn new(mut reader: TableReader, runtime: Arc<super::runtime::Runtime>) -> Self {
-        Self(BatchStream::new(
-            reader.schema(),
-            reader.cancellation_token(),
-            Box::new(move || {
-                if tokio::runtime::Handle::try_current().is_ok() {
-                    return Err(errors::invalid(
-                        "synchronous Arrow stream cannot re-enter its async executor",
-                    ));
-                }
-                runtime.executor.block_on(reader.next_batch())
-            }),
-        ))
+    pub(crate) fn from_canonical(mut reader:pse_runtime::workflow::CanonicalResultReader,runtime:Arc<super::runtime::Runtime>)->Self {
+        Self(BatchStream::new(reader.schema(),reader.cancellation_token(),Box::new(move || {
+            if tokio::runtime::Handle::try_current().is_ok() {
+                return Err(errors::invalid("synchronous Arrow stream cannot re-enter its async executor"));
+            }
+            runtime.executor.block_on(reader.next_batch()).map_err(|error|pse_engine::EngineError::Semantic(Arc::new(error)))
+        })))
     }
+
 }
 #[pymethods]
 impl TableStream {

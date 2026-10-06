@@ -1,0 +1,1022 @@
+{
+  "scope": "26 actual selected runtime build owners; manual source-review recommendations, no production eligibility grant. Runtime/worker/Python contexts must independently match selected features/helper closure and supported guarded capture.",
+  "shared_bindgen_contract": "Exact libclang file selector; CLANG_NO_DEFAULT_CONFIG=1; explicit Clang execution/include probes; default Rustfmt effective executable/toolchain/config; reached libclang environment selectors and loader candidate files.",
+  "owners": [
+    {
+      "owner": "git+https://github.com/paul-heyse/pounce?rev=ff6386944421e8037069e521222ada9f22d457e3#pounce-algorithm@0.12.0",
+      "selected_features": [
+        "default"
+      ],
+      "build_source": "$HOME/.cargo/git/checkouts/pounce-8316ac8e070882e5/ff63869/crates/pounce-algorithm/build.rs",
+      "raw_review_basis": "7f2f89fcb71c48ae483aff101a1e01367e656fcf73902f702e0a34308f34f483",
+      "executed_helper_closure_bases": {
+        "executable-closure:git+https://github.com/paul-heyse/pounce?rev=ff6386944421e8037069e521222ada9f22d457e3#pounce-algorithm@0.12.0:d7ace8c808dad29b15e0763ba7c901313fe549d76a394884a624d63be77a7377": "5daab979c59cd016755bc7365a0db5452047fcbbc5981673651c6d2f02d2354b"
+      },
+      "direct_build_helpers": [],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "metadata",
+      "reviewed_branch": "DEP_COINHSL_RPATH absent/empty; target Linux; MA57 absent",
+      "required_premises": [
+        "DEP_COINHSL_RPATH presence/value",
+        "TARGET and Cargo target OS"
+      ],
+      "native_inputs_template": null,
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "git+https://github.com/paul-heyse/pounce?rev=ff6386944421e8037069e521222ada9f22d457e3#pounce-restoration@0.12.0",
+      "selected_features": [],
+      "build_source": "$HOME/.cargo/git/checkouts/pounce-8316ac8e070882e5/ff63869/crates/pounce-restoration/build.rs",
+      "raw_review_basis": "c83d8a5f5947135e61da970154b070c16b35935d75a26a0a0e7e2860e85ae103",
+      "executed_helper_closure_bases": {
+        "executable-closure:git+https://github.com/paul-heyse/pounce?rev=ff6386944421e8037069e521222ada9f22d457e3#pounce-restoration@0.12.0:c3606d4ce3544d62213791045b196eb60dc4a11b3520fe92babc38958bcf16c8": "6b7b470fc3d56778e928a103572800af6ed8ef704a6f77a1472dcfda945f1df5"
+      },
+      "direct_build_helpers": [],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "metadata",
+      "reviewed_branch": "DEP_COINHSL_RPATH absent/empty; target Linux; MA57 absent",
+      "required_premises": [
+        "DEP_COINHSL_RPATH presence/value",
+        "TARGET and Cargo target OS"
+      ],
+      "native_inputs_template": null,
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "git+https://github.com/paul-heyse/pounce?rev=ff6386944421e8037069e521222ada9f22d457e3#pounce-rs@0.12.0",
+      "selected_features": [
+        "convex",
+        "default",
+        "qp"
+      ],
+      "build_source": "$HOME/.cargo/git/checkouts/pounce-8316ac8e070882e5/ff63869/crates/pounce-rs/build.rs",
+      "raw_review_basis": "28ac0a0aa078fc22e6bdaabc2a0782494ab0973cb31658a021d4e9472436a540",
+      "executed_helper_closure_bases": {
+        "executable-closure:git+https://github.com/paul-heyse/pounce?rev=ff6386944421e8037069e521222ada9f22d457e3#pounce-rs@0.12.0:753fe5b37d006e39e28fc9dc891bfc58cd1089426e2f4873e0b2ab57fdf01228": "d36d5d209f1b51620e38b57ee6cc440724d43b176d4088c7860786c54050e9d6"
+      },
+      "direct_build_helpers": [],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "metadata",
+      "reviewed_branch": "DEP_COINHSL_RPATH absent/empty; target Linux; MA57 absent",
+      "required_premises": [
+        "DEP_COINHSL_RPATH presence/value",
+        "TARGET and Cargo target OS"
+      ],
+      "native_inputs_template": null,
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "git+https://github.com/paul-heyse/pounce?rev=ff6386944421e8037069e521222ada9f22d457e3#pounce-solve-report@0.12.0",
+      "selected_features": [],
+      "build_source": "$HOME/.cargo/git/checkouts/pounce-8316ac8e070882e5/ff63869/crates/pounce-solve-report/build.rs",
+      "raw_review_basis": "62bee64759d320a3eeb91c0b06a486e37fb396c4eedd8b5860f0e23bfc661cf5",
+      "executed_helper_closure_bases": {
+        "executable-closure:git+https://github.com/paul-heyse/pounce?rev=ff6386944421e8037069e521222ada9f22d457e3#pounce-solve-report@0.12.0:4e29acb26167f13c62ef73c5e3e0131230499330d990a9e659a4a71871adfd75": "1e90ff76107cb039809e5b3ade2a24993fe2cf7ab9d1d4d2a8dcfa68a68ebb56"
+      },
+      "direct_build_helpers": [],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "metadata",
+      "reviewed_branch": "TARGET copied into compile metadata",
+      "required_premises": [
+        "TARGET"
+      ],
+      "native_inputs_template": null,
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "path+workspace://crates/pse-backend-native#0.0.1",
+      "selected_features": [
+        "clarabel-pardiso",
+        "default",
+        "diffsol",
+        "highs",
+        "idas",
+        "ipopt",
+        "kinsol",
+        "native-solvers",
+        "petsc",
+        "pounce",
+        "root-isolation",
+        "scip",
+        "sdp",
+        "uno"
+      ],
+      "build_source": "$WORKSPACE/crates/pse-backend-native/build.rs",
+      "raw_review_basis": "4b302185298f2bb8c15561afdf1cb3fff0f375b22aaea5a630cdf63b8fbafdcf",
+      "executed_helper_closure_bases": {
+        "executable-closure:path+workspace://crates/pse-backend-native#0.0.1:8927b996cb1ff1f645cfd92b46a6c517967758982298c91bfc7b21dbc19ccef5": "4b0440b958e385faf82eb414976238a3668051165a1364f46d73c1409022f5bf"
+      },
+      "direct_build_helpers": [
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#cc@1.6.0",
+          "target": "cc",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": [
+            "parallel"
+          ]
+        },
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#pkg-config@0.3.34",
+          "target": "pkg_config",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": []
+        },
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#toml@1.1.6+spec-1.1.0",
+          "target": "toml",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": [
+            "display",
+            "parse",
+            "serde"
+          ]
+        }
+      ],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "workspace-bridge",
+      "reviewed_branch": "selected root-isolation and MKL prefixes, protected receipt copying, C++ bridge",
+      "required_premises": [
+        "workspace Cargo.toml POUNCE revision source read",
+        "exact complete selected prefix content/membership/receipt",
+        "ibex.pc exact bytes, no Requires; pkg-config absolute-pc cflags subprocess executable/env/loader",
+        "selected C++ flags and cc/GNU/include closure",
+        "MKL pc selected Rust parse; fallback discovery unreachable",
+        "toml helper parse/source closure; final link files"
+      ],
+      "native_inputs_template": "final-native-declaration-template.json",
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "path+workspace://crates/pse-ipopt-sys#0.0.1",
+      "selected_features": [
+        "default",
+        "link"
+      ],
+      "build_source": "$WORKSPACE/crates/pse-ipopt-sys/build.rs",
+      "raw_review_basis": "33df4a3e2e42d0da43bdb96a16298e66fe50d80b0d19e007352b28f6211f9050",
+      "executed_helper_closure_bases": {
+        "executable-closure:path+workspace://crates/pse-ipopt-sys#0.0.1:7ea34b4a629958ac4f7756d49382d5ea1f35ea2198cd0eb30b36e5549d80ae0f": "9015c00473e86b5a1a974818e5c03052196d3fed546b7e61effe0fef633c3ea7"
+      },
+      "direct_build_helpers": [
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#cc@1.6.0",
+          "target": "cc",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": [
+            "parallel"
+          ]
+        },
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#pkg-config@0.3.34",
+          "target": "pkg_config",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": []
+        },
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#sha2@0.11.0",
+          "target": "sha2",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": [
+            "alloc",
+            "default",
+            "oid"
+          ]
+        }
+      ],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "workspace-bridge",
+      "reviewed_branch": "link feature consumes explicit IPOPT_DIR pc/headers/libraries and C++ bridge",
+      "required_premises": [
+        "IPOPT_DIR exact prefix/pc/header/archive/shared library bytes",
+        "pc parsed in Rust selected branch; pkg-config helper compiled but fallback unreachable",
+        "bridge source/header SHA receipt and cc/GNU C++17/include closure",
+        "sha2 helper source/executable closure pure hash implementation",
+        "final static/dynamic link support inputs"
+      ],
+      "native_inputs_template": "final-native-declaration-template.json",
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "path+workspace://crates/pse-petsc-sys#0.0.1",
+      "selected_features": [
+        "default",
+        "link"
+      ],
+      "build_source": "$WORKSPACE/crates/pse-petsc-sys/build.rs",
+      "raw_review_basis": "e3fe42e5f654851ec29a27093d7f71ca62bc9018810cff0ffa4b0f670ab1c1ed",
+      "executed_helper_closure_bases": {
+        "executable-closure:path+workspace://crates/pse-petsc-sys#0.0.1:028582e6919d646381ef545019061f646c3afdcab534d49a1f075ced62ef6a02": "b3809312163d197deed00547b3433cd1e4776ced48e670ce100cb1f16ca1a255"
+      },
+      "direct_build_helpers": [
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#cc@1.6.0",
+          "target": "cc",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": [
+            "parallel"
+          ]
+        },
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#serde_json@1.0.151",
+          "target": "serde_json",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": [
+            "alloc",
+            "default",
+            "std"
+          ]
+        },
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#sha2@0.11.0",
+          "target": "sha2",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": [
+            "alloc",
+            "default",
+            "oid"
+          ]
+        }
+      ],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "workspace-bridge",
+      "reviewed_branch": "link feature validates explicit PETSc JSON receipt, compiles C11 bridge",
+      "required_premises": [
+        "PETSC_DIR complete receipt/version and headers/libraries",
+        "serde_json/sha2 helper source closure pure parse/hash",
+        "C bridge receipt/source and cc/GNU/include guards",
+        "final link support inputs"
+      ],
+      "native_inputs_template": "final-native-declaration-template.json",
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "path+workspace://crates/pse-uno-sys#0.0.1",
+      "selected_features": [
+        "default",
+        "highs-provider",
+        "link"
+      ],
+      "build_source": "$WORKSPACE/crates/pse-uno-sys/build.rs",
+      "raw_review_basis": "a17ccc46ec5755d46cd3b9c65440f196280ab193ce871f1cc79262df93d2fcc8",
+      "executed_helper_closure_bases": {
+        "executable-closure:path+workspace://crates/pse-uno-sys#0.0.1:641e38543c2aa4177c7290d6335f173aa80bf8312a90e4198cf30deb32f79ef3": "8442abfccb173b66c71445f8c9cbd17f344d9e48321be5445266e55e73f3feea"
+      },
+      "direct_build_helpers": [
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#cc@1.6.0",
+          "target": "cc",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": [
+            "parallel"
+          ]
+        },
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#serde_json@1.0.151",
+          "target": "serde_json",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": [
+            "alloc",
+            "default",
+            "std"
+          ]
+        },
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#sha2@0.11.0",
+          "target": "sha2",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": [
+            "alloc",
+            "default",
+            "oid"
+          ]
+        }
+      ],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "workspace-bridge",
+      "reviewed_branch": "link feature validates explicit Uno JSON receipt, C++17 bridge/static Uno",
+      "required_premises": [
+        "UNO_DIR complete receipt/pinned revision and prefix headers/libraries",
+        "selected BLAS prefix input selection",
+        "serde_json/sha2 helper source closure pure parse/hash",
+        "bridge source/header receipt and cc/GNU C++/include guards",
+        "final link support inputs"
+      ],
+      "native_inputs_template": "final-native-declaration-template.json",
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "registry+https://github.com/rust-lang/crates.io-index#bindgen@0.68.1",
+      "selected_features": [
+        "default",
+        "logging",
+        "prettyplease",
+        "runtime",
+        "which-rustfmt"
+      ],
+      "build_source": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/build.rs",
+      "raw_review_basis": "f57d06389b0b7eb504f78a6bd249ba11188fd88328155849735200918de89324",
+      "executed_helper_closure_bases": {
+        "executable-closure:registry+https://github.com/rust-lang/crates.io-index#bindgen@0.68.1:72f3e408f283ee69005382b4232bc2c27003f4e57b40c932b92f057480a2c0ab": "4ef5a650c49be7a6498928728ac66112d21aae1197cbd1aaafd96d8708c0c55c"
+      },
+      "direct_build_helpers": [],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "metadata",
+      "reviewed_branch": "own build script host-target.txt only; runtime library effects delegated to invoking build owner",
+      "required_premises": [
+        "TARGET",
+        "OUT_DIR writes accounted as generated output"
+      ],
+      "native_inputs_template": null,
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "registry+https://github.com/rust-lang/crates.io-index#bindgen@0.69.5",
+      "selected_features": [
+        "default",
+        "logging",
+        "prettyplease",
+        "runtime",
+        "which-rustfmt"
+      ],
+      "build_source": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/build.rs",
+      "raw_review_basis": "2be1c4a77ad29a693335866b2be869c1be3b30f475e3e9395105f750b4a79157",
+      "executed_helper_closure_bases": {
+        "executable-closure:registry+https://github.com/rust-lang/crates.io-index#bindgen@0.69.5:5617613529d6618c00f094828ae4b3949751a218c006d8664f5d69629b0c8de9": "adfc0ee1a6adcaf7cb1645f485889c02716e055716f8a2235880a070fea09873"
+      },
+      "direct_build_helpers": [],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "metadata",
+      "reviewed_branch": "own build script host-target.txt only; runtime library effects delegated to invoking build owner",
+      "required_premises": [
+        "TARGET",
+        "OUT_DIR writes accounted as generated output"
+      ],
+      "native_inputs_template": null,
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "registry+https://github.com/rust-lang/crates.io-index#bindgen@0.72.1",
+      "selected_features": [
+        "default",
+        "logging",
+        "prettyplease",
+        "runtime"
+      ],
+      "build_source": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/build.rs",
+      "raw_review_basis": "06f87f67b28f1e8b5b99ef46ac2e65e792de8b3a14717aa0664e1a7992a8c1da",
+      "executed_helper_closure_bases": {
+        "executable-closure:registry+https://github.com/rust-lang/crates.io-index#bindgen@0.72.1:35f2312fce4052ecfa9a23fd45995ffd8fdced2a6af2b11d767024716c6b9732": "5da6cca5f7e4b40f13b3c40e08b4944f389ed02f4c669998131237938f2d725c"
+      },
+      "direct_build_helpers": [],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "metadata",
+      "reviewed_branch": "own build script host-target.txt only; runtime library effects delegated to invoking build owner",
+      "required_premises": [
+        "TARGET",
+        "OUT_DIR writes accounted as generated output"
+      ],
+      "native_inputs_template": null,
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "registry+https://github.com/rust-lang/crates.io-index#blake3@1.8.7",
+      "selected_features": [
+        "default",
+        "rayon",
+        "std"
+      ],
+      "build_source": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/blake3-1.8.7/build.rs",
+      "raw_review_basis": "344a1380043953036db9f5f8207ba651b9b21ebaba0ed9897c8e8ff29e6552b3",
+      "executed_helper_closure_bases": {
+        "executable-closure:registry+https://github.com/rust-lang/crates.io-index#blake3@1.8.7:16eebc892385e6d66e75ce5ff48d93bb33c1f46c7a7af9998b9fa59180372226": "56df3acb59d8baa0f2ad5043f335ae2f15bc7c21300023f12c169c895ef213e0"
+      },
+      "direct_build_helpers": [
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#cc@1.6.0",
+          "target": "cc",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": [
+            "parallel"
+          ]
+        }
+      ],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "cc",
+      "reviewed_branch": "GNU cc AVX512/assembly flag probes and material objects",
+      "required_premises": [
+        "cc 1.6 parallel selected helper closure",
+        "GNU driver/preprocessor/assembler/ar executable and loader closure",
+        "target/base/HOST CC/CFLAGS/AR selection plus PATH",
+        "ordered include absence/membership and .d bytes",
+        "package assembly/C sources and generated probe inputs"
+      ],
+      "native_inputs_template": "final-native-declaration-template.json",
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "registry+https://github.com/rust-lang/crates.io-index#clang-sys@1.9.1",
+      "selected_features": [
+        "clang_10_0",
+        "clang_11_0",
+        "clang_3_5",
+        "clang_3_6",
+        "clang_3_7",
+        "clang_3_8",
+        "clang_3_9",
+        "clang_4_0",
+        "clang_5_0",
+        "clang_6_0",
+        "clang_7_0",
+        "clang_8_0",
+        "clang_9_0",
+        "libloading",
+        "runtime"
+      ],
+      "build_source": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/clang-sys-1.9.1/build.rs",
+      "raw_review_basis": "dab38f5b88fd89196bc462ab6e39b3084151f9807517e1d85b460c83bda0fa81",
+      "executed_helper_closure_bases": {
+        "executable-closure:registry+https://github.com/rust-lang/crates.io-index#clang-sys@1.9.1:d87af9311d2ecdaf067710d11825c537a6f2423ae675ef80df2d2c89fa748380": "a1cf35facbc5adf20b8e1da13a67ffafe08b66b1912877fc5fedffd5e638250b"
+      },
+      "direct_build_helpers": [
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#glob@0.3.4",
+          "target": "glob",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": []
+        }
+      ],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "metadata",
+      "reviewed_branch": "runtime feature build script excludes linker/native discovery",
+      "required_premises": [
+        "runtime=true; static=false",
+        "glob helper closure source identity, unreachable discovery does not imply native execution"
+      ],
+      "native_inputs_template": null,
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "registry+https://github.com/rust-lang/crates.io-index#gmp-mpfr-sys@1.7.1",
+      "selected_features": [
+        "default",
+        "mpc",
+        "mpfr"
+      ],
+      "build_source": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gmp-mpfr-sys-1.7.1/build.rs",
+      "raw_review_basis": "146ed208f99c40872f8a1ef89cc3e449cb822893cbc68c7001c276afad9f83e6",
+      "executed_helper_closure_bases": {
+        "executable-closure:registry+https://github.com/rust-lang/crates.io-index#gmp-mpfr-sys@1.7.1:895703f0ae256e041e5ba7e3677f1ca9136ff8734c972ec74e5a9be114cd8eab": "9db5d549697f5ae0f6d34686308dafaaf27a382786d7a96f3368436113d3d53c"
+      },
+      "direct_build_helpers": [],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "cache-copy",
+      "reviewed_branch": "1.7.1 compatible cache hit: libgmp.a/gmp.h, libmpfr.a/mpfr.h, libmpc.a/mpc.h; Rust parses copied headers",
+      "required_premises": [
+        "GMP compatible-version candidate namespace content/membership guard",
+        "GMP_MPFR_SYS_CACHE/HOME/XDG_CACHE_HOME exact selection",
+        "all six selected archive/header bytes bound",
+        "captured cache-hit branch; configure/make fallback excluded"
+      ],
+      "native_inputs_template": "final-native-declaration-template.json",
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "registry+https://github.com/rust-lang/crates.io-index#highs-sys@1.15.0",
+      "selected_features": [
+        "build",
+        "default",
+        "highs_release"
+      ],
+      "build_source": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/build.rs",
+      "raw_review_basis": "eb46134774d6cd5d876275d79015ea98c7699e05e3be1a04351e40c433677640",
+      "executed_helper_closure_bases": {
+        "executable-closure:registry+https://github.com/rust-lang/crates.io-index#highs-sys@1.15.0:7582f07fbbdbc34a4a12f0b7c8177a39a04f789d934fc7518fc93613d30a496e": "61119bf536f80c046303a3b5b522b0f445288b40dd7f797da8a73339768e546b"
+      },
+      "direct_build_helpers": [
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#bindgen@0.72.1",
+          "target": "bindgen",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": [
+            "default",
+            "logging",
+            "prettyplease",
+            "runtime"
+          ]
+        },
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#cmake@0.1.58",
+          "target": "cmake",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": []
+        }
+      ],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "cmake-bindgen",
+      "reviewed_branch": "bundled Release static HiGHS then bindgen 0.72.1",
+      "required_premises": [
+        "build/highs_release features; discover/ninja/libz absent",
+        "HiGHS/highs presence excludes Git submodule update",
+        "CMake/GNU/make/ar/ranlib source/tool/environment/include closure",
+        "bindgen exact libclang/clang/default Rustfmt closure",
+        "generated source/header namespace and .d association",
+        "HiGHS/.git absent; Git find-program/version candidate closure",
+        "ldd --version script and PATH candidate closure; HIPO OFF excludes FetchContent",
+        "no compilation-date timestamp; fresh generated OUT_DIR outputs per cmake-generation-contracts.json",
+        "HIGHS_MAJOR/MINOR/PATCH absence/values; HIGHS_VCPKG OFF"
+      ],
+      "native_inputs_template": "final-native-declaration-template.json",
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "registry+https://github.com/rust-lang/crates.io-index#liblzma-sys@0.4.9",
+      "selected_features": [
+        "bindgen",
+        "static"
+      ],
+      "build_source": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/liblzma-sys-0.4.9/build.rs",
+      "raw_review_basis": "c47dce623b0d055e568bae995ba050725b19ff739e6684f3b2190273c8546591",
+      "executed_helper_closure_bases": {
+        "executable-closure:registry+https://github.com/rust-lang/crates.io-index#liblzma-sys@0.4.9:0ca283249cdd6d473f6b404eef2fd2aade35175c4d71139d4c7d0c3380f1f819": "df6fb6d407d420c06f29aa9f4d6c0cbf83ad4b55702631efe06eff4d6e08e3ec"
+      },
+      "direct_build_helpers": [
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#cc@1.6.0",
+          "target": "cc",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": [
+            "parallel"
+          ]
+        },
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#pkg-config@0.3.34",
+          "target": "pkg_config",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": []
+        }
+      ],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "cc",
+      "reviewed_branch": "static feature compiles enumerated bundled xz C files; bindgen feature uses committed bindings",
+      "required_premises": [
+        "static feature true bypasses pkg-config subprocess",
+        "selected C source directory membership/content",
+        "config.h/package includes and system include guards",
+        "cc/GNU/as/ar tool environment/loader closure",
+        "parallel/LTO features absent in selected context"
+      ],
+      "native_inputs_template": "final-native-declaration-template.json",
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "registry+https://github.com/rust-lang/crates.io-index#pardiso-wrapper@0.1.3",
+      "selected_features": [
+        "default",
+        "mkl"
+      ],
+      "build_source": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pardiso-wrapper-0.1.3/build.rs",
+      "raw_review_basis": "3aff22fcfc66858ecb03e25fe1ac56ced1d8acb1e0bd3003c4a063394e740b92",
+      "executed_helper_closure_bases": {
+        "executable-closure:registry+https://github.com/rust-lang/crates.io-index#pardiso-wrapper@0.1.3:e6c78d6cd2aedc857ce3240372e410fffd23f66b1179b5582fca6945db320f29": "4b1917ccd9b03c0f820381778b0fbce0aa91f0f01311dfbba0c07f3353895ff1"
+      },
+      "direct_build_helpers": [],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "metadata",
+      "reviewed_branch": "mkl feature; Linux x86_64; emits m metadata",
+      "required_premises": [
+        "CARGO_CFG_TARGET_ARCH",
+        "DOCS_RS presence",
+        "mkl feature; non-MKL branch excluded"
+      ],
+      "native_inputs_template": null,
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "registry+https://github.com/rust-lang/crates.io-index#prettyplease@0.2.37",
+      "selected_features": [
+        "verbatim"
+      ],
+      "build_source": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prettyplease-0.2.37/build.rs",
+      "raw_review_basis": "1a5b277efde7346d36efdeecd11a8c6c586cd2d50ca081f66bfcf2fd0c836a5d",
+      "executed_helper_closure_bases": {
+        "executable-closure:registry+https://github.com/rust-lang/crates.io-index#prettyplease@0.2.37:a6174c19df99047e8e21e33821972c2679bc141beb56a8d068016d53a6ddda5b": "a16657ae73a99223dc234f6b4cb151eb300e6ad4436cdbd2ce637d1edb81da34"
+      },
+      "direct_build_helpers": [],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "metadata",
+      "reviewed_branch": "Cargo version/check-cfg metadata only",
+      "required_premises": [
+        "CARGO_PKG_VERSION",
+        "Cargo cfg/version context"
+      ],
+      "native_inputs_template": null,
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "registry+https://github.com/rust-lang/crates.io-index#private-gemm-x86@0.1.20",
+      "selected_features": [
+        "rayon",
+        "std"
+      ],
+      "build_source": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/private-gemm-x86-0.1.20/build.rs",
+      "raw_review_basis": "61ab0db3806cb4416f6e6876cfc972be2534e48bde2ccfc0e5e1b69239060d5b",
+      "executed_helper_closure_bases": {
+        "executable-closure:registry+https://github.com/rust-lang/crates.io-index#private-gemm-x86@0.1.20:8ca99c2ee4f7abb619703ceded048ca26a1af6a544e15cd6bbf1714654097a54": "0a969ea8301486bafea3779773309f711f9950ffd257f08ed7364ad7f7764acc"
+      },
+      "direct_build_helpers": [
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#defer@0.2.1",
+          "target": "defer",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": []
+        },
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#interpol@0.2.1",
+          "target": "interpol",
+          "kind": [
+            "proc-macro"
+          ],
+          "mode": "build",
+          "features": []
+        }
+      ],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "generated-text",
+      "reviewed_branch": "OUT_DIR assembly/Rust generation only",
+      "required_premises": [
+        "selected defer/interpol helper closure independently approved",
+        "OUT_DIR generated text tracked",
+        "selected source branch/features bound"
+      ],
+      "native_inputs_template": null,
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "registry+https://github.com/rust-lang/crates.io-index#psm@0.1.32",
+      "selected_features": [],
+      "build_source": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/psm-0.1.32/build.rs",
+      "raw_review_basis": "9c57dba264e61c15902489dfbcc9b9d34d38c502bc11453f3e74dc1630e71076",
+      "executed_helper_closure_bases": {
+        "executable-closure:registry+https://github.com/rust-lang/crates.io-index#psm@0.1.32:1854715f0a18e12c95fe588aec1fc983ac86beb2d6b69089c86e61e111246cd2": "2c1a8ed4bc305103a72c862041cce8e3a290d4df84135fec1453483d5d903ce7"
+      },
+      "direct_build_helpers": [
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#ar_archive_writer@0.5.3",
+          "target": "ar_archive_writer",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": []
+        },
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#cc@1.6.0",
+          "target": "cc",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": [
+            "parallel"
+          ]
+        }
+      ],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "cc",
+      "reviewed_branch": "Linux x86_64 src/arch/x86_64.s through assembler-with-cpp and cc archive",
+      "required_premises": [
+        "CARGO_CFG_MIRI absent",
+        "target arch/env/OS/endian and HOST",
+        "cc 1.6 executable/helper and include search guards",
+        "ar_archive_writer selected compile helper source bound but wasm object branch unreachable"
+      ],
+      "native_inputs_template": "final-native-declaration-template.json",
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "registry+https://github.com/rust-lang/crates.io-index#rustix@0.38.44",
+      "selected_features": [
+        "alloc",
+        "fs",
+        "libc-extra-traits",
+        "std"
+      ],
+      "build_source": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustix-0.38.44/build.rs",
+      "raw_review_basis": "c1d7e2065ce1162191ac42127462d48043082f34e9c05dad5296fc9ca172b367",
+      "executed_helper_closure_bases": {
+        "executable-closure:registry+https://github.com/rust-lang/crates.io-index#rustix@0.38.44:06501168cf6c80d80bdab83f10016a6cbba17fa7a8ab646a21cd724e4f62e5ff": "b2b4c3fc50cbb21cef194aed0a976d56cd7c9eea7ecd0c3b4d1875804a0ac610"
+      },
+      "direct_build_helpers": [],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "rust-compiler-probe",
+      "reviewed_branch": "metadata-only stdin Rust feature probes, direct RUSTC wrappers empty",
+      "required_premises": [
+        "RUSTC actual executable/loader/toolchain closure",
+        "RUSTC_WRAPPER absent/empty",
+        "TARGET and CARGO_ENCODED_RUSTFLAGS",
+        "compiler probe stdout/status captures"
+      ],
+      "native_inputs_template": "final-native-declaration-template.json",
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "registry+https://github.com/rust-lang/crates.io-index#scip-sys@0.1.28",
+      "selected_features": [
+        "bindgen",
+        "default"
+      ],
+      "build_source": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scip-sys-0.1.28/build.rs",
+      "raw_review_basis": "1e0a2f7a059e2c20ecfb1915cf025365d4c8e761f766c707d3bc6b077f09ce4c",
+      "executed_helper_closure_bases": {
+        "executable-closure:registry+https://github.com/rust-lang/crates.io-index#scip-sys@0.1.28:1bfa0e82aa64ddba2fc977fcedacc95bda4a41e340f47766fb330c12e8046793": "f9f7d4afef9b683cd89bcab1286fda6a44c090a67f760c069b1c2b2811ce7609"
+      },
+      "direct_build_helpers": [
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#bindgen@0.72.1",
+          "target": "bindgen",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": [
+            "default",
+            "logging",
+            "prettyplease",
+            "runtime"
+          ]
+        },
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#glob@0.3.4",
+          "target": "glob",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": []
+        }
+      ],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "bindgen-prefix",
+      "reviewed_branch": "SCIPOPTDIR explicit external prefix, bindgen/default features",
+      "required_premises": [
+        "SCIPOPTDIR bytes and selected prefix glob libscip membership/content",
+        "bundled/from-source absent excludes downloads/build",
+        "CONDA_PREFIX fallback unreachable when selected explicit prefix valid",
+        "prefix headers/libraries, exact libclang/clang/default Rustfmt closure",
+        "glob pure matching/walking effects scoped to declared prefix"
+      ],
+      "native_inputs_template": "final-native-declaration-template.json",
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "registry+https://github.com/rust-lang/crates.io-index#suitesparse_sys@0.1.4",
+      "selected_features": [
+        "amd",
+        "btf",
+        "colamd",
+        "default",
+        "klu",
+        "static_libraries"
+      ],
+      "build_source": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/suitesparse_sys-0.1.4/build.rs",
+      "raw_review_basis": "e0281973ed83b0d46cb502429832270db51cb3c89159ad379062fbdb139da533",
+      "executed_helper_closure_bases": {
+        "executable-closure:registry+https://github.com/rust-lang/crates.io-index#suitesparse_sys@0.1.4:afddef827db6aa74a691a86b5fc25c068dba1f4836c3f0a8ec33999e91c69581": "5b8991b900dfd8f724f726245207cb1823c5b6893dfa4055484c7cdfe4021e70"
+      },
+      "direct_build_helpers": [
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#bindgen@0.69.5",
+          "target": "bindgen",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": [
+            "default",
+            "logging",
+            "prettyplease",
+            "runtime",
+            "which-rustfmt"
+          ]
+        },
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#cmake@0.1.58",
+          "target": "cmake",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": []
+        },
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#pkg-config@0.3.34",
+          "target": "pkg_config",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": []
+        }
+      ],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "bindgen-prefix",
+      "reviewed_branch": "external explicit SuiteSparse include/library prefix; static amd/btf/colamd/klu/config",
+      "required_premises": [
+        "build_vendor feature absent",
+        "explicit SUITESPARSE_INCLUDE_DIR and SUITESPARSE_LIBRARY_DIR bound",
+        "prefix five static libraries and headers bound",
+        "bindgen 0.69.5 runtime libclang/clang/default Rustfmt input closure",
+        "CMake/pkg-config helper identities bound but explicit prefix bypasses discovery/vendor subprocess"
+      ],
+      "native_inputs_template": "final-native-declaration-template.json",
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "registry+https://github.com/rust-lang/crates.io-index#sundials-sys@0.6.2",
+      "selected_features": [
+        "build_libraries",
+        "idas",
+        "kinsol",
+        "klu",
+        "static_libraries",
+        "suitesparse_sys"
+      ],
+      "build_source": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sundials-sys-0.6.2/build.rs",
+      "raw_review_basis": "6e2bfb2fd7056d03cecbdcd9093988fe0bbeec65159a10a0474578c2886a2009",
+      "executed_helper_closure_bases": {
+        "executable-closure:registry+https://github.com/rust-lang/crates.io-index#sundials-sys@0.6.2:2dcf5453bf92e5359d9949caf9c9983c813ebbbff649c2f699c661078f929175": "2547572f066729a20576e56be3e26527e393b9850621145b0e5f9ee316d73729"
+      },
+      "direct_build_helpers": [
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#bindgen@0.68.1",
+          "target": "bindgen",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": [
+            "default",
+            "logging",
+            "prettyplease",
+            "runtime",
+            "which-rustfmt"
+          ]
+        },
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#cmake@0.1.58",
+          "target": "cmake",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": []
+        }
+      ],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "cmake-bindgen",
+      "reviewed_branch": "bundled CMake static IDAS/KINSOL/KLU then bindgen 0.68.1",
+      "required_premises": [
+        "CMake module/source/generated include namespace",
+        "CMake/GNU/make/ar/ranlib executables/loader/environment closure",
+        "selected KLU external prefix archives/headers",
+        "per-object .d plus ordered include namespace guards",
+        "bindgen exact libclang/clang/default Rustfmt closure",
+        "vendor/.git absent; FindGit version/helper closure",
+        "fresh generated OUT_DIR outputs per cmake-generation-contracts.json",
+        "SUN_JOB_* timestamp macros exported through bindgen: fixed documented SOURCE_DATE_EPOCH/TZ or explicit bound CI_JOB_ID/CI_JOB_STARTED_AT required before grant",
+        "SUNDIALS_ADIAK_ENABLED false; test/examples OFF does not by itself remove public clock constants"
+      ],
+      "native_inputs_template": "final-native-declaration-template.json",
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "registry+https://github.com/rust-lang/crates.io-index#symbolica@3.0.1",
+      "selected_features": [
+        "float-mpfr",
+        "integer-gmp"
+      ],
+      "build_source": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/symbolica-3.0.1/build.rs",
+      "raw_review_basis": "1fb7d46fb271d66cd2e951854da887bdcf8ff16a833c4d0106f4b646a03e384d",
+      "executed_helper_closure_bases": {
+        "executable-closure:registry+https://github.com/rust-lang/crates.io-index#symbolica@3.0.1:8ce4aaf0710f1c7eba0643df8b3536f7a3eb44871d12d3b008fdf9e33ee1ee7c": "404fb7f1e0dccf90d5b5c03b44cab9ad4d8bc6e254d69c061d7b4f70b97fa34f"
+      },
+      "direct_build_helpers": [],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "git-observer",
+      "reviewed_branch": "Git describe and three git-path queries; current packaged-source fallback",
+      "required_premises": [
+        "git executable/loader bytes",
+        "Git config/include paths and environment",
+        "ancestor .git candidate membership/topology/content; invalid ~/.cargo/.git and HEAD absence represented",
+        "captured fallback exit/output; no valid repository branch assumed",
+        "fallback package version and OUT_DIR output"
+      ],
+      "native_inputs_template": "final-native-declaration-template.json",
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    },
+    {
+      "owner": "registry+https://github.com/rust-lang/crates.io-index#zstd-sys@2.1.0+zstd.1.5.7",
+      "selected_features": [
+        "legacy",
+        "std",
+        "zdict_builder"
+      ],
+      "build_source": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zstd-sys-2.1.0+zstd.1.5.7/build.rs",
+      "raw_review_basis": "79c59296be5de444fd5d0c202fea9b4ef481801470fb39e21f5091aaa0e2d756",
+      "executed_helper_closure_bases": {
+        "executable-closure:registry+https://github.com/rust-lang/crates.io-index#zstd-sys@2.1.0+zstd.1.5.7:cc675723d8e7e42c2e76c8560cdca020f2c45844179fc90b903d25876261f13c": "cdc084d5028176f02237325318da0e33c2786f060af8a51673e587f1525d5f72"
+      },
+      "direct_build_helpers": [
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#cc@1.6.0",
+          "target": "cc",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": [
+            "parallel"
+          ]
+        },
+        {
+          "package": "registry+https://github.com/rust-lang/crates.io-index#pkg-config@0.3.34",
+          "target": "pkg_config",
+          "kind": [
+            "lib"
+          ],
+          "mode": "build",
+          "features": []
+        }
+      ],
+      "source_disposition": "approve only the reviewed reached branch after these declarations and independent selected helper reviews are bound",
+      "effect_class": "cc",
+      "reviewed_branch": "bundled non-cmake/non-bindgen with legacy/dictBuilder/x86_64 assembly",
+      "required_premises": [
+        "ZSTD_SYS_USE_PKG_CONFIG absent, pkg-config/cmake/bindgen features absent",
+        "selected common/compress/decompress/dictBuilder/legacy directory membership/content",
+        "x86_64/Windows/Miri target premises",
+        "cc flag probes/material objects/archive tool/input guards",
+        "copied public headers and generated include namespace"
+      ],
+      "native_inputs_template": "final-native-declaration-template.json",
+      "basis_boundary": "raw_review_basis and executable closure bases identify source reviewed here; native basis must be generated from explicit chosen inputs/environment and manually accepted, never autoapproved from fresh hash"
+    }
+  ]
+}

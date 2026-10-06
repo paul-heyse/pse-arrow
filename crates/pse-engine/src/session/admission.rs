@@ -208,24 +208,6 @@ pub(super) fn admit_scan(
 /// # Errors
 /// Invalid storage, nested fields, extension identity/version/metadata, or semantic tags.
 pub fn admit_field(registry: &Registry, field: &Field) -> Result<()> {
-    if field
-        .metadata()
-        .keys()
-        .any(|key| key.starts_with("pse.layout."))
-    {
-        // A native Delta leaf may use view arrays while its stored descriptor
-        // names the execution representation. Validate that exact named mapping
-        // before applying domain checks to the reconstructed execution field.
-        let execution =
-            pse_schema::delta::execution_schema(&datafusion::arrow::datatypes::Schema::new(vec![
-                field.clone(),
-            ]))
-            .map_err(pse_columnar::external)?;
-        for decoded in execution.fields() {
-            admit_field(registry, decoded)?;
-        }
-        return Ok(());
-    }
     // Platform field predicates constrain declared PSE meanings. Untagged native
     // temporaries are governed by Arrow/DataFusion's own type universe, not the
     // smaller set of persisted relation declarations.
@@ -490,21 +472,6 @@ impl<'a> FieldAdmissions<'a> {
     }
 }
 fn admit_intermediate_field(registry: &Registry, field: &Field) -> Result<()> {
-    if let Some(descriptor) = field.metadata().get(pse_schema::delta::KEY_EXECUTION_FIELD) {
-        // Native expressions rename values and outer joins widen nullability.
-        // Those are expression properties, not changes to the persisted layout.
-        // Validate the original descriptor with its original name/nullability;
-        // actual provider and durable-boundary schemas still use admit_field.
-        let declared: Field = serde_json::from_str(descriptor)
-            .map_err(|error| DataFusionError::External(Box::new(error)))?;
-        return admit_field(
-            registry,
-            &field
-                .clone()
-                .with_name(declared.name())
-                .with_nullable(declared.is_nullable()),
-        );
-    }
     admit_field(registry, field)
 }
 

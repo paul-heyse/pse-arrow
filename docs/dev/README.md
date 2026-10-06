@@ -6,7 +6,9 @@ status; the current qualification basis is
 [§24.2](../authoritative_design/sections/operations-and-validation.md#section-24-2).
 
 - [Qualification commands](validation-assessment.md): assessment, native tests, case measurements and shared fixtures.
-- [Native workflow](native-workflow.md): public Rust/Python model, solve, dynamics, fitting and publication usage.
+- [Native workflow](native-workflow.md): public Rust/Python model, solve, dynamics, fitting and retained result usage.
+- [Canonical operational store](operational-store.md): revisions, workers, connected results, analyses and retention.
+- [Local substrate](surreal-substrate.md): supervised server setup, allocation, backup and restore.
 - [Native execution assurance](native-execution-assurance.md): engine observation evidence and its limits.
 - [Build reuse](build-performance.md): local compilation setup and cache boundaries.
 - [System LLVM selection](llvm-system.md): installing and verifying the shared LLVM prefix.

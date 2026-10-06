@@ -3648,6 +3648,26 @@
       },
       "type": "object"
     },
+    "PhysicalSource": {
+      "additionalProperties": false,
+      "description": "Exact canonical physical source receipt, separate from compiler physical context identity.",
+      "properties": {
+        "identity": {
+          "description": "Source interpretation checksum, distinct from the compiler context identity.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": "string"
+        },
+        "revision": {
+          "description": "Exact immutable revision in its declared canonical source kind.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "revision",
+        "identity"
+      ],
+      "type": "object"
+    },
     "PointPolicy": {
       "additionalProperties": false,
       "description": "Policy slice of an admitted operation occurrence.",
@@ -4940,16 +4960,15 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Version 7 of a study's definition: the store's `definition` document and the content of\nthe study's request identity.",
+  "description": "Version 8 of a study's definition: the store's `definition` document and the content of\nthe study's request identity.",
   "properties": {
     "modeling_revision": {
       "description": "The exact immutable canonical modeling revision.",
       "type": "string"
     },
     "physical": {
-      "description": "The source bundle of the physical package.",
-      "pattern": "^blake3:[0-9a-fA-F]{64}$",
-      "type": "string"
+      "$ref": "#/$defs/PhysicalSource",
+      "description": "The source bundle of the physical package."
     },
     "points": {
       "description": "The points, in index order.",
@@ -4959,8 +4978,8 @@
       "type": "array"
     },
     "version": {
-      "const": 7,
-      "default": 7,
+      "const": 8,
+      "default": 8,
       "description": "Document version.",
       "type": "integer"
     }

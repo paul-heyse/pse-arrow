@@ -8,6 +8,7 @@
 //! Native DataFusion contracts and owned execution, independent of durable storage.
 
 pub mod cache_service;
+pub mod arrow_stream;
 pub mod error;
 pub mod operation;
 pub mod provider;

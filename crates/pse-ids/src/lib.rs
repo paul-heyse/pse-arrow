@@ -10,8 +10,6 @@ pub mod float;
 pub mod frame;
 pub mod id;
 pub mod newtype;
-#[cfg(feature = "postgres")]
-pub mod postgres;
 pub mod preimage;
 pub mod roles;
 pub mod scientific_replay;

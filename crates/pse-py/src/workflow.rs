@@ -29,6 +29,54 @@ use std::{
     time::Duration,
 };
 
+/// Compact exact persisted graph; every page uses the runtime's retained pool.
+#[pyclass(frozen,skip_from_py_object,module="pse._native")]
+#[derive(Clone,Debug)]
+pub(crate) struct NativeAnalysis {inner:native::AnalysisHandle,owner:Arc<runtime::Runtime>}
+#[pymethods]
+impl NativeAnalysis {
+    #[getter]
+    fn key(&self)->String {self.inner.key().into()}
+    fn header(&self,py:Python<'_>)->PyResult<inspection::TableStream>{inspection::TableStream::from_batch(blocking(py,&self.owner,self.inner.header(),||{})?).map_err(|error|errors::diagnostic(py,&error))}
+    #[pyo3(signature=(*,after=None))]
+    fn nodes(&self,py:Python<'_>,after:Option<&str>)->PyResult<inspection::TableStream>{inspection::TableStream::from_batch(blocking(py,&self.owner,self.inner.nodes(after),||{})?).map_err(|error|errors::diagnostic(py,&error))}
+    #[pyo3(signature=(*,after=None))]
+    fn edges(&self,py:Python<'_>,after:Option<&str>)->PyResult<inspection::TableStream>{inspection::TableStream::from_batch(blocking(py,&self.owner,self.inner.edges(after),||{})?).map_err(|error|errors::diagnostic(py,&error))}
+}
+
+/// Compact exact persisted selection; reopening does not retain a worker report.
+#[pyclass(frozen,skip_from_py_object,module="pse._native")]
+#[derive(Clone,Debug)]
+pub(crate) struct NativeStoredResult {
+    pub(crate) inner:native::Runtime,
+    pub(crate) owner:Arc<runtime::Runtime>,
+    pub(crate) run_id:pse_model::generated::identities::RunId,
+    pub(crate) run:String,
+    pub(crate) attempt:String,
+}
+#[pymethods]
+impl NativeStoredResult {
+    #[getter]
+    fn run_key(&self)->String {self.run.clone()}
+    #[getter]
+    fn attempt_key(&self)->String {self.attempt.clone()}
+    #[getter]
+    fn run_id(&self)->String {self.run_id.as_id().to_hex()}
+    #[getter]
+    fn usable(&self,py:Python<'_>)->PyResult<bool>{let stored=blocking(py,&self.owner,self.inner.stored_completion(&self.run,&self.attempt),||{})?;Ok(matches!(stored.termination.cause,native::TerminationCause::Assessment{usable:true,..})&&stored.completion.as_ref().is_some_and(|completion|!completion.assessments.is_empty()&&completion.assessments.iter().all(|assessment|assessment.permits_result)))}
+    fn completion(&self,py:Python<'_>)->PyResult<Vec<u8>>{let stored=blocking(py,&self.owner,self.inner.stored_completion(&self.run,&self.attempt),||{})?;documents::encode(py,stored.completion.as_ref().ok_or_else(||invalid(py,"stored attempt has no scientific completion"))?)}
+    fn diagnostics(&self,py:Python<'_>)->PyResult<Vec<errors::DiagnosticReport>>{let stored=blocking(py,&self.owner,self.inner.stored_completion(&self.run,&self.attempt),||{})?;Ok(match &stored.termination.cause {native::TerminationCause::Error{diagnostic}|native::TerminationCause::Infrastructure{diagnostic}=>vec![inspection::DiagnosticReport::observe(diagnostic)],native::TerminationCause::Assessment{diagnostics,..}=>diagnostics.iter().map(inspection::DiagnosticReport::observe).collect()})}
+    #[pyo3(signature=(relation,*,start=0,end=u64::MAX))]
+    fn table(&self,py:Python<'_>,relation:&str,start:u64,end:u64)->PyResult<inspection::TableStream>{
+        let cancel=pse_columnar::CancellationToken::new();let reader=blocking(py,&self.owner,self.inner.results(&self.run,&self.attempt,relation,start,end,cancel.clone()),||cancel.cancel())?;
+        Ok(inspection::TableStream::from_canonical(reader,self.owner.clone()))
+    }
+    fn attempt_record(&self,py:Python<'_>)->PyResult<inspection::TableStream>{inspection::TableStream::from_batch(blocking(py,&self.owner,self.inner.attempt_record(&self.attempt),||{})?).map_err(|error|errors::diagnostic(py,&error))}
+    fn progress(&self,py:Python<'_>)->PyResult<NativeProgressStream>{let cancel=pse_columnar::CancellationToken::new();let stream=blocking(py,&self.owner,self.inner.progress(&self.run,&self.attempt,cancel.clone()),||cancel.cancel())?;Ok(NativeProgressStream{owner:self.owner.clone(),run_key:self.run.clone(),attempt_key:self.attempt.clone(),cancel,slot:Mutex::new(ProgressSlot::Idle(Box::new(ProgressState{stream,buffered:std::collections::VecDeque::new()})))})}
+    #[pyo3(signature=(relation,destination,*,start=0,end=u64::MAX))]
+    fn export(&self,py:Python<'_>,relation:&str,destination:&str,start:u64,end:u64)->PyResult<()> {let cancel=pse_columnar::CancellationToken::new();blocking(py,&self.owner,async{let mut reader=self.inner.results(&self.run,&self.attempt,relation,start,end,cancel.clone()).await?;reader.export_ipc(std::path::Path::new(destination)).await},||cancel.cancel())}
+}
+
 pub(crate) fn invalid(py: Python<'_>, message: impl Into<String>) -> PyErr {
     errors::diagnostic(py, &native::WorkflowError::Input(message.into()))
 }
@@ -79,146 +127,7 @@ fn blocking_on<T: Send, F: Future<Output = Result<T, native::WorkflowError>> + S
         }
     }
 }
-/// The PostgreSQL operational store a durable runtime registers its runs in (ADR-0114).
-/// `url` defaults to `PSE_DATABASE_URL`, else the development default (the local socket
-/// with peer authentication); `worker` names the lease owner and defaults to this process.
-/// Nothing connects until a runtime is created with it.
-#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
-#[derive(Clone, Debug)]
-pub(crate) struct OperationalStore {
-    url: String,
-    worker: String,
-}
-#[pymethods]
-impl OperationalStore {
-    #[new]
-    #[pyo3(signature = (url=None, *, worker=None))]
-    fn new(url: Option<String>, worker: Option<String>) -> Self {
-        Self {
-            url: url.unwrap_or_else(native::database_url_from_env),
-            worker: worker.unwrap_or_else(|| native::Operations::process_worker("python")),
-        }
-    }
-    /// Connection URL.
-    #[getter]
-    fn url(&self) -> &str {
-        &self.url
-    }
-    /// The worker identity that owns this process's leases.
-    #[getter]
-    fn worker(&self) -> &str {
-        &self.worker
-    }
-    fn __repr__(&self) -> String {
-        format!("OperationalStore(worker={:?})", self.worker)
-    }
-}
-/// Test-owned isolated database. This private boundary reuses the operational store's
-/// schema creation and teardown rather than sending test SQL from Python.
-#[pyclass(
-    name = "_TestOperationalStore",
-    skip_from_py_object,
-    module = "pse._native"
-)]
-#[derive(Debug)]
-pub(crate) struct TestOperationalStore {
-    database: Option<pse_operations::testing::TestDatabase>,
-    executor: Option<tokio::runtime::Runtime>,
-}
-
-#[pymethods]
-impl TestOperationalStore {
-    #[new]
-    fn new(py: Python<'_>) -> PyResult<Self> {
-        if tokio::runtime::Handle::try_current().is_ok() {
-            return Err(invalid(
-                py,
-                "test database setup cannot re-enter an async executor",
-            ));
-        }
-        let executor = tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(1)
-            .enable_all()
-            .build()
-            .map_err(|source| {
-                errors::diagnostic(
-                    py,
-                    &pse_engine::EngineError::Infrastructure {
-                        op: "build isolated test database executor".to_owned(),
-                        source: Box::new(source),
-                    },
-                )
-            })?;
-        let database = py
-            .detach(|| executor.block_on(pse_operations::testing::TestDatabase::create()))
-            .map_err(|error| errors::diagnostic(py, &native::WorkflowError::Operations(error)))?;
-        Ok(Self {
-            database: Some(database),
-            executor: Some(executor),
-        })
-    }
-
-    /// A production store descriptor for this database, while its owner is live.
-    fn store(&self, py: Python<'_>) -> PyResult<OperationalStore> {
-        let database = self
-            .database
-            .as_ref()
-            .ok_or_else(|| invalid(py, "isolated test database has been removed"))?;
-        Ok(OperationalStore::new(Some(database.url().to_owned()), None))
-    }
-
-    /// Remove this database and close its setup executor. Cleanup errors are surfaced.
-    fn remove(&mut self, py: Python<'_>) -> PyResult<()> {
-        if tokio::runtime::Handle::try_current().is_ok() {
-            return Err(invalid(
-                py,
-                "test database teardown cannot re-enter an async executor",
-            ));
-        }
-        let Some(database) = self.database.take() else {
-            return Ok(());
-        };
-        let executor = self
-            .executor
-            .take()
-            .ok_or_else(|| invalid(py, "isolated test database has no executor"))?;
-        py.detach(|| {
-            let result = executor.block_on(database.remove());
-            drop(executor);
-            result
-        })
-        .map_err(|error| errors::diagnostic(py, &native::WorkflowError::Operations(error)))
-    }
-}
-
-impl Drop for TestOperationalStore {
-    fn drop(&mut self) {
-        // Normal fixture teardown reports errors directly. Also clean up an abandoned
-        // owner; destructor failures use Python's unraisable-error channel.
-        if let Some(executor) = self.executor.take() {
-            if let Some(database) = self.database.take() {
-                // A pyclass may be dropped from an async host. Join cleanup on a
-                // separate thread so Runtime::block_on never nests in that host.
-                let result = std::thread::scope(|scope| {
-                    scope.spawn(|| executor.block_on(database.remove())).join()
-                })
-                .unwrap_or_else(|_| {
-                    Err(pse_operations::OperationsError::Configuration {
-                        reason: "isolated test database cleanup task panicked".to_owned(),
-                    })
-                });
-                if let Err(error) = result {
-                    Python::try_attach(|py| {
-                        errors::diagnostic(py, &native::WorkflowError::Operations(error))
-                            .write_unraisable(py, None);
-                    });
-                }
-            }
-            executor.shutdown_background();
-        }
-    }
-}
-/// Borrow the same budget, services and executor as exact publication inspection.
+/// Borrow the shared scientific deployment budget, services and executor.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct NativeRuntime {
@@ -295,17 +204,15 @@ impl NativeRuntime {
             inner: strategies::Strategy::Cone(Box::new(inner)),
         })
     }
-    /// A runtime over the shared deployment. With `store`, every run is a durable attempt
-    /// registered in that operational store and may be published; without it runs are
-    /// ephemeral and cannot publish (ADR-0114 Outcome 16).
+    /// Canonical durable deployment; ephemeral execution is an explicit local choice.
     #[new]
-    #[pyo3(signature = (settings, *, substrate, producer=None, store=None))]
+    #[pyo3(signature = (settings, *, substrate, producer=None, ephemeral=false))]
     fn new(
         py: Python<'_>,
         settings: &inspection::EngineSettings,
         substrate: &str,
         producer: Option<&str>,
-        store: Option<&OperationalStore>,
+        ephemeral: bool,
     ) -> PyResult<Self> {
         let owner = py
             .detach(|| runtime::acquire(settings))
@@ -349,25 +256,10 @@ impl NativeRuntime {
             owner.sessions.clone(),
             native::CanonicalDeployment::new(canonical, attestation, producer),
         );
-        let inner = match store {
-            None => inner,
-            Some(store) => {
-                let operations = blocking(
-                    py,
-                    &owner,
-                    native::Operations::connect(
-                        &store.url,
-                        store.worker.clone(),
-                        native::LeasePolicy::default(),
-                    ),
-                    || {},
-                )?;
-                inner.with_durability(native::Durability::Durable(operations))
-            }
-        };
+        let inner=if ephemeral {inner.with_durability(native::Durability::Ephemeral)} else {inner};
         Ok(Self { owner, inner })
     }
-    /// Whether runs are durable attempts in an operational store.
+    /// Whether runs durably record canonical terminal observations.
     #[getter]
     fn durable(&self) -> bool {
         matches!(self.inner.durability(), native::Durability::Durable(_))
@@ -382,33 +274,6 @@ impl NativeRuntime {
             .report()
             .map(documents::DocumentValue)
             .map_err(|error| errors::diagnostic(py, &error))
-    }
-    /// Durable attempts of the store, newest first, as `runtime.operational_attempts`:
-    /// optionally those of one run and in the given registry `AttemptState` names.
-    #[pyo3(signature = (*, run_id=None, states=Vec::new(), controls=None))]
-    fn runs(
-        &self,
-        py: Python<'_>,
-        run_id: Option<&str>,
-        states: Vec<String>,
-        controls: Option<&[u8]>,
-    ) -> PyResult<inspection::TableStream> {
-        let native::InventoryControls { limit } = documents::controls(
-            py,
-            "runs",
-            controls,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
-        let filter = native::AttemptFilter {
-            run: run_id.map(|r| id(py, r).map(Into::into)).transpose()?,
-            states: states
-                .iter()
-                .map(|s| settings::named(py, "attempt state", s))
-                .collect::<PyResult<_>>()?,
-            limit,
-        };
-        let batch = blocking(py, &self.owner, self.inner.runs(&filter), || {})?;
-        inspection::TableStream::from_batch(batch).map_err(|e| errors::diagnostic(py, &e))
     }
     fn physical_from_documents(
         &self,
@@ -450,151 +315,79 @@ impl NativeRuntime {
             documents: Arc::new(documents),
         })
     }
-    /// The store's durable studies, newest first, as `runtime.operational_studies`:
-    /// optionally those in the given registry `StudyState` names.
-    #[pyo3(signature = (*, states=Vec::new(), controls=None))]
-    fn studies(
-        &self,
-        py: Python<'_>,
-        states: Vec<String>,
-        controls: Option<&[u8]>,
-    ) -> PyResult<inspection::TableStream> {
-        let native::InventoryControls { limit } = documents::controls(
-            py,
-            "studies",
-            controls,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
-        let filter = native::StudyFilter {
-            states: states
-                .iter()
-                .map(|s| settings::named(py, "study state", s))
-                .collect::<PyResult<_>>()?,
-            limit,
-        };
-        let batch = blocking(py, &self.owner, self.inner.studies(&filter), || {})?;
-        inspection::TableStream::from_batch(batch).map_err(|e| errors::diagnostic(py, &e))
+    /// Exact canonical run metadata through its generated one-row Arrow contract.
+    fn run_record(&self,py:Python<'_>,run:&str)->PyResult<inspection::TableStream> {
+        let batch=blocking(py,&self.owner,self.inner.run_record(run),||{})?;
+        inspection::TableStream::from_batch(batch).map_err(|error|errors::diagnostic(py,&error))
     }
-    /// The store's durable jobs, newest first, as `runtime.operational_jobs`: optionally
-    /// those in the given registry `JobState` names.
-    #[pyo3(signature = (*, states=Vec::new(), controls=None))]
-    fn jobs(
-        &self,
-        py: Python<'_>,
-        states: Vec<String>,
-        controls: Option<&[u8]>,
-    ) -> PyResult<inspection::TableStream> {
-        let native::InventoryControls { limit } = documents::controls(
-            py,
-            "jobs",
-            controls,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
-        let filter = native::JobFilter {
-            states: states
-                .iter()
-                .map(|s| settings::named(py, "job state", s))
-                .collect::<PyResult<_>>()?,
-            limit,
-        };
-        let batch = blocking(py, &self.owner, self.inner.jobs(&filter), || {})?;
-        inspection::TableStream::from_batch(batch).map_err(|e| errors::diagnostic(py, &e))
+    /// Exact attempt metadata and recorded terminal class.
+    fn attempt_record(&self,py:Python<'_>,attempt:&str)->PyResult<inspection::TableStream> {
+        let batch=blocking(py,&self.owner,self.inner.attempt_record(attempt),||{})?;
+        inspection::TableStream::from_batch(batch).map_err(|error|errors::diagnostic(py,&error))
     }
-    /// Run one SQL query over this runtime's query session: the operational relations
-    /// under `pse_ops` when durable, a run's retained results under `workspace`, and an
-    /// open publication's members. The answer streams in batches of the deployment's
-    /// batch size.
-    #[pyo3(signature = (sql, *, result=None, publication=None))]
-    fn query(
-        &self,
-        py: Python<'_>,
-        sql: &str,
-        result: Option<&NativeRunResult>,
-        publication: Option<&inspection::Publication>,
-    ) -> PyResult<inspection::TableStream> {
-        let (base, cancel) = match publication {
-            Some(publication) => {
-                let (session, cancel) = publication
-                    .query_base()
-                    .map_err(|e| errors::diagnostic(py, &e))?;
-                (Some(session), cancel)
-            }
-            None => (None, pse_columnar::CancellationToken::new()),
-        };
-        let batch_size =
-            std::num::NonZeroUsize::new(self.owner.shared.budget().execution.batch_size)
-                .ok_or_else(|| invalid(py, "batch size must be positive"))?;
-        let reader = blocking(
-            py,
-            &self.owner,
-            async {
-                let session = self.inner.query_session(
-                    base.as_ref(),
-                    result.map(|result| result.inner.as_ref()),
-                    &cancel,
-                )?;
-                Ok::<_, native::WorkflowError>(
-                    pse_catalog::inspection::TableReader::query(
-                        &session,
-                        sql,
-                        batch_size,
-                        cancel.clone(),
-                    )
-                    .await?,
-                )
-            },
-            || cancel.cancel(),
-        )?;
-        Ok(inspection::TableStream::new(reader, self.owner.clone()))
+    /// Exact protected admitted manifest, projected by its registry schema.
+    fn result_manifest(&self,py:Python<'_>,attempt:&str)->PyResult<inspection::TableStream> {
+        let batch=blocking(py,&self.owner,self.inner.result_manifest(attempt),||{})?;
+        inspection::TableStream::from_batch(batch).map_err(|error|errors::diagnostic(py,&error))
     }
-    /// A durable attempt's stored progress events and incumbents in observation order,
-    /// `page` of each stream at a time; with `follow`, until the attempt ends.
-    #[pyo3(signature = (attempt_id, *, controls=None))]
-    fn progress(
-        &self,
-        py: Python<'_>,
-        attempt_id: &str,
-        controls: Option<&[u8]>,
-    ) -> PyResult<NativeProgressStream> {
-        let native::ProgressControls { follow, page } = documents::controls(
-            py,
-            "progress",
-            controls,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
-        let attempt = id(py, attempt_id)?;
-        let cancel = pse_columnar::CancellationToken::new();
-        let stream = blocking(
-            py,
-            &self.owner,
-            self.inner
-                .progress(attempt.into(), follow, page, cancel.clone()),
-            || cancel.cancel(),
-        )?;
-        Ok(NativeProgressStream {
-            owner: self.owner.clone(),
-            attempt_id: attempt.to_hex(),
-            cancel,
-            slot: Mutex::new(ProgressSlot::Idle(Box::new(ProgressState {
-                stream,
-                buffered: std::collections::VecDeque::new(),
-            }))),
-        })
+    fn analysis(&self,py:Python<'_>,key:&str)->PyResult<NativeAnalysis>{Ok(NativeAnalysis{inner:blocking(py,&self.owner,self.inner.analysis(key),||{})?,owner:self.owner.clone()})}
+    fn result_analysis(&self,py:Python<'_>,run:&str,attempt:&str,controls:&[u8])->PyResult<NativeAnalysis>{let controls:native::AnalysisControls=documents::decode(py,"analysis controls",controls,128*1024)?;let cancel=pse_columnar::CancellationToken::new();Ok(NativeAnalysis{inner:blocking(py,&self.owner,self.inner.result_analysis(run,attempt,&controls,cancel.clone()),||cancel.cancel())?,owner:self.owner.clone()})}
+    fn forget_study_results(&self,py:Python<'_>,study:&str)->PyResult<()>{blocking(py,&self.owner,self.inner.forget_study_results(study),||{})}
+    fn forget_analysis_results(&self,py:Python<'_>,analysis:&str)->PyResult<()>{blocking(py,&self.owner,self.inner.forget_analysis_results(analysis),||{})}
+    fn reclaim_run_results(&self,py:Python<'_>,run:&str)->PyResult<Vec<u8>>{let cancel=pse_columnar::CancellationToken::new();let page=blocking(py,&self.owner,self.inner.reclaim_run_results(run,&cancel),||cancel.cancel())?;documents::encode(py,&page)}
+    /// Newest semantic run under explicit recorded result classes.
+    #[pyo3(signature=(problem,relation,*,classes=Vec::new(),start=0,end=u64::MAX))]
+    fn latest_results(&self,py:Python<'_>,problem:&str,relation:&str,classes:Vec<String>,start:u64,end:u64)->PyResult<inspection::TableStream> {
+        let classes=classes.into_iter().map(|class|serde_json::from_value::<pse_operations::canonical_execution::TerminalClass>(serde_json::Value::String(class)).map_err(|error|invalid(py,error.to_string()))).collect::<PyResult<Vec<_>>>()?;
+        let cancel=pse_columnar::CancellationToken::new();
+        let reader=blocking(py,&self.owner,self.inner.latest_results(problem,&classes,relation,start,end,cancel.clone()),||cancel.cancel())?;
+        Ok(inspection::TableStream::from_canonical(reader,self.owner.clone()))
     }
-    /// Serve the durable job queue in this process until no job is available (or `jobs`
-    /// jobs ran), as `pse-worker --until-idle` does; the number of jobs processed.
-    #[pyo3(signature = (*, jobs=None))]
-    fn work(&self, py: Python<'_>, jobs: Option<usize>) -> PyResult<usize> {
+    /// Stream one exact canonical run/attempt's scientific relation after restart.
+    /// Half-open row coordinates select recorded coverage without substituting
+    /// another attempt's values. Late failures remain on the Arrow stream.
+    #[pyo3(signature = (run,attempt,relation,*,start=0,end=u64::MAX))]
+    fn results(&self,py:Python<'_>,run:&str,attempt:&str,relation:&str,start:u64,end:u64)->PyResult<inspection::TableStream> {
+        let cancel=pse_columnar::CancellationToken::new();
+        let reader=blocking(py,&self.owner,self.inner.results(run,attempt,relation,start,end,cancel.clone()),||cancel.cancel())?;
+        Ok(inspection::TableStream::from_canonical(reader,self.owner.clone()))
+    }
+    #[pyo3(signature=(run,attempt,relation,output,field,*,partition="0",start=0,end=u64::MAX,minimum=None,maximum=None,missing=None))]
+    fn output_results(&self,py:Python<'_>,run:&str,attempt:&str,relation:&str,output:&str,field:&str,partition:&str,start:u64,end:u64,minimum:Option<f64>,maximum:Option<f64>,missing:Option<bool>)->PyResult<inspection::TableStream>{
+        let output=id(py,output)?;let cancel=pse_columnar::CancellationToken::new();let reader=blocking(py,&self.owner,self.inner.output_results(run,attempt,relation,output,field,partition,start,end,minimum,maximum,missing,cancel.clone()),||cancel.cancel())?;
+        Ok(inspection::TableStream::from_canonical(reader,self.owner.clone()))
+    }
+    /// Export the exact selected results, publishing the final IPC path only
+    /// after clean stream completion. Interrupted files retain `.incomplete`.
+    #[pyo3(signature=(run,attempt,relation,destination,*,start=0,end=u64::MAX))]
+    fn export_results(&self,py:Python<'_>,run:&str,attempt:&str,relation:&str,destination:&str,start:u64,end:u64)->PyResult<()> {
+        let cancel=pse_columnar::CancellationToken::new();
+        blocking(py,&self.owner,async {
+            let mut reader=self.inner.results(run,attempt,relation,start,end,cancel.clone()).await?;
+            reader.export_ipc(std::path::Path::new(destination)).await
+        },||cancel.cancel())
+    }
+    /// Read one admitted terminal attempt's exact recorded progress history.
+    #[pyo3(signature = (run, attempt))]
+    fn progress(&self,py:Python<'_>,run:&str,attempt:&str)->PyResult<NativeProgressStream> {
+        let cancel=pse_columnar::CancellationToken::new();
+        let stream=blocking(py,&self.owner,self.inner.progress(run,attempt,cancel.clone()),||cancel.cancel())?;
+        Ok(NativeProgressStream{owner:self.owner.clone(),run_key:run.into(),attempt_key:attempt.into(),cancel,
+            slot:Mutex::new(ProgressSlot::Idle(Box::new(ProgressState{stream,buffered:std::collections::VecDeque::new()})))})
+    }
+    /// Serve native ready points and finalization until idle or the finite action limit.
+    #[pyo3(signature = (*, maximum_actions=None))]
+    fn work(&self, py: Python<'_>, maximum_actions: Option<usize>) -> PyResult<usize> {
         let stop = CancelSource::new();
         let settings = native::WorkerSettings {
-            jobs,
+            maximum_actions,
             until_idle: true,
             ..native::WorkerSettings::default()
         };
         let processed = blocking(py, &self.owner, self.inner.serve(settings, &stop), || {
             stop.cancel();
         })?;
-        Ok(processed.len())
+        Ok(processed)
     }
     /// A handle on a durable study of this runtime's store.
     fn study(&self, py: Python<'_>, study_id: &str) -> PyResult<NativeStudyHandle> {
@@ -608,113 +401,6 @@ impl NativeRuntime {
     }
     fn clear_program_cache(&self) {
         self.inner.clear_program_cache();
-    }
-    /// Settle a ticket whose commit outcome is unknown, by querying the catalog.
-    fn settle_publication(&self, py: Python<'_>, ticket: &[u8]) -> PyResult<Vec<u8>> {
-        if ticket.len() > self.owner.shared.budget().math.workspace_bytes / 4 {
-            return Err(invalid(py, "publication ticket exceeds input allowance"));
-        }
-        let ticket: native::PublicationTicket = documents::decode(
-            py,
-            "operation",
-            ticket,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
-        let result = blocking(
-            py,
-            &self.owner,
-            async { Ok::<_, native::WorkflowError>(self.inner.settle_publication(&ticket).await) },
-            || {},
-        )?;
-        documents::encode(py, &result)
-    }
-    /// Register a publication workspace, or return the one of that name with the same
-    /// root; the workspace as JSON.
-    fn register_workspace(&self, py: Python<'_>, name: &str, root: &str) -> PyResult<Vec<u8>> {
-        let root = url::Url::parse(root).map_err(|e| invalid(py, e.to_string()))?;
-        let workspace = blocking(
-            py,
-            &self.owner,
-            self.inner.register_workspace(name, root),
-            || {},
-        )?;
-        documents::encode(py, &workspace)
-    }
-    /// A registered workspace by name, as JSON.
-    fn workspace(&self, py: Python<'_>, name: &str) -> PyResult<Vec<u8>> {
-        let workspace = blocking(py, &self.owner, self.inner.workspace(name), || {})?;
-        documents::encode(py, &workspace)
-    }
-    /// The head of a workspace; `None` before its first publication.
-    fn head(&self, py: Python<'_>, workspace_id: &str) -> PyResult<Option<String>> {
-        let workspace = id(py, workspace_id)?.into();
-        let head = blocking(py, &self.owner, self.inner.head(workspace), || {})?;
-        Ok(head.map(|head| pse_ids::SemanticId::from(head).to_hex()))
-    }
-    /// Open an exact publication under a catalog reader lease.
-    fn open(&self, py: Python<'_>, publication_id: &str) -> PyResult<inspection::Publication> {
-        let publication = id(py, publication_id)?.into();
-        let cancel = pse_columnar::CancellationToken::new();
-        let leased = blocking(
-            py,
-            &self.owner,
-            self.inner.open(publication, &cancel),
-            || cancel.cancel(),
-        )?;
-        Ok(inspection::Publication::leased(
-            leased.publication().clone(),
-            leased.guard().clone(),
-            self.owner.clone(),
-        ))
-    }
-    /// Open the head of a workspace under a catalog reader lease.
-    fn open_head(&self, py: Python<'_>, workspace_id: &str) -> PyResult<inspection::Publication> {
-        let workspace = id(py, workspace_id)?.into();
-        let cancel = pse_columnar::CancellationToken::new();
-        let leased = blocking(
-            py,
-            &self.owner,
-            self.inner.open_head(workspace, &cancel),
-            || cancel.cancel(),
-        )?;
-        Ok(inspection::Publication::leased(
-            leased.publication().clone(),
-            leased.guard().clone(),
-            self.owner.clone(),
-        ))
-    }
-    /// Export a publication for offline readers at `destination`, protected for
-    /// `valid_for_seconds`; the export receipt as JSON.
-    fn export_publication(
-        &self,
-        py: Python<'_>,
-        publication_id: &str,
-        destination: &str,
-        valid_for_seconds: f64,
-    ) -> PyResult<Vec<u8>> {
-        let publication = id(py, publication_id)?.into();
-        let destination = url::Url::parse(destination).map_err(|e| invalid(py, e.to_string()))?;
-        let valid_for = Duration::try_from_secs_f64(valid_for_seconds)
-            .map_err(|e| invalid(py, e.to_string()))?;
-        let cancel = pse_columnar::CancellationToken::new();
-        let receipt = blocking(
-            py,
-            &self.owner,
-            self.inner
-                .export_publication(publication, destination, valid_for, &cancel),
-            || cancel.cancel(),
-        )?;
-        documents::encode(py, &receipt)
-    }
-    /// Release an export's lease; whether it was still held.
-    fn release_export(&self, py: Python<'_>, receipt: &[u8]) -> PyResult<bool> {
-        let receipt: native::ExportReceipt = documents::decode(
-            py,
-            "operation",
-            receipt,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
-        blocking(py, &self.owner, self.inner.release_export(&receipt), || {})
     }
     #[pyo3(signature=(steps, *, controls=None))]
     fn start(
@@ -815,11 +501,12 @@ impl NativeRunHandle {
             })
         })
     }
-    /// The durable attempt of this run, minted before any effect; `None` when ephemeral.
+    /// Exact persistent run key; absent for explicit ephemeral execution.
     #[getter]
-    fn attempt_id(&self) -> Option<String> {
-        self.inner.attempt_id().map(|id| id.to_string())
-    }
+    fn canonical_run_key(&self)->Option<String> {self.inner.canonical_run_key().map(str::to_owned)}
+    /// Exact persistent attempt key, with no legacy semantic-ID conversion.
+    #[getter]
+    fn canonical_attempt_key(&self)->Option<String> {self.inner.canonical_attempt_key().map(str::to_owned)}
     fn progress(&self) -> (Vec<ProgressEvent>, u64) {
         let (events, dropped) = self.inner.progress();
         (
@@ -859,14 +546,12 @@ impl NativeRunResult {
     fn run_id(&self) -> String {
         self.inner.run_id.as_id().to_hex()
     }
-    /// The durable attempt that recorded this run; `None` when the run is ephemeral.
+    /// Exact persistent run key; absent for explicit ephemeral execution.
     #[getter]
-    fn attempt_id(&self) -> Option<String> {
-        match self.inner.durability() {
-            native::RunDurability::Ephemeral => None,
-            native::RunDurability::Durable(record) => Some(record.attempt_id.to_string()),
-        }
-    }
+    fn canonical_run_key(&self)->Option<String> {self.inner.canonical_run_key().map(str::to_owned)}
+    /// Exact persistent attempt key, with no legacy semantic-ID conversion.
+    #[getter]
+    fn canonical_attempt_key(&self)->Option<String> {self.inner.canonical_attempt_key().map(str::to_owned)}
     fn completion(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
         let completed = self
             .inner
@@ -924,82 +609,7 @@ impl NativeRunResult {
             .map_err(|error| errors::diagnostic(py, &error))?
             .map_err(|e| errors::diagnostic(py, &e))
     }
-    /// Prepare the publication of this durable attempt's results in a registered
-    /// workspace (JSON) against the exact expected parent; performs no write.
-    #[pyo3(signature=(workspace, *, parent=None, publication_id=None))]
-    fn prepare_publication(
-        &self,
-        py: Python<'_>,
-        workspace: &[u8],
-        parent: Option<&str>,
-        publication_id: Option<&str>,
-    ) -> PyResult<NativePublicationAttempt> {
-        let workspace: native::Workspace = documents::decode(
-            py,
-            "operation",
-            workspace,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
-        let parent = parent.map(|p| id(py, p).map(Into::into)).transpose()?;
-        let publication_id = publication_id
-            .map(|p| id(py, p).map(Into::into))
-            .transpose()?;
-        let attempt = py
-            .detach(|| {
-                self.inner.prepare_publication(
-                    &workspace,
-                    parent,
-                    publication_id,
-                    &pse_columnar::CancellationToken::new(),
-                )
-            })
-            .map_err(|e| errors::diagnostic(py, &e))?;
-        Ok(NativePublicationAttempt {
-            owner: self.owner.clone(),
-            attempt_id: pse_ids::SemanticId::from(attempt.attempt_id).to_hex(),
-            publication_id: pse_ids::SemanticId::from(attempt.publication_id).to_hex(),
-            ticket: documents::encode(py, &attempt.ticket)?,
-            inner: Mutex::new(Some(attempt)),
-        })
-    }
 }
-/// Reviewable single-consumption publication; commit never reruns a solve.
-#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
-#[derive(Debug)]
-pub(crate) struct NativePublicationAttempt {
-    owner: Arc<runtime::Runtime>,
-    inner: Mutex<Option<native::PublicationAttempt>>,
-    #[pyo3(get)]
-    attempt_id: String,
-    #[pyo3(get)]
-    publication_id: String,
-    ticket: Vec<u8>,
-}
-#[pymethods]
-impl NativePublicationAttempt {
-    fn ticket(&self) -> Vec<u8> {
-        self.ticket.clone()
-    }
-    /// Register the intent, write and admit the candidate, commit it once; the
-    /// publication as JSON. Never retried implicitly.
-    fn commit(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
-        let attempt = self
-            .inner
-            .lock()
-            .map_err(|_| invalid(py, "publication attempt lock poisoned"))?
-            .take()
-            .ok_or_else(|| {
-                invalid(
-                    py,
-                    "publication attempt already consumed; settle its ticket before a retry",
-                )
-            })?;
-        let cancel = pse_columnar::CancellationToken::new();
-        let published = blocking(py, &self.owner, attempt.commit(&cancel), || cancel.cancel())?;
-        documents::encode(py, &published)
-    }
-}
-
 /// Actual admitted physical source rows and compiler context.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
@@ -1019,7 +629,7 @@ pub(crate) fn document_bytes(
         .collect()
 }
 
-/// A durable study (Plan 22 O7): its status, cancellation and publication.
+/// A canonical study: exact occurrence status, cancellation and retained result keys.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct NativeStudyHandle {
@@ -1043,14 +653,13 @@ impl NativeStudyHandle {
         let cancelled = blocking(py, &self.owner, self.inner.cancel(), || {})?;
         documents::encode(py, &cancelled)
     }
-    /// The study's publication as JSON once committed.
+    /// The study's exact canonical parent and occurrence keys after admission.
     fn result(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
         blocking(py, &self.owner, self.inner.result(), || {})?
             .map(|published| documents::encode(py, &published))
             .transpose()
     }
-    /// Wait until the study is published, polling every `poll_seconds`, at most
-    /// `timeout_seconds` when given; the publication as JSON.
+    /// Wait for the canonical parent manifest under Rust-owned timing controls.
     #[pyo3(signature = (*, controls=None))]
     fn wait(&self, py: Python<'_>, controls: Option<&[u8]>) -> PyResult<Vec<u8>> {
         let native::StudyWaitControls {
@@ -1079,7 +688,7 @@ impl NativeStudyHandle {
                         .await
                         .map_err(|_| {
                             native::WorkflowError::Input(format!(
-                                "study {study} was not published within {limit:?}"
+                                "study {study} did not conclude within {limit:?}"
                             ))
                         })?,
                 }
@@ -1122,7 +731,8 @@ enum ProgressSlot {
 #[derive(Debug)]
 pub(crate) struct NativeProgressStream {
     owner: Arc<runtime::Runtime>,
-    attempt_id: String,
+    run_key: String,
+    attempt_key: String,
     cancel: pse_columnar::CancellationToken,
     slot: Mutex<ProgressSlot>,
 }
@@ -1140,11 +750,12 @@ impl NativeProgressStream {
 }
 #[pymethods]
 impl NativeProgressStream {
-    /// The attempt whose streams these are (32 hexadecimal digits).
+    /// Exact opaque run key.
     #[getter]
-    fn attempt_id(&self) -> &str {
-        &self.attempt_id
-    }
+    fn run_key(&self)->&str {&self.run_key}
+    /// Exact opaque terminal attempt key.
+    #[getter]
+    fn attempt_key(&self)->&str {&self.attempt_key}
     /// The next event in observation order; `None` once the stream ended or was closed.
     /// Reads the next page from the store (waiting for it when following) only when the
     /// last one is exhausted.
@@ -1181,8 +792,8 @@ impl NativeProgressStream {
             Ok(Some(records)) if !matches!(*slot, ProgressSlot::Closed) => {
                 state.buffered.extend(
                     records
-                        .iter()
-                        .map(|record| documents::DocumentValue(record.into())),
+                        .into_iter()
+                        .map(documents::DocumentValue),
                 );
                 let event = state.buffered.pop_front();
                 *slot = ProgressSlot::Idle(state);
@@ -1344,6 +955,7 @@ pub(crate) struct NativePreparedOperation {
 }
 #[pymethods]
 impl NativePreparedOperation {
+    fn dependency_analysis(&self,py:Python<'_>,controls:&[u8])->PyResult<NativeAnalysis>{let PreparedOperation::Modeling(prepared)=&self.inner else{return Err(invalid(py,"dependency analysis currently requires an admitted algebraic preparation"));};let controls:native::AnalysisControls=documents::decode(py,"analysis controls",controls,128*1024)?;let cancel=pse_columnar::CancellationToken::new();Ok(NativeAnalysis{inner:blocking(py,&self.owner,prepared.dependency_analysis(&controls,cancel.clone()),||cancel.cancel())?,owner:self.owner.clone()})}
     /// Admitted algebraic route, before native execution.
     #[getter]
     fn route(&self, py: Python<'_>) -> PyResult<NativeRoute> {

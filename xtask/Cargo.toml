@@ -36,7 +36,6 @@ package-fixtures = [
   "dep:datafusion",
   "dep:pse-authoring",
   "dep:pse-engine",
-  "dep:pse-catalog",
   "dep:pse-relations",
   "dep:pse-runtime",
   "dep:pse-rules",
@@ -61,11 +60,10 @@ pse-engine = { workspace = true, optional = true }
 datafusion = { workspace = true, optional = true }
 url.workspace = true
 bindgen.workspace = true
-# The registry and the passes the generators and the inspection-fixture driver run.
+# The registry and passes consumed by the generators.
 pse-schema.workspace = true
 pse-authoring = { workspace = true, optional = true }
 pse-ids.workspace = true
-pse-catalog = { workspace = true, optional = true }
 pse-quantity.workspace = true
 pse-relations = { workspace = true, optional = true }
 pse-runtime = { workspace = true, optional = true }
@@ -89,12 +87,7 @@ sha2.workspace = true
 # Introspect the actual compiled PyO3 boundary; no handwritten API replica.
 pyo3-introspection.workspace = true
 syn.workspace = true
-# Store statements: Cornucopia compiles crates/pse-operations/queries into the generated
-# crate against a temporary database (ADR-0114 Outcome 24). Non-optional, so the
-# `--no-default-features` recipes regenerate it too; prettyplease re-prints its sources
-# so the committed bytes never depend on a `$PATH` rustfmt.
-cornucopia.workspace = true
-tokio-postgres.workspace = true
+# Print generated Rust through the library without a rustfmt subprocess.
 prettyplease.workspace = true
 quote.workspace = true
 miette.workspace = true
@@ -111,9 +104,4 @@ required-features = ["canonical-tools"]
 [[bin]]
 name = "pse-worker"
 path = "src/bin/pse-worker.rs"
-required-features = ["package-fixtures"]
-
-[[bin]]
-name = "pse-publication"
-path = "src/bin/pse-publication.rs"
 required-features = ["package-fixtures"]

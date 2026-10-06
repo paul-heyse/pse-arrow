@@ -8,7 +8,6 @@ mod physical;
 
 mod ipopt;
 pub(super) mod python_stubs;
-mod queries;
 #[cfg(feature = "package-fixtures")]
 mod schemas;
 
@@ -32,9 +31,7 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         Some(Target::Relations | Target::RustContracts) => vec![Language::Rust],
         Some(Target::Python) => vec![Language::Python],
         Some(Target::Docs) => vec![Language::Markdown],
-        // The query crate is compiled against the freshly rendered store schema, which is
-        // generated in memory and neither written nor compared by this arm.
-        Some(Target::Postgres | Target::Queries) => vec![Language::Postgres],
+        Some(Target::Surreal) => vec![Language::Surreal],
         Some(Target::Bindgen) => return ipopt::run(root, check),
         Some(Target::Schemas) => Vec::new(),
         None => Language::ALL.to_vec(),
@@ -51,9 +48,6 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         }
         if language == Language::Python {
             add_python_manifest(&mut tree, Path::new(PYTHON_ROOT))?;
-        }
-        if language == Language::Postgres {
-            add_schema_fingerprint(root, &mut tree)?;
         }
         if language == Language::Rust {
             if only == Some(Target::RustContracts) {
@@ -74,18 +68,6 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         validate_tree(&tree)?;
         check_python_candidate(root, &tree, Some("--documents"))?;
         trees.push(tree);
-    }
-    if matches!(only, None | Some(Target::Queries)) {
-        let schema = trees
-            .iter()
-            .position(|tree| tree.roots == Language::Postgres.roots())
-            .context("the query crate needs the rendered store schema")?;
-        let statements = queries::generate(root, &trees[schema], check)?;
-        validate_tree(&statements)?;
-        if only == Some(Target::Queries) {
-            trees.remove(schema);
-        }
-        trees.push(statements);
     }
     for tree in &trees {
         if check {
@@ -177,32 +159,6 @@ fn append_physical(_: &Path, _: &pse_schema::Registry, _: &mut GeneratedTree) ->
 fn contract_roots(tree: &mut GeneratedTree) {
     tree.roots
         .retain(|root| !matches!(root.to_str(), Some("crates/pse-quantity/src/generated")));
-}
-
-/// The schema fingerprint covers the generated DDL and the hand-written `physical.sql`,
-/// which the pure generator does not read (ADR-0114 Outcome 23).
-fn add_schema_fingerprint(root: &Path, tree: &mut GeneratedTree) -> Result<()> {
-    use pse_codegen::codegen::postgres;
-    let schema_path = Path::new(postgres::ROOT).join("schema.sql");
-    let schema = tree
-        .files
-        .get(&schema_path)
-        .context("the PostgreSQL generator rendered no schema.sql")?;
-    let physical = fs::read(root.join(postgres::PHYSICAL_SQL))
-        .with_context(|| format!("reading {}", postgres::PHYSICAL_SQL))?;
-    let catalog = tree
-        .files
-        .get(&Path::new(postgres::ROOT).join("catalog.sql"))
-        .context("missing catalog target")?;
-    let operations = tree
-        .files
-        .get(&Path::new(postgres::ROOT).join("operations.sql"))
-        .context("missing operations target")?;
-    let (path, bytes) = postgres::fingerprint_file(schema, &physical, catalog, operations)?;
-    if tree.files.insert(path, bytes).is_some() {
-        bail!("the PostgreSQL generator must leave fingerprint.rs to the xtask writer");
-    }
-    Ok(())
 }
 
 /// The `GENERATED.sha256` of the Python files under `root`: one digest line per file.

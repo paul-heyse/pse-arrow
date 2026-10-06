@@ -16,6 +16,8 @@ import msgspec
 from pse.contracts import enums
 from pse.contracts import values as v
 
+AnalysisDirection = Literal["upstream"] | Literal["downstream"]
+
 FiniteBound = float
 
 Fraction = Annotated[float, msgspec.Meta(le=1.0, gt=0.0)]
@@ -128,6 +130,20 @@ class AdmittedHorizonValues(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.sequence_key(v.record_key)(self.arrival), v.sequence_key(v.record_key)(self.inputs), v.mapping_key(v.scalar_key, v.sequence_key(v.record_key))(self.trajectories),))
+
+
+class AnalysisControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact semantic roots and direction; an empty root set selects the whole
+    bounded method graph. Roots are exact semantic names from that method's nodes.
+    """
+
+    #: Traverse contributors or dependents, preserving distinct edge meanings.
+    direction: AnalysisDirection
+    #: Exact selected semantic object names.
+    roots: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.direction), v.sequence_key(v.scalar_key)(self.roots),))
 
 
 class AnalysisPort(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -3082,22 +3098,6 @@ class EvaluationLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
         return (type(self), (v.scalar_key(self.derivative_components), v.scalar_key(self.operations), v.scalar_key(self.provider_calls), v.scalar_key(self.scratch_bytes),))
 
 
-class ExportReceipt(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """A receipt of an export: the manifest's location and the lease protecting its members."""
-
-    #: The manifest location.
-    destination: str
-    #: When the export expires, microseconds since the Unix epoch.
-    expires_at: int
-    #: The lease protecting the members until it expires or is released.
-    lease_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
-    #: The exported publication.
-    publication_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.destination), v.scalar_key(self.expires_at), v.scalar_key(self.lease_id), v.scalar_key(self.publication_id),))
-
-
 class FeralSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """The `FeralSettings` document type."""
 
@@ -3779,16 +3779,6 @@ class IntervalBound(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
         return (type(self), (v.scalar_key(self.outcome), v.optional_key(v.scalar_key)(self.value),))
 
 
-class InventoryControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """A bounded operational inventory page."""
-
-    #: Maximum rows returned by the selected inventory operation.
-    limit: int = 100
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.limit),))
-
-
 class IpoptLinearMumps(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="mumps"):
     """Sequential MUMPS 5.9 (`linear_solver = mumps`)."""
 
@@ -3866,93 +3856,6 @@ class JacobianDiagnosticControls(msgspec.Struct, frozen=True, forbid_unknown_fie
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.maximum_attempts), v.scalar_key(self.maximum_entries), v.optional_key(v.scalar_key)(self.maximum_nodes), v.scalar_key(self.maximum_rows), v.scalar_key(self.multiplier_bound), v.scalar_key(self.rank_relative), v.scalar_key(self.tolerance),))
-
-
-class JobPayload(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 9 of a durable job's payload: the one task a job runs. Unknown fields, tasks
-    and versions are refused.
-    """
-
-    _pse_required_version: ClassVar[int] = 9
-
-    #: Document version.
-    version: Literal[9] = 9
-    #: The task.
-    task: JobTask
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.record_key(self.task),))
-
-
-class JobStartFresh(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fresh"):
-    """From the case's authored starts."""
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), ())
-
-
-class JobStartResumeFromParent(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="resume_from_parent"):
-    """From the latest incumbent in the parent attempt chain (Plan 22 G8)."""
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), ())
-
-
-class JobStartStoredSolution(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="stored_solution"):
-    """From one stored solution (Plan 22 G8)."""
-
-    #: The stored solution.
-    solution: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.solution),))
-
-
-class JobTaskModeling(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="modeling"):
-    """Solve one authored case once, possibly as one point of a study."""
-
-    #: The authored case to solve.
-    case: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
-    #: The exact immutable canonical modeling revision.
-    modeling_revision: str
-    #: The source bundle of the physical package.
-    physical: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
-    #: Its analysis route.
-    route: enums.ModelingAnalysisRoute
-    #: The solve settings.
-    settings: SolveSettings
-    #: How the solve starts. A study point with a predecessor starts from the
-    #: predecessor's stored solution instead.
-    start: JobStart = msgspec.field(default_factory=lambda: msgspec.convert({"kind": "fresh"}, type=JobStart))
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.case), v.scalar_key(self.modeling_revision), v.scalar_key(self.physical), v.scalar_key(self.route), v.record_key(self.settings), v.record_key(self.start),))
-
-
-class JobTaskStudyFinalization(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_finalization"):
-    """Publish a concluded study: its summary and every completed point's result members,
-    as the study's one publication (Plan 22 O7).
-    """
-
-    #: The study to publish.
-    study_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.study_id),))
-
-
-class JobTaskStudyOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_operation"):
-    """Run one admitted occurrence through its existing operation owner."""
-
-    #: Exact immutable canonical modeling revision.
-    modeling_revision: str
-    #: Physical source bundle.
-    physical: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
-    #: The exact admitted occurrence copied mechanically from StudyDefinition.
-    point: StudyPointBinding
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.modeling_revision), v.scalar_key(self.physical), v.record_key(self.point),))
 
 
 class KinsolEtaChoice1(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="choice1"):
@@ -4094,24 +3997,6 @@ class KnowledgeControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.maximum_bytes), v.scalar_key(self.maximum_cells),))
-
-
-class LegacyUnavailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Explicit historical marker; it never supplies current scientific permissions."""
-
-    _pse_required_version: ClassVar[int] = 1
-
-    #: Marker codec version.
-    version: Literal[1] = 1
-    #: Former content identity, retained without recomputation.
-    binding_hash: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
-    #: Exact closed marker spelling.
-    kind: enums.StudyLegacyKind
-    #: Former positional predecessor retained as historical attribution only.
-    predecessor: Annotated[int, msgspec.Meta(ge=0)] | None = None
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.optional_key(v.scalar_key)(self.binding_hash), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.predecessor),))
 
 
 class Limits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -4908,6 +4793,18 @@ class PhysicalObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
         return (type(self), (v.scalar_key(self.context), v.scalar_key(self.magnitude), v.scalar_key(self.quantity), v.scalar_key(self.unit),))
 
 
+class PhysicalSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact canonical physical source receipt, separate from compiler physical context identity."""
+
+    #: Source interpretation checksum, distinct from the compiler context identity.
+    identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Exact immutable revision in its declared canonical source kind.
+    revision: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.identity), v.scalar_key(self.revision),))
+
+
 class PointAttemptOutcome(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One retained try; attempt identity is distinct from the requested occurrence."""
 
@@ -4979,27 +4876,23 @@ class PointPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
 
 
 class PointStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """One point of a study's status."""
+    """One canonical point's state and exact persisted result identity."""
 
-    #: Its latest try.
-    attempt_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
-    #: That try's state.
-    attempt_state: enums.AttemptState
-    #: Why the point failed or was cancelled.
-    error: str | None = None
-    #: Its job's state.
-    job_state: enums.JobState
-    #: Historical unavailable policy attribution, preserved without readmission.
-    legacy: LegacyUnavailable | None = None
-    #: The earlier point that seeds it.
+    #: Exact assigned native attempt, when claimed.
+    attempt: str | None = None
+    #: Retained scientific outcome, when observed.
     outcome: PointOutcome | None = None
-    #: The point.
+    #: Authored occurrence identity.
     point_index: Annotated[int, msgspec.Meta(ge=0)]
-    #: Its state.
+    #: Exact canonical occurrence execution.
+    run: str
+    #: Shared policy no longer permits a retry.
+    settled: bool
+    #: Actual occurrence lifecycle.
     state: enums.StudyPointState
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.attempt_id), v.scalar_key(self.attempt_state), v.optional_key(v.scalar_key)(self.error), v.scalar_key(self.job_state), v.optional_key(v.record_key)(self.legacy), v.optional_key(v.record_key)(self.outcome), v.scalar_key(self.point_index), v.scalar_key(self.state),))
+        return (type(self), (v.optional_key(v.scalar_key)(self.attempt), v.optional_key(v.record_key)(self.outcome), v.scalar_key(self.point_index), v.scalar_key(self.run), v.scalar_key(self.settled), v.scalar_key(self.state),))
 
 
 class PounceConvexSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="pounce_convex"):
@@ -5305,18 +5198,6 @@ class ProfileWorkerFailureScheduling(msgspec.Struct, frozen=True, forbid_unknown
         return (type(self), (v.scalar_key(self.detail),))
 
 
-class ProgressControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Durable progress observation controls."""
-
-    #: Continue observing until the selected attempt ends.
-    follow: bool = True
-    #: Maximum rows retained from each progress stream at a time.
-    page: Annotated[int, msgspec.Meta(ge=0)] = 256
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.follow), v.scalar_key(self.page),))
-
-
 class ProgressEventDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """An owned event from memory or from a durable attempt's selected stream."""
 
@@ -5421,61 +5302,6 @@ class PseudoTime(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.failed_scale), v.scalar_key(self.growth), v.scalar_key(self.initial), v.scalar_key(self.maximum), v.scalar_key(self.minimum), v.scalar_key(self.nonlinear_failures), v.scalar_key(self.rejections),))
-
-
-class PublicationSettlementCommitted(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="committed"):
-    """The ticket's publication is visible."""
-
-    #: The publication.
-    publication_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.publication_id),))
-
-
-class PublicationSettlementConflict(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="conflict"):
-    """The ticket can never commit as prepared: re-prepare against the head."""
-
-    #: The workspace head at settlement.
-    head: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
-    #: Why.
-    reason: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.head), v.scalar_key(self.reason),))
-
-
-class PublicationSettlementProvedNoncommit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="proved_noncommit"):
-    """Nothing was committed and nothing is in flight: the same ticket may commit again."""
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), ())
-
-
-class PublicationSettlementUnresolved(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="unresolved"):
-    """The catalog could not be reached; nothing may be concluded. Settle again later."""
-
-    #: Why.
-    reason: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.reason),))
-
-
-class Published(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """A committed publication."""
-
-    #: The durable attempt it publishes.
-    attempt_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
-    #: The parent it was committed on.
-    parent: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
-    #: The publication, now the head of its workspace.
-    publication_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
-    #: The workspace.
-    workspace_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.attempt_id), v.optional_key(v.scalar_key)(self.parent), v.scalar_key(self.publication_id), v.scalar_key(self.workspace_id),))
 
 
 class PureConformanceControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -5593,6 +5419,22 @@ class RestartBarrierValue(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.value),))
+
+
+class ResultReclamationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One bounded cleanup operation after explicit run retirement."""
+
+    #: Original scientific IPC or seed blocks removed in this operation.
+    batches: Annotated[int, msgspec.Meta(ge=0)]
+    #: All result payloads have been reclaimed; immutable lifecycle receipts remain.
+    complete: bool
+    #: Derived scalar/output indexes or seed descriptors removed.
+    indexes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Empty result-set memberships removed.
+    sets: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.batches), v.scalar_key(self.complete), v.scalar_key(self.indexes), v.scalar_key(self.sets),))
 
 
 class RouteDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6160,20 +6002,6 @@ class SourceLocation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
         return (type(self), (v.optional_key(v.scalar_key)(self.end), v.optional_key(v.scalar_key)(self.name), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.source), v.optional_key(v.scalar_key)(self.start),))
 
 
-class SourceManifest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 1 of a source bundle's manifest: the path of every document, in order."""
-
-    _pse_required_version: ClassVar[int] = 1
-
-    #: Document version.
-    version: Literal[1] = 1
-    #: The document paths, relative to the package root.
-    paths: tuple[str, ...]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.scalar_key)(self.paths),))
-
-
 class SparseMatrix(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Compressed-sparse-column matrix of the conic boundary."""
 
@@ -6295,19 +6123,17 @@ class StartRules(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
 
 
 class StudyCancel(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """What cancelling a study did."""
+    """Explicit cancellation receipt; native process drain remains the worker's obligation."""
 
-    #: The study had already concluded; nothing changed.
+    #: A concluded study cannot revoke admitted history.
     already_concluded: bool
-    #: Points that had not started, now cancelled.
-    cancelled: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
-    #: The study concluded in this call (no try was still running).
-    concluded: bool
-    #: Points whose running try was asked to stop; each ends through its worker.
-    stopping: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
+    #: Current native cancellation generation.
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact requested study identity.
+    study_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.already_concluded), v.sequence_key(v.scalar_key)(self.cancelled), v.scalar_key(self.concluded), v.sequence_key(v.scalar_key)(self.stopping),))
+        return (type(self), (v.scalar_key(self.already_concluded), v.scalar_key(self.generation), v.scalar_key(self.study_id),))
 
 
 class StudyCompilerProfile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6325,23 +6151,23 @@ class StudyCompilerProfile(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
 
 class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 7 of a study's definition: the store's `definition` document and the content of
+    """Version 8 of a study's definition: the store's `definition` document and the content of
     the study's request identity.
     """
 
-    _pse_required_version: ClassVar[int] = 7
+    _pse_required_version: ClassVar[int] = 8
 
     #: Document version.
-    version: Literal[7] = 7
+    version: Literal[8] = 8
     #: The exact immutable canonical modeling revision.
     modeling_revision: str
     #: The source bundle of the physical package.
-    physical: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    physical: PhysicalSource
     #: The points, in index order.
     points: tuple[StudyPointDefinition, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.modeling_revision), v.scalar_key(self.physical), v.sequence_key(v.record_key)(self.points),))
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.modeling_revision), v.record_key(self.physical), v.sequence_key(v.record_key)(self.points),))
 
 
 class StudyOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6378,26 +6204,6 @@ class StudyPoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.operation), v.record_key(self.overlay), v.record_key(self.policy), v.record_key(self.preparation),))
-
-
-class StudyPointBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Binding, occurrence policy and operation share one immutable authority."""
-
-    #: Physically admitted assignments.
-    binding: AdmittedBinding
-    #: Canonical binding identity.
-    binding_hash: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
-    #: Reconstructable operation owned by the immutable definition.
-    operation: StudyOperation
-    #: Occurrence key, independent of binding identity.
-    point_index: Annotated[int, msgspec.Meta(ge=0)]
-    #: Shared typed dependencies and start policy.
-    policy: PointPolicy
-    #: Study identity.
-    study_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.binding), v.scalar_key(self.binding_hash), v.record_key(self.operation), v.scalar_key(self.point_index), v.record_key(self.policy), v.scalar_key(self.study_id),))
 
 
 class StudyPointDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6446,6 +6252,20 @@ class StudyRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
         return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.points),))
 
 
+class StudyResults(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Canonical parent result and exact occurrence results, available after restart."""
+
+    #: Admitted parent summary attempt.
+    attempt: str
+    #: Occurrence identity, execution and optional native attempt.
+    points: tuple[tuple[Annotated[int, msgspec.Meta(ge=0)], str, str | None], ...]
+    #: Exact canonical parent execution.
+    run: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt), v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key, v.optional_key(v.scalar_key),)))(self.points), v.scalar_key(self.run),))
+
+
 class StudyRunControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Bounded in-process study execution."""
 
@@ -6457,41 +6277,23 @@ class StudyRunControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 
 
 class StudyStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """A durable study's status: its coordination state, its own attempt's state, its
-    finalization and publication, and every point.
-    """
+    """Study metadata and explicit user-requested point summary; no native reports or source bundle."""
 
-    #: The study's own attempt: the attempt its publication names.
-    attempt_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
-    #: Queued while points run; then completed, partial, failed or cancelled.
-    attempt_state: enums.AttemptState
-    #: The finalization job's state.
-    finalization: enums.JobState
-    #: Why the finalization last failed.
-    finalization_error: str | None = None
-    #: Every point, in index order.
+    #: Persistent study cancellation authority.
+    cancelled: bool
+    #: Explicitly requested compact occurrence observations.
     points: tuple[PointStatus, ...]
-    #: Its publication's identity, registered at creation.
-    publication_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
-    #: Open, concluded or published.
+    #: Admitted parent summary attempt, when available.
+    result_attempt: str | None = None
+    #: Exact canonical parent execution.
+    run: str
+    #: Actual header lifecycle.
     state: enums.StudyState
-    #: The study.
+    #: Stable requested study identity.
     study_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.attempt_id), v.scalar_key(self.attempt_state), v.scalar_key(self.finalization), v.optional_key(v.scalar_key)(self.finalization_error), v.sequence_key(v.record_key)(self.points), v.scalar_key(self.publication_id), v.scalar_key(self.state), v.scalar_key(self.study_id),))
-
-
-class StudySubmitControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Durable study queue submission."""
-
-    #: Maximum job tries including the initial attempt.
-    max_tries: Annotated[int, msgspec.Meta(ge=0)] = 1
-    #: Queue priority passed to the operational store.
-    priority: int = 0
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.max_tries), v.scalar_key(self.priority),))
+        return (type(self), (v.scalar_key(self.cancelled), v.sequence_key(v.record_key)(self.points), v.optional_key(v.scalar_key)(self.result_attempt), v.scalar_key(self.run), v.scalar_key(self.state), v.scalar_key(self.study_id),))
 
 
 class StudyWaitControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6583,7 +6385,7 @@ class TerminationCauseError(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 
 
 class TerminationCauseInfrastructure(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="infrastructure"):
-    """Infrastructure failed the try; it is retried under the job's policy."""
+    """Infrastructure failed the try; authored point policy decides whether retry is permitted."""
 
     #: Preserved original typed cause and observations.
     diagnostic: BoundaryDiagnostic
@@ -6604,7 +6406,7 @@ class TerminationDetail(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     version: Literal[2] = 2
     #: Why the try ended.
     cause: TerminationCause
-    #: Publication knowledge is independent of attempt lifecycle.
+    #: Effect knowledge is independent of attempt lifecycle.
     effect: enums.StudyEffectState
     #: Typed occurrence try, including failures before native admission.
     point: PointAttemptOutcome | None = None
@@ -6828,22 +6630,6 @@ class WorkingSetSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True
         return (type(self), (v.optional_key(v.record_key)(self.active), v.scalar_key(self.transformation),))
 
 
-class Workspace(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """A registered publication workspace: one publication history with one head, whose
-    members are written under `root`.
-    """
-
-    #: Its unique name.
-    name: str
-    #: The directory its members are written under.
-    root_uri: str
-    #: The workspace identity.
-    workspace_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.root_uri), v.scalar_key(self.workspace_id),))
-
-
 BackendSettings = IpoptSettings | PounceSettings | KinsolSettings | HighsSettings | ClarabelSettings | ScipSettings | PounceConvexSettings | UnoSettings | PetscSettings
 
 BindingTarget = BindingTargetPath | BindingTargetMember
@@ -6864,10 +6650,6 @@ IdasLinear = IdasLinearKlu | IdasLinearSpgmr | IdasLinearSpfgmr
 
 IpoptLinear = IpoptLinearMumps | IpoptLinearSpral | IpoptLinearPardisomkl
 
-JobStart = JobStartFresh | JobStartResumeFromParent | JobStartStoredSolution
-
-JobTask = JobTaskModeling | JobTaskStudyOperation | JobTaskStudyFinalization
-
 KinsolEta = KinsolEtaChoice1 | KinsolEtaChoice2 | KinsolEtaConstant
 
 KinsolLinear = KinsolLinearKlu | KinsolLinearDense | KinsolLinearSpgmr | KinsolLinearSpfgmr | KinsolLinearSpbcgs | KinsolLinearSptfqmr
@@ -6881,8 +6663,6 @@ OperationRequest = OperationRequestDeclaredCase | OperationRequestSimulation | O
 ProfileWorkerFailure = ProfileWorkerFailurePanic | ProfileWorkerFailureScheduling | ProfileWorkerFailureEnvironment
 
 ProgressMetricDocument = ProgressMetricDocumentInteger | ProgressMetricDocumentReal | ProgressMetricDocumentText | ProgressMetricDocumentBoolean | ProgressMetricDocumentUnavailable
-
-PublicationSettlement = PublicationSettlementCommitted | PublicationSettlementProvedNoncommit | PublicationSettlementConflict | PublicationSettlementUnresolved
 
 RestartBarrier = RestartBarrierSeed | RestartBarrierValue
 
@@ -6903,6 +6683,8 @@ __all__ = [
     "AdmittedBinding",
     "AdmittedBindingEntry",
     "AdmittedHorizonValues",
+    "AnalysisControls",
+    "AnalysisDirection",
     "AnalysisPort",
     "ApplicabilityClaim",
     "ApplicabilityInput",
@@ -7087,7 +6869,6 @@ __all__ = [
     "EstimatorInput",
     "EstimatorOperation",
     "EvaluationLimits",
-    "ExportReceipt",
     "FeralSettings",
     "FiniteBound",
     "FiniteDifferenceSettings",
@@ -7137,22 +6918,12 @@ __all__ = [
     "InspectionMember",
     "InspectionPort",
     "IntervalBound",
-    "InventoryControls",
     "IpoptLinear",
     "IpoptLinearMumps",
     "IpoptLinearPardisomkl",
     "IpoptLinearSpral",
     "IpoptSettings",
     "JacobianDiagnosticControls",
-    "JobPayload",
-    "JobStart",
-    "JobStartFresh",
-    "JobStartResumeFromParent",
-    "JobStartStoredSolution",
-    "JobTask",
-    "JobTaskModeling",
-    "JobTaskStudyFinalization",
-    "JobTaskStudyOperation",
     "KinsolEta",
     "KinsolEtaChoice1",
     "KinsolEtaChoice2",
@@ -7167,7 +6938,6 @@ __all__ = [
     "KinsolSettings",
     "KktTolerances",
     "KnowledgeControls",
-    "LegacyUnavailable",
     "Limits",
     "LinearDiagnosticControls",
     "MatrixPolicy",
@@ -7228,6 +6998,7 @@ __all__ = [
     "PartitionedSettings",
     "PetscSettings",
     "PhysicalObservation",
+    "PhysicalSource",
     "PointAttemptOutcome",
     "PointOutcome",
     "PointOverlay",
@@ -7250,7 +7021,6 @@ __all__ = [
     "ProfileWorkerFailureEnvironment",
     "ProfileWorkerFailurePanic",
     "ProfileWorkerFailureScheduling",
-    "ProgressControls",
     "ProgressEventDocument",
     "ProgressMetricDocument",
     "ProgressMetricDocumentBoolean",
@@ -7260,12 +7030,6 @@ __all__ = [
     "ProgressMetricDocumentUnavailable",
     "Propagation",
     "PseudoTime",
-    "PublicationSettlement",
-    "PublicationSettlementCommitted",
-    "PublicationSettlementConflict",
-    "PublicationSettlementProvedNoncommit",
-    "PublicationSettlementUnresolved",
-    "Published",
     "PureConformanceControls",
     "ReconstructionAccuracy",
     "RecycleRequest",
@@ -7275,6 +7039,7 @@ __all__ = [
     "RestartBarrier",
     "RestartBarrierSeed",
     "RestartBarrierValue",
+    "ResultReclamationPage",
     "RouteDocument",
     "RunControls",
     "RuntimeAccuracyGoalAssessmentsRow",
@@ -7294,7 +7059,6 @@ __all__ = [
     "SolveControls",
     "SolveSettings",
     "SourceLocation",
-    "SourceManifest",
     "SparseMatrix",
     "StartPolicy",
     "StartPolicyContinuation",
@@ -7312,13 +7076,12 @@ __all__ = [
     "StudyDefinition",
     "StudyOperation",
     "StudyPoint",
-    "StudyPointBinding",
     "StudyPointDefinition",
     "StudyPointPolicy",
     "StudyRequest",
+    "StudyResults",
     "StudyRunControls",
     "StudyStatus",
-    "StudySubmitControls",
     "StudyWaitControls",
     "TableName",
     "TearSelectionDocument",
@@ -7344,5 +7107,4 @@ __all__ = [
     "WindowInputPeriods",
     "WorkLimits",
     "WorkingSetSnapshot",
-    "Workspace",
 ]

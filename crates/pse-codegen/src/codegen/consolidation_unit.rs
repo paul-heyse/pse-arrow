@@ -45,7 +45,7 @@ fn foundation_unit_semantic_values_and_serde_follow_declared_consumers() {
             .contains("serde::Serialize")
     );
     assert!(
-        read("crates/pse-model/src/generated/runtime/native_dependencies.rs")
+        read("crates/pse-model/src/generated/runtime/candidate_assessments.rs")
             .contains("serde::Serialize")
     );
     assert!(

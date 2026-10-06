@@ -346,6 +346,30 @@ pub enum PreparedStudyOperation {
     Horizon(Box<Horizon>),
 }
 impl StudyOperation {
+    /// Admit seed consumption from the compiler's bound variable structure without
+    /// constructing evaluators, numerical sessions or solver preparation for every
+    /// occurrence. The ready attempt rechecks this against actual solve admission.
+    pub(crate) async fn admit_binding_seed_need(
+        &self,
+        package: &ModelingPackage,
+        binding: &super::AdmittedBinding,
+        cancel: &CancelSource,
+    ) -> Result<SeedNeed, WorkflowError> {
+        self.source.check(package)?;
+        let OperationRequest::DeclaredCase(case) = &self.operation else {
+            if let OperationRequest::Fit(fit) = &self.operation { fit.settings.profile()?; }
+            return Ok(SeedNeed::NotNeeded);
+        };
+        let execution = declared(package, case, self.preparation.compiler, self.preparation.limits, cancel).await?;
+        package.validate_binding(execution.model.compiled(), binding)?;
+        let states = execution.analysis.case.variables.iter().map(|(path,state)| {
+            execution.model.compiled().model.paths.get(path).copied()
+                .map(|id|(id,state.clone())).ok_or_else(||super::contract(format!("missing study variable {path}")))
+        }).collect::<Result<BTreeMap<_,_>,_>>()?;
+        let structure = execution.model.compiled().bound_structure(&states)
+            .map_err(crate::math::MathRuntimeError::from)?;
+        Ok(if structure.structure.variables().iter().any(|variable|!variable.fixed) { SeedNeed::Required } else { SeedNeed::NotNeeded })
+    }
     /// Admit raw horizon quantities once; replay validates these canonical entries only.
     pub(crate) async fn admit_horizon_values(
         &mut self,

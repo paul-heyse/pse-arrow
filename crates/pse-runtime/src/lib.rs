@@ -42,7 +42,7 @@ pub mod peak;
 pub mod session_factory;
 pub mod settings;
 
-pub use crate::budget::{DeltaCacheBudget, ResourceBudget};
+pub use crate::budget::{CacheBudget, ResourceBudget};
 pub use crate::error::RuntimeError;
 
 pub use crate::cancel::CancelSource;

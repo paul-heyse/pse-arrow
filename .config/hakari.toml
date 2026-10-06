@@ -2,11 +2,13 @@
 # Copyright (c) 2026 Paul Heyse
 # cargo-hakari settings for pse-workspace-hack (ADR-0122; docs.rs/cargo-hakari, "config").
 #
-# The workspace-hack depends on every third-party crate that the workspace members build
-# with more than one feature set, with the union of those features, and every member
-# depends on it. Any package selection then resolves one feature set per crate, including
-# under Cargo that ignores `[unstable] feature-unification` (.cargo/config.toml), such as
-# stable Cargo in CI images. `just codegen` regenerates it; `just codegen-check` compares.
+# The workspace-hack depends on third-party crates that the workspace members build
+# with more than one feature set, with the union of those features. Actual data-boundary
+# and store consumers depend on it; pure roots do not acquire its entire data stack.
+# The supported nightly unifies workspace features for every selection, while the
+# boundary consumers retain this fallback for Cargo ignoring `[unstable]
+# feature-unification (.cargo/config.toml). `just codegen` regenerates it;
+# `just codegen-check` compares.
 
 hakari-package = "pse-workspace-hack"
 
@@ -61,12 +63,30 @@ third-party = [
 ]
 
 [final-excludes]
-# Members that never depend on the workspace-hack:
-# - pse-ids is a build dependency of pse-buildinfo, and pse-diagnostics is its only
-#   workspace dependency. If either depended on the workspace-hack, every build script
-#   of pse-buildinfo would build the hack -- and so every unified dependency, DataFusion
-#   and Arrow included -- a second time for the host. Any member that joins pse-ids'
-#   normal closure joins this list.
-# - pse-operations-queries is generated (`just codegen`); its manifest is the generator's.
-#   pse-operations, its only consumer, carries the unification.
-workspace-members = ["pse-diagnostics", "pse-ids", "pse-operations-queries"]
+# These roots have no declared normal Arrow/DataFusion/store consumer, following normal
+# workspace dependencies without the hack. Their downstream boundary consumers carry
+# it. Test-only/benchmark dependencies acquire it from their actual boundary owners.
+# In particular pse-ids/pse-diagnostics remain outside the host buildinfo closure.
+workspace-members = [
+  "pse-authoring",
+  "pse-backend-native",
+  "pse-benches",
+  "pse-buildinfo",
+  "pse-compiler",
+  "pse-diagnostics",
+  "pse-ids",
+  "pse-ipopt-sys",
+  "pse-kernels",
+  "pse-math",
+  "pse-model",
+  "pse-modeling",
+  "pse-petsc-sys",
+  "pse-quantity",
+  "pse-structural",
+  "pse-tests-conformance",
+  "pse-tests-engine",
+  "pse-tests-governance",
+  "pse-tests-lifecycle",
+  "pse-uno-sys",
+  "pse-vocabulary",
+]

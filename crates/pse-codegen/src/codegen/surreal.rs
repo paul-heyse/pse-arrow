@@ -155,10 +155,8 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
                 reason: format!("index {} names an undeclared table", index.name),
             })?;
         for field in index.fields {
-            if !relation
-                .columns
-                .iter()
-                .any(|column| column.name() == *field)
+            let (name,path)=field.split_once('.').map_or((*field,None),|(name,path)|(name,Some(path)));
+            if !relation.columns.iter().any(|column| column.name()==name && (path.is_none() || (path==Some("projection") && column.value_type().data_type()==DataType::Float64)))
             {
                 return Err(SchemaError::Codegen {
                     language: "surreal",
@@ -175,6 +173,10 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
             if index.unique { " UNIQUE" } else { "" }
         );
     }
+    super::surreal_execution::append(&mut ddl);
+    super::surreal_studies::append(&mut ddl);
+    super::surreal_retention::append(&mut ddl);
+    super::surreal_analyses::append(&mut ddl);
     let mut digest = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalSchemaV1);
     digest.str("pse.substrate.v1").part(ddl.as_bytes());
     for codec in &codecs {

@@ -10,7 +10,7 @@ from pse.contracts import values as v
 # A scoped engineering output accuracy or decision goal (entity identity `accuracy_goal`).
 AccuracyGoalId = NewType("AccuracyGoalId", v.SemanticId)
 
-# One durable attempt: a single try of a run (entity identity `attempt`).
+# One actual scientific attempt of a run, with its immutable generation and observations (entity identity `attempt`).
 AttemptId = NewType("AttemptId", v.SemanticId)
 
 # One authored modeling declaration. A specialization root, a definition and a member are declarations in a role, not separate entities (entity identity `declaration`).
@@ -28,38 +28,14 @@ FitId = NewType("FitId", v.SemanticId)
 # One instantiated definition instance of a specialized model. A root instance takes its root declaration's identity unless it is a fit experiment, which prepares its case under the experiment's own identity; a nested instance is derived from its parent and member (entity identity `instance`).
 InstanceId = NewType("InstanceId", v.SemanticId)
 
-# One durable job claimed by workers (entity identity `job`).
-JobId = NewType("JobId", v.SemanticId)
-
 # One authored package (entity identity `package`).
 PackageId = NewType("PackageId", v.SemanticId)
 
-# One publication: registered as an intent before its first member write and committed at most once (entity identity `publication`).
-PublicationId = NewType("PublicationId", v.SemanticId)
-
-# One reader lease protecting a publication (entity identity `reader_lease`).
-ReaderLeaseId = NewType("ReaderLeaseId", v.SemanticId)
-
-# One explicit schema reinitialization and completed retirement manifest (entity identity `reset`).
-ResetId = NewType("ResetId", v.SemanticId)
-
-# One run: an execution of a solve, simulation, fit or study, minted by the runtime before any effect. A durable run's tries are its attempts, and a retried job's attempts share its run; result rows name the run, the store and the publication name the attempt (entity identity `run`).
+# One immutable problem request, whose actual scientific executions are distinct attempts (entity identity `run`).
 RunId = NewType("RunId", v.SemanticId)
 
-# One restartable workspace enumeration and durable candidate inventory (entity identity `scan`).
-ScanId = NewType("ScanId", v.SemanticId)
-
-# One settlement of an uncertain commit acknowledgement (entity identity `settlement`).
-SettlementId = NewType("SettlementId", v.SemanticId)
-
-# One stored reusable solution (a warm-start seed) (entity identity `solution`).
+# One qualified portable scientific seed from an admitted attempt (entity identity `solution`).
 SolutionId = NewType("SolutionId", v.SemanticId)
 
-# An authored source bundle, content-addressed by its package content hash (entity identity `source_bundle`).
-SourceBundleId = NewType("SourceBundleId", v.ContentHash)
-
-# One study coordinated across its points (entity identity `study`).
+# One retained study coordinating distinct point occurrences (entity identity `study`).
 StudyId = NewType("StudyId", v.SemanticId)
-
-# One publication workspace in the catalog (entity identity `workspace`).
-WorkspaceId = NewType("WorkspaceId", v.SemanticId)

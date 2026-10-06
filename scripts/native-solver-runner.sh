@@ -28,14 +28,19 @@ case "$target/" in
   "$root/"*) ;;
   *) mounts+=(-v "$target:$target:ro") ;;
 esac
-# Durable-run tests reach the local operational store (ADR-0114) over its Unix socket,
-# which works without a network. PGUSER names the peer-authenticated role, because the
-# container has no passwd entry for the host user; the store honours it as libpq does.
+# Canonical application tests use the configured supervised loopback gRPC server.
+# Preserve its private profile paths and host loopback namespace when requested.
 store=()
-if [[ -d /var/run/postgresql ]]; then
-  store=(-v /var/run/postgresql:/var/run/postgresql -e PSE_DATABASE_URL
-    -e "PGUSER=${PGUSER:-$(id -un)}")
+network=none
+if [[ -n "${PSE_SURREAL_STATE:-}" ]]; then
+  pse_state="$(realpath "$PSE_SURREAL_STATE")"
+  case "$pse_state/" in
+    "$root/"*) ;;
+    *) mounts+=(-v "$pse_state:$pse_state:ro") ;;
+  esac
+  store=(-e "PSE_SURREAL_STATE=$pse_state")
+  network=host
 fi
-exec docker run --rm --network none --user "$(id -u):$(id -g)" \
+exec docker run --rm --network "$network" --user "$(id -u):$(id -g)" \
   -e PSE_SOLVER_MEASURE -e SYMBOLICA_LICENSE "${store[@]}" "${pipeline_env[@]}" \
   "${mounts[@]}" -w "$root" "$image" "$@"

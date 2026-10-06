@@ -68,7 +68,7 @@ Version: 1. Snapshot class: `model`. Primary key: `alias_id`.
 
 ## `artifact_profiles`
 
-Declared artifact completeness; every required relation must be selected even when empty.
+Declared scientific product completeness, including selected empty relations.
 
 Version: 1. Snapshot class: `model`. Primary key: `kind`.
 
@@ -469,10 +469,6 @@ Version: 1. Snapshot class: `model`. Primary key: `relation_id`.
 | `checks.item` | `Struct` | false | `payload` | — | — |
 | `checks.item.name` | `Utf8` | false | `payload` | — | — |
 | `checks.item.sql` | `Utf8` | false | `payload` | — | — |
-| `delta_properties` | `List` | false | `payload` | — | — |
-| `delta_properties.item` | `Struct` | false | `payload` | — | — |
-| `delta_properties.item.name` | `Utf8` | false | `payload` | — | — |
-| `delta_properties.item.value` | `Utf8` | false | `payload` | — | — |
 | `unique_keys` | `List` | false | `payload` | — | — |
 | `unique_keys.item` | `Struct` | false | `payload` | — | — |
 | `unique_keys.item.name` | `Utf8` | false | `payload` | — | — |

@@ -159,7 +159,7 @@ pub fn semantic_description(
         let inputs: BTreeSet<_> = i.inputs.iter().collect();
         Ok((i.name.clone(), serde_json::json!({"kind":i.kind.as_str(),"query":canonical_sql(&i.query, false)?,"severity":i.severity.as_str(),"inputs":inputs,"keys":i.key_columns})))
     }).collect::<Result<BTreeMap<_, _>, SchemaError>>()?;
-    let mut description = serde_json::json!({"relation":spec.key.to_string(),"id":spec.id,"authority":spec.authority.as_str(),"snapshot":spec.snapshot_class.as_str(),"stability":spec.stability.as_str(),"granularity":spec.derivation_granularity.map(crate::model::DerivationGranularity::as_str),"primary_key":spec.primary_key,"fields":fields,"enums":enums,"extensions":extensions,"checks":checks,"policies":spec.delta_properties,"invariants":invariants});
+    let mut description = serde_json::json!({"relation":spec.key.to_string(),"id":spec.id,"authority":spec.authority.as_str(),"snapshot":spec.snapshot_class.as_str(),"stability":spec.stability.as_str(),"granularity":spec.derivation_granularity.map(crate::model::DerivationGranularity::as_str),"primary_key":spec.primary_key,"fields":fields,"enums":enums,"extensions":extensions,"checks":checks,"invariants":invariants});
     // Key constraints enter the description only when declared, so a relation without
     // them keeps the identity it had before they could be declared.
     if !spec.unique_keys.is_empty() {
@@ -202,7 +202,7 @@ pub fn semantic_relation(reg: &Registry, spec: &RelationSpec) -> Result<ContentH
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SemanticContract {
-    /// Explicit interpretation version, independent of Arrow/Delta encoding.
+    /// Explicit interpretation version, independent of Arrow encoding.
     pub version: u32,
     /// Requested root identities; the relation map is their complete support closure.
     pub roots: std::collections::BTreeSet<pse_ids::SemanticId>,

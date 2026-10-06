@@ -171,13 +171,7 @@ impl RunResult {
             solve_metrics::Builder::with_registry(&self.runtime.registry, 0, &validation)
                 .map_err(relation)?;
         if let Some(native) = native {
-            let stored = self.stored_events(0)?;
-            let events = stored
-                .as_ref()
-                .map_or(super::results::StepEvents::Retained, |events| {
-                    super::results::StepEvents::Stored(events)
-                });
-            super::results::push_native_metrics(&mut metrics, self.run_id, 0, native, events)?;
+            super::results::push_native_metrics(&mut metrics, self.run_id, 0, native)?;
         }
         if let Some(report) = report {
             for (name, value) in [

@@ -49,7 +49,7 @@ fn budget(directory: &Scratch, limit: usize) -> ResourceBudget {
             target_partitions: NonZeroUsize::new(2).expect("nonzero"),
         },
         execution: ExecutionSettings::default(),
-        cache: pse_runtime::DeltaCacheBudget::disabled(1),
+        cache: pse_runtime::CacheBudget::disabled(1),
         math: Default::default(),
         hashing_may_use_pool: false,
     }

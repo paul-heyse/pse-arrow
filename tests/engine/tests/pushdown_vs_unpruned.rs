@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-// The catalog publication futures prove `Send` through deep async nesting; this crate
-// instantiates them, so it needs pse-catalog's own recursion limit.
+// Match the native engine's nested async ownership proof.
 #![recursion_limit = "256"]
 
 //! Differential completeness over an actual admitted provider and an unpruned source.
@@ -9,8 +8,8 @@
     clippy::expect_used,
     reason = "fixture assertions identify exact failures"
 )]
-#[path = "../../support/native_publication.rs"]
-mod native_publication;
+#[path = "../../support/native_session.rs"]
+mod native_session;
 #[path = "../src/oracle.rs"]
 mod oracle;
 use datafusion::{
@@ -31,7 +30,6 @@ use std::{collections::BTreeMap, sync::Arc};
 async fn fixture() -> (Arc<dyn TableProvider>, RecordBatch, tempfile::TempDir) {
     let mut builder = RegistryBuilder::new();
     pse_schema::catalog::declare_diagnostics(&mut builder);
-    pse_schema::catalog::declare_publications(&mut builder);
     builder.declare_enum(EnumDecl::platform(
         "Choice",
         vec![EnumMember::new("one", "One"), EnumMember::new("two", "Two")],
@@ -95,10 +93,9 @@ async fn fixture() -> (Arc<dyn TableProvider>, RecordBatch, tempfile::TempDir) {
         .expect("batch");
     let key = spec.key;
     let (publication, directory, _) =
-        native_publication::publish(registry, BTreeMap::from([(key, batch.clone())])).await;
+        native_session::candidate(registry, BTreeMap::from([(key, batch.clone())]));
     let table = datafusion::datasource::source_as_provider(
         &publication
-            .session()
             .table_source(&key)
             .expect("native selected provider"),
     )

@@ -778,57 +778,6 @@
       ],
       "type": "string"
     },
-    "JobState": {
-      "enum": [
-        "waiting",
-        "queued",
-        "running",
-        "completed",
-        "failed",
-        "cancelled"
-      ],
-      "type": "string"
-    },
-    "LegacyUnavailable": {
-      "additionalProperties": false,
-      "description": "Explicit historical marker; it never supplies current scientific permissions.",
-      "properties": {
-        "binding_hash": {
-          "default": null,
-          "description": "Former content identity, retained without recomputation.",
-          "pattern": "^blake3:[0-9a-fA-F]{64}$",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "kind": {
-          "$ref": "#/$defs/StudyLegacyKind",
-          "description": "Exact closed marker spelling."
-        },
-        "predecessor": {
-          "default": null,
-          "description": "Former positional predecessor retained as historical attribution only.",
-          "format": "uint32",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "version": {
-          "const": 1,
-          "default": 1,
-          "description": "Marker codec version.",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "version",
-        "kind"
-      ],
-      "type": "object"
-    },
     "ModelingApplicabilityBasis": {
       "enum": [
         "fitted",
@@ -1267,38 +1216,14 @@
     },
     "PointStatus": {
       "additionalProperties": false,
-      "description": "One point of a study's status.",
+      "description": "One canonical point's state and exact persisted result identity.",
       "properties": {
-        "attempt_id": {
-          "description": "Its latest try.",
-          "pattern": "^[0-9a-fA-F]{32}$",
-          "type": "string"
-        },
-        "attempt_state": {
-          "$ref": "#/$defs/AttemptState",
-          "description": "That try's state."
-        },
-        "error": {
-          "description": "Why the point failed or was cancelled.",
+        "attempt": {
+          "description": "Exact assigned native attempt, when claimed.",
           "type": [
             "string",
             "null"
           ]
-        },
-        "job_state": {
-          "$ref": "#/$defs/JobState",
-          "description": "Its job's state."
-        },
-        "legacy": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/LegacyUnavailable"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Historical unavailable policy attribution, preserved without readmission."
         },
         "outcome": {
           "anyOf": [
@@ -1309,25 +1234,32 @@
               "type": "null"
             }
           ],
-          "description": "The earlier point that seeds it."
+          "description": "Retained scientific outcome, when observed."
         },
         "point_index": {
-          "description": "The point.",
+          "description": "Authored occurrence identity.",
           "format": "uint32",
           "minimum": 0,
           "type": "integer"
         },
+        "run": {
+          "description": "Exact canonical occurrence execution.",
+          "type": "string"
+        },
+        "settled": {
+          "description": "Shared policy no longer permits a retry.",
+          "type": "boolean"
+        },
         "state": {
           "$ref": "#/$defs/StudyPointState",
-          "description": "Its state."
+          "description": "Actual occurrence lifecycle."
         }
       },
       "required": [
         "point_index",
         "state",
-        "attempt_id",
-        "attempt_state",
-        "job_state"
+        "run",
+        "settled"
       ],
       "type": "object"
     },
@@ -1541,12 +1473,6 @@
       ],
       "type": "string"
     },
-    "StudyLegacyKind": {
-      "enum": [
-        "legacy_unavailable"
-      ],
-      "type": "string"
-    },
     "StudyPointState": {
       "enum": [
         "pending",
@@ -1576,8 +1502,7 @@
     "StudyState": {
       "enum": [
         "open",
-        "concluded",
-        "published"
+        "concluded"
       ],
       "type": "string"
     },
@@ -1640,46 +1565,36 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "A durable study's status: its coordination state, its own attempt's state, its\nfinalization and publication, and every point.",
+  "description": "Study metadata and explicit user-requested point summary; no native reports or source bundle.",
   "properties": {
-    "attempt_id": {
-      "description": "The study's own attempt: the attempt its publication names.",
-      "pattern": "^[0-9a-fA-F]{32}$",
-      "type": "string"
-    },
-    "attempt_state": {
-      "$ref": "#/$defs/AttemptState",
-      "description": "Queued while points run; then completed, partial, failed or cancelled."
-    },
-    "finalization": {
-      "$ref": "#/$defs/JobState",
-      "description": "The finalization job's state."
-    },
-    "finalization_error": {
-      "description": "Why the finalization last failed.",
-      "type": [
-        "string",
-        "null"
-      ]
+    "cancelled": {
+      "description": "Persistent study cancellation authority.",
+      "type": "boolean"
     },
     "points": {
-      "description": "Every point, in index order.",
+      "description": "Explicitly requested compact occurrence observations.",
       "items": {
         "$ref": "#/$defs/PointStatus"
       },
       "type": "array"
     },
-    "publication_id": {
-      "description": "Its publication's identity, registered at creation.",
-      "pattern": "^[0-9a-fA-F]{32}$",
+    "result_attempt": {
+      "description": "Admitted parent summary attempt, when available.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "run": {
+      "description": "Exact canonical parent execution.",
       "type": "string"
     },
     "state": {
       "$ref": "#/$defs/StudyState",
-      "description": "Open, concluded or published."
+      "description": "Actual header lifecycle."
     },
     "study_id": {
-      "description": "The study.",
+      "description": "Stable requested study identity.",
       "pattern": "^[0-9a-fA-F]{32}$",
       "type": "string"
     }
@@ -1687,10 +1602,8 @@
   "required": [
     "study_id",
     "state",
-    "attempt_id",
-    "attempt_state",
-    "publication_id",
-    "finalization",
+    "run",
+    "cancelled",
     "points"
   ],
   "title": "StudyStatus",

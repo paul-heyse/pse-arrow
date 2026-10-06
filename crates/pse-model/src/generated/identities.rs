@@ -9,7 +9,7 @@ pse_ids::semantic_id_newtype! {
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
-    "One durable attempt: a single try of a run (entity identity `attempt`, ADR-0115)."]
+    "One actual scientific attempt of a run, with its immutable generation and observations (entity identity `attempt`, ADR-0115)."]
     AttemptId
 }
 pse_ids::semantic_id_newtype! {
@@ -38,61 +38,22 @@ pse_ids::semantic_id_newtype! {
     InstanceId
 }
 pse_ids::semantic_id_newtype! {
-    #[doc = "One durable job claimed by workers (entity identity `job`, ADR-0115)."]
-    JobId
-}
-pse_ids::semantic_id_newtype! {
     #[doc = "One authored package (entity identity `package`, ADR-0115)."] PackageId
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
-    "One publication: registered as an intent before its first member write and committed at most once (entity identity `publication`, ADR-0115)."]
-    PublicationId
-}
-pse_ids::semantic_id_newtype! {
-    #[doc =
-    "One reader lease protecting a publication (entity identity `reader_lease`, ADR-0115)."]
-    ReaderLeaseId
-}
-pse_ids::semantic_id_newtype! {
-    #[doc =
-    "One explicit schema reinitialization and completed retirement manifest (entity identity `reset`, ADR-0115)."]
-    ResetId
-}
-pse_ids::semantic_id_newtype! {
-    #[doc =
-    "One run: an execution of a solve, simulation, fit or study, minted by the runtime before any effect. A durable run's tries are its attempts, and a retried job's attempts share its run; result rows name the run, the store and the publication name the attempt (entity identity `run`, ADR-0115)."]
+    "One immutable problem request, whose actual scientific executions are distinct attempts (entity identity `run`, ADR-0115)."]
     RunId
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
-    "One restartable workspace enumeration and durable candidate inventory (entity identity `scan`, ADR-0115)."]
-    ScanId
-}
-pse_ids::semantic_id_newtype! {
-    #[doc =
-    "One settlement of an uncertain commit acknowledgement (entity identity `settlement`, ADR-0115)."]
-    SettlementId
-}
-pse_ids::semantic_id_newtype! {
-    #[doc =
-    "One stored reusable solution (a warm-start seed) (entity identity `solution`, ADR-0115)."]
+    "One qualified portable scientific seed from an admitted attempt (entity identity `solution`, ADR-0115)."]
     SolutionId
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
-    "An authored source bundle, content-addressed by its package content hash (entity identity `source_bundle`, ADR-0115)."]
-    SourceBundleId : ContentHash
-}
-pse_ids::semantic_id_newtype! {
-    #[doc =
-    "One study coordinated across its points (entity identity `study`, ADR-0115)."]
+    "One retained study coordinating distinct point occurrences (entity identity `study`, ADR-0115)."]
     StudyId
-}
-pse_ids::semantic_id_newtype! {
-    #[doc =
-    "One publication workspace in the catalog (entity identity `workspace`, ADR-0115)."]
-    WorkspaceId
 }
 impl crate::SemanticEq for AccuracyGoalId {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -199,21 +160,6 @@ impl crate::SemanticFrame for InstanceId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
-impl crate::SemanticEq for JobId {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl crate::HeapUsage for JobId {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for JobId {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        crate::SemanticFrame::frame(&self.as_id(), hash);
-    }
-}
 impl crate::SemanticEq for PackageId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -225,51 +171,6 @@ impl crate::HeapUsage for PackageId {
     }
 }
 impl crate::SemanticFrame for PackageId {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        crate::SemanticFrame::frame(&self.as_id(), hash);
-    }
-}
-impl crate::SemanticEq for PublicationId {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl crate::HeapUsage for PublicationId {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for PublicationId {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        crate::SemanticFrame::frame(&self.as_id(), hash);
-    }
-}
-impl crate::SemanticEq for ReaderLeaseId {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl crate::HeapUsage for ReaderLeaseId {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for ReaderLeaseId {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        crate::SemanticFrame::frame(&self.as_id(), hash);
-    }
-}
-impl crate::SemanticEq for ResetId {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl crate::HeapUsage for ResetId {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for ResetId {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
@@ -289,36 +190,6 @@ impl crate::SemanticFrame for RunId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
-impl crate::SemanticEq for ScanId {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl crate::HeapUsage for ScanId {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for ScanId {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        crate::SemanticFrame::frame(&self.as_id(), hash);
-    }
-}
-impl crate::SemanticEq for SettlementId {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl crate::HeapUsage for SettlementId {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for SettlementId {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        crate::SemanticFrame::frame(&self.as_id(), hash);
-    }
-}
 impl crate::SemanticEq for SolutionId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -334,21 +205,6 @@ impl crate::SemanticFrame for SolutionId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
-impl crate::SemanticEq for SourceBundleId {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl crate::HeapUsage for SourceBundleId {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for SourceBundleId {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        crate::SemanticFrame::frame(&self.as_id(), hash);
-    }
-}
 impl crate::SemanticEq for StudyId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -360,21 +216,6 @@ impl crate::HeapUsage for StudyId {
     }
 }
 impl crate::SemanticFrame for StudyId {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        crate::SemanticFrame::frame(&self.as_id(), hash);
-    }
-}
-impl crate::SemanticEq for WorkspaceId {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl crate::HeapUsage for WorkspaceId {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for WorkspaceId {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }

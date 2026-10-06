@@ -26,7 +26,7 @@ mod native_math;
 mod native_strategy;
 mod normalization;
 mod operations;
-mod publication;
+mod products;
 mod row_checks;
 pub mod s14_passes;
 pub mod s4_schema;
@@ -60,7 +60,7 @@ pub fn assemble() -> Result<Registry, SchemaError> {
 /// Add the complete platform declarations to a builder before explicit fixture extensions.
 pub fn declare(builder: &mut RegistryBuilder) {
     declare_foundations(builder);
-    publication::declare_profiles(builder);
+    products::declare_profiles(builder);
 }
 
 /// Add only the canonical diagnostic relation, its severity/failure vocabularies and the
@@ -71,14 +71,6 @@ pub fn declare_diagnostics(builder: &mut RegistryBuilder) {
     operations::declare_run_identity(builder);
     enums_platform::declare_failure_classes(builder);
     s6_13_runtime::declare_diagnostics(builder);
-}
-
-/// Add the publication record, artifact, dependency and retention contracts to an
-/// explicit registry, with the entity identities the publication record references.
-/// They are the same declarations the complete platform catalog uses.
-pub fn declare_publications(builder: &mut RegistryBuilder) {
-    operations::declare_publication_identities(builder);
-    publication::declare(builder);
 }
 
 /// Full relation/rule authority with only P0–P3 producers, for explicit leaf fixture registries.
@@ -100,7 +92,7 @@ pub fn declare_foundations(builder: &mut RegistryBuilder) {
     modeling_knowledge::declare(builder);
     modeling_analysis::register(builder);
     modeling_native_analysis::register(builder);
-    publication::declare(builder);
+    products::declare(builder);
     operations::declare(builder);
     substrate::declare(builder);
     s6_14_idaes_enums::declare(builder);

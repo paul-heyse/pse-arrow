@@ -222,33 +222,55 @@ series do not establish those product claims.
 
 ## Current checkpoint
 
-The maintainer authorized all of 28a/28b plus the minimum adjacent C/D/E changes needed
-to deliver them. A/B functional implementation is present; their owning checkpoints and
-Outcomes record mechanisms, focused evidence and remaining scope-end verification.
+On 2026-10-06 the maintainer authorized implementation of all functional scope across
+28a–28e using the capability-informed execution approach. Functional work and targeted
+tests come first. The interrupted A/B integration selections join E3 after A/B/C/D and
+E1/E2 functional scope is implemented; they are not prerequisites for continuation.
+A/B functional implementation is present; their owning checkpoints and Outcomes retain
+the original evidence and its limits. Ordinary deployment producer qualification remains
+required for actual persisted replay rather than only the finite qualification fixture.
 ADR-0164 is proposed under implementation authorization and has a recorded architecture
 revision route; formal ADR acceptance remains separate from implementation evidence.
 
 Canonical revisions, selected compilation, strict portable reconstruction and compact
 formal preparation are implemented. Managed source/worker and native recovery controls
 have positive focused evidence. Full generation and the final local native-owner controls
-are complete. The actual inspected production producer remains ineligible
-until concrete executable-I/O/configuration/native closure gaps are reviewed; a finite actual
-tool fixture establishes only scoped qualification and persisted replay behavior.
+are complete. Source review now closes the selected executable-I/O/configuration/native
+input gaps. Fresh current runtime, worker and Python captures and their deployed-artifact
+association remain under qualification; a finite actual tool fixture establishes only
+scoped qualification and persisted replay behavior.
 
-On **2026-10-06** the maintainer requested orderly closeout, documentation, commit and
-cessation of work. Finish the already-running checks and preserve this implementation
-checkpoint. A/B acceptance remains open: the final 84-case selected Python campaign and
-106-case assembled Rust selection must run on the final product/validation-owner code.
+The earlier **2026-10-06** closeout produced committed HEAD `0b4abf7c6`. A/B acceptance
+remains open: the applicable scientific assertions from the selected Python campaign and
+assembled Rust selection transfer to E3 on the fully migrated target.
 The earlier reference-only Python run passed its process case; its unfinished 1,000-point
 study was interrupted when switching to the final extension and is not a passed control.
 The original workload, numerical assertions and resource settings remain unchanged.
-Resume with A/B's owning checkpoints, then continue the later companion scope only when
-authorized. No new qualification campaign is started during this closeout.
+The unfinished feature matrix was stopped at 236/316 completed selections, with selection
+237 interrupted. It is partial evidence for that older source state, not qualification
+of the full target. No old integrated campaign is resumed during functional implementation.
 
-C/D/E's full run/result/query migration, adoption/crate retirement, assembled series campaign
-and quantitative comparisons are not complete. Old execution/result publication consumers
-remain only where those later operations have not moved. Current finding dispositions stay
-in this coordinator; A/B evidence does not resolve a finding's still-unimplemented C/D/E scope.
+C/D's canonical run/result/query migration is implemented. Registry-owned run/attempt
+identities, bounded ingestion, frozen descriptors and exact protected readers replace the
+old publication route. Versioned native functions and bulk statements perform structural
+transitions; scientific decisions retain their shared Rust owners. Dense observations use
+self-contained uncompressed Arrow IPC blocks, with indexed metadata and preflighted decoder
+extents. Narrow gRPC streams require successful statement completion; result reads associate
+their selected run/attempt with A's protection lifecycle. Scoped study discovery carries actual
+selected fields; full scientific descriptors are fetched by exact keys. Bounded exact physical
+admission and IPC receipt reuse avoids repeated ingress during ready-occurrence preparation.
+Fresh storage protection remains required on hits and through run/analysis root admission;
+cache clear fences pending loads. Native lifecycle, retention, continuation, analysis and
+escaped decoded-buffer controls have focused positive evidence.
+
+E1/E2's schema/fixture regeneration, displaced crate and mechanism retirement, native build
+locality and unchanged-output preservation are implemented. Native worker journeys, Python
+boundaries and process benchmarks compile. The focused linked scientific and generated-contract
+consumers pass. Actual runtime and worker producer qualification is complete under the reviewed
+profile; final Python capture, import association and eligible deployment admission remain
+before the functional handoff. E3–E5's assembled series
+campaign, measurements and assessment have not started. Current finding dispositions stay
+in this coordinator; focused companion evidence does not establish assembled acceptance.
 
 ## Outcome (recorded after implementation)
 

@@ -110,23 +110,12 @@ fn process(c: &mut Criterion) {
     let flash = DeclarationId::from_id(
         pse_ids::SemanticId::parse_hex("040af20814bc57abb565c3c7f680be05").unwrap(),
     );
-    // Only durable runs publish (ADR-0112 Outcome 16): publication runs are attempts in an
-    // isolated operational store; the other operations stay ephemeral.
-    let store = (operation == "publication").then(|| {
-        executor
-            .block_on(pse_operations::testing::TestDatabase::create())
-            .unwrap()
-    });
-    let seed = |owner: &WorkflowRuntime| match &store {
-        Some(database) => executor
-            .block_on(async { seed_package_on(owner, durable(owner, database.url()).await).await }),
-        None => executor.block_on(seed_package(owner)),
-    };
+    let seed = |owner: &WorkflowRuntime| {let target=runtime(owner);(executor.block_on(seed_package_on(owner,target.clone())),target)};
     let retained = if reuse == "cold" {
         None
     } else {
         let owner = WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap();
-        let source = seed(&owner);
+        let (source,target) = seed(&owner);
         let (package, case) = if operation == "flash" {
             (source.clone(), flash)
         } else {
@@ -145,7 +134,7 @@ fn process(c: &mut Criterion) {
                 .block_on(async { prepared.start().unwrap().wait().await })
                 .unwrap(),
         );
-        Some((owner, source, package, case))
+        Some((owner, source, package, case,target))
     };
     let mut phases = BTreeMap::new();
     compiler_phases.reset();
@@ -167,16 +156,16 @@ fn process(c: &mut Criterion) {
         let _entered = executor.enter();
         let begin=Instant::now();
         let local=if retained.is_none() {Some(WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap())} else {None};
-        let owner=match &retained {Some((owner,_,_,_))=>owner,None=>local.as_ref().unwrap()};
+        let owner=match &retained {Some((owner,_,_,_,_))=>owner,None=>local.as_ref().unwrap()};
         let preparations_before=owner.runtime.math().preparations();
         owner.runtime.reset_observation_peak();
         mark(&mut phases,"runtime_admission",begin);
         let begin=Instant::now();
-        let (mut package,case)=if let Some((_,source,package,case))=&retained {
-            if reuse=="structure" {executor.block_on(heater_blocks(source,blocks+(iterations as usize%2)))} else {(package.clone(),*case)}
+        let (target,mut package,case)=if let Some((_,source,package,case,target))=&retained {
+            let (package,case)=if reuse=="structure" {executor.block_on(heater_blocks(source,blocks+(iterations as usize%2)))} else {(package.clone(),*case)};(target.clone(),package,case)
         } else {
-            let source=seed(owner);
-            if operation=="flash" {(source,flash)} else {executor.block_on(heater_blocks(&source,blocks))}
+            let (source,target)=seed(owner);
+            let (package,case)=if operation=="flash" {(source,flash)} else {executor.block_on(heater_blocks(&source,blocks))};(target,package,case)
         };
         if reuse=="specialization" {
             let mut rows=executor.block_on(package.declarations()).unwrap().to_vec();
@@ -232,28 +221,17 @@ fn process(c: &mut Criterion) {
             std::hint::black_box(result.report().unwrap());
             if !matches!(operation,"vessel"|"fit") {std::hint::black_box(result.table("runtime.solve_variables").unwrap());}
             mark(&mut phases,"physical_validation_and_results",begin);
-            if operation=="publication" {
+            if operation=="results" {
                 let begin=Instant::now();
-                let directory=tempfile::tempdir().unwrap();
-                let base=url::Url::from_directory_path(directory.path()).unwrap();
-                let workspace=executor.block_on(runtime(owner).register_workspace(&format!("bench-{}-{iterations}",id),base)).unwrap();
-                let mut parent = None;
-                for _ in 0..spec["publications"].as_u64().unwrap_or(1) {
-                    let command=result.prepare_publication(&workspace,parent,None,&owner.cancel).unwrap();
-                    let ticket=command.ticket.clone();
-                    parent=Some(command.publication_id);
-                    let committed=executor.block_on(command.commit(&owner.cancel)).unwrap();
-                    let reopened=executor.block_on(runtime(owner).open(committed.publication_id,&owner.cancel)).unwrap();
-                    assert_eq!(reopened.publication_id(),committed.publication_id);
-                    if spec["publications"].is_number() {
-                        for _ in 0..2 {
-                            assert_eq!(executor.block_on(runtime(owner).settle_publication(&ticket)),
-                                pse_runtime::workflow::PublicationSettlement::Committed{publication_id:committed.publication_id});
-                        }
-                    }
+                let run=result.canonical_run_key().unwrap();
+                let attempt=result.canonical_attempt_key().unwrap();
+                for _ in 0..spec["result_reads"].as_u64().unwrap_or(1) {
+                    let mut reader=executor.block_on(target.results(&run,&attempt,"runtime.solve_variables",0,u64::MAX,pse_columnar::CancellationToken::new())).unwrap();
+                    let mut count=0;
+                    while let Some(batch)=executor.block_on(reader.next_batch()).unwrap(){count+=batch.num_rows();}
+                    assert_eq!(count,result.table("runtime.solve_variables").unwrap().batch().num_rows());
                 }
-                drop(directory);
-                mark(&mut phases,"publication_reopen",begin);
+                mark(&mut phases,"connected_result_reopen",begin);
             }
             drop(result);
         }
@@ -262,6 +240,8 @@ fn process(c: &mut Criterion) {
         drop(handle);
         drop(prepared);
         drop(package);
+        drop(target);
+        if retained.is_none() {executor.block_on(owner.cleanup_fixtures()).unwrap();}
         peak=peak.max(owner.runtime.observation_peak_bytes());
         rss=rss.max(owner.runtime.report().unwrap().process_peak_rss_bytes.unwrap());
         let pool=owner.runtime.pool();
@@ -276,11 +256,9 @@ fn process(c: &mut Criterion) {
     // Observe that owner's release separately from each sample's case teardown.
     let retained_pool = retained
         .as_ref()
-        .map(|(owner, _, _, _)| owner.runtime.pool());
+        .map(|(owner, _, _, _, _)| owner.runtime.pool());
+    if let Some((owner,_,_,_,_))=&retained {executor.block_on(owner.cleanup_fixtures()).unwrap();}
     drop(retained);
-    if let Some(database) = store {
-        executor.block_on(database.remove()).unwrap();
-    }
     drop(executor);
     let final_retained_runtime_bytes = retained_pool.map(|pool| pool.reserved());
     for value in phases.values_mut() {
@@ -300,7 +278,7 @@ fn process(c: &mut Criterion) {
         "numerical_observations":observations.json(),
         "phase_scope":"inclusive synchronous compiler spans; cache hits do not execute spans; absent phases performed no work",
         "unavailable_submetrics":["JIT is not enabled", "native conversion and property-state construction are included in preparation/native execution, without separate clocks"],
-        "scope":"case source admission, preparation/rebuild, joined native execution, validation/results, optional publication and teardown; application compilation excluded",
+        "scope":"case source admission, preparation/rebuild, joined native execution, validation/results, connected result reopening and teardown; application compilation excluded",
         "sampling":"10 flat Criterion samples, 250 ms warmup, 1 s target measurement time (extended for slow operations)",
         "memory_scope":"pool observation per operation; case teardown retains the warm runtime until sampling ends; final retained-runtime teardown is null for cold cases; process lifetime VmHWM from the dedicated benchmark process"
     })).unwrap()).unwrap();

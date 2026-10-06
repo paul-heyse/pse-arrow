@@ -21,7 +21,7 @@
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 
-pub use pse_catalog::cache_service::DeltaCacheBudget;
+pub use pse_engine::cache_service::CacheBudget;
 use pse_engine::{ExecutionSettings, ThreadBudget};
 
 use crate::error::RuntimeError;
@@ -46,7 +46,7 @@ pub struct ResourceBudget {
     /// The session execution settings.
     pub execution: ExecutionSettings,
     /// Native cache capacity, load staging and query headroom in the same pool.
-    pub cache: DeltaCacheBudget,
+    pub cache: CacheBudget,
     /// Finite compiler and native math allowances in this same pool.
     pub math: crate::math::MathPolicy,
     /// Whether artifact hashing may take pool threads (`blake3::update_rayon`).
@@ -136,7 +136,7 @@ mod tests {
                 target_partitions: count(8),
             },
             execution: ExecutionSettings::default(),
-            cache: DeltaCacheBudget::disabled(1),
+            cache: CacheBudget::disabled(1),
             math: Default::default(),
             hashing_may_use_pool: false,
         }

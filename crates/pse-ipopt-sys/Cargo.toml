@@ -35,4 +35,3 @@ cc.workspace = true
 sha2.workspace = true
 
 [dependencies]
-pse-workspace-hack.workspace = true

@@ -46,9 +46,11 @@ def configure(
         env.update(
             PSE_LLVM_PREFIX=str(prefix),
             CLANG_PATH=str(prefix / "bin/clang"),
-            LIBCLANG_PATH=str(prefix / "lib"),
             LLVM_CONFIG_PATH=str(prefix / "bin/llvm-config"),
         )
+        # An exact selected library file closes discovery more narrowly than the
+        # installation directory. Nested setup must preserve that explicit input.
+        env.setdefault("LIBCLANG_PATH", str(prefix / "lib"))
         binary = str(prefix / "bin")
         env["PATH"] = os.pathsep.join(
             [

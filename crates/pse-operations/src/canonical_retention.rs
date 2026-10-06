@@ -253,6 +253,18 @@ UPSERT $guard SET key = 'retention:' + $problem, generation = (generation ?? 0de
 COMMIT;"#;
 
 const DROP_ROOT: &str = r#"BEGIN;
+IF $owner_kind='run' AND (SELECT * FROM ONLY type::record('canonical_runs',$owner))!=NONE {
+    fn::pse_execution_v1::touch('execution-run:'+$owner);
+    IF (SELECT * FROM ONLY type::record('canonical_result_retirements',$owner))=NONE { THROW 'run result retirement must release its source roots'; };
+};
+IF $owner_kind='analysis' AND (SELECT * FROM ONLY type::record('canonical_analyses',$owner))!=NONE {
+    fn::pse_execution_v1::touch('analysis:'+$owner);
+    IF (SELECT * FROM ONLY type::record('canonical_analysis_retirements',$owner))=NONE { THROW 'analysis retirement must release its source roots'; };
+};
+IF $owner_kind='active_attempt' {
+    LET $attempt=SELECT * FROM ONLY type::record('canonical_attempts',$owner);
+    IF $attempt!=NONE AND !$attempt.terminal { THROW 'active attempt source roots cannot be released'; };
+};
 LET $guard = type::record('canonical_guards', 'retention:' + $problem);
 SELECT * FROM $guard FOR UPDATE;
 LET $old = SELECT * FROM ONLY type::record('canonical_roots', $root);

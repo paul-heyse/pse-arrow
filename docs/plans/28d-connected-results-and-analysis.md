@@ -1,6 +1,6 @@
 ---
 title: Connected result queries and analysis
-status: draft
+status: in-progress
 date: 2026-10-05
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md]
@@ -120,9 +120,9 @@ are not required for Plan 28 completion.
 
 | Package | Prerequisite and delivered behavior | Consumer migration and deletion | Status |
 |---|---|---|---|
-| D1 — Canonical result layout and minimal reader | R0, implemented A2 codec/index slice and C1 envelope. Declare row/block layouts once; read admitted terminal results by exact identities with coverage/interpretation. | Supply C2's actual retention reader and Rust result consumers. Remove matching Delta table-member reads as each consumer moves. | Scheduled |
-| D2 — Native query and Arrow boundary | D1, A3 protected reads and C2 actual terminal runs. Implement selectors, native operations, gRPC provisional-row handling and Arrow export. | Migrate Python native bindings, workflow query calls, catalog inspection, examples and tests. Delete SQL convenience APIs and publication-handle dependencies. | Scheduled |
-| D3 — Connected analyses and extension seam | D2 and B2 semantic dependency descriptions. Implement the two analysis journeys with exact source/method lineage and eligible library algorithms. | Move existing applicable graph/result inspection consumers; expose reusable typed operations, not a second semantic API. | Scheduled |
+| D1 — Canonical result layout and minimal reader | R0, implemented A2 codec/index slice and C1 envelope. Declare row/block layouts once; read admitted terminal results by exact identities with coverage/interpretation. | Supply C2's actual retention reader and Rust result consumers. Remove matching Delta table-member reads as each consumer moves. | Implemented; targeted native controls passed |
+| D2 — Native query and Arrow boundary | D1, A3 protected reads and C2 actual terminal runs. Implement selectors, native operations, gRPC provisional-row handling and Arrow export. | Migrate Python native bindings, workflow query calls, catalog inspection, examples and tests. Delete SQL convenience APIs and publication-handle dependencies. | Native and focused linked scientific consumers passed; eligible deployment-receipt control pending |
+| D3 — Connected analyses and extension seam | D2 and B2 semantic dependency descriptions. Implement the two analysis journeys with exact source/method lineage and eligible library algorithms. | Move existing applicable graph/result inspection consumers; expose reusable typed operations, not a second semantic API. | Native journeys, bounded visitor and focused linked analysis consumer passed |
 
 D1 is an early working slice, not a claim that D2/D3 are complete. Root coordinates result
 declarations and Python boundary generation. C owns sealing; D cannot implement a shortcut
@@ -155,9 +155,64 @@ measurements belong to E4 and do not substitute for selection correctness.
 
 ## Checkpoint and next step
 
-No D package is implemented by plan authoring. D1 follows R0, A2 and C1 and is the early
-reader needed by C2. This document owns D progress/local evidence; the coordinator owns
-US01/US02/US03/US04 finding dispositions. No optional integration is a hidden prerequisite.
+D1/D2 have working exact protected native reads and local Arrow export. Dense trajectories
+retain original scientific IPC blocks with output-group indexes; sparse scalar indexes retain
+exact bits, missingness and original row coordinates. Decoder preflight is bounded against
+the actual generated schema before allocation. The real nested diagnostic schemas exposed
+an overly small transport-metadata limit, which was repaired without bypassing scientific
+field validation.
+
+Native result selectors and Arrow streams replace publication handles and SQL convenience;
+registry reflection uses its declared Arrow relations directly. Targeted native controls pass
+for exact historical selection, output-group selection, interrupted export and result-buffer
+protection. The minimal reader's fixture teardown now refuses live returned owners and drains
+automatic release tasks before removing its isolated database.
+The copied Arrow boundary separately retains decoded allocation ownership. Its focused
+control passed with exact original rows, reader-gated retirement, reclamation and database
+teardown while a returned array remains live, and reservation release after its final drop.
+Database protection belongs to the renewable reader; decoded arrays need no subsequent
+storage access or indefinite database pin.
+
+D3's actual pre-simulation incidence/dependency and post-result sensitivity/provenance journeys
+pass their native control. It retains the reported derivative in its original scientific row,
+records exact method/configuration/source/attempt lineage, reopens the same graph, and blocks
+result retirement until analysis withdrawal. Source edits produce a new analysis identity while
+the old graph retains its recorded revision. Reachability remains distinct from quantitative
+sensitivity. A bounded contribution visitor replaces the pre-analysis temporary full
+dependency inventory. Its targeted control preserves the original projections and exercises
+early stopping and cancellation; the actual analysis consumer rerun also passed.
+
+Focused linked Python controls now exercise canonical reopening and both analyses,
+registry/cache reflection, an unusable study predecessor and repeated retained study
+occurrences. The retained study boundary now propagates its original scientific `RunId`
+separately from the opaque canonical lookup keys. Authored solve/warm-start and completion
+projection consumers also passed.
+
+The remaining selected scientific consumers exposed a shared preclaim failure whose original
+diagnostic was masked, and an assertion that expected incidental sample-major ordering from
+dense storage. C repaired the lost diagnostic. Its preserved cause identified a physical
+source schema larger than the result-block limit even for an empty table: canonical revision
+inputs had incorrectly used the scientific-result codec's byte bound. Their explicit source
+purpose now uses A's existing object bound with the same strict borrowed preflight, while
+scientific results retain their smaller bound. Actual required source schemas and nonempty
+authored rows passed the focused source codec controls; oversized source payloads remain
+refused by the result reader. The trajectory consumer now checks exact rows
+in the declared stored `(symbol_id, sample)` order and compares its export with those retained
+rows; independent analytic values remain unchanged. The refreshed linked extension passed
+the process, dynamics/transient fit and three SCIP cases with their original numerical and
+resource-limit assertions. The missing-key diagnostic assertions also exposed the original
+registration cause directly, instead of accepting absent persistence.
+
+The public Python deployment-receipt control is prepared but waits for the actual eligible
+current producer capture and matching imported extension. It checks actual deployment
+admission, an unchanged independently recreated revision, original outputs and reopening
+after clearing the preparation cache. Distinguishing reconstruction from fresh semantic
+admission remains the existing strict native controls' responsibility; the public boundary
+does not expose a replay-origin signal.
+The K4 study measurement adapter now reopens exact per-point native results and uses the shared
+isolated-fixture teardown barrier; the parent benchmark compilation passed and E4 measurements
+remain unrun.
+Assembled testing waits for all companion functional scope.
 
 ## Outcome (recorded after implementation)
 

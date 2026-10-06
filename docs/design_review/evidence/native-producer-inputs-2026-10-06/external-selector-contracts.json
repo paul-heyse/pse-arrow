@@ -1,0 +1,68 @@
+{
+  "scope": "Source-backed exact reached external selector additions; final supported branch requires values/absences and exact files. Raw source hashes here identify independent review files, not framed producer source/native grants.",
+  "pkgconf_1_8_1": {
+    "sources": [
+      {
+        "source": "https://raw.githubusercontent.com/pkgconf/pkgconf/pkgconf-1.8.1/cli/main.c",
+        "bytes": 43971,
+        "sha256": "c2283c33cc7145054da0bbae1000abd309e6c5e99972170d16ab0b80e5f8a29c"
+      },
+      {
+        "source": "https://raw.githubusercontent.com/pkgconf/pkgconf/pkgconf-1.8.1/libpkgconf/client.c",
+        "bytes": 20478,
+        "sha256": "7dd185d1e7b3f2d4042610410b8ff709a6e5225a13385b2ba84f260868719852"
+      },
+      {
+        "source": "https://raw.githubusercontent.com/pkgconf/pkgconf/pkgconf-1.8.1/libpkgconf/path.c",
+        "bytes": 8020,
+        "sha256": "03cf74d1eaa264c32c2839b40a67264415c72ce44426a5b7f5da57c2b93767d2"
+      }
+    ],
+    "selector_environment_names": [
+      "DESTDIR",
+      "PKG_CONFIG_ALLOW_SYSTEM_CFLAGS",
+      "PKG_CONFIG_ALLOW_SYSTEM_LIBS",
+      "PKG_CONFIG_DEBUG_SPEW",
+      "PKG_CONFIG_DISABLE_UNINSTALLED",
+      "PKG_CONFIG_DONT_DEFINE_PREFIX",
+      "PKG_CONFIG_DONT_RELOCATE_PATHS",
+      "PKG_CONFIG_EARLY_TRACE",
+      "PKG_CONFIG_FDO_SYSROOT_RULES",
+      "PKG_CONFIG_IGNORE_CONFLICTS",
+      "PKG_CONFIG_LIBDIR",
+      "PKG_CONFIG_LOG",
+      "PKG_CONFIG_MAXIMUM_TRAVERSE_DEPTH",
+      "PKG_CONFIG_MSVC_SYNTAX",
+      "PKG_CONFIG_PATH",
+      "PKG_CONFIG_PURE_DEPGRAPH",
+      "PKG_CONFIG_SYSROOT_DIR",
+      "PKG_CONFIG_SYSTEM_INCLUDE_PATH",
+      "PKG_CONFIG_SYSTEM_LIBRARY_PATH",
+      "PKG_CONFIG_TOP_BUILD_DIR"
+    ],
+    "narrowing": "Absolute ibex.pc with no Requires excludes dependency package discovery; environment can still transform cflags and emit logs."
+  },
+  "clang23_distro": {
+    "source": "$HOME/.local/share/z3-pivot/2026-09-24/source/llvm-project-23.1.2.src/clang/lib/Driver/Distro.cpp",
+    "sha256": "6e527dfd490aaa95e3453f741af7b1db7b768793d2c41c741218e92333c21f44",
+    "candidate_files": [
+      "/etc/os-release",
+      "/usr/lib/os-release",
+      "/etc/lsb-release",
+      "/etc/redhat-release",
+      "/etc/debian_version",
+      "/etc/SuSE-release",
+      "/etc/gentoo-release"
+    ],
+    "narrowing": "Current Ubuntu os-release ID is unrecognized by Clang switch, so noble /etc/lsb-release selects Linux distribution flags. Bind exact files/symlink targets, narrow fallback candidates if branch changes."
+  },
+  "bash_ldd": {
+    "source": "/usr/bin/ldd",
+    "narrowing": "--version shell builtins exit without tracing product; /bin/bash interpreter, BASH_ENV/ENV/SHELLOPTS/BASHOPTS and exported BASH_FUNC_* namespace premise remain actual inputs."
+  },
+  "header_alias_observer": {
+    "scope": "2387 selected current prerequisite/hint files;2208 C/C++/header/assembly regular entries tested by dev/inode grouping",
+    "groups_spanning_distinct_canonical_paths": 0,
+    "narrowing": "Current observed inputs contain no hardlinked distinct canonical header names; native namespace must track alias relation across roots for future candidate additions."
+  }
+}

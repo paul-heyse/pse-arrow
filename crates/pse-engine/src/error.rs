@@ -48,7 +48,7 @@ pub enum EngineError {
     /// An object store, filesystem or Arrow operation failed on well-formed input.
     #[error("{op} failed")]
     Infrastructure {
-        /// What was being attempted, in the imperative: `read Delta log`, `write Delta table`.
+        /// What was being attempted, in the imperative: `read source metadata`, `write source table`.
         op: String,
         /// The underlying failure.
         #[source]
@@ -193,7 +193,7 @@ mod tests {
             ),
             (
                 EngineError::Infrastructure {
-                    op: "read Delta log".to_owned(),
+                    op: "read source metadata".to_owned(),
                     source: Box::new(std::io::Error::other("no such object")),
                 },
                 Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),

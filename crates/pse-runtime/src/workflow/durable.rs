@@ -1,749 +1,253 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Durability classes and durable attempts (ADR-0114 Outcomes 12–17; Plan 22 O3–O6).
-//!
-//! A runtime is [`Durability::Ephemeral`] (in memory, as a library call or unit test needs;
-//! it cannot publish) or [`Durability::Durable`]: every run is then an attempt registered
-//! in the operational store before any effect. The class is an explicit policy of the
-//! runtime, never a fallback: a durable run whose store is unreachable fails with the
-//! infrastructure class, and an ephemeral run is never silently recorded.
-//!
-//! A durable attempt moves through the one transition table of `pse-operations`:
-//! planned, queued (waiting for native admission, which queues rather than refuses),
-//! running under a heartbeat lease, then completed, partial, failed or cancelled with its
-//! typed termination. The durable `cancel_requested` flag is the cancellation authority;
-//! the heartbeat returns it and a `LISTEN` watcher only shortens latency (T03). Its
-//! progress streams to the store without an event cap; a branch-and-bound search's
-//! incumbents stream beside it, each captured solution stored as a seed of its step while
-//! the search runs, so a killed worker's successor can resume from it (Plan 22 G8). Its
-//! reusable seeds are stored by coordinate-compatibility stamp, and the published
-//! relations derive from those records.
-use super::{RunReport, RunRequest, RunResult, WorkflowError};
-use pse_backend_native::solve::{
-    Compatibility, Event, IncumbentEvent, Metric, ProgressTap, WarmPayload, WarmStart,
-};
-use pse_ids::{ContentHash, FramedHasher};
-use pse_model::generated::enums::CandidateUse;
-use pse_operations::{
-    OperationsError, Store,
-    attempts::{
-        AttemptFilter, AttemptId, AttemptKind, NewAttempt, RunId, RuntimeOperationalAttemptsRow,
-        RuntimeTermination, Termination, TerminationCode, TransitionNote,
-    },
-    jobs::{Finished, JobId, JobOutcome, Requeue},
-    lifecycle::AttemptState,
-    solutions::{NewSolution, RuntimeOperationalSolutionsRow, SeedVectors, SolutionId},
-    streams::{ProgressEvent, ProgressValue, Retention, RuntimeOperationalIncumbentsRow},
-};
-use std::{
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, AtomicI32, Ordering},
-    },
-    time::Duration,
-};
+//! Canonical claims precede native effects; immutable closed manifests own stored observations.
+use super::{RunReport,RunRequest,RunResult,WorkflowError,contract};
+use pse_backend_native::solve::{Compatibility,Event,ProgressTap,WarmPayload,WarmStart};
+use pse_ids::{ContentHash,FramedHasher,Frame};
+use pse_model::generated::{enums::{AttemptState,CandidateUse,NativeBackend},identities::{AttemptId,RunId,SolutionId}};
+use pse_operations::{canonical::{CanonicalStore,CanonicalOptions,Revision},canonical_execution::{AttemptFence,CanonicalRun,CanonicalAttempt,ResultManifest,TerminalClass,RESULT_BATCH_BYTES,result_set_key,result_batch_key,result_payload_digest,execution_attempt_key}};
+use std::{sync::{Arc,Mutex,OnceLock,atomic::{AtomicBool,AtomicI32,Ordering}},time::Duration};
+use serde::{Serialize,Deserialize};
+use datafusion::execution::memory_pool::{MemoryPool,MemoryConsumer};
 
-/// Lease, heartbeat, stream and retention settings of durable attempts.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// A requested immutable seed is absent; storage failures retain their original cause.
+#[derive(Debug,thiserror::Error)]
+pub enum SeedReadError {
+    /// No eligible retained header exists for this explicit scientific artifact.
+    #[error("stored seed {solution} is unavailable")]
+    Missing {
+        /// Exact requested artifact identity.
+        solution:SolutionId,
+    },
+}
+pse_diagnostics::impl_diagnostic! {
+    SeedReadError,
+    code(_this){Some(pse_diagnostics::DiagnosticCode::StudySeedUnavailable)},
+    forward(_this){None},help(_this){None},related(_this){None},source(_this){None}
+}
+/// Finite worker lease and bounded progress queue policy.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct LeasePolicy {
-    /// How long a lease lasts without renewal. A process that stops heartbeating loses
-    /// its attempts to the stale sweep after this long.
-    pub lease: Duration,
-    /// How often a running attempt renews its lease and reads its cancellation flag.
-    pub heartbeat: Duration,
-    /// How long the streams of finished attempts are kept.
-    pub retention: Retention,
-    /// Progress events per batched insert.
-    pub batch: usize,
-    /// The longest a progress event waits before its batch is written.
-    pub flush: Duration,
+    /// Positive server authority lifetime.
+    pub lease:Duration,
+    /// Positive interval between authority renewals.
+    pub heartbeat:Duration,
+    /// Bounded observed-event queue capacity.
+    pub batch:usize,
+    /// Maximum event flush delay.
+    pub flush:Duration,
 }
-
-impl Default for LeasePolicy {
-    fn default() -> Self {
-        Self {
-            lease: Duration::from_secs(30),
-            heartbeat: Duration::from_secs(10),
-            retention: Retention {
-                finished_for: Duration::from_secs(7 * 24 * 3600),
-            },
-            batch: 512,
-            flush: Duration::from_millis(200),
-        }
-    }
-}
-
-/// The operational store as a runtime uses it: this process's worker identity and its
-/// lease policy. Cheap to clone.
-#[derive(Clone, Debug)]
-pub struct Operations {
-    store: Store,
-    worker: Arc<str>,
-    policy: LeasePolicy,
-}
-
-/// What start-up recovery did.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+impl Default for LeasePolicy {fn default()->Self {Self{lease:Duration::from_secs(30),heartbeat:Duration::from_secs(10),batch:64,flush:Duration::from_millis(200)}}}
+/// The sole canonical store, worker identity and renewal policy.
+#[derive(Clone,Debug)]
+pub struct Operations {store:CanonicalStore,worker:Arc<str>,policy:LeasePolicy,pub(super) pool:Arc<dyn MemoryPool>}
+/// Explicit expiry reconciliation receipts; recovery never invents scientific success.
+#[derive(Clone,Debug,Default)]
 pub struct Recovery {
-    /// Jobs whose worker vanished, with the new attempt or final state of each.
-    pub requeued: Vec<Requeue>,
-    /// Other running attempts whose lease had expired, now stale.
-    pub stale: Vec<AttemptId>,
-    /// Progress events of finished attempts removed by the retention policy.
-    pub pruned_events: u64,
+    /// Exact attempt keys reconciled without scientific rerun.
+    pub recovered:Vec<String>,
 }
-
 impl Operations {
-    /// Connect, open the store's schema (creating it on an empty store, refusing a
-    /// different one), and recover: expired leases are marked stale (and their jobs
-    /// requeued) and old streams are pruned.
-    ///
-    /// # Errors
-    /// The infrastructure class when the store is unreachable; a configuration refusal
-    /// ([`OperationsError::SchemaMismatch`]) when its schema is another build's
-    /// (`just db-reset`).
-    pub async fn connect(
-        url: &str,
-        worker: impl Into<String>,
-        policy: LeasePolicy,
-    ) -> Result<Self, WorkflowError> {
-        let store = Store::connect(url).await?;
-        store.open().await?;
-        let operations = Self::from_store(store, worker, policy);
-        operations.recover().await?;
-        Ok(operations)
-    }
-
-    /// Use an already connected and opened store without recovery.
-    pub fn from_store(store: Store, worker: impl Into<String>, policy: LeasePolicy) -> Self {
-        Self {
-            store,
-            worker: Arc::from(worker.into()),
-            policy,
-        }
-    }
-
-    /// The default worker identity of this process: host and process id.
-    pub fn process_worker(role: &str) -> String {
-        let host = std::env::var("HOSTNAME")
-            .ok()
-            .filter(|h| !h.is_empty())
-            .unwrap_or_else(|| "localhost".to_owned());
-        format!("{role}:{host}:{}", std::process::id())
-    }
-
-    /// The store.
-    pub const fn store(&self) -> &Store {
-        &self.store
-    }
-
-    /// This process's worker identity, the owner of the leases it takes.
-    pub fn worker(&self) -> &str {
-        &self.worker
-    }
-
-    /// The lease policy.
-    pub const fn policy(&self) -> LeasePolicy {
-        self.policy
-    }
-
-    /// The start-up stale sweep: requeue every job whose lease expired, mark every other
-    /// expired running attempt stale, and apply stream retention.
-    ///
-    /// # Errors
-    /// Store failures.
-    pub async fn recover(&self) -> Result<Recovery, WorkflowError> {
-        const BATCH: i64 = 256;
-        let mut recovery = Recovery::default();
-        loop {
-            let requeued = self
-                .store
-                .jobs()
-                .requeue_expired(BATCH, pse_operations::mint_id)
-                .await?;
-            let done = requeued.len() < BATCH as usize;
-            recovery.requeued.extend(requeued);
-            if done {
-                break;
+    /// Connect and open the sole canonical deployment with an accounted memory pool.
+    pub async fn connect(options:&CanonicalOptions,worker:impl Into<String>,policy:LeasePolicy,pool:Arc<dyn MemoryPool>)->Result<Self,WorkflowError>{let store=CanonicalStore::connect(options).await?;store.open().await?;Ok(Self::from_store(store,worker,policy,pool))}
+    /// Bind an already opened deployment, worker and finite lease policy.
+    pub fn from_store(store:CanonicalStore,worker:impl Into<String>,policy:LeasePolicy,pool:Arc<dyn MemoryPool>)->Self{Self{store,worker:Arc::from(worker.into()),policy,pool}}
+    /// Exact canonical deployment used by executions and connected readers.
+    pub fn store(&self)->&CanonicalStore{&self.store}
+    pub(super) fn same_physical_owner(&self,other:&Self)->bool{Arc::ptr_eq(&self.worker,&other.worker)&&Arc::ptr_eq(&self.pool,&other.pool)}
+    /// Stable native worker identity for this runtime owner.
+    pub fn worker(&self)->&str{&self.worker}
+    /// Finite authority and progress policy selected for this owner.
+    pub const fn policy(&self)->LeasePolicy{self.policy}
+    /// Process-scoped default worker identity.
+    pub fn process_worker(role:&str)->String{let host=std::env::var("HOSTNAME").unwrap_or_else(|_|"localhost".into());format!("{role}:{host}:{}",std::process::id())}
+    /// Persist cancellation under an explicit immutable effect identity.
+    pub async fn cancel(&self,run:&str,operation:&str)->Result<CanonicalRun,WorkflowError>{Ok(self.store.cancel_run(run,operation).await?)}
+    /// Bounded per-problem recorded execution summaries, excluding scientific payloads.
+    pub async fn runs(&self,problem:&str,after:Option<u64>,limit:usize)->Result<Vec<pse_operations::canonical_execution::RunSummary>,WorkflowError>{Ok(self.store.execution_run_page(problem,after,limit).await?)}
+    /// Reopen the exact historical admitted completion and eligible seed inventory.
+    pub async fn record(&self,run:&str,attempt:&str)->Result<DurableRecord,WorkflowError>{
+        let read=self.store.read_results(run,attempt,Duration::from_secs(60)).await?;
+        let header:CompletionReceipt=serde_json::from_slice(read.attempt().completion.as_ref().ok_or_else(||contract("terminal completion absent"))?.as_slice()).map_err(|e|contract(e.to_string()))?;
+        let (completion,owner)=match header.inline {Some(completion)=>{let bytes=serde_json::to_vec(&completion).map_err(|e|contract(e.to_string()))?;(*completion,reserve(&self.pool,bytes.len())?)},None=>{let (bytes,owner)=read_chunks(&self.store,&self.pool,&read,"__completion",0,header.batch_count,header.payload_bytes,&header.digest,false).await?;(serde_json::from_slice(&bytes).map_err(|e|contract(e.to_string()))?,owner)}};
+        let completion=Arc::new(pse_columnar::Leased::new(Arc::new(completion),owner));
+        let mut solutions=Vec::new();let mut after=None;
+        loop {read.renew(Duration::from_secs(60)).await?;let page=self.store.result_seed_page(attempt,after).await?;if page.is_empty(){break;}
+            for seed in page {after=Some(seed.step);if seed.run!=run||seed.attempt!=attempt{return Err(contract("seed inventory escaped its retained attempt"));}
+                if completion.completion.as_ref().and_then(|c|c.assessments.get(seed.step as usize)).is_some_and(|a|a.permits_seed){
+                    let solution=SolutionId::from_id(pse_ids::SemanticId::parse_hex(&seed.key).map_err(|error|contract(error.to_string()))?);
+                    solutions.push((usize::try_from(seed.step).map_err(|_|contract("stored step extent"))?,solution));
+                }
             }
         }
-        loop {
-            let stale = self.store.attempts().sweep_stale(BATCH).await?;
-            let done = stale.len() < BATCH as usize;
-            recovery.stale.extend(stale);
-            if done {
-                break;
-            }
-        }
-        recovery.pruned_events = self
-            .store
-            .streams()
-            .apply_retention(self.policy.retention)
-            .await?;
-        Ok(recovery)
+        Ok(DurableRecord{attempt_id:completion.attempt_id,attempt_key:Some(read.attempt().key.clone()),run:Some(read.run().clone()),attempt:Ok(read.attempt().clone()),manifest:Some(read.manifest().clone()),completion:Some(completion),solutions})
+    }
+    /// Recover only explicitly selected expired/cancelled run authority. No numerical dispatch.
+    #[allow(unsafe_code,reason="current recovery authority records truthful worker loss; never promotes arbitrary rows to scientific success")]
+    pub async fn recover(&self,run:&str,operation:&str)->Result<Recovery,WorkflowError>{
+        let current=self.store.canonical_run(run).await?.ok_or_else(||contract("recovery run absent"))?;
+        let attempt=current.current_attempt.as_ref().ok_or_else(||contract("recovery attempt absent"))?;
+        let actual=self.store.canonical_attempt(attempt).await?.ok_or_else(||contract("recovery attempt header absent"))?;
+        if actual.terminal{return Ok(Recovery{recovered:vec![actual.key]});}
+        let closed=self.store.recover_closed_attempt(run,operation).await?;let manifest=self.store.reconcile_closed_attempt(&closed).await?;
+        let mut hash=FramedHasher::new(Frame::CanonicalPayloadV1);hash.str("scientific.attempt.lineage.v1").str(closed.fence().attempt());let attempt_id=AttemptId::from_id(hash.finish_id());
+        let error=WorkflowError::Canonical(pse_operations::canonical::CanonicalError::Configuration("worker authority expired before durable scientific completion".into()));
+        let current=self.store.canonical_run(run).await?.ok_or_else(||contract("recovered run absent"))?;
+        let cancelled=current.cancelled||self.store.canonical_study_for_run(run).await?.is_some_and(|study|study.cancelled);
+        let mut outcome=failure(&error,cancelled);outcome.retryable=true;outcome.detail.retry_failure=Some(pse_model::study::RetryFailure::Transient);
+        let stored=StoredCompletion{version:1,attempt_id,completion:None,termination:outcome.detail,state:outcome.state};
+        let receipt=CompletionReceipt{version:1,batch_count:0,payload_bytes:0,digest:String::new(),inline:Some(Box::new(stored))};
+        let class=if cancelled{TerminalClass::Cancelled}else{TerminalClass::Failed};
+        unsafe{self.store.seal_attempt(&manifest,&format!("{operation}:terminal"),class,&serde_json::to_vec(&receipt).map_err(|e|contract(e.to_string()))?).await}?;
+        Ok(Recovery{recovered:vec![closed.fence().attempt().into()]})
     }
 
-    /// Durable attempts newest first; they survive a restart of the process that ran them.
-    ///
-    /// # Errors
-    /// Store failures.
-    pub async fn runs(
-        &self,
-        filter: &AttemptFilter,
-    ) -> Result<Vec<RuntimeOperationalAttemptsRow>, WorkflowError> {
-        Ok(self.store.attempts().list(filter).await?)
-    }
 }
-
-impl super::Runtime {
-    /// The durable attempts of this runtime's operational store, newest first, as the
-    /// registry relation `runtime.operational_attempts`. They survive a restart of the
-    /// process that ran them (ADR-0114 Outcome 16).
-    ///
-    /// # Errors
-    /// An ephemeral runtime, which records no attempts; store failures; a stored value
-    /// outside the registry contract.
-    pub async fn runs(
-        &self,
-        filter: &AttemptFilter,
-    ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        use pse_relations::generated::runtime::operational_attempts as attempts;
-        let Durability::Durable(operations) = &self.durability else {
-            return Err(super::contract(
-                "the run listing needs a durable runtime (ADR-0114 Outcome 16)",
-            ));
-        };
-        let records = operations.runs(filter).await?;
-        let validation = self.validation_context()?;
-        let mut rows = attempts::Builder::with_registry(&self.registry, records.len(), &validation)
-            .map_err(super::relation)?;
-        for row in records {
-            rows.push(row).map_err(super::relation)?;
-        }
-        rows.finish().map_err(super::relation)
-    }
-
-    /// The durable jobs of this runtime's operational store, newest first, as the registry
-    /// relation `runtime.operational_jobs`.
-    ///
-    /// # Errors
-    /// An ephemeral runtime, which enqueues no jobs; store failures; a stored value outside
-    /// the registry contract.
-    pub async fn jobs(
-        &self,
-        filter: &pse_operations::jobs::JobFilter,
-    ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        use pse_relations::generated::runtime::operational_jobs as jobs;
-        let Durability::Durable(operations) = &self.durability else {
-            return Err(super::contract(
-                "the job listing needs a durable runtime (ADR-0114 Outcome 16)",
-            ));
-        };
-        let records = operations.store.jobs().list(filter).await?;
-        let validation = self.validation_context()?;
-        let mut rows = jobs::Builder::with_registry(&self.registry, records.len(), &validation)
-            .map_err(super::relation)?;
-        for row in records {
-            rows.push(row).map_err(super::relation)?;
-        }
-        rows.finish().map_err(super::relation)
-    }
-}
-
-/// How a runtime keeps its runs (ADR-0114 Outcome 16): an explicit policy.
-#[derive(Clone, Debug, Default)]
+/// Whether application execution persists its complete scientific result.
+#[derive(Clone,Debug,Default)]
 pub enum Durability {
-    /// In memory only: nothing survives the process and nothing may be published.
-    #[default]
-    Ephemeral,
-    /// Every run is an attempt registered in the operational store.
+    /// Explicit local numerical adapter without persisted executions.
+    #[default] Ephemeral,
+    /// Application execution uses native canonical claims and immutable results.
     Durable(Operations),
 }
-
-/// What a finished run recorded durably.
-#[derive(Clone, Debug)]
+/// Persistence receipt of one joined execution.
+#[derive(Clone,Debug,Default)]
 pub enum RunDurability {
-    /// Nothing was recorded; the run cannot be published.
-    Ephemeral,
-    /// The run's attempt and what the store holds for it.
+    /// Explicit local numerical execution.
+    #[default] Ephemeral,
+    /// Exact retained execution, including observable write failure.
     Durable(Box<DurableRecord>),
 }
-
-/// The durable records of one finished attempt.
-#[derive(Clone, Debug)]
+/// A completed canonical attempt and its exact immutable selection, or an observable write failure.
+#[derive(Clone,Debug)]
 pub struct DurableRecord {
-    /// The attempt identity, minted before any effect.
-    pub attempt_id: AttemptId,
-    /// The attempt as stored after its terminal transition, or why it was not recorded.
-    pub attempt: Result<RuntimeOperationalAttemptsRow, Arc<WorkflowError>>,
-    /// The complete progress stream as stored: the snapshot publication derives from.
-    pub progress: Result<Vec<ProgressEvent>, Arc<WorkflowError>>,
-    /// The complete incumbent stream as stored: the snapshot `runtime.incumbents` derives
-    /// from (Plan 22 I13).
-    pub incumbents: Result<Vec<RuntimeOperationalIncumbentsRow>, Arc<WorkflowError>>,
-    /// Seeds stored from accepted steps, by step.
-    pub solutions: Vec<(usize, SolutionId)>,
+    /// Scientific lineage identity, distinct from the opaque native key.
+    pub attempt_id:AttemptId,
+    /// Exact native key, when registration established the attempt.
+    pub attempt_key:Option<String>,
+    /// Actual acknowledged run header; absent before successful run registration.
+    pub run:Option<CanonicalRun>,
+    /// Actual terminal receipt or the original persistence failure.
+    pub attempt:Result<CanonicalAttempt,Arc<WorkflowError>>,
+    /// Exact reconciled admitted selection, when settlement succeeded.
+    pub manifest:Option<ResultManifest>,
+    /// Accounted original scientific completion and truthful lifecycle facts.
+    pub completion:Option<Arc<pse_columnar::Leased<StoredCompletion>>>,
+    /// Eligible final seeds by their scientific step and artifact identity.
+    pub solutions:Vec<(usize,SolutionId)>,
 }
-
-/// Cancels the supervised run; shared with the heartbeat.
-pub(crate) type Canceller = Arc<dyn Fn() + Send + Sync>;
-
-/// The typed end of an attempt.
-#[derive(Clone, Debug)]
-pub(super) struct Outcome {
-    state: AttemptState,
-    /// The typed termination; none for a task that ran no solve and succeeded.
-    termination: Option<Termination>,
-    reason: String,
-    /// A retry could succeed: the failure was infrastructure, not the science.
-    retryable: bool,
+/// Typed scientific completion; data lives in bounded immutable chunks.
+#[derive(Clone,Debug,Serialize,Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StoredCompletion {
+    /// Portable completion interpretation.
+    pub version:u8,
+    /// Original scientific attempt lineage.
+    pub attempt_id:AttemptId,
+    /// Original scientific assessments; worker loss has no invented conclusion.
+    pub completion:Option<super::Completion>,
+    /// Original terminal cause and effect knowledge.
+    pub termination:TerminationDetail,
+    /// Truthful execution state, distinct from individual candidate permissions.
+    pub state:AttemptState,
 }
-
-impl Outcome {
-    /// The audit note of this outcome, by `actor`.
-    fn note(&self, actor: &str) -> TransitionNote {
-        let note = TransitionNote::by(actor).because(self.reason.clone());
-        match &self.termination {
-            Some(termination) => note.terminated(termination.clone()),
-            None => note,
-        }
-    }
-}
-
-/// Where a claimed attempt ends: through its job, under the job's retry policy.
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct Claim {
-    pub(crate) job: JobId,
-    pub(crate) attempt: AttemptId,
-    /// The run the job's attempts try; the claimed try runs as it.
-    pub(crate) run: RunId,
-}
-
-/// One durable attempt of a run: registration, lease, stream and termination.
+#[derive(Clone,Debug,Serialize,Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CompletionReceipt {version:u8,batch_count:u64,payload_bytes:u64,digest:String,inline:Option<Box<StoredCompletion>>}
+pub(crate) type Canceller=Arc<dyn Fn()+Send+Sync>;
+#[derive(Clone,Debug)]
+pub(super) struct Outcome {pub(super) state:AttemptState,pub(super) detail:TerminationDetail,pub(super) retryable:bool}
 #[derive(Debug)]
-pub(crate) struct DurableAttempt {
-    operations: Operations,
-    attempt: AttemptId,
-    claim: Option<Claim>,
-    stream: Streamer,
-    heartbeat: Option<Heartbeat>,
-    /// The study point a claimed try runs: a completed try writes its result members
-    /// under the study's publication intent (Plan 22 O7).
-    point: Option<super::study::PointContext>,
-}
-
+pub(crate) struct DurableAttempt {operations:Operations,attempt:AttemptId,run_id:Option<RunId>,claim_operation:String,fence:Arc<OnceLock<AttemptFence>>,run:OnceLock<CanonicalRun>,stream:Streamer,heartbeat:Option<Heartbeat>}
 impl DurableAttempt {
-    /// A new attempt for a run of this process. Nothing is stored until [`Self::register`].
-    pub(super) fn new(operations: &Operations) -> Self {
-        let attempt: AttemptId = pse_operations::mint_id();
-        Self {
-            stream: Streamer::spawn(operations, attempt),
-            operations: operations.clone(),
-            attempt,
-            claim: None,
-            heartbeat: None,
-            point: None,
-        }
+    pub(super) fn new(operations:&Operations)->Self{let attempt:AttemptId=pse_operations::mint_id();let fence=Arc::new(OnceLock::new());Self{operations:operations.clone(),attempt,run_id:None,claim_operation:format!("claim:{attempt}"),stream:Streamer::new(operations,fence.clone()),fence,run:OnceLock::new(),heartbeat:None}}
+    pub(crate) fn claimed(operations:&Operations,fence:AttemptFence,run_id:RunId,attempt:AttemptId)->Self{let shared=Arc::new(OnceLock::new());let _=shared.set(fence);Self{operations:operations.clone(),attempt,run_id:Some(run_id),claim_operation:format!("claimed:{attempt}"),stream:Streamer::new(operations,shared.clone()),fence:shared,run:OnceLock::new(),heartbeat:None}}
+    pub(super) const fn attempt_id(&self)->AttemptId{self.attempt}
+    pub(super) fn claimed_run(&self)->Option<RunId>{self.run_id}
+    pub(super) fn canonical_keys(&self,run_id:RunId)->(String,String){match self.fence.get(){Some(f)=>(f.run().into(),f.attempt().into()),None=>{let run=format!("run:{run_id}");let attempt=execution_attempt_key(&run,&self.claim_operation);(run,attempt)}}}
+    pub(super) fn tap(&self)->Arc<dyn ProgressTap>{self.stream.tap.clone()}
+    pub(super) fn set_step(&self,step:usize){self.stream.tap.step.store(i32::try_from(step).unwrap_or(i32::MAX),Ordering::Release);}
+    pub(super) async fn register(&self,run_id:RunId,request:&RunRequest)->Result<(),WorkflowError>{
+        if let Some(fence)=self.fence.get(){let row=self.operations.store.canonical_run(fence.run()).await?.ok_or_else(||contract("claimed run absent"))?;let _=self.run.set(row);self.stream.ready.notify_one();return Ok(());}
+        let inputs=request_inputs(request)?;
+        let (runtime,physical)=request_context(request)?;
+        let identity=identities(request)?;
+        let selected=serde_json::to_vec(&(1_u8,identity,physical.identity(),request_provenance(request)?)).map_err(|e|contract(e.to_string()))?;
+        self.register_selection(run_id,runtime,physical,&inputs,serde_json::to_vec(&(1_u8,run_id,identity)).map_err(|e|contract(e.to_string()))?,selected).await
     }
-
-    /// The attempt a worker claimed with its job: already running under the worker's lease.
-    pub(crate) fn claimed(operations: &Operations, claim: Claim) -> Self {
-        Self {
-            stream: Streamer::spawn(operations, claim.attempt),
-            operations: operations.clone(),
-            attempt: claim.attempt,
-            claim: Some(claim),
-            heartbeat: None,
-            point: None,
-        }
+    #[cfg(feature="solver-diffsol")]
+    pub(super) async fn register_horizon(&self,run_id:RunId,runtime:&super::Runtime,packages:&[super::ModelingPackage],identity:ContentHash,provenance:&[u8])->Result<(),WorkflowError>{
+        if self.fence.get().is_some(){let row=self.operations.store.canonical_run(self.fence()?.run()).await?.ok_or_else(||contract("claimed horizon run absent"))?;let _=self.run.set(row);self.stream.ready.notify_one();return Ok(());}
+        let physical=&packages.first().ok_or_else(||contract("horizon source absent"))?.physical;
+        let mut inputs=packages.iter().map(|p|p.revision.canonical.clone()).collect::<Vec<_>>();inputs.sort_by(|a,b|a.key.cmp(&b.key));inputs.dedup_by(|a,b|a.key==b.key);
+        self.register_selection(run_id,runtime,physical,&inputs,serde_json::to_vec(&(1_u8,"horizon",run_id,identity)).map_err(|e|contract(e.to_string()))?,serde_json::to_vec(&(1_u8,identity,physical.identity(),serde_json::from_slice::<serde_json::Value>(provenance).map_err(|error|contract(error.to_string()))?)).map_err(|e|contract(e.to_string()))?).await
     }
-
-    /// The claimed try runs a study point: when it completes, its result members are
-    /// written under the study's publication intent and recorded with the point.
-    pub(crate) fn set_point(&mut self, point: super::study::PointContext) {
-        self.point = Some(point);
+    async fn register_selection(&self,run_id:RunId,runtime:&super::Runtime,physical:&super::PhysicalContext,inputs:&[Revision],request:Vec<u8>,selected:Vec<u8>)->Result<(),WorkflowError>{
+        let primary=inputs.first().ok_or_else(||contract("durable execution needs an exact scientific revision"))?;
+        let physical_rows=self.operations.put_physical_rows(runtime,physical).await?;
+        let mut sources=inputs.iter().skip(1).cloned().collect::<Vec<_>>();sources.extend(physical_rows.revisions.iter().cloned());
+        let (run,_)=self.canonical_keys(run_id);let attestation=runtime.canonical.attestation();
+        let row=self.operations.store.begin_run(&pse_operations::canonical_execution::RunRequest{key:run.clone(),revision:primary.clone(),sources,request,source_selection:selected,attestation:serde_json::to_vec(&(attestation.source,attestation.build)).map_err(|e|contract(e.to_string()))?}).await?;
+        drop(physical_rows);
+        let _=self.run.set(row);
+        let fence=self.operations.store.claim_run(&run,&self.claim_operation,self.operations.worker(),self.operations.policy.lease).await?;
+        self.fence.set(fence).map_err(|_|contract("native fence already recorded"))?;self.stream.ready.notify_one();Ok(())
     }
-
-    pub(super) const fn attempt_id(&self) -> AttemptId {
-        self.attempt
+    pub(crate) async fn start(&mut self,cancel:Canceller)->Result<(),WorkflowError>{if self.operations.policy.heartbeat.is_zero()||self.operations.policy.lease.is_zero(){return Err(contract("durable heartbeat and lease intervals must be positive"));}if self.heartbeat.is_some(){return Ok(());}let fence=self.fence.get().ok_or_else(||contract("no native claim before admission"))?.clone();self.stream.tap.set_cancel(cancel.clone());self.heartbeat=Some(Heartbeat::spawn(&self.operations,fence,cancel));Ok(())}
+    pub(super) async fn finish(mut self,result:&RunResult,cancelled:bool)->DurableRecord{
+        let stream=self.stream.finish().await;let lost=self.heartbeat.as_ref().is_some_and(|h|h.lost.load(Ordering::Acquire));
+        let mut outcome=classify(result,cancelled);
+        if lost {outcome=match self.heartbeat.as_ref().and_then(|heartbeat|heartbeat.failure.lock().ok().and_then(|failure|failure.clone())){Some(error)=>infrastructure(&error),None=>infrastructure(&contract("durable lease renewal failed"))};}
+        let mut solutions=Vec::new();
+        let ingestion=async {stream?;self.store_tables(result).await?;solutions=store_seeds(&self.operations,self.fence()?,result).await?;Ok::<(),WorkflowError>(())}.await;
+        if let Err(error)=&ingestion {outcome=infrastructure(error);}
+        let stored=StoredCompletion{version:1,attempt_id:self.attempt,completion:result.completion().ok().cloned(),termination:outcome.detail.clone(),state:outcome.state};
+        let terminal=self.terminate(&outcome,&stored).await;
+        if let Some(heartbeat)=self.heartbeat.take(){heartbeat.stop().await;}
+        let mut record=self.record(terminal,Some(stored),solutions).await;if let Err(error)=ingestion{record.attempt=Err(Arc::new(error));}record
     }
-
-    /// The run a claimed attempt tries, as the store holds it; `None` for a new attempt,
-    /// whose run is minted when it starts and stored at registration.
-    pub(super) fn claimed_run(&self) -> Option<RunId> {
-        self.claim.map(|claim| claim.run)
+    pub(crate) async fn abandon(mut self,error:&Arc<WorkflowError>)->DurableRecord{
+        let _=self.stream.finish().await;
+        if self.fence.get().is_none() {
+            return DurableRecord{attempt_id:self.attempt,attempt_key:None,run:self.run.get().cloned(),attempt:Err(error.clone()),manifest:None,completion:None,solutions:Vec::new()};
+        }
+        let outcome=failure(error,false);let stored=StoredCompletion{version:1,attempt_id:self.attempt,completion:None,termination:outcome.detail.clone(),state:outcome.state};let terminal=self.terminate(&outcome,&stored).await;if let Some(heartbeat)=self.heartbeat.take(){heartbeat.stop().await;}self.record(terminal,Some(stored),Vec::new()).await
     }
-
-    /// The durable progress tap; every event reaches the store, whatever the in-memory cap.
-    pub(super) fn tap(&self) -> Arc<dyn ProgressTap> {
-        self.stream.tap.clone()
+    fn fence(&self)->Result<&AttemptFence,WorkflowError>{self.fence.get().ok_or_else(||contract("canonical execution claim absent"))}
+    async fn store_tables(&self,result:&RunResult)->Result<(),WorkflowError>{
+        let fence=self.fence()?.clone();
+        for (relation,table) in result.tables().map_err(WorkflowError::Shared)? {
+            super::result_projection::store_result_table(&self.operations.store,&fence,*relation,table,&self.operations.pool).await?;
+        }Ok(())
     }
-
-    /// The step later progress events belong to, and where its incumbents' captured
-    /// solutions are stored (none for a constant evaluation).
-    pub(super) fn set_step(&self, step: usize, seed: Option<SeedContext>) {
-        let tap = &self.stream.tap;
-        if let Ok(mut current) = tap.seed.lock() {
-            *current = seed.map(Arc::new);
-        }
-        tap.step
-            .store(i32::try_from(step).unwrap_or(i32::MAX), Ordering::Release);
+    #[allow(unsafe_code,reason="controlled scientific owner admits original completed observations; no pointer or ABI operations")]
+    async fn terminate(&self,outcome:&Outcome,stored:&StoredCompletion)->Result<(CanonicalAttempt,ResultManifest),WorkflowError>{
+        let fence=self.fence()?;
+        let current_run=self.operations.store.canonical_run(fence.run()).await?.ok_or_else(||contract("completion run absent"))?;
+        let mut outcome=outcome.clone();let mut stored=stored.clone();
+        if current_run.cancelled {outcome.state=AttemptState::Cancelled;stored.state=AttemptState::Cancelled;}
+        let bytes=serde_json::to_vec(&stored).map_err(|e|contract(e.to_string()))?;
+        let current=self.operations.store.canonical_attempt(fence.attempt()).await?.ok_or_else(||contract("completion attempt absent"))?;
+        let mut receipt=if current.ingestion_open && current.expires_at>chrono::Utc::now().timestamp_micros(){match write_chunks(&self.operations.store,fence,"__completion",0,&bytes).await{Ok(receipt)=>receipt,Err(_) if outcome.state!=AttemptState::Completed=>CompletionReceipt{version:1,batch_count:0,payload_bytes:0,digest:String::new(),inline:Some(Box::new(stored.clone()))},Err(error)=>return Err(error)}}else{if outcome.state==AttemptState::Completed{return Err(contract("scientifically completed run lost live durable authority"));}CompletionReceipt{version:1,batch_count:0,payload_bytes:0,digest:String::new(),inline:Some(Box::new(stored.clone()))}};
+        let closed=if outcome.state==AttemptState::Cancelled {self.operations.store.cancel_run(fence.run(),&format!("cancel:{}",fence.attempt())).await?;self.operations.store.recover_closed_attempt(fence.run(),&format!("recovery:{}",fence.attempt())).await?} else {match self.operations.store.close_result_ingestion(fence,&format!("close:{}",fence.attempt())).await {Ok(closed)=>closed,Err(original)=>{match self.operations.store.recover_closed_attempt(fence.run(),&format!("recovery:{}",fence.attempt())).await{Ok(closed)=>closed,Err(_)=>return Err(original.into())}}}};
+        let current_run=self.operations.store.canonical_run(fence.run()).await?.ok_or_else(||contract("recovered completion run absent"))?;
+        if current_run.cancelled {outcome.state=AttemptState::Cancelled;stored.state=AttemptState::Cancelled;receipt=CompletionReceipt{version:1,batch_count:0,payload_bytes:0,digest:String::new(),inline:Some(Box::new(stored.clone()))};}
+        let manifest=self.operations.store.reconcile_closed_attempt(&closed).await?;
+        let class=match outcome.state {AttemptState::Completed=>TerminalClass::Succeeded,AttemptState::Partial=>TerminalClass::Partial,AttemptState::Cancelled=>TerminalClass::Cancelled,_=>TerminalClass::Failed};
+        // Completion is captured by the scientific owner, and tables are its admitted
+        // projections. Expired authority may settle only truthful failed/partial outcomes.
+        let terminal=unsafe{self.operations.store.seal_attempt(&manifest,&format!("seal:{}",fence.attempt()),class,&serde_json::to_vec(&receipt).map_err(|e|contract(e.to_string()))?).await}?;
+        Ok((terminal,manifest.row().clone()))
     }
-
-    /// Register a new attempt before any effect: planned, then queued for admission. A
-    /// claimed attempt is already registered and running.
-    pub(super) async fn register(
-        &self,
-        run_id: RunId,
-        request: &RunRequest,
-    ) -> Result<(), WorkflowError> {
-        if self.claim.is_some() {
-            return Ok(());
-        }
-        let (kind, request_identity, preparation_identity) = identities(request)?;
-        self.register_as(run_id, kind, request_identity, preparation_identity)
-            .await
-    }
-
-    /// Register a new attempt under identities its caller derived, for a run whose steps are
-    /// decided while it runs (a rolling horizon, Plan 22 Y5c): planned, then queued for
-    /// admission. A claimed attempt is already registered and running.
-    pub(super) async fn register_as(
-        &self,
-        run_id: RunId,
-        kind: AttemptKind,
-        request_identity: ContentHash,
-        preparation_identity: Option<ContentHash>,
-    ) -> Result<(), WorkflowError> {
-        if self.claim.is_some() {
-            return Ok(());
-        }
-        let attempts = self.operations.store.attempts();
-        attempts
-            .create(
-                &NewAttempt {
-                    attempt_id: self.attempt,
-                    run_id,
-                    kind,
-                    operational_job_identity:
-                        pse_ids::roles::RecordedOperationalJobIdentity::current(
-                            pse_ids::roles::OperationalJobHash::from(
-                                pse_ids::document::of(
-                                    pse_ids::Frame::DurableJobRequestV5,
-                                    &(self.attempt, run_id, kind, request_identity),
-                                )
-                                .map_err(|error| super::contract(error.to_string()))?,
-                            ),
-                        ),
-                    preparation_identity,
-                    parent_attempt: None,
-                },
-                Some(self.operations.worker()),
-            )
-            .await?;
-        attempts
-            .transition(
-                self.attempt,
-                AttemptState::Queued,
-                &TransitionNote::by(self.operations.worker()).because("awaiting native admission"),
-            )
-            .await?;
-        Ok(())
-    }
-
-    /// Enter running under this process's lease (a claimed attempt already is), then renew
-    /// the lease and watch the durable cancellation flag until the attempt finishes.
-    pub(crate) async fn start(&mut self, cancel: Canceller) -> Result<(), WorkflowError> {
-        if self.heartbeat.is_some() {
-            // A worker started its claimed attempt's lease before preparing the job.
-            return Ok(());
-        }
-        if self.claim.is_none() {
-            self.operations
-                .store
-                .attempts()
-                .start(
-                    self.attempt,
-                    self.operations.worker(),
-                    self.operations.policy.lease,
-                )
-                .await?;
-        }
-        self.heartbeat = Some(Heartbeat::spawn(&self.operations, self.attempt, cancel));
-        Ok(())
-    }
-
-    /// Record the end of the attempt: flush its stream, store its reusable seeds, write a
-    /// completed study point's result members, stop the lease and apply the terminal
-    /// transition (through the job for a claimed attempt, with the point's members), then
-    /// read back what the store holds.
-    pub(super) async fn finish(mut self, result: &RunResult, cancelled: bool) -> DurableRecord {
-        let lost = self.heartbeat.as_ref().is_some_and(Heartbeat::lost);
-        let flushed = self.stream.finish().await;
-        let solutions = match (&flushed, self.heartbeat.is_some()) {
-            (Ok(()), true) => store_seeds(&self.operations, self.attempt, result).await,
-            _ => Ok(Vec::new()),
-        };
-        let mut outcome = classify(result, cancelled || lost);
-        if let Err(error) = &flushed {
-            outcome = infrastructure(error);
-        }
-        let solutions = solutions.unwrap_or_else(|error| {
-            outcome = infrastructure(&error);
-            Vec::new()
-        });
-        // A completed point writes its members while its lease is still renewed; a write
-        // failure is infrastructure, so the point is retried as a new try.
-        let mut members = Vec::new();
-        if let Some(point) = &mut self.point {
-            point.scientific = super::study_operations::scientific_facts(result);
-            point.diagnostic = super::study_execution::result_diagnostic(result)
-                .map(|d| d.with_revision(point.source_revision));
-        }
-        if let Some(point) = &mut self.point
-            && result.tables().is_ok()
-        {
-            match result.write_point_members(point, self.attempt).await {
-                Ok(written) => {
-                    members = written;
-                    if let Some(point) = &mut self.point {
-                        point.effect = pse_model::study::EffectState::Idempotent;
-                    }
-                }
-                Err(error) => {
-                    outcome = infrastructure(&error);
-                }
-            }
-        }
-        if let Some(heartbeat) = self.heartbeat.take() {
-            heartbeat.stop().await;
-        }
-        let attempt = self.terminate(&outcome, members).await.map_err(Arc::new);
-        let (progress, incumbents) = self.snapshots().await;
-        DurableRecord {
-            attempt_id: self.attempt,
-            attempt,
-            progress,
-            incumbents,
-            solutions,
-        }
-    }
-
-    /// Record an attempt that never ran because preparation, registration or admission
-    /// failed: a claimed attempt ends through its job; an unstarted one is cancelled.
-    pub(crate) async fn abandon(mut self, error: &WorkflowError) -> DurableRecord {
-        let _ = self.stream.finish().await;
-        if let Some(heartbeat) = self.heartbeat.take() {
-            heartbeat.stop().await;
-        }
-        let outcome = failure(error, false);
-        let attempt = match self.claim {
-            Some(_) => self.terminate(&outcome, Vec::new()).await,
-            None => self.cancel_unstarted(&outcome).await,
-        }
-        .map_err(Arc::new);
-        DurableRecord {
-            attempt_id: self.attempt,
-            attempt,
-            progress: Ok(Vec::new()),
-            incumbents: Ok(Vec::new()),
-            solutions: Vec::new(),
-        }
-    }
-
-    /// End a claimed try whose task ran no solve (a study's finalization): completed with
-    /// `Ok(reason)`, otherwise failed (retried for infrastructure) or cancelled, like a run.
-    pub(crate) async fn end_task(mut self, ended: Result<String, WorkflowError>) -> DurableRecord {
-        let lost = self.heartbeat.as_ref().is_some_and(Heartbeat::lost);
-        let flushed = self.stream.finish().await;
-        if let Some(heartbeat) = self.heartbeat.take() {
-            heartbeat.stop().await;
-        }
-        let mut outcome = match &ended {
-            Ok(reason) if !lost => Outcome {
-                state: AttemptState::Completed,
-                termination: None,
-                reason: reason.clone(),
-                retryable: false,
-            },
-            Ok(_) => failure(
-                &WorkflowError::Math(crate::math::MathRuntimeError::Cancelled),
-                true,
-            ),
-            Err(error) => failure(error, lost),
-        };
-        if let Err(error) = &flushed {
-            outcome = infrastructure(error);
-        }
-        let attempt = self.terminate(&outcome, Vec::new()).await.map_err(Arc::new);
-        let (progress, incumbents) = self.snapshots().await;
-        DurableRecord {
-            attempt_id: self.attempt,
-            attempt,
-            progress,
-            incumbents,
-            solutions: Vec::new(),
-        }
-    }
-
-    /// The attempt's two streams as the store holds them once it ended: the snapshots
-    /// publication derives from.
-    async fn snapshots(
-        &self,
-    ) -> (
-        Result<Vec<ProgressEvent>, Arc<WorkflowError>>,
-        Result<Vec<RuntimeOperationalIncumbentsRow>, Arc<WorkflowError>>,
-    ) {
-        let streams = self.operations.store.streams();
-        (
-            streams
-                .snapshot(self.attempt)
-                .await
-                .map_err(|e| Arc::new(e.into())),
-            streams
-                .incumbent_snapshot(self.attempt)
-                .await
-                .map_err(|e| Arc::new(e.into())),
-        )
-    }
-
-    async fn cancel_unstarted(
-        &self,
-        outcome: &Outcome,
-    ) -> Result<RuntimeOperationalAttemptsRow, WorkflowError> {
-        let attempts = self.operations.store.attempts();
-        match attempts.get(self.attempt).await {
-            Ok(record) if matches!(record.state, AttemptState::Planned | AttemptState::Queued) => {
-                let note = outcome.note(self.operations.worker());
-                Ok(attempts
-                    .transition(self.attempt, AttemptState::Cancelled, &note)
-                    .await?)
-            }
-            Ok(record) => Ok(record),
-            Err(error) => Err(error.into()),
-        }
-    }
-
-    /// Apply the terminal transition; a claimed try ends through its job, recording the
-    /// result members a completed study point wrote.
-    async fn terminate(
-        &self,
-        outcome: &Outcome,
-        members: Vec<pse_operations::catalog::MemberDescriptor>,
-    ) -> Result<RuntimeOperationalAttemptsRow, WorkflowError> {
-        let mut note = outcome.note(self.operations.worker());
-        if let Some(termination) = &mut note.termination
-            && let Some(value) = &mut termination.detail
-        {
-            let mut detail: TerminationDetail = serde_json::from_value(value.clone())
-                .map_err(|error| super::contract(format!("typed termination detail: {error}")))?;
-            detail.retry_failure =
-                (outcome.state == AttemptState::Failed).then_some(if outcome.retryable {
-                    pse_model::study::RetryFailure::Transient
-                } else {
-                    pse_model::study::RetryFailure::Deterministic
-                });
-            if let Some(point) = &self.point {
-                let diagnostic = match &mut detail.cause {
-                    TerminationCause::Error { diagnostic }
-                    | TerminationCause::Infrastructure { diagnostic } => {
-                        *diagnostic = diagnostic.clone().with_revision(point.source_revision);
-                        if let Some(scientific) = &point.diagnostic {
-                            diagnostic.causes.push(scientific.clone());
-                        }
-                        Some(diagnostic.clone())
-                    }
-                    TerminationCause::Assessment { diagnostics, .. } => {
-                        for diagnostic in diagnostics {
-                            *diagnostic = diagnostic.clone().with_revision(point.source_revision);
-                        }
-                        point.diagnostic.clone()
-                    }
-                };
-                detail.point = Some(pse_model::study::PointAttemptOutcome {
-                    attempt_id: Some(self.attempt),
-                    lifecycle: Some(outcome.state),
-                    diagnostic,
-                    scientific: point.scientific.clone(),
-                    start: point.start.clone(),
-                    effect: point.effect,
-                });
-                detail.effect = point.effect;
-            }
-            *value = serde_json::to_value(detail)
-                .map_err(|error| super::contract(format!("typed termination detail: {error}")))?;
-        }
-        let store = &self.operations.store;
-        match self.claim {
-            None => Ok(store
-                .attempts()
-                .transition(self.attempt, outcome.state, &note)
-                .await?),
-            Some(claim) => {
-                let retry = (outcome.state == AttemptState::Failed
-                    && outcome.retryable
-                    && self.point.as_ref().is_none_or(|point| {
-                        matches!(
-                            point.effect,
-                            pse_model::study::EffectState::Absent
-                                | pse_model::study::EffectState::Idempotent
-                        )
-                    }))
-                .then(pse_operations::mint_id);
-                let finished = store
-                    .jobs()
-                    .finish(
-                        claim.job,
-                        self.operations.worker(),
-                        &JobOutcome {
-                            state: outcome.state,
-                            note,
-                            retry_as: retry,
-                            members,
-                        },
-                    )
-                    .await?;
-                if let Finished::Requeued { attempt_id, .. } = finished {
-                    tracing::info!(job = %claim.job, next = %attempt_id, "failed try requeued");
-                }
-                Ok(store.attempts().get(self.attempt).await?)
-            }
-        }
+    async fn record(&self,terminal:Result<(CanonicalAttempt,ResultManifest),WorkflowError>,completion:Option<StoredCompletion>,solutions:Vec<(usize,SolutionId)>)->DurableRecord{
+        let mut terminal=terminal;
+        let run_key=self.fence.get().map(AttemptFence::run).or_else(||self.run.get().map(|row|row.key.as_str()));
+        let run=match run_key {Some(key)=>match self.operations.store.canonical_run(key).await {Ok(row)=>row,Err(error)=>{terminal=Err(error.into());None}},None=>None};
+        let completion=match completion {Some(mut completion)=>{if terminal.as_ref().is_ok_and(|(attempt,_)|attempt.outcome.as_deref()==Some("cancelled")){completion.state=AttemptState::Cancelled;}match serde_json::to_vec(&completion).map_err(|e|contract(e.to_string())).and_then(|bytes|reserve(&self.operations.pool,bytes.len())){Ok(owner)=>Some(Arc::new(pse_columnar::Leased::new(Arc::new(completion),owner))),Err(error)=>{terminal=Err(error);None}}},None=>None};
+        let (attempt,manifest)=match terminal {Ok((attempt,manifest))=>(Ok(attempt),Some(manifest)),Err(error)=>(Err(Arc::new(error)),None)};DurableRecord{attempt_id:self.attempt,attempt_key:self.fence.get().map(|f|f.attempt().to_owned()),run,attempt,manifest,completion,solutions}
     }
 }
-
-/// The attempt kind and the identities it is registered with: the request identity of
-/// every step (blueprint §5.1) and, for one prepared step, its preparation identity.
-fn identities(
-    request: &RunRequest,
-) -> Result<(AttemptKind, ContentHash, Option<ContentHash>), WorkflowError> {
-    let math = |e: pse_backend_native::ProblemError| {
-        WorkflowError::Math(crate::math::MathRuntimeError::from(e))
-    };
-    Ok(match request {
-        RunRequest::Modeling(steps) => {
-            let mut h = FramedHasher::new(pse_ids::Frame::DurableModelingRequestV3);
-            h.u64(steps.len() as u64);
-            for step in steps {
-                h.hash(&step.solve.request_identity().map_err(math)?.as_id());
-            }
-            let preparation = match steps.as_slice() {
-                [one] => Some(one.solve.preparation_identity().map_err(math)?),
-                _ => None,
-            };
-            (AttemptKind::Modeling, h.finish_hash(), preparation)
-        }
-        RunRequest::Simulation(s) => (AttemptKind::Simulation, s.identity(), Some(s.identity())),
-        RunRequest::Fit(f) => (AttemptKind::Fit, f.problem.key, Some(f.problem.key)),
-        #[cfg(feature = "solver-diffsol")]
-        RunRequest::Shooting { problem, initial } => (
-            AttemptKind::Shooting,
-            problem.request_identity(initial.as_deref()).as_id(),
-            Some(problem.request_identity(None).as_id()),
-        ),
-    })
-}
-
 /// Version 1 of the typed detail of an attempt's termination, stored as the attempt's
 /// termination-detail document (ADR-0116 Outcome 6): the typed values that explain why the
 /// try ended as it did.
@@ -758,7 +262,7 @@ pub struct TerminationDetail {
     pub point: Option<pse_model::study::PointAttemptOutcome>,
     /// Purpose-specific retry classification; severity does not grant retries.
     pub retry_failure: Option<pse_model::study::RetryFailure>,
-    /// Publication knowledge is independent of attempt lifecycle.
+    /// Effect knowledge is independent of attempt lifecycle.
     pub effect: pse_model::study::EffectState,
 }
 
@@ -771,7 +275,7 @@ pub enum TerminationCause {
         /// The error's message.
         diagnostic: pse_model::diagnostic::BoundaryDiagnostic,
     },
-    /// Infrastructure failed the try; it is retried under the job's policy.
+    /// Infrastructure failed the try; authored point policy decides whether retry is permitted.
     Infrastructure {
         /// Preserved original typed cause and observations.
         diagnostic: pse_model::diagnostic::BoundaryDiagnostic,
@@ -787,592 +291,249 @@ pub enum TerminationCause {
     },
 }
 
-fn termination(code: TerminationCode, cause: TerminationCause) -> Option<Termination> {
-    let detail = TerminationDetail {
-        version: pse_model::document::Version,
-        cause,
-        point: None,
-        retry_failure: None,
-        effect: pse_model::study::EffectState::Absent,
-    };
-    Some(Termination {
-        code,
-        // Strings, Booleans and registry spellings always encode.
-        detail: serde_json::to_value(detail).ok(),
-    })
-}
 
-/// A run-level failure: cancelled when cancellation stopped it, otherwise failed with the
-/// error's diagnostic code; retryable only for infrastructure.
-fn failure(error: &WorkflowError, cancelled: bool) -> Outcome {
-    use crate::math::MathRuntimeError as M;
-    let is_cancel = matches!(error, WorkflowError::Math(M::Cancelled));
-    // The error's typed §23.2 code (X4); an error without one is an internal failure. The
-    // violated named contract, when the error names one, is kept in the detail.
-    let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(error)
-        .unwrap_or(pse_diagnostics::DiagnosticCode::InternalInvariant);
-    let retryable = match error {
-        WorkflowError::Operations(e) => e.is_retryable(),
-        WorkflowError::Math(M::Infrastructure(_)) => true,
-        _ => false,
-    };
-    let detail = TerminationCause::Error {
-        diagnostic: error.boundary_diagnostic(),
-    };
-    if cancelled || is_cancel {
-        Outcome {
-            state: AttemptState::Cancelled,
-            termination: termination(
-                TerminationCode::Runtime(RuntimeTermination::Cancelled),
-                detail,
-            ),
-            reason: "cancellation requested".to_owned(),
-            retryable: false,
-        }
-    } else {
-        Outcome {
-            state: AttemptState::Failed,
-            termination: termination(TerminationCode::Rule(code), detail),
-            reason: error.to_string(),
-            retryable,
-        }
+fn detail(cause:TerminationCause,retryable:bool)->TerminationDetail{TerminationDetail{version:pse_model::document::Version,cause,point:None,retry_failure:Some(if retryable{pse_model::study::RetryFailure::Transient}else{pse_model::study::RetryFailure::Deterministic}),effect:pse_model::study::EffectState::Absent}}
+fn failure(error:&WorkflowError,cancelled:bool)->Outcome{let cancelled=cancelled||matches!(error,WorkflowError::Math(crate::math::MathRuntimeError::Cancelled));let retryable=matches!(error,WorkflowError::Canonical(_)|WorkflowError::Math(crate::math::MathRuntimeError::Infrastructure(_)));Outcome{state:if cancelled{AttemptState::Cancelled}else{AttemptState::Failed},detail:detail(TerminationCause::Error{diagnostic:error.boundary_diagnostic()},retryable),retryable}}
+fn infrastructure(error:&WorkflowError)->Outcome{let mut outcome=failure(error,false);outcome.detail.cause=TerminationCause::Infrastructure{diagnostic:error.boundary_diagnostic()};outcome}
+fn classify(result:&RunResult,cancelled:bool)->Outcome {if let Err(error)=result.report(){return failure(error,cancelled);}let any=result.assessments().iter().any(|a|a.permits_result);Outcome{state:if cancelled{AttemptState::Cancelled}else if result.usable(){AttemptState::Completed}else if any{AttemptState::Partial}else{AttemptState::Failed},detail:detail(TerminationCause::Assessment{usable:result.usable(),candidate_use:result.assessments().iter().map(|a|a.usability).collect(),diagnostics:result.completion().map_or_else(|e|vec![e.boundary_diagnostic()],|c|c.diagnostics.clone())},false),retryable:false}}
+fn identities(request:&RunRequest)->Result<(ContentHash,Option<ContentHash>),WorkflowError>{let math=|e:pse_backend_native::ProblemError|WorkflowError::Math(crate::math::MathRuntimeError::from(e));Ok(match request{RunRequest::Modeling(steps)=>{let mut h=FramedHasher::new(Frame::DurableModelingRequestV3);h.u64(steps.len()as u64);for step in steps{h.hash(&step.solve.request_identity().map_err(math)?.as_id());}let preparation=match steps.as_slice(){[one]=>Some(one.solve.preparation_identity().map_err(math)?),_=>None};(h.finish_hash(),preparation)},RunRequest::Simulation(s)=>(s.identity(),Some(s.identity())),RunRequest::Fit(f)=>(f.problem.key,Some(f.problem.key)),#[cfg(feature="solver-diffsol")]RunRequest::Shooting{problem,initial}=>(problem.request_identity(initial.as_deref()).as_id(),Some(problem.request_identity(None).as_id()))})}
+fn request_inputs(request:&RunRequest)->Result<Vec<Revision>,WorkflowError>{let mut revisions=match request{RunRequest::Modeling(steps)=>steps.iter().map(|s|s.source.revision.canonical.clone()).collect(),RunRequest::Simulation(s)=>vec![s.source.revision.canonical.clone()],RunRequest::Fit(f)=>vec![f.source.revision.canonical.clone()],#[cfg(feature="solver-diffsol")]RunRequest::Shooting{problem,..}=>vec![problem.simulation.source.revision.canonical.clone()]};revisions.sort_by(|a:&Revision,b|a.key.cmp(&b.key));revisions.dedup_by(|a,b|a.key==b.key);Ok(revisions)}
+fn request_context(request:&RunRequest)->Result<(&super::Runtime,&super::PhysicalContext),WorkflowError>{let source=match request{RunRequest::Modeling(steps)=>&steps.first().ok_or_else(||contract("empty scientific request"))?.source,RunRequest::Simulation(s)=>&s.source,RunRequest::Fit(f)=>&f.source,#[cfg(feature="solver-diffsol")]RunRequest::Shooting{problem,..}=>&problem.simulation.source};Ok((&source.runtime,&source.physical))}
+fn request_provenance(request:&RunRequest)->Result<Vec<serde_json::Value>,WorkflowError>{
+    let encode=|value|serde_json::to_value(value).map_err(|e|contract(e.to_string()));
+    match request {
+        RunRequest::Modeling(steps)=>steps.iter().map(|step|serde_json::to_value((&step.starts,step.solve.numerical_strategy())).map_err(|e|contract(e.to_string()))).collect(),
+        RunRequest::Simulation(simulation)=>Ok(vec![encode(simulation.profile())?]),
+        RunRequest::Fit(fit)=>Ok(vec![serde_json::to_value(fit.numerical_strategy()).map_err(|e|contract(e.to_string()))?]),
+        #[cfg(feature="solver-diffsol")]RunRequest::Shooting{problem,..}=>Ok(vec![serde_json::to_value(problem.numerical_strategy().map_err(crate::math::MathRuntimeError::from)?).map_err(|e|contract(e.to_string()))?]),
     }
 }
-
-fn infrastructure(error: &WorkflowError) -> Outcome {
-    Outcome {
-        state: AttemptState::Failed,
-        termination: termination(
-            TerminationCode::Runtime(RuntimeTermination::Infrastructure),
-            TerminationCause::Infrastructure {
-                diagnostic: error.boundary_diagnostic(),
-            },
-        ),
-        reason: error.to_string(),
-        retryable: match error {
-            WorkflowError::Operations(error) => error.is_retryable(),
-            WorkflowError::Math(crate::math::MathRuntimeError::Infrastructure(_)) => true,
-            _ => false,
-        },
-    }
-}
-
-/// The typed end of a joined run: cancelled when cancellation stopped it; completed when
-/// every requested candidate is a result; partial when some are; failed otherwise. The
-/// termination code is the last native termination (or the run error's diagnostic code).
-fn classify(result: &RunResult, cancelled: bool) -> Outcome {
-    let report = match result.report() {
-        Ok(report) => report,
-        Err(error) => return failure(error, cancelled),
-    };
-    let uses: Vec<CandidateUse> = result.assessments().iter().map(|a| a.usability).collect();
-    let usable = |a: &&pse_model::generated::runtime::candidate_assessments::Row| a.permits_result;
-    let any = result.assessments().iter().any(|a| usable(&a));
-    let code = match (report, result.completion()) {
-        (RunReport::Modeling(_), Ok(c)) => c
-            .solves
-            .iter()
-            .rev()
-            .find_map(|s| s.termination.map(TerminationCode::Native))
-            .unwrap_or_else(|| {
-                c.solves.last().map_or(
-                    TerminationCode::Runtime(RuntimeTermination::Unattempted),
-                    |s| TerminationCode::RunState(s.state),
-                )
-            }),
-        (RunReport::Simulation(t), _) => TerminationCode::Trajectory(t.report().termination),
-        #[cfg(feature = "solver-diffsol")]
-        (RunReport::Shooting(_), Ok(c)) => {
-            c.computation.as_ref().and_then(|r| r.termination).map_or(
-                TerminationCode::Runtime(RuntimeTermination::ConstantEvaluation),
-                TerminationCode::Native,
-            )
-        }
-        (RunReport::Fit(_), Ok(c)) => c.computation.as_ref().and_then(|r| r.termination).map_or(
-            TerminationCode::Runtime(RuntimeTermination::ConstantEvaluation),
-            TerminationCode::Native,
-        ),
-        (_, Err(_)) => TerminationCode::Runtime(RuntimeTermination::Unassessed),
-    };
-    let detail = TerminationCause::Assessment {
-        usable: result.usable(),
-        candidate_use: uses,
-        diagnostics: result.completion().map_or_else(
-            |error| vec![error.boundary_diagnostic()],
-            |completion| completion.diagnostics.clone(),
-        ),
-    };
-    let (state, reason) = if cancelled {
-        (AttemptState::Cancelled, "cancellation requested")
-    } else if result.usable() {
-        (
-            AttemptState::Completed,
-            "every requested candidate is a result",
-        )
-    } else if any {
-        (
-            AttemptState::Partial,
-            "some requested candidates are results",
-        )
-    } else {
-        (AttemptState::Failed, "no requested candidate is a result")
-    };
-    Outcome {
-        state,
-        termination: termination(
-            if cancelled {
-                TerminationCode::Runtime(RuntimeTermination::Cancelled)
-            } else {
-                code
-            },
-            detail,
-        ),
-        reason: reason.to_owned(),
-        retryable: false,
-    }
-}
-
-// ------------------------------------------------------------------ heartbeat --
-
-/// Renews the lease and watches the durable cancellation flag of one running attempt.
 #[derive(Debug)]
-struct Heartbeat {
-    stop: tokio::sync::oneshot::Sender<()>,
-    task: tokio::task::JoinHandle<()>,
-    lost: Arc<AtomicBool>,
-}
-
-impl Heartbeat {
-    fn spawn(operations: &Operations, attempt: AttemptId, cancel: Canceller) -> Self {
-        let (stop, mut stopped) = tokio::sync::oneshot::channel::<()>();
-        let lost = Arc::new(AtomicBool::new(false));
-        let lease_lost = lost.clone();
-        let operations = operations.clone();
-        let task = tokio::spawn(async move {
-            // LISTEN first, then read the authority: a request made before the watcher
-            // existed is still observed (the listen-then-inspect rule).
-            let mut watcher = operations.store.watch_cancellation(attempt).await.ok();
-            let mut ticks = tokio::time::interval(operations.policy.heartbeat);
-            loop {
-                tokio::select! {
-                    _ = &mut stopped => break,
-                    _ = ticks.tick() => {
-                        match operations
-                            .store
-                            .attempts()
-                            .heartbeat(attempt, operations.worker(), operations.policy.lease)
-                            .await
-                        {
-                            Ok(ack) if ack.cancel_requested => cancel(),
-                            Ok(_) => {}
-                            Err(OperationsError::LeaseLost { .. }) => {
-                                lease_lost.store(true, Ordering::Release);
-                                cancel();
-                                break;
-                            }
-                            Err(error) => {
-                                tracing::warn!(%attempt, %error, "lease renewal failed; retrying");
-                            }
-                        }
-                    }
-                    requested = async {
-                        match watcher.as_mut() {
-                            Some(w) => w.requested().await,
-                            None => std::future::pending().await,
-                        }
-                    } => {
-                        if requested.is_ok() {
-                            cancel();
-                        }
-                        // Observed or failed: the heartbeat keeps reading the flag.
-                        watcher = None;
-                    }
-                }
-            }
-        });
-        Self { stop, task, lost }
-    }
-
-    fn lost(&self) -> bool {
-        self.lost.load(Ordering::Acquire)
-    }
-
-    async fn stop(self) {
-        let _ = self.stop.send(());
-        let _ = self.task.await;
-    }
-}
-
-// --------------------------------------------------------------------- stream --
-
-/// Where a step's incumbent solutions are stored: the coordinate-compatibility stamps and
-/// the seed preparation identity a warm start of that step is keyed by.
-#[derive(Clone, Debug)]
-pub(super) struct SeedContext {
-    /// The step's compatibility stamps and backend.
-    pub(super) compatibility: Compatibility,
-    /// The step's seed preparation identity.
-    pub(super) preparation: ContentHash,
-}
-
-/// One observed native event, the step it belongs to and, for an incumbent with its
-/// solution, where that step's seeds are stored.
-type Observed = (
-    i32,
-    chrono::DateTime<chrono::Utc>,
-    Event,
-    Option<Arc<SeedContext>>,
-);
-
-/// The progress tap of a durable attempt; never blocks the native thread.
+struct Heartbeat {stop:tokio::sync::oneshot::Sender<()>,task:tokio::task::JoinHandle<()>,lost:Arc<AtomicBool>,failure:Arc<Mutex<Option<Arc<WorkflowError>>>>}
+impl Heartbeat {fn spawn(operations:&Operations,fence:AttemptFence,cancel:Canceller)->Self{let (stop,mut stopped)=tokio::sync::oneshot::channel();let operations=operations.clone();let lost=Arc::new(AtomicBool::new(false));let flag=lost.clone();let failure=Arc::new(Mutex::new(None));let recorded=failure.clone();let task=tokio::spawn(async move{let mut interval=tokio::time::interval(operations.policy.heartbeat);interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);loop{tokio::select!{_=&mut stopped=>break,_=interval.tick()=>{if let Err(error)=operations.store.renew_attempt(&fence,operations.policy.lease).await{if let Ok(mut failure)=recorded.lock(){*failure=Some(Arc::new(WorkflowError::Canonical(error)));}flag.store(true,Ordering::Release);cancel();break;}}}}});Self{stop,task,lost,failure}}async fn stop(self){let _=self.stop.send(());let _=self.task.await;}}
+struct Tap {step:AtomicI32,sender:Mutex<Option<tokio::sync::mpsc::Sender<super::ProgressEventDocument>>>,overflow:AtomicBool,cancel:Mutex<Option<Canceller>>}
+impl std::fmt::Debug for Tap{fn fmt(&self,f:&mut std::fmt::Formatter<'_>)->std::fmt::Result{f.debug_struct("Tap").field("overflow",&self.overflow).finish_non_exhaustive()}}
+impl Tap{fn set_cancel(&self,cancel:Canceller){if self.overflow.load(Ordering::Acquire){cancel();}if let Ok(mut slot)=self.cancel.lock(){*slot=Some(cancel);}}}
+impl ProgressTap for Tap{fn observe(&self,event:&Event){let mut document=super::ProgressEventDocument::from(event);document.step=Some(self.step.load(Ordering::Acquire));document.at=Some(chrono::Utc::now().timestamp_micros());if let Ok(sender)=self.sender.lock()&&let Some(sender)=sender.as_ref()&&sender.try_send(document).is_err(){self.overflow.store(true,Ordering::Release);if let Ok(cancel)=self.cancel.lock()&&let Some(cancel)=cancel.as_ref(){cancel();}}}}
 #[derive(Debug)]
-struct Tap {
-    step: AtomicI32,
-    seed: Mutex<Option<Arc<SeedContext>>>,
-    sender: Mutex<Option<tokio::sync::mpsc::UnboundedSender<Observed>>>,
-}
-
-impl ProgressTap for Tap {
-    fn observe(&self, event: &Event) {
-        let step = self.step.load(Ordering::Acquire);
-        let seed = event
-            .incumbent
-            .as_ref()
-            .filter(|incumbent| incumbent.primal.is_some())
-            .and_then(|_| self.seed.lock().ok().and_then(|seed| seed.clone()));
-        if let Ok(sender) = self.sender.lock()
-            && let Some(sender) = sender.as_ref()
-        {
-            let _ = sender.send((step, chrono::Utc::now(), event.clone(), seed));
-        }
-    }
-}
-
-/// Writes a durable attempt's progress and incumbents in batched inserts, numbering each
-/// stream in order.
-#[derive(Debug)]
-struct Streamer {
-    tap: Arc<Tap>,
-    task: Option<tokio::task::JoinHandle<Result<(), WorkflowError>>>,
-}
-
-fn value(metric: &Metric) -> ProgressValue {
-    match metric {
-        Metric::Real(v) => ProgressValue::real(*v),
-        Metric::Integer(v) => ProgressValue::Integer(*v),
-        Metric::Text(v) => ProgressValue::Text(v.clone()),
-        Metric::Bool(v) => ProgressValue::Boolean(*v),
-        Metric::Unavailable(reason) => ProgressValue::Unavailable(*reason),
-    }
-}
-
-/// One batch of a durable attempt's streams: progress events, and incumbents with the
-/// solutions they capture.
-#[derive(Debug, Default)]
-struct Batch {
-    progress: Vec<ProgressEvent>,
-    incumbents: Vec<RuntimeOperationalIncumbentsRow>,
-    solutions: Vec<NewSolution>,
-}
-
-impl Batch {
-    fn len(&self) -> usize {
-        self.progress.len() + self.incumbents.len()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    fn clear(&mut self) {
-        self.progress.clear();
-        self.incumbents.clear();
-        self.solutions.clear();
-    }
-}
-
-/// The next sequence numbers of an attempt's two streams.
-#[derive(Debug, Default)]
-struct Sequences {
-    progress: i64,
-    incumbents: i64,
-}
-
+struct Streamer {tap:Arc<Tap>,ready:Arc<tokio::sync::Notify>,task:Option<tokio::task::JoinHandle<Result<(),WorkflowError>>>}
 impl Streamer {
-    fn spawn(operations: &Operations, attempt: AttemptId) -> Self {
-        let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<Observed>();
-        let tap = Arc::new(Tap {
-            step: AtomicI32::new(0),
-            seed: Mutex::new(None),
-            sender: Mutex::new(Some(sender)),
-        });
-        let operations = operations.clone();
-        let task = tokio::spawn(async move {
-            let policy = operations.policy;
-            let mut sequences = Sequences::default();
-            let mut batch = Batch::default();
-            let mut open = true;
-            while open {
-                // Wait for the first event, then gather until the batch is full, the flush
-                // interval passed or the stream closed.
-                match receiver.recv().await {
-                    Some(observed) => batch.push(attempt, &mut sequences, observed),
-                    None => open = false,
+    fn new(operations:&Operations,fence:Arc<OnceLock<AttemptFence>>)->Self {
+        let capacity=operations.policy.batch.clamp(1,512);
+        let(sender,mut receiver)=tokio::sync::mpsc::channel::<super::ProgressEventDocument>(capacity);
+        let tap=Arc::new(Tap{step:AtomicI32::new(0),sender:Mutex::new(Some(sender)),overflow:AtomicBool::new(false),cancel:Mutex::new(None)});
+        let ready=Arc::new(tokio::sync::Notify::new());let signal=ready.clone();let operations=operations.clone();
+        let task=tokio::spawn(async move {
+            while fence.get().is_none(){tokio::select!{_=signal.notified()=>{},event=receiver.recv()=>{if event.is_some(){return Err(contract("native progress observed before claim"));}return Ok(());}}}
+            let fence=fence.get().ok_or_else(||contract("progress native claim absent"))?.clone();
+            let(mut ordinal,mut sequence)=(0_u64,0_i64);
+            while let Some(event)=receiver.recv().await {
+                let _owner=reserve(&operations.pool,RESULT_BATCH_BYTES)?;
+                let mut events=Vec::with_capacity(capacity);events.push(event);
+                let deadline=std::time::Instant::now().checked_add(operations.policy.flush).ok_or_else(||contract("progress flush deadline extent"))?;
+                while events.len()<capacity {
+                    let remaining=deadline.saturating_duration_since(std::time::Instant::now());let limit=capacity-events.len();
+                    match tokio::time::timeout(remaining,receiver.recv_many(&mut events,limit)).await {Ok(0)|Err(_)=>break,Ok(_)=>{}}
                 }
-                let deadline = tokio::time::Instant::now() + policy.flush;
-                while open && batch.len() < policy.batch {
-                    match tokio::time::timeout_at(deadline, receiver.recv()).await {
-                        Ok(Some(observed)) => batch.push(attempt, &mut sequences, observed),
-                        Ok(None) => open = false,
-                        Err(_) => break,
+                for event in &mut events{event.sequence=Some(sequence);sequence=sequence.checked_add(1).ok_or_else(||contract("progress sequence overflow"))?;}
+                let mut ranges=std::collections::VecDeque::from([(0,events.len())]);
+                while let Some((start,end))=ranges.pop_front() {
+                    let mut output=ProgressBuffer{bytes:Vec::new(),full:false};output.bytes.try_reserve_exact(RESULT_BATCH_BYTES).map_err(|_|contract("progress payload allocation refused"))?;
+                    match serde_json::to_writer(&mut output,&events[start..end]) {
+                        Ok(())=>{operations.store.append_result_batch(&fence,&format!("progress:{}:{ordinal}",fence.attempt()),"__progress",ordinal,&output.bytes,(end-start)as u64).await?;ordinal=ordinal.checked_add(1).ok_or_else(||contract("progress batch ordinal overflow"))?;},
+                        Err(_) if output.full&&end-start>1=>{let middle=start+(end-start)/2;ranges.push_front((middle,end));ranges.push_front((start,middle));},
+                        Err(_) if output.full=>return Err(contract("one progress observation exceeds immutable batch extent")),
+                        Err(error)=>return Err(contract(error.to_string())),
                     }
-                }
-                if !batch.is_empty() {
-                    append(&operations, attempt, &batch).await?;
-                    batch.clear();
                 }
             }
             Ok(())
         });
-        Self {
-            tap,
-            task: Some(task),
-        }
+        Self{tap,ready,task:Some(task)}
     }
-
-    /// Close the stream and wait until every observed event is stored. Events observed
-    /// after this are not part of the attempt.
-    async fn finish(&mut self) -> Result<(), WorkflowError> {
-        if let Ok(mut sender) = self.tap.sender.lock() {
-            sender.take();
-        }
-        match self.task.take() {
-            Some(task) => task.await.map_err(|e| {
-                WorkflowError::Math(crate::math::MathRuntimeError::Infrastructure(format!(
-                    "progress stream task: {e}"
-                )))
-            })?,
-            None => Ok(()),
-        }
+    async fn finish(&mut self)->Result<(),WorkflowError> {
+        if let Ok(mut sender)=self.tap.sender.lock(){sender.take();}
+        if let Some(task)=self.task.take(){task.await.map_err(|error|contract(format!("progress writer: {error}")))??;}
+        if self.tap.overflow.load(Ordering::Acquire){return Err(contract("durable progress queue overflow; scientific run cancelled"));}
+        Ok(())
     }
 }
-
-impl Batch {
-    /// An incumbent joins the incumbent stream, its captured solution stored as a seed of
-    /// its step; every other event joins the progress stream.
-    fn push(&mut self, attempt: AttemptId, sequences: &mut Sequences, observed: Observed) {
-        let (step, at, event, seed) = observed;
-        if let Some(incumbent) = &event.incumbent {
-            let solution = captured(attempt, incumbent, seed.as_deref());
-            self.incumbents.push(RuntimeOperationalIncumbentsRow {
-                attempt_id: attempt,
-                seq: sequences.incumbents,
-                step,
-                at: at.timestamp_micros(),
-                elapsed_seconds: event.elapsed.as_secs_f64(),
-                phase: event.phase.clone(),
-                objective: incumbent.objective,
-                dual_bound: incumbent.dual_bound,
-                gap: incumbent.gap,
-                // Only a count and a finite duration are stored; anything else is absent.
-                nodes: (incumbent.nodes >= 0).then_some(incumbent.nodes),
-                seconds: (incumbent.seconds.is_finite() && incumbent.seconds >= 0.0)
-                    .then_some(incumbent.seconds),
-                solution_id: solution.as_ref().map(|s| s.solution_id),
-            });
-            sequences.incumbents += 1;
-            self.solutions.extend(solution);
-            return;
-        }
-        self.progress.push(ProgressEvent {
-            seq: sequences.progress,
-            step,
-            at,
-            elapsed_seconds: event.elapsed.as_secs_f64(),
-            phase: event.phase,
-            values: event
-                .values
-                .iter()
-                .map(|(name, metric)| (name.clone(), value(metric)))
-                .collect(),
-        });
-        sequences.progress += 1;
+struct ProgressBuffer{bytes:Vec<u8>,full:bool}
+impl std::io::Write for ProgressBuffer {
+    fn write(&mut self,bytes:&[u8])->std::io::Result<usize> {
+        if bytes.len()>RESULT_BATCH_BYTES.saturating_sub(self.bytes.len()){self.full=true;return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,"progress batch extent"));}
+        self.bytes.extend_from_slice(bytes);Ok(bytes.len())
     }
+    fn flush(&mut self)->std::io::Result<()>{Ok(())}
 }
+pub(crate) fn decode_progress(bytes:&[u8])->Result<Vec<super::ProgressEventDocument>,WorkflowError>{let events:Vec<super::ProgressEventDocument>=serde_json::from_slice(bytes).map_err(|e|contract(e.to_string()))?;if events.len()>512{return Err(contract("progress block event bound"));}Ok(events)}
+async fn write_chunks(store:&CanonicalStore,fence:&AttemptFence,name:&str,first:u64,bytes:&[u8])->Result<CompletionReceipt,WorkflowError>{let mut count=0;for (ordinal,chunk) in bytes.chunks(RESULT_BATCH_BYTES).enumerate(){store.append_result_batch(fence,&format!("chunks:{}:{name}:{}",fence.attempt(),first+ordinal as u64),name,first+ordinal as u64,chunk,chunk.len() as u64).await?;count+=1;}Ok(CompletionReceipt{version:1,batch_count:count,payload_bytes:bytes.len()as u64,digest:result_payload_digest(bytes),inline:None})}
+async fn read_chunks(store:&CanonicalStore,pool:&Arc<dyn MemoryPool>,read:&pse_operations::canonical_results::ResultRead,name:&str,first:u64,count:u64,length:u64,digest:&str,subset:bool)->Result<(Vec<u8>,Arc<pse_columnar::AllocationLease>),WorkflowError>{let set=result_set_key(&read.attempt().key,name);let descriptor=read.sets().iter().find(|s|s.key==set).ok_or_else(||contract("stored chunk set absent"))?;if (!subset&&(descriptor.batch_count!=count||descriptor.row_count!=length))||first.checked_add(count).is_none_or(|end|end>descriptor.batch_count)||count!=length.div_ceil(RESULT_BATCH_BYTES as u64){return Err(contract("stored chunk descriptor differs"));}let extent=usize::try_from(length).map_err(|_|contract("stored extent overflow"))?;let owner=reserve(pool,extent)?;let mut bytes=Vec::new();bytes.try_reserve_exact(extent).map_err(|_|contract("stored chunk allocation refused"))?;for ordinal in 0..count{read.renew(Duration::from_secs(60)).await?;let payload=store.result_payload(read,&set,first+ordinal).await?;let expected=(length-ordinal*RESULT_BATCH_BYTES as u64).min(RESULT_BATCH_BYTES as u64);if payload.batch.payload.len()as u64!=expected||payload.batch.row_count!=expected{return Err(contract("stored chunk coverage differs"));}bytes.extend_from_slice(payload.batch.payload.as_slice());}if result_payload_digest(&bytes)!=digest{return Err(contract("stored chunk digest differs"));}Ok((bytes,owner))}
 
-/// The seed an incumbent's captured solution is stored as: the primal start of its step's
-/// backend, keyed like the step's output seed. Absent without a captured solution or a
-/// seed context (a constant evaluation stores no seed).
-fn captured(
-    attempt: AttemptId,
-    incumbent: &IncumbentEvent,
-    seed: Option<&SeedContext>,
-) -> Option<NewSolution> {
-    let (primal, seed) = (incumbent.primal.as_ref()?, seed?);
-    let payload = pse_backend_native::execution::adapter(seed.compatibility.backend)
-        .primal_start(primal.clone())
-        .ok()?;
-    Some(NewSolution {
-        solution_id: pse_operations::mint_id(),
-        compatibility_stamp: seed.compatibility.layout,
-        preparation_identity: seed.preparation,
-        backend: seed.compatibility.backend,
-        profile_stamp: seed.compatibility.profile,
-        data_stamp: seed.compatibility.data,
-        vectors: seed_vectors(&payload),
-        created_by: Some(attempt),
-    })
-}
-
-/// Append one batch, retrying transient store failures a bounded number of times. Both
-/// streams are idempotent per sequence number, so a retried batch never duplicates.
-async fn append(
-    operations: &Operations,
-    attempt: AttemptId,
-    batch: &Batch,
-) -> Result<(), WorkflowError> {
-    let streams = operations.store.streams();
-    let write = || async {
-        if !batch.progress.is_empty() {
-            streams.append_progress(attempt, &batch.progress).await?;
-        }
-        streams
-            .record_incumbents(&batch.incumbents, &batch.solutions)
-            .await?;
-        Ok::<(), OperationsError>(())
+/// Portable scientific seed encoding stores every IEEE bit; native working sets stay local.
+#[derive(Clone,Debug,Serialize,Deserialize)]
+#[serde(tag="kind",rename_all="snake_case",deny_unknown_fields)]
+enum SeedPayload {Root{primal:Vec<u64>},Nlp{primal:Vec<u64>,bounds:Option<(Vec<u64>,Vec<u64>)>,rows:Option<Vec<u64>>,barrier:Option<u64>},Highs{primal:Option<Vec<u64>>,dual:Option<(Vec<u64>,Vec<u64>)>,basis:Option<(Vec<i32>,Vec<i32>)>}}
+#[derive(Clone,Debug,Serialize,Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SeedDocument {version:u8,warm:SeedPayload,prediction:Option<super::modeling::results::PortablePrediction>}
+fn bits(values:&[f64])->Vec<u64>{values.iter().map(|v|v.to_bits()).collect()}
+fn floats(values:Vec<u64>)->Vec<f64>{values.into_iter().map(f64::from_bits).collect()}
+fn seed_payload(payload:&WarmPayload)->SeedPayload{match payload{WarmPayload::Root(primal)=>SeedPayload::Root{primal:bits(primal)},WarmPayload::Nlp{primal,bounds,rows,barrier,..}=>SeedPayload::Nlp{primal:bits(primal),bounds:bounds.as_ref().map(|(lower,upper)|(bits(lower),bits(upper))),rows:rows.as_ref().map(|v|bits(v)),barrier:barrier.map(f64::to_bits)},WarmPayload::Highs{primal,dual,basis}=>SeedPayload::Highs{primal:primal.as_ref().map(|v|bits(v)),dual:dual.as_ref().map(|(columns,rows)|(bits(columns),bits(rows))),basis:basis.as_ref().map(|b|(b.columns.clone(),b.rows.clone()))}}}
+fn warm_payload(payload:SeedPayload)->WarmPayload{match payload{SeedPayload::Root{primal}=>WarmPayload::Root(floats(primal)),SeedPayload::Nlp{primal,bounds,rows,barrier}=>WarmPayload::Nlp{primal:floats(primal),bounds:bounds.map(|(lower,upper)|(floats(lower),floats(upper))),rows:rows.map(floats),barrier:barrier.map(f64::from_bits),working:None},SeedPayload::Highs{primal,dual,basis}=>WarmPayload::Highs{primal:primal.map(floats),dual:dual.map(|(columns,rows)|(floats(columns),floats(rows))),basis:basis.map(|(columns,rows)|pse_backend_native::solve::Basis{columns,rows})}}}
+fn seed_extent(payload:&WarmPayload)->Result<usize,WorkflowError>{
+    let count=match payload {
+        WarmPayload::Root(primal)=>primal.len(),
+        WarmPayload::Nlp{primal,bounds,rows,..}=>primal.len().checked_add(bounds.as_ref().map_or(0,|(lower,upper)|lower.len()+upper.len())).and_then(|n|n.checked_add(rows.as_ref().map_or(0,Vec::len))).ok_or_else(||contract("portable seed extent"))?,
+        WarmPayload::Highs{primal,dual,basis}=>primal.as_ref().map_or(0,Vec::len).checked_add(dual.as_ref().map_or(0,|(columns,rows)|columns.len()+rows.len())).and_then(|n|n.checked_add(basis.as_ref().map_or(0,|basis|basis.columns.len()+basis.rows.len()))).ok_or_else(||contract("portable seed extent"))?,
     };
-    let mut delay = Duration::from_millis(50);
-    for _ in 0..5 {
-        match write().await {
-            Ok(()) => return Ok(()),
-            Err(error) if error.is_retryable() => {
-                tokio::time::sleep(delay).await;
-                delay = delay.saturating_mul(2);
-            }
-            Err(error) => return Err(error.into()),
+    count.checked_mul(32).and_then(|n|n.checked_add(16*1024)).ok_or_else(||contract("portable seed serialization extent"))
+}
+async fn store_seeds(operations:&Operations,fence:&AttemptFence,result:&RunResult)->Result<Vec<(usize,SolutionId)>,WorkflowError>{
+    let (Ok(RunReport::Modeling(steps)),RunRequest::Modeling(requests))=(result.report(),result.request())else{return Ok(Vec::new());};let mut stored=Vec::new();
+    let mut next=0_u64;
+    let run=operations.store.canonical_run(fence.run()).await?.ok_or_else(||contract("seed run absent"))?;
+    for (index,(step,request)) in steps.iter().zip(requests).enumerate(){
+        let crate::math::solves::Outcome::Native(native)=&step.outcome else{continue;};if !step.completion.decision.permits_seed(){continue;}let (Some(seed),Some(preparation))=(native.warm_start.as_ref(),request.solve.seed_preparation_identity())else{continue;};
+        let prediction_extent=native.candidate.as_ref().map_or(0,|candidate|candidate.primal.len()).checked_add(native.variables.len()).and_then(|n|n.checked_add(native.observation.as_ref().map_or(0,|observation|observation.values.len()))).and_then(|n|n.checked_mul(32)).ok_or_else(||contract("portable prediction extent"))?;
+        let extent=seed_extent(&seed.payload)?.checked_add(prediction_extent).ok_or_else(||contract("portable seed document extent"))?;
+        let _serialization=reserve(&operations.pool,extent)?;
+        let solution:SolutionId=pse_operations::mint_id();let name="__seeds";let bytes=serde_json::to_vec(&SeedDocument{version:1,warm:seed_payload(&seed.payload),prediction:step.portable_prediction()?}).map_err(|e|contract(e.to_string()))?;let receipt=write_chunks(&operations.store,fence,name,next,&bytes).await?;let set=result_set_key(fence.attempt(),name);
+        let row=pse_model::generated::runtime::canonical_result_seeds::Row{key:solution.to_string(),batch:result_batch_key(fence.attempt(),&set,next),first_ordinal:next,result_set:set,attempt:fence.attempt().into(),run:fence.run().into(),layout:seed.compatibility.layout.to_string(),preparation:preparation.to_string(),profile:seed.compatibility.profile.to_string(),data:seed.compatibility.data.to_string(),backend:seed.compatibility.backend.as_str().into(),step:index as u64,batch_count:receipt.batch_count,payload_bytes:receipt.payload_bytes,digest:receipt.digest,run_sequence:run.sequence,attempt_generation:fence.generation()};
+        operations.store.register_result_seed(fence,&format!("seed:{}:{solution}",fence.attempt()),&row).await?;stored.push((index,solution));next+=receipt.batch_count;
+    }Ok(stored)
+}
+impl Operations {
+    async fn seed_document(&self,solution:SolutionId)->Result<(pse_model::generated::runtime::canonical_result_seeds::Row,SeedDocument,Arc<pse_columnar::AllocationLease>),WorkflowError>{
+        let row=self.store.result_seed(&solution.to_string()).await?.ok_or(SeedReadError::Missing{solution})?;
+        let read=self.store.read_results(&row.run,&row.attempt,Duration::from_secs(60)).await?;
+        let completed=self.record(&row.run,&row.attempt).await?;
+        let assessment=completed.completion.as_ref().and_then(|c|c.completion.as_ref()).and_then(|c|c.assessments.get(row.step as usize)).ok_or_else(||contract("stored seed scientific completion absent"))?;
+        if !assessment.permits_seed{return Err(contract("stored seed scientific completion did not permit reuse"));}
+        let name="__seeds";if result_set_key(&row.attempt,name)!=row.result_set{return Err(contract("stored seed set coordinates differ"));}
+        let (bytes,owner)=read_chunks(&self.store,&self.pool,&read,name,row.first_ordinal,row.batch_count,row.payload_bytes,&row.digest,true).await?;
+        let payload:SeedDocument=serde_json::from_slice(&bytes).map_err(|error|contract(error.to_string()))?;
+        if payload.version!=1{return Err(contract("stored seed interpretation differs"));}
+        if let Some(point)=&payload.prediction {
+            if !assessment.permits_result||point.permission.usability!=assessment.usability||!point.permission.permits_use(){return Err(contract("retained prediction differs from admitted scientific permission"));}
         }
+        Ok((row,payload,owner))
     }
-    Ok(write().await?)
-}
-
-// ---------------------------------------------------------------------- seeds --
-
-/// The stored vectors of a portable seed: source-coordinate vectors and, for an NLP seed,
-/// the producer's final barrier (authored objective units). An SQP working set is keyed
-/// by its native transformation, so it stays with its worker and is not stored.
-pub(super) fn seed_vectors(payload: &WarmPayload) -> SeedVectors {
-    match payload {
-        WarmPayload::Root(primal) => SeedVectors::Root {
-            primal: primal.clone(),
-        },
-        WarmPayload::Nlp {
-            primal,
-            bounds,
-            rows,
-            barrier,
-            working: _,
-        } => SeedVectors::Nlp {
-            primal: primal.clone(),
-            bounds: bounds.clone(),
-            rows: rows.clone(),
-            barrier: *barrier,
-        },
-        WarmPayload::Highs {
-            primal,
-            dual,
-            basis,
-        } => SeedVectors::Highs {
-            primal: primal.clone(),
-            dual: dual.clone(),
-            basis: basis.as_ref().map(|b| (b.columns.clone(), b.rows.clone())),
-        },
+    /// One explicitly selected retained seed and its original compatibility stamps.
+    pub async fn seed(&self,solution:SolutionId)->Result<(pse_model::generated::runtime::canonical_result_seeds::Row,Arc<pse_columnar::Leased<WarmStart>>),WorkflowError>{
+        let(row,payload,owner)=self.seed_document(solution).await?;
+        let backend=NativeBackend::try_from(row.backend.as_str()).map_err(|error|contract(error.to_string()))?;
+        let start=WarmStart{origin:None,compatibility:Compatibility{layout:ContentHash::parse_hex(&row.layout).map_err(|error|contract(format!("seed layout: {error}")))?,profile:ContentHash::parse_hex(&row.profile).map_err(|error|contract(format!("seed profile: {error}")))?,data:ContentHash::parse_hex(&row.data).map_err(|error|contract(format!("seed data: {error}")))?,backend},payload:warm_payload(payload.warm)};
+        Ok((row,Arc::new(pse_columnar::Leased::new(Arc::new(start),owner))))
     }
+    pub(crate) async fn prediction(&self,solution:SolutionId)->Result<Option<(pse_model::generated::runtime::canonical_result_seeds::Row,Arc<pse_columnar::Leased<super::modeling::results::PortablePrediction>>)>,WorkflowError>{
+        let(row,payload,owner)=self.seed_document(solution).await?;
+        Ok(payload.prediction.map(|point|(row,Arc::new(pse_columnar::Leased::new(Arc::new(point),owner)))))
+    }
+    /// Bounded eligible index pages use recorded order and then exact scientific admission.
+    pub async fn latest_seed(&self,target:&Compatibility,preparation:&ContentHash,attempt:Option<&str>)->Result<Option<SolutionId>,WorkflowError>{let rows=self.store.result_seed_candidates(&target.layout.to_string(),&preparation.to_string(),target.backend.as_str(),attempt).await?;for row in rows {let solution:SolutionId=pse_ids::SemanticId::parse_hex(&row.key).map(SolutionId::from_id).map_err(|e|contract(format!("seed identity: {e}")))?;let attempt=self.store.canonical_attempt(&row.attempt).await?.ok_or_else(||contract("seed attempt header absent"))?;if !attempt.terminal {continue;}self.seed(solution).await?;return Ok(Some(solution));}Ok(None)}
 }
 
-/// The owned warm start a stored solution describes, with its original compatibility
-/// stamps. Whether it may seed a given preparation is decided by `WarmStart::validate`.
-pub(super) fn warm_start(
-    solution: &RuntimeOperationalSolutionsRow,
-) -> Result<WarmStart, OperationsError> {
-    let payload = match SeedVectors::of(solution)? {
-        SeedVectors::Root { primal } => WarmPayload::Root(primal),
-        SeedVectors::Nlp {
-            primal,
-            bounds,
-            rows,
-            barrier,
-        } => WarmPayload::Nlp {
-            primal,
-            bounds,
-            rows,
-            barrier,
-            working: None,
-        },
-        SeedVectors::Highs {
-            primal,
-            dual,
-            basis,
-        } => WarmPayload::Highs {
-            primal,
-            dual,
-            basis: basis.map(|(columns, rows)| pse_backend_native::solve::Basis { columns, rows }),
-        },
-    };
-    Ok(WarmStart {
-        origin: None,
-        compatibility: Compatibility {
-            layout: solution.compatibility_stamp,
-            profile: solution.profile_stamp,
-            data: solution.data_stamp,
-            backend: solution.backend,
-        },
-        payload,
-    })
+/// One exact source object, whose kind separates worker documents from typed physical rows.
+pub(super) fn source_edit(logical:String,scope:String,name:String,kind:&str,bytes:Vec<u8>)->pse_operations::canonical::ObjectEdit{
+    let mut hash=FramedHasher::new(Frame::CanonicalSourceObjectV1);hash.str(pse_operations::generated::surreal::INTERPRETATION).str(kind).str(&logical).part(&bytes).u64(0);let key=hash.finish_hash().to_string();pse_operations::canonical::ObjectEdit{logical:logical.clone(),scope,name,version:Some(pse_model::generated::runtime::canonical_versions::Row{key,logical,kind:kind.into(),payload:bytes.into(),interpretation:pse_operations::generated::surreal::INTERPRETATION.into()}),references:Vec::new()}
 }
-
-/// Store the output seed of every accepted step whose candidate may be used (ADR-0106),
-/// keyed by its layout stamp and seed preparation identity.
-async fn store_seeds(
-    operations: &Operations,
-    attempt: AttemptId,
-    result: &RunResult,
-) -> Result<Vec<(usize, SolutionId)>, WorkflowError> {
-    let (Ok(RunReport::Modeling(steps)), RunRequest::Modeling(requests)) =
-        (result.report(), result.request())
-    else {
-        return Ok(Vec::new());
-    };
-    let mut stored = Vec::new();
-    for (index, (step, request)) in steps.iter().zip(requests).enumerate() {
-        let crate::math::solves::Outcome::Native(native) = &step.outcome else {
-            continue;
-        };
-        if !step.completion.decision.permits_seed() {
-            continue;
+impl Operations {
+    /// Persist each registry physical relation independently; each immutable IPC object
+    /// is bounded, and no unrelated relation is hydrated on replay.
+    pub(super) async fn put_physical_rows(&self,runtime:&super::Runtime,physical:&super::PhysicalContext)->Result<super::physical_cache::PhysicalRows,WorkflowError>{
+        let generation=runtime.physical_cache.rows_generation();
+        if let Some(revisions)=runtime.physical_cache.rows(runtime,self,physical){return runtime.physical_cache.protected_rows(generation,runtime,self,physical,&revisions).await;}
+        let generation=runtime.physical_cache.begin_rows();
+        let encoding=MemoryConsumer::new("canonical:physical-source-encoding").register(&self.pool);
+        if !physical.sources.is_empty(){encoding.try_grow(16*pse_operations::canonical::PAYLOAD_BYTES).map_err(pse_engine::EngineError::from)?;}
+        let mut revisions=Vec::new();
+        for (relation,table) in &physical.sources {
+            let mut hash=FramedHasher::new(Frame::CanonicalPayloadV1);hash.str("physical.rows.v1").str(&relation.to_string());
+            super::result_blocks::visit_source_blocks(table.batch(),|_,_,payload|{hash.part(&payload);Ok(())})?;
+            let identity=hash.finish_hash();let problem=format!("physical:rows:{identity}");let saved=Arc::new(Mutex::new(None::<Revision>));let mut ordinal=0_u64;
+            super::result_blocks::visit_source_blocks_async(table.batch(),|start,rows,payload|{let ordinal_here=ordinal;ordinal+=1;let store=self.store.clone();let problem=problem.clone();let saved=saved.clone();let edit=source_edit(format!("rows:{ordinal_here:020}"),relation.to_string(),format!("{ordinal_here:020}"),"physical:rows:v1",payload);async move {let _=(start,rows);let parent=saved.lock().map_err(|_|contract("physical source receipt lock"))?.as_ref().map(|r|r.key.clone());let row=store.edit(&problem,parent.as_deref(),&format!("physical:{identity}:{ordinal_here}"),&[edit]).await?;*saved.lock().map_err(|_|contract("physical source receipt lock"))?=Some(row);Ok::<(),WorkflowError>(())}}).await?;
+            if let Some(revision)=saved.lock().map_err(|_|contract("physical source receipt lock"))?.take(){revisions.push(revision);}
         }
-        let (Some(seed), Some(preparation)) = (
-            native.warm_start.as_ref(),
-            request.solve.seed_preparation_identity(),
-        ) else {
-            continue;
-        };
-        let vectors = seed_vectors(&seed.payload);
-        let solution_id: SolutionId = pse_operations::mint_id();
-        operations
-            .store
-            .solutions()
-            .put(&NewSolution {
-                solution_id,
-                compatibility_stamp: seed.compatibility.layout,
-                preparation_identity: preparation,
-                backend: seed.compatibility.backend,
-                profile_stamp: seed.compatibility.profile,
-                data_stamp: seed.compatibility.data,
-                vectors,
-                created_by: Some(attempt),
-            })
-            .await?;
-        stored.push((index, solution_id));
+        // Even built-in contexts carry their exact compiler interpretation receipt.
+        let bytes=serde_json::to_vec(&(1_u8,physical.identity())).map_err(|e|contract(e.to_string()))?;let edit=source_edit("physical:context".into(),"physical".into(),"context".into(),"physical:context:v1",bytes);let problem=format!("physical:context:{}",physical.identity());revisions.push(self.store.edit(&problem,None,&format!("physical:context:{}",physical.identity()),&[edit]).await?);
+        let result=runtime.physical_cache.protect_rows(self,&revisions).await?;
+        runtime.physical_cache.retain_rows(generation,runtime,self,physical,&result);
+        Ok(result)
     }
-    Ok(stored)
+}
+
+fn reserve(pool:&Arc<dyn MemoryPool>,bytes:usize)->Result<Arc<pse_columnar::AllocationLease>,WorkflowError>{let extent=bytes.checked_mul(16).and_then(|n|n.checked_add(2*RESULT_BATCH_BYTES)).ok_or_else(||contract("scientific decode allocation extent overflow"))?;let reservation=MemoryConsumer::new("canonical:scientific-decode").register(pool);reservation.try_grow(extent).map_err(pse_engine::EngineError::from)?;Ok(pse_columnar::AllocationLease::new(reservation))}
+
+#[cfg(all(test,feature="canonical-tests"))]
+mod canonical_durable_codec {
+    use super::*;
+    use pse_backend_native::solve::Metric;
+    use std::collections::BTreeMap;
+
+    async fn claimed() -> (Operations,AttemptFence) {
+        let runtime=super::super::durable_tests::durable_runtime();
+        let Durability::Durable(operations)=runtime.durability() else {unreachable!()};
+        let operations=operations.clone();
+        let revision=operations.store.edit("codec-fixture",None,"source-fixture",&[]).await.unwrap();
+        operations.store.begin_run(&pse_operations::canonical_execution::RunRequest{key:"codec-run".into(),revision,sources:vec![],request:vec![1],source_selection:vec![2],attestation:vec![3]}).await.unwrap();
+        let fence=operations.store.claim_run("codec-run","codec-claim","codec-worker",Duration::from_secs(60)).await.unwrap();
+        (operations,fence)
+    }
+    #[allow(unsafe_code,reason="native mechanism fixture records truthful failed observations only")]
+    async fn admit(operations:&Operations,fence:&AttemptFence)->pse_operations::canonical_results::ResultRead {
+        let closed=operations.store.close_result_ingestion(fence,"codec-close").await.unwrap();
+        let manifest=operations.store.reconcile_closed_attempt(&closed).await.unwrap();
+        unsafe {operations.store.seal_attempt(&manifest,"codec-seal",TerminalClass::Failed,&[9]).await}.unwrap();
+        operations.store.read_results(fence.run(),fence.attempt(),Duration::from_secs(60)).await.unwrap()
+    }
+    #[tokio::test]
+    async fn canonical_seed_chunks_exact_ieee_bits_and_accounted_join() {
+        let (operations,fence)=claimed().await;
+        let original=(0..70_019).map(|i|f64::from_bits(match i%4 {0=>0x8000000000000000,1=>0x7ff8000000000091,2=>0xfff0000000000000,_=>i as u64})).collect::<Vec<_>>();
+        let bytes=serde_json::to_vec(&seed_payload(&WarmPayload::Root(original.clone()))).unwrap();
+        assert!(bytes.len()>RESULT_BATCH_BYTES);
+        let first=write_chunks(&operations.store,&fence,"__seeds",0,&bytes).await.unwrap();
+        let second=write_chunks(&operations.store,&fence,"__seeds",first.batch_count,&bytes).await.unwrap();
+        let read=admit(&operations,&fence).await;
+        let before=operations.pool.reserved();
+        let (joined,owner)=read_chunks(&operations.store,&operations.pool,&read,"__seeds",first.batch_count,second.batch_count,second.payload_bytes,&second.digest,true).await.unwrap();
+        assert!(operations.pool.reserved()>before);
+        assert_eq!(joined,bytes);
+        let decoded:SeedPayload=serde_json::from_slice(&joined).unwrap();
+        let WarmPayload::Root(restored)=warm_payload(decoded) else {unreachable!()};
+        assert_eq!(bits(&restored),bits(&original));
+        drop(owner);assert_eq!(operations.pool.reserved(),before);
+        let tiny:Arc<dyn MemoryPool>=Arc::new(datafusion::execution::memory_pool::GreedyMemoryPool::new(1024));
+        assert!(read_chunks(&operations.store,&tiny,&read,"__seeds",0,first.batch_count,first.payload_bytes,&first.digest,true).await.is_err());
+        assert_eq!(tiny.reserved(),0);
+        assert!(read_chunks(&operations.store,&operations.pool,&read,"__seeds",0,first.batch_count,first.payload_bytes,"wrong-digest",true).await.is_err());
+    }
+    #[tokio::test]
+    async fn canonical_progress_batches_exact_integral_events_under_one_receipt() {
+        let(mut operations,fence)=claimed().await;operations.policy.batch=8;operations.policy.flush=Duration::from_millis(10);
+        let admitted=Arc::new(OnceLock::new());admitted.set(fence.clone()).unwrap();let mut stream=Streamer::new(&operations,admitted);
+        for index in 0..3 {stream.tap.observe(&Event{phase:"counter".into(),elapsed:Duration::from_millis(index as u64),values:BTreeMap::from([("counter".into(),Metric::Integer((1_i64<<53)+index))]),incumbent:None});}
+        stream.finish().await.unwrap();let read=admit(&operations,&fence).await;let descriptor=read.sets().iter().find(|set|set.name=="__progress").unwrap();
+        assert_eq!(descriptor.batch_count,1);assert_eq!(descriptor.row_count,3);
+        let payload=operations.store.result_payload(&read,&descriptor.key,0).await.unwrap();let events=decode_progress(&payload.batch.payload).unwrap();assert_eq!(events.len(),3);
+        for(index,event)in events.iter().enumerate(){assert_eq!(event.sequence,Some(index as i64));assert!(matches!(event.values["counter"],super::super::ProgressMetricDocument::Integer(value) if value==(1_i64<<53)+index as i64));}
+    }
+    #[tokio::test]
+    async fn canonical_progress_backpressure_cancels_and_retains_integral_observation() {
+        let (mut operations,fence)=claimed().await;operations.policy.batch=1;
+        let admitted=Arc::new(OnceLock::new());admitted.set(fence.clone()).unwrap();
+        let mut stream=Streamer::new(&operations,admitted);
+        let cancelled=Arc::new(AtomicBool::new(false));let flag=cancelled.clone();
+        stream.tap.set_cancel(Arc::new(move ||{flag.store(true,Ordering::Release);}));
+        let event=Event{phase:"counter".into(),elapsed:Duration::from_millis(1),values:BTreeMap::from([("counter".into(),Metric::Integer((1_i64<<53)+17))]),incumbent:None};
+        stream.tap.observe(&event);stream.tap.observe(&event);
+        assert!(cancelled.load(Ordering::Acquire));assert!(stream.finish().await.is_err());
+        let read=admit(&operations,&fence).await;
+        let descriptor=read.sets().iter().find(|set|set.name=="__progress").unwrap();
+        assert_eq!(descriptor.batch_count,1);
+        let payload=operations.store.result_payload(&read,&descriptor.key,0).await.unwrap();
+        let restored=decode_progress(&payload.batch.payload).unwrap();
+        assert!(matches!(restored[0].values["counter"],super::super::ProgressMetricDocument::Integer(value) if value==(1_i64<<53)+17));
+    }
 }

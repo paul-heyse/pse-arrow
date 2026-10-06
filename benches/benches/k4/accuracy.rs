@@ -108,7 +108,8 @@ pub(super) fn measure(
                     "pool_peak_bytes":owner.runtime.observation_peak_bytes(),
                     "process_peak_rss_bytes":owner.runtime.report().unwrap().process_peak_rss_bytes,
                     "retained_runtime_bytes":pool.reserved()});
-                drop(result); drop(prepared); drop(package); drop(runtime); drop(owner);
+                drop(result); drop(prepared); drop(package); drop(runtime);
+                owner.cleanup_fixtures().await.unwrap(); drop(owner);
                 tokio::task::yield_now().await;
                 record["after_runtime_teardown_bytes"] = pool.reserved().into();
                 assert_eq!(pool.reserved(), 0, "accuracy workload escaped runtime ownership");

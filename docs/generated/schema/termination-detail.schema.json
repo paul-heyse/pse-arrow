@@ -1412,7 +1412,7 @@
         },
         {
           "additionalProperties": false,
-          "description": "Infrastructure failed the try; it is retried under the job's policy.",
+          "description": "Infrastructure failed the try; authored point policy decides whether retry is permitted.",
           "properties": {
             "diagnostic": {
               "$ref": "#/$defs/BoundaryDiagnostic",
@@ -1533,7 +1533,7 @@
     },
     "effect": {
       "$ref": "#/$defs/StudyEffectState",
-      "description": "Publication knowledge is independent of attempt lifecycle."
+      "description": "Effect knowledge is independent of attempt lifecycle."
     },
     "point": {
       "anyOf": [

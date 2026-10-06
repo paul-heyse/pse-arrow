@@ -277,34 +277,6 @@ async fn recursive_join_terms_transport_their_declared_schema_metadata() {
     );
 }
 
-#[test]
-fn delta_view_adaptation_requires_its_exact_durable_descriptor() {
-    use datafusion::arrow::datatypes::{DataType, Schema};
-    let registry = pse_schema::registry().unwrap();
-    let execution = pse_schema::arrow::field_for(
-        registry,
-        &FieldContract::payload("path", FieldContract::native(DataType::Utf8), "source path"),
-    )
-    .unwrap();
-    let storage = pse_schema::delta::storage_schema(&Schema::new(vec![execution.clone()])).unwrap();
-    let view = storage.field(0).clone().with_data_type(DataType::Utf8View);
-    super::admit_field(registry, &view).unwrap();
-    // Ordinary execution admission remains exact; only the checked durable
-    // descriptor authorizes the view representation at the native scan leaf.
-    assert!(super::admit_field(registry, &execution.with_data_type(DataType::Utf8View)).is_err());
-    assert!(super::admit_field(registry, &view.clone().with_name("renamed")).is_err());
-    super::admit_intermediate_field(
-        registry,
-        &view.clone().with_name("renamed").with_nullable(true),
-    )
-    .unwrap();
-    let mut forged = view;
-    forged
-        .metadata_mut()
-        .insert(pse_schema::delta::KEY_LAYOUT_VERSION.into(), "99".into());
-    assert!(super::admit_field(registry, &forged).is_err());
-}
-
 fn fixture() -> (Registry, Arc<dyn TableProvider>, LogicalPlan) {
     let mut builder = RegistryBuilder::new();
     for name in ["Phase", "OtherPhase"] {

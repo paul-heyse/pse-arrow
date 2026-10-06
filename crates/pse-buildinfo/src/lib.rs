@@ -4,7 +4,7 @@
 //! Build provenance: rustc version, profile, git sha and the embedded lockfiles
 //! (blueprint §3.1, plan §5).
 //!
-//! `pse-catalog` uses these for the snapshot manifest's `toolchain.*` fields and `pse-py`
+//! Workers and `pse-py` use these as complete outer deployment attestation; `pse-py`
 //! re-exports them as `pse._native.build_info()`, which `build_info_matches_checkout`
 //! compares against the working tree's lockfiles: an extension built against a stale
 //! `Cargo.lock` is a test failure, not a surprise at run time.

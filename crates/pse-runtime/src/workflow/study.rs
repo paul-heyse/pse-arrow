@@ -1,49 +1,19 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! One immutable admitted study definition used by both executors. Durable creation stores
-//! an exact canonical modeling revision, a physical source bundle, operations and physically admitted bindings and typed point policy.
-//! Workers acquire inputs, ask the shared policy for a fenced start, and retain outcomes
-//! independently of result availability. Finalization publishes every recorded member and
-//! one structured outcome for each requested occurrence.
-
-use super::{
-    AdmittedBinding, OperationRequest, OperationSource, Operations, PointOverlay,
-    PreparationSettings, Runtime, StudyOperation, WorkflowError, contract,
-    publication::{Published, Workspace, candidate_record},
-    worker::{
-        JOB_PAYLOAD_VERSION, JobPayload, JobTask, StudyFinalization, StudyOperationJob,
-        StudyPointBinding,
-    },
-};
-use datafusion::common::ResolvedTableReference;
-use pse_catalog::artifact::{ArtifactPlan, RelationOutput};
-use pse_columnar::CancellationToken;
-use pse_ids::{ContentHash, SemanticId};
-use pse_model::study::{OccurrenceGraph, PointPolicy};
-pub use pse_model::study::{PointAttemptOutcome, PointOutcome};
-use pse_model::{document::Version, generated::enums::PublicationKind};
-use pse_operations::{
-    OperationsError,
-    attempts::{AttemptId, AttemptKind, NewAttempt, RunId},
-    catalog::{MemberDescriptor, NewIntent, PublicationCommit, PublicationId, WorkspaceId},
-    jobs::{JobState, NewJob, RetryPolicy},
-    lifecycle::AttemptState,
-    studies::{
-        NewPoint, NewStudy, StudyCancel, StudyFilter, StudyId, StudyPointState, StudyRecord,
-        StudyState,
-    },
-};
-use pse_relations::{
-    columnar::FieldCheckedBatch,
-    generated::runtime::{publication_manifests, study_outcomes},
-};
-use std::{collections::BTreeMap, time::Duration};
+//! Canonical study definitions, scoped occurrence dispatch and retained outcomes.
+use super::{AdmittedBinding,OperationRequest,OperationSource,Operations,PointOverlay,PreparationSettings,Runtime,StudyOperation,WorkflowError,contract};
+use pse_ids::SemanticId;
+use pse_model::{document::Version,study::{OccurrenceGraph,PointPolicy}};
+pub use pse_model::study::{PointAttemptOutcome,PointOutcome};
+use pse_model::generated::{identities::{StudyId,RunId},enums::{StudyState,StudyPointState,AttemptState}};
+use pse_operations::canonical_studies::{StudyPoint as CanonicalPoint,ScopedStudyPoint,StudySummary,StudyScope,NewOccurrence,point_policy,point_facts,point_outcome};
+use pse_operations::canonical_execution::RunRequest as StoredRequest;
+use std::{collections::BTreeMap,time::Duration};
 
 /// The most points one study holds.
 pub const MAXIMUM_STUDY_POINTS: usize = 100_000;
 
-/// How often a commit re-reads a workspace head that moved under it.
-const COMMIT_ATTEMPTS: usize = 64;
+
 
 /// The authored sources of a package closure, each document's exact bytes by path (a
 /// data document's included, ADR-0125): initial authored ingress only.
@@ -53,6 +23,376 @@ pub struct PackageSources {
     pub physical: BTreeMap<String, Vec<u8>>,
     /// The modeling package closure's documents, one map per package in load order.
     pub modeling: Vec<BTreeMap<String, Vec<u8>>>,
+}
+
+/// A ready operation and the actual seed fact consumed by shared policy. Numerical
+/// preparation is deferred until immediate dependencies have settled.
+pub(crate) struct PreparedStudyCandidate {
+    pub(crate) operation: super::PreparedStudyOperation,
+    pub(crate) seed: Option<pse_model::study::SeedFact>,
+    prediction:Option<StudyPrediction>,
+}
+
+struct StudyPrediction {package:super::ModelingPackage,predecessor:ScopedStudyPoint,seed:pse_model::generated::identities::SolutionId,original:crate::math::solves::PreparedSolve}
+
+fn document(value:&impl serde::Serialize)->Result<Vec<u8>,WorkflowError>{serde_json::to_vec(value).map_err(|error|contract(error.to_string()))}
+#[derive(serde::Serialize,serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StudyMetadata {version:Version<1>,physical:super::PhysicalSource}
+
+type StoredPoint = (StudyOperation,pse_ids::roles::BindingHash,AdmittedBinding);
+fn definition_of(point:&CanonicalPoint)->Result<StudyPointDefinition,WorkflowError>{
+    let (operation,binding_hash,binding):StoredPoint=serde_json::from_slice(point.descriptor.as_slice()).map_err(|error|contract(format!("immutable point descriptor: {error}")))?;
+    if binding.identity()!=binding_hash {return Err(contract("stored binding content differs"));}
+    Ok(StudyPointDefinition{operation,binding_hash,binding,policy:point_policy(point)?})
+}
+
+impl Runtime {
+    /// The canonical execution owner; ephemerality is an explicit kernel adapter.
+    pub(crate) fn operations(&self)->Result<&Operations,WorkflowError>{match &self.durability{super::Durability::Durable(operations)=>Ok(operations),super::Durability::Ephemeral=>Err(contract("canonical execution requires durable runtime"))}}
+
+    /// Admit authored ingress once and retain one canonical study before preparing ready occurrences.
+    pub async fn start_study(&self,plan:StudyPlan)->Result<StudyHandle,WorkflowError>{
+        let operations=self.operations()?;
+        let physical=operations.put_sources(&plan.sources.physical).await?;
+        let cancel=crate::CancelSource::new();
+        let package=self.package_from_sources(&plan.sources.modeling,self.physical_source(&physical,&cancel).await?).await?;
+        let definition=package.admit_study_points(physical,&plan.points,&cancel).await?;
+        self.start_defined_study(plan.sources.physical,definition).await
+    }
+
+    /// Persist the exact admitted immutable definition in bounded occurrence batches.
+    pub async fn start_defined_study(&self,physical_sources:BTreeMap<String,Vec<u8>>,definition:StudyDefinition)->Result<StudyHandle,WorkflowError>{
+        let operations=self.operations()?;
+        let physical=operations.put_sources(&physical_sources).await?;
+        if physical!=definition.physical {return Err(contract("study physical source identity differs"));}
+        definition.validate_roles()?;
+        if definition.points.is_empty()||definition.points.len()>MAXIMUM_STUDY_POINTS {return Err(contract("bounded admitted study extent"));}
+        let revision=self.canonical_store().revision(&definition.modeling_revision).await?.ok_or_else(||contract("canonical study revision absent"))?;
+        let cancel=crate::CancelSource::new();
+        let package=self.modeling_revision(revision.clone(),self.physical_source(&physical,&cancel).await?,BTreeMap::new()).await?;
+        // Immutable scientific entry admission is complete before any claim. This
+        // checks bindings and seed roles without constructing native solve views.
+        for point in &definition.points {
+            if point.binding.identity()!=point.binding_hash {return Err(contract("study binding content differs"));}
+            if point.operation.admit_binding_seed_need(&package,&point.binding,&cancel).await?!=point.policy.seed_need {return Err(contract("study seed consumption differs from its scientific owner"));}
+        }
+        let study_id:StudyId=pse_operations::mint_id();let run_id:RunId=pse_operations::mint_id();
+        let key=study_id.to_string();let run=format!("run:{run_id}");
+        let physical_revision=self.canonical_store().revision(&physical.revision).await?.ok_or_else(||contract("canonical physical source absent"))?;
+        let attestation=self.canonical.attestation();let attestation=document(&(attestation.source,attestation.build))?;
+        let source_selection=document(&(1_u8,&definition.modeling_revision,&physical))?;
+        let request=StoredRequest{key:run,revision:revision.clone(),sources:vec![physical_revision.clone()],request:document(&(1_u8,study_id,run_id,pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5,&definition).map_err(|error|contract(error.to_string()))?))?,source_selection:source_selection.clone(),attestation:attestation.clone()};
+        let metadata=document(&StudyMetadata{version:Version::<1>,physical:physical.clone()})?;
+        let points=definition.points.iter().map(|point|{
+            let point_run:RunId=pse_operations::mint_id();let descriptor=document(&(&point.operation,point.binding_hash,&point.binding))?;
+            Ok(NewOccurrence{policy:point.policy.clone(),descriptor:descriptor.clone(),run:StoredRequest{key:format!("run:{point_run}"),revision:revision.clone(),sources:vec![physical_revision.clone()],request:document(&(1_u8,point_run,study_id,point.policy.key,pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5,&(&point.operation,point.binding_hash,&point.policy)).map_err(|error|contract(error.to_string()))?))?,source_selection:source_selection.clone(),attestation:attestation.clone()}})
+        }).collect::<Result<Vec<_>,WorkflowError>>()?;
+        self.canonical_store().create_study(&key,&request,&metadata,&points).await?;
+        Ok(self.study(study_id))
+    }
+
+    /// Exact handle; equal bindings never merge study identities or occurrences.
+    pub fn study(&self,study_id:StudyId)->StudyHandle{StudyHandle{runtime:self.clone(),study_id}}
+
+    /// Reconstruct only one structurally ready candidate under protected immutable sources.
+    pub(crate) async fn prepare_study_candidate(&self,scope:&StudyScope,cancel:&crate::CancelSource)->Result<PreparedStudyCandidate,WorkflowError>{
+        use pse_model::study::{ActionKind,SeedAvailability,SeedFact,StartPolicy};
+        let point=self.canonical_store().canonical_study_point(&scope.point().key).await?.ok_or_else(||contract("study occurrence absent"))?;
+        let definition=definition_of(&point)?;
+        let unresolved=match &definition.policy.start {StartPolicy::Fresh=>None,StartPolicy::Explicit{role,..}=>Some(SeedFact{role:*role,availability:SeedAvailability::Unresolved}),StartPolicy::Continuation(edge)=>Some(SeedFact{role:edge.role,availability:SeedAvailability::Unresolved})};
+        let preliminary=scope.action(unresolved)?;
+        if !matches!(preliminary.kind,ActionKind::Start(_)|ActionKind::Wait(pse_model::study::WaitReason::SeedResolution{..})){return Err(contract("candidate is not structurally ready"));}
+        let study=self.canonical_store().canonical_study(&point.study).await?.ok_or_else(||contract("study header absent"))?;
+        let StudyMetadata{physical,..}=serde_json::from_slice(study.metadata.as_slice()).map_err(|error|contract(format!("study interpretation: {error}")))?;
+        let physical=self.physical_source(&physical,cancel).await?;
+        let revision=self.canonical_store().revision(&study.revision).await?.ok_or_else(||contract("study revision absent"))?;
+        let package=self.modeling_revision(revision,physical,BTreeMap::new()).await?;
+        let mut operation=package.prepare_bound_operation(&definition.operation,&definition.binding,cancel).await?;
+        if operation.seed_need()!=definition.policy.seed_need {return Err(contract("ready native seed consumption differs from admission"));}
+        let original=match &operation {super::PreparedStudyOperation::DeclaredCase(case) if case.solve.composition_request().recovery.contains(&pse_model::strategy::StartOrigin::Predicted)&&case.solve.numerical_strategy().start.policy!=pse_backend_native::solve::StartPolicy::Explicit=>Some(case.solve.clone()),_=>None};
+        let mut prediction=None;
+        let seed=match &definition.policy.start {
+            StartPolicy::Fresh=>None,
+            start=>{
+                let (role,selected)=match start {StartPolicy::Explicit{role,seed}=>(*role,Some(*seed)),StartPolicy::Continuation(edge)=>{
+                    let predecessor=scope.predecessors().iter().find(|point|point.occurrence==u64::from(edge.predecessor.0)).ok_or_else(||contract("immediate seed predecessor absent"))?;
+                    let selected=if let (super::PreparedStudyOperation::DeclaredCase(case),Some(attempt))=(&operation,predecessor.attempt.as_deref()) {
+                        if let (Some(target),Some(preparation))=(case.solve.compatibility(),case.solve.seed_preparation_identity()){self.operations()?.latest_seed(target,&preparation,Some(attempt)).await?}else{None}
+                    }else{None};(edge.role,selected)
+                },StartPolicy::Fresh=>return Err(contract("fresh policy cannot request a seed"))};
+                let availability=if let Some(selected)=selected {
+                    if let super::PreparedStudyOperation::DeclaredCase(case)=&operation {
+                        match case.as_ref().clone().with_stored_start(self.operations()?,super::StoredStart::Solution(selected)).await {
+                            Ok(seeded)=>{
+                                if let (StartPolicy::Continuation(edge),Some(original))=(start,original.as_ref()) {
+                                    let predecessor=scope.predecessors().iter().find(|point|point.occurrence==u64::from(edge.predecessor.0)).ok_or_else(||contract("prediction source outside immediate claim scope"))?;
+                                    prediction=Some(StudyPrediction{package:package.clone(),predecessor:predecessor.clone(),seed:selected,original:original.clone()});
+                                }
+                                operation=super::PreparedStudyOperation::DeclaredCase(Box::new(seeded));SeedAvailability::Compatible{seed:selected}
+                            },
+                            Err(WorkflowError::SeedRead(super::durable::SeedReadError::Missing{..}))=>SeedAvailability::Absent,
+                            Err(error) if error.boundary_diagnostic().class==pse_model::diagnostic::BoundaryClass::Incompatible=>{operation=super::PreparedStudyOperation::DeclaredCase(case.clone());SeedAvailability::Incompatible},
+                            Err(error)=>return Err(error),
+                        }
+                    }else{SeedAvailability::Incompatible}
+                }else{SeedAvailability::Absent};Some(SeedFact{role,availability})
+            }
+        };
+        Ok(PreparedStudyCandidate{operation,seed,prediction})
+    }
+
+    /// Numerical proposal selection and original screening run only after native claim.
+    pub(crate) async fn apply_study_prediction(&self,prepared:&mut PreparedStudyCandidate,cancel:&crate::CancelSource)->Result<(),WorkflowError>{
+        let Some(input)=prepared.prediction.take() else{return Ok(());};
+        let super::PreparedStudyOperation::DeclaredCase(target)=&mut prepared.operation else{return Err(contract("prediction target ceased to be an original case"));};
+        let source=self.prediction_sample(&input.package,&input.predecessor,input.seed,cancel).await?;
+        let Some(mut source)=source else{return Ok(());};
+        let deadline=std::time::Instant::now().checked_add(input.original.time_limit()).ok_or_else(||contract("prediction deadline extent"))?;
+        let scope=input.original.task_scope().unwrap_or_else(||pse_kernels::ExecutionScope::new(std::sync::Arc::default(),Some(deadline)));
+        let original=self.native().admit_proposal_task(input.original,scope.clone()).map_err(crate::math::MathRuntimeError::from)?;
+        if let Some(root)=&source.point.root {
+            let primal=source.point.primal.iter().copied().map(f64::from_bits).collect();let values=root.values.iter().copied().map(f64::from_bits).collect();
+            source.root=self.native().restore_root_predictor(source.prepared.solve.clone(),primal,values,root.key,scope.clone(),original.task_admission(),cancel).await.map_err(|error|pse_backend_native::square_response::Withheld::Cause(std::sync::Arc::new(error.into_problem())));
+        }
+        let older=match input.predecessor.start.as_ref().map(|bytes|serde_json::from_slice::<pse_model::study::StartProvenance>(bytes.as_slice()).map_err(|error|contract(error.to_string()))).transpose()? {
+            Some(pse_model::study::StartProvenance::Continuation{predecessor,seed,..})=>{
+                let key=pse_operations::canonical_studies::point_key(&input.predecessor.study,predecessor);
+                let point=self.canonical_store().canonical_study_point(&key).await?.ok_or_else(||contract("selected older prediction occurrence absent"))?;
+                self.prediction_sample(&input.package,&ScopedStudyPoint::from(&point),seed,cancel).await?
+            },_=>None,
+        };
+        let mut execution=pse_backend_native::solve::Execution::within(scope.cancellation().clone(),&pse_backend_native::solve::Controls::default(),scope.clone()).map_err(crate::math::MathRuntimeError::from)?;
+        execution.work_admission=original.task_admission().map(|owner|->std::sync::Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});
+        let mut destination=target.as_ref().clone();destination.solve=original;
+        let branch=destination.solve.composition_request().branch;
+        match source.available_prediction(older.as_ref(),&destination,branch,&execution) {
+            Ok(proposal)=>{let screened=self.native().screen_start(destination.solve.clone(),proposal,branch,scope,cancel).await?;target.solve=destination.solve.with_screened_start(&screened).map_err(crate::math::MathRuntimeError::from)?;},
+            Err(error) if matches!(error.boundary_diagnostic().class,pse_model::diagnostic::BoundaryClass::Unsupported|pse_model::diagnostic::BoundaryClass::Incompatible|pse_model::diagnostic::BoundaryClass::Numerical)=>{},
+            Err(error)=>return Err(error),
+        }
+        Ok(())
+    }
+    async fn prediction_sample(&self,package:&super::ModelingPackage,point:&ScopedStudyPoint,seed:pse_model::generated::identities::SolutionId,cancel:&crate::CancelSource)->Result<Option<super::modeling::results::PredictionSample>,WorkflowError>{
+        let Some((header,portable))=self.operations()?.prediction(seed).await? else{return Ok(None);};
+        if header.run!=point.run||header.step!=0{return Err(contract("prediction anchor escaped its selected occurrence"));}
+        let full=self.canonical_store().canonical_study_point(&point.key).await?.ok_or_else(||contract("prediction source occurrence absent"))?;
+        let definition=definition_of(&full)?;
+        let operation=package.prepare_bound_operation(&definition.operation,&definition.binding,cancel).await?;
+        let super::PreparedStudyOperation::DeclaredCase(source)=operation else{return Err(contract("prediction source is not an original case"));};
+        if source.solve.seed_preparation_identity().map(|identity|identity.to_string()).as_deref()!=Some(header.preparation.as_str()){return Err(contract("prediction original preparation differs from selected seed"));}
+        Ok(Some(super::modeling::results::PredictionSample{prepared:*source,runtime:self.clone(),point:portable,root:Err(pse_backend_native::square_response::Withheld::Neighborhood("no retained original root factor".into()))}))
+    }
+    /// Settle an effect-free shared-policy refusal under its exact immediate read set.
+    pub(crate) async fn settle_study_candidate(&self,scope:&StudyScope,action:&pse_model::study::PointAction,error:Option<WorkflowError>)->Result<CanonicalPoint,WorkflowError>{
+        let diagnostic=error.map(|error|error.boundary_diagnostic()).or_else(||match &action.kind{pse_model::study::ActionKind::Refuse(refusal)=>Some(super::study_execution::policy_refusal(refusal)),pse_model::study::ActionKind::Cancel=>Some(WorkflowError::Math(crate::math::MathRuntimeError::Cancelled).boundary_diagnostic()),_=>None});
+        Ok(self.canonical_store().refuse_study_point(scope,action,diagnostic).await?)
+    }
+
+    /// Explicitly recover an assigned occurrence without invoking a numerical kernel.
+    /// Native expiration/cancellation authority closes the old writer before replay.
+    #[allow(unsafe_code,reason="owning recovery projects only admitted completion or truthful worker-loss facts")]
+    pub(crate) async fn recover_study_point(&self,key:&str)->Result<bool,WorkflowError>{
+        let point=self.canonical_store().canonical_study_point(key).await?.ok_or_else(||contract("assigned study occurrence absent"))?;
+        let point=&point;
+        let Some(attempt_key)=point.attempt.as_deref() else{return Err(contract("assigned study occurrence has no attempt"));};
+        let actual=self.canonical_store().canonical_attempt(attempt_key).await?.ok_or_else(||contract("assigned attempt absent"))?;
+        let study=self.canonical_store().canonical_study(&point.study).await?.ok_or_else(||contract("study header absent"))?;
+        let run=self.canonical_store().canonical_run(&point.run).await?.ok_or_else(||contract("point run absent"))?;
+        if !actual.terminal&&!study.cancelled&&!run.cancelled&&actual.expires_at>chrono::Utc::now().timestamp_micros(){return Ok(false);}
+        self.operations()?.recover(&point.run,&format!("study-recover:{}:{}",point.key,actual.generation)).await?;
+        let record=self.operations()?.record(&point.run,attempt_key).await?;
+        let stored=record.completion.as_ref().ok_or_else(||contract("recovered completion absent"))?;
+        let mut facts=point_facts(point)?;facts.lifecycle=match stored.state{AttemptState::Cancelled=>StudyPointState::Cancelled,AttemptState::Failed=>StudyPointState::Failed,_=>StudyPointState::Completed};
+        facts.retry_failure=stored.termination.retry_failure;facts.effect=stored.termination.effect;
+        facts.scientific=stored.completion.as_ref().map_or_else(pse_model::study::ScientificFacts::default,|completion|{
+            let single=match completion.assessments.as_slice(){[one]=>Some(one),_=>None};
+            pse_model::study::ScientificFacts{usable:!completion.assessments.is_empty()&&completion.assessments.iter().all(|row|row.permits_result),candidate_use:single.map(|row|row.usability),seed_permission:single.is_some_and(|row|row.permits_seed)}
+        });
+        let start=point.start.as_ref().map(|bytes|serde_json::from_slice(bytes.as_slice()).map_err(|error|contract(error.to_string()))).transpose()?;
+        let diagnostic=match &stored.termination.cause{super::TerminationCause::Error{diagnostic}=>Some(diagnostic.clone()),_=>None};
+        let mut outcome=point_outcome(point)?.unwrap_or(PointOutcome{key:facts.key,lifecycle:facts.lifecycle,scientific:facts.scientific.clone(),diagnostic:None,start:start.clone(),effect:facts.effect,attempts:vec![]});
+        outcome.lifecycle=facts.lifecycle;outcome.scientific=facts.scientific.clone();outcome.effect=facts.effect;outcome.diagnostic=diagnostic.clone();outcome.start=start.clone();
+        outcome.attempts.push(PointAttemptOutcome{attempt_id:Some(record.attempt_id),lifecycle:Some(stored.state),diagnostic,scientific:facts.scientific.clone(),start,effect:facts.effect});
+        let settled=!pse_operations::study_policy::may_retry(&point_policy(point)?,&facts,study.cancelled);
+        unsafe{self.canonical_store().observe_study_point(point,&facts,&outcome,settled).await}?;Ok(true)
+    }
+
+    /// Publish bounded occurrence summary blocks after every scientific occurrence
+    /// settles. Reconciliation and terminal admission precede the study conclusion.
+    #[allow(unsafe_code,reason="owning study policy projects complete admitted occurrence observations")]
+    pub(crate) async fn finalize_canonical_study(&self,key:&str)->Result<bool,WorkflowError>{
+        use pse_model::study::{Availability,StudyLifecycle};
+        use pse_operations::canonical_execution::{TerminalClass,result_set_key,result_batch_key,result_payload_digest};
+        let store=self.canonical_store();let study=store.canonical_study(key).await?.ok_or_else(||contract("study absent"))?;
+        if study.terminal{return Ok(false);}
+        let mut parent=store.canonical_run(&study.run).await?.ok_or_else(||contract("study parent run absent"))?;
+        if let Some(attempt)=&parent.current_attempt {
+            let actual=store.canonical_attempt(attempt).await?.ok_or_else(||contract("parent attempt absent"))?;
+            if !actual.terminal {
+                if actual.expires_at>chrono::Utc::now().timestamp_micros(){return Ok(false);}
+                // A summary has no scientific effects. Freeze the lost writer and retain
+                // its truthful worker-loss receipt before rebuilding from settled points.
+                self.operations()?.recover(&study.run,&format!("study-summary-recover:{}",actual.generation)).await?;
+                parent=store.canonical_run(&study.run).await?.ok_or_else(||contract("recovered parent run absent"))?;
+            }
+        }
+        if let Some(attempt)=&parent.terminal_attempt {
+            let actual=store.canonical_attempt(attempt).await?.ok_or_else(||contract("parent terminal attempt absent"))?;
+            if actual.completion.as_ref().is_some_and(|bytes|serde_json::from_slice::<(u8,pse_model::study::Conclusion)>(bytes.as_slice()).is_ok()) {
+                store.conclude_study(key).await?;return Ok(true);
+            }
+            // Only the typed lost-writer completion permits rebuilding this effect-free
+            // summary. An unknown payload must never become a successful conclusion.
+            let recovered=self.operations()?.record(&study.run,attempt).await?;
+            let lost=recovered.completion.as_ref().is_some_and(|stored|stored.completion.is_none()&&stored.termination.retry_failure==Some(pse_model::study::RetryFailure::Transient)&&stored.termination.effect==pse_model::study::EffectState::Absent);
+            if !lost {return Err(contract("parent terminal observation does not authorize summary recovery"));}
+        }
+        let operations=self.operations()?;
+        let Some(fence)=store.begin_study_finalization(&StudySummary::from(&study),operations.worker(),operations.policy().lease).await? else{return Ok(false);};
+        let study_id=StudyId::from_id(SemanticId::parse_hex(key).map_err(|error|contract(error.to_string()))?);
+        let relation=pse_relations::generated::runtime::study_outcomes::RELATION_ID;
+        let set=result_set_key(fence.attempt(),&relation.to_string());
+        let mut after=None;let mut ordinal=0_u64;let mut offset=0_u64;let mut usable=0_u64;
+        loop {
+            let page=store.study_point_page(key,after).await?;if page.is_empty(){break;}
+            let mut rows=Vec::with_capacity(page.len());
+            for point in page {
+                after=Some(point.ordinal);if !point.settled{return Err(contract("study observation reopened during finalization"));}
+                let outcome=point.outcome()?.ok_or_else(||contract("settled study outcome absent"))?;usable+=u64::from(outcome.scientific.usable);
+                let full=store.canonical_study_point(&point.key).await?.ok_or_else(||contract("study point absent"))?;
+                rows.push(super::study_tables::outcome_row(study_id,&definition_of(&full)?,&outcome));
+            }
+            let batch=super::study_tables::export::<pse_model::generated::runtime::study_outcomes::Row>(self,rows)?;
+            let columns=batch.batch().num_columns()as u64;
+            let base=offset;offset+=batch.batch().num_rows()as u64;
+            super::result_blocks::visit_result_blocks_async(batch.batch(),|start,rows,payload|{
+                let current=ordinal;ordinal+=1;let start=base+start as u64;
+                let block=pse_model::generated::runtime::canonical_result_blocks::Row{key:result_batch_key(fence.attempt(),&set,current),result_set:set.clone(),batch:result_batch_key(fence.attempt(),&set,current),output:relation.to_string(),partition:"0".into(),ordinal:current,start,end:start+rows as u64,rows:rows as u64,columns,coordinate_min:None,coordinate_max:None,payload_bytes:payload.len()as u64,payload_digest:result_payload_digest(&payload),interpretation:pse_operations::generated::surreal::INTERPRETATION.into()};
+                let fence=&fence;
+                async move{store.append_result_block(fence,&format!("study-summary:{}:{current}",fence.attempt()),&relation.to_string(),current,&payload,rows as u64,&block).await?;Ok::<_,WorkflowError>(())}
+            }).await?;
+            store.renew_attempt(&fence,operations.policy().lease).await?;
+        }
+        if offset!=study.point_count{return Err(contract("study summary coverage differs"));}
+        let availability=if usable==study.point_count{Availability::Complete}else if usable>0{Availability::Partial}else{Availability::None};
+        let conclusion=pse_model::study::Conclusion{availability,lifecycle:if study.cancelled{StudyLifecycle::Cancelled}else{StudyLifecycle::Terminal}};
+        let class=if study.cancelled{TerminalClass::Cancelled}else{match availability{Availability::Complete=>TerminalClass::Succeeded,Availability::Partial=>TerminalClass::Partial,Availability::None=>TerminalClass::Failed}};
+        let closed=store.close_result_ingestion(&fence,&format!("study-summary-close:{}",fence.attempt())).await?;let manifest=store.reconcile_closed_attempt(&closed).await?;
+        let operation=format!("study-summary-terminal:{}",fence.attempt());
+        if let Err(error)=unsafe{store.seal_study_summary(key,&manifest,&operation,class,&document(&(1_u8,conclusion))?).await} {
+            let current=store.canonical_study(key).await?.ok_or_else(||contract("study summary header disappeared"))?;
+            if !current.cancelled||study.cancelled{return Err(error.into());}
+            let cancelled=pse_model::study::Conclusion{availability,lifecycle:StudyLifecycle::Cancelled};
+            unsafe{store.seal_study_summary(key,&manifest,&operation,TerminalClass::Cancelled,&document(&(1_u8,cancelled))?).await}?;
+        }
+        store.conclude_study(key).await?;Ok(true)
+    }
+
+    /// Record completion only after the actual scientific result has drained and its
+    /// exact canonical manifest was admitted.
+    #[allow(unsafe_code,reason="owning runtime projects actual admitted scientific completion, without pointer or ABI operations")]
+    pub(crate) async fn record_study_attempt(&self,point:&CanonicalPoint,start:&pse_model::study::StartProvenance,result:&super::RunResult,record:&super::DurableRecord)->Result<CanonicalPoint,WorkflowError>{
+        let terminal=record.attempt.as_ref().map_err(|error|contract(format!("study result retention failed: {error}")))?;
+        if point.attempt.as_deref()!=Some(terminal.key.as_str()) {return Err(contract("study observation does not name its actual canonical attempt"));}
+        let stored=record.completion.as_ref().ok_or_else(||contract("scientific completion absent"))?;
+        let mut facts=point_facts(point)?;facts.native_started=true;
+        facts.lifecycle=match stored.state {AttemptState::Cancelled=>StudyPointState::Cancelled,AttemptState::Failed=>StudyPointState::Failed,_=>StudyPointState::Completed};
+        facts.scientific=super::study_operations::scientific_facts(result);facts.retry_failure=stored.termination.retry_failure;facts.effect=stored.termination.effect;
+        let diagnostic=super::study_execution::result_diagnostic(result);
+        let attempt=PointAttemptOutcome{attempt_id:Some(record.attempt_id),lifecycle:Some(stored.state),diagnostic:diagnostic.clone(),scientific:facts.scientific.clone(),start:Some(start.clone()),effect:facts.effect};
+        let mut outcome=point_outcome(point)?.unwrap_or_else(||PointOutcome{key:facts.key,lifecycle:facts.lifecycle,scientific:facts.scientific.clone(),diagnostic:diagnostic.clone(),start:Some(start.clone()),effect:facts.effect,attempts:vec![]});
+        outcome.lifecycle=facts.lifecycle;outcome.scientific=facts.scientific.clone();outcome.diagnostic=diagnostic;outcome.start=Some(start.clone());outcome.effect=facts.effect;outcome.attempts.push(attempt);
+        let policy=point_policy(point)?;
+        let study=self.canonical_store().canonical_study(&point.study).await?.ok_or_else(||contract("study absent"))?;
+        let settled=!pse_operations::study_policy::may_retry(&policy,&facts,study.cancelled);
+        Ok(unsafe{self.canonical_store().observe_study_point(point,&facts,&outcome,settled).await}?)
+    }
+}
+
+/// One canonical point's state and exact persisted result identity.
+#[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PointStatus {
+    /// Authored occurrence identity.
+    pub point_index:u32,
+    /// Actual occurrence lifecycle.
+    pub state:StudyPointState,
+    /// Retained scientific outcome, when observed.
+    pub outcome:Option<PointOutcome>,
+    /// Exact canonical occurrence execution.
+    pub run:String,
+    /// Exact assigned native attempt, when claimed.
+    pub attempt:Option<String>,
+    /// Shared policy no longer permits a retry.
+    pub settled:bool,
+}
+/// Study metadata and explicit user-requested point summary; no native reports or source bundle.
+#[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StudyStatus {
+    /// Stable requested study identity.
+    pub study_id:StudyId,
+    /// Actual header lifecycle.
+    pub state:StudyState,
+    /// Exact canonical parent execution.
+    pub run:String,
+    /// Admitted parent summary attempt, when available.
+    pub result_attempt:Option<String>,
+    /// Persistent study cancellation authority.
+    pub cancelled:bool,
+    /// Explicitly requested compact occurrence observations.
+    pub points:Vec<PointStatus>,
+}
+/// Canonical parent result and exact occurrence results, available after restart.
+#[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StudyResults {
+    /// Exact canonical parent execution.
+    pub run:String,
+    /// Admitted parent summary attempt.
+    pub attempt:String,
+    /// Occurrence identity, execution and optional native attempt.
+    pub points:Vec<(u32,String,Option<String>)>,
+}
+/// Explicit cancellation receipt; native process drain remains the worker's obligation.
+#[derive(Clone,Debug,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StudyCancel {
+    /// Exact requested study identity.
+    pub study_id:StudyId,
+    /// Current native cancellation generation.
+    pub generation:u64,
+    /// A concluded study cannot revoke admitted history.
+    pub already_concluded:bool,
+}
+
+/// A durable study's exact canonical selection.
+#[derive(Clone,Debug)]
+pub struct StudyHandle {runtime:Runtime,study_id:StudyId}
+impl StudyHandle {
+    /// Stable requested study identity.
+    pub const fn study_id(&self)->StudyId{self.study_id}
+    /// Metadata and compact occurrence outcomes, fetched only on explicit request.
+    pub async fn status(&self)->Result<StudyStatus,WorkflowError>{
+        let store=self.runtime.canonical_store();let study=store.canonical_study(&self.study_id.to_string()).await?.ok_or_else(||contract("canonical study absent"))?;
+        let run=store.canonical_run(&study.run).await?.ok_or_else(||contract("canonical study run absent"))?;
+        let mut points=Vec::new();let mut after=None;
+        loop{let page=store.study_point_page(&study.key,after).await?;if page.is_empty(){break;}for point in page{after=Some(point.ordinal);let facts=point.facts()?;points.push(PointStatus{point_index:u32::try_from(point.occurrence).map_err(|_|contract("occurrence overflow"))?,state:facts.lifecycle,outcome:point.outcome()?,run:point.run,attempt:point.attempt,settled:point.settled});}}
+        Ok(StudyStatus{study_id:self.study_id,state:if study.terminal{StudyState::Concluded}else{StudyState::Open},run:study.run,result_attempt:run.terminal_attempt,cancelled:study.cancelled,points})
+    }
+    /// Revoke study claims and every assigned writer through one guarded header;
+    /// native renewal and ingestion observe this cancellation immediately.
+    pub async fn cancel(&self)->Result<StudyCancel,WorkflowError>{
+        let store=self.runtime.canonical_store();let key=self.study_id.to_string();let old=store.canonical_study(&key).await?.ok_or_else(||contract("canonical study absent"))?;
+        if old.terminal{return Ok(StudyCancel{study_id:self.study_id,generation:old.generation,already_concluded:true});}
+        let study=store.cancel_study(&key).await?;
+        Ok(StudyCancel{study_id:self.study_id,generation:study.generation,already_concluded:false})
+    }
+    /// Sealed canonical handles; incomplete private staging is never returned as a result.
+    pub async fn result(&self)->Result<Option<StudyResults>,WorkflowError>{let status=self.status().await?;let Some(attempt)=status.result_attempt else{return Ok(None)};self.runtime.canonical_store().read_results(&status.run,&attempt,Duration::from_secs(60)).await?;Ok(Some(StudyResults{run:status.run,attempt,points:status.points.into_iter().map(|point|(point.point_index,point.run,point.attempt)).collect()}))}
+    /// Wait for retained finalization, with optional managed workers continuing dispatch.
+    pub async fn wait(&self,poll:Duration)->Result<StudyResults,WorkflowError>{if poll.is_zero(){return Err(contract("study poll interval must be positive"));}loop{if let Some(result)=self.result().await?{return Ok(result);}tokio::time::sleep(poll).await;}}
 }
 
 /// Authored policy choices; seed consumption is supplied only by operation admission.
@@ -100,15 +440,11 @@ pub struct StudyPlan {
     pub sources: PackageSources,
     /// The points, in index order.
     pub points: Vec<StudyPoint>,
-    /// How often each point and the finalization may be tried.
-    pub retry: RetryPolicy,
-    /// The priority of the study's jobs.
-    pub priority: i32,
 }
 
-const STUDY_DEFINITION_VERSION: u32 = 7;
+const STUDY_DEFINITION_VERSION: u32 = 8;
 
-/// Version 7 of a study's definition: the store's `definition` document and the content of
+/// Version 8 of a study's definition: the store's `definition` document and the content of
 /// the study's request identity.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -116,7 +452,7 @@ pub struct StudyDefinition {
     /// Document version.
     pub version: Version<STUDY_DEFINITION_VERSION>,
     /// The source bundle of the physical package.
-    pub physical: ContentHash,
+    pub physical: super::PhysicalSource,
     /// The exact immutable canonical modeling revision.
     pub modeling_revision: String,
     /// The points, in index order.
@@ -139,18 +475,17 @@ pub struct StudyPointDefinition {
 impl StudyDefinition {
     /// Read a current durable definition, refusing historical contracts before their
     /// nested scientific inputs are decoded. Stored bytes are never rewritten.
-    pub(super) fn readmission(document: &str) -> Result<Self, WorkflowError> {
-        let header: super::worker::DocumentVersion = serde_json::from_str(document)
+    pub fn readmission(document: &str) -> Result<Self, WorkflowError> {
+        #[derive(serde::Deserialize)]
+        struct Header {version:u32}
+        let header: Header = serde_json::from_str(document)
             .map_err(|error| contract(format!("immutable study definition version: {error}")))?;
         if header.version != Version::<STUDY_DEFINITION_VERSION>::NUMBER {
-            return Err(OperationsError::InvalidRequest {
-                reason: format!(
+            return Err(contract(format!(
                     "study definition version {} is unsupported (current: {}); explicit readmission is required",
                     header.version,
                     Version::<STUDY_DEFINITION_VERSION>::NUMBER
-                ),
-            }
-            .into());
+                )));
         }
         serde_json::from_str(document)
             .map_err(|error| contract(format!("immutable study definition: {error}")))
@@ -192,94 +527,19 @@ impl StudyDefinition {
     }
 }
 
-/// Where a study point's try writes its result members: the study's intent.
-#[derive(Clone, Debug)]
-pub(crate) struct PointContext {
-    pub(crate) study_id: StudyId,
-    pub(crate) job_id: pse_operations::jobs::JobId,
-    pub(crate) attempt_id: AttemptId,
-    pub(crate) point_index: u32,
-    pub(crate) revision: u64,
-    pub(crate) source_revision: ContentHash,
-    pub(crate) start: Option<pse_model::study::StartProvenance>,
-    pub(crate) scientific: pse_model::study::ScientificFacts,
-    pub(crate) diagnostic: Option<pse_model::diagnostic::BoundaryDiagnostic>,
-    pub(crate) effect: pse_model::study::EffectState,
-    pub(crate) publication_id: PublicationId,
-    pub(crate) workspace_id: WorkspaceId,
-    pub(crate) member_prefix: url::Url,
-}
-
-/// The catalog a completed point's result members are published under.
-fn point_catalog(point: u32) -> String {
-    format!("point_{point}")
-}
-
-fn identity(
-    frame: pse_ids::Frame,
-    value: &impl serde::Serialize,
-) -> Result<ContentHash, WorkflowError> {
-    pse_ids::document::of(frame, value).map_err(|e| contract(e.to_string()))
-}
-
-fn document(value: &impl serde::Serialize, what: &str) -> Result<serde_json::Value, WorkflowError> {
-    serde_json::to_value(value).map_err(|e| contract(format!("{what}: {e}")))
-}
-
-fn prefix_of(uri: &str) -> Result<url::Url, WorkflowError> {
-    url::Url::parse(uri).map_err(|error| contract(format!("intent member prefix {uri}: {error}")))
-}
-
-impl Operations {
-    /// Where a study point's try writes its result members: the study's registered intent.
-    ///
-    /// # Errors
-    /// An unknown study or intent; store failures.
-    pub(crate) async fn point_context(
-        &self,
-        binding: &StudyPointBinding,
-    ) -> Result<PointContext, WorkflowError> {
-        let studies = self.store().studies();
-        let point = studies.point(binding.study_id, binding.point_index).await?;
-        if point.binding_hash != binding.binding_hash {
-            return Err(contract(format!(
-                "point {} of study {} is bound to other values than the job",
-                binding.point_index, binding.study_id
-            )));
-        }
-        let study = studies.row(binding.study_id).await?;
-        let intent = self
-            .store()
-            .catalog()
-            .intent(study.publication_id)
-            .await?
-            .ok_or_else(|| OperationsError::NotFound {
-                entity: "publication intent",
-                id: study.publication_id.to_string(),
-            })?;
-        Ok(PointContext {
-            study_id: binding.study_id,
-            job_id: point.job_id,
-            attempt_id: point.attempt_id,
-            point_index: binding.point_index,
-            revision: point.revision,
-            source_revision: binding.operation.source.revision.as_id(),
-            start: None,
-            scientific: Default::default(),
-            diagnostic: None,
-            effect: pse_model::study::EffectState::Absent,
-            publication_id: intent.publication_id,
-            workspace_id: intent.workspace_id,
-            member_prefix: prefix_of(&intent.member_prefix)?,
-        })
-    }
-}
 
 impl super::ModelingPackage {
+    /// Admit exact authored physical sources through their canonical owner before
+    /// deriving occurrence descriptors. Adapters never fabricate a storage receipt.
+    pub async fn admit_study_sources(&self,sources:&BTreeMap<String,Vec<u8>>,points:&[StudyPoint],cancel:&crate::CancelSource)->Result<StudyDefinition,WorkflowError>{
+        let operations=Operations::from_store(self.runtime.canonical_store().clone(),Operations::process_worker("study-admission"),super::LeasePolicy::default(),self.runtime.shared.pool());
+        let physical=operations.put_sources(sources).await?;
+        self.admit_study_points(physical,points,cancel).await
+    }
     /// Admit operations and physical bindings before either executor schedules an occurrence.
     pub async fn admit_study_points(
         &self,
-        physical: ContentHash,
+        physical: super::PhysicalSource,
         points: &[StudyPoint],
         cancel: &crate::CancelSource,
     ) -> Result<StudyDefinition, WorkflowError> {
@@ -322,15 +582,13 @@ impl super::ModelingPackage {
             let binding = self
                 .admit_operation_overlay(&operation, &point.overlay, cancel)
                 .await?;
-            let prepared = self
-                .prepare_bound_operation(&operation, &binding, cancel)
-                .await?;
+            let seed_need = operation.admit_binding_seed_need(self, &binding, cancel).await?;
             let policy = PointPolicy {
                 key: point.policy.key,
                 dependencies: point.policy.dependencies.clone(),
                 start: point.policy.start.clone(),
                 attempt_limit: point.policy.attempt_limit,
-                seed_need: prepared.seed_need(),
+                seed_need,
             };
             admitted.push(StudyPointDefinition {
                 binding_hash: binding.identity(),
@@ -350,801 +608,5 @@ impl super::ModelingPackage {
         })?;
         definition.validate_roles()?;
         Ok(definition)
-    }
-}
-
-impl Runtime {
-    /// Resolve stopped point writes through exact native receipts before queue dispatch.
-    pub(crate) async fn reconcile_study_receipts(&self) -> Result<(), WorkflowError> {
-        use pse_model::study::{EffectState, OccurrenceKey};
-        let operations = self.operations()?;
-        let records = operations
-            .store()
-            .studies()
-            .list(&StudyFilter {
-                states: vec![StudyState::Open],
-                limit: i64::MAX,
-            })
-            .await?;
-        let state = std::sync::Arc::new(self.sessions.native_state().clone());
-        for row in records {
-            let points = operations
-                .store()
-                .studies()
-                .unresolved_points(row.study_id)
-                .await?;
-            if points.is_empty() {
-                continue;
-            }
-            let intent = operations
-                .store()
-                .catalog()
-                .intent(row.publication_id)
-                .await?
-                .ok_or_else(|| contract("study intent unavailable during receipt recovery"))?;
-            for point in points {
-                if point.job_state == JobState::Running
-                    || point
-                        .outcome
-                        .as_ref()
-                        .is_none_or(|o| o.effect != EffectState::Unknown)
-                {
-                    continue;
-                }
-                let Some(document) = point.receipt.as_ref() else {
-                    // No member write can begin before its ticket is durably recorded.
-                    operations
-                        .store()
-                        .studies()
-                        .reconcile_effect(
-                            row.study_id,
-                            OccurrenceKey(point.point_index),
-                            point.revision,
-                            EffectState::Absent,
-                        )
-                        .await?;
-                    continue;
-                };
-                let ticket: pse_catalog::delta::ticket::PublicationTicket =
-                    serde_json::from_value(document.clone())
-                        .map_err(|e| contract(format!("point receipt: {e}")))?;
-                if ticket.publication_id() != row.publication_id
-                    || ticket.workspace_id() != intent.workspace_id
-                {
-                    return Err(contract("point receipt differs from study intent"));
-                }
-                let outcome = point
-                    .outcome
-                    .as_ref()
-                    .ok_or_else(|| contract("receipt has no modern point facts"))?;
-                if ticket.attempt_id() != point.attempt_id
-                    && !outcome
-                        .attempts
-                        .iter()
-                        .any(|attempt| attempt.attempt_id == Some(ticket.attempt_id()))
-                {
-                    return Err(contract(
-                        "point receipt attempt is outside occurrence history",
-                    ));
-                }
-                let Ok(receipts) = ticket
-                    .recover_members(&state, &CancellationToken::new())
-                    .await
-                else {
-                    continue;
-                };
-                // Native absence/partial receipt observations cannot fence an old writer.
-                // Only the entire exact inventory closes this member effect idempotently.
-                if !receipts.complete && receipts.members.is_empty() {
-                    continue;
-                }
-                let effect = if receipts.complete {
-                    EffectState::Idempotent
-                } else {
-                    EffectState::Unknown
-                };
-                operations
-                    .store()
-                    .studies()
-                    .reconcile_receipt(
-                        row.study_id,
-                        OccurrenceKey(point.point_index),
-                        point.revision,
-                        effect,
-                        Some(ticket.attempt_id()),
-                        &receipts.members,
-                    )
-                    .await?;
-            }
-        }
-        Ok(())
-    }
-}
-
-impl Runtime {
-    /// Write `tables` as unpublished members under `prefix` (`{prefix}{schema}/{table}/`),
-    /// named in `catalog`, for the publication `publication_id` of `workspace_id`. The
-    /// member receipts name `attempt`, which also names the writes: writing the same tables
-    /// again for the same attempt recovers the members already written. Returns every
-    /// member with its actual version; nothing becomes visible.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "one member write: tables, their names and destination, and the publication and attempt the receipts name"
-    )]
-    async fn write_members(
-        &self,
-        tables: &BTreeMap<SemanticId, FieldCheckedBatch>,
-        catalog: &str,
-        prefix: &url::Url,
-        publication_id: PublicationId,
-        workspace_id: WorkspaceId,
-        attempt: AttemptId,
-        cancel: &CancellationToken,
-        point: Option<&mut PointContext>,
-    ) -> Result<Vec<MemberDescriptor>, WorkflowError> {
-        let spec = |id: &SemanticId| {
-            self.registry
-                .relation_by_id(*id)
-                .ok_or_else(|| contract("result declaration missing"))
-        };
-        let mut rows = BTreeMap::new();
-        for (id, batch) in tables {
-            rows.insert(spec(id)?.key, batch.clone());
-        }
-        let session = self
-            .sessions
-            .candidate_checked(rows, self.registry.clone(), cancel)?;
-        let mut outputs = BTreeMap::new();
-        let mut destinations = BTreeMap::new();
-        for id in tables.keys() {
-            let key = spec(id)?.key;
-            let source = ResolvedTableReference {
-                catalog: "workspace".into(),
-                schema: key.namespace.as_str().into(),
-                table: key.name.into(),
-            };
-            let output = ResolvedTableReference {
-                catalog: catalog.into(),
-                schema: source.schema.clone(),
-                table: source.table.clone(),
-            };
-            destinations.insert(
-                output.clone(),
-                prefix
-                    .join(&format!("{}/{}/", output.schema, output.table))
-                    .map_err(|error| contract(error.to_string()))?,
-            );
-            outputs.insert(
-                output,
-                RelationOutput {
-                    relation_id: *id,
-                    plan: session.relation_plan(&source)?.plan().clone(),
-                },
-            );
-        }
-        let artifact =
-            ArtifactPlan::new(session, outputs, cancel)?.with_operation(attempt.into())?;
-        let header = publication_manifests::Row {
-            publication_id,
-            workspace_id,
-            parent_publication_id: None,
-            attempt_id: attempt,
-            kind: PublicationKind::Relations,
-            inputs: vec![],
-            members: vec![],
-            windows: vec![],
-            exported_at: None,
-            export_lease_id: None,
-            export_expires_at: None,
-            maintenance_epoch: None,
-            store_fingerprint: None,
-        };
-        let (command, ticket) =
-            artifact.prepare_publication(header, destinations, vec![], cancel)?;
-        if let Some(point) = point {
-            let operations = self.operations()?;
-            operations
-                .store()
-                .studies()
-                .record_receipt(
-                    pse_operations::studies::DispatchFence {
-                        study: point.study_id,
-                        key: pse_model::study::OccurrenceKey(point.point_index),
-                        job: point.job_id,
-                        attempt: point.attempt_id,
-                        worker: operations.worker(),
-                        expected_revision: point.revision,
-                    },
-                    pse_operations::studies::PreEffectReceipt {
-                        scientific: point.scientific.clone(),
-                        diagnostic: point.diagnostic.clone(),
-                        receipt: document(&ticket, "point receipt")?,
-                    },
-                )
-                .await?;
-            point.revision += 1;
-            point.effect = pse_model::study::EffectState::Unknown;
-            let completed = command.execute(cancel).await?;
-            let members = candidate_record(
-                &completed,
-                &self.registry,
-                self.validation_context()?.as_ref(),
-            )?
-            .members;
-            point.effect = pse_model::study::EffectState::Idempotent;
-            return Ok(members);
-        }
-        let completed = command.execute(cancel).await?;
-        Ok(candidate_record(
-            &completed,
-            &self.registry,
-            self.validation_context()?.as_ref(),
-        )?
-        .members)
-    }
-
-    /// Start a durable study (Plan 22 O7): store its sources and definition, and create
-    /// the study, its coordinating attempt, its one publication intent in `workspace`, a
-    /// job per point and its waiting finalization, in one store transaction. Workers run
-    /// the points; the returned handle follows, cancels and reads the study.
-    ///
-    /// # Errors
-    /// An ephemeral runtime; no points, more than [`MAXIMUM_STUDY_POINTS`], an invalid
-    /// occurrence graph or physically incompatible assignment; an invalid
-    /// workspace root; store failures.
-    pub async fn start_study(
-        &self,
-        workspace: &Workspace,
-        plan: StudyPlan,
-    ) -> Result<StudyHandle, WorkflowError> {
-        let operations = self.operations()?;
-        if plan.points.is_empty() || plan.points.len() > MAXIMUM_STUDY_POINTS {
-            return Err(contract(format!(
-                "a study holds between 1 and {MAXIMUM_STUDY_POINTS} points"
-            )));
-        }
-        let physical = operations.put_sources(&plan.sources.physical).await?;
-        let cancel = crate::CancelSource::new();
-        let package = self
-            .package_from_sources(
-                &plan.sources.modeling,
-                self.physical_from_sources(&plan.sources.physical, &cancel)
-                    .await?,
-            )
-            .await?;
-        let definition = package
-            .admit_study_points(physical, &plan.points, &cancel)
-            .await?;
-        self.start_defined_study(
-            workspace,
-            plan.sources.physical,
-            definition,
-            plan.retry,
-            plan.priority,
-        )
-        .await
-    }
-
-    /// Persist and execute the same admitted definition accepted by the in-process adapter.
-    pub async fn start_defined_study(
-        &self,
-        workspace: &Workspace,
-        physical_sources: BTreeMap<String, Vec<u8>>,
-        definition: StudyDefinition,
-        retry: RetryPolicy,
-        priority: i32,
-    ) -> Result<StudyHandle, WorkflowError> {
-        let operations = self.operations()?;
-        let physical = operations.put_sources(&physical_sources).await?;
-        if physical != definition.physical {
-            return Err(contract("admitted study physical source identity differs"));
-        }
-        let cancel = crate::CancelSource::new();
-        let revision = self
-            .canonical
-            .store()
-            .revision(&definition.modeling_revision)
-            .await?
-            .ok_or_else(|| contract("immutable canonical modeling revision is absent"))?;
-        let package = self
-            .modeling_revision(
-                revision.clone(),
-                self.physical_from_sources(&physical_sources, &cancel)
-                    .await?,
-                BTreeMap::new(),
-            )
-            .await?;
-        pse_operations::study_policy::admit(&definition.graph()).map_err(|error| {
-            WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
-        })?;
-        definition.validate_roles()?;
-        if definition.points.len() > MAXIMUM_STUDY_POINTS {
-            return Err(contract("study point extent exceeds its limit"));
-        }
-        for point in &definition.points {
-            if point.binding.identity() != point.binding_hash {
-                return Err(contract("immutable study binding identity differs"));
-            }
-            let prepared = package
-                .prepare_bound_operation(&point.operation, &point.binding, &cancel)
-                .await?;
-            if prepared.seed_need() != point.policy.seed_need {
-                return Err(contract("immutable study seed need differs from owner"));
-            }
-        }
-        let request_identity = identity(pse_ids::Frame::DurableStudyRequestV5, &definition)?;
-        let study_id: StudyId = pse_operations::mint_id();
-        let attempt_id: AttemptId = pse_operations::mint_id();
-        let run_id: RunId = pse_operations::mint_id();
-        self.canonical
-            .store()
-            .retain_revision(
-                &revision,
-                &pse_operations::canonical_retention::RetentionOwner::Run(run_id.to_string()),
-            )
-            .await?;
-        let publication_id: PublicationId = pse_operations::mint_id();
-        let job = |attempt: NewAttempt, key: String, task: JobTask| {
-            Ok::<_, WorkflowError>(NewJob {
-                attempt,
-                idempotency_key: key,
-                payload_version: JOB_PAYLOAD_VERSION,
-                payload: document(&JobPayload::new(task), "job payload")?,
-                priority,
-                retry,
-            })
-        };
-        let mut new_points = Vec::with_capacity(definition.points.len());
-        for point in &definition.points {
-            let point_index = point.policy.key.0;
-            let operation_job = StudyOperationJob {
-                physical: definition.physical,
-                modeling_revision: definition.modeling_revision.clone(),
-                point: StudyPointBinding {
-                    study_id,
-                    point_index,
-                    binding_hash: point.binding_hash,
-                    binding: point.binding.clone(),
-                    policy: point.policy.clone(),
-                    operation: point.operation.clone(),
-                },
-            };
-            let attempt = NewAttempt {
-                attempt_id: pse_operations::mint_id(),
-                run_id: pse_operations::mint_id(),
-                kind: match point.operation.operation {
-                    OperationRequest::DeclaredCase(_) | OperationRequest::Horizon(_) => {
-                        AttemptKind::Modeling
-                    }
-                    OperationRequest::Simulation(_) => AttemptKind::Simulation,
-                    OperationRequest::Fit(_) => AttemptKind::Fit,
-                },
-                operational_job_identity: pse_ids::roles::RecordedOperationalJobIdentity::current(
-                    pse_ids::roles::OperationalJobHash::from(identity(
-                        pse_ids::Frame::DurableJobRequestV6,
-                        &operation_job,
-                    )?),
-                ),
-                preparation_identity: None,
-                parent_attempt: None,
-            };
-            let mut point_job = job(
-                attempt,
-                format!("study:{study_id}:point:{point_index}"),
-                JobTask::StudyOperation(Box::new(operation_job)),
-            )?;
-            point_job.retry.max_tries = point.policy.attempt_limit;
-            new_points.push(NewPoint {
-                binding_hash: point.binding_hash,
-                policy: point.policy.clone(),
-                job: point_job,
-            });
-        }
-        let finalization = job(
-            NewAttempt {
-                attempt_id: pse_operations::mint_id(),
-                run_id,
-                kind: AttemptKind::StudyFinalization,
-                operational_job_identity: pse_ids::roles::RecordedOperationalJobIdentity::current(
-                    pse_ids::roles::OperationalJobHash::from(identity(
-                        pse_ids::Frame::DurableJobRequestV6,
-                        &(AttemptKind::StudyFinalization, request_identity, study_id),
-                    )?),
-                ),
-                preparation_identity: None,
-                parent_attempt: None,
-            },
-            format!("study:{study_id}:finalization"),
-            JobTask::StudyFinalization(StudyFinalization { study_id }),
-        )?;
-        let member_prefix = workspace.member_prefix(attempt_id, publication_id)?;
-        operations
-            .store()
-            .studies()
-            .create(&NewStudy {
-                study_id,
-                attempt: NewAttempt {
-                    attempt_id,
-                    run_id,
-                    kind: AttemptKind::Study,
-                    operational_job_identity:
-                        pse_ids::roles::RecordedOperationalJobIdentity::current(
-                            pse_ids::roles::OperationalJobHash::from(identity(
-                                pse_ids::Frame::DurableJobRequestV6,
-                                &(AttemptKind::Study, request_identity, study_id),
-                            )?),
-                        ),
-                    preparation_identity: None,
-                    parent_attempt: None,
-                },
-                intent: NewIntent {
-                    publication_id,
-                    workspace_id: workspace.workspace_id,
-                    attempt_id,
-                    member_prefix: member_prefix.to_string(),
-                },
-                definition: document(&definition, "study definition")?,
-                finalization,
-                points: new_points,
-            })
-            .await?;
-        Ok(self.study(study_id))
-    }
-
-    /// A handle on a durable study of this runtime's store.
-    pub fn study(&self, study_id: StudyId) -> StudyHandle {
-        StudyHandle {
-            runtime: self.clone(),
-            study_id,
-        }
-    }
-
-    /// The store's studies, newest first, as the registry relation
-    /// `runtime.operational_studies`.
-    ///
-    /// # Errors
-    /// An ephemeral runtime; store failures; a stored value outside the registry contract.
-    pub async fn studies(&self, filter: &StudyFilter) -> Result<FieldCheckedBatch, WorkflowError> {
-        use pse_relations::generated::runtime::operational_studies as studies;
-        let records = self.operations()?.store().studies().list(filter).await?;
-        let validation = self.validation_context()?;
-        let mut rows = studies::Builder::with_registry(&self.registry, records.len(), &validation)
-            .map_err(super::relation)?;
-        for row in records {
-            rows.push(row).map_err(super::relation)?;
-        }
-        rows.finish().map_err(super::relation)
-    }
-
-    /// Publish a concluded study (its finalization job's task): write the summary relation
-    /// `runtime.study_outcomes` under the study's intent and commit one publication of the
-    /// study's attempt with the summary and every completed point's members, re-reading
-    /// the workspace head when another publication advanced it. Idempotent: a study whose
-    /// publication is committed is only marked published.
-    ///
-    /// # Errors
-    /// A study that has not concluded; a head that kept moving; member write, admission or
-    /// store failures.
-    pub(super) async fn finalize_study(
-        &self,
-        operations: &Operations,
-        study: StudyId,
-        cancel: &crate::CancelSource,
-    ) -> Result<Published, WorkflowError> {
-        let store = operations.store();
-        let record = store.studies().summary_record(study).await?;
-        let catalog = store.catalog();
-        let publication_id = record.study.publication_id;
-        let intent =
-            catalog
-                .intent(publication_id)
-                .await?
-                .ok_or_else(|| OperationsError::NotFound {
-                    entity: "publication intent",
-                    id: publication_id.to_string(),
-                })?;
-        let published = |parent| Published {
-            publication_id,
-            workspace_id: intent.workspace_id,
-            parent,
-            attempt_id: record.study.attempt_id,
-        };
-        if let Some(existing) = catalog.publication(publication_id).await? {
-            store.studies().mark_published(study).await?;
-            return Ok(published(existing.publication.parent_publication));
-        }
-        if record.study.state != StudyState::Concluded {
-            return Err(contract(format!(
-                "study {study} is {}; only a concluded study is published",
-                record.study.state.as_str()
-            )));
-        }
-        let definition = StudyDefinition::readmission(&record.study.definition)?;
-        let point_members = store.studies().available_members(study).await?;
-        let available = point_members.iter().map(|(key, _)| *key).collect();
-        let summary = self.study_outcomes(&record, &definition, &available)?;
-        let token = cancel.token();
-        let prefix = prefix_of(&intent.member_prefix)?
-            .join("summary/")
-            .map_err(|error| contract(error.to_string()))?;
-        let mut members = self
-            .write_members(
-                &BTreeMap::from([(study_outcomes::RELATION_ID, summary)]),
-                "study",
-                &prefix,
-                publication_id,
-                intent.workspace_id,
-                record.study.attempt_id,
-                &token,
-                None,
-            )
-            .await?;
-        members.extend(point_members.into_iter().map(|(_, member)| member));
-        for _ in 0..COMMIT_ATTEMPTS {
-            let head = catalog.head(intent.workspace_id).await?;
-            let request = PublicationCommit {
-                publication_id,
-                workspace_id: intent.workspace_id,
-                attempt_id: record.study.attempt_id,
-                expected_parent: head,
-                kind: PublicationKind::Relations,
-                members: members.clone(),
-                inputs: Vec::new(),
-                windows: Vec::new(),
-            };
-            match catalog.commit(&request).await {
-                Ok(_) => {
-                    store.studies().mark_published(study).await?;
-                    return Ok(published(head));
-                }
-                Err(OperationsError::PublicationConflict { .. }) => {}
-                // A superseded try of this finalization committed the study meanwhile.
-                Err(error @ OperationsError::PublicationIdentityReused { .. }) => {
-                    let Some(existing) = catalog.publication(publication_id).await? else {
-                        return Err(error.into());
-                    };
-                    store.studies().mark_published(study).await?;
-                    return Ok(published(existing.publication.parent_publication));
-                }
-                Err(error) => return Err(error.into()),
-            }
-        }
-        Err(contract(format!(
-            "the head of workspace {} moved {COMMIT_ATTEMPTS} times while study {study} was published",
-            intent.workspace_id
-        )))
-    }
-
-    /// The summary relation of a concluded study: one row per point.
-    fn study_outcomes(
-        &self,
-        record: &StudyRecord,
-        definition: &StudyDefinition,
-        available: &std::collections::BTreeSet<u32>,
-    ) -> Result<FieldCheckedBatch, WorkflowError> {
-        let validation = self.validation_context()?;
-        let mut rows = study_outcomes::Builder::with_registry(
-            &self.registry,
-            record.points.len(),
-            &validation,
-        )
-        .map_err(super::relation)?;
-        for point in &record.points {
-            let defined = definition
-                .points
-                .iter()
-                .find(|defined| defined.policy.key.0 == point.point_index)
-                .ok_or_else(|| contract("study occurrence outside its definition"))?;
-            let outcome = point.outcome.as_ref().ok_or_else(|| {
-                contract("historical study outcome unavailable; explicit readmission required")
-            })?;
-            let mut row = super::study_tables::outcome_row(record.study.study_id, defined, outcome);
-            row.member_catalog = available
-                .contains(&point.point_index)
-                .then(|| point_catalog(point.point_index));
-            rows.push(row).map_err(super::relation)?;
-        }
-        rows.finish().map_err(super::relation)
-    }
-}
-
-impl super::RunResult {
-    /// Write this completed study point try's result tables under the study's intent
-    /// (`points/{index}/{attempt}/`), named in catalog `point_{index}`, with receipts
-    /// naming `attempt`. Nothing becomes visible until the study's publication commits.
-    pub(crate) async fn write_point_members(
-        &self,
-        point: &mut PointContext,
-        attempt: AttemptId,
-    ) -> Result<Vec<MemberDescriptor>, WorkflowError> {
-        let tables = self.tables().map_err(WorkflowError::Shared)?;
-        let prefix = point
-            .member_prefix
-            .join(&format!("points/{}/{attempt}/", point.point_index))
-            .map_err(|error| contract(error.to_string()))?;
-        self.runtime
-            .write_members(
-                tables,
-                &point_catalog(point.point_index),
-                &prefix,
-                point.publication_id,
-                point.workspace_id,
-                attempt,
-                &CancellationToken::new(),
-                Some(point),
-            )
-            .await
-    }
-}
-
-/// One point of a study's status.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct PointStatus {
-    /// The point.
-    pub point_index: u32,
-    /// Its state.
-    pub state: StudyPointState,
-    /// The earlier point that seeds it.
-    pub outcome: Option<PointOutcome>,
-    /// Historical unavailable policy attribution, preserved without readmission.
-    pub legacy: Option<pse_operations::studies::LegacyUnavailable>,
-    /// Its latest try.
-    pub attempt_id: AttemptId,
-    /// That try's state.
-    pub attempt_state: AttemptState,
-    /// Its job's state.
-    pub job_state: JobState,
-    /// Why the point failed or was cancelled.
-    pub error: Option<String>,
-}
-
-/// A durable study's status: its coordination state, its own attempt's state, its
-/// finalization and publication, and every point.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct StudyStatus {
-    /// The study.
-    pub study_id: StudyId,
-    /// Open, concluded or published.
-    pub state: StudyState,
-    /// The study's own attempt: the attempt its publication names.
-    pub attempt_id: AttemptId,
-    /// Queued while points run; then completed, partial, failed or cancelled.
-    pub attempt_state: AttemptState,
-    /// Its publication's identity, registered at creation.
-    pub publication_id: PublicationId,
-    /// The finalization job's state.
-    pub finalization: JobState,
-    /// Why the finalization last failed.
-    pub finalization_error: Option<String>,
-    /// Every point, in index order.
-    pub points: Vec<PointStatus>,
-}
-
-impl From<StudyRecord> for StudyStatus {
-    fn from(record: StudyRecord) -> Self {
-        Self {
-            study_id: record.study.study_id,
-            state: record.study.state,
-            attempt_id: record.study.attempt_id,
-            attempt_state: record.attempt.state,
-            publication_id: record.study.publication_id,
-            finalization: record.finalization.state,
-            finalization_error: record.finalization.last_error,
-            points: record
-                .points
-                .into_iter()
-                .map(|point| PointStatus {
-                    point_index: point.point_index,
-                    state: point.state,
-                    outcome: point.outcome,
-                    legacy: point.legacy,
-                    attempt_id: point.attempt_id,
-                    attempt_state: point.attempt_state,
-                    job_state: point.job_state,
-                    error: point.last_error,
-                })
-                .collect(),
-        }
-    }
-}
-
-/// A durable study: status, cancellation, waiting for its publication.
-#[derive(Clone, Debug)]
-pub struct StudyHandle {
-    runtime: Runtime,
-    study_id: StudyId,
-}
-
-impl StudyHandle {
-    /// The study.
-    pub const fn study_id(&self) -> StudyId {
-        self.study_id
-    }
-
-    /// The study as the store holds it now.
-    ///
-    /// # Errors
-    /// An ephemeral runtime; an unknown study; store failures.
-    pub async fn status(&self) -> Result<StudyStatus, WorkflowError> {
-        Ok(self
-            .runtime
-            .operations()?
-            .store()
-            .studies()
-            .get(self.study_id)
-            .await?
-            .into())
-    }
-
-    /// Cancel the study: points that have not started are cancelled, running tries are
-    /// asked to stop, and the study concludes as cancelled once none runs; what completed
-    /// is still published.
-    ///
-    /// # Errors
-    /// An ephemeral runtime; an unknown study; store failures.
-    pub async fn cancel(&self) -> Result<StudyCancel, WorkflowError> {
-        let operations = self.runtime.operations()?;
-        Ok(operations
-            .store()
-            .studies()
-            .cancel(self.study_id, operations.worker())
-            .await?)
-    }
-
-    /// The study's publication, once committed.
-    ///
-    /// # Errors
-    /// An ephemeral runtime; an unknown study; store failures.
-    pub async fn result(&self) -> Result<Option<Published>, WorkflowError> {
-        let operations = self.runtime.operations()?;
-        let store = operations.store();
-        let study = store.studies().row(self.study_id).await?;
-        if study.state != StudyState::Published {
-            return Ok(None);
-        }
-        let record = store
-            .catalog()
-            .publication(study.publication_id)
-            .await?
-            .ok_or_else(|| OperationsError::NotFound {
-                entity: "publication",
-                id: study.publication_id.to_string(),
-            })?;
-        Ok(Some(Published {
-            publication_id: study.publication_id,
-            workspace_id: record.publication.workspace_id,
-            parent: record.publication.parent_publication,
-            attempt_id: study.attempt_id,
-        }))
-    }
-
-    /// Wait until the study is published, polling its state every `poll`.
-    ///
-    /// # Errors
-    /// A finalization that failed or was cancelled for good; an ephemeral runtime; store
-    /// failures.
-    pub async fn wait(&self, poll: Duration) -> Result<Published, WorkflowError> {
-        loop {
-            if let Some(published) = self.result().await? {
-                return Ok(published);
-            }
-            let store = self.runtime.operations()?.store();
-            let study = store.studies().row(self.study_id).await?;
-            let finalization = store.jobs().get(study.finalization_job).await?;
-            if matches!(finalization.state, JobState::Failed | JobState::Cancelled) {
-                return Err(contract(format!(
-                    "study {} was not published: its finalization {}{}",
-                    self.study_id,
-                    finalization.state.as_str(),
-                    finalization
-                        .last_error
-                        .map(|error| format!(" ({error})"))
-                        .unwrap_or_default()
-                )));
-            }
-            tokio::time::sleep(poll).await;
-        }
     }
 }

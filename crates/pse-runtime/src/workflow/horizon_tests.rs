@@ -487,82 +487,27 @@ async fn mhe_recovers_initial_state() {
     assert!(start < 0.8 && start > 0.799, "{start}");
 }
 
-/// A horizon under a durable runtime is one attempt: registered before any effect, with its
-/// modeling steps' accepted seeds stored per step (O6) and one `horizon.step` event per
-/// sample in its stored progress stream (O5).
+/// One native horizon retains every completed step and reopens recorded progress.
+#[cfg(feature="canonical-tests")]
 #[tokio::test]
 async fn horizon_records_one_durable_attempt() {
-    use crate::workflow::{Durability, Operations, RunDurability};
-    use pse_operations::{attempts::AttemptKind, lifecycle::AttemptState, testing::TestDatabase};
-    const STEPS: usize = 4;
-    let database = TestDatabase::create().await.unwrap();
-    let operations = Operations::connect(
-        database.url(),
-        "horizon",
-        crate::workflow::durable_tests::quick(),
-    )
-    .await
-    .unwrap();
-    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20)
-        .with_durability(Durability::Durable(operations));
-    let (package, [root, whole, _]) = package(runtime.clone()).await;
-    let (plant, actuator, x) = plant(&package, whole, 0.2, STEPS).await;
-    let handle = runtime
-        .start_horizon(
-            Horizon {
-                plant,
-                period: PERIOD,
-                steps: STEPS,
-                inputs: vec![HorizonInput {
-                    parameter: actuator,
-                    initial: 0.,
-                }],
-                estimator: None,
-                controller: Some(controller(&package, root, x, vec![1.; STEPS])),
-            },
-            &crate::CancelSource::new(),
-        )
-        .await
-        .unwrap();
-    let attempt = handle.attempt_id().unwrap();
-    let result = handle.wait().await.unwrap();
-    assert!(
-        result.usable(),
-        "{:?}; report={:?}",
-        result.assessments(),
-        result.report()
-    );
-    let RunDurability::Durable(record) = result.durability() else {
-        panic!("ephemeral horizon")
-    };
-    assert_eq!(record.attempt_id, attempt);
-    let stored = record.attempt.as_ref().unwrap();
-    assert_eq!(stored.state, AttemptState::Completed);
-    assert_eq!(stored.kind, AttemptKind::Modeling);
-    assert_eq!(
-        record
-            .solutions
-            .iter()
-            .map(|(step, _)| *step)
-            .collect::<Vec<_>>(),
-        (0..STEPS).collect::<Vec<_>>()
-    );
-    let samples = record
-        .progress
-        .as_ref()
-        .unwrap()
-        .iter()
-        .filter(|e| e.phase == "horizon.step")
-        .map(|e| e.values["step"].clone())
-        .collect::<Vec<_>>();
-    assert_eq!(
-        samples,
-        (0..STEPS)
-            .map(|k| pse_operations::streams::ProgressValue::Integer(k as i64))
-            .collect::<Vec<_>>()
-    );
-    drop(runtime);
-    database.remove().await.unwrap();
+    use crate::workflow::RunDurability;
+    const STEPS:usize=4;
+    let runtime=crate::workflow::durable_tests::durable_runtime();
+    let (package,[root,whole,_])=package(runtime.clone()).await;
+    let (plant,actuator,x)=plant(&package,whole,0.2,STEPS).await;
+    let handle=runtime.start_horizon(Horizon{plant,period:PERIOD,steps:STEPS,inputs:vec![HorizonInput{parameter:actuator,initial:0.}],estimator:None,controller:Some(controller(&package,root,x,vec![1.;STEPS]))},&crate::CancelSource::new()).await.unwrap();
+    let run=handle.canonical_run_key().unwrap().to_owned();
+    let attempt=handle.canonical_attempt_key().unwrap().to_owned();
+    let result=handle.wait().await.unwrap();
+    assert!(result.usable(),"{:?}",result.report());
+    let RunDurability::Durable(record)=result.durability() else {panic!("ephemeral horizon")};
+    assert_eq!(record.attempt.as_ref().unwrap().outcome.as_deref(),Some("succeeded"));
+    assert_eq!(record.solutions.iter().map(|(step,_)|*step).collect::<Vec<_>>(),(0..STEPS).collect::<Vec<_>>());
+    let mut progress=runtime.progress(&run,&attempt,pse_columnar::CancellationToken::new()).await.unwrap();
+    let mut samples=Vec::new();
+    while let Some(page)=progress.next_page().await.unwrap(){for event in page {if event.phase=="horizon.step"{let crate::workflow::ProgressMetricDocument::Integer(step)=event.values["step"] else {panic!("non-integral native step")};samples.push(step);}}}
+    assert_eq!(samples,(0..STEPS).map(|step|step as i64).collect::<Vec<_>>());
 }
 
 /// A horizon is refused before any effect when its loop is inconsistent: a stage path that

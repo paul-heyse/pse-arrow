@@ -28,7 +28,7 @@ pub(crate) fn acquire(settings: &EngineSettings) -> Result<Arc<Runtime>, EngineE
     if let Some(runtime) = active.as_ref() {
         if runtime.settings.budget != settings.budget {
             return Err(errors::invalid(
-                "all publication handles share the already configured process resource budget",
+                "all runtime handles share the already configured process resource budget",
             ));
         }
         return Ok(Arc::clone(runtime));
@@ -46,10 +46,8 @@ pub(crate) fn acquire(settings: &EngineSettings) -> Result<Arc<Runtime>, EngineE
     );
     let executor = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(settings.budget.threads.pool_threads.get())
-        // Delta's native kernel executor nests block_in_place and spawn_blocking
-        // (including delivery of its completion). A one-thread blocking pool
-        // deadlocks even one table open. Retain Tokio's native blocking capacity;
-        // the declared cache/read semaphores bound admitted work independently.
+        // Native scientific services retain Tokio's blocking capacity while
+        // the shared resource budget bounds admitted scientific work.
         .enable_all()
         .build()
         .map_err(|source| EngineError::Infrastructure {

@@ -67,8 +67,8 @@ class NativePythonImportIdentity(unittest.TestCase):
 
     def test_running_pytest_refuses_a_changed_import_before_tests(self) -> None:
         (self.package / "_build.py").write_text(
-            "CacheSettings = EngineSettings = OperationalStore = "
-            "_TestOperationalStore = object\n"
+            "CacheSettings = EngineSettings = "
+            "object\n"
             "def build_info(): return None\n"
         )
         contracts = self.package / "contracts"

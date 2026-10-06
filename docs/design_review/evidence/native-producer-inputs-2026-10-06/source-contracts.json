@@ -1,0 +1,531 @@
+{
+  "scope": "Source identity observations, not producer review approvals or compiler-selected unit qualification",
+  "algorithm": "SHA256 for independent evidence file identity only; native reviewed_source uses the producer owner framing",
+  "sources": [
+    {
+      "source": "crates.io/cc-1.6.0",
+      "version": "cc-1.6.0",
+      "path": "src/lib.rs",
+      "sha256": "0dfd1f0e2cd7c0a8e990fcd8a63aaaa95ffeb5d694a6c508c6d8fb384bc69704",
+      "bytes": 218849
+    },
+    {
+      "source": "crates.io/cc-1.6.0",
+      "version": "cc-1.6.0",
+      "path": "src/build_env.rs",
+      "sha256": "7ddb12fcc0d0f5cdf1875c1a3ba35e064bbfe7964c67cfaa3c1732d6483c1fa9",
+      "bytes": 5956
+    },
+    {
+      "source": "crates.io/cc-1.6.0",
+      "version": "cc-1.6.0",
+      "path": "src/tool.rs",
+      "sha256": "93db92284804c66dc822de5467347098e2fc749b2b42ffe1866cc2abaa0e5d83",
+      "bytes": 23950
+    },
+    {
+      "source": "crates.io/pkg-config-0.3.34",
+      "version": "pkg-config-0.3.34",
+      "path": "src/lib.rs",
+      "sha256": "30aa8db7d5e696f19306731710161afa595bc6b22f76a014e40fbf1dac715b81",
+      "bytes": 45904
+    },
+    {
+      "source": "crates.io/gmp-mpfr-sys-1.7.1",
+      "version": "gmp-mpfr-sys-1.7.1",
+      "path": "build.rs",
+      "sha256": "ba6c7a86d494625817ae5b358a76e6a7935e233bef15c44393796457900bdfca",
+      "bytes": 46212
+    },
+    {
+      "source": "crates.io/pyo3-build-config-0.29.2",
+      "version": "pyo3-build-config-0.29.2",
+      "path": "Cargo.toml",
+      "sha256": "f8dcc21ccccfb2ba65fa980b5d0a24b637eabb1532efceebc29daa667fe04ad3",
+      "bytes": 1314
+    },
+    {
+      "source": "crates.io/pyo3-build-config-0.29.2",
+      "version": "pyo3-build-config-0.29.2",
+      "path": "src/impl_.rs",
+      "sha256": "3a34d57a0c9ec4d017b9ed08966e1f21b312b32a818a4a44b1ac6b7d836264a6",
+      "bytes": 159904
+    },
+    {
+      "source": "crates.io/pyo3-build-config-0.29.2",
+      "version": "pyo3-build-config-0.29.2",
+      "path": "src/lib.rs",
+      "sha256": "bc122441147b2e5e3e13bf35e2306ba2b86fd5c7a6a3c1af77b8e7025a63038f",
+      "bytes": 17925
+    },
+    {
+      "source": "crates.io/pyo3-ffi-0.29.2",
+      "version": "pyo3-ffi-0.29.2",
+      "path": "build.rs",
+      "sha256": "cbfa15e537070983f40b946a3d68bbcfb633af3c51a46ae610a6a4c5661f0765",
+      "bytes": 14549
+    },
+    {
+      "source": "crates.io/pyo3-0.29.2",
+      "version": "pyo3-0.29.2",
+      "path": "build.rs",
+      "sha256": "6a7a6776a428a6f5bc3310d2a84415c6ac2cffe82c4a6ae8aba09f4feb2a6ec4",
+      "bytes": 2356
+    },
+    {
+      "source": "crates.io/clang-sys-1.9.1",
+      "version": "clang-sys-1.9.1",
+      "path": "build.rs",
+      "sha256": "1d3a13cba52050a62c1d420431d2c8dd2f96919e1b4a6cc7faf13a84d807838b",
+      "bytes": 1585
+    },
+    {
+      "source": "crates.io/clang-sys-1.9.1",
+      "version": "clang-sys-1.9.1",
+      "path": "build/common.rs",
+      "sha256": "0f2b27eb4891c3ec693e20af7efcac63ec66315ba476ec8af8be552264123e7f",
+      "bytes": 13907
+    },
+    {
+      "source": "crates.io/clang-sys-1.9.1",
+      "version": "clang-sys-1.9.1",
+      "path": "build/dynamic.rs",
+      "sha256": "d1c96b612a3123971702a64460ef6f5f5e9e3660c774a985168e3f0d955897d0",
+      "bytes": 9912
+    },
+    {
+      "source": "crates.io/clang-sys-1.9.1",
+      "version": "clang-sys-1.9.1",
+      "path": "src/support.rs",
+      "sha256": "944a20ba026ae545e77e215a705f64de1e57dfb0fb7758ed5865bc16ff7b0dc8",
+      "bytes": 8345
+    },
+    {
+      "source": "crates.io/clang-sys-1.9.1",
+      "version": "clang-sys-1.9.1",
+      "path": "src/link.rs",
+      "sha256": "321ee5bed10a345f648a7940c9e07f834eb2e520ff6f0fa42bcab9c059a94dd6",
+      "bytes": 11865
+    },
+    {
+      "source": "crates.io/bindgen-0.73.2",
+      "version": "bindgen-0.73.2",
+      "path": "lib.rs",
+      "sha256": "bd1715d40656416337d54a14e1d26c687484858e1578607d6d5ee6ea84cc78ef",
+      "bytes": 46016
+    },
+    {
+      "source": "crates.io/stacker-0.1.25",
+      "version": "stacker-0.1.25",
+      "path": "build.rs",
+      "sha256": "59c0421d7ddee3b574397ebea45d17b2d850539183705e45ea6c816d1d7d698e",
+      "bytes": 287
+    },
+    {
+      "source": "crates.io/psm-0.1.32",
+      "version": "psm-0.1.32",
+      "path": "build.rs",
+      "sha256": "c9bae07a7bf7a1760798fc4307accd306fcce93a766f399d99978b6a022341d6",
+      "bytes": 7625
+    },
+    {
+      "source": "crates.io/zstd-sys-2.1.0+zstd.1.5.7",
+      "version": "zstd-sys-2.1.0+zstd.1.5.7",
+      "path": "build.rs",
+      "sha256": "2e33434c23ab69ce376fbb2c027845acff686232dc2e3d0a387f04bae4be4f68",
+      "bytes": 16448
+    },
+    {
+      "source": "LLVM official source release",
+      "version": "23.1.2",
+      "path": "clang/lib/Driver/Driver.cpp",
+      "sha256": "ac4f7456ec2da4e699a6a75f87c15cf34c941e920c0acaa85981796a47a28c8c",
+      "bytes": 303314
+    },
+    {
+      "source": "LLVM official source release",
+      "version": "23.1.2",
+      "path": "clang/lib/Driver/ToolChains/Linux.cpp",
+      "sha256": "13d49152e1276a66e210a928aba54928520dc0e62fe81dbb29879064cdf9d142",
+      "bytes": 38935
+    },
+    {
+      "source": "LLVM official source release",
+      "version": "23.1.2",
+      "path": "clang/lib/Driver/ToolChains/Gnu.cpp",
+      "sha256": "9be1631cb95566836d9c2afd6ad168e91b658741436d3d6327291ff862a1cf77",
+      "bytes": 143552
+    },
+    {
+      "source": "LLVM official source release",
+      "version": "23.1.2",
+      "path": "clang/lib/Driver/ToolChains/Clang.cpp",
+      "sha256": "46f95d77d79decd5aeb6c0de0f4f0df6818a82acb48cb499d77b403777b9c890",
+      "bytes": 406170
+    },
+    {
+      "source": "official upstream tag downloaded to scratch",
+      "version": "sccache v0.17.0",
+      "path": "sccache-config.rs",
+      "sha256": "93133be2afa97cb12097f5e125bd46e042515431cac9fd42a7deba0a5e920294",
+      "bytes": 98674
+    },
+    {
+      "source": "official upstream tag downloaded to scratch",
+      "version": "sccache v0.17.0",
+      "path": "sccache-rust.rs",
+      "sha256": "635c7b0ecddb87acb90984336722de5cfd57b936c20cd134032a4e035262b6f4",
+      "bytes": 140765
+    },
+    {
+      "source": "official upstream tag downloaded to scratch",
+      "version": "sccache v0.17.0",
+      "path": "sccache-server.rs",
+      "sha256": "05306f55625e8880faa865edeef1d4ff56f2ac2c12511d37461844810bc14510",
+      "bytes": 94758
+    },
+    {
+      "source": "official upstream tag downloaded to scratch",
+      "version": "mold v2.42.1",
+      "path": "mold-input-files.cc",
+      "sha256": "2c9f9f198c9740ddfa5ecc8d726542e9bebb652fe29408b3196bf33b88a9798a",
+      "bytes": 67741
+    },
+    {
+      "source": "official upstream tag downloaded to scratch",
+      "version": "mold v2.42.1",
+      "path": "mold-main.cc",
+      "sha256": "78f6e09da555211adbd2bc2518283bdf54d82127cd9bef1ec6eff99caad5c7e4",
+      "bytes": 28455
+    },
+    {
+      "source": "official upstream tag downloaded to scratch",
+      "version": "mold v2.42.1",
+      "path": "mold-cmdline.cc",
+      "sha256": "646eea68d97e69b0dc1c076f2156f2c07d82f7543e85856ece123013873844ea",
+      "bytes": 71626
+    },
+    {
+      "source": "shared checkout observed 2026-10-06",
+      "version": "uncommitted current tree",
+      "path": "scripts/build_environment.py",
+      "sha256": "95256947f7d552ecba29c5023697c3b81a52dc45dc3ab8b5311e79084d87bf72",
+      "bytes": 8042
+    },
+    {
+      "source": "shared checkout observed 2026-10-06",
+      "version": "uncommitted current tree",
+      "path": "scripts/native-execution-env.sh",
+      "sha256": "f9a5cf7e463148490b05926c1925fa0fbc7023b3c791db88a3803e80a1900ddd",
+      "bytes": 1065
+    },
+    {
+      "source": "shared checkout observed 2026-10-06",
+      "version": "uncommitted current tree",
+      "path": "scripts/native-math-env.sh",
+      "sha256": "7b69ae9d1f06718fc2fae96f4b1cbb0243f9327b0a2789c092599c436679aa49",
+      "bytes": 973
+    },
+    {
+      "source": "shared checkout observed 2026-10-06",
+      "version": "uncommitted current tree",
+      "path": "scripts/native-solver-env.sh",
+      "sha256": "47e89439d9f1dc54ff18aa53aa9369fc1d772db6b888ec40aef0a89abc59741a",
+      "bytes": 1143
+    },
+    {
+      "source": "shared checkout observed 2026-10-06",
+      "version": "uncommitted current tree",
+      "path": "scripts/native_cache.py",
+      "sha256": "1e317be6905557398db533dede4c4d6c341daaa5f41a3d15a0fe71d165555474",
+      "bytes": 18295
+    },
+    {
+      "source": "shared checkout observed 2026-10-06",
+      "version": "uncommitted current tree",
+      "path": ".config/native-cache.cmake",
+      "sha256": "f5b3eb421b0a61405a7ccbe4450dee413ad614cbfde27d38385c8c8bf98ee3ed",
+      "bytes": 471
+    },
+    {
+      "source": "shared checkout observed 2026-10-06",
+      "version": "uncommitted current tree",
+      "path": ".cargo/config.toml",
+      "sha256": "baa300fe2c0f3176765e9c515d8bb048d729813530b0fcac65ec7309dd8b90e3",
+      "bytes": 2238
+    },
+    {
+      "source": "shared checkout observed 2026-10-06",
+      "version": "uncommitted current tree",
+      "path": "crates/pse-ipopt-sys/build.rs",
+      "sha256": "84e97aee30971148f7b0c2d735c25f83f971c974b17513713b402abdc7369001",
+      "bytes": 5448
+    },
+    {
+      "source": "shared checkout observed 2026-10-06",
+      "version": "uncommitted current tree",
+      "path": "crates/pse-backend-native/build.rs",
+      "sha256": "d5491a5adafd528332bae3c360e33da69a807daf320e56108f7bb84312f0e10b",
+      "bytes": 6562
+    },
+    {
+      "source": "shared checkout observed 2026-10-06",
+      "version": "uncommitted current tree",
+      "path": "crates/pse-uno-sys/build.rs",
+      "sha256": "c9f8b0f3c4a05aa09e1e1dd1ef291b884cc754c74664f8794021e3326e897823",
+      "bytes": 2327
+    },
+    {
+      "source": "shared checkout observed 2026-10-06",
+      "version": "uncommitted current tree",
+      "path": "crates/pse-petsc-sys/build.rs",
+      "sha256": "574764e31c56ce3c8ac6091f2aa4912328d0fe3e005bf465190b29037160a804",
+      "bytes": 1807
+    },
+    {
+      "source": "shared checkout observed 2026-10-06",
+      "version": "uncommitted current tree",
+      "path": "xtask/src/producer_identity.rs",
+      "sha256": "646ded16e6bcb79ff8856e472c222bc32c009cb863182b31f03b374b95494006",
+      "bytes": 177979
+    },
+    {
+      "source": "official GCC upstream mirror release; Ubuntu installedpatch applicability must be checked",
+      "version": "GCC releases/gcc-13.3.0",
+      "path": "gcc-driver.cc",
+      "sha256": "c260c6321fb3852df326618d18642a3c795a8886c285db71acde6a97fd031b0a",
+      "bytes": 320626
+    },
+    {
+      "source": "official GCC upstream mirror release; Ubuntu installedpatch applicability must be checked",
+      "version": "GCC releases/gcc-13.3.0",
+      "path": "gcc-cpp-init.cc",
+      "sha256": "62513e415dc0072231b466d2027172758633ea6f64f43f6d58d92b7f0759769d",
+      "bytes": 32504
+    },
+    {
+      "source": "official GCC upstream mirror release; Ubuntu installedpatch applicability must be checked",
+      "version": "GCC releases/gcc-13.3.0",
+      "path": "gcc-cppdefault.cc",
+      "sha256": "afaf16ab53ef0781ccb4e4ba3751a314c66eda24ec3132cc6d8b347d9c0ac9c3",
+      "bytes": 4378
+    },
+    {
+      "source": "official GCC upstream mirror release; Ubuntu installedpatch applicability must be checked",
+      "version": "GCC releases/gcc-13.3.0",
+      "path": "gcc-incpath.cc",
+      "sha256": "70dca72168648a2606684b7c8dc6d31f68472f32ca1058724997abb7185d0e39",
+      "bytes": 15771
+    },
+    {
+      "source": "installed LLVM configuration",
+      "version": "23.1.2",
+      "path": "include/clang/Config/config.h",
+      "sha256": "bafa32b0e735d8660a613a3215dc0c591edf05ba8bbae600236d60117819078f",
+      "bytes": 2626
+    },
+    {
+      "source": "crates.io/cc-1.6.0",
+      "version": "cc-1.6.0",
+      "path": "src/command_helpers.rs",
+      "sha256": "dbbe968b482c5cc4b88d66d1ada777882447097851c48a159e7c5a667f9add20",
+      "bytes": 25199
+    },
+    {
+      "source": "crates.io/ring-0.17.14",
+      "version": "ring-0.17.14",
+      "path": "build.rs",
+      "sha256": "9d1928ffb1d8e15766c1c1b9ead73e4b81a21703dd25f7c27b87842a2e6e9cee",
+      "bytes": 33341
+    },
+    {
+      "source": "crates.io/blake3-1.8.7",
+      "version": "blake3-1.8.7",
+      "path": "build.rs",
+      "sha256": "9ec9b359db417071b525a459a191b810e3dd79b9708ae66be4085b2efd2ba7d9",
+      "bytes": 13797
+    },
+    {
+      "source": "crates.io/liblzma-sys-0.4.9",
+      "version": "liblzma-sys-0.4.9",
+      "path": "build.rs",
+      "sha256": "3e5bdf12ef4821e5dae560dd0e838ba6f34b95305eaf52210cb8b8a6af4417f9",
+      "bytes": 5044
+    },
+    {
+      "source": "crates.io/liblzma-sys-0.4.9",
+      "version": "liblzma-sys-0.4.9",
+      "path": "Cargo.toml",
+      "sha256": "db3672a77d54c8b7d4ecbced783867f5d1c5cdc17b7b47aa177f7b375aacc47c",
+      "bytes": 1694
+    },
+    {
+      "source": "crates.io/liblzma-sys-0.4.9",
+      "version": "liblzma-sys-0.4.9",
+      "path": "src/lib.rs",
+      "sha256": "4b2e8063e9131a0e9f133666edb7324f869e7b868e2baa5eb326a307baefb519",
+      "bytes": 368
+    },
+    {
+      "package": "bindgen-0.68.1",
+      "path": "build.rs",
+      "sha256": "4a9c4ac3759572e17de312a9d3f4ced3b6fd3c71811729e5a8d06bfbd1ac8f82",
+      "bytes": 1043,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "bindgen-0.68.1",
+      "path": "lib.rs",
+      "sha256": "c3aff945fe2e3d498682e605a9abdd748fee71b78885d3699f4e6397b082ca87",
+      "bytes": 42905,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "bindgen-0.68.1",
+      "path": "options/mod.rs",
+      "sha256": "9f3e982fe8e3723bfceda5905a144d6717210bc872c4350bd9d8873496eba2a2",
+      "bytes": 83990,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "bindgen-0.69.5",
+      "path": "build.rs",
+      "sha256": "4a9c4ac3759572e17de312a9d3f4ced3b6fd3c71811729e5a8d06bfbd1ac8f82",
+      "bytes": 1043,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "bindgen-0.69.5",
+      "path": "lib.rs",
+      "sha256": "7496f72a177b5965ed56a2ab9af0f64e70abbc53cc6c196a15e6760dd6235adf",
+      "bytes": 44606,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "bindgen-0.69.5",
+      "path": "options/mod.rs",
+      "sha256": "1805cec86c563633b29b57292287c9efd3b5c724132ec1c13acee57858942e74",
+      "bytes": 84679,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "bindgen-0.72.1",
+      "path": "build.rs",
+      "sha256": "f7a10af0a21662e104e0058da7e3471a20be328eef6c7c41988525be90fdfe92",
+      "bytes": 1033,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "bindgen-0.72.1",
+      "path": "lib.rs",
+      "sha256": "fe023071fb5e39938173ee7e160a4c7f6b735afc71c8d164c397842d69b055de",
+      "bytes": 45418,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "bindgen-0.72.1",
+      "path": "options/mod.rs",
+      "sha256": "beaaccfdf79a309bc272fc72a9278568d9e0f4dff1edd71fceffc3bf1e9baec2",
+      "bytes": 93801,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "suitesparse_sys-0.1.4",
+      "path": "build.rs",
+      "sha256": "22af8c7fa57a769308c0eb185ced61d5fde82d881bad6809521d015c8b4e88e3",
+      "bytes": 9650,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "suitesparse_sys-0.1.4",
+      "path": "wrapper.h",
+      "sha256": "f8c28afbf0c0764b897c56a8e18fddb1947f3e94e356b132c6d6058fb87003e7",
+      "bytes": 787,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "sundials-sys-0.6.2",
+      "path": "build.rs",
+      "sha256": "1b235b130b3b1006a252350fb8ca1d06c74dec4acdd54a21c9607911084a0764",
+      "bytes": 9725,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "sundials-sys-0.6.2",
+      "path": "wrapper.h",
+      "sha256": "875c0771049c8a4e96e54639c7f62c845fc42e6e67168f36845c207921268930",
+      "bytes": 885,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "highs-sys-1.15.0",
+      "path": "build.rs",
+      "sha256": "6edd00845edd23e22bdbdda7746a15ab5f67b0d7814b72eb2be556b791d5ea03",
+      "bytes": 7748,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "highs-sys-1.15.0",
+      "path": "wrapper.h",
+      "sha256": "1ae2df4e61003958fa73354d2f0c2e00da32356c3cf8d20f8e8529b85a23374b",
+      "bytes": 36,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "scip-sys-0.1.28",
+      "path": "build.rs",
+      "sha256": "e062ec9f60e33680e4600d8f7646ea525a107c3220a0a63398d15bd4b627c7a3",
+      "bytes": 12925,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "scip-sys-0.1.28",
+      "path": "callback.rs",
+      "sha256": "20301e5068752835dbaae2367078a8b74268844c27414b43445d43ad5f1b27c3",
+      "bytes": 2175,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "scip-sys-0.1.28",
+      "path": "from_source.rs",
+      "sha256": "45fdd072c00ca1c3a12c8edab5fa0676763d96614dd4fd3ccf3341265c6dd29d",
+      "bytes": 2382,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "symbolica-3.0.1",
+      "path": "build.rs",
+      "sha256": "a98b2f963c4873f64e49b2333da43c991e5420cc2c0e515b189f9968a1b46a05",
+      "bytes": 1453,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "prettyplease-0.2.37",
+      "path": "build.rs",
+      "sha256": "79a5b2d260aa97aeac7105fbfa00774982f825cd708c100ea96d01c39974bb88",
+      "bytes": 646,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "pardiso-wrapper-0.1.3",
+      "path": "build.rs",
+      "sha256": "5f2bef0695dcf18de952508a17c0d13c59d7419fbb8747dcf14f7184ae6cf083",
+      "bytes": 676,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "private-gemm-x86-0.1.20",
+      "path": "build.rs",
+      "sha256": "1e223f1990dda8e8862e9601bd2c4f8bc349a4f3471d0460844dbb397f20c127",
+      "bytes": 81344,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    },
+    {
+      "package": "rustix-0.38.44",
+      "path": "build.rs",
+      "sha256": "7cc60a1a80836bff6c4f82dd938049dcec84736100bb81ebe6ac84513b0f4a45",
+      "bytes": 9305,
+      "scope": "Actual selected runtime producer source; focused owner/build effects review. Individual file SHA is not producer framed raw review basis."
+    }
+  ]
+}

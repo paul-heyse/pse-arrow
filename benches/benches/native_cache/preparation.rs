@@ -170,7 +170,7 @@ impl Fixture {
                 "pool_budget_bytes":256 << 20, "pool_retained_after_preparation_bytes":retained_after_prepare,
                 "pool_retained_after_drop_bytes":self.native.resources.pool.reserved(),
                 "pool_peak_cumulative_bytes":self.native.resources.peak.max_reserved(),
-                "process_peak_rss_cumulative_bytes":super::cache_journey::process_peak_rss(),
+                "process_peak_rss_cumulative_bytes":super::process_peak_rss(),
                 "accounting":"pool reservations, not an estimate of allocator or LogicalPlan heap bytes",
                 "expected_sum":expected
             })

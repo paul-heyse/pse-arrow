@@ -17,16 +17,21 @@ use pse_relations::generated::runtime::{
 use std::collections::BTreeMap;
 
 /// Independent original-objective bound facts retained with the completion decision.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq,serde::Serialize,serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct BoundEvidence {
     pub(crate) origin: CandidateBoundOrigin,
+    #[serde(with="exact_float")]
     pub(crate) bound: f64,
+    #[serde(with="exact_float")]
     pub(crate) absolute_gap: f64,
+    #[serde(with="exact_optional_float")]
     pub(crate) relative_gap: Option<f64>,
     pub(crate) within_gap: bool,
 }
 /// One composed decision; projections consume permissions without reconstructing science.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq,serde::Serialize,serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct CandidateDecision {
     pub(crate) usability: CandidateUse,
     pub(crate) qualifiers: Vec<CandidateQualifier>,
@@ -1340,4 +1345,15 @@ mod tests {
             .permits_use()
         );
     }
+}
+
+mod exact_float {
+    use serde::{Serialize,Deserialize,Serializer,Deserializer};
+    pub(super) fn serialize<S:Serializer>(value:&f64,serializer:S)->Result<S::Ok,S::Error>{value.to_bits().serialize(serializer)}
+    pub(super) fn deserialize<'de,D:Deserializer<'de>>(deserializer:D)->Result<f64,D::Error>{u64::deserialize(deserializer).map(f64::from_bits)}
+}
+mod exact_optional_float {
+    use serde::{Serialize,Deserialize,Serializer,Deserializer};
+    pub(super) fn serialize<S:Serializer>(value:&Option<f64>,serializer:S)->Result<S::Ok,S::Error>{value.map(f64::to_bits).serialize(serializer)}
+    pub(super) fn deserialize<'de,D:Deserializer<'de>>(deserializer:D)->Result<Option<f64>,D::Error>{Option::<u64>::deserialize(deserializer).map(|value|value.map(f64::from_bits))}
 }

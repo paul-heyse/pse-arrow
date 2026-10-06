@@ -100,7 +100,7 @@ impl Sources {
                 target_partitions: one,
             },
             execution: ExecutionSettings::default(),
-            cache: pse_runtime::DeltaCacheBudget::for_memory(32usize << 30),
+            cache: pse_runtime::CacheBudget::for_memory(32usize << 30),
             math: Default::default(),
             hashing_may_use_pool: false,
         })?;

@@ -1,67 +1,24 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! The operational store and publication catalog on PostgreSQL 18 (ADR-0114).
-//!
-//! PostgreSQL owns what changes — attempts, jobs, leases, cancellation requests, live
-//! progress, incumbents, reusable solutions, studies and the publication catalog —
-//! and Delta owns what is published. The registry owns the meaning and the shape of every
-//! operational relation: this crate embeds the schema generated from it ([`generated`]),
-//! explicitly creates it ([`Store::create`]) or validates an existing store ([`Store::open`]), and owns the one
-//! attempt transition table ([`lifecycle`]), typed repositories and the catalog with its
-//! reader leases.
-//!
-//! [`Store`] is the handle: a deadpool pool of tokio-postgres connections with an
-//! explicit [`Store::connect`], which does no schema work, and [`Store::open`]. Statements
-//! are SQL files compiled by Cornucopia into `pse-operations-queries`; the repositories
-//! call them and return the generated registry rows. Durability classes (`Ephemeral`,
-//! `Durable`) are a runtime policy and do not appear here.
+//! Canonical problem revisions, selected compilation, durable execution and graph results.
+//! The registry owns native schemas; guarded operations own admission and immutable replay.
 
-pub mod attempts;
-mod bulk;
-pub mod cancellation;
 pub mod canonical;
+pub mod canonical_analyses;
 pub mod canonical_codec;
+pub mod canonical_execution;
+pub mod canonical_results;
+pub mod canonical_result_retention;
+pub mod canonical_studies;
 pub mod canonical_retention;
 pub mod canonical_selection;
 pub mod canonical_staging;
-pub mod catalog;
-mod error;
+pub mod study_policy;
 mod ids;
-pub mod inventory;
-/// The store's schema generated from the registry: DDL, Cornucopia mapping, fingerprint.
+/// Registry-generated native schema and codec contracts.
 #[rustfmt::skip]
 pub mod generated;
-pub mod jobs;
-pub mod lifecycle;
-mod listener;
-pub mod retirement;
-mod schema;
-pub mod solutions;
-pub mod sources;
-mod store;
-pub mod streams;
-pub mod studies;
-pub mod study_policy;
-pub mod tables;
 #[cfg(any(test, feature = "test-support"))]
 pub mod testing;
-
-#[cfg(test)]
-mod store_tests;
-#[cfg(test)]
-mod study_tests;
-#[cfg(test)]
-mod tables_tests;
-
-pub use error::{DriverError, InvariantKind, OperationsError, Target};
 pub use ids::mint_id;
-pub use listener::LISTENER_APPLICATION;
-pub use schema::{
-    MIGRATION_SOURCE, MigrationHistoryPlan, MigrationPlan, MigrationRefusal, MigrationReport,
-    MigrationStep, Opened, PHYSICAL_SQL, SchemaStatus,
-};
-pub use store::{
-    DATABASE_URL_ENV, DEFAULT_DATABASE_URL, MINIMUM_SERVER_VERSION, ServerInfo, Store,
-    StoreOptions, database_url_from_env,
-};

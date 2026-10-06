@@ -303,25 +303,6 @@ fn relations(reg: &Registry) -> Result<Vec<ArrayRef>, SchemaError> {
                 ),
             ])?,
         )?,
-        list(
-            rows.iter().map(|r| r.delta_properties.len()),
-            structure(vec![
-                (
-                    "name",
-                    text(
-                        rows.iter()
-                            .flat_map(|r| r.delta_properties.keys().map(Some)),
-                    ),
-                ),
-                (
-                    "value",
-                    text(
-                        rows.iter()
-                            .flat_map(|r| r.delta_properties.values().map(Some)),
-                    ),
-                ),
-            ])?,
-        )?,
         unique_keys(rows)?,
         foreign_keys(reg, rows)?,
     ])

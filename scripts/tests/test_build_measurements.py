@@ -17,24 +17,54 @@ from scripts import build_measurements, validation
 
 
 class BuildMeasurementTests(unittest.TestCase):
+    def test_default_target_does_not_prepare_unconsumed_native_capabilities(self) -> None:
+        original = {"PATH": "/selected/tools", "CARGO_BUILD_JOBS": "2"}
+        with patch.object(subprocess, "check_output") as command:
+            actual = build_measurements.capability_environment(
+                Path("/checkout"), original, native=False, workflow=False
+            )
+        command.assert_not_called()
+        self.assertEqual(actual, original)
+        actual["new"] = "isolated"
+        self.assertNotIn("new", original)
+
+    def test_native_and_workflow_targets_prepare_their_linked_capabilities(self) -> None:
+        for native, workflow in [(True, False), (False, True), (True, True)]:
+            with patch.object(
+                subprocess,
+                "check_output",
+                return_value=b"PATH=/selected/tools\0IPOPT_DIR=/native/solver\0FLAGS=x=y\0",
+            ) as command:
+                actual = build_measurements.capability_environment(
+                    Path("/checkout"), {"PATH": "/tools"}, native=native, workflow=workflow
+                )
+            self.assertEqual(actual["IPOPT_DIR"], "/native/solver")
+            self.assertEqual(actual["FLAGS"], "x=y")
+            self.assertEqual(command.call_args.kwargs["cwd"], Path("/checkout"))
+            self.assertEqual(command.call_args.kwargs["env"], {"PATH": "/tools"})
+
+    def test_selected_native_setup_failure_prevents_measurement(self) -> None:
+        failure = subprocess.CalledProcessError(1, ["native-capability-setup"])
+        with patch.object(subprocess, "check_output", side_effect=failure):
+            with self.assertRaises(subprocess.CalledProcessError):
+                build_measurements.capability_environment(
+                    Path("/checkout"), {}, native=True, workflow=False
+                )
+
     def test_profile_candidate_is_available_to_nested_cargo_commands(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory)
             (source / ".cargo").mkdir()
             config = source / ".cargo/config.toml"
             config.write_text('[target.x86_64-unknown-linux-gnu]\nlinker = "clang"\n')
-            build_measurements.profile_override(source, 1, True)
+            build_measurements.profile_override(source, 1)
             parsed = tomllib.loads(config.read_text())
             self.assertEqual(
                 parsed["target"]["x86_64-unknown-linux-gnu"]["linker"], "clang"
             )
             self.assertEqual(parsed["profile"]["dev"]["package"]["*"], {"opt-level": 1})
-            self.assertEqual(
-                parsed["profile"]["dev"]["package"]["deltalake-core"],
-                {"incremental": False},
-            )
             with self.assertRaisesRegex(ValueError, "profile policy"):
-                build_measurements.profile_override(source, 2, False)
+                build_measurements.profile_override(source, 2)
 
     def test_snapshot_keeps_dirty_deleted_untracked_ignored_tracked_modes_and_symlinks(
         self,

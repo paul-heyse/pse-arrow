@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Native construction authority and mechanical boundary field projections.
-use crate::{DeltaCacheBudget, ResourceBudget, RuntimeError};
+use crate::{CacheBudget, ResourceBudget, RuntimeError};
 use pse_engine::{ExecutionSettings, ThreadBudget};
 use std::num::NonZeroUsize;
 
@@ -16,9 +16,9 @@ macro_rules! engine_settings_fields {
         batch_size: usize, "int" => usize, $budget.execution.batch_size;
         target_partitions: Option<usize>, "int | None", None => usize, $budget.threads.target_partitions.get();
         top_consumers: Option<usize>, "int | None", None => usize, $budget.top_consumers.get();
-        concurrent_queries: Option<usize>, "int | None", None => usize, $budget.cache.native.concurrent_queries.get();
-        concurrent_outputs: Option<usize>, "int | None", None => usize, $budget.cache.native.concurrent_outputs.get();
-        model_result_bytes: Option<usize>, "int | None", None => usize, $budget.cache.native.model_result_bytes;
+        concurrent_queries: Option<usize>, "int | None", None => usize, $budget.cache.concurrent_queries.get();
+        concurrent_outputs: Option<usize>, "int | None", None => usize, $budget.cache.concurrent_outputs.get();
+        model_result_bytes: Option<usize>, "int | None", None => usize, $budget.cache.model_result_bytes;
         hashing_may_use_pool: bool, "bool", false => bool, $budget.hashing_may_use_pool;
         spill_compression: Option<String>, "str | None", None => String, $budget.execution.spill_compression.to_string();
         max_spill_file_size_bytes: Option<u64>, "int | None", None => u64, $budget.execution.max_spill_file_size_bytes;
@@ -46,7 +46,7 @@ impl EngineSettingsInput {
     /// Apply defaults and admit filesystem, execution and cache policy.
     /// # Errors
     /// Invalid ranges, directory, native settings or aggregate capacity.
-    pub fn resolve(self, cache: Option<DeltaCacheBudget>) -> Result<ResourceBudget, RuntimeError> {
+    pub fn resolve(self, cache: Option<CacheBudget>) -> Result<ResourceBudget, RuntimeError> {
         let defaults = ExecutionSettings::default();
         let positive = |value, key: &str| {
             NonZeroUsize::new(value).ok_or_else(|| RuntimeError::ConfigInvalid {
@@ -64,26 +64,26 @@ impl EngineSettingsInput {
                 })?;
         let supplied_concurrency = cache.as_ref().map(|cache| {
             (
-                cache.native.concurrent_queries.get(),
-                cache.native.concurrent_outputs.get(),
+                cache.concurrent_queries.get(),
+                cache.concurrent_outputs.get(),
             )
         });
         let mut cache =
-            cache.unwrap_or_else(|| DeltaCacheBudget::for_memory(self.memory_limit_bytes));
-        cache.native.concurrent_queries = positive(
+            cache.unwrap_or_else(|| CacheBudget::for_memory(self.memory_limit_bytes));
+        cache.concurrent_queries = positive(
             self.concurrent_queries
                 .or(supplied_concurrency.map(|limits| limits.0))
                 .unwrap_or(threads.get().min(2)),
             "concurrent_queries",
         )?;
-        cache.native.concurrent_outputs = positive(
+        cache.concurrent_outputs = positive(
             self.concurrent_outputs
                 .or(supplied_concurrency.map(|limits| limits.1))
                 .unwrap_or(threads.get().min(4)),
             "concurrent_outputs",
         )?;
         if let Some(bytes) = self.model_result_bytes {
-            cache.native.model_result_bytes = bytes;
+            cache.model_result_bytes = bytes;
         }
         let math_defaults = crate::math::MathPolicy::default();
         let budget = ResourceBudget {
@@ -211,30 +211,30 @@ mod delta_boundary_unit {
     }
     #[test]
     fn explicit_engine_limits_override_supplied_policy_and_defaults_do_not() {
-        let mut cache = DeltaCacheBudget::for_memory(256 << 20);
-        cache.native.concurrent_queries = NonZeroUsize::new(5).unwrap();
-        cache.native.concurrent_outputs = NonZeroUsize::new(7).unwrap();
+        let mut cache = CacheBudget::for_memory(256 << 20);
+        cache.concurrent_queries = NonZeroUsize::new(5).unwrap();
+        cache.concurrent_outputs = NonZeroUsize::new(7).unwrap();
         let selected = input().resolve(Some(cache.clone())).unwrap();
-        assert_eq!(selected.cache.native.concurrent_queries.get(), 5);
-        assert_eq!(selected.cache.native.concurrent_outputs.get(), 7);
+        assert_eq!(selected.cache.concurrent_queries.get(), 5);
+        assert_eq!(selected.cache.concurrent_outputs.get(), 7);
         let mut settings = input();
         settings.concurrent_outputs = Some(3);
         let selected = settings.resolve(Some(cache)).unwrap();
-        assert_eq!(selected.cache.native.concurrent_queries.get(), 5);
-        assert_eq!(selected.cache.native.concurrent_outputs.get(), 3);
+        assert_eq!(selected.cache.concurrent_queries.get(), 5);
+        assert_eq!(selected.cache.concurrent_outputs.get(), 3);
     }
     #[test]
     fn construction_defaults_and_invalid_ranges_share_native_validation() {
         let budget = input().resolve(None).unwrap();
         assert_eq!(budget.threads.target_partitions.get(), 2);
         assert_eq!(budget.execution.batch_size, 256);
-        assert_eq!(budget.cache.native.concurrent_queries.get(), 2);
-        assert_eq!(budget.cache.native.concurrent_outputs.get(), 2);
-        assert_eq!(budget.cache.native.model_result_bytes, (256 << 20) / 32);
+        assert_eq!(budget.cache.concurrent_queries.get(), 2);
+        assert_eq!(budget.cache.concurrent_outputs.get(), 2);
+        assert_eq!(budget.cache.model_result_bytes, (256 << 20) / 32);
         let mut tiny = input();
         tiny.threads = 1;
         let tiny = tiny.resolve(None).unwrap();
-        assert_eq!(tiny.cache.native.concurrent_outputs.get(), 1);
+        assert_eq!(tiny.cache.concurrent_outputs.get(), 1);
         for selector in 0..7 {
             let mut value = input();
             match selector {

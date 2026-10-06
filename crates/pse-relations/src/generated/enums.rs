@@ -6,24 +6,24 @@
 pub use pse_model::generated::r#enums::{
     AccuracyCriterionStatus, AccuracyEvidenceInterpretation, AccuracyEvidenceMethod,
     AccuracyGoalStatus, AccuracyGoalSubject, AccuracyGoalUse, AccuracyObservation,
-    AccuracyResolutionStatus, AccuracyUnavailableReason, ArtifactReconstruction,
-    AssertionStatus, AttemptKind, AttemptState, Authority, BasisKind, BasisRule,
-    BoundActivity, BoundKind, BoundStatus, CandidateBoundOrigin, CandidateQualifier,
-    CandidateRefusal, CandidateUse, ChangeKind, ClarabelDirect, ClarabelMergeMethod,
-    ClarabelMode, ClosureAssessment, ClosurePolicy, ColumnRole, CompositionBasis,
-    ComputationKind, ConstraintScalingScheme, ConversionKind, CovarianceApproximation,
-    DerivationGranularity, DerivedQuantity, Determinism, DiagnosticCode,
-    DiagnosticNonfiniteObservation, DiagnosticObservationKind, DiagnosticRule,
-    DiagnosticSeverity, DiagnosticStage, DiffsolLinear, DiffsolMethod, DualQualification,
-    DynamicSensitivity, DynamicsMethod, EndpointPolicy, EngineeringScaleKind, EntityKind,
-    EventDirection, EvidenceUnavailableReason, ExternalDerivativeSource, FailureClass,
-    FeralOrdering, FeralScaling, FindingSeverity, FitDerivatives, HessianMode,
-    HighsMethod, IdPolicy, IdasInitialization, IncumbentPolicy, InputConsumptionKind,
-    IntervalEnd, IntervalMethod, IntervalOutcome, InvariantKind, IpoptLinearSolver,
-    JobState, KinsolOrthogonalization, KinsolStrategy, MemberSelectionKind, MigrationOp,
-    ModelingAccumulatorMode, ModelingAnalysisRoute, ModelingAnnotationKind,
-    ModelingApplicabilityBasis, ModelingApplicabilityKind, ModelingApplicabilityOutcome,
-    ModelingCellKind, ModelingCheckBasis, ModelingCheckKind, ModelingConformanceKind,
+    AccuracyResolutionStatus, AccuracyUnavailableReason, AssertionStatus, AttemptState,
+    Authority, BasisKind, BasisRule, BoundActivity, BoundKind, BoundStatus,
+    CandidateBoundOrigin, CandidateQualifier, CandidateRefusal, CandidateUse,
+    ClarabelDirect, ClarabelMergeMethod, ClarabelMode, ClosureAssessment, ClosurePolicy,
+    ColumnRole, CompositionBasis, ComputationKind, ConstraintScalingScheme,
+    ConversionKind, CovarianceApproximation, DerivationGranularity, DerivedQuantity,
+    Determinism, DiagnosticCode, DiagnosticNonfiniteObservation,
+    DiagnosticObservationKind, DiagnosticRule, DiagnosticSeverity, DiagnosticStage,
+    DiffsolLinear, DiffsolMethod, DualQualification, DynamicSensitivity, DynamicsMethod,
+    EndpointPolicy, EngineeringScaleKind, EntityKind, EventDirection,
+    EvidenceUnavailableReason, ExternalDerivativeSource, FailureClass, FeralOrdering,
+    FeralScaling, FindingSeverity, FitDerivatives, HessianMode, HighsMethod, IdPolicy,
+    IdasInitialization, IncumbentPolicy, InputConsumptionKind, IntervalEnd,
+    IntervalMethod, IntervalOutcome, InvariantKind, IpoptLinearSolver,
+    KinsolOrthogonalization, KinsolStrategy, MigrationOp, ModelingAccumulatorMode,
+    ModelingAnalysisRoute, ModelingAnnotationKind, ModelingApplicabilityBasis,
+    ModelingApplicabilityKind, ModelingApplicabilityOutcome, ModelingCellKind,
+    ModelingCheckBasis, ModelingCheckKind, ModelingConformanceKind,
     ModelingConformanceStatus, ModelingContributionRole, ModelingDataFacet,
     ModelingDeclarationKind, ModelingDiagnosticSampleStop, ModelingDiagonalPolicy,
     ModelingDiscreteInitialization, ModelingElasticObservation, ModelingEnvelopeExtent,
@@ -36,34 +36,31 @@ pub use pse_model::generated::r#enums::{
     ModelingVariableDomain, ModelingVersionOperator, MuStrategy, MumpsOrdering,
     Namespace, NativeArtifactDemand, NativeAssessmentState, NativeAssurance,
     NativeBackend, NativeBoundaryClass, NativeCandidateKind, NativeCertificateAccuracy,
-    NativeCertificateKind, NativeConstraintForm, NativeDependencyEvidenceKind,
-    NativeDependencyKind, NativeDerivativeCapability, NativeEvidenceDemand,
-    NativeIneligibility, NativeInfeasibilityWitness, NativeLexicographicDegradation,
-    NativeLexicographicRealization, NativeMetricKind, NativeObjectiveSense,
-    NativePetscLinear, NativePetscMethod, NativePetscPreconditioner, NativeProblemClass,
-    NativeQualification, NativeRayCoordinate, NativeRepresentation, NativeRouteKind,
-    NativeRouteRefusal, NativeRouteSelection, NativeRunState, NativeSolveIntent,
-    NativeStartPolicy, NativeStructuralMode, NativeStructuralPolicy, NativeTermination,
-    NativeUnoMethod, NativeWarmCapability, NumericalAccuracyClass,
-    NumericalAttemptObservation, NumericalBranchPolicy, NumericalCompositionPolicy,
-    NumericalCoordinates, NumericalEventKind, NumericalMechanism,
-    NumericalOriginalConclusion, NumericalPathEventKind, NumericalPhase,
-    NumericalPosition, NumericalProvenanceField, NumericalScope, NumericalSource,
-    NumericalStartOrigin, NumericalTarget, NumericalTransition, ObservationTimeBasis,
-    Opcode, OperationEffect, OrphanDisposition, OrphanOwnership, PackageKind,
+    NativeCertificateKind, NativeConstraintForm, NativeDerivativeCapability,
+    NativeEvidenceDemand, NativeIneligibility, NativeInfeasibilityWitness,
+    NativeLexicographicDegradation, NativeLexicographicRealization, NativeMetricKind,
+    NativeObjectiveSense, NativePetscLinear, NativePetscMethod,
+    NativePetscPreconditioner, NativeProblemClass, NativeQualification,
+    NativeRayCoordinate, NativeRepresentation, NativeRouteKind, NativeRouteRefusal,
+    NativeRouteSelection, NativeRunState, NativeSolveIntent, NativeStartPolicy,
+    NativeStructuralMode, NativeStructuralPolicy, NativeTermination, NativeUnoMethod,
+    NativeWarmCapability, NumericalAccuracyClass, NumericalAttemptObservation,
+    NumericalBranchPolicy, NumericalCompositionPolicy, NumericalCoordinates,
+    NumericalEventKind, NumericalMechanism, NumericalOriginalConclusion,
+    NumericalPathEventKind, NumericalPhase, NumericalPosition, NumericalProvenanceField,
+    NumericalScope, NumericalSource, NumericalStartOrigin, NumericalTarget,
+    NumericalTransition, ObservationTimeBasis, Opcode, OperationEffect, PackageKind,
     PardisoMatching, PardisoOrdering, PounceFdColoring, PounceFdPattern, PounceMethod,
     PouncePartitionedElements, PouncePartitionedUpdate, Preconditioner, PresolvePass,
-    PresolvePolicyKind, PublicationKind, PublicationMemberRole, QuantityAdditionKind,
-    QuantityKindCategory, QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule,
-    RateBasis, ReductionKind, ReferenceRule, ReferenceStateKind, RetentionPhase,
-    RetentionReason, ReusePolicy, RowActivity, RuntimeTermination, ScaleKind,
-    SensitivityCorrector, SettlementOutcome, Severity, ShootingMethod, SnapshotClass,
-    SpralOrdering, SpralPivot, SpralScaling, Stability, StateSign, StoredSeedKind,
-    StoredSolutionOrigin, StructuralScopeKind, StudyAvailability,
-    StudyContinuationPermission, StudyEffectState, StudyLegacyKind, StudyLifecycle,
-    StudyPointState, StudyResultRole, StudyRetryFailure, StudySeedNeed, StudySeedRole,
-    StudySeedUnavailable, StudyStartKind, StudyState, StudyUnavailableSeedPolicy,
-    SubjectRule, TearMethod, TearPolicy, TerminationClass, TimeCoordinateKind,
+    PresolvePolicyKind, QuantityAdditionKind, QuantityKindCategory,
+    QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis,
+    ReductionKind, ReferenceRule, ReferenceStateKind, ReusePolicy, RowActivity,
+    ScaleKind, SensitivityCorrector, Severity, ShootingMethod, SnapshotClass,
+    SpralOrdering, SpralPivot, SpralScaling, Stability, StateSign, StructuralScopeKind,
+    StudyAvailability, StudyContinuationPermission, StudyEffectState, StudyLegacyKind,
+    StudyLifecycle, StudyPointState, StudyResultRole, StudyRetryFailure, StudySeedNeed,
+    StudySeedRole, StudySeedUnavailable, StudyStartKind, StudyState,
+    StudyUnavailableSeedPolicy, SubjectRule, TearMethod, TearPolicy, TimeCoordinateKind,
     TrajectoryTermination, TrialPolicy, TruthValue, WeightNormalization, WithheldReason,
 };
 impl crate::columnar::ArrowValue for AccuracyCriterionStatus {
@@ -327,35 +324,6 @@ impl crate::columnar::ArrowValue for AccuracyUnavailableReason {
             })
     }
 }
-impl crate::columnar::ArrowValue for ArtifactReconstruction {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(ArtifactReconstruction).to_owned(),
-                enumeration: stringify!(ArtifactReconstruction).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
 impl crate::columnar::ArrowValue for AssertionStatus {
     fn append(
         &self,
@@ -377,35 +345,6 @@ impl crate::columnar::ArrowValue for AssertionStatus {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(AssertionStatus).to_owned(),
                 enumeration: stringify!(AssertionStatus).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
-impl crate::columnar::ArrowValue for AttemptKind {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(AttemptKind).to_owned(),
-                enumeration: stringify!(AttemptKind).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value
@@ -713,35 +652,6 @@ impl crate::columnar::ArrowValue for CandidateUse {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(CandidateUse).to_owned(),
                 enumeration: stringify!(CandidateUse).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
-impl crate::columnar::ArrowValue for ChangeKind {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(ChangeKind).to_owned(),
-                enumeration: stringify!(ChangeKind).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value
@@ -2069,35 +1979,6 @@ impl crate::columnar::ArrowValue for IpoptLinearSolver {
             })
     }
 }
-impl crate::columnar::ArrowValue for JobState {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(JobState).to_owned(),
-                enumeration: stringify!(JobState).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
 impl crate::columnar::ArrowValue for KinsolOrthogonalization {
     fn append(
         &self,
@@ -2148,35 +2029,6 @@ impl crate::columnar::ArrowValue for KinsolStrategy {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(KinsolStrategy).to_owned(),
                 enumeration: stringify!(KinsolStrategy).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
-impl crate::columnar::ArrowValue for MemberSelectionKind {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(MemberSelectionKind).to_owned(),
-                enumeration: stringify!(MemberSelectionKind).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value
@@ -3689,64 +3541,6 @@ impl crate::columnar::ArrowValue for NativeConstraintForm {
             })
     }
 }
-impl crate::columnar::ArrowValue for NativeDependencyEvidenceKind {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(NativeDependencyEvidenceKind).to_owned(),
-                enumeration: stringify!(NativeDependencyEvidenceKind).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
-impl crate::columnar::ArrowValue for NativeDependencyKind {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(NativeDependencyKind).to_owned(),
-                enumeration: stringify!(NativeDependencyKind).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
 impl crate::columnar::ArrowValue for NativeDerivativeCapability {
     fn append(
         &self,
@@ -5073,64 +4867,6 @@ impl crate::columnar::ArrowValue for OperationEffect {
             })
     }
 }
-impl crate::columnar::ArrowValue for OrphanDisposition {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(OrphanDisposition).to_owned(),
-                enumeration: stringify!(OrphanDisposition).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
-impl crate::columnar::ArrowValue for OrphanOwnership {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(OrphanOwnership).to_owned(),
-                enumeration: stringify!(OrphanOwnership).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
 impl crate::columnar::ArrowValue for PackageKind {
     fn append(
         &self,
@@ -5450,64 +5186,6 @@ impl crate::columnar::ArrowValue for PresolvePolicyKind {
             })
     }
 }
-impl crate::columnar::ArrowValue for PublicationKind {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(PublicationKind).to_owned(),
-                enumeration: stringify!(PublicationKind).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
-impl crate::columnar::ArrowValue for PublicationMemberRole {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(PublicationMemberRole).to_owned(),
-                enumeration: stringify!(PublicationMemberRole).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
 impl crate::columnar::ArrowValue for QuantityAdditionKind {
     fn append(
         &self,
@@ -5737,64 +5415,6 @@ impl crate::columnar::ArrowValue for ReferenceStateKind {
             })
     }
 }
-impl crate::columnar::ArrowValue for RetentionPhase {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(RetentionPhase).to_owned(),
-                enumeration: stringify!(RetentionPhase).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
-impl crate::columnar::ArrowValue for RetentionReason {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(RetentionReason).to_owned(),
-                enumeration: stringify!(RetentionReason).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
 impl crate::columnar::ArrowValue for ReusePolicy {
     fn append(
         &self,
@@ -5853,35 +5473,6 @@ impl crate::columnar::ArrowValue for RowActivity {
             })
     }
 }
-impl crate::columnar::ArrowValue for RuntimeTermination {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(RuntimeTermination).to_owned(),
-                enumeration: stringify!(RuntimeTermination).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
 impl crate::columnar::ArrowValue for ScaleKind {
     fn append(
         &self,
@@ -5928,35 +5519,6 @@ impl crate::columnar::ArrowValue for SensitivityCorrector {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(SensitivityCorrector).to_owned(),
                 enumeration: stringify!(SensitivityCorrector).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
-impl crate::columnar::ArrowValue for SettlementOutcome {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(SettlementOutcome).to_owned(),
-                enumeration: stringify!(SettlementOutcome).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value
@@ -6177,64 +5739,6 @@ impl crate::columnar::ArrowValue for StateSign {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(StateSign).to_owned(),
                 enumeration: stringify!(StateSign).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
-impl crate::columnar::ArrowValue for StoredSeedKind {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(StoredSeedKind).to_owned(),
-                enumeration: stringify!(StoredSeedKind).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
-impl crate::columnar::ArrowValue for StoredSolutionOrigin {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(StoredSolutionOrigin).to_owned(),
-                enumeration: stringify!(StoredSolutionOrigin).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value
@@ -6753,35 +6257,6 @@ impl crate::columnar::ArrowValue for TearPolicy {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(TearPolicy).to_owned(),
                 enumeration: stringify!(TearPolicy).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
-impl crate::columnar::ArrowValue for TerminationClass {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(TerminationClass).to_owned(),
-                enumeration: stringify!(TerminationClass).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value

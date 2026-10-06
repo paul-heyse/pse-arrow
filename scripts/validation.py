@@ -60,7 +60,7 @@ def relevant_environment(source: Mapping[str, str] | None = None) -> dict[str, s
     source_environment = os.environ if source is None else source
     environment = {
         key: hashlib.sha256(source_environment[key].encode()).hexdigest()
-        if key in {"SYMBOLICA_LICENSE", "PSE_DATABASE_URL"}
+        if key in {"SYMBOLICA_LICENSE"}
         else source_environment[key]
         for key in (
             *INPUT_ENVIRONMENT,
@@ -529,8 +529,6 @@ def run_gates(
         recipe = gate.recipe or gate.name
         command = ["just", recipe, *(arg.format_map(context) for arg in gate.args)]
         report = Path(gate.report.format_map(context)) if gate.report else None
-        # Fixture consumers use the retained fixture's actual directory on continuation.
-        fixture = previous.get("inspection-fixture", {})
         gate_env = dict(env)
         if recipe in {"native-test", "native-python", "feature-absence"}:
             gate_env["PSE_NATIVE_PROVENANCE"] = str(output / f"{gate.name}-native.json")
@@ -544,10 +542,6 @@ def run_gates(
                 gate_env.update(
                     OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1"
                 )
-        if fixture.get("origin"):
-            gate_env["PSE_INSPECTION_PUBLICATION"] = str(
-                Path(fixture["origin"]) / "inspection"
-            )
         if gate.report and "nextest/ci/junit.xml" in gate.report:
             config = native_report_config(root, output, gate.name)
             command.extend(("--config-file", str(config)))

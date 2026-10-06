@@ -301,12 +301,7 @@ impl RunResult {
             }
         }
         if let Some(s) = report.and_then(|r| r.solve.as_ref()) {
-            let stored = self.stored_events(0)?;
-            let events = stored.as_deref().map_or(
-                crate::workflow::results::StepEvents::Retained,
-                crate::workflow::results::StepEvents::Stored,
-            );
-            crate::workflow::results::push_native_metrics(&mut metrics, self.run_id, 0, s, events)?;
+            crate::workflow::results::push_native_metrics(&mut metrics, self.run_id, 0, s)?;
         }
         let mut certificates =
             infeasibility_certificates::Builder::with_registry(registry, 0, &validation)

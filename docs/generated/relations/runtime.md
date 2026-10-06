@@ -50,83 +50,6 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, goal_id`.
 | `unavailable` | `enum:AccuracyUnavailableReason` | true | `payload` | — | — |
 | `limitation` | `Utf8` | false | `payload` | — | — |
 
-## `artifact_descriptors`
-
-Exact current-format artifact validity. Publication members own output versions; local graph and Salsa handles are never persisted.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `artifact_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `artifact_id` | `content_hash` | false | `key` | — | — |
-| `descriptor_version` | `Int64` | false | `payload` | — | — |
-| `profile` | `enum:PublicationKind` | false | `payload` | — | — |
-| `profile_contract` | `content_hash` | false | `payload` | — | — |
-| `requested_relations` | `List` | false | `payload` | — | — |
-| `requested_relations.item` | `semantic_id` | false | `payload` | — | — |
-| `profile_required_relations` | `List` | true | `payload` | — | — |
-| `profile_required_relations.item` | `semantic_id` | false | `payload` | — | — |
-| `release_id` | `content_hash` | false | `payload` | — | — |
-| `release_members` | `List` | false | `payload` | — | — |
-| `release_members.item` | `Struct MemberDescriptor` | false | `payload` | — | — |
-| `release_members.item.catalog_name` | `Utf8` | false | `payload` | — | — |
-| `release_members.item.schema_name` | `Utf8` | false | `payload` | — | — |
-| `release_members.item.table_name` | `Utf8` | false | `payload` | — | — |
-| `release_members.item.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `release_members.item.relation_version` | `Int64` | false | `payload` | — | — |
-| `release_members.item.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
-| `release_members.item.table_uri` | `Utf8` | false | `payload` | — | — |
-| `release_members.item.delta_version` | `Int64` | false | `payload` | — | — |
-| `release_members.item.selection` | `Struct` | false | `payload` | — | — |
-| `release_members.item.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
-| `release_members.item.selection.revision` | `Struct` | true | `payload` | — | — |
-| `release_members.item.selection.revision.column` | `Utf8` | false | `payload` | — | — |
-| `release_members.item.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
-| `semantic_identity` | `content_hash` | false | `payload` | — | — |
-| `implementation` | `Struct` | false | `payload` | — | — |
-| `implementation.source` | `content_hash` | false | `payload` | — | — |
-| `implementation.build` | `content_hash` | false | `payload` | — | — |
-| `implementation.registry` | `content_hash` | false | `payload` | — | — |
-| `implementation.algorithms` | `content_hash` | false | `payload` | — | — |
-| `target_contract` | `content_hash` | false | `payload` | — | — |
-| `value_assumptions` | `List` | false | `payload` | — | — |
-| `value_assumptions.item` | `Struct` | false | `payload` | — | — |
-| `value_assumptions.item.name` | `Utf8` | false | `payload` | — | — |
-| `value_assumptions.item.canonical_value` | `List` | false | `payload` | — | — |
-| `value_assumptions.item.canonical_value.item` | `UInt8` | false | `payload` | — | — |
-| `reconstruction` | `enum:ArtifactReconstruction` | false | `payload` | — | — |
-
-## `artifact_migration_lineage`
-
-Exact immutable source selections, declared portable transformation and target output selectors. The publication manifest owns resulting target versions.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `source_publication_id, target_relation_id, output_catalog, output_schema, output_table`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `source_publication_id` | `semantic_id` | false | `key` | — | — |
-| `source_member` | `Struct MemberDescriptor` | false | `payload` | — | — |
-| `source_member.catalog_name` | `Utf8` | false | `payload` | — | — |
-| `source_member.schema_name` | `Utf8` | false | `payload` | — | — |
-| `source_member.table_name` | `Utf8` | false | `payload` | — | — |
-| `source_member.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `source_member.relation_version` | `Int64` | false | `payload` | — | — |
-| `source_member.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
-| `source_member.table_uri` | `Utf8` | false | `payload` | — | — |
-| `source_member.delta_version` | `Int64` | false | `payload` | — | — |
-| `source_member.selection` | `Struct` | false | `payload` | — | — |
-| `source_member.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
-| `source_member.selection.revision` | `Struct` | true | `payload` | — | — |
-| `source_member.selection.revision.column` | `Utf8` | false | `payload` | — | — |
-| `source_member.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
-| `target_relation_id` | `semantic_id` | false | `key` | — | — |
-| `target_relation_version` | `Int64` | false | `payload` | — | — |
-| `declaration` | `Utf8` | false | `payload` | — | — |
-| `transformation_digest` | `content_hash` | false | `payload` | — | — |
-| `output_catalog` | `Utf8` | false | `key` | — | — |
-| `output_schema` | `Utf8` | false | `key` | — | — |
-| `output_table` | `Utf8` | false | `key` | — | — |
-
 ## `cache_entry_statistics`
 
 Explicit bounded cache entry diagnostics; not execution identity.
@@ -193,6 +116,100 @@ Version: 3. Snapshot class: `derived`. Primary key: `run_id, step`.
 | `permits_result` | `Boolean` | false | `payload` | — | — |
 | `permits_seed` | `Boolean` | false | `payload` | — | — |
 
+## `canonical_analyses`
+
+Derived analysis method, exact configuration and source lineage; activation follows complete graph membership and never changes authored problem authority.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `method` | `Utf8` | false | `payload` | — | — |
+| `configuration` | `Binary` | false | `payload` | — | — |
+| `input_digest` | `Utf8` | false | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+| `node_count` | `UInt64` | false | `payload` | — | — |
+| `edge_count` | `UInt64` | false | `payload` | — | — |
+| `active` | `Boolean` | false | `payload` | — | — |
+
+## `canonical_analysis_edges`
+
+Method-scoped incidence, dependency, topology or quantitative evidence edge; each relation meaning is explicit.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `analysis` | `Utf8` | false | `payload` | — | — |
+| `source` | `Utf8` | false | `payload` | `runtime.canonical_analysis_nodes.key` | — |
+| `target` | `Utf8` | false | `payload` | `runtime.canonical_analysis_nodes.key` | — |
+| `kind` | `Utf8` | false | `payload` | — | — |
+| `evidence` | `Utf8` | true | `payload` | — | — |
+
+## `canonical_analysis_inputs`
+
+Exact admitted result selection consumed by a retained derived analysis; native cleanup respects this retention obligation.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `analysis` | `Utf8` | false | `payload` | `runtime.canonical_analyses.key` | — |
+| `run` | `Utf8` | false | `payload` | — | — |
+| `attempt` | `Utf8` | false | `payload` | `runtime.canonical_attempts.key` | — |
+| `manifest` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_analysis_nodes`
+
+Selected semantic objects within one immutable derived analysis graph.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `analysis` | `Utf8` | false | `payload` | — | — |
+| `semantic` | `Utf8` | false | `payload` | — | — |
+| `kind` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_analysis_retirements`
+
+Explicit withdrawal of analysis source and result retention while preserving its original method lineage receipts.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `analysis` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_attempts`
+
+Fenced actual execution attempt; closure authority is distinct from the revoked worker generation.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `run` | `Utf8` | false | `payload` | — | — |
+| `generation` | `UInt64` | false | `payload` | — | — |
+| `claim_operation` | `Utf8` | false | `payload` | — | — |
+| `request` | `Binary` | false | `payload` | — | — |
+| `worker` | `Utf8` | false | `payload` | — | — |
+| `expires_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+| `ingestion_open` | `Boolean` | false | `payload` | — | — |
+| `closed` | `Boolean` | false | `payload` | — | — |
+| `close_generation` | `UInt64` | true | `payload` | — | — |
+| `terminal` | `Boolean` | false | `payload` | — | — |
+| `outcome` | `Utf8` | true | `payload` | — | — |
+| `closed_manifest` | `Utf8` | true | `payload` | — | — |
+| `completion` | `Binary` | true | `payload` | — | — |
+
 ## `canonical_edges`
 
 Authored structural reference resolved at a selected immutable revision.
@@ -206,6 +223,21 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `ordinal` | `UInt64` | false | `payload` | — | — |
 | `target_scope` | `Utf8` | false | `payload` | — | — |
 | `target_name` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_execution_operations`
+
+Immutable lifecycle effect identity and settlement receipt after an uncertain acknowledgment.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `run` | `Utf8` | false | `payload` | — | — |
+| `attempt` | `Utf8` | true | `payload` | — | — |
+| `kind` | `Utf8` | false | `payload` | — | — |
+| `request` | `Binary` | false | `payload` | — | — |
+| `result` | `Binary` | false | `payload` | — | — |
 
 ## `canonical_guards`
 
@@ -260,6 +292,18 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `ordinal` | `UInt64` | false | `payload` | — | — |
 | `payload` | `Binary` | false | `payload` | — | — |
 | `digest` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_problem_runs`
+
+Native problem-to-run relationship; execution identity remains distinct from authored revision identity.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `problem` | `Utf8` | false | `payload` | `runtime.canonical_problems.key` | — |
+| `run` | `Utf8` | false | `payload` | `runtime.canonical_runs.key` | — |
 
 ## `canonical_problems`
 
@@ -318,6 +362,166 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `from_sequence` | `UInt64` | false | `payload` | — | — |
 | `to_sequence` | `UInt64` | false | `payload` | — | — |
 
+## `canonical_result_batches`
+
+Immutable bounded ingestion receipt; repeating the identity with different bytes is refused.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `attempt` | `Utf8` | false | `payload` | — | — |
+| `result_set` | `Utf8` | false | `payload` | — | — |
+| `ordinal` | `UInt64` | false | `payload` | — | — |
+| `digest` | `Utf8` | false | `payload` | — | — |
+| `payload` | `Binary` | false | `payload` | — | — |
+| `row_count` | `UInt64` | false | `payload` | — | — |
+
+## `canonical_result_block_outputs`
+
+Derived native output-group index references exact original IPC rows; dense arrays never create per-element database cells.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `batch` | `Utf8` | false | `payload` | — | — |
+| `result_set` | `Utf8` | false | `payload` | — | — |
+| `output` | `Utf8` | false | `payload` | — | — |
+| `partition` | `Utf8` | false | `payload` | — | — |
+| `start` | `UInt64` | false | `payload` | — | — |
+| `end` | `UInt64` | false | `payload` | — | — |
+| `coordinate_min` | `Float64` | true | `payload` | — | — |
+| `coordinate_max` | `Float64` | true | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_result_blocks`
+
+Independently decodable exact scientific Arrow block; indexed range metadata is derived from its admitted coordinates.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `result_set` | `Utf8` | false | `payload` | — | — |
+| `batch` | `Utf8` | false | `payload` | — | — |
+| `output` | `Utf8` | false | `payload` | — | — |
+| `partition` | `Utf8` | false | `payload` | — | — |
+| `ordinal` | `UInt64` | false | `payload` | — | — |
+| `start` | `UInt64` | false | `payload` | — | — |
+| `end` | `UInt64` | false | `payload` | — | — |
+| `rows` | `UInt64` | false | `payload` | — | — |
+| `columns` | `UInt64` | false | `payload` | — | — |
+| `coordinate_min` | `Float64` | true | `payload` | — | — |
+| `coordinate_max` | `Float64` | true | `payload` | — | — |
+| `payload_bytes` | `UInt64` | false | `payload` | — | — |
+| `payload_digest` | `Utf8` | false | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_result_cells`
+
+Exact scientific scalar or explicitly tagged diagnostic; finite projection never replaces its authoritative payload.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `result_set` | `Utf8` | false | `payload` | — | — |
+| `batch` | `Utf8` | false | `payload` | — | — |
+| `output` | `Utf8` | false | `payload` | — | — |
+| `partition` | `Utf8` | false | `payload` | — | — |
+| `row` | `UInt64` | false | `payload` | — | — |
+| `coordinate` | `Utf8` | false | `payload` | — | — |
+| `cell_kind` | `Utf8` | false | `payload` | — | — |
+| `bits` | `Binary` | true | `payload` | — | — |
+| `projection` | `Float64` | true | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_result_manifests`
+
+Closed exact result-set descriptor with frozen batch extents and coverage; does not imply scientific success.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `attempt` | `Utf8` | false | `payload` | — | — |
+| `generation` | `UInt64` | false | `payload` | — | — |
+| `digest` | `Utf8` | false | `payload` | — | — |
+| `descriptors` | `Binary` | false | `payload` | — | — |
+
+## `canonical_result_protections`
+
+Exact result read association to the same-key revision protection; result reclamation checks its live protection under the retention guard.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `run` | `Utf8` | false | `payload` | — | — |
+| `attempt` | `Utf8` | false | `payload` | — | — |
+| `manifest` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_result_retirements`
+
+Explicit irreversible withdrawal of a run's scientific payloads; bounded cleanup resumes without reopening scientific execution or deleting immutable lifecycle receipts.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `run` | `Utf8` | false | `payload` | — | — |
+| `after_generation` | `UInt64` | false | `payload` | — | — |
+| `complete` | `Boolean` | false | `payload` | — | — |
+
+## `canonical_result_seeds`
+
+Indexed exact scientific seed descriptor; immutable chunks belong to the closed result selection, and completion independently grants eligibility.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `batch` | `Utf8` | false | `payload` | — | — |
+| `result_set` | `Utf8` | false | `payload` | — | — |
+| `attempt` | `Utf8` | false | `payload` | — | — |
+| `run` | `Utf8` | false | `payload` | — | — |
+| `layout` | `Utf8` | false | `payload` | — | — |
+| `preparation` | `Utf8` | false | `payload` | — | — |
+| `profile` | `Utf8` | false | `payload` | — | — |
+| `data` | `Utf8` | false | `payload` | — | — |
+| `backend` | `Utf8` | false | `payload` | — | — |
+| `step` | `UInt64` | false | `payload` | — | — |
+| `batch_count` | `UInt64` | false | `payload` | — | — |
+| `first_ordinal` | `UInt64` | false | `payload` | — | — |
+| `run_sequence` | `UInt64` | false | `payload` | — | — |
+| `attempt_generation` | `UInt64` | false | `payload` | — | — |
+| `payload_bytes` | `UInt64` | false | `payload` | — | — |
+| `digest` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_result_sets`
+
+Private ordered scientific result membership; closure freezes the contiguous batch selection.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `attempt` | `Utf8` | false | `payload` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+| `next_ordinal` | `UInt64` | false | `payload` | — | — |
+| `row_count` | `UInt64` | false | `payload` | — | — |
+
 ## `canonical_revisions`
 
 Immutable authored revision and idempotent edit operation.
@@ -348,6 +552,41 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `sequence` | `UInt64` | false | `payload` | — | — |
 | `owner_kind` | `Utf8` | false | `payload` | — | — |
 | `owner` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_run_sources`
+
+Exact selected source revision of a run; supports connected provenance traversal.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `run` | `Utf8` | false | `payload` | `runtime.canonical_runs.key` | — |
+| `revision` | `Utf8` | false | `payload` | `runtime.canonical_revisions.key` | — |
+
+## `canonical_runs`
+
+One semantic execution, exact input selection and executable provenance; retry attempts retain this run identity.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `problem` | `Utf8` | false | `payload` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `source_sequence` | `UInt64` | false | `payload` | — | — |
+| `sequence` | `UInt64` | false | `payload` | — | — |
+| `request` | `Binary` | false | `payload` | — | — |
+| `source_selection` | `Binary` | false | `payload` | — | — |
+| `attestation` | `Binary` | false | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+| `current_generation` | `UInt64` | false | `payload` | — | — |
+| `current_attempt` | `Utf8` | true | `payload` | — | — |
+| `cancelled` | `Boolean` | false | `payload` | — | — |
+| `terminal_attempt` | `Utf8` | true | `payload` | — | — |
+| `terminal_class` | `Utf8` | true | `payload` | — | — |
 
 ## `canonical_staged_edits`
 
@@ -384,6 +623,75 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `generation` | `UInt64` | false | `payload` | — | — |
 | `abandoned` | `Boolean` | false | `payload` | — | — |
 | `cleanup_complete` | `Boolean` | false | `payload` | — | — |
+
+## `canonical_studies`
+
+Immutable study selection and bounded staged occurrence membership; activation follows complete admission.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `run` | `Utf8` | false | `payload` | — | — |
+| `problem` | `Utf8` | false | `payload` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `metadata` | `Binary` | false | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+| `point_count` | `UInt64` | false | `payload` | — | — |
+| `next_ordinal` | `UInt64` | false | `payload` | — | — |
+| `active` | `Boolean` | false | `payload` | — | — |
+| `cancelled` | `Boolean` | false | `payload` | — | — |
+| `generation` | `UInt64` | false | `payload` | — | — |
+| `terminal` | `Boolean` | false | `payload` | — | — |
+
+## `canonical_study_dependencies`
+
+Native occurrence dependency edge; ordering, scientific usability and selected seed roles retain distinct meanings.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `study` | `Utf8` | false | `payload` | — | — |
+| `dependent` | `Utf8` | false | `payload` | `runtime.canonical_study_points.key` | — |
+| `predecessor` | `Utf8` | false | `payload` | `runtime.canonical_study_points.key` | — |
+| `kind` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_study_points`
+
+Distinct requested occurrence, immutable operation and policy, fenced observations and actual selected start. Query flags are derived from the shared policy owner.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `study` | `Utf8` | false | `payload` | — | — |
+| `ordinal` | `UInt64` | false | `payload` | — | — |
+| `occurrence` | `UInt64` | false | `payload` | — | — |
+| `policy` | `Binary` | false | `payload` | — | — |
+| `descriptor` | `Binary` | false | `payload` | — | — |
+| `facts` | `Binary` | false | `payload` | — | — |
+| `outcome` | `Binary` | true | `payload` | — | — |
+| `run` | `Utf8` | false | `payload` | — | — |
+| `revision` | `UInt64` | false | `payload` | — | — |
+| `assigned` | `Boolean` | false | `payload` | — | — |
+| `settled` | `Boolean` | false | `payload` | — | — |
+| `attempt` | `Utf8` | true | `payload` | — | — |
+| `start` | `Binary` | true | `payload` | — | — |
+
+## `canonical_study_retirements`
+
+Explicit withdrawal of a terminal study's result retention obligation; its occurrence and scientific outcome receipts remain immutable.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `study` | `Utf8` | false | `payload` | — | — |
 
 ## `canonical_version_manifests`
 
@@ -428,22 +736,6 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `kind` | `Utf8` | false | `payload` | — | — |
 | `payload` | `Binary` | false | `payload` | — | — |
 | `interpretation` | `Utf8` | false | `payload` | — | — |
-
-## `change_events`
-
-Typed native CDF identity; each event travels with its complete declared before/after row value.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `table_uri, commit_version, kind, row_key`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `table_uri` | `Utf8` | false | `key` | — | — |
-| `relation_id` | `semantic_id` | false | `payload` | — | — |
-| `contract_fingerprint` | `content_hash` | false | `payload` | — | — |
-| `commit_version` | `Int64` | false | `key` | — | — |
-| `kind` | `enum:ChangeKind` | false | `key` | — | — |
-| `row_key` | `content_hash` | false | `key` | — | — |
-| `committed_at` | `Timestamp(ns, "UTC")` | true | `payload` | — | — |
 
 ## `computation_runs`
 
@@ -675,20 +967,6 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, quantity`.
 | `validity.root_backward_error` | `Float64` | true | `payload` | — | — |
 | `validity.root_backward_error_limit` | `Float64` | true | `payload` | — | — |
 | `validity.root_neighborhood` | `Utf8` | true | `payload` | — | — |
-
-## `maintenance_outcomes`
-
-Actual native Delta maintenance outcomes; no bespoke data file deletion.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `table_uri`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `table_uri` | `Utf8` | false | `key` | — | — |
-| `delta_version` | `Int64` | false | `payload` | — | — |
-| `deleted_files` | `List` | false | `payload` | — | — |
-| `deleted_files.item` | `Utf8` | false | `payload` | — | — |
-| `deleted_logs` | `Int64` | false | `payload` | — | — |
 
 ## `modeling_checks`
 
@@ -1384,60 +1662,6 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, sample`.
 | `time` | `Float64` | false | `payload` | — | — |
 | `mode` | `Utf8` | false | `payload` | — | — |
 
-## `native_dependencies`
-
-Exact native input, implementation generation, policy and observation facts. Names alone never establish implementation equivalence.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `kind, scope, name`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `kind` | `enum:NativeDependencyKind` | false | `key` | — | — |
-| `scope` | `Utf8` | false | `key` | — | — |
-| `name` | `Utf8` | false | `key` | — | — |
-| `evidence` | `Struct` | false | `payload` | — | — |
-| `evidence.kind` | `enum:NativeDependencyEvidenceKind` | false | `payload` | — | — |
-| `evidence.text` | `Struct` | true | `payload` | — | — |
-| `evidence.text.value` | `Utf8` | false | `payload` | — | — |
-| `evidence.identity` | `Struct` | true | `payload` | — | — |
-| `evidence.identity.value` | `semantic_id` | false | `payload` | — | — |
-| `evidence.identified_text` | `Struct` | true | `payload` | — | — |
-| `evidence.identified_text.identity` | `semantic_id` | false | `payload` | — | — |
-| `evidence.identified_text.text` | `Utf8` | false | `payload` | — | — |
-| `evidence.fingerprint` | `Struct` | true | `payload` | — | — |
-| `evidence.fingerprint.value` | `content_hash` | false | `payload` | — | — |
-| `evidence.selection` | `Struct MemberDescriptor` | true | `payload` | — | — |
-| `evidence.selection.catalog_name` | `Utf8` | false | `payload` | — | — |
-| `evidence.selection.schema_name` | `Utf8` | false | `payload` | — | — |
-| `evidence.selection.table_name` | `Utf8` | false | `payload` | — | — |
-| `evidence.selection.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `evidence.selection.relation_version` | `Int64` | false | `payload` | — | — |
-| `evidence.selection.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
-| `evidence.selection.table_uri` | `Utf8` | false | `payload` | — | — |
-| `evidence.selection.delta_version` | `Int64` | false | `payload` | — | — |
-| `evidence.selection.selection` | `Struct` | false | `payload` | — | — |
-| `evidence.selection.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
-| `evidence.selection.selection.revision` | `Struct` | true | `payload` | — | — |
-| `evidence.selection.selection.revision.column` | `Utf8` | false | `payload` | — | — |
-| `evidence.selection.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
-| `evidence.projection` | `Struct` | true | `payload` | — | — |
-| `evidence.projection.selection` | `Struct MemberDescriptor` | false | `payload` | — | — |
-| `evidence.projection.selection.catalog_name` | `Utf8` | false | `payload` | — | — |
-| `evidence.projection.selection.schema_name` | `Utf8` | false | `payload` | — | — |
-| `evidence.projection.selection.table_name` | `Utf8` | false | `payload` | — | — |
-| `evidence.projection.selection.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `evidence.projection.selection.relation_version` | `Int64` | false | `payload` | — | — |
-| `evidence.projection.selection.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
-| `evidence.projection.selection.table_uri` | `Utf8` | false | `payload` | — | — |
-| `evidence.projection.selection.delta_version` | `Int64` | false | `payload` | — | — |
-| `evidence.projection.selection.selection` | `Struct` | false | `payload` | — | — |
-| `evidence.projection.selection.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
-| `evidence.projection.selection.selection.revision` | `Struct` | true | `payload` | — | — |
-| `evidence.projection.selection.selection.revision.column` | `Utf8` | false | `payload` | — | — |
-| `evidence.projection.selection.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
-| `evidence.projection.columns` | `List` | false | `payload` | — | — |
-| `evidence.projection.columns.item` | `Utf8` | false | `payload` | — | — |
-
 ## `objective_levels`
 
 The lexicographic levels of a multi-objective solve (ADR-0111), in optimization order. A level's value is the weighted sum of its members' terms, in canonical units of `quantity_id`. On the `native` route one HiGHS solve optimizes every level; on the `staged` route `attempt` is the step that optimized the level, seeded from the previous level's accepted step, with `optimum` its value there and `bound` the value every later step held it to: optimum plus max(absolute, relative·|optimum|) when minimized, minus when maximized. `value` is the level's value at the final candidate; absent values are not zero.
@@ -1457,941 +1681,6 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, level`.
 | `optimum` | `Float64` | true | `payload` | — | — |
 | `bound` | `Float64` | true | `payload` | — | — |
 | `value` | `Float64` | true | `payload` | — | — |
-
-## `operational_attempt_transitions`
-
-Append-only audit of every attempt state change, written with the change; sequence 0 records creation and has no previous state.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id, seq`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `attempt_id` | `semantic_id` | false | `key` | `runtime.operational_attempts.attempt_id` | — |
-| `seq` | `Int32` | false | `key` | — | — |
-| `from_state` | `enum:AttemptState` | true | `payload` | — | — |
-| `to_state` | `enum:AttemptState` | false | `payload` | — | — |
-| `actor` | `Utf8` | true | `payload` | — | — |
-| `reason` | `Utf8` | true | `payload` | — | — |
-| `at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-
-Native row check `creation_has_no_previous_state` (must be true):
-
-```sql
-("seq" = 0) = ("from_state" IS NULL)
-```
-
-Native row check `seq_nonnegative` (must be true):
-
-```sql
-"seq" >= 0
-```
-
-## `operational_attempts`
-
-The durable attempt registry (DP-19). Identities are minted by the runtime. A running attempt holds exactly one lease; `cancel_requested` is the cancellation authority. The termination is typed: `termination_class` selects exactly one of the typed termination columns, and `termination_detail` is its versioned JSON detail. Published runtime.computation_runs and runtime.run_lineage are derived snapshots of a published attempt.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `attempt_id` | `semantic_id` | false | `key` | — | — |
-| `run_id` | `semantic_id` | false | `payload` | — | — |
-| `kind` | `enum:AttemptKind` | false | `payload` | — | — |
-| `operational_job_identity` | `content_hash` | false | `payload` | — | — |
-| `preparation_identity` | `content_hash` | true | `payload` | — | — |
-| `state` | `enum:AttemptState` | false | `payload` | — | — |
-| `state_version` | `Int32` | false | `payload` | — | — |
-| `parent_attempt` | `semantic_id` | true | `payload` | `runtime.operational_attempts.attempt_id` | — |
-| `worker` | `Utf8` | true | `payload` | — | — |
-| `lease_expires_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
-| `heartbeat_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
-| `cancel_requested` | `Boolean` | false | `payload` | — | — |
-| `cancel_requested_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
-| `termination_class` | `enum:TerminationClass` | true | `payload` | — | — |
-| `termination_native` | `enum:NativeTermination` | true | `payload` | — | — |
-| `termination_run_state` | `enum:NativeRunState` | true | `payload` | — | — |
-| `termination_trajectory` | `enum:TrajectoryTermination` | true | `payload` | — | — |
-| `termination_runtime` | `enum:RuntimeTermination` | true | `payload` | — | — |
-| `termination_rule` | `enum:DiagnosticCode` | true | `payload` | — | — |
-| `termination_detail` | `Utf8` | true | `payload` | — | — |
-| `created_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-| `updated_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-| `started_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
-| `finished_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
-| `operational_job_frame` | `Utf8` | true | `payload` | — | — |
-
-Native row check `cancel_request_timed` (must be true):
-
-```sql
-"cancel_requested" = ("cancel_requested_at" IS NOT NULL)
-```
-
-Native row check `one_termination` (must be true):
-
-```sql
-("termination_class" IS NULL AND "termination_native" IS NULL AND "termination_run_state" IS NULL AND "termination_trajectory" IS NULL AND "termination_runtime" IS NULL AND "termination_rule" IS NULL) OR ("termination_class" = 'native' AND "termination_native" IS NOT NULL AND "termination_run_state" IS NULL AND "termination_trajectory" IS NULL AND "termination_runtime" IS NULL AND "termination_rule" IS NULL) OR ("termination_class" = 'run_state' AND "termination_native" IS NULL AND "termination_run_state" IS NOT NULL AND "termination_trajectory" IS NULL AND "termination_runtime" IS NULL AND "termination_rule" IS NULL) OR ("termination_class" = 'trajectory' AND "termination_native" IS NULL AND "termination_run_state" IS NULL AND "termination_trajectory" IS NOT NULL AND "termination_runtime" IS NULL AND "termination_rule" IS NULL) OR ("termination_class" = 'runtime' AND "termination_native" IS NULL AND "termination_run_state" IS NULL AND "termination_trajectory" IS NULL AND "termination_runtime" IS NOT NULL AND "termination_rule" IS NULL) OR ("termination_class" = 'rule' AND "termination_native" IS NULL AND "termination_run_state" IS NULL AND "termination_trajectory" IS NULL AND "termination_runtime" IS NULL AND "termination_rule" IS NOT NULL)
-```
-
-Native row check `parent_is_another_attempt` (must be true):
-
-```sql
-"parent_attempt" IS DISTINCT FROM "attempt_id"
-```
-
-Native row check `running_has_worker` (must be true):
-
-```sql
-"state" <> 'running' OR "worker" IS NOT NULL
-```
-
-Native row check `running_holds_lease` (must be true):
-
-```sql
-("state" = 'running') = ("lease_expires_at" IS NOT NULL)
-```
-
-Native row check `state_version_nonnegative` (must be true):
-
-```sql
-"state_version" >= 0
-```
-
-Native row check `worker_nonempty` (must be true):
-
-```sql
-"worker" IS NULL OR "worker" <> ''
-```
-
-## `operational_incumbents`
-
-Improving feasible points of a branch-and-bound search and the bound at that time, numbered by the producer, with the progress context of the event that reported each: the step of the run, the phase, and `elapsed_seconds` from the step's admitted execution start. `nodes` and `seconds` are the search's node count and native running time then; `solution_id` names the stored point when it is kept for resumption.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id, seq`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `attempt_id` | `semantic_id` | false | `key` | `runtime.operational_attempts.attempt_id` | — |
-| `seq` | `Int64` | false | `key` | — | — |
-| `step` | `Int32` | false | `payload` | — | — |
-| `at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-| `elapsed_seconds` | `Float64` | false | `payload` | — | — |
-| `phase` | `Utf8` | false | `payload` | — | — |
-| `objective` | `Float64` | false | `payload` | — | — |
-| `dual_bound` | `Float64` | true | `payload` | — | — |
-| `gap` | `Float64` | true | `payload` | — | — |
-| `nodes` | `Int64` | true | `payload` | — | — |
-| `seconds` | `Float64` | true | `payload` | — | — |
-| `solution_id` | `semantic_id` | true | `payload` | `runtime.operational_solutions.solution_id` | — |
-
-Native row check `elapsed_nonnegative` (must be true):
-
-```sql
-"elapsed_seconds" >= 0
-```
-
-Native row check `gap_nonnegative` (must be true):
-
-```sql
-"gap" IS NULL OR "gap" >= 0
-```
-
-Native row check `nodes_nonnegative` (must be true):
-
-```sql
-"nodes" IS NULL OR "nodes" >= 0
-```
-
-Native row check `phase_nonempty` (must be true):
-
-```sql
-"phase" <> ''
-```
-
-Native row check `seconds_nonnegative` (must be true):
-
-```sql
-"seconds" IS NULL OR "seconds" >= 0
-```
-
-Native row check `seq_nonnegative` (must be true):
-
-```sql
-"seq" >= 0
-```
-
-Native row check `step_nonnegative` (must be true):
-
-```sql
-"step" >= 0
-```
-
-## `operational_jobs`
-
-Durable work claimed with FOR UPDATE SKIP LOCKED. `attempt_id` is the current try; each try runs as a new attempt. `payload` is a JSON document of format `payload_version`; a worker refuses versions it does not know. Backoff is in microseconds, doubled per retry up to the cap.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `job_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `job_id` | `semantic_id` | false | `key` | — | — |
-| `attempt_id` | `semantic_id` | false | `payload` | `runtime.operational_attempts.attempt_id` | — |
-| `idempotency_key` | `Utf8` | false | `payload` | — | — |
-| `payload_version` | `Int32` | false | `payload` | — | — |
-| `payload` | `Utf8` | false | `payload` | — | — |
-| `priority` | `Int32` | false | `payload` | — | — |
-| `state` | `enum:JobState` | false | `payload` | — | — |
-| `tries` | `Int32` | false | `payload` | — | — |
-| `max_tries` | `Int32` | false | `payload` | — | — |
-| `backoff_base_us` | `Int64` | false | `payload` | — | — |
-| `backoff_cap_us` | `Int64` | false | `payload` | — | — |
-| `available_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-| `enqueued_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-| `updated_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-| `last_error` | `Utf8` | true | `payload` | — | — |
-
-Native row check `backoff_base_nonnegative` (must be true):
-
-```sql
-"backoff_base_us" >= 0
-```
-
-Native row check `backoff_cap_covers_base` (must be true):
-
-```sql
-"backoff_cap_us" >= "backoff_base_us"
-```
-
-Native row check `idempotency_key_nonempty` (must be true):
-
-```sql
-"idempotency_key" <> ''
-```
-
-Native row check `max_tries_positive` (must be true):
-
-```sql
-"max_tries" > 0
-```
-
-Native row check `payload_version_positive` (must be true):
-
-```sql
-"payload_version" > 0
-```
-
-Native row check `tries_nonnegative` (must be true):
-
-```sql
-"tries" >= 0
-```
-
-Native row check `tries_within_max` (must be true):
-
-```sql
-"tries" <= "max_tries"
-```
-
-## `operational_orphan_candidates`
-
-Durable observed prefixes including unresolved ownership. Discovery never authorizes deletion; explicit claim rechecks protection under the workspace maintenance fence.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `scan_id, prefix`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `scan_id` | `semantic_id` | false | `key` | `runtime.operational_orphan_scans.scan_id` | — |
-| `prefix` | `Utf8` | false | `key` | — | — |
-| `generation` | `Int64` | false | `payload` | — | — |
-| `discovery_epoch` | `Int64` | false | `payload` | — | — |
-| `ownership` | `enum:OrphanOwnership` | false | `payload` | — | — |
-| `evidence` | `Utf8` | false | `payload` | — | — |
-| `protections` | `Utf8` | false | `payload` | — | — |
-| `disposition` | `enum:OrphanDisposition` | false | `payload` | — | — |
-| `claim_epoch` | `Int64` | true | `payload` | — | — |
-
-Native row check `claim_epoch_nonnegative` (must be true):
-
-```sql
-"claim_epoch" IS NULL OR "claim_epoch" >= 0
-```
-
-Native row check `epoch_nonnegative` (must be true):
-
-```sql
-"discovery_epoch" >= 0
-```
-
-Native row check `generation_positive` (must be true):
-
-```sql
-"generation" > 0
-```
-
-Native row check `prefix_nonempty` (must be true):
-
-```sql
-"prefix" <> ''
-```
-
-## `operational_orphan_scans`
-
-Restartable bounded workspace listing; restart increments generation and re-enumerates from the established root without assuming provider ordering or snapshot semantics.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `scan_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `scan_id` | `semantic_id` | false | `key` | — | — |
-| `workspace_id` | `semantic_id` | false | `payload` | `runtime.operational_workspaces.workspace_id` | — |
-| `root_uri` | `Utf8` | false | `payload` | — | — |
-| `maintenance_epoch` | `Int64` | false | `payload` | — | — |
-| `generation` | `Int64` | false | `payload` | — | — |
-| `listed_count` | `Int64` | false | `payload` | — | — |
-| `complete` | `Boolean` | false | `payload` | — | — |
-
-Native row check `counts_nonnegative` (must be true):
-
-```sql
-"maintenance_epoch" >= 0 AND "listed_count" >= 0
-```
-
-Native row check `generation_positive` (must be true):
-
-```sql
-"generation" > 0
-```
-
-Native row check `root_nonempty` (must be true):
-
-```sql
-"root_uri" <> ''
-```
-
-## `operational_progress_events`
-
-Live progress of a durable attempt, numbered by its producer and retained by policy instead of a fixed event cap. `step` is the step of the run; `elapsed_seconds` is measured from the step's admitted execution start.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id, seq`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `attempt_id` | `semantic_id` | false | `key` | `runtime.operational_attempts.attempt_id` | — |
-| `seq` | `Int64` | false | `key` | — | — |
-| `step` | `Int32` | false | `payload` | — | — |
-| `at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-| `elapsed_seconds` | `Float64` | false | `payload` | — | — |
-| `phase` | `Utf8` | false | `payload` | — | — |
-
-Native row check `elapsed_nonnegative` (must be true):
-
-```sql
-"elapsed_seconds" >= 0
-```
-
-Native row check `phase_nonempty` (must be true):
-
-```sql
-"phase" <> ''
-```
-
-Native row check `seq_nonnegative` (must be true):
-
-```sql
-"seq" >= 0
-```
-
-Native row check `step_nonnegative` (must be true):
-
-```sql
-"step" >= 0
-```
-
-## `operational_progress_values`
-
-Typed values of one progress event, in the value vocabulary of runtime.solve_metrics: exactly the selected value field is populated, and numeric values are stored exactly. Publication snapshots them into runtime.solve_metrics as namespace `event.<seq>.<phase>`.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id, seq, name`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `attempt_id` | `semantic_id` | false | `key` | `runtime.operational_attempts.attempt_id` | — |
-| `seq` | `Int64` | false | `key` | — | — |
-| `name` | `Utf8` | false | `key` | — | — |
-| `kind` | `enum:NativeMetricKind` | false | `payload` | — | — |
-| `real` | `Float64` | true | `payload` | — | — |
-| `integer` | `Int64` | true | `payload` | — | — |
-| `boolean` | `Boolean` | true | `payload` | — | — |
-| `text` | `Utf8` | true | `payload` | — | — |
-| `unavailable` | `enum:EvidenceUnavailableReason` | true | `payload` | — | — |
-
-Native row check `name_nonempty` (must be true):
-
-```sql
-"name" <> ''
-```
-
-Native row check `one_evidence_value` (must be true):
-
-```sql
-(kind = 'real' AND "real" IS NOT NULL AND "integer" IS NULL AND "boolean" IS NULL AND "text" IS NULL AND "unavailable" IS NULL) OR (kind = 'integer' AND "real" IS NULL AND "integer" IS NOT NULL AND "boolean" IS NULL AND "text" IS NULL AND "unavailable" IS NULL) OR (kind = 'boolean' AND "real" IS NULL AND "integer" IS NULL AND "boolean" IS NOT NULL AND "text" IS NULL AND "unavailable" IS NULL) OR (kind = 'text' AND "real" IS NULL AND "integer" IS NULL AND "boolean" IS NULL AND "text" IS NOT NULL AND "unavailable" IS NULL) OR (kind = 'unavailable' AND "real" IS NULL AND "integer" IS NULL AND "boolean" IS NULL AND "text" IS NULL AND "unavailable" IS NOT NULL)
-```
-
-## `operational_publication_heads`
-
-One head per workspace, created with the workspace, so the compare-and-set commit always locks an existing row. An absent head means nothing has been published yet.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `workspace_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `workspace_id` | `semantic_id` | false | `key` | `runtime.operational_workspaces.workspace_id` | — |
-| `publication_id` | `semantic_id` | true | `payload` | `runtime.operational_publications.publication_id` | — |
-| `advanced_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-
-## `operational_publication_intents`
-
-Publication intents (Plan 22 X9), registered before the first member write: the publication identity, its durable attempt and the prefix every member it writes lives under. An intent without a publication is unpublished: reclaimable once abandoned, once its attempt is published as another publication, or once its attempt is stale or superseded. An abandoned intent never commits.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `publication_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `publication_id` | `semantic_id` | false | `key` | — | — |
-| `workspace_id` | `semantic_id` | false | `payload` | `runtime.operational_workspaces.workspace_id` | — |
-| `attempt_id` | `semantic_id` | false | `payload` | `runtime.operational_attempts.attempt_id` | — |
-| `member_prefix` | `Utf8` | false | `payload` | — | — |
-| `prepared_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-| `abandoned_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
-| `reclaimed_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
-
-Native row check `member_prefix_nonempty` (must be true):
-
-```sql
-"member_prefix" <> ''
-```
-
-Native row check `reclaimed_after_abandoned` (must be true):
-
-```sql
-"reclaimed_at" IS NULL OR "abandoned_at" IS NOT NULL
-```
-
-## `operational_publication_members`
-
-The members of a publication, one registry `MemberDescriptor` per row: an output it publishes or an input it read, each naming an exact Delta version of a table, the relation contract it was written under and the rows selected (the full table or one revision).
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `publication_id, role, catalog_name, schema_name, table_name`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `publication_id` | `semantic_id` | false | `key` | `runtime.operational_publications.publication_id` | — |
-| `role` | `enum:PublicationMemberRole` | false | `key` | — | — |
-| `catalog_name` | `Utf8` | false | `key` | — | — |
-| `schema_name` | `Utf8` | false | `key` | — | — |
-| `table_name` | `Utf8` | false | `key` | — | — |
-| `relation_id` | `semantic_id` | false | `payload` | — | — |
-| `relation_version` | `Int64` | false | `payload` | — | — |
-| `contract_fingerprint` | `content_hash` | false | `payload` | — | — |
-| `table_uri` | `Utf8` | false | `payload` | — | — |
-| `delta_version` | `Int64` | false | `payload` | — | — |
-| `selection_kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
-| `revision_column` | `Utf8` | true | `payload` | — | — |
-| `revision_id` | `semantic_id` | true | `payload` | — | — |
-
-Native row check `catalog_name_nonempty` (must be true):
-
-```sql
-"catalog_name" <> ''
-```
-
-Native row check `delta_version_nonnegative` (must be true):
-
-```sql
-"delta_version" >= 0
-```
-
-Native row check `one_selection` (must be true):
-
-```sql
-("selection_kind" = 'full' AND "revision_column" IS NULL AND "revision_id" IS NULL) OR ("selection_kind" = 'revision' AND "revision_column" IS NOT NULL AND "revision_column" <> '' AND "revision_id" IS NOT NULL)
-```
-
-Native row check `relation_version_nonnegative` (must be true):
-
-```sql
-"relation_version" >= 0
-```
-
-Native row check `schema_name_nonempty` (must be true):
-
-```sql
-"schema_name" <> ''
-```
-
-Native row check `table_name_nonempty` (must be true):
-
-```sql
-"table_name" <> ''
-```
-
-Native row check `table_uri_nonempty` (must be true):
-
-```sql
-"table_uri" <> ''
-```
-
-## `operational_publication_windows`
-
-Change-data windows a publication read: every version of the table from `from_version` through `through_version` (inclusive) stays reachable while the publication is live (retention reason `changes`, finding T16).
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `publication_id, table_uri, from_version`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `publication_id` | `semantic_id` | false | `key` | `runtime.operational_publications.publication_id` | — |
-| `table_uri` | `Utf8` | false | `key` | — | — |
-| `from_version` | `Int64` | false | `key` | — | — |
-| `through_version` | `Int64` | false | `payload` | — | — |
-
-Native row check `from_version_nonnegative` (must be true):
-
-```sql
-"from_version" >= 0
-```
-
-Native row check `ordered_window` (must be true):
-
-```sql
-"from_version" <= "through_version"
-```
-
-Native row check `table_uri_nonempty` (must be true):
-
-```sql
-"table_uri" <> ''
-```
-
-## `operational_publications`
-
-Immutable publication records. Each commits its registered intent; the attempt identity is unique, so publication is idempotent per attempt and settlement queries this relation.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `publication_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `publication_id` | `semantic_id` | false | `key` | `runtime.operational_publication_intents.publication_id` | — |
-| `workspace_id` | `semantic_id` | false | `payload` | `runtime.operational_workspaces.workspace_id` | — |
-| `parent_publication` | `semantic_id` | true | `payload` | `runtime.operational_publications.publication_id` | — |
-| `attempt_id` | `semantic_id` | false | `payload` | `runtime.operational_attempts.attempt_id` | — |
-| `kind` | `enum:PublicationKind` | false | `payload` | — | — |
-| `committed_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-
-Native row check `parent_is_another_publication` (must be true):
-
-```sql
-"parent_publication" IS DISTINCT FROM "publication_id"
-```
-
-## `operational_reader_leases`
-
-Reader leases: taken, renewed and released in short transactions; no reader holds a database session while it reads Delta files (finding T02). A lease that resolved a workspace head records that workspace in `head_of`; an export is a lease held by `export:<destination>`.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `lease_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `lease_id` | `semantic_id` | false | `key` | — | — |
-| `publication_id` | `semantic_id` | false | `payload` | `runtime.operational_publications.publication_id` | — |
-| `head_of` | `semantic_id` | true | `payload` | `runtime.operational_workspaces.workspace_id` | — |
-| `holder` | `Utf8` | false | `payload` | — | — |
-| `acquired_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-| `expires_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-| `released_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
-
-Native row check `expires_after_acquired` (must be true):
-
-```sql
-"expires_at" > "acquired_at"
-```
-
-Native row check `holder_nonempty` (must be true):
-
-```sql
-"holder" <> ''
-```
-
-## `operational_reset_records`
-
-Completed external retirement manifest and exact reset settlement identity; recorded in the same transaction as recreate/import/readiness.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `reset_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `reset_id` | `semantic_id` | false | `key` | — | — |
-| `manifest_digest` | `content_hash` | false | `payload` | — | — |
-| `manifest_uri` | `Utf8` | false | `payload` | — | — |
-| `source_fingerprint` | `Utf8` | false | `payload` | — | — |
-| `inventory_rows` | `Int64` | false | `payload` | — | — |
-
-Native row check `manifest_nonempty` (must be true):
-
-```sql
-"manifest_uri" <> ''
-```
-
-Native row check `rows_nonnegative` (must be true):
-
-```sql
-"inventory_rows" >= 0
-```
-
-Native row check `source_nonempty` (must be true):
-
-```sql
-"source_fingerprint" <> ''
-```
-
-## `operational_retention_marks`
-
-Two-phase deletion state. A publication without a mark is live; `expiring` refuses new leases; `deleted` records that the member files were removed.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `publication_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `publication_id` | `semantic_id` | false | `key` | `runtime.operational_publications.publication_id` | — |
-| `phase` | `enum:RetentionPhase` | false | `payload` | — | — |
-| `marked_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-| `deleted_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
-
-Native row check `deleted_when_marked_deleted` (must be true):
-
-```sql
-("phase" = 'deleted') = ("deleted_at" IS NOT NULL)
-```
-
-## `operational_retired_inventory`
-
-Original completed catalog/control inventory and unresolved prior retirement records. Publication/member/input/window/intent/retention and reader/export expiry remain explicit after reset; retirement does not establish safe deletion.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `reset_id, ordinal`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `reset_id` | `semantic_id` | false | `key` | `runtime.operational_reset_records.reset_id` | — |
-| `ordinal` | `Int64` | false | `key` | — | — |
-| `workspace_id` | `semantic_id` | true | `payload` | — | — |
-| `root_uri` | `Utf8` | true | `payload` | — | — |
-| `prefix` | `Utf8` | true | `payload` | — | — |
-| `record_kind` | `Utf8` | false | `payload` | — | — |
-| `document` | `Utf8` | false | `payload` | — | — |
-| `protections` | `Utf8` | false | `payload` | — | — |
-| `disposition` | `enum:OrphanDisposition` | false | `payload` | — | — |
-
-Native row check `kind_nonempty` (must be true):
-
-```sql
-"record_kind" <> ''
-```
-
-Native row check `ordinal_nonnegative` (must be true):
-
-```sql
-"ordinal" >= 0
-```
-
-## `operational_schema_support_state`
-
-Owned schema readiness and exact transition support. Catalog/control owns this shared object; operations depends on its supported shared version.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `history`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `history` | `Utf8` | false | `key` | — | — |
-| `shared_version` | `Int32` | false | `payload` | — | — |
-| `source` | `Utf8` | false | `payload` | — | — |
-| `target` | `Utf8` | false | `payload` | — | — |
-| `ready` | `Boolean` | false | `payload` | — | — |
-
-Native row check `history_known` (must be true):
-
-```sql
-"history" IN ('catalog', 'operations')
-```
-
-Native row check `shared_version_positive` (must be true):
-
-```sql
-"shared_version" > 0
-```
-
-## `operational_settlements`
-
-Settlement inquiries after an uncertain commit acknowledgement, and their outcome: a committed outcome names its publication; a conflict names why and the head it met.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `settlement_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `settlement_id` | `semantic_id` | false | `key` | — | — |
-| `attempt_id` | `semantic_id` | false | `payload` | `runtime.operational_attempts.attempt_id` | — |
-| `outcome` | `enum:SettlementOutcome` | false | `payload` | — | — |
-| `publication_id` | `semantic_id` | true | `payload` | `runtime.operational_publications.publication_id` | — |
-| `reason` | `Utf8` | true | `payload` | — | — |
-| `conflict_head` | `semantic_id` | true | `payload` | `runtime.operational_publications.publication_id` | — |
-| `settled_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-
-Native row check `committed_names_publication` (must be true):
-
-```sql
-("outcome" = 'committed') = ("publication_id" IS NOT NULL)
-```
-
-Native row check `conflict_has_reason` (must be true):
-
-```sql
-("outcome" = 'conflict') = ("reason" IS NOT NULL)
-```
-
-Native row check `conflict_head_of_conflict` (must be true):
-
-```sql
-"conflict_head" IS NULL OR "outcome" = 'conflict'
-```
-
-Native row check `reason_nonempty` (must be true):
-
-```sql
-"reason" IS NULL OR "reason" <> ''
-```
-
-## `operational_solutions`
-
-Reusable seeds in original source coordinates, keyed by the coordinate-compatibility stamp (the layout stamp) and the preparation identity. `kind` fixes which vectors are present; an NLP seed may carry the final barrier parameter of its interior-point producer (authored objective units); basis codes keep the native integer statuses. `origin` is `output` for a step's accepted output seed, the only kind the newest-compatible lookup returns, and `incumbent` for a point captured from an attempt's incumbent stream: a capture belongs to its attempt and expires with that stream unless a queued job's start or a waiting study point still names it. The seed's content identity enters the lineage of every result it seeds (F25).
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `solution_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `solution_id` | `semantic_id` | false | `key` | — | — |
-| `compatibility_stamp` | `content_hash` | false | `payload` | — | — |
-| `preparation_identity` | `content_hash` | false | `payload` | — | — |
-| `kind` | `enum:StoredSeedKind` | false | `payload` | — | — |
-| `origin` | `enum:StoredSolutionOrigin` | false | `payload` | — | — |
-| `backend` | `enum:NativeBackend` | false | `payload` | — | — |
-| `profile_stamp` | `content_hash` | false | `payload` | — | — |
-| `data_stamp` | `content_hash` | false | `payload` | — | — |
-| `primal` | `List` | true | `payload` | — | — |
-| `primal.item` | `Float64` | false | `payload` | — | — |
-| `lower_bound_duals` | `List` | true | `payload` | — | — |
-| `lower_bound_duals.item` | `Float64` | false | `payload` | — | — |
-| `upper_bound_duals` | `List` | true | `payload` | — | — |
-| `upper_bound_duals.item` | `Float64` | false | `payload` | — | — |
-| `column_duals` | `List` | true | `payload` | — | — |
-| `column_duals.item` | `Float64` | false | `payload` | — | — |
-| `row_duals` | `List` | true | `payload` | — | — |
-| `row_duals.item` | `Float64` | false | `payload` | — | — |
-| `barrier` | `Float64` | true | `payload` | — | — |
-| `basis_columns` | `List` | true | `payload` | — | — |
-| `basis_columns.item` | `Int32` | false | `payload` | — | — |
-| `basis_rows` | `List` | true | `payload` | — | — |
-| `basis_rows.item` | `Int32` | false | `payload` | — | — |
-| `created_by` | `semantic_id` | true | `payload` | `runtime.operational_attempts.attempt_id` | — |
-| `created_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-
-Native row check `barrier_positive` (must be true):
-
-```sql
-"barrier" IS NULL OR "barrier" > 0
-```
-
-Native row check `capture_has_attempt` (must be true):
-
-```sql
-"origin" <> 'incumbent' OR "created_by" IS NOT NULL
-```
-
-Native row check `vectors` (must be true):
-
-```sql
-("kind" = 'root' AND "primal" IS NOT NULL AND "lower_bound_duals" IS NULL AND "upper_bound_duals" IS NULL AND "column_duals" IS NULL AND "row_duals" IS NULL AND "barrier" IS NULL AND "basis_columns" IS NULL AND "basis_rows" IS NULL) OR ("kind" = 'nlp' AND "primal" IS NOT NULL AND ("lower_bound_duals" IS NULL) = ("upper_bound_duals" IS NULL) AND "column_duals" IS NULL AND "basis_columns" IS NULL AND "basis_rows" IS NULL) OR ("kind" = 'highs' AND "lower_bound_duals" IS NULL AND "upper_bound_duals" IS NULL AND "barrier" IS NULL AND ("column_duals" IS NULL) = ("row_duals" IS NULL) AND ("basis_columns" IS NULL) = ("basis_rows" IS NULL) AND ("primal" IS NOT NULL OR "column_duals" IS NOT NULL OR "basis_columns" IS NOT NULL))
-```
-
-## `operational_source_bundles`
-
-Authored sources stored for job execution. `bundle_hash` is the package content hash of §6.1 over the bundle's path/content pairs; `manifest` is a JSON document naming the paths.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `bundle_hash`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `bundle_hash` | `content_hash` | false | `key` | — | — |
-| `manifest` | `Utf8` | false | `payload` | — | — |
-| `created_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-
-## `operational_source_documents`
-
-One authored document of a source bundle, keyed by its path: its exact bytes, whose kind the path declares (a text document's are UTF-8, a data document's Parquet; ADR-0125), and `content_hash`, the document content hash.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `bundle_hash, path`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `bundle_hash` | `content_hash` | false | `key` | `runtime.operational_source_bundles.bundle_hash` | — |
-| `path` | `Utf8` | false | `key` | — | — |
-| `content_hash` | `content_hash` | false | `payload` | — | — |
-| `content` | `Binary` | false | `payload` | — | — |
-
-Native row check `path_nonempty` (must be true):
-
-```sql
-"path" <> ''
-```
-
-## `operational_studies`
-
-Studies coordinated across workers (Plan 22 O7). `attempt_id` is the study's own attempt: it holds no lease, stays queued while the points run and ends when the last point is terminal; it is the attempt the study's one publication names, and `publication_id` is that publication's intent, registered at creation. `finalization_job` waits until the last point is terminal and then publishes the study. `definition` is the study's versioned JSON definition.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `study_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `study_id` | `semantic_id` | false | `key` | — | — |
-| `attempt_id` | `semantic_id` | false | `payload` | `runtime.operational_attempts.attempt_id` | — |
-| `publication_id` | `semantic_id` | false | `payload` | `runtime.operational_publication_intents.publication_id` | — |
-| `finalization_job` | `semantic_id` | false | `payload` | `runtime.operational_jobs.job_id` | — |
-| `definition` | `Utf8` | false | `payload` | — | — |
-| `state` | `enum:StudyState` | false | `payload` | — | — |
-| `created_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-| `updated_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-
-## `operational_study_point_members`
-
-The result members a completed study point wrote under its study's publication intent, one registry `MemberDescriptor` per row, recorded in the transaction that completes the point. The study's publication commits them together with its summary.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `study_id, point_index, catalog_name, schema_name, table_name`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `study_id` | `semantic_id` | false | `key` | `runtime.operational_studies.study_id` | — |
-| `point_index` | `Int32` | false | `key` | — | — |
-| `catalog_name` | `Utf8` | false | `key` | — | — |
-| `schema_name` | `Utf8` | false | `key` | — | — |
-| `table_name` | `Utf8` | false | `key` | — | — |
-| `relation_id` | `semantic_id` | false | `payload` | — | — |
-| `relation_version` | `Int64` | false | `payload` | — | — |
-| `contract_fingerprint` | `content_hash` | false | `payload` | — | — |
-| `table_uri` | `Utf8` | false | `payload` | — | — |
-| `delta_version` | `Int64` | false | `payload` | — | — |
-| `selection_kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
-| `revision_column` | `Utf8` | true | `payload` | — | — |
-| `revision_id` | `semantic_id` | true | `payload` | — | — |
-
-Native row check `catalog_name_nonempty` (must be true):
-
-```sql
-"catalog_name" <> ''
-```
-
-Native row check `delta_version_nonnegative` (must be true):
-
-```sql
-"delta_version" >= 0
-```
-
-Native row check `one_selection` (must be true):
-
-```sql
-("selection_kind" = 'full' AND "revision_column" IS NULL AND "revision_id" IS NULL) OR ("selection_kind" = 'revision' AND "revision_column" IS NOT NULL AND "revision_column" <> '' AND "revision_id" IS NOT NULL)
-```
-
-Native row check `relation_version_nonnegative` (must be true):
-
-```sql
-"relation_version" >= 0
-```
-
-Native row check `schema_name_nonempty` (must be true):
-
-```sql
-"schema_name" <> ''
-```
-
-Native row check `table_name_nonempty` (must be true):
-
-```sql
-"table_name" <> ''
-```
-
-Native row check `table_uri_nonempty` (must be true):
-
-```sql
-"table_uri" <> ''
-```
-
-## `operational_study_points`
-
-One occurrence, distinct from reusable binding content. The versioned study definition owns admitted operations and bindings; policy is its mechanically derived shared point policy. Outcome retains aggregate scientific facts, typed diagnostic, chosen start, effect knowledge and every try. Revision fences pure actions under the study lock; job/attempt lifecycle remains operational state.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `study_id, point_index`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `study_id` | `semantic_id` | false | `key` | `runtime.operational_studies.study_id` | — |
-| `point_index` | `Int32` | false | `key` | — | — |
-| `binding_hash` | `content_hash` | false | `payload` | — | — |
-| `job_id` | `semantic_id` | false | `payload` | `runtime.operational_jobs.job_id` | — |
-| `state` | `enum:StudyPointState` | false | `payload` | — | — |
-| `revision` | `Int64` | false | `payload` | — | — |
-| `policy` | `Utf8` | false | `payload` | — | — |
-| `outcome` | `Utf8` | false | `payload` | — | — |
-| `updated_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-
-Native row check `point_index_nonnegative` (must be true):
-
-```sql
-"point_index" >= 0
-```
-
-Native row check `revision_nonnegative` (must be true):
-
-```sql
-"revision" >= 0
-```
-
-## `operational_workspaces`
-
-A publication workspace: a named root under which members are written. Its head row is created with it. `maintenance_epoch` advances before every maintenance effect (retirement, collection), so a reader's cache scope never outlives the maintenance it was read under (Plan 22 X10).
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `workspace_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `workspace_id` | `semantic_id` | false | `key` | — | — |
-| `name` | `Utf8` | false | `payload` | — | — |
-| `root_uri` | `Utf8` | false | `payload` | — | — |
-| `maintenance_epoch` | `Int64` | false | `payload` | — | — |
-| `created_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-
-Native row check `maintenance_epoch_nonnegative` (must be true):
-
-```sql
-"maintenance_epoch" >= 0
-```
-
-Native row check `name_nonempty` (must be true):
-
-```sql
-"name" <> ''
-```
-
-Native row check `root_uri_nonempty` (must be true):
-
-```sql
-"root_uri" <> ''
-```
 
 ## `parameter_covariances`
 
@@ -2664,78 +1953,6 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
 | `values` | `List` | false | `payload` | — | — |
 | `values.item` | `Float64` | false | `payload` | — | — |
 
-## `publication_manifests`
-
-One publication record: identity, workspace, parent, durable attempt, kind, the exact input and member vectors and the change windows read. The operational catalog is the authority for what is published; an export writes this row once as version 1 of a one-row Delta table together with the reader lease protecting its members, the workspace maintenance epoch and the operational store fingerprint, so an offline reader opens exactly those members.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `publication_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `publication_id` | `semantic_id` | false | `key` | — | — |
-| `workspace_id` | `semantic_id` | false | `payload` | — | — |
-| `parent_publication_id` | `semantic_id` | true | `payload` | — | — |
-| `attempt_id` | `semantic_id` | false | `payload` | — | — |
-| `kind` | `enum:PublicationKind` | false | `payload` | — | — |
-| `inputs` | `List` | false | `payload` | — | — |
-| `inputs.item` | `Struct MemberDescriptor` | false | `payload` | — | — |
-| `inputs.item.catalog_name` | `Utf8` | false | `payload` | — | — |
-| `inputs.item.schema_name` | `Utf8` | false | `payload` | — | — |
-| `inputs.item.table_name` | `Utf8` | false | `payload` | — | — |
-| `inputs.item.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `inputs.item.relation_version` | `Int64` | false | `payload` | — | — |
-| `inputs.item.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
-| `inputs.item.table_uri` | `Utf8` | false | `payload` | — | — |
-| `inputs.item.delta_version` | `Int64` | false | `payload` | — | — |
-| `inputs.item.selection` | `Struct` | false | `payload` | — | — |
-| `inputs.item.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
-| `inputs.item.selection.revision` | `Struct` | true | `payload` | — | — |
-| `inputs.item.selection.revision.column` | `Utf8` | false | `payload` | — | — |
-| `inputs.item.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
-| `members` | `List` | false | `payload` | — | — |
-| `members.item` | `Struct MemberDescriptor` | false | `payload` | — | — |
-| `members.item.catalog_name` | `Utf8` | false | `payload` | — | — |
-| `members.item.schema_name` | `Utf8` | false | `payload` | — | — |
-| `members.item.table_name` | `Utf8` | false | `payload` | — | — |
-| `members.item.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `members.item.relation_version` | `Int64` | false | `payload` | — | — |
-| `members.item.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
-| `members.item.table_uri` | `Utf8` | false | `payload` | — | — |
-| `members.item.delta_version` | `Int64` | false | `payload` | — | — |
-| `members.item.selection` | `Struct` | false | `payload` | — | — |
-| `members.item.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
-| `members.item.selection.revision` | `Struct` | true | `payload` | — | — |
-| `members.item.selection.revision.column` | `Utf8` | false | `payload` | — | — |
-| `members.item.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
-| `windows` | `List` | false | `payload` | — | — |
-| `windows.item` | `Struct VersionWindow` | false | `payload` | — | — |
-| `windows.item.table_uri` | `Utf8` | false | `payload` | — | — |
-| `windows.item.from_version` | `Int64` | false | `payload` | — | — |
-| `windows.item.through_version` | `Int64` | false | `payload` | — | — |
-| `exported_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
-| `export_lease_id` | `semantic_id` | true | `payload` | — | — |
-| `export_expires_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
-| `maintenance_epoch` | `Int64` | true | `payload` | — | — |
-| `store_fingerprint` | `content_hash` | true | `payload` | — | — |
-
-Native row check `export_expires_after_export` (must be true):
-
-```sql
-"exported_at" IS NULL OR "export_expires_at" > "exported_at"
-```
-
-Native row check `exported_together` (must be true):
-
-```sql
-("exported_at" IS NULL) = ("export_lease_id" IS NULL) AND ("exported_at" IS NULL) = ("export_expires_at" IS NULL) AND ("exported_at" IS NULL) = ("maintenance_epoch" IS NULL) AND ("exported_at" IS NULL) = ("store_fingerprint" IS NULL)
-```
-
-Native row check `parent_is_another_publication` (must be true):
-
-```sql
-"parent_publication_id" IS DISTINCT FROM "publication_id"
-```
-
 ## `reduced_hessians`
 
 The reduced Hessian over declared parameters at a certified KKT point (ADR-0118 item 6): the second derivative of the optimal value, read over the parameter pin rows. Its eigen-decomposition is taken in the declared coordinate scales, where it does not depend on the choice of units. The validity is in local_validity.
@@ -2834,25 +2051,6 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, experiment_id, samp
 | `output_unit_id` | `semantic_id` | false | `payload` | — | — |
 | `parameter_unit_id` | `semantic_id` | false | `payload` | — | — |
 | `value` | `Float64` | false | `payload` | — | — |
-
-## `retained_versions`
-
-Native retention query outputs; ranges preserve each exact version and change window.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `table_uri, from_version, through_version, reason`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `table_uri` | `Utf8` | false | `key` | — | — |
-| `from_version` | `Int64` | false | `key` | — | — |
-| `through_version` | `Int64` | false | `key` | — | — |
-| `reason` | `enum:RetentionReason` | false | `key` | — | — |
-
-Native row check `ordered_range` (must be true):
-
-```sql
-from_version <= through_version
-```
 
 ## `route_decisions`
 
@@ -3459,7 +2657,6 @@ Version: 2. Snapshot class: `derived`. Primary key: `study_id, point_index`.
 | `attempt_id` | `semantic_id` | true | `payload` | — | — |
 | `attempt_state` | `enum:AttemptState` | true | `payload` | — | — |
 | `result_id` | `semantic_id` | true | `payload` | — | — |
-| `member_catalog` | `Utf8` | true | `payload` | — | — |
 | `usable` | `Boolean` | false | `payload` | — | — |
 | `seed_permission` | `Boolean` | false | `payload` | — | — |
 | `candidate_use` | `enum:CandidateUse` | true | `payload` | — | — |

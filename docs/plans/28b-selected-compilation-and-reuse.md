@@ -204,16 +204,42 @@ The maintainer requested closeout and a committed checkpoint on 2026-10-06, then
 of work. Functional scope and focused controls are complete; final assembled A/B acceptance
 is pending. No compile-time or solve-time gain is inferred from structural controls.
 
-On resumption, reopen the preserved supervised state and use the refreshed linked native
-extension. Run `just native-python <output> -n1` with the prior selection
-`modeling or studies or workflow or solve_settings_projection or operational_store_isolation
-or publication_streams or plan14_acceptance or operational_queries` (84 cases). Keep the
-original 1,000-point study and scientific assertions. Then rerun the 106-control runtime
-selection through `just unit-native-package pse-runtime canonical-tests,pse-relations/force-validate`,
-selecting modeling, fitting, strategies, horizon, uncertainty, workflow, mathematical
-preparation, data-document and source-ownership controls. These final reruns are required
-because the earlier assembled pass preceded the last product/validation-owner integration.
-Finish remaining manual scope-end checks and record actual results before A/B closure.
+The later 2026-10-06 authorization supersedes the closeout rerun order: complete all
+28a–28e functional work with targeted tests before E3 assembled qualification. Transfer
+the applicable assertions of the former 84-case Python and 106-control Rust selections
+to the migrated target. Preserve the original 1,000-point study and scientific demands.
+Actual supported runtime, Python-extension and worker producer qualification proceeds
+as B3 work; unknown or stale executable inputs continue to refuse persisted reuse.
+
+The complete outer source inventory now includes the worker's `xtask` composition
+root alongside library and vendored sources. Its actual filesystem control catches
+dirty worker edits while excluding build outputs. Selected producer dependencies
+continue to own scientific reuse eligibility; the outer inventory does not replace
+the guarded native/configuration closure or actual linked-artifact association.
+
+The supported capture uses the dedicated `producer` profile, inheriting `dev`, with
+compiler wrappers disabled. Existing `dev` artifacts may have been produced by a
+cache daemon whose startup configuration is unknown; a current environment cannot
+retroactively qualify those effects. Fresh selected artifacts in the separate profile
+provide actual compiler-unit association under the reviewed conditions without cleaning
+or moving the checkout's Cargo target directory. The exact libclang file survives nested
+setup. The Python capture binds the actual Maturin configuration file and linked feature
+context, preserving the selected abi3 contract; PyO3 interpreter discovery is inactive
+in this supported configuration.
+The capture's feature set must match each actual linked consumer. Reached effectful
+executors are refreshed by Cargo within the selected profile before a new arbitrary-I/O
+review can qualify them. Selected native namespaces retain candidate additions, topology
+and file contents; immutable snapshots associate actual build outputs and child context.
+The supported native context fixes CMake build metadata with `SOURCE_DATE_EPOCH=0` and
+`TZ=UTC` and uses the pinned toolchain's explicit Rustfmt. Target-specific `-MD` flags
+retain consumed native dependencies under reviewed tool and search-namespace guards;
+`CC_ENABLE_DEBUG_OUTPUT=0` excludes recovered compiler-probe logging while ordinary
+compiler errors remain visible. The capture tool is built separately and launched
+directly through one native setup, preserving the ordinary caller context instead of
+Cargo-run's tool-local loader paths. This deployment choice does not itself grant eligibility:
+selected executable helpers and native inputs still require source-bound reviews before
+ordinary persisted replay. Focused capture controls do not substitute for that production
+qualification.
 
 ## Outcome (recorded after implementation)
 

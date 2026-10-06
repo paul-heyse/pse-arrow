@@ -21,13 +21,7 @@ strum.workspace = true
 # The shared refusal of an unknown spelling and its §23.2 code.
 pse-diagnostics.workspace = true
 serde.workspace = true
-postgres-types = { workspace = true, optional = true, features = ["derive"] }
-pse-workspace-hack.workspace = true
 
-[features]
-# PostgreSQL values of the vocabularies a store column uses (ADR-0117 Outcome 4): each
-# maps to the store's ENUM type of its snake-case name. The value protocol only.
-postgres = ["dep:postgres-types"]
 
 [dev-dependencies]
 serde_json.workspace = true

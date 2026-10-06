@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct CacheSettings {
-    pub(super) budget: pse_runtime::DeltaCacheBudget,
+    pub(super) budget: pse_engine::cache_service::CacheBudget,
 }
 macro_rules! projection {
     ($budget:ident; $($name:ident: $ty:ty, $hint:literal $(, $default:expr)? => $out:ty, $read:expr;)*) => {
@@ -18,7 +18,7 @@ macro_rules! projection {
             #[expect(clippy::too_many_arguments, reason = "generated keyword projection of the native declaration")]
             #[pyo3(signature = (*, $($name: $hint $(= $default)?),*))]
             fn new(py: Python<'_>, $(#[pyo3(from_py_with = super::inputs::extract)] $name: $ty,)*) -> PyResult<Self> {
-                pse_catalog::cache_service::settings::CacheSettingsInput { $($name,)* }.resolve()
+                pse_engine::cache_service::settings::CacheSettingsInput { $($name,)* }.resolve()
                     .map(|budget| Self { budget }).map_err(|error| errors::diagnostic(py, &error))
             }
             $(#[getter] fn $name(&self, py: Python<'_>) -> PyResult<$out> {
@@ -29,4 +29,4 @@ macro_rules! projection {
         }
     };
 }
-pse_catalog::cache_settings_fields!(projection, budget);
+pse_engine::cache_settings_fields!(projection, budget);

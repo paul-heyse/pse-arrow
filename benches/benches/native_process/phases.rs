@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Bounded observations of production spans, including cache misses and Delta writes.
+//! Bounded observations of production spans, including cache misses and canonical writes.
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex},

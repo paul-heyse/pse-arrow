@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Immutable study definition and durable publication through the existing worker owners.
-use super::durable_tests::quick;
-use super::worker_tests::{ipopt, job_durable, sources};
+//! Immutable occurrence contracts and canonical dependency-scoped execution.
+#[cfg(feature="canonical-tests")]
+use super::durable_tests::durable_runtime;
+#[cfg(feature="canonical-tests")]
+use pse_operations::canonical_studies::StudySummary;
+use super::worker_tests::sources;
 use super::*;
 use pse_model::study::*;
-use pse_operations::{lifecycle::AttemptState, testing::TestDatabase};
+#[cfg(feature="canonical-tests")]
 use std::time::Duration;
 
 const CASES: &str = r#"package algebraic {
@@ -34,7 +37,9 @@ fn point(
                     },
                     ..Default::default()
                 },
-                ..ipopt()
+                backend:Some(pse_backend_native::solve::Backend::Ipopt),
+                intent:pse_backend_native::solve::SolveIntent::Root,
+                ..Default::default()
             },
         }),
         preparation: PreparationSettings {
@@ -50,6 +55,7 @@ fn point(
         },
     }
 }
+#[cfg(feature="canonical-tests")]
 async fn admitted(
     runtime: &Runtime,
     points: impl FnOnce(
@@ -80,8 +86,8 @@ async fn admitted(
     };
     let points = points(find("Root"), find("Failed"), find("Fixed"));
     let definition = package
-        .admit_study_points(
-            crate::authoring_driver::document::package_checksum(&physical),
+        .admit_study_sources(
+            &physical,
             &points,
             &cancel,
         )
@@ -133,7 +139,7 @@ fn study_definition_historical_readmission_codec_unit() {
     );
     let definition = StudyDefinition {
         version: pse_model::document::Version,
-        physical: hash,
+        physical: PhysicalSource {revision:"fixture-physical".into(),identity:hash},
         modeling_revision: "fixture-revision".into(),
         points: vec![StudyPointDefinition {
             operation: StudyOperation {
@@ -158,7 +164,7 @@ fn study_definition_historical_readmission_codec_unit() {
         }],
     };
     let current = serde_json::to_string(&definition).unwrap();
-    assert_eq!(serde_json::to_value(&definition).unwrap()["version"], 7);
+    assert_eq!(serde_json::to_value(&definition).unwrap()["version"], 8);
     let decoded = StudyDefinition::readmission(&current).unwrap();
     assert_eq!(serde_json::to_string(&decoded).unwrap(), current);
 
@@ -175,19 +181,10 @@ fn study_definition_historical_readmission_codec_unit() {
     let historical = serde_json::to_string(&former).unwrap();
     let retained = historical.clone();
     let error = StudyDefinition::readmission(&historical).unwrap_err();
-    let WorkflowError::Operations(pse_operations::OperationsError::InvalidRequest { reason }) =
-        &error
-    else {
-        panic!("{error:?}")
-    };
-    assert!(reason.contains("study definition version 3 is unsupported"));
-    assert!(reason.contains("explicit readmission is required"));
-    assert_eq!(
-        error.boundary_diagnostic().rule,
-        pse_diagnostics::DiagnosticRule::WorkflowOperations
-    );
+    assert!(error.to_string().contains("study definition version 3 is unsupported"));
+    assert!(error.to_string().contains("explicit readmission is required"));
     assert_eq!(historical, retained);
-    for malformed in [r#"{}"#, r#"{"version":"3"}"#, r#"{"version":7}"#] {
+    for malformed in [r#"{}"#, r#"{"version":"3"}"#, r#"{"version":8}"#] {
         assert!(matches!(
             StudyDefinition::readmission(malformed),
             Err(WorkflowError::Input(_))
@@ -195,582 +192,145 @@ fn study_definition_historical_readmission_codec_unit() {
     }
 }
 
-#[cfg_attr(
-    not(feature = "native-solvers"),
-    ignore = "needs the linked native solvers"
-)]
+#[cfg(feature="canonical-tests")]
 #[tokio::test]
-async fn immutable_definition_equal_bindings_distinct_occurrences_and_usable_dependency_refusal() {
-    let database = TestDatabase::create().await.unwrap();
-    let runtime = job_durable(&database, "worker", quick()).await;
-    let directory = tempfile::tempdir().unwrap();
-    let workspace = runtime
-        .register_workspace(
-            "studies",
-            url::Url::from_directory_path(directory.path()).unwrap(),
-        )
-        .await
-        .unwrap();
-    let (mut sources, definition) = admitted(&runtime, |root, failed, _| {
-        vec![
-            point(root, 2, vec![], StartPolicy::Fresh),
-            point(root, 4, vec![], StartPolicy::Fresh),
-            point(failed, 8, vec![], StartPolicy::Fresh),
-            point(
-                root,
-                12,
-                vec![Dependency::UsableResult(OccurrenceKey(8))],
-                StartPolicy::Fresh,
-            ),
-        ]
-    })
-    .await;
-    assert_eq!(
-        definition.points[0].binding_hash,
-        definition.points[1].binding_hash
-    );
-    // After authored ingress, durable submission and workers need only the canonical handle.
-    sources.modeling.clear();
-    let revision = runtime
-        .canonical
-        .store()
-        .revision(&definition.modeling_revision)
-        .await
-        .unwrap()
-        .unwrap();
-    let handle = runtime
-        .start_defined_study(
-            &workspace,
-            sources.physical,
-            definition,
-            RetryPolicy::ONCE,
-            0,
-        )
-        .await
-        .unwrap();
-    runtime
-        .canonical
-        .store()
-        .forget_history(&revision)
-        .await
-        .unwrap();
-    assert_eq!(
-        database
-            .session()
-            .await
-            .unwrap()
-            .count("SELECT COUNT(*) FROM pse_ops.source_bundles")
-            .await
-            .unwrap(),
-        1
-    );
-    while !matches!(runtime.work_once().await.unwrap(), Processed::Idle) {}
-    let status = handle.status().await.unwrap();
-    assert_eq!(status.state, StudyState::Published);
-    assert_eq!(status.attempt_state, AttemptState::Partial);
-    assert_eq!(status.points[3].state, StudyPointState::Failed);
-    assert!(
-        status.points[3]
-            .outcome
-            .as_ref()
-            .unwrap()
-            .diagnostic
-            .is_some()
-    );
-    assert_ne!(status.points[3].state, StudyPointState::Cancelled);
-    let published = handle.wait(Duration::from_millis(10)).await.unwrap();
-    assert_eq!(published.attempt_id, status.attempt_id);
-    drop(runtime);
-    database.remove().await.unwrap();
+async fn canonical_study_cancel_preserves_distinct_unattempted_outcomes() {
+    let runtime=durable_runtime();
+    let(sources,definition)=admitted(&runtime,|_,_,fixed|vec![point(fixed,3,vec![],StartPolicy::Fresh),point(fixed,9,vec![Dependency::Ordering(OccurrenceKey(3))],StartPolicy::Fresh)]).await;
+    assert_eq!(definition.points[0].binding_hash,definition.points[1].binding_hash);
+    let handle=runtime.start_defined_study(sources.physical,definition).await.unwrap();
+    let receipt=handle.cancel().await.unwrap();assert!(!receipt.already_concluded);
+    for _ in 0..4 {if matches!(runtime.work_once().await.unwrap(),Processed::Idle){break;}}
+    let status=handle.status().await.unwrap();assert_eq!(status.state,StudyState::Concluded);assert!(status.cancelled);assert_eq!(status.points.len(),2);
+    assert_ne!(status.points[0].run,status.points[1].run);
+    assert!(status.points.iter().all(|point|point.settled&&point.state==StudyPointState::Cancelled&&point.attempt.is_none()&&point.outcome.as_ref().is_some_and(|outcome|outcome.attempts.is_empty()&&!outcome.scientific.usable)));
+    let retained=handle.result().await.unwrap().unwrap();
+    let run=runtime.canonical_store().canonical_run(&retained.run).await.unwrap().unwrap();assert_eq!(run.terminal_class.as_deref(),Some("cancelled"));
+    let restarted=runtime.study(handle.study_id());assert_eq!(restarted.result().await.unwrap().unwrap().attempt,retained.attempt);
 }
 
+#[cfg(feature="canonical-tests")]
 #[tokio::test]
-async fn cancellation_preserves_one_outcome_for_every_unattempted_occurrence() {
-    let database = TestDatabase::create().await.unwrap();
-    let runtime = job_durable(&database, "worker", quick()).await;
-    let directory = tempfile::tempdir().unwrap();
-    let workspace = runtime
-        .register_workspace(
-            "cancelled",
-            url::Url::from_directory_path(directory.path()).unwrap(),
-        )
-        .await
-        .unwrap();
-    let (sources, definition) = admitted(&runtime, |_, _, fixed| {
-        vec![
-            point(fixed, 3, vec![], StartPolicy::Fresh),
-            point(
-                fixed,
-                9,
-                vec![Dependency::Ordering(OccurrenceKey(3))],
-                StartPolicy::Fresh,
-            ),
-        ]
-    })
-    .await;
-    let handle = runtime
-        .start_defined_study(
-            &workspace,
-            sources.physical,
-            definition,
-            RetryPolicy::ONCE,
-            0,
-        )
-        .await
-        .unwrap();
-    assert!(handle.cancel().await.unwrap().concluded);
-    let status = handle.status().await.unwrap();
-    assert_eq!(status.points.len(), 2);
-    assert_eq!(status.attempt_state, AttemptState::Cancelled);
-    assert!(status.points.iter().all(|point| {
-        point.state == StudyPointState::Cancelled
-            && point
-                .outcome
-                .as_ref()
-                .is_some_and(|outcome| outcome.attempts.is_empty() && !outcome.scientific.usable)
-    }));
-    drop(runtime);
-    database.remove().await.unwrap();
+async fn canonical_study_plan_admits_physical_once_before_ready_occurrences() {
+    let runtime=durable_runtime();
+    let mut authored=None;
+    let(sources,_)=admitted(&runtime,|_,_,fixed|{
+        let points=vec![point(fixed,3,vec![],StartPolicy::Fresh)];
+        authored=Some(points.clone());points
+    }).await;
+    let before=pse_engine::cache_service::CacheComponent::report(runtime.physical_cache.as_ref());
+    let handle=runtime.start_study(StudyPlan{sources,points:authored.unwrap()}).await.unwrap();
+    let after=pse_engine::cache_service::CacheComponent::report(runtime.physical_cache.as_ref());
+    assert_eq!(after[0].misses,before[0].misses+1,"original document ingress admits one exact canonical physical receipt");
+    assert_eq!(after[0].hits,before[0].hits+1,"definition admission reuses the ingress owner");
+    assert!(matches!(runtime.work_once().await.unwrap(),Processed::Ran{..}));
+    let status=handle.status().await.unwrap();
+    assert!(status.points[0].outcome.as_ref().unwrap().scientific.usable);
+    let after=pse_engine::cache_service::CacheComponent::report(runtime.physical_cache.as_ref());
+    assert_eq!(after[0].misses,before[0].misses+1,"ready preparation does not reparse or re-admit physical documents");
+    assert_eq!(after[0].hits,before[0].hits+2);
 }
 
-#[cfg_attr(
-    not(feature = "native-solvers"),
-    ignore = "needs the linked native solvers"
-)]
+#[cfg(all(feature="canonical-tests",feature="native-solvers"))]
 #[tokio::test]
-async fn mixed_durable_study_returns_to_binding_recovers_lease_and_records_seed_fallback_without_fabricated_results()
- {
-    let database = TestDatabase::create().await.unwrap();
-    let runtime = job_durable(&database, "restarted", quick()).await;
-    let directory = tempfile::tempdir().unwrap();
-    let workspace = runtime
-        .register_workspace(
-            "mixed",
-            url::Url::from_directory_path(directory.path()).unwrap(),
-        )
-        .await
-        .unwrap();
-    let (physical, modeling) = sources(CASES);
-    let cancel = crate::CancelSource::new();
-    let package = runtime
-        .package_from_sources(
-            std::slice::from_ref(&modeling),
-            runtime
-                .physical_from_sources(&physical, &cancel)
-                .await
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    let declarations = package.declarations().await.unwrap();
-    let find = |name: &str| {
-        declarations
-            .iter()
-            .find(|r| r.name == name)
-            .unwrap()
-            .declaration_id
-    };
-    let root = find("Root");
-    let scalar = package.quantities.neutral_dimensionless().unwrap();
-    let unit = package
-        .quantities
-        .quantity_type(scalar)
-        .unwrap()
-        .canonical_unit;
-    let continuation = |predecessor, unavailable| {
-        StartPolicy::Continuation(SeedEdge {
-            predecessor: OccurrenceKey(predecessor),
-            role: SeedRole::PrimalSolution,
-            permission: ContinuationPermission::RequireUsable,
-            unavailable,
-        })
-    };
-    let binding = |mut point: StudyPoint, value| {
-        point.overlay.assignments.push(BindingAssignment {
-            target: BindingTarget::Path("a".into()),
-            value: BindingQuantity {
-                magnitude: pse_model::scalars::FiniteBound::try_new(value).unwrap(),
-                quantity: scalar.as_id(),
-                unit: unit.as_id(),
-            },
-        });
-        point
-    };
-    let mut first = binding(point(root, 2, vec![], StartPolicy::Fresh), 4.);
-    first.policy.attempt_limit = 2;
-    let simulation = StudyPoint {
-        operation: OperationRequest::Simulation(SimulationOperation {
-            case: find("dynamic"),
-            profile: None,
-        }),
-        ..point(
-            root,
-            12,
-            vec![Dependency::Ordering(OccurrenceKey(10))],
-            StartPolicy::Fresh,
-        )
-    };
-    let mut points = vec![
-        first,
-        binding(
-            point(
-                root,
-                4,
-                vec![],
-                continuation(2, UnavailableSeedPolicy::Refuse),
-            ),
-            9.,
-        ),
-        binding(
-            point(
-                root,
-                6,
-                vec![],
-                continuation(4, UnavailableSeedPolicy::Refuse),
-            ),
-            4.,
-        ),
-        point(
-            root,
-            8,
-            vec![Dependency::Ordering(OccurrenceKey(6))],
-            StartPolicy::Explicit {
-                role: SeedRole::PrimalSolution,
-                seed: pse_operations::mint_id(),
-            },
-        ),
-        point(
-            root,
-            10,
-            vec![],
-            continuation(8, UnavailableSeedPolicy::FreshOnUnavailable),
-        ),
-        simulation,
-        point(
-            root,
-            14,
-            vec![Dependency::UsableResult(OccurrenceKey(8))],
-            StartPolicy::Fresh,
-        ),
-        point(
-            root,
-            16,
-            vec![Dependency::Ordering(OccurrenceKey(12))],
-            StartPolicy::Fresh,
-        ),
-    ];
-    // The root correspondence assertions need an explicit original-coordinate
-    // allowance. A relative engineering fraction cannot tighten canonical fallback.
-    let preliminary = package
-        .admit_study_points(
-            crate::authoring_driver::document::package_checksum(&physical),
-            &points[..1],
-            &cancel,
-        )
-        .await
-        .unwrap();
-    let first = &preliminary.points[0];
-    let PreparedStudyOperation::DeclaredCase(prepared) = package
-        .prepare_bound_operation(&first.operation, &first.binding, &cancel)
-        .await
-        .unwrap()
-    else {
-        panic!("root point must prepare a declared case");
-    };
-    let lineage = prepared.model.model.solved().lineage();
-    let requirements = prepared
-        .solve
-        .numerics()
-        .targets
-        .iter()
-        .map(|target| {
-            let mut requirement = modeling::cases::requirement(
-                lineage,
-                target.id,
-                target.kind,
-                root,
-                pse_model::generated::enums::NumericalSource::Analysis,
-                None,
-                None,
-            )
-            .declaration;
-            requirement.absolute_tolerance = Some(1e-10);
-            requirement.unit_id = Some(target.unit);
-            requirement.provenance = "study root correspondence control".into();
-            requirement
-        })
-        .collect::<Vec<_>>();
-    for point in &mut points {
-        if let OperationRequest::DeclaredCase(case) = &mut point.operation {
-            case.settings.numerics.requirements = requirements.clone();
-        }
-    }
-    let definition = package
-        .admit_study_points(
-            crate::authoring_driver::document::package_checksum(&physical),
-            &points,
-            &cancel,
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        definition.points[0].binding_hash,
-        definition.points[2].binding_hash
-    );
-    assert_ne!(
-        definition.points[0].binding_hash,
-        definition.points[1].binding_hash
-    );
-    assert_eq!(definition.points[5].policy.seed_need, SeedNeed::NotNeeded);
-    let handle = runtime
-        .start_defined_study(&workspace, physical, definition, RetryPolicy::ONCE, 0)
-        .await
-        .unwrap();
-    let Durability::Durable(operations) = runtime.durability() else {
-        panic!("durable study")
-    };
-    // Simulate a process dying after a claim, before dispatch. Recovery must keep
-    // occurrence/run identity and add an attempt, without inventing a native result.
-    let crashed = operations
-        .store()
-        .jobs()
-        .claim("crashed", Duration::from_millis(1))
-        .await
-        .unwrap()
-        .unwrap();
-    let before = operations
-        .store()
-        .studies()
-        .get(handle.study_id())
-        .await
-        .unwrap();
-    assert_eq!(
-        before
-            .points
-            .iter()
-            .find(|p| p.job_id == crashed.job_id)
-            .unwrap()
-            .point_index,
-        2
-    );
-    let cancelled = before
-        .points
-        .iter()
-        .find(|p| p.point_index == 16)
-        .unwrap()
-        .attempt_id;
-    assert_eq!(
-        operations
-            .store()
-            .request_cancel(cancelled, "mixed-study-control")
-            .await
-            .unwrap(),
-        pse_operations::cancellation::CancelOutcome::CancelledBeforeStart
-    );
-    tokio::time::sleep(Duration::from_millis(20)).await;
-    let recovered = operations.recover().await.unwrap();
-    assert!(
-        recovered
-            .requeued
-            .iter()
-            .any(|r| r.stale_attempt == crashed.attempt_id),
-        "expired occurrence was not recovered: {recovered:?}"
-    );
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(120);
-    let mut native_roots = std::collections::BTreeMap::new();
-    let mut native_accuracy = std::collections::BTreeMap::new();
-    let mut native_runs = std::collections::BTreeMap::new();
-    let mut native_simulation = false;
-    loop {
-        let (processed, result) = runtime.work_once_with_result().await.unwrap();
-        if let Processed::Ran { record, .. } = &processed {
-            assert!(
-                record.attempt.is_ok(),
-                "durable occurrence did not record termination: {:?}",
-                record.attempt
-            );
-        }
-        if let (Processed::Ran { job, .. }, Some(result)) = (&processed, result) {
-            let occurrence = operations
-                .store()
-                .studies()
-                .point_of_job(*job)
-                .await
-                .unwrap()
-                .unwrap()
-                .point_index;
-            native_runs.insert(occurrence, result.run_id);
-            match result.report().unwrap() {
-                RunReport::Modeling(results) => {
-                    assert!(
-                        results[0]
-                            .prepared
-                            .solve
-                            .numerics()
-                            .targets
-                            .iter()
-                            .all(|target| target.budget == 1e-10),
-                        "the explicit root correspondence budgets must reach every durable operation"
-                    );
-                    let x = results[0]
-                        .reports
-                        .iter()
-                        .find(|r| r.label == "root")
-                        .unwrap()
-                        .value;
-                    native_roots.insert(occurrence, x);
-                    native_accuracy.insert(
-                        occurrence,
-                        (
-                            results[0].prepared.solve.accuracy().clone(),
-                            results[0].prepared.solve.tolerances().clone(),
-                            match &results[0].outcome {
-                                crate::math::solves::Outcome::Native(native) => format!(
-                                    "termination={:?}, quality={:?}, observation={:?}",
-                                    native.termination, native.quality, native.observation
-                                ),
-                                outcome => format!("state={:?}", outcome.state()),
-                            },
-                        ),
-                    );
-                }
-                RunReport::Simulation(trajectory) => {
-                    assert!(trajectory.accepted());
-                    assert!(
-                        (trajectory.report().samples.last().unwrap().state[0] - 2.).abs() < 1e-6
-                    );
-                    native_simulation = true;
-                }
-                other => panic!("unexpected mixed-study operation: {other:?}"),
-            }
-        }
-        let status = handle.status().await.unwrap();
-        if status.state == StudyState::Published {
-            break;
-        }
-        assert!(
-            tokio::time::Instant::now() < deadline,
-            "mixed study did not settle: {status:#?}"
-        );
-        if matches!(processed, Processed::Idle) {
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
-    }
-    let status = handle.status().await.unwrap();
-    for (key, x) in [(2, 2.), (4, 3.), (6, 2.), (10, 2.)] {
-        let actual = native_roots
-            .get(&key)
-            .unwrap_or_else(|| panic!("occurrence {key} produced no native root: {status:#?}"));
-        assert!(
-            (*actual - x).abs() < 1e-6,
-            "occurrence {key}: actual={actual}, expected={x}; all roots={native_roots:?}; accuracy/outcomes={native_accuracy:?}"
-        );
-    }
-    assert!(native_simulation);
-    assert_ne!(
-        native_runs[&2], native_runs[&6],
-        "equal bindings retain separate experiment runs"
-    );
-    assert_eq!(
-        native_runs[&2], crashed.run_id,
-        "recovery retains the interrupted occurrence run"
-    );
-    assert_eq!(status.state, StudyState::Published);
-    assert_eq!(status.attempt_state, AttemptState::Partial);
-    for index in [0, 1, 2, 4, 5] {
-        assert_eq!(
-            status.points[index].state,
-            StudyPointState::Completed,
-            "{status:?}"
-        );
-        assert!(
-            status.points[index]
-                .outcome
-                .as_ref()
-                .unwrap()
-                .scientific
-                .usable
-        );
-    }
-    for (index, predecessor) in [(1, 2), (2, 4)] {
-        assert!(
-            matches!(status.points[index].outcome.as_ref().unwrap().start,
-            Some(StartProvenance::Continuation {predecessor: key, ..}) if key == OccurrenceKey(predecessor))
-        );
-    }
-    assert!(matches!(
-        status.points[4].outcome.as_ref().unwrap().start,
-        Some(StartProvenance::FreshFallback {
-            predecessor: OccurrenceKey(8),
-            reason: SeedUnavailable::Absent,
-            ..
-        })
-    ));
-    assert_eq!(
-        status.points[5].outcome.as_ref().unwrap().start,
-        Some(StartProvenance::NotNeeded)
-    );
-    assert_eq!(status.points[7].state, StudyPointState::Cancelled);
-    assert!(!status.points[7].outcome.as_ref().unwrap().scientific.usable);
-    for index in [3, 6] {
-        let outcome = status.points[index].outcome.as_ref().unwrap();
-        assert_eq!(status.points[index].state, StudyPointState::Failed);
-        assert!(outcome.diagnostic.is_some());
-        assert!(!outcome.scientific.usable);
-    }
-    let settled = operations
-        .store()
-        .studies()
-        .get(handle.study_id())
-        .await
-        .unwrap();
-    let retried = &settled.points[0];
-    assert_ne!(retried.attempt_id, crashed.attempt_id);
-    let attempt = operations
-        .store()
-        .attempts()
-        .get(retried.attempt_id)
-        .await
-        .unwrap();
-    assert_eq!(attempt.parent_attempt, Some(crashed.attempt_id));
-    assert_eq!(attempt.run_id, crashed.run_id);
-    assert_ne!(settled.points[0].job_id, settled.points[2].job_id);
-    let members = operations
-        .store()
-        .studies()
-        .available_members(handle.study_id())
-        .await
-        .unwrap();
-    assert!(
-        members.iter().all(|(key, _)| ![8, 14, 16].contains(key)),
-        "pre-result refusal or cancellation fabricated members"
-    );
-    let published = handle.wait(Duration::from_millis(10)).await.unwrap();
-    assert_eq!(published.attempt_id, status.attempt_id);
-    assert!(matches!(
-        runtime.work_once().await.unwrap(),
-        Processed::Idle
-    ));
-    let after = operations
-        .store()
-        .studies()
-        .available_members(handle.study_id())
-        .await
-        .unwrap();
-    assert_eq!(
-        after.len(),
-        members.len(),
-        "settled occurrences must not publish twice"
-    );
-    assert_eq!(handle.status().await.unwrap().points.len(), points.len());
-    drop((handle, package, runtime));
-    database.remove().await.unwrap();
+async fn canonical_study_equal_bindings_and_failed_usable_dependency() {
+    let runtime=durable_runtime();
+    let(mut sources,definition)=admitted(&runtime,|root,failed,_|vec![point(root,2,vec![],StartPolicy::Fresh),point(root,4,vec![],StartPolicy::Fresh),point(failed,8,vec![],StartPolicy::Fresh),point(root,12,vec![Dependency::UsableResult(OccurrenceKey(8))],StartPolicy::Fresh)]).await;
+    assert_eq!(definition.points[0].binding_hash,definition.points[1].binding_hash);sources.modeling.clear();
+    let handle=runtime.start_defined_study(sources.physical,definition).await.unwrap();
+    let before=pse_engine::cache_service::CacheComponent::report(runtime.physical_cache.as_ref())[0].hits;
+    for _ in 0..8{if matches!(runtime.work_once().await.unwrap(),Processed::Idle){break;}}
+    let status=handle.status().await.unwrap();assert_eq!(status.state,StudyState::Concluded);assert_eq!(status.points[3].state,StudyPointState::Failed);assert!(status.points[3].attempt.is_none());
+    assert!(status.points[0].outcome.as_ref().unwrap().scientific.usable);assert!(status.points[1].outcome.as_ref().unwrap().scientific.usable);
+    let retained=handle.result().await.unwrap().unwrap();let run=runtime.canonical_store().canonical_run(&retained.run).await.unwrap().unwrap();assert_eq!(run.terminal_class.as_deref(),Some("partial"));
+    assert_ne!(status.points[0].attempt,status.points[1].attempt);
+    let cache=pse_engine::cache_service::CacheComponent::report(runtime.physical_cache.as_ref());
+    assert!(cache[0].hits>=before+3,"each ready scientific occurrence reuses the original canonical physical admission");
+    assert!(cache[0].entries<=2,"physical admissions and IPC receipts each retain at most one exact owner");
 }
 
-#[cfg(feature = "solver-ipopt")]
+#[cfg(feature="canonical-tests")]
+#[tokio::test]
+async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
+    let runtime=durable_runtime();
+    let(sources,mut definition)=admitted(&runtime,|_,_,fixed|vec![point(fixed,5,vec![],StartPolicy::Fresh)]).await;
+    definition.points[0].policy.attempt_limit=1;
+    let handle=runtime.start_defined_study(sources.physical,definition).await.unwrap();
+    let key=pse_operations::canonical_studies::point_key(&handle.study_id().to_string(),OccurrenceKey(5));
+    let scope=runtime.canonical_store().study_scope(&key).await.unwrap();
+    let claim=runtime.canonical_store().claim_study_point(&scope,None,"expired-fixture","departed-worker",Duration::from_micros(1)).await.unwrap();
+    let point=runtime.canonical_store().canonical_study_point(&key).await.unwrap().unwrap();
+    assert!(runtime.recover_study_point(&point.key).await.unwrap());
+    let actual=runtime.canonical_store().canonical_attempt(claim.fence.attempt()).await.unwrap().unwrap();assert!(actual.terminal);assert_eq!(actual.outcome.as_deref(),Some("failed"));
+    let after=runtime.canonical_store().canonical_study_point(&key).await.unwrap().unwrap();assert!(after.settled);let facts=pse_operations::canonical_studies::point_facts(&after).unwrap();assert!(!facts.native_started&&!facts.scientific.usable);assert_eq!(facts.attempt_count,1);
+}
+
 #[tokio::test]
 async fn related_case_study_uses_secant_then_original_correction() {
     let runtime = tests::runtime_with_workspace(64 << 20);
+    let (package,definition)=related_definition(&runtime).await;
+    let study = package.study(&definition, 3, &crate::CancelSource::new()).await.unwrap();
+    assert!(
+        study
+            .outcomes
+            .iter()
+            .all(|outcome| outcome.scientific.usable),
+        "{:?}",study.outcomes
+    );
+    let result = |index: usize| {
+        let RunReport::Modeling(results) = study.results[index].as_ref().unwrap().report().unwrap()
+        else {
+            panic!("modeling expected");
+        };
+        results[0].clone()
+    };
+    let first = result(0);
+    let second = result(1);
+    let third = result(2);
+    assert!(
+        second.root_predictor().is_err(),
+        "no sensitivity/factor was requested"
+    );
+    let execution = pse_backend_native::solve::Execution::new(
+        Arc::default(),
+        &pse_backend_native::solve::Controls::default(),
+    );
+    let proposal = second
+        .secant_prediction(
+            &first,
+            &third.prepared,
+            pse_model::strategy::BranchPolicy::any_qualified(),
+            &execution,
+        )
+        .unwrap();
+    assert_eq!(
+        third.prepared.solve.source_start(None).unwrap(),
+        proposal
+            .values()
+            .map(|(_, value)| value)
+            .collect::<Vec<_>>(),
+        "actual third occurrence consumed the shared secant endpoint"
+    );
+    assert_eq!(
+        third.prepared.solve.numerical_strategy().start.policy,
+        pse_backend_native::solve::StartPolicy::PreviousAccepted
+    );
+    assert_eq!(
+        third.prepared.solve.entry_origin(false),
+        pse_model::strategy::StartOrigin::Predicted
+    );
+    assert_eq!(
+        third.strategy.as_ref().unwrap().starts[0],
+        pse_model::strategy::StartOrigin::Predicted
+    );
+    let crate::math::solves::Outcome::Native(report) = &third.outcome else {
+        panic!("original native correction expected");
+    };
+    assert!((report.candidate.as_ref().unwrap().primal[0] - 4.08_f64.sqrt()).abs() < 1e-8);
+    assert_eq!(study.outcomes[2].key, OccurrenceKey(3));
+}
+
+async fn related_definition(runtime:&Runtime)->(ModelingPackage,StudyDefinition){
     let (physical, modeling) = sources(CASES);
     let cancel = crate::CancelSource::new();
     let package = runtime
@@ -832,69 +392,91 @@ async fn related_case_study_uses_secant_then_original_correction() {
         points.push(next);
     }
     let definition = package
-        .admit_study_points(
-            crate::authoring_driver::document::package_checksum(&physical),
+        .admit_study_sources(
+            &physical,
             &points,
             &cancel,
         )
         .await
         .unwrap();
-    let study = package.study(&definition, 3, &cancel).await.unwrap();
-    assert!(
-        study
-            .outcomes
-            .iter()
-            .all(|outcome| outcome.scientific.usable)
-    );
-    let result = |index: usize| {
-        let RunReport::Modeling(results) = study.results[index].as_ref().unwrap().report().unwrap()
-        else {
-            panic!("modeling expected");
-        };
-        results[0].clone()
-    };
-    let first = result(0);
-    let second = result(1);
-    let third = result(2);
-    assert!(
-        second.root_predictor().is_err(),
-        "no sensitivity/factor was requested"
-    );
-    let execution = pse_backend_native::solve::Execution::new(
-        Arc::default(),
-        &pse_backend_native::solve::Controls::default(),
-    );
-    let proposal = second
-        .secant_prediction(
-            &first,
-            &third.prepared,
-            pse_model::strategy::BranchPolicy::any_qualified(),
-            &execution,
-        )
-        .unwrap();
-    assert_eq!(
-        third.prepared.solve.source_start(None).unwrap(),
-        proposal
-            .values()
-            .map(|(_, value)| value)
-            .collect::<Vec<_>>(),
-        "actual third occurrence consumed the shared secant endpoint"
-    );
-    assert_eq!(
-        third.prepared.solve.numerical_strategy().start.policy,
-        pse_backend_native::solve::StartPolicy::PreviousAccepted
-    );
-    assert_eq!(
-        third.prepared.solve.entry_origin(false),
-        pse_model::strategy::StartOrigin::Predicted
-    );
-    assert_eq!(
-        third.strategy.as_ref().unwrap().starts[0],
-        pse_model::strategy::StartOrigin::Predicted
-    );
-    let crate::math::solves::Outcome::Native(report) = &third.outcome else {
-        panic!("original native correction expected");
-    };
-    assert!((report.candidate.as_ref().unwrap().primal[0] - 4.08_f64.sqrt()).abs() < 1e-8);
-    assert_eq!(study.outcomes[2].key, OccurrenceKey(3));
+    (package,definition)
+}
+
+#[cfg(feature="canonical-tests")]
+#[tokio::test]
+async fn canonical_study_reopened_continuation_uses_shared_secant_and_original_correction(){
+    use pse_relations::generated::runtime::{solve_strategy_events,solve_variables};
+    let mut runtime=tests::runtime_with_workspace(64 << 20);
+    let operations=Operations::from_store(runtime.canonical_store().clone(),"retained-prediction",durable_tests::quick(),runtime.shared.pool().clone());
+    runtime=runtime.with_durability(Durability::Durable(operations.clone()));
+    let(package,definition)=related_definition(&runtime).await;
+    let study=package.study(&definition,3,&crate::CancelSource::new()).await.unwrap();
+    assert!(study.outcomes.iter().all(|outcome|outcome.scientific.usable),"{:?}",study.outcomes);
+    let third=study.results[2].as_ref().unwrap();let(run,attempt)=third.stored_keys().unwrap();
+    let reopened=operations.record(run,attempt).await.unwrap();assert_eq!(reopened.solutions.len(),1);
+    let mut events=runtime.results(run,attempt,"runtime.solve_strategy_events",0,u64::MAX,pse_columnar::CancellationToken::new()).await.unwrap();
+    let mut predicted=false;
+    while let Some(batch)=events.next_batch().await.unwrap(){let checked=solve_strategy_events::View::try_from_batch_with_registry(&runtime.registry,&batch,&runtime.validation_context().unwrap()).unwrap();for row in checked.rows().unwrap(){predicted|=row.start_origin==Some(pse_model::generated::enums::NumericalStartOrigin::Predicted);}}
+    assert!(predicted,"retained third occurrence must consume the shared secant producer");
+    let mut variables=runtime.results(run,attempt,"runtime.solve_variables",0,u64::MAX,pse_columnar::CancellationToken::new()).await.unwrap();
+    let mut corrected=false;
+    while let Some(batch)=variables.next_batch().await.unwrap(){let checked=solve_variables::View::try_from_batch_with_registry(&runtime.registry,&batch,&runtime.validation_context().unwrap()).unwrap();for row in checked.rows().unwrap(){corrected|=row.value.is_some_and(|value|(value-4.08_f64.sqrt()).abs()<1e-8);}}
+    assert!(corrected,"retained original correction must solve actual target equation");
+}
+
+#[cfg(feature="canonical-tests")]
+#[tokio::test]
+async fn canonical_study_explicit_missing_seed_refuses_without_native_attempt(){
+    let runtime=durable_runtime();let(package,mut definition)=related_definition(&runtime).await;
+    definition.points.truncate(1);
+    definition.points[0].policy.start=StartPolicy::Explicit{role:SeedRole::PrimalSolution,seed:pse_operations::mint_id()};
+    let(physical,_)=sources(CASES);
+    let handle=runtime.start_defined_study(physical,definition).await.unwrap();
+    loop {if matches!(runtime.work_once().await.unwrap(),Processed::Idle){break;}}
+    let status=handle.status().await.unwrap();let point=&status.points[0];assert!(point.settled);assert!(point.attempt.is_none());
+    let outcome=point.outcome.as_ref().unwrap();assert!(!outcome.scientific.usable);assert_eq!(outcome.diagnostic.as_ref().unwrap().rule,pse_diagnostics::DiagnosticRule::StudySeedUnavailable);
+    assert!(runtime.canonical_store().canonical_run(&point.run).await.unwrap().unwrap().current_attempt.is_none());
+    drop(package);
+}
+
+#[cfg(feature="canonical-tests")]
+#[tokio::test]
+async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_science(){
+    let runtime=durable_runtime();let(package,mut definition)=related_definition(&runtime).await;
+    definition.points.truncate(1);let(physical,_)=sources(CASES);
+    let handle=runtime.start_defined_study(physical,definition).await.unwrap();
+    assert!(matches!(runtime.work_once().await.unwrap(),Processed::Ran{..}));
+    let key=handle.study_id().to_string();let store=runtime.canonical_store();let header=store.canonical_study(&key).await.unwrap().unwrap();
+    assert!(!header.metadata.is_empty());let page=store.study_page(None).await.unwrap();let summary=page.iter().find(|summary|summary.key==header.key).unwrap();assert_eq!(*summary,StudySummary::from(&header));assert!(serde_json::to_value(summary).unwrap().get("metadata").is_none());
+    let fence=store.begin_study_finalization(&StudySummary::from(&header),"crashed-summary",Duration::from_millis(250)).await.unwrap().unwrap();
+    assert!(store.begin_study_finalization(&StudySummary::from(&header),"competing-summary",Duration::from_secs(1)).await.unwrap().is_none());
+    store.append_result_batch(&fence,"summary-partial","__effect_free_summary",0,&[1],1).await.unwrap();
+    let before=store.canonical_study_point(&pse_operations::canonical_studies::point_key(&key,OccurrenceKey(1))).await.unwrap().unwrap();
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(runtime.finalize_canonical_study(&key).await.unwrap());
+    let after=store.canonical_study_point(&before.key).await.unwrap().unwrap();assert_eq!(before,after,"summary rebuild must not execute or revise any scientific occurrence");
+    let status=handle.status().await.unwrap();assert_ne!(status.result_attempt.as_deref(),Some(fence.attempt()));
+    let previous=store.canonical_attempt(fence.attempt()).await.unwrap().unwrap();assert!(previous.terminal);assert_eq!(previous.outcome.as_deref(),Some("failed"));
+    let final_attempt=store.canonical_attempt(status.result_attempt.as_ref().unwrap()).await.unwrap().unwrap();assert_eq!(final_attempt.outcome.as_deref(),Some("succeeded"));
+    drop(package);
+}
+
+#[cfg(feature="canonical-tests")]
+#[allow(unsafe_code,reason="fixture asserts rejected stale success only; actual summary rebuilt by owning runtime")]
+#[tokio::test]
+async fn canonical_study_cancellation_after_summary_close_fences_success(){
+    let runtime=durable_runtime();let(_,mut definition)=related_definition(&runtime).await;definition.points.truncate(1);
+    let(physical,_)=sources(CASES);let handle=runtime.start_defined_study(physical,definition).await.unwrap();
+    assert!(matches!(runtime.work_once().await.unwrap(),Processed::Ran{..}));
+    let key=handle.study_id().to_string();let store=runtime.canonical_store();let study=store.canonical_study(&key).await.unwrap().unwrap();
+    let fence=store.begin_study_finalization(&StudySummary::from(&study),"summary-before-cancel",Duration::from_millis(300)).await.unwrap().unwrap();
+    let closed=store.close_result_ingestion(&fence,"summary-before-cancel-close").await.unwrap();let manifest=store.reconcile_closed_attempt(&closed).await.unwrap();
+    handle.cancel().await.unwrap();
+    assert!(unsafe{store.seal_attempt(&manifest,"stale-parent-success",pse_operations::canonical_execution::TerminalClass::Succeeded,&[1]).await}.is_err());
+    assert!(unsafe{store.seal_study_summary(&key,&manifest,"stale-owned-summary",pse_operations::canonical_execution::TerminalClass::Succeeded,&[1]).await}.is_err());
+    tokio::time::sleep(Duration::from_millis(350)).await;
+    assert!(runtime.finalize_canonical_study(&key).await.unwrap());
+    let status=handle.status().await.unwrap();assert_eq!(status.state,StudyState::Concluded);assert!(status.cancelled);
+    let parent=store.canonical_attempt(status.result_attempt.as_ref().unwrap()).await.unwrap().unwrap();assert_eq!(parent.outcome.as_deref(),Some("cancelled"));
+    assert!(handle.cancel().await.unwrap().already_concluded);
 }

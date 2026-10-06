@@ -7,7 +7,6 @@ enabled = [
   "ast-grep-ripgrep",
   "datafusion",
   "datafusion-tracing",
-  "deltalake",
   "native-solver-libraries",
   "pyomo-and-solvers",
   "rust-code-model",

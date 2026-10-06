@@ -1,17 +1,14 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Published registry Delta values pass the generated Python contracts."""
-
-from pathlib import Path
+"""Rust registry reflection passes the generated Python contracts."""
 
 import attrs
 import cattrs
-import msgspec
 import pyarrow as pa
 import pytest
 
 import pse
-from pse.codec import decode_json, structure_rows
+from pse.codec import structure_rows
 from pse.contracts.enums import Namespace, SnapshotClass
 from pse.contracts.reference import (
     ReferenceSchemaColumnsRow,
@@ -19,22 +16,11 @@ from pse.contracts.reference import (
 )
 
 
-class PublicationIndex(msgspec.Struct, forbid_unknown_fields=True):
-    manifest: str
-    tables: list[tuple[str, str, str]]
-
-
-def publication_index(path: Path) -> PublicationIndex:
-    return decode_json((path / "publication-index.json").read_bytes(), PublicationIndex)
-
-
-def stored_rows(
-    path: Path, name: str, settings: pse.EngineSettings
+def registry_rows(
+    name: str, settings: pse.EngineSettings
 ) -> list[dict[str, object]]:
-    manifest = publication_index(path).manifest
     with (
-        pse.open_export(manifest, settings=settings) as publication,
-        publication.table("workspace", "reference", name) as stream,
+        pse.registry_table(f"reference.{name}", settings=settings) as stream,
         pa.RecordBatchReader.from_stream(stream) as reader,
     ):
         rows: list[dict[str, object]] = [
@@ -46,18 +32,17 @@ def stored_rows(
 
 @pytest.mark.component
 def test_stored_registry_relations_and_columns_decode_through_generated_contracts(
-    native_inspection_publication: Path,
     inspection_settings: pse.EngineSettings,
 ) -> None:
     relations = structure_rows(
-        stored_rows(
-            native_inspection_publication, "schema_relations", inspection_settings
+        registry_rows(
+            "schema_relations", inspection_settings
         ),
         ReferenceSchemaRelationsRow,
     )
     columns = structure_rows(
-        stored_rows(
-            native_inspection_publication, "schema_columns", inspection_settings
+        registry_rows(
+            "schema_columns", inspection_settings
         ),
         ReferenceSchemaColumnsRow,
     )
@@ -80,11 +65,10 @@ def test_stored_registry_relations_and_columns_decode_through_generated_contract
 
 @pytest.mark.component
 def test_stored_registry_values_are_checked_even_when_identity_is_unchanged(
-    native_inspection_publication: Path,
     inspection_settings: pse.EngineSettings,
 ) -> None:
-    original = stored_rows(
-        native_inspection_publication, "schema_relations", inspection_settings
+    original = registry_rows(
+        "schema_relations", inspection_settings
     )[0]
     changed = dict(original)
     changed["primary_key"] = [17]

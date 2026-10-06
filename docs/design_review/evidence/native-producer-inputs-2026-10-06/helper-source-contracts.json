@@ -1,0 +1,3022 @@
+{
+  "scope": "Manual reached-helper source review for actual diagnostic runtime selected DAG, conditional native grants only. Exact source identities below are observations, not automatically approved source/native review hashes. No irreducibly unsupported reached branch found under the proposed supported context; final actual immutable capture and environment/native basis remain required.",
+  "baseline_evidence": "/tmp/pse-runtime-producer-build-evidence.json diagnostic actual graph; worker/Py must match selected helper features independently",
+  "method": "Read reached API entry/dispatch/source-effect paths; targeted source effect search across package src including legitimate src/target directories. Search alone is not absence proof. Hash inventory records all src files for closure identity, not assertion that every file/API/platform was reviewed or reached.",
+  "contracts": [
+    {
+      "helper": "cc@1.6.0",
+      "reached_paths": [
+        "src/lib.rs:compile_objects/compile/assemble/get_base_compiler/get_ar/getenv_with_target_prefixes",
+        "src/build_env.rs:BuildEnv/EnvSnapshot",
+        "src/tool.rs:Tool::new/detect_family",
+        "src/flags.rs:RustcCodegenFlags",
+        "src/target/{generated,parser,llvm}.rs",
+        "src/parallel/{job_token,command_runner,async_executor,stderr}.rs",
+        "src/tempfile.rs"
+      ],
+      "effect_contract": "BuildEnv snapshots process environment once, clears command environment then reapplies snapshot and explicit caller overrides. Compiler, archive, flag probes and directory/file writes are effectful and covered by exact tools/search/header/loader/caller configuration basis. Target parser/llvm subprocess probes found in cfg(test) only. Parallel jobserver consumes Cargo scheduling tokens; original objects iterator feeds archive, not completion order. Selected GNU ar tries deterministic D modifier.",
+      "entropy_boundary": "RandomState generates create_new temporary name for compiler-family preprocessing; only macro classification and success are consumed; random probe name does not become product source/object path. OUT_DIR flag_check source is fixed literal but reused if present: final selected executor refresh must start with fresh output namespace.",
+      "required_premises": [
+        "exact selected GNU compiler/frontend/as/ar branches and loader inputs",
+        "cc target/HOST/base selectors plus CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_TRIM_PATHS_SCOPE/REMAP absence or selected Cargo values",
+        "wrapper empty and no unreviewed tool explicit overrides",
+        "fresh OUT_DIR flags/probe/CMake state"
+      ],
+      "supported_debug_setting": "CC_ENABLE_DEBUG_OUTPUT=0: command_helpers.rs55 parses false; quiet_unless_debug applies only recovered detection noise, ordinary compile failure still returns Error. Final reconciliation uses reviewed source/effective options plus exact tool/search/header guards and immutable -MD/output snapshots, not debug text as authority. Prior debug1 diagnostic retained original discovery scope."
+    },
+    {
+      "helper": "cmake@0.1.58",
+      "reached_paths": [
+        "src/lib.rs:Config::new/build/getenv_target_os/cmake_executable/create_command/create_build_command/run"
+      ],
+      "effect_contract": "Actual source path anchored current_dir; target/host/profile/debug and explicit defines determine CMake args. Target-specific, underscore, HOST/TARGET, base environment lookup precedence. Reached Linux generator/build invoke CMake and make, inherit effective caller environment, inspect generated Makefile and CMakeCache outputs; outputs not external immutable namespace inputs. Windows/Apple/Emscripten helpers not selected.",
+      "required_premises": [
+        "exact CMake/Make tools and modules",
+        "targeted/base CMAKE/toolchain/prefix selectors",
+        "reviewed vendored CMake branch options",
+        "fresh output namespace; SOURCE_DATE_EPOCH=0,TZ=UTC"
+      ]
+    },
+    {
+      "helper": "glob@0.3.4",
+      "reached_paths": [
+        "src/lib.rs:glob_with/Paths::next/fill_todo/PathWrapper"
+      ],
+      "effect_contract": "Filesystem metadata/symlink_metadata/read_dir selected by caller pattern. Entries sorted by filename before traversal. Absolute SCIP prefix lib wildcard candidates require namespace membership/content/symlink identity guard; glob package is not pure."
+    },
+    {
+      "helper": "bindgen@0.68.1/0.69.5/0.72.1",
+      "reached_paths": [
+        "lib.rs:Builder::generate/Bindings::generate/write_to_file/format_tokens/rustfmt_path",
+        "clang.rs/libclang helper wrappers",
+        "ir/*/codegen/*/parse.rs/options/mod.rs/features.rs"
+      ],
+      "effect_contract": "Runtime libclang loads exact file; clang include detection executes driver; parsed headers and C AST/IR produce tokens. Rustfmt runs selected pinned executable on stdin in package CWD. Graph dump/wrap-static/PCH/preprocessed dumping methods are not enabled in actual reviewed native callers; diagnostic header reads concern already selected files. Time-phase timers write diagnostics and do not enter token output. Rustfmt failure falls back unformatted, so final evidence must record reached success/failure branch.",
+      "version_specific_effect": "0.72.1 RustTarget::default probes RUSTC --version when Cargo architecture variable is present, optional nonempty RUSTC_WRAPPER; exact compiler helper and loader bound. Older selected versions do not use this new probe.",
+      "required_premises": [
+        "exact libclang file/driver/header namespaces and selector guards",
+        "pinned Rustfmt/config candidates",
+        "RUSTC actual executable/library and wrapper empty",
+        "actual caller options and parser callback source closure",
+        "no unreviewed static wrapper/graph/PCH options"
+      ]
+    },
+    {
+      "helper": "sha2@0.11.0 and selected digest/block-buffer/cpufeatures helpers",
+      "reached_paths": [
+        "sha2 src/lib.rs Digest wrappers",
+        "digest src/digest.rs/buffer_macros.rs/block_api.rs",
+        "sha2 src/block_api.rs/sha256.rs/sha256/{soft,x86_sha}.rs",
+        "block-buffer src/lib.rs",
+        "cpufeatures src/x86.rs"
+      ],
+      "effect_contract": "update/finalize consume caller-provided byte slices and in-memory state/padding, export big-endian digest. x86 CPUID selects software/SHA instruction implementation of same SHA256 transformation; no environment/filesystem/time lookup. Core/array helpers operate supplied state and lengths. Non-x86 HWCAP alternatives excluded by selected host."
+    },
+    {
+      "helper": "serde_json@1.0.151 build-helper variant and selected serde_core/itoa/memchr/zmij",
+      "reached_paths": [
+        "src/de.rs:from_slice/from_trait",
+        "src/read.rs:SliceRead/escape parser",
+        "src/number.rs/src/value/de.rs",
+        "serde_core src/de/{impls,mod}.rs",
+        "itoa src/lib.rs",
+        "memchr selected x86 vector/scalar search",
+        "zmij src/lib.rs/traits.rs/stdarch_x86.rs"
+      ],
+      "effect_contract": "Actual native callers pass already read receipt bytes to from_slice. SliceRead is sealed in-memory input; parser supplies bytes to existing typed Deserialize implementation. Primitive number/string/container implementations use supplied data; SystemTime Deserialize decodes input offset rather than reading clock, not used by receipt DTO. IoRead/from_reader are unselected. zmij/itoa serialization format supplied numbers; memchr CPUID dispatch searches supplied slices. Caller custom Deserialize source remains separately owned/reviewed."
+    },
+    {
+      "helper": "toml@1.1.6+spec1.1.0 and selected parser/datetime/spanned/winnow helpers",
+      "reached_paths": [
+        "src/de/mod.rs:from_str",
+        "src/de/deserializer/*",
+        "src/de/parser/*",
+        "toml_parser src/source.rs/lexer.rs/parser/*",
+        "winnow TokenSlice/stream/error/token/combinator modules",
+        "serde_spanned supplied span wrappers",
+        "toml_datetime supplied calendar lexemes"
+      ],
+      "effect_contract": "Actual backend caller reads authored Cargo.toml once then from_str. DeTable parses source\u2192lexer tokens\u2192events\u2192winnow TokenSlice\u2192typed deserializer; no implicit file/include lookup, timezone/clock/date-now call. Datetime parses authored numeric calendar fields only. Debug/trace features absent in selected units; winnow debug COLUMNS lookup and parser debug diagnostics therefore excluded. Display helpers serialize supplied values only."
+    }
+  ],
+  "selected_helper_packages": [
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#bindgen@0.68.1",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1",
+      "units": [
+        {
+          "index": 61,
+          "features": [
+            "default",
+            "logging",
+            "prettyplease",
+            "runtime",
+            "which-rustfmt"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#bindgen@0.68.1",
+            "registry+https://github.com/rust-lang/crates.io-index#bitflags@2.13.2",
+            "registry+https://github.com/rust-lang/crates.io-index#cexpr@0.6.0",
+            "registry+https://github.com/rust-lang/crates.io-index#clang-sys@1.9.1",
+            "registry+https://github.com/rust-lang/crates.io-index#lazy_static@1.5.1",
+            "registry+https://github.com/rust-lang/crates.io-index#lazycell@1.3.0",
+            "registry+https://github.com/rust-lang/crates.io-index#log@0.4.34",
+            "registry+https://github.com/rust-lang/crates.io-index#peeking_take_while@0.1.2",
+            "registry+https://github.com/rust-lang/crates.io-index#prettyplease@0.2.37",
+            "registry+https://github.com/rust-lang/crates.io-index#proc-macro2@1.0.107",
+            "registry+https://github.com/rust-lang/crates.io-index#quote@1.0.47",
+            "registry+https://github.com/rust-lang/crates.io-index#regex@1.13.1",
+            "registry+https://github.com/rust-lang/crates.io-index#rustc-hash@1.1.0",
+            "registry+https://github.com/rust-lang/crates.io-index#shlex@1.3.0",
+            "registry+https://github.com/rust-lang/crates.io-index#syn@2.0.119",
+            "registry+https://github.com/rust-lang/crates.io-index#which@4.4.2"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/build.rs",
+          "sha256": "4a9c4ac3759572e17de312a9d3f4ced3b6fd3c71811729e5a8d06bfbd1ac8f82"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/callbacks.rs",
+          "sha256": "52211e15fa94fd0c8c5bab822dbf3e6a1e5500c6cd8c5b45c6c3b35627e2a416"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/clang.rs",
+          "sha256": "f7dc9c6eed9138075c0c26567e40269183192f9d04ff1701046ed3ac73d10b69"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/codegen/bitfield_unit.rs",
+          "sha256": "fddeaeab5859f4e82081865595b7705f5c0774d997df95fa5c655b81b9cae125"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/codegen/bitfield_unit_tests.rs",
+          "sha256": "9df86490de5e9d66ccea583dcb686dd440375dc1a3c3cf89a89d5de3883bf28a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/codegen/dyngen.rs",
+          "sha256": "6d8bed53c6de66bc658b3186041c2b75549f49b0f0363ff18b87c8dcf2f5a05b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/codegen/error.rs",
+          "sha256": "38fce9b4a06c6cd4b4b0a074417d2c9f31dac584b023b19b696cd00265a57930"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/codegen/helpers.rs",
+          "sha256": "0c28751565c90b4ab385ae2113cde02afa34225d85ae48fd296817aac36c5940"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/codegen/impl_debug.rs",
+          "sha256": "80df6136327b1ca8c7d1c2961290b5ab00b85b49b22c02f26a590bc68fb230af"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/codegen/impl_partialeq.rs",
+          "sha256": "db739d7ba6f5ba4033d6bf62c276f35217c20eab27230cf07dadf59e8b2f71bb"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/codegen/mod.rs",
+          "sha256": "61d3a0c226fba211dd3ef36bfa066f6963bff23406ef7961bfa5b79080f444d0"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/codegen/postprocessing/merge_extern_blocks.rs",
+          "sha256": "284457a3c75e945217bab4e5a4280fef0fcc03c31e12cc5010aab87f34c0b6c7"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/codegen/postprocessing/mod.rs",
+          "sha256": "160a6d6701cabf2514e23570df1bd1b648c909cc27b7c583f21d98fe0c16722e"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/codegen/postprocessing/sort_semantically.rs",
+          "sha256": "f465d1e8cc119082eb79c164b5cd780a370821e8bf56585b287dd3b51fc4a542"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/codegen/serialize.rs",
+          "sha256": "5cc71bcad2379df538cd179d1f8027c757f29e66a1cc130b222004adb698fa90"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/codegen/struct_layout.rs",
+          "sha256": "07007251c91e0d4eb1e46535068d8c22881d248baa2e38cab96d72691927c2e4"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/deps.rs",
+          "sha256": "af3dd24a7808b5abf0c4ed4b10bbceb8eef32be980ff085b8a766d8f089af1a4"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/diagnostics.rs",
+          "sha256": "dc40cd5e9710922422c5c9420e2351f5d976e7a1d7275e4f4ce742cad9eb53f8"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/extra_assertions.rs",
+          "sha256": "fb4484c0e9fcbea9ec7265f5fbd01e2b33ac022b2b17e060dce7886819d57e40"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/features.rs",
+          "sha256": "29f2df89716a47a7d9dbd33b1ff4da61645e729a92772530bed3a04163afc08f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/analysis/derive.rs",
+          "sha256": "cba290e9c4ba271e90524149ad3b874f37843bfdfab12d513cc85d2665447fd5"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/analysis/has_destructor.rs",
+          "sha256": "e7e95c3b0989b6375cd3eabaac85a36ecc2915a1fd3700c7d26fe04e8dc83ba3"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/analysis/has_float.rs",
+          "sha256": "a56b97bf913f132c2c63dc202b45c692c416a8c9fdc6b2baeee30362fb0d4405"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/analysis/has_type_param_in_array.rs",
+          "sha256": "788ebb4ba2cf46a22f1e4ff3005d51f38d414b72e95355f7ff4125521e2d9525"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/analysis/has_vtable.rs",
+          "sha256": "83efa40ae89147170eabdff1387e60aba574ca4cd4cdef22692753594f09d6c6"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/analysis/mod.rs",
+          "sha256": "ed161d9f60306ad42af2ae70ff0eb686a36e2fb30eb94918b5e5f19af80e1db7"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/analysis/sizedness.rs",
+          "sha256": "f0a9302f3c6ad694d76cfab11dbaf5392ecaf7f04bc7b211a5a003776b963896"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/analysis/template_params.rs",
+          "sha256": "3ff27e2198e292a348876aa1faba39cc4b1870a24a7e173feac0b3c592001e13"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/annotations.rs",
+          "sha256": "5ed03d025862d0d21852a76c86a993772624e123fdc3752415d588a0b4e643ab"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/comment.rs",
+          "sha256": "4c9c20b5a3da086211e92adec0822831dbc0b7ebee98fee313edcae9ae8d55ec"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/comp.rs",
+          "sha256": "fb32715ed8fc14bee51c344a41c1f7a8a802d4a6dceb2775034ea33a88670df7"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/context.rs",
+          "sha256": "a1c591532b44bc532c18f8e5afa0ba4aa94934db2de23f2c71dbdfcb384fd333"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/derive.rs",
+          "sha256": "c21e470bb0091f20bfa366110880d48984fc3cf7071fdf36eccfa64f3eca231c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/dot.rs",
+          "sha256": "75bdfd83d9e754ba726f6a5529ba1d9ff46f5bf49bf237452985eb008fed0854"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/enum_ty.rs",
+          "sha256": "f4bfa6d18ba4977fb66f5d5e4a7674eded93b761404d91cdd6fdd50029db455a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/function.rs",
+          "sha256": "8acde871c277069d94c96cf4dea68497b2d6253e66014db9655dd825906b19cc"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/int.rs",
+          "sha256": "601736f0ad0949e40684a9ce89bafbfefa71743df6ee6c342e44888a0f141ae0"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/item.rs",
+          "sha256": "2d3d25c9877d3b969cba5d49696ccabdd382f38c1ab28ac32b79021008a66b19"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/item_kind.rs",
+          "sha256": "33e21104b0bb824a696a52cd520567ae56158010a1df14777e68ac5f8ad7e8fa"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/layout.rs",
+          "sha256": "8fbafc0eeee17abb703a18613be1066e38838d4b67f5916f714bf545e545bc1a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/mod.rs",
+          "sha256": "a3b98b1732111a980a795c72eaf1e09101e842ef2de76b4f2d4a7857f8d4cee4"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/module.rs",
+          "sha256": "b2961ffa4acb0c19f084c5db084b8a17bda7158066782a73b80ee7d838789bf9"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/objc.rs",
+          "sha256": "126c688946a7157eff8fd3a22125c6250d0a2c63ee766662b50ea241f7cd3493"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/template.rs",
+          "sha256": "3f59efa9670ca90215d4374be869c9dbecb98a8d1041e7c6e4ab69a62bb982c2"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/traversal.rs",
+          "sha256": "a4ec73d3533d4b93386153baf6a2ca846ee51228c76ed51105229d3ddcd74466"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/ty.rs",
+          "sha256": "69300e7f8255627da1a3fe641ffe7215f7889d4b3c0fcbf7c366b78e3849d5cb"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/ir/var.rs",
+          "sha256": "40d18226706de0ee5f002d0b5617dbcba35de0605edd531c75e3a76d000f0f4f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/lib.rs",
+          "sha256": "c3aff945fe2e3d498682e605a9abdd748fee71b78885d3699f4e6397b082ca87"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/log_stubs.rs",
+          "sha256": "9f974e041e35c8c7e29985d27ae5cd0858d68f8676d1dc005c6388d7d011707f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/options/as_args.rs",
+          "sha256": "76efa4e662cc7f89ef1c1fe089d03a3c1c019ffe2aa0a30a4d49ed41e987d1c7"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/options/helpers.rs",
+          "sha256": "f4a7681e29b2dcc3be9249478c499d685b9e29d4f4ca4ae8bff7a91668cd8f15"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/options/mod.rs",
+          "sha256": "9f3e982fe8e3723bfceda5905a144d6717210bc872c4350bd9d8873496eba2a2"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/parse.rs",
+          "sha256": "fce3616e0464aa7414888e5d00d4df18c83bb3034a1c807d36a07a3c586e475a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/regex_set.rs",
+          "sha256": "b411d64bc803947a3f69dcedcd7d03716aacbc7b1c5148b82de1cc469d9336d9"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.68.1/time.rs",
+          "sha256": "8efe317e7c6b5ba8e0865ce7b49ca775ee8a02590f4241ef62f647fa3c22b68e"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#bindgen@0.69.5",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5",
+      "units": [
+        {
+          "index": 64,
+          "features": [
+            "default",
+            "logging",
+            "prettyplease",
+            "runtime",
+            "which-rustfmt"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#bindgen@0.69.5",
+            "registry+https://github.com/rust-lang/crates.io-index#bitflags@2.13.2",
+            "registry+https://github.com/rust-lang/crates.io-index#cexpr@0.6.0",
+            "registry+https://github.com/rust-lang/crates.io-index#clang-sys@1.9.1",
+            "registry+https://github.com/rust-lang/crates.io-index#itertools@0.12.1",
+            "registry+https://github.com/rust-lang/crates.io-index#lazy_static@1.5.1",
+            "registry+https://github.com/rust-lang/crates.io-index#lazycell@1.3.0",
+            "registry+https://github.com/rust-lang/crates.io-index#log@0.4.34",
+            "registry+https://github.com/rust-lang/crates.io-index#prettyplease@0.2.37",
+            "registry+https://github.com/rust-lang/crates.io-index#proc-macro2@1.0.107",
+            "registry+https://github.com/rust-lang/crates.io-index#quote@1.0.47",
+            "registry+https://github.com/rust-lang/crates.io-index#regex@1.13.1",
+            "registry+https://github.com/rust-lang/crates.io-index#rustc-hash@1.1.0",
+            "registry+https://github.com/rust-lang/crates.io-index#shlex@1.3.0",
+            "registry+https://github.com/rust-lang/crates.io-index#syn@2.0.119",
+            "registry+https://github.com/rust-lang/crates.io-index#which@4.4.2"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/build.rs",
+          "sha256": "4a9c4ac3759572e17de312a9d3f4ced3b6fd3c71811729e5a8d06bfbd1ac8f82"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/callbacks.rs",
+          "sha256": "cd5a1b0fc665b034d97615d0b6817cbef299dbf5276254c7e63f1c29674993ad"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/clang.rs",
+          "sha256": "e6477425453f7abd21b0b1cf8ee455bda3bf0cb4c567630c088d43ac87897815"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/codegen/bitfield_unit.rs",
+          "sha256": "fddeaeab5859f4e82081865595b7705f5c0774d997df95fa5c655b81b9cae125"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/codegen/bitfield_unit_tests.rs",
+          "sha256": "9df86490de5e9d66ccea583dcb686dd440375dc1a3c3cf89a89d5de3883bf28a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/codegen/dyngen.rs",
+          "sha256": "6d8bed53c6de66bc658b3186041c2b75549f49b0f0363ff18b87c8dcf2f5a05b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/codegen/error.rs",
+          "sha256": "0c3d198f4866ccbbcd8b1136fc5cfd2507a9eca5ab85934af29a7e2a7d8d8c2a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/codegen/helpers.rs",
+          "sha256": "443a2c3495185ced2a9d68c02204bebfa8c4186f4275bf9ed3af90c3a3e159d7"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/codegen/impl_debug.rs",
+          "sha256": "80df6136327b1ca8c7d1c2961290b5ab00b85b49b22c02f26a590bc68fb230af"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/codegen/impl_partialeq.rs",
+          "sha256": "db739d7ba6f5ba4033d6bf62c276f35217c20eab27230cf07dadf59e8b2f71bb"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/codegen/mod.rs",
+          "sha256": "206e4e2c14cec17c13d11e568557332b51ce1e41ce8128182de44dab69221662"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/codegen/postprocessing/merge_extern_blocks.rs",
+          "sha256": "284457a3c75e945217bab4e5a4280fef0fcc03c31e12cc5010aab87f34c0b6c7"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/codegen/postprocessing/mod.rs",
+          "sha256": "160a6d6701cabf2514e23570df1bd1b648c909cc27b7c583f21d98fe0c16722e"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/codegen/postprocessing/sort_semantically.rs",
+          "sha256": "f465d1e8cc119082eb79c164b5cd780a370821e8bf56585b287dd3b51fc4a542"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/codegen/serialize.rs",
+          "sha256": "1f1eb8b04fec9655dc302442451f9622ad6365eb37bf588a119a60e79f37002c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/codegen/struct_layout.rs",
+          "sha256": "922cc71fb309716879aeea4775bbc29751ca5d431083ca83d7beb0a90862a302"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/deps.rs",
+          "sha256": "af3dd24a7808b5abf0c4ed4b10bbceb8eef32be980ff085b8a766d8f089af1a4"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/diagnostics.rs",
+          "sha256": "dc40cd5e9710922422c5c9420e2351f5d976e7a1d7275e4f4ce742cad9eb53f8"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/extra_assertions.rs",
+          "sha256": "fb4484c0e9fcbea9ec7265f5fbd01e2b33ac022b2b17e060dce7886819d57e40"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/features.rs",
+          "sha256": "b27adc6bb50e9aae50fd75568a7576382c6409f585b6be0047d7a9314c98d569"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/analysis/derive.rs",
+          "sha256": "cba290e9c4ba271e90524149ad3b874f37843bfdfab12d513cc85d2665447fd5"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/analysis/has_destructor.rs",
+          "sha256": "e7e95c3b0989b6375cd3eabaac85a36ecc2915a1fd3700c7d26fe04e8dc83ba3"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/analysis/has_float.rs",
+          "sha256": "a56b97bf913f132c2c63dc202b45c692c416a8c9fdc6b2baeee30362fb0d4405"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/analysis/has_type_param_in_array.rs",
+          "sha256": "788ebb4ba2cf46a22f1e4ff3005d51f38d414b72e95355f7ff4125521e2d9525"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/analysis/has_vtable.rs",
+          "sha256": "83efa40ae89147170eabdff1387e60aba574ca4cd4cdef22692753594f09d6c6"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/analysis/mod.rs",
+          "sha256": "9d949c27451da4ed72994b31c04ddeb89eeb342fd23ea572d3962d4ccf774841"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/analysis/sizedness.rs",
+          "sha256": "f0a9302f3c6ad694d76cfab11dbaf5392ecaf7f04bc7b211a5a003776b963896"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/analysis/template_params.rs",
+          "sha256": "3ff27e2198e292a348876aa1faba39cc4b1870a24a7e173feac0b3c592001e13"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/annotations.rs",
+          "sha256": "5ed03d025862d0d21852a76c86a993772624e123fdc3752415d588a0b4e643ab"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/comment.rs",
+          "sha256": "4c9c20b5a3da086211e92adec0822831dbc0b7ebee98fee313edcae9ae8d55ec"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/comp.rs",
+          "sha256": "c048866353695ac8190ab03511123be82d34ca73fb865a2578cb5a2e04390431"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/context.rs",
+          "sha256": "03175218512c42792aae7b56a764c0237a447664dda5f1a8269a42bed46d3be2"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/derive.rs",
+          "sha256": "c21e470bb0091f20bfa366110880d48984fc3cf7071fdf36eccfa64f3eca231c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/dot.rs",
+          "sha256": "75bdfd83d9e754ba726f6a5529ba1d9ff46f5bf49bf237452985eb008fed0854"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/enum_ty.rs",
+          "sha256": "f4bfa6d18ba4977fb66f5d5e4a7674eded93b761404d91cdd6fdd50029db455a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/function.rs",
+          "sha256": "0ecee923382b0a49265bc970ac90a73740ec5ba3c33466b2cfe8aa462df59bd5"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/int.rs",
+          "sha256": "601736f0ad0949e40684a9ce89bafbfefa71743df6ee6c342e44888a0f141ae0"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/item.rs",
+          "sha256": "65f2351dd3971d8a76470a78f5b6b1ebdda067ab5bae4641246aa986d9579e29"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/item_kind.rs",
+          "sha256": "33e21104b0bb824a696a52cd520567ae56158010a1df14777e68ac5f8ad7e8fa"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/layout.rs",
+          "sha256": "8fbafc0eeee17abb703a18613be1066e38838d4b67f5916f714bf545e545bc1a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/mod.rs",
+          "sha256": "a3b98b1732111a980a795c72eaf1e09101e842ef2de76b4f2d4a7857f8d4cee4"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/module.rs",
+          "sha256": "b2961ffa4acb0c19f084c5db084b8a17bda7158066782a73b80ee7d838789bf9"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/objc.rs",
+          "sha256": "8f57a9180d57a690449f20ed1be80209db5f8a410bb067ae8bf5e0ecab16a5e4"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/template.rs",
+          "sha256": "3f59efa9670ca90215d4374be869c9dbecb98a8d1041e7c6e4ab69a62bb982c2"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/traversal.rs",
+          "sha256": "a4ec73d3533d4b93386153baf6a2ca846ee51228c76ed51105229d3ddcd74466"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/ty.rs",
+          "sha256": "fd71d11e89e085921317349e1912ab56e7335d870c2d25df9e13a8ffbd6430c9"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/ir/var.rs",
+          "sha256": "40d18226706de0ee5f002d0b5617dbcba35de0605edd531c75e3a76d000f0f4f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/lib.rs",
+          "sha256": "7496f72a177b5965ed56a2ab9af0f64e70abbc53cc6c196a15e6760dd6235adf"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/log_stubs.rs",
+          "sha256": "9f974e041e35c8c7e29985d27ae5cd0858d68f8676d1dc005c6388d7d011707f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/options/as_args.rs",
+          "sha256": "76efa4e662cc7f89ef1c1fe089d03a3c1c019ffe2aa0a30a4d49ed41e987d1c7"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/options/helpers.rs",
+          "sha256": "f4a7681e29b2dcc3be9249478c499d685b9e29d4f4ca4ae8bff7a91668cd8f15"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/options/mod.rs",
+          "sha256": "1805cec86c563633b29b57292287c9efd3b5c724132ec1c13acee57858942e74"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/parse.rs",
+          "sha256": "fce3616e0464aa7414888e5d00d4df18c83bb3034a1c807d36a07a3c586e475a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/regex_set.rs",
+          "sha256": "b411d64bc803947a3f69dcedcd7d03716aacbc7b1c5148b82de1cc469d9336d9"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.69.5/time.rs",
+          "sha256": "8efe317e7c6b5ba8e0865ce7b49ca775ee8a02590f4241ef62f647fa3c22b68e"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#bindgen@0.72.1",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1",
+      "units": [
+        {
+          "index": 67,
+          "features": [
+            "default",
+            "logging",
+            "prettyplease",
+            "runtime"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#bindgen@0.72.1",
+            "registry+https://github.com/rust-lang/crates.io-index#bitflags@2.13.2",
+            "registry+https://github.com/rust-lang/crates.io-index#cexpr@0.6.0",
+            "registry+https://github.com/rust-lang/crates.io-index#clang-sys@1.9.1",
+            "registry+https://github.com/rust-lang/crates.io-index#itertools@0.13.0",
+            "registry+https://github.com/rust-lang/crates.io-index#log@0.4.34",
+            "registry+https://github.com/rust-lang/crates.io-index#prettyplease@0.2.37",
+            "registry+https://github.com/rust-lang/crates.io-index#proc-macro2@1.0.107",
+            "registry+https://github.com/rust-lang/crates.io-index#quote@1.0.47",
+            "registry+https://github.com/rust-lang/crates.io-index#regex@1.13.1",
+            "registry+https://github.com/rust-lang/crates.io-index#rustc-hash@2.1.3",
+            "registry+https://github.com/rust-lang/crates.io-index#shlex@1.3.0",
+            "registry+https://github.com/rust-lang/crates.io-index#syn@2.0.119"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/build.rs",
+          "sha256": "f7a10af0a21662e104e0058da7e3471a20be328eef6c7c41988525be90fdfe92"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/callbacks.rs",
+          "sha256": "de8bbe96753b6c5107984f2d26f13abf8fd2dd914ca688a989bf90c8e63c435f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/clang.rs",
+          "sha256": "e991300ce9b1f0b9fb4a0b4bd32e899b6cfa546f034858f08bf57678b3d7044c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/codegen/bitfield_unit.rs",
+          "sha256": "bcec32a8289eb8643bdc7aae0636aecac9f28e83895ebd330a4b0d1d3468bb4c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/codegen/bitfield_unit_raw_ref_macros.rs",
+          "sha256": "cd9a02db7a0f0d2db79dc6b54c64eec2b438d2124928127266a5e30cf451696e"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/codegen/bitfield_unit_tests.rs",
+          "sha256": "9915cb19bf37fc1013fc72753bae153f7c249280daec94b25fb461f9936dffa4"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/codegen/dyngen.rs",
+          "sha256": "1b42f7fa9fb65ff2fa898b289a3b934d7b21c5ba6c1b3e37aa97f0faa87769a0"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/codegen/error.rs",
+          "sha256": "67680c4d171d63848d9eb4ddd5f100be7463564e8c1c9203fefc0e61a19dfdec"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/codegen/helpers.rs",
+          "sha256": "2f2873a8bf98a7583c30d42758f0c229ae7d7a6ee71b89bb33a79ffa73ab4ab2"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/codegen/impl_debug.rs",
+          "sha256": "dff9ca17a9397f327841f6321056cc0bdffe1f52106ec08879bcc74c22d4f383"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/codegen/impl_partialeq.rs",
+          "sha256": "60623e75c079ccadc4b928acd2cf78449db84591b720e242fc10ee1417678981"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/codegen/mod.rs",
+          "sha256": "a865463a58ef01a49079118f648b8e139eb63790b7d511d03588e0ac52bf35ee"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/codegen/postprocessing/merge_extern_blocks.rs",
+          "sha256": "3e244fe62abcadcb6dae069c37d21220f5351dc7b8c33c5576a5193731933c4c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/codegen/postprocessing/mod.rs",
+          "sha256": "160a6d6701cabf2514e23570df1bd1b648c909cc27b7c583f21d98fe0c16722e"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/codegen/postprocessing/sort_semantically.rs",
+          "sha256": "5099e8fc134a92cb72b585bd95854a52ff81e2f5307c3b83617d83e7408302ee"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/codegen/serialize.rs",
+          "sha256": "d57eb31ba0fda825241f886336279573050b396e52badf3886e0bc76a15110ad"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/codegen/struct_layout.rs",
+          "sha256": "78b38cc064491d854516dcf36e268b45e549d2bd3150ea4cb390529f656b2132"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/deps.rs",
+          "sha256": "297dcc2be53af1a3ea4f77e16902a641f3e6f0baad09c06a6ea26050a0281c18"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/diagnostics.rs",
+          "sha256": "9c80043ac9fa8f683019577f311853a0d5929e41a95b3255736f80105914cdfa"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/extra_assertions.rs",
+          "sha256": "1596b7e7f031714dc699ebda135e795f1ecfc971ce9de6861a3c00e77fcef011"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/features.rs",
+          "sha256": "ad17b96bf6b97cecb33d2b4710261341b1e3828263531708157d2b206af65c77"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/analysis/derive.rs",
+          "sha256": "f0bd1b6362ed9a8e8bc6933bf1af29cceabde84015dc34d76f34d3e4c56a4103"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/analysis/has_destructor.rs",
+          "sha256": "64dc142ff8c56db94b464f0f03ecd25317c8c1d6cd2a7304d2d3a0ff0a0db890"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/analysis/has_float.rs",
+          "sha256": "9fb88d05c5920e9000e5cb6e87775c0d1042a6b11205577e281ba281e6e6acdb"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/analysis/has_type_param_in_array.rs",
+          "sha256": "0975d1ce43bcba97eb303635118e74d494d46ac67cf5ee53faf6f6584a556cef"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/analysis/has_vtable.rs",
+          "sha256": "3e1a807feccb55d6148e81512417b56cd1d70a70783508b65a3ff2abde461d2b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/analysis/mod.rs",
+          "sha256": "93edca96d765dfa19ac231198027b0ba48c623502a8be1dbf799a241cd6b304b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/analysis/sizedness.rs",
+          "sha256": "0b78e70737e038ebdee2c3d195194a060c9287000b9059ded0686728a89b4ff2"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/analysis/template_params.rs",
+          "sha256": "a8dfd3e02b1745a5b7c6faa16309bd0b8a88d76b7fedca27c322782cc9e77177"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/annotations.rs",
+          "sha256": "8397ced62808fe99dfdde35792cd8b2389e7828d752a6c8aa3a70c1e14595e11"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/comment.rs",
+          "sha256": "57863204d329ae82872ecc4829cc299969ff07da3a32a4a13d7d84429f55b84d"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/comp.rs",
+          "sha256": "6dce8c17967a2219ccf8ac2bf11ca97a046ca28df258f47e1f2cc8c34e2237ed"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/context.rs",
+          "sha256": "59b73ef695f98adda0b54828a820739121d0f2c869f06b75a0cbc1a84c3ca887"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/derive.rs",
+          "sha256": "09860cffec0ebecce31da0c6c9ea0cf9a0d4784262ff4eb16ea459c0d0782ac9"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/dot.rs",
+          "sha256": "8b8f6dd13e662fcb4114949025cb43467b34fa4998a3371c101db5dd82688f44"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/enum_ty.rs",
+          "sha256": "5d7ae2e3de172d9812425e8cc6e30d559b0743620b3b09f7d72f3b05a7e1ce98"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/function.rs",
+          "sha256": "a8296565624f1be38eaa01cea638e39eb1e2ee9de6859fc63a070f5a190c4c8c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/int.rs",
+          "sha256": "1bf1e4d87eca13ee2fc38ff4d56c266f303f188796f5c0d290f53162798d2d01"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/item.rs",
+          "sha256": "d11623c01e1a9128063be4e4bde5c459a0a2f10fd9e323fced3cd4bc8d394b6c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/item_kind.rs",
+          "sha256": "799fab994b5ed35045786a68003c2c12b6601cf3b07e8ccc0b9acd6f921217e0"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/layout.rs",
+          "sha256": "5b2958eb3d5e5d96bd85ce02925d936e89d3147c62cd225e3a0ae7f042b74fca"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/mod.rs",
+          "sha256": "a3b98b1732111a980a795c72eaf1e09101e842ef2de76b4f2d4a7857f8d4cee4"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/module.rs",
+          "sha256": "617867617ebd7e56157a9ba057441ce11a33c25138a1da64646f44ccaae7c762"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/objc.rs",
+          "sha256": "092c7f32cec4191aa6235e4554420ab2053e0c7fec5ece016a7ed303763e8547"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/template.rs",
+          "sha256": "1114c0924323f8b30bb32dbb3f6730dd7f5bc1f0771ad5099738e8e57111c07d"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/traversal.rs",
+          "sha256": "3ebde94ead0fe69d51541ab61d700c7c1f6382574e4c110b8c7fe3e2c6218f19"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/ty.rs",
+          "sha256": "e2516217fa439e65ef38dce2acd712a89879045e21e64b6f317a81b0d22927dc"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/ir/var.rs",
+          "sha256": "2a94decd3adfdccd3bd0015b460d180838e3c92b122b632eed44032b80cad120"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/lib.rs",
+          "sha256": "fe023071fb5e39938173ee7e160a4c7f6b735afc71c8d164c397842d69b055de"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/log_stubs.rs",
+          "sha256": "a636d59af2fd3745c2e416e1ab8a1e1a3888ea84cd4657a321ce22f15e0c5a87"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/options/as_args.rs",
+          "sha256": "a1a5e7f0dde82590371fc1a9ea5fde7f3e2252530ca74d98bb49a8ce06cc864f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/options/cli.rs",
+          "sha256": "ce154bf2b5dfb6771e90526424b94169f6b0ac3a4ec035772a835827795eaaae"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/options/helpers.rs",
+          "sha256": "f4a7681e29b2dcc3be9249478c499d685b9e29d4f4ca4ae8bff7a91668cd8f15"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/options/mod.rs",
+          "sha256": "beaaccfdf79a309bc272fc72a9278568d9e0f4dff1edd71fceffc3bf1e9baec2"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/parse.rs",
+          "sha256": "fce3616e0464aa7414888e5d00d4df18c83bb3034a1c807d36a07a3c586e475a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/regex_set.rs",
+          "sha256": "d8995adb9e5cecc2d738e662a62d5081150bf967cb67e1206070e22b7265578a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bindgen-0.72.1/time.rs",
+          "sha256": "1429af446b2b38c70ceec82c4202d4822c618cad47ba502dce72dbdc4cbb425e"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#block-buffer@0.10.4",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/block-buffer-0.10.4/src",
+      "units": [
+        {
+          "index": 80,
+          "features": [],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#generic-array@0.14.7"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/block-buffer-0.10.4/src/lib.rs",
+          "sha256": "b437252d389042d894b1ef17859b043e827d2bd2a1bca4b5311c67dff565274d"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/block-buffer-0.10.4/src/sealed.rs",
+          "sha256": "9327ee3e567ae779b83c2b7f4f3ff56fcb2117163e023e7b0e37759e7e8d1f5c"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#block-buffer@0.12.1",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/block-buffer-0.12.1/src",
+      "units": [
+        {
+          "index": 81,
+          "features": [],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#hybrid-array@0.4.15"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/block-buffer-0.12.1/src/lib.rs",
+          "sha256": "1e1f665e68a16b6a18ea547aec36d9855163bd79a27c2b293a7a7708dde68a28"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/block-buffer-0.12.1/src/read.rs",
+          "sha256": "790b7bc1d6e87c0ee797b41e18aa3c394aa561c3074047c72590b33c9cee0f8d"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/block-buffer-0.12.1/src/sealed.rs",
+          "sha256": "7ad84c528060c27e148e568dc4934ab7704259bdf0c41f1ab59043255d53da3f"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#cc@1.6.0",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src",
+      "units": [
+        {
+          "index": 91,
+          "features": [],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#find-msvc-tools@0.1.14",
+            "registry+https://github.com/rust-lang/crates.io-index#shlex@2.0.1"
+          ]
+        },
+        {
+          "index": 92,
+          "features": [
+            "parallel"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#find-msvc-tools@0.1.14",
+            "registry+https://github.com/rust-lang/crates.io-index#jobserver@0.1.35",
+            "registry+https://github.com/rust-lang/crates.io-index#libc@0.2.190",
+            "registry+https://github.com/rust-lang/crates.io-index#shlex@2.0.1"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src/build_env.rs",
+          "sha256": "7ddb12fcc0d0f5cdf1875c1a3ba35e064bbfe7964c67cfaa3c1732d6483c1fa9"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src/command_helpers.rs",
+          "sha256": "dbbe968b482c5cc4b88d66d1ada777882447097851c48a159e7c5a667f9add20"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src/flags.rs",
+          "sha256": "ee4ed218ebfbba4262eb23a5444f29b040367caa28d586c97df0f31f7c7f702f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src/lib.rs",
+          "sha256": "0dfd1f0e2cd7c0a8e990fcd8a63aaaa95ffeb5d694a6c508c6d8fb384bc69704"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src/logger.rs",
+          "sha256": "b0738f7610acf508b019e0baa91988f5e987b09483a10a47a1a34507b50c6a92"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src/parallel/async_executor.rs",
+          "sha256": "62ad9f4ee67284a4c976c957712593554b05b17546fd06cdd12031f0bebbc7a5"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src/parallel/command_runner.rs",
+          "sha256": "776e2f99f6e9d43e0d589400f97a6bf38e0029ef6231870f7551d691c58f2428"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src/parallel/job_token.rs",
+          "sha256": "11ceb8a19af9460c3bc063c6f41c3be7b0ea122460f59013141eb3ce66df11c4"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src/parallel/mod.rs",
+          "sha256": "bf156170790d40a76015a8c78cc2a391cbe1b60bb96c1fac1d047d26e342386a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src/parallel/stderr.rs",
+          "sha256": "92a2e5332a36ddc9d2c31ec88993206ee6cb7fc2c42fe84c82879d2207757dcd"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src/target/apple.rs",
+          "sha256": "da9411b2c4db419e0fa39f765ee53b8665b3837fb39827679a53238734a4a1c1"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src/target/generated.rs",
+          "sha256": "cd28e6738247eb1caa8954df1278f0d2fbf31d280a280c9afe8398e14855f1f1"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src/target/llvm.rs",
+          "sha256": "525680a605fb57e038c3103d3efc9201c1af7b99162adf5dbc399da1d5007efe"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src/target/parser.rs",
+          "sha256": "27cad5f7425ca0bec2a98eed26f2d992c875ca80d2350fe8c8d738f52789d1a0"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src/target.rs",
+          "sha256": "a9d2d347a3a08015531f00b32bc8a7478f5636822cc8e0237ea9efa3f07d4cd4"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src/tempfile.rs",
+          "sha256": "77963fe55b63d3a30cccae46f763b8d61ed722247fe208e8485858770f6a67f7"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src/tool.rs",
+          "sha256": "93db92284804c66dc822de5467347098e2fc749b2b42ffe1866cc2abaa0e5d83"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.6.0/src/utilities.rs",
+          "sha256": "78087597bfb3997bb9405b764937c22b32355193df67eb9592996a619a559901"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#cfg-if@1.0.5",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cfg-if-1.0.5/src",
+      "units": [
+        {
+          "index": 94,
+          "features": [],
+          "direct_helpers": []
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cfg-if-1.0.5/src/lib.rs",
+          "sha256": "2fe40504f7a897ac6b742a85bdf8c4b5b2c6de87cdd72d0cf49fa50585ac9955"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#cmake@0.1.58",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cmake-0.1.58/src",
+      "units": [
+        {
+          "index": 111,
+          "features": [],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#cc@1.6.0"
+          ]
+        },
+        {
+          "index": 112,
+          "features": [],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#cc@1.6.0"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cmake-0.1.58/src/lib.rs",
+          "sha256": "58920d46b25c7e2d9fdc8be3a06301c77115a7c8440ab6b5793de373b9bdeffe"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#cpufeatures@0.2.17",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.2.17/src",
+      "units": [
+        {
+          "index": 124,
+          "features": [],
+          "direct_helpers": []
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.2.17/src/aarch64.rs",
+          "sha256": "e85b099f40f51f99f82ff9ffae97078ec7991da5bca4eb61e29abf15c44a8d01"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.2.17/src/lib.rs",
+          "sha256": "3d633614ff24afdba603e4f2d3e36bdb7b190fff9e7f0d2b385c1f9d5d8144d1"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.2.17/src/loongarch64.rs",
+          "sha256": "431cf8c3cdcc55cb46275da5c778033e3bd60e03d04910e7756f5ce3a89c3a32"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.2.17/src/miri.rs",
+          "sha256": "acf1a7e7ae31a1de07941084c6b589a2d4c6ea5f87012c811592c865d04c02cb"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.2.17/src/x86.rs",
+          "sha256": "b23201081392c38084f15200b071b16f5467aadba98616cce878be16b836f03f"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#cpufeatures@0.3.1",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src",
+      "units": [
+        {
+          "index": 125,
+          "features": [],
+          "direct_helpers": []
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/aarch64.rs",
+          "sha256": "19590674eda029d224e174238daf9c797982dc835de16214c1cbb578a0be5c34"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs",
+          "sha256": "386edfc4130e2ffada876ad574d15d1cc65e8b32cdfe7d8cf2a61b2e951fb3c3"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/loongarch64.rs",
+          "sha256": "215c691fd67d63739ee802807f75b682b8d6cae4a56c278e3402df48c9fcf49c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/miri.rs",
+          "sha256": "a1b59f81e160c317ba23feff65407eca10d2a59b8d790e0ac43739b606948236"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/x86.rs",
+          "sha256": "1a97811711ae4130324e2169a1933ee694e0a1a418f94c6960b5ed1fee5e3194"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#crypto-common@0.1.7",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crypto-common-0.1.7/src",
+      "units": [
+        {
+          "index": 142,
+          "features": [
+            "std"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#generic-array@0.14.7",
+            "registry+https://github.com/rust-lang/crates.io-index#typenum@1.20.1"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crypto-common-0.1.7/src/lib.rs",
+          "sha256": "5dd00d7ea362d1e4fc06141aae07a0f15166a0b8836ac8e8713f7d7f31d26a1e"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#crypto-common@0.2.2",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crypto-common-0.2.2/src",
+      "units": [
+        {
+          "index": 143,
+          "features": [],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#hybrid-array@0.4.15"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crypto-common-0.2.2/src/generate.rs",
+          "sha256": "8c9dda6746f498a72f3241d7ce15a46b5574a3b3a8025418c1f23f09e10080e2"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crypto-common-0.2.2/src/hazmat.rs",
+          "sha256": "dd01bc0c197ec1d9607d0b2317dda76736fb3af06af403c640d7881a3d5b90f7"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crypto-common-0.2.2/src/lib.rs",
+          "sha256": "f63c2f6bcb6186e0de27ce4c9f651dda9eb607edbd06bc926b2f8813a42994cf"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#digest@0.10.7",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.10.7/src",
+      "units": [
+        {
+          "index": 196,
+          "features": [
+            "alloc",
+            "block-buffer",
+            "core-api",
+            "default",
+            "mac",
+            "std",
+            "subtle"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#block-buffer@0.10.4",
+            "registry+https://github.com/rust-lang/crates.io-index#crypto-common@0.1.7",
+            "registry+https://github.com/rust-lang/crates.io-index#subtle@2.6.1"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.10.7/src/core_api/ct_variable.rs",
+          "sha256": "703bd62fb693a437e319d1192988bd674f9127a6b76f73b4c58c71afc79bc013"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.10.7/src/core_api/rt_variable.rs",
+          "sha256": "b57f89bf3991a313e2ddde09c701375e23539e7df74d685a161707ba1fbc99e4"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.10.7/src/core_api/wrapper.rs",
+          "sha256": "033777bed7d140b158e15d50fda8a6e06557ce89bd0738fcca692be2c39e8b8a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.10.7/src/core_api/xof_reader.rs",
+          "sha256": "f33ca7b2c17eb99d84ea460d5567af68690e4fa6c2d94069a5d6748f8c8620eb"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.10.7/src/core_api.rs",
+          "sha256": "b52728aba8a84f980f3f9cc8a94a64d3a97f1eb5f4db144904822c2f8eefb1f8"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.10.7/src/dev/fixed.rs",
+          "sha256": "1cbabc651645c1e781d31825791132b4e3741f426e99d7e40988e2a5ee49bddd"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.10.7/src/dev/mac.rs",
+          "sha256": "e8837d3b99dc8b6ddb398e7fad5731c2ed36931f851ed625d3ae59fb31244165"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.10.7/src/dev/rng.rs",
+          "sha256": "156f42e9eb8fb2083cd12dc4a9bff9d57a321d33367efe6cd42cdc02c17ed2dc"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.10.7/src/dev/variable.rs",
+          "sha256": "51939602b43f5a813fc725bc603a34246bbf76facaa7930cb7bf78c283ec94a7"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.10.7/src/dev/xof.rs",
+          "sha256": "b3971175e50f615247e4158cba87d77c369461eda22751d888725cec45b61985"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.10.7/src/dev.rs",
+          "sha256": "cbaeab07489efcadec917d7b7bcf2fdade79e78a4839ab3c3d8ad442f8f82833"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.10.7/src/digest.rs",
+          "sha256": "8beab74640774c9f6811daa6dac9b5a8867f5beeb0b552a9b5ddbc5cfc196ed0"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.10.7/src/lib.rs",
+          "sha256": "5128199102bf0f7638fba0bbcf42b23822e31065841fb0c4304b64f681fde961"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.10.7/src/mac.rs",
+          "sha256": "6303caa2c5b76513346c082dd600e007354179ad440fc83dad3d7f4240281803"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#digest@0.11.3",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.11.3/src",
+      "units": [
+        {
+          "index": 197,
+          "features": [
+            "alloc",
+            "block-api",
+            "default",
+            "oid"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#block-buffer@0.12.1",
+            "registry+https://github.com/rust-lang/crates.io-index#const-oid@0.10.2",
+            "registry+https://github.com/rust-lang/crates.io-index#crypto-common@0.2.2"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.11.3/src/block_api/ct_variable.rs",
+          "sha256": "74b99085e49d87417e38b6bc56f344e789092e501936767c47efd42edd071a09"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.11.3/src/block_api.rs",
+          "sha256": "f849d3022385cb675df371b9531906bdbe94d4864a75a282760ffe7048654da4"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.11.3/src/buffer_macros/fixed.rs",
+          "sha256": "53bc025e5a428d5340fd68e7b581840891fc62fea15cc08e8f6c16466b903160"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.11.3/src/buffer_macros/variable.rs",
+          "sha256": "1477d2d847c7b3a67b616de577f8b03b0c7edace458674a61c167ec0e0c01b46"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.11.3/src/buffer_macros/xof.rs",
+          "sha256": "a7fe0153d8cae035963ace522172dcfb90e3b7b00ae7f375e6ff14338430eadd"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.11.3/src/buffer_macros.rs",
+          "sha256": "f67ea0097ecd3d214c538f11f806332a7cd3f42a10ed93d4846b86f3f0f1ae84"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.11.3/src/dev/fixed.rs",
+          "sha256": "570d754208934226a7078f25f2820a372611d7cce4d44cf3e2793a3ac243c5a1"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.11.3/src/dev/mac.rs",
+          "sha256": "d25e9ae655824d2e8356c367c29e99fb1f76213f92f494053268366d7e65d0fb"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.11.3/src/dev/rng.rs",
+          "sha256": "7911d5dc4bee94b96d26a0c491ef9ce17ce11b0f0da7476c2f2afc8a5480ae16"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.11.3/src/dev/variable.rs",
+          "sha256": "acb5c1d49b20166a7864a57b7264e59eb5240ae774af6bb6863a5fc94a7fa048"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.11.3/src/dev/xof.rs",
+          "sha256": "70b76dec7f2be10fa33c274ad25f9d8f7963222743e853174b06479632b9623d"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.11.3/src/dev.rs",
+          "sha256": "cd91f2157bbe3294b6a89877150e9b1221a5920d233b67e94f2d185413dfe799"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.11.3/src/digest.rs",
+          "sha256": "7f4cc4c695353230e987a8b66bafe9b1a7eda2bb95dcefe0db16a825bc243abc"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.11.3/src/lib.rs",
+          "sha256": "c64f18b3afb199a64d5908459168af95a31f7deae5c73728970c20fe61c584e3"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.11.3/src/mac.rs",
+          "sha256": "298379aef3cb001be81176fd522dfa15e2522cd752fd402b82ddcc6b67af6c94"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.11.3/src/xof_fixed.rs",
+          "sha256": "8e341ab1148563a508829e736a34136bbf6f2be3476629e3427c8c92d23c0cb4"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#find-msvc-tools@0.1.14",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/find-msvc-tools-0.1.14/src",
+      "units": [
+        {
+          "index": 250,
+          "features": [],
+          "direct_helpers": []
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/find-msvc-tools-0.1.14/src/com.rs",
+          "sha256": "6706eb2a4d8d1920b66759776a78ab054b493a81dca99a90f96f9e53c0cd1852"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/find-msvc-tools-0.1.14/src/find_tools.rs",
+          "sha256": "62862c642802e52167a1d916538cfd165e088bda9bce851522da4405af3b2d4b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/find-msvc-tools-0.1.14/src/lib.rs",
+          "sha256": "a2751cf88dc5a60d16a263594e41cdde2e40ae8179ec7dc311ee29fc88209a3b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/find-msvc-tools-0.1.14/src/registry.rs",
+          "sha256": "2c8f7ed919377df32ab5e55c1af438c542da8d1f6a4f7c9ebf337839d3fd96f5"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/find-msvc-tools-0.1.14/src/setup_config.rs",
+          "sha256": "397bd3c353a22edc4dfa8651b97cdf20e36f70526fda78d9bbf5dced3048f6d1"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/find-msvc-tools-0.1.14/src/tool.rs",
+          "sha256": "83e805a8354278837c474c0907b8dd80c496ae4812b2f777f2b2e4266ba68032"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/find-msvc-tools-0.1.14/src/vs_instances.rs",
+          "sha256": "4eb906d0ac2970afc03aa42c630ca20e4b9a10250b75677f8f4a59bcc0fb8c9a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/find-msvc-tools-0.1.14/src/winapi.rs",
+          "sha256": "b2c1db5806205215536dc520a57934418fef6707b39e69996b3f3a9ced7dda7e"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/find-msvc-tools-0.1.14/src/windows_link.rs",
+          "sha256": "5ee6191505a947239f3b50d53989c22d21ef2df86ffffa0ed2ebb2aa7214ae2b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/find-msvc-tools-0.1.14/src/windows_sys.rs",
+          "sha256": "795f0673c3b384580755f29fc36896e6d14b7ad69bba624a53b18b5852319ba9"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/find-msvc-tools-0.1.14/src/windows_sys_bindings.rs",
+          "sha256": "e20d6365bc11da0cff814527bd9bbb485a7c7d3ed2f445bf177245c9b811bbc8"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#glob@0.3.4",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glob-0.3.4/src",
+      "units": [
+        {
+          "index": 291,
+          "features": [],
+          "direct_helpers": []
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glob-0.3.4/src/lib.rs",
+          "sha256": "b51782b436dc3f69cbac50c30a2a816d0866e8822599b7f1215381cdf62a34c1"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#hybrid-array@0.4.15",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/hybrid-array-0.4.15/src",
+      "units": [
+        {
+          "index": 326,
+          "features": [],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#typenum@1.20.1"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/hybrid-array-0.4.15/src/flatten.rs",
+          "sha256": "fbd0d43f901df159346b561b5fc271a9419492f67cb9be6b9f692eb681d101db"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/hybrid-array-0.4.15/src/from_fn.rs",
+          "sha256": "cf11be519345075a4ba89867f1baef8721d6bc2af8f05bdb558f62e72f9400dc"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/hybrid-array-0.4.15/src/iter.rs",
+          "sha256": "3a7b4cf8d1f53abedce13b6d67bcc84176c7651dfce17d2ad85a2185decafa78"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/hybrid-array-0.4.15/src/lib.rs",
+          "sha256": "ded0aca5a6782b27e3b68076c98c259591080c522cef3041aed3ae12fce4b38e"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/hybrid-array-0.4.15/src/serde.rs",
+          "sha256": "00d09bf5791206928b579c97a10365ed6a2bc16f606d3260df3c8e67ebf11a19"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/hybrid-array-0.4.15/src/sizes.rs",
+          "sha256": "6d3c3cb6cdc316971a0a2460814da9f9753ac5e5b28d09de79950a2d66befe1f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/hybrid-array-0.4.15/src/traits.rs",
+          "sha256": "d976c8e7bf0261f5cafcdcca18e6ecc69fa5c232a0d4178fa1ee8e7b83c96d30"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#itoa@1.0.18",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/itoa-1.0.18/src",
+      "units": [
+        {
+          "index": 364,
+          "features": [],
+          "direct_helpers": []
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/itoa-1.0.18/src/lib.rs",
+          "sha256": "e962338e1886873aa7c3399ec89aa5378ccbfed712b9690f043628079390a34f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/itoa-1.0.18/src/u128_ext.rs",
+          "sha256": "498cc94f13805e551248fd82f47cc318f51d953a5002a9f8698858cd12fbae3c"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#jobserver@0.1.35",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jobserver-0.1.35/src",
+      "units": [
+        {
+          "index": 367,
+          "features": [],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#libc@0.2.190"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jobserver-0.1.35/src/error.rs",
+          "sha256": "f947d858ba95a9a08d16325d163b61fdf0ce40ec95b7fb08cc47c9876de9c8dc"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jobserver-0.1.35/src/lib.rs",
+          "sha256": "9b82f32a87deae5bd5a0ed36cdab3a195f9419c6befa9f77a682f262b9158722"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jobserver-0.1.35/src/unix.rs",
+          "sha256": "353cc1b9653bc30e889522dcf31c9f0d1ae120ce4c1248dfc647ea8435171cad"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jobserver-0.1.35/src/wasm.rs",
+          "sha256": "74db7bd1441b7b4d1b53cd83e23097a2b976faf4d18d3f42f583048d27611d4d"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jobserver-0.1.35/src/windows.rs",
+          "sha256": "d939574ff187be4fa6bfba4cb9f2cb95541dc8752d0e2915c8b9de90bd833755"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#memchr@2.8.3",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src",
+      "units": [
+        {
+          "index": 421,
+          "features": [
+            "alloc",
+            "default",
+            "std"
+          ],
+          "direct_helpers": []
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/aarch64/memchr.rs",
+          "sha256": "5bb70f915084e629d940dbc322f5b9096b2e658cf63fea8a2f6e7550412e73a0"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/aarch64/mod.rs",
+          "sha256": "44cd1a614bd66f1e66fc86c541d3c3b8d3a14a644c13e8bf816df3f555eac2d4"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/aarch64/neon/memchr.rs",
+          "sha256": "e8c00b8fb2c7e2711832ae3cedefe59f32ebedd7dfa4d0ec6de2a566c979daea"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/aarch64/neon/mod.rs",
+          "sha256": "eab6d56c2b2354db4ee395f40282cd49f97e2ab853547be5de6e65fbe1b2f634"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/aarch64/neon/packedpair.rs",
+          "sha256": "32d3e4cd0dd9b6c8382e5308cbd896d20242c90b12862c44a5de6a8b4d6126df"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/all/memchr.rs",
+          "sha256": "b0b1214aa573ed5d02ae62a77c42c773065566b50274d4096e37817d65ab1594"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/all/mod.rs",
+          "sha256": "05f3fc2b069682eb1545fc6366d167bb620a454365dac8b8dd6cde6cd64de18a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/all/packedpair/default_rank.rs",
+          "sha256": "abffd1b5b8b7a3be95c03dd1105b905c246a379854dc56f1e846ea7c4408f2c7"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/all/packedpair/mod.rs",
+          "sha256": "292b66042c5b5c78bba33db6526aeae6904db803d601fcdd29032b87b3eb3754"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/all/rabinkarp.rs",
+          "sha256": "06038cce1cbead7b088e541ba41bcc1c095c34bde483b7df6ad9f77a49c1063c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/all/shiftor.rs",
+          "sha256": "0d79117f52a1e4795843603a3bb0b45397df4ad5e4184bbc923658dab9dc3b5f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/all/twoway.rs",
+          "sha256": "0b27eb1cd7402c1375a50466f8f66a68cb2806c3f69a647340b2759793eed4f8"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/generic/memchr.rs",
+          "sha256": "ee2a77afcbf506655e352eb3cd42451a70cc2c39e3da487b2985638bc09ced3e"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/generic/mod.rs",
+          "sha256": "1dd75f61e0ea2563b8205a08aaa7b55500130aa331d18b9e9f995724b66c7a39"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/generic/packedpair.rs",
+          "sha256": "892d6ee28f0f5007c973d11d697e43e6f6888341b15ea95ce4571e9584069dc5"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/mod.rs",
+          "sha256": "ca3960b7e2ed28d1b3c121710a870430531aad792f64d4dcb4ca4709d6cbda30"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/wasm32/memchr.rs",
+          "sha256": "d88ac79f891d8530f505f5035062d3da274a05d66c611480c75430d52709d052"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/wasm32/mod.rs",
+          "sha256": "a20377aa8fe07d68594879101dc73061e4f51d9c8d812b593b1f376e3c8add79"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/wasm32/simd128/memchr.rs",
+          "sha256": "bac2c4c43fe710c83a6f2b1118fede043be89dd821d4b532907f129f09fdb5cf"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/wasm32/simd128/mod.rs",
+          "sha256": "c157b373faedbfd65323be432e25bc411d97aa1b7bc58e76048614c7b2bf3bf6"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/wasm32/simd128/packedpair.rs",
+          "sha256": "288ba6e5eee6a7a8e5e45c64cff1aa5d72d996c2a6bc228be372c75789f08e45"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/x86_64/avx2/memchr.rs",
+          "sha256": "576ec0c30f49874f7fd9f6caeb490d56132c0fbbaa4d877b1aa532cafce19323"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/x86_64/avx2/mod.rs",
+          "sha256": "0033d1b712d0b10f0f273ef9aa8caa53e05e49f4c56a64f39af0b9df97eec584"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/x86_64/avx2/packedpair.rs",
+          "sha256": "87b69cb4301815906127db4f6370f572c7c5d5dad35c0946c00ad888dbcaec8c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/x86_64/memchr.rs",
+          "sha256": "4cf0611c926c3016d1b640880ef14e5654a8d1c1b480fe9a5965956be7eeeeef"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/x86_64/mod.rs",
+          "sha256": "61b2aa876942fd3e78714c2ae21e356c8634545c06995020f443fa50218df027"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/x86_64/sse2/memchr.rs",
+          "sha256": "0de0444e26d885eaf866220578752aac871e03bebee7b4f5de7fe8a35f5fa97f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/x86_64/sse2/mod.rs",
+          "sha256": "38b70ae52a64ec974dbb91d04d6ca8013d9e06d1fe4af852206bbc2faf1c59aa"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/arch/x86_64/sse2/packedpair.rs",
+          "sha256": "ad893c5ab9525966693e742673fb666f54ff9102949fc91c5e61642c8ad2f110"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/cow.rs",
+          "sha256": "2b053e393d3841f780425b3b0da5bec4f187603fa7c271b045ecb7d885b23395"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/ext.rs",
+          "sha256": "210f89d1e32211bc64414cbd56e97b4f56ce8a8832d321d77a9fe519634e27ea"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/lib.rs",
+          "sha256": "614f778a41e88a29ea0ceb8e92c839dbb6b5a61c967f8bfd962975e18f932c71"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/macros.rs",
+          "sha256": "3e4b39252bfa471fad384160a43f113ebfec7bec46a85d16f006622881dd2081"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/memchr.rs",
+          "sha256": "6ae779ec5d00f443075316e0105edf30b489a38e2e96325bec14ccecd014145b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/memmem/mod.rs",
+          "sha256": "d869159f0d0c1915d7acc42a6a4aa3c97c049ddc043e6566afeb78ad290995d1"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/memmem/searcher.rs",
+          "sha256": "84f6a23bef907696cb672e6898c15fb87008058abc100dde58519d8ec5ebca5d"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/tests/memchr/mod.rs",
+          "sha256": "269f8e4b4f7f5ea458f27a3c174eb1020ffb2484eeba9464170beb51747df69b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/tests/memchr/naive.rs",
+          "sha256": "6a0bee033e5edfb5b1d5769a5fa1c78388f7e9ff7bb91cb67f0ad029289e00e7"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/tests/memchr/prop.rs",
+          "sha256": "1854eea2338c405fe4635aac430f51e10d2069cd37a7489ddaff47da95f8720b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/tests/mod.rs",
+          "sha256": "7cec8f809e279310a465c6a7725087970f219a676cc76c83de30c695bb490740"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/tests/packedpair.rs",
+          "sha256": "b02ec4fbb61a8653cb5f2268c31bc9168b8043347f2abdcc74081acf83b98e15"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/tests/substring/mod.rs",
+          "sha256": "c7660d10749363ac4687e7da2b5fda60768230425df8ba416c0c28b8d56a5c74"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/tests/substring/naive.rs",
+          "sha256": "df6f55d165382b8a53762ba4c324926cac13ebc62cde1805f4ce08740b326483"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/tests/substring/prop.rs",
+          "sha256": "38c15992609b5681a95d838ae6f2933e00a1219f2c971bfba245f96e0729fcdc"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/vector.rs",
+          "sha256": "9b104d0bda9b8e18b10c41633513637af84346282bf113f3be3813725605fe31"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#serde_core@1.0.229",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src",
+      "units": [
+        {
+          "index": 692,
+          "features": [
+            "alloc",
+            "default",
+            "rc",
+            "result",
+            "std"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#serde_core@1.0.229"
+          ]
+        },
+        {
+          "index": 693,
+          "features": [
+            "alloc",
+            "rc",
+            "result",
+            "std"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#serde_core@1.0.229"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/crate_root.rs",
+          "sha256": "157ca402e23c32f11a4f1797c81afb5e9f08df96768012cf3e3199153aafb2dd"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/de/ignored_any.rs",
+          "sha256": "6480f2b2a83dc4764d01b2eec7309729eef2492eede2e5ee98d23a60b05198eb"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/de/impls.rs",
+          "sha256": "2f8e2ef9d343875bb996319e69feae0dee2287e2548cedd8d3c752b64812331c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/de/mod.rs",
+          "sha256": "5ec8602d593915e0cf480b0ce67b02f6ab066dac34725237d2c7b4a6ef12a845"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/de/value.rs",
+          "sha256": "fb6fef6d23d95d516c6e1d6b5cefd8b98ba3881214a82a8a7e0a8ffbb0a12083"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/format.rs",
+          "sha256": "c85071b016df643b161859682d21ce34fa0ebf2a3bdbeeea69859da48f5d934f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/lib.rs",
+          "sha256": "4e5c396d38ff5d9abf45b826a67ec3444654ed0802d057f46400ebe26f5879f8"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/macros.rs",
+          "sha256": "a61c9d19b210697304328e6bb9380a1de713e21042256df90a2b4553f178b0be"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/private/content.rs",
+          "sha256": "5fdfb2bb95ecc80375507acb813a4c640496385e56fc99ab448f6b19e01fcc01"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/private/doc.rs",
+          "sha256": "abe656c015267555ca26ebbcf2f4dcc52c719a0b9ade3a5ed4635b2784699b8c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/private/mod.rs",
+          "sha256": "3bb3427ec80077b9df1853aa17681de796de0179d74871a96b88b72469de6cfc"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/private/seed.rs",
+          "sha256": "3f6e098c5bd314788370dcaf3ab0152fcd7feb6bcf36a9c51808938cd58071eb"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/private/size_hint.rs",
+          "sha256": "350694a2abaad94ca5d33958710a5bb8973a2ea1a3dcc50a41405c943761b81f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/private/string.rs",
+          "sha256": "c1500fd4b64c24a5e45fa5f48c85c802816d6954a2999a72fc5a8861687212d4"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/ser/fmt.rs",
+          "sha256": "bd129d9f085933b76dafef6eb43ffac893c1f6484a3064dcd82faeeebc3b203c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/ser/impls.rs",
+          "sha256": "5ee7efc439345e8665da0bd79bc06c02a0506e5fd0f3a4cf11af0c7197eaa643"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/ser/impossible.rs",
+          "sha256": "283f628d5107aa030d2e96eeb1dee187f0ac18c24d517edeb51738ab15dfb871"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/ser/mod.rs",
+          "sha256": "ec097d92c8545356961e977a4c9650361cadd1d3a243d805ae7b0e0e589ae803"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/std_error.rs",
+          "sha256": "b36fd6a2b6898770b9f1c51517eb362af115767d0f7cb4a713e1b949530ffa8a"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#serde_json@1.0.151",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src",
+      "units": [
+        {
+          "index": 700,
+          "features": [
+            "alloc",
+            "default",
+            "float_roundtrip",
+            "indexmap",
+            "preserve_order",
+            "std",
+            "unbounded_depth"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#indexmap@2.14.2",
+            "registry+https://github.com/rust-lang/crates.io-index#itoa@1.0.18",
+            "registry+https://github.com/rust-lang/crates.io-index#memchr@2.8.3",
+            "registry+https://github.com/rust-lang/crates.io-index#serde_core@1.0.229",
+            "registry+https://github.com/rust-lang/crates.io-index#serde_json@1.0.151",
+            "registry+https://github.com/rust-lang/crates.io-index#zmij@1.0.23"
+          ]
+        },
+        {
+          "index": 701,
+          "features": [
+            "alloc",
+            "default",
+            "std"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#itoa@1.0.18",
+            "registry+https://github.com/rust-lang/crates.io-index#memchr@2.8.3",
+            "registry+https://github.com/rust-lang/crates.io-index#serde_core@1.0.229",
+            "registry+https://github.com/rust-lang/crates.io-index#serde_json@1.0.151",
+            "registry+https://github.com/rust-lang/crates.io-index#zmij@1.0.23"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/de.rs",
+          "sha256": "4998d7e252eb513be85b298e287048b4fb283882e9ba7df905f572f07200f3f3"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/error.rs",
+          "sha256": "a13add05a63adf53d89e37effa03221d897a60486cfe360a5a958c0dd2a7e90d"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/io/core.rs",
+          "sha256": "60ba28f67a9acaecf8964b611efba416b13f9f2bae4befc329fdf0e037293802"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/io/mod.rs",
+          "sha256": "fd1ed5080495cab21117f6f7d3c2c9e3687cad0c69a0cd087b08a145a9e672da"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/iter.rs",
+          "sha256": "f832c469cd7999d26ba9b76baa69b257a212a7edb3dfdf9b1d1bb35e8da85fa9"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/algorithm.rs",
+          "sha256": "54d599033e5a182a3076a0ba23a3550bf8680c99399b0313166b3c42c85b35b9"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/bhcomp.rs",
+          "sha256": "26f39d52008225a6b377d7246d326940d44200e160a7b4652733e712e1a45a04"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/bignum.rs",
+          "sha256": "db688e8112389998d0f91906f6857e28f9b510a8b4065ad476c8e8be2f77becf"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/cached.rs",
+          "sha256": "0e127398691f8042c19cde209e7f4b0161f0f3150342430145929f711e6fdac8"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/cached_float80.rs",
+          "sha256": "0f8f74a22cb7d871322a9893bffd0255ca10bf9dffd13afb2462dd3d7f51805f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/digit.rs",
+          "sha256": "9502805adbc3da059131d1fac0a802e17065b36cd7472606b3af24e3241d5cb8"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/errors.rs",
+          "sha256": "3d9f6de6245533bcb101dfd718cfed61d59dc293f6768cedae28aa13ace164f5"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/exponent.rs",
+          "sha256": "51f19443008e8884b15c7d5d4b1f1cfbd5673a9d1da02f1af39fcf20e315f01f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/float.rs",
+          "sha256": "fe356213c92a049f4bef2f58bc0e3a26866ca06b8c1d74d0f961c5b883852cad"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/large_powers.rs",
+          "sha256": "18d697b846b44ecb61bfaaa3b881e0696f9b7bb6be582623e9d3a8a176a48d2f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/large_powers32.rs",
+          "sha256": "c70b57a727960beec258758a4d4a1050f8eaf3b4e60027c663a2bfb0246e0153"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/large_powers64.rs",
+          "sha256": "e7af83ce3159b5fc4669fc5a231e767d8af21bacaece52a0a48951198965b197"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/math.rs",
+          "sha256": "c5452d3ef9cc9ebd74a99f22dcabf74f4f062bbaeade46301260b79e4662d5df"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/mod.rs",
+          "sha256": "ace2ccea2cd541f019a84b9eeb3b9ecd88daf6bccbe9edf0eac00b62704f47c4"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/num.rs",
+          "sha256": "2d06111d28616221995f7b4d4f13625b8d902884921268b0e02e544f871a5339"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/parse.rs",
+          "sha256": "c2bfac4c70a19938ced61e991f4ec606764887cf12bac1a0978b5b5318a56aac"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/rounding.rs",
+          "sha256": "4762af3612880b17468ff2a1bb800c8e99f08330ae439699dd53d8dc5463ad13"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/shift.rs",
+          "sha256": "bc1ed053dd63d45ac9c35302f18de9f00d94027f28af4ab749c9248439de832a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lexical/small_powers.rs",
+          "sha256": "73c56b7b83310c6fefa898fb94771c65bdc251c1579ab105151da43935ea02be"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lib.rs",
+          "sha256": "34a1ddabdcf4759d9a6c64a2e851372546d635d1a578ad902d962fef3c45de58"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/macros.rs",
+          "sha256": "94dda91c847e819a95e64d655eb066dfa44ed69712064016c3fe862c34ef92e6"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/map.rs",
+          "sha256": "b5a2fd1ee865e6cfd83ef2da0a2e1057f892465ac7ede8a78a11354a60526f33"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/number.rs",
+          "sha256": "70b83c36286f6c58123f544f27db2b54a1135f928fe33b08b521b2997773f862"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/raw.rs",
+          "sha256": "0e6ae2ade492a3c5c090dfaf31f03ff4e54123a5a47b59def5f1b3dcc035a2e3"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/read.rs",
+          "sha256": "17a2efe49e5a6937c8d7d4a5c0b9eac84453de0f86bf8e7ee421387e82341bb3"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/ser.rs",
+          "sha256": "f2b8cc0b97e30c49dbc58698fa22c14a7d56ea616cdb57b067835a59af49a75f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/value/de.rs",
+          "sha256": "ceda1bf415aafde89caa83bf275811b70d393717d4e1038e0c61822d2da02993"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/value/from.rs",
+          "sha256": "ae4b5f93b27e578fa40e3a8d25d0df2032fe40b680cddb15963e47cbd56db613"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/value/index.rs",
+          "sha256": "f1404ed12e795a5553da4bdf72835c441a5e0cc0f6e794fee875eaa887d65319"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/value/mod.rs",
+          "sha256": "6331d59ea362a74b6cd3d302d08114a63a73a384ff56fef737de29edea2f8d91"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/value/partial_eq.rs",
+          "sha256": "c565f7886d3bdf5dd39b8c99acca17091c251f15b3c257addf5d02f414fd0571"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/value/ser.rs",
+          "sha256": "11f2b7daa1eba826d4086d5497f73729478dd7647bff77deccde5e47b0f126f2"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#serde_spanned@1.1.1",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_spanned-1.1.1/src",
+      "units": [
+        {
+          "index": 706,
+          "features": [
+            "alloc",
+            "serde"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#serde_core@1.0.229"
+          ]
+        },
+        {
+          "index": 707,
+          "features": [
+            "alloc",
+            "serde"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#serde_core@1.0.229"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_spanned-1.1.1/src/de.rs",
+          "sha256": "35820ad44a703f87385d65c1df8901266b711ff7e41e2a4b2381115a5f4721e3"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_spanned-1.1.1/src/lib.rs",
+          "sha256": "9177c41606d5a98e104b7dcceabb8b341d92a40089d75ffab271fe400aefbeac"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_spanned-1.1.1/src/spanned.rs",
+          "sha256": "63ef6c841a03fd302b260b0af621db0b9677f5fb761fbeb1ac6a3877997b673a"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#sha2@0.10.9",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.10.9/src",
+      "units": [
+        {
+          "index": 708,
+          "features": [
+            "default",
+            "std"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#cfg-if@1.0.5",
+            "registry+https://github.com/rust-lang/crates.io-index#cpufeatures@0.2.17",
+            "registry+https://github.com/rust-lang/crates.io-index#digest@0.10.7"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.10.9/src/consts.rs",
+          "sha256": "2f820349fa7cbf9fecc1d4aabbd1a721bb1badc3f32ef9e903826960b6f42523"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.10.9/src/core_api.rs",
+          "sha256": "73b160d98bfa6737688875ad73da5e3c2c93582604dc313d208200e12fdab676"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.10.9/src/lib.rs",
+          "sha256": "b519427535b1855bbe8c3d0517b2f3d04a607cf0cb4327cc716cd5d90da5dbf1"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.10.9/src/sha256/aarch64.rs",
+          "sha256": "18121a25867a575fec8ef64da763693ece4e3e3e84da095254b8471234c6f1f8"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.10.9/src/sha256/loongarch64_asm.rs",
+          "sha256": "79e2d5e3c039581e2319f8789de9ed13a8dd819ebffd13532dbd83448c7ad662"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.10.9/src/sha256/soft.rs",
+          "sha256": "98e765a8e8dfa0af31f2b76570f212e6b3099522bf300e1554cbbd9fd5d02960"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.10.9/src/sha256/soft_compact.rs",
+          "sha256": "6273c3f5603de24143f29d0aa08f441b3919acbc251daea5f323a08570a8470f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.10.9/src/sha256/x86.rs",
+          "sha256": "70f1597f2029522b35bfd026df0a8908f086523ab2a80ba3ef35e6231b56353c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.10.9/src/sha256.rs",
+          "sha256": "6ced9112d4ceb4eff20b56d93a063f72ecef4c6ec3b215f08696a853b09083c3"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.10.9/src/sha512/aarch64.rs",
+          "sha256": "2ed929329a0fa66180e4726d028713a49f99cc223e635078fc1f3252a44981e0"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.10.9/src/sha512/loongarch64_asm.rs",
+          "sha256": "58a7b54d95a0e037ba80570d96ffe0dd7c0014c7fcb45b90725e522cc4992d8a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.10.9/src/sha512/soft.rs",
+          "sha256": "0183ad89418b886859d2afa9bf061bc92759ae337c1d26147b4300042e63ef42"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.10.9/src/sha512/soft_compact.rs",
+          "sha256": "437ad870b8cd5c5590d6fe85afc63428f1994dffdc9a4592cde46c9ee857ba9f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.10.9/src/sha512/x86.rs",
+          "sha256": "c7dd8bdf3212e1e8c4cc9cc6b380dc0468f79dcfd0f61a445d0d38cead45a03a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.10.9/src/sha512.rs",
+          "sha256": "e088bde0980702a591f8d60dd1d41dc13f0a810e29e1e5a5d6344228b2de965d"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#sha2@0.11.0",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src",
+      "units": [
+        {
+          "index": 709,
+          "features": [
+            "alloc",
+            "default",
+            "oid"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#cfg-if@1.0.5",
+            "registry+https://github.com/rust-lang/crates.io-index#cpufeatures@0.3.1",
+            "registry+https://github.com/rust-lang/crates.io-index#digest@0.11.3"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/block_api.rs",
+          "sha256": "7d858102344cc8be2d22b207296c44087b91b2e7309c5598497c48c1182c89cc"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/consts.rs",
+          "sha256": "f7093130534180198be37aa7f4b3274e73f85ec09cad648df19d782841c1ee46"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/lib.rs",
+          "sha256": "5529df80c102cb5d7240e47a5239565c8347a4dd79ee5a085e5f2d749657d49c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha256/aarch64_sha2.rs",
+          "sha256": "d9245fa28ba2a5cac5c2ba3015f422b7eca8e604aa21c9bece93766127c22451"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha256/loongarch64_asm.rs",
+          "sha256": "eda57073e3dbcadca88e908dd261a2782b2bb89c06f1b97468a6ffd1cad407ff"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha256/riscv_zknh/compact.rs",
+          "sha256": "037d254980e6f30997e589536105c4672a66394b6c15b63bb3a3dd0320c9cec1"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha256/riscv_zknh/unroll.rs",
+          "sha256": "cdea73a1cfff029b1922370d1b8e3b3894ea6856e8f2f1b84d3c7d18e52fa036"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha256/riscv_zknh/utils.rs",
+          "sha256": "9970c93e9e9c180f836a0fc18d14b51c411e181b77b1002b5ec486da4492d630"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha256/riscv_zknh.rs",
+          "sha256": "5e34b50064e37c01c972c1d31324b2d92c0db9bad1f5d1f9c9097f752d15207a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha256/soft/compact.rs",
+          "sha256": "0f729259d0318e4c1c8055c0103da16bd360c98c11ca614b5bbe860fcda3ccff"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha256/soft/unroll.rs",
+          "sha256": "69af1d7a57c05b3a69fda30fb0039bc7c8b53e5d9a679bf9973eb6eda245b81a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha256/soft.rs",
+          "sha256": "60449b6df17909cd34d533ec4d82851841cb8b26e01c0907827b33343917a31c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha256/wasm32_simd128.rs",
+          "sha256": "006a8667660283d340d44c91b7e2cc1bee866ef0fe13b58f5b65535542942acd"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha256/x86_sha.rs",
+          "sha256": "19d8c7c15ffa081332e5b438e98809ce52f14706553ec8965d6c54c5fbf7cccf"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha256.rs",
+          "sha256": "cb03fddc1325b60935409f097f2fab3ae51cfab15bed1254f4e93d13b28b7eff"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha512/aarch64_sha3.rs",
+          "sha256": "7ccb33877955e8bb200adfe1b32a036d63e23b0bfcec377bd62841f8f2ce494e"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha512/loongarch64_asm.rs",
+          "sha256": "e66005dc654c69248834e05377eb3580d6a689960edcbd276ca08af7d3721354"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha512/riscv_zknh/compact.rs",
+          "sha256": "3217c41aee0233d1841d6acd80b1130b6f6de9681c737cce6031607f9233f916"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha512/riscv_zknh/unroll.rs",
+          "sha256": "5c7246f8f6301ea6aa596d4003782b6a6a91fe118302b32fdfb1f16e1ab708ab"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha512/riscv_zknh/utils.rs",
+          "sha256": "7e34eb03b68a38e2de461086b3c6220a2a0bcece7b9b037aa697dd23dc91ead3"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha512/riscv_zknh.rs",
+          "sha256": "d48940806d6c6b4e5ec6bce09a0e0185e7a681aacf507d89fd44f9b2afdb8cf9"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha512/soft/compact.rs",
+          "sha256": "6cd2209231ae99f5f166d3410ef1c7dae60aa2459385e8ad5f1bc4f607499c2c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha512/soft/unroll.rs",
+          "sha256": "4a68218d52b722bb4e11c6d70db9e5256c930bd41b23905a0d69cd893f1e3c6d"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha512/soft.rs",
+          "sha256": "749b892d9cf9d5757adf1f6ec77840a899f47d1a62687d385230288858d86d8b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha512/wasm32_simd128.rs",
+          "sha256": "f90ec0fa19ce76c2de5461d748e2ed73565b563ce00b3b17e8eabbd6df012f92"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha512/x86_avx2.rs",
+          "sha256": "b67aa758f16086b47bdac0b79614773dbaa66946842c9883f794e6a13e51af67"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.0/src/sha512.rs",
+          "sha256": "942a7d6180507d68a3feb9d953410a884314b8022d989a854838c5426a8ea1a0"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#shlex@1.3.0",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/shlex-1.3.0/src",
+      "units": [
+        {
+          "index": 711,
+          "features": [
+            "default",
+            "std"
+          ],
+          "direct_helpers": []
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/shlex-1.3.0/src/bytes.rs",
+          "sha256": "eadfffcdb7846d341ba451d6118d275b9d0f14a9554984ccfcdbe9a8d77ec5ee"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/shlex-1.3.0/src/lib.rs",
+          "sha256": "44c8fb929e1443f2446d26025a9bcfca0b329811bbc309b4a6afb8ec17d7de8d"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#shlex@2.0.1",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/shlex-2.0.1/src",
+      "units": [
+        {
+          "index": 712,
+          "features": [
+            "default",
+            "std"
+          ],
+          "direct_helpers": []
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/shlex-2.0.1/src/bytes.rs",
+          "sha256": "14ac6d79be6cd93543de6cbba8a4c07181aacf7d02d01a1e5f51b63a89bf11c0"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/shlex-2.0.1/src/lib.rs",
+          "sha256": "d707a605a9dbe52b48c53f5d0209ab457d1db535f10acad060883b6c3d8d7a91"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#toml@1.1.6+spec-1.1.0",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src",
+      "units": [
+        {
+          "index": 795,
+          "features": [
+            "display",
+            "parse",
+            "serde"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#serde_core@1.0.229",
+            "registry+https://github.com/rust-lang/crates.io-index#serde_spanned@1.1.1",
+            "registry+https://github.com/rust-lang/crates.io-index#toml_datetime@1.1.1+spec-1.1.0",
+            "registry+https://github.com/rust-lang/crates.io-index#toml_parser@1.1.3+spec-1.1.0",
+            "registry+https://github.com/rust-lang/crates.io-index#toml_writer@1.1.2+spec-1.1.0",
+            "registry+https://github.com/rust-lang/crates.io-index#winnow@1.0.4"
+          ]
+        },
+        {
+          "index": 796,
+          "features": [
+            "display",
+            "parse",
+            "serde"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#serde_core@1.0.229",
+            "registry+https://github.com/rust-lang/crates.io-index#serde_spanned@1.1.1",
+            "registry+https://github.com/rust-lang/crates.io-index#toml_datetime@1.1.1+spec-1.1.0",
+            "registry+https://github.com/rust-lang/crates.io-index#toml_parser@1.1.3+spec-1.1.0",
+            "registry+https://github.com/rust-lang/crates.io-index#toml_writer@1.1.2+spec-1.1.0",
+            "registry+https://github.com/rust-lang/crates.io-index#winnow@1.0.4"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/de/deserializer/array.rs",
+          "sha256": "8fd74ca8f9e27d385133d3c81d2e1bd897bda5bb2a7e064da989c7f731c0cc3b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/de/deserializer/key.rs",
+          "sha256": "618afac2224c508d3e9191cedb51b08de3a9b1b6dd646875f1b4451600b7a6ef"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/de/deserializer/mod.rs",
+          "sha256": "3b7ed8507133547891bc48de790da976383f5e8355ba92292692f5758618f839"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/de/deserializer/table.rs",
+          "sha256": "4a410c6c5ef0df6efd886a8c1806c1284b016e011c12111459116ff64272e955"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/de/deserializer/table_enum.rs",
+          "sha256": "cd969f58f3767b624879a5aed34567b52e14d0017de960a7e270d237113a79a8"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/de/deserializer/value.rs",
+          "sha256": "2a377568ecb0965aa7ea4e924aa6eec0ceaee4bbcacec9075f9048a0648c9a2c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/de/error.rs",
+          "sha256": "761c2bed2a79be4d21256ea11839f7a998bde23a4a15ec7a8994db27b3bcebf7"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/de/mod.rs",
+          "sha256": "7f1c75ffc08f6938873fe4a3b79e6586bef6feba3b3af4f47e13a8ca5fa597ba"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/de/parser/array.rs",
+          "sha256": "3703713d23fde2f4a0d917e70c20d5aad23129c4783755c4506e2876a9654cff"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/de/parser/dearray.rs",
+          "sha256": "e4e67bb5366da643a49d1a31214fe4f9b746b5016bec439f114062dd6e3e83c8"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/de/parser/debug.rs",
+          "sha256": "d74042b87745c6e02e647b68514ab620580faeee7b00d880fff7d62fbf7b8cee"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/de/parser/detable.rs",
+          "sha256": "d6e5498a19046695d8f8447b111a632d41ab7060808753a5b1950a36e0159faa"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/de/parser/devalue.rs",
+          "sha256": "8b0a27513b58a84710bc1c919f70c2015246ab52513a1ef07763efc25c4fe439"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/de/parser/document.rs",
+          "sha256": "7153549e3c578fed66587ffc38164912f2d8db6f149e73f8307cdd35e115417a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/de/parser/inline_table.rs",
+          "sha256": "cc4e1b96824f9b51dc5a780dd7044b664e0c42f21f6fe3366aff3d6ce499164d"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/de/parser/key.rs",
+          "sha256": "e591ddab749739f5ae15eecdd55c1fe5bf1bd0f54f2f5aef85b0703cea1344d8"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/de/parser/mod.rs",
+          "sha256": "fa8b59a71e94ca16da04a6c07af425f64944d4f47d32aa9882e3b67ae19a7d5a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/de/parser/value.rs",
+          "sha256": "5f186d2e7871b0d8140f6356eb8ef053bdc6f3f1c29a80a875fbede00172a53a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/lib.rs",
+          "sha256": "74e4adbe1c1ac307ba00416b2faf7d04efe8e036c583fe815fa82f55cbd94ae2"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/macros.rs",
+          "sha256": "91a1469399c446852155011f8411f50009ed23d8eb4a849419c4d048c1deb1db"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/map.rs",
+          "sha256": "e900f48839a0ec7e0a69620c8f8fb1d312e3f4d7f27376648964e05cb03393d0"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/ser/document/array.rs",
+          "sha256": "5f79a41b0d7ae3380bb8e4bc732737d7452d55a4388dc9b44d24623fd9f32408"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/ser/document/array_of_tables.rs",
+          "sha256": "45febb87040934d604f12c108e58493759dd479dbae07d7dd511ad877b864321"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/ser/document/buffer.rs",
+          "sha256": "e3b549ce91844732453de0b5221a89f3d301ad67cc384c8e8f058b9420bf0b24"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/ser/document/map.rs",
+          "sha256": "af23ed8dd0db764b27fd8000357a93ad2e295df824174fbb56817996e782710a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/ser/document/mod.rs",
+          "sha256": "25ba926d756349227f1fbdd5da9924fb9e80bb119c0c925f403fd02ec7ee2bd4"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/ser/document/strategy.rs",
+          "sha256": "ea79cfd5e4c44eec693a50f715185a64d4155f7d8946a065dc7c1fb1fd214166"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/ser/error.rs",
+          "sha256": "6cce3901b0098f6980d04b5a83ab86d52ff1a874cc46e39bb1817202dc2f6b2c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/ser/mod.rs",
+          "sha256": "4459c88adb00cc4928f8358eb764bace25acf44b20f628d6f8f596255be60c51"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/ser/style.rs",
+          "sha256": "828ab1f4c43f34ca2c8fb3ba5bbbe1987536bec3788b9a07f82f78e436f84c13"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/ser/value/array.rs",
+          "sha256": "343a0d4bc2f02701189c37567aa690307157612c8c204eebfe3974031af5e08c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/ser/value/key.rs",
+          "sha256": "6f730c3123424c90cb1cf5e5f109ae5dfd570e173f52401c291f972a29b6e40a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/ser/value/map.rs",
+          "sha256": "5012198fd0b0a817b71a19b43ffdec542ae91e773a7fc0a10684d68bf7af9f60"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/ser/value/mod.rs",
+          "sha256": "f43c9c1b01860642e48e0bd9c75a610f822f012077b6cf162ca805337e87c2cf"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/table.rs",
+          "sha256": "ebc283ea63f2a1beda78372095864ef873e2cf34dedb18885b4e86a565ed1de3"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.6+spec-1.1.0/src/value.rs",
+          "sha256": "d303e9b106211a3f8024f9611826d0e19f49c82324fda5cbc5e2d774ad938601"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#toml_datetime@1.1.1+spec-1.1.0",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_datetime-1.1.1+spec-1.1.0/src",
+      "units": [
+        {
+          "index": 797,
+          "features": [
+            "alloc",
+            "default",
+            "serde",
+            "std"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#serde_core@1.0.229"
+          ]
+        },
+        {
+          "index": 798,
+          "features": [
+            "alloc",
+            "serde"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#serde_core@1.0.229"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_datetime-1.1.1+spec-1.1.0/src/datetime.rs",
+          "sha256": "398619e45d1430468fa37ca325a7cc2a05c50497115be5bbd4d1b097d351b5e5"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_datetime-1.1.1+spec-1.1.0/src/de.rs",
+          "sha256": "d31493e04b64a38ac009a6a3aec2fd26c5d8670e5e423ad44212741c9eddce27"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_datetime-1.1.1+spec-1.1.0/src/lib.rs",
+          "sha256": "bd75aa36e53f5a870d0605c0850d16e6a6ebda0bee1006a484c4e7fdd949eee3"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_datetime-1.1.1+spec-1.1.0/src/ser.rs",
+          "sha256": "70e7fd4ad2fdb977e79469cdb96e2b2c02588612c787003018ccf410d4630b58"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#toml_parser@1.1.3+spec-1.1.0",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_parser-1.1.3+spec-1.1.0/src",
+      "units": [
+        {
+          "index": 800,
+          "features": [
+            "alloc"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#winnow@1.0.4"
+          ]
+        },
+        {
+          "index": 801,
+          "features": [
+            "alloc",
+            "default",
+            "std"
+          ],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#winnow@1.0.4"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_parser-1.1.3+spec-1.1.0/src/debug.rs",
+          "sha256": "89559acf50045e301ebc738fd4f23a6662a5f48d2033d564d795015a8c8d628c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_parser-1.1.3+spec-1.1.0/src/decoder/mod.rs",
+          "sha256": "b8407b1fa8157495c9501d875befaa07d2a01179e6d9db2fda9eb242a34a4059"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_parser-1.1.3+spec-1.1.0/src/decoder/scalar.rs",
+          "sha256": "95ee5f7b3d809efac3b3720a5a08fc8e12c36dd58140b02aceabf7bf4e5d0e0f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_parser-1.1.3+spec-1.1.0/src/decoder/string.rs",
+          "sha256": "d74cc99092ec8866f763ad658d25e79fe44411f49681fe553ce319eccdefcd27"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_parser-1.1.3+spec-1.1.0/src/decoder/ws.rs",
+          "sha256": "d48009946c8371f222daef48f4722d8af75c0f46bd706630389a1cacd277a123"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_parser-1.1.3+spec-1.1.0/src/error.rs",
+          "sha256": "458abec1fc2bc5b8c5edfcfe488783646dbcda1f6a9451c7db4bcb9521c5a113"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_parser-1.1.3+spec-1.1.0/src/lexer/mod.rs",
+          "sha256": "a932742f37bf01a217d60c4cf404a47f09b4626ff006707ed0c44182e03cb445"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_parser-1.1.3+spec-1.1.0/src/lexer/test.rs",
+          "sha256": "dd39a1b6e1aef4b73c40e8ade87d9fee0b065c19aca036960c51837e8b31be10"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_parser-1.1.3+spec-1.1.0/src/lexer/token.rs",
+          "sha256": "30f7a7dd608d874f0bf9649cb5f89f10366ab96abda75dc82155949f0d694a51"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_parser-1.1.3+spec-1.1.0/src/lib.rs",
+          "sha256": "d26e6723317857205b3c84bfc9c3e79c4f7c7ba0bd69d48b237263a4bebb9674"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_parser-1.1.3+spec-1.1.0/src/macros.rs",
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_parser-1.1.3+spec-1.1.0/src/parser/document.rs",
+          "sha256": "a9c00e6755ea4c24e45d44b95e30713e9bd909d8a64c2418d70c7cd500477a80"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_parser-1.1.3+spec-1.1.0/src/parser/event.rs",
+          "sha256": "1b7461b35a31bc70b618e7d5253edda6aae512c39a164892c3d0c82d0afe5d8f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_parser-1.1.3+spec-1.1.0/src/parser/mod.rs",
+          "sha256": "7f12b2fd441f9483c226881be8e09835a05951638ee6128ea6fddf5e58fd8921"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_parser-1.1.3+spec-1.1.0/src/source.rs",
+          "sha256": "88f17fc3876bc21971f73bf7c3155206271df3753171485e58572a770e3d48d0"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#typenum@1.20.1",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.20.1/src",
+      "units": [
+        {
+          "index": 821,
+          "features": [
+            "const-generics"
+          ],
+          "direct_helpers": []
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.20.1/src/array.rs",
+          "sha256": "e7112e04302b9df5491e69fdf3a2b765de18f3d7cf098702051c79e8a1e978f2"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.20.1/src/bit.rs",
+          "sha256": "1d2a81b9dcc3fbaaad0df29e5cbd4595b02fdc3efbc08ec35932ea521ac6619c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.20.1/src/gen/consts.rs",
+          "sha256": "9aa17739639f2e3f516cd9136e05beb19492491431df71a1e2aa4e3ec78e176c"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.20.1/src/gen/generic_const_mappings.rs",
+          "sha256": "891e3a1917e39eebd1306765158c26c4ff2d9a85b197844100638591ec6658fb"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.20.1/src/gen/op.rs",
+          "sha256": "b91eadcee885bc0ab929b64492f7b04641cde71ddf8e9aa455d324f1723c61de"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.20.1/src/gen.rs",
+          "sha256": "77e44de90067aa126d3697e514c8641af67eb9c509399bb6fcb551071d7e64ea"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.20.1/src/int.rs",
+          "sha256": "62412ed76dfd63e76e5e0252ee950914629443d4023a1031c511191588d95694"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.20.1/src/lib.rs",
+          "sha256": "0cf99cbd6f5597dd42618d603e1f453f6484e01e8f6e72d328ca5206191bc9f3"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.20.1/src/marker_traits.rs",
+          "sha256": "5a58d16edc16853b4b793a6b46068d926911273aa9dc57fd9dc64df77986b7dd"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.20.1/src/operator_aliases.rs",
+          "sha256": "4666925ecdd4321e28d9654bad61e34defdba7fc1e8fa7b033b2283e4b542b93"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.20.1/src/private.rs",
+          "sha256": "c7008d1cd4215e0fc58897ea885058879e0c700a2fe0be46784f20d612753a48"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.20.1/src/tuple.rs",
+          "sha256": "b2a3d3906a446e5ce96a9da6da511c256475084cc78205c97c11caf7634db57f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.20.1/src/type_operators.rs",
+          "sha256": "c3ea12ffc00d1d438db095d48abae94af9dd46adf0b25c90871c1c4d6f15ae7b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.20.1/src/uint.rs",
+          "sha256": "525f229da5bd7cbef775b478821b5422497ed3eea319b712fee137a6ad84dd40"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#winnow@1.0.4",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src",
+      "units": [
+        {
+          "index": 851,
+          "features": [
+            "alloc",
+            "ascii",
+            "binary",
+            "default",
+            "parser",
+            "std"
+          ],
+          "direct_helpers": []
+        },
+        {
+          "index": 852,
+          "features": [
+            "alloc",
+            "ascii",
+            "parser",
+            "std"
+          ],
+          "direct_helpers": []
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_topic/arithmetic.rs",
+          "sha256": "4a181a5ca9ab7c1a6803a86caf3cf7362544c38c6ce326908c22fec01a3c222b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_topic/error.rs",
+          "sha256": "d3e6fcabe3f3e49a05e4e9b992e8ffaeddbf39d28a6e33fae788781c89cec7cb"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_topic/fromstr.rs",
+          "sha256": "01abdab296cd30067ae5f508b2b21ebe97c0571ace58e7817876eb2110e8d23a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_topic/http.rs",
+          "sha256": "19b9ec78a031fe5b3086fb34d04d6c13308c50b6e7bfe30229f5b682d3605ac8"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_topic/ini.rs",
+          "sha256": "b2b04d48eac3158f4e26ee9dce748a699d02acaa0b12ae8d54421cad0fdc4ad7"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_topic/json.rs",
+          "sha256": "c5d1d102eed4d44e2ba9975309c6476a54a0a7940c34b11c928ed24e0f73d2a4"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_topic/language.rs",
+          "sha256": "57cc689388c020efdf64e02971925807df15dc0a54f4e217b4f5292505fe625f"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_topic/lexing.rs",
+          "sha256": "cdd9e6c038051ab7189ff4e89c6bf1294fe0063b7f98d2f6238e0b19dbbf1a44"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_topic/mod.rs",
+          "sha256": "df1c0003218276849c148f49c192d6b031d5b90511fa8f66b099052fe56908dc"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_topic/nom.rs",
+          "sha256": "1f446972d1329cb489bb29250b569a663f38a0172bdbdecf98fd8e14b87c0d63"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_topic/partial.rs",
+          "sha256": "f9c4574219fc28720fad4e43266debe62352290039114c208c97157430073031"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_topic/performance.rs",
+          "sha256": "115b636769c307bd80ecc5b89ffad47877352bc93ef47bf664093d3d7a2562cc"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_topic/s_expression.rs",
+          "sha256": "6ca9a22a5c3344e120421f2ab353a1e822777aebfa1faa0acffc9632f7668cb2"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_topic/stream.rs",
+          "sha256": "474a35b9a05f9f858618a97c398352b8feb57287ef9489ae7af5991cb4226a7b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_topic/why.rs",
+          "sha256": "856608165593e2b0b38c1c45e57dfb1064d954a4caeaaed190049d58f6f091fc"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_tutorial/chapter_0.rs",
+          "sha256": "dbda2c50ccfc3bc04c798a57d7019ec93a99954327a733a7f48449da8c2ceba5"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_tutorial/chapter_1.rs",
+          "sha256": "ea63860b58c71af100f9d43454b68ecc516eb45ba86a0fab9ed355548b41328e"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_tutorial/chapter_2.rs",
+          "sha256": "c0922c261f76f31f1805d360799dcb9711711f09da85cf4d8bd7e43abb3b7335"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_tutorial/chapter_3.rs",
+          "sha256": "e2d6ab100599d9680e1effcc55cc43e1ad4703f61bb57d5237981e9df0beafd6"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_tutorial/chapter_4.rs",
+          "sha256": "58591edcf1fe0f58b914d51fc5c9d64f930bb7b8973c5962e371197d32219e64"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_tutorial/chapter_5.rs",
+          "sha256": "40cc87cffd0801a2126246aa223b49e7c98699243fba3ede2fbfbe289b225774"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_tutorial/chapter_6.rs",
+          "sha256": "9438e227406cc76eb4a2f462ab4f8e628ee63d0aa42936c511baefdc2f1e2a0b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_tutorial/chapter_7.rs",
+          "sha256": "db50a92e7cae6fee221dc1febda84c541ba6a65828758be21ae10c1b51e9f01d"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_tutorial/chapter_8.rs",
+          "sha256": "1af16a8bc947d64093c0a61187fbb17e14c88bbd40027edf8587dc6347e381ec"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/_tutorial/mod.rs",
+          "sha256": "afba818d7d1c8309bee5399dc8f695d93b08e93f406734d41e7e66c019b43c53"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/ascii/caseless.rs",
+          "sha256": "1261995f812b6ebadab78e7671d1d272e712ce334d8454144f94828f4390c0ac"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/ascii/mod.rs",
+          "sha256": "ae1000e63b866a29813b25e71675bbc35447178826eabd1234b16d0dc1cc5e22"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/ascii/tests.rs",
+          "sha256": "ce6d902257668c16cc4ff539dc8db19c8b509951753e4cb1befc153366417e79"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/binary/bits/mod.rs",
+          "sha256": "9cd65ffbd5ad1feb950281fd5ba846c479d012ebb3f65837bd7b61337c05becb"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/binary/bits/stream.rs",
+          "sha256": "a62a033a5c36b681411f258968f907e7eeee13438fc4a8a0189f77e184860a57"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/binary/bits/tests.rs",
+          "sha256": "fdfbe8a7d5abb66810d77e01932b470cc79dccaf75a6c4d09d029bb472454639"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/binary/mod.rs",
+          "sha256": "a51d8b5462c345e88eaede14b22dcaf881c869bc0705e0693a82da4f34b7380b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/binary/tests.rs",
+          "sha256": "ea974cf2d78f5fae69d4c06c29158a5ccb7f24fddb2f02bd2aeff58e20800e9b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/combinator/branch.rs",
+          "sha256": "81ec4079c6f570cbd6149268b881542dfbe2a84d103df0d09ef3541bef1b230d"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/combinator/core.rs",
+          "sha256": "be32c15e635b436afb6fc774018d672f71d493dc581cb51bff51b26684d1b0a6"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/combinator/debug/internals.rs",
+          "sha256": "af7032aa8f8e204afec2b98c9cd065c9f2bfb457bb868b081e6a14db620d6561"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/combinator/debug/mod.rs",
+          "sha256": "4cefa4513e285eb441654b4d3b94cbffbc752c2d307f66a1892317adb3e61ef5"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/combinator/expression.rs",
+          "sha256": "1b6c0d2850ecd9816f89609afaf85a2fd936e21f6b92a889be3838a026f74c38"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/combinator/impls.rs",
+          "sha256": "1da2de638f2dcef06b1648784d46f10ece4438b4ff9583d7dbaa9dec5677ad08"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/combinator/mod.rs",
+          "sha256": "8732657e1c02ebce1e2213fe25d751d1ef76d4acbf334410f02331db3fba921b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/combinator/multi.rs",
+          "sha256": "e501e41ffa96d5bde51688c0d5203b022988b096bc76cf998c794ff35d72ae0d"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/combinator/sequence.rs",
+          "sha256": "16d6189932eb295cfad97842a7888d8f0b80065b0a0045750fdacbae08fa164b"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/combinator/tests.rs",
+          "sha256": "00015fc1e0f79505845dc0722eb609a1b2cdacc2aaf5d71afdc211d5a654c359"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/error.rs",
+          "sha256": "9a4652846edefe04eb1765cae65cb4461bb13664a9b8e90aac005ca676f4bc96"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/lib.rs",
+          "sha256": "640d5044cd1592d1dfecd4e41436831bebc8902f8202f5026c02b8ec466e4117"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/macros/dispatch.rs",
+          "sha256": "7c61bb6df5d7f43d8d4d27e8343d73c788f00ec47da36c408a867f7dc8259c95"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/macros/mod.rs",
+          "sha256": "9e6a3647f06ee7ebe5f186b379cfeafc0ef5bb9213bed256dedf9f9db751268a"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/macros/seq.rs",
+          "sha256": "a9726197000ff2e807ff11fb941f882d4e9cfee6af9804d9c0f160910fa733b2"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/macros/tests.rs",
+          "sha256": "d334ae6ebced5624ac877a48502321e552deaeace8376041ec74c022bbd6d772"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/macros/unordered_seq.rs",
+          "sha256": "430359d22c53bdd56829512e1afbee12edd54bd8173b133f362cbfb42b77a974"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/parser.rs",
+          "sha256": "beae6bfa73b0f1f78e22eda423206ca61def95aa50a986a5dd3de6691adef4d1"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/stream/bstr.rs",
+          "sha256": "04e4311a25fe67089f55a3a8ed6e4c455feb401c83de19966e3cd71daed939e2"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/stream/bytes.rs",
+          "sha256": "b98cb70135ba78cef9e300f65a345d8d06e52507cc78b135d5d5746d80babaa6"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/stream/locating.rs",
+          "sha256": "5c4e50209bae28dbfb971e48ef3be8f77b2b24f6727c8ed32919fa15c5963502"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/stream/mod.rs",
+          "sha256": "8b096cf5c699735c923583f4cddfac40f64f7d6a645363d9dd2fc42dd347660e"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/stream/partial.rs",
+          "sha256": "6ef3926759aa446ddcd577120e3e8d30da6b16d0e83a45b12599432a08400999"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/stream/range.rs",
+          "sha256": "54428fe3199368666dbc0c7c7cadff865c826d806535a6aa0514ad4ad22456f4"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/stream/recoverable.rs",
+          "sha256": "672e8e7e82507d2c004d2e9f9ad5bc23db10d7a4d77abc48b425d501bcc4c8e8"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/stream/stateful.rs",
+          "sha256": "27edda9f7f7561fe813a07e2d282e517b4e0a3b7f48272ea29ce1af276cb42af"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/stream/tests.rs",
+          "sha256": "c46bfad4313ab416db0eaa16910f00cb81e0f518e5c9e547cd43774f15e6e641"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/stream/token.rs",
+          "sha256": "8eafe3939a5c17a020fefa9f3a95a97ffed1450e9d079bf64bf9966540a766a1"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/token/mod.rs",
+          "sha256": "df26043001292efd472f1f2351f6fa745b7835f9796abfdd3b35e7489430aeb0"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.4/src/token/tests.rs",
+          "sha256": "d959295d62a861ec68f9c231b6c1c786bbf868fd429f3dcb10f064a512c0d91c"
+        }
+      ]
+    },
+    {
+      "package": "registry+https://github.com/rust-lang/crates.io-index#zmij@1.0.23",
+      "source_root": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zmij-1.0.23/src",
+      "units": [
+        {
+          "index": 870,
+          "features": [],
+          "direct_helpers": [
+            "registry+https://github.com/rust-lang/crates.io-index#zmij@1.0.23"
+          ]
+        }
+      ],
+      "source_files": [
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zmij-1.0.23/src/lib.rs",
+          "sha256": "0bdb8cd6a8835af08b5ca60956df283732f1b5aa940c750b1ec5dc78bf245b61"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zmij-1.0.23/src/stdarch_x86.rs",
+          "sha256": "b19b4c54f0c08c92f96d18c152f796d85cc17f9e6195f3e7d5612f05f28836fb"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zmij-1.0.23/src/tests.rs",
+          "sha256": "7b4c56f3b79836ca00de82952f246a303e7a9754849a6e5939a2c5aa6d62a6fb"
+        },
+        {
+          "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zmij-1.0.23/src/traits.rs",
+          "sha256": "c88b2b8282b423cd925f1999e2de9b03cef4d5d4d17b035d20c0708a5692a935"
+        }
+      ]
+    }
+  ],
+  "unreviewed_authorities": "Compiler-provided macro/token semantics and third-party proc-macro helpers remain Compact source-review ownership. Newly selected feature/platform/caller/custom-deserializer changes require matching source review. Final native environmental/tool/header/loader/cache branch review is separate."
+}

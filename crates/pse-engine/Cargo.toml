@@ -23,7 +23,6 @@ pse-diagnostics.workspace = true
 datafusion.workspace = true
 datafusion-catalog.workspace = true
 datafusion-expr.workspace = true
-datafusion-proto.workspace = true
 async-trait.workspace = true
 url.workspace = true
 uuid.workspace = true

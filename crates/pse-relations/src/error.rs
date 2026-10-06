@@ -218,7 +218,6 @@ pse_columnar::impl_native_error!(RelationError);
 impl From<pse_model::ModelError> for RelationError {
     fn from(error: pse_model::ModelError) -> Self {
         match error {
-            error @ pse_model::ModelError::MigrationRequired { .. } => Self::Model(error),
             pse_model::ModelError::Malformed(message) => crate::columnar::mismatch(&message),
             pse_model::ModelError::EnumMember {
                 field,

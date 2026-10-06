@@ -164,7 +164,7 @@ async fn admitted_simulation_descriptor_reconstructs_the_existing_owner() {
     let (package, case) = plant().await;
     let definition = package
         .admit_study_points(
-            ContentHash::from_bytes([0; 32]),
+            super::super::PhysicalSource{revision:"explicit-ephemeral-fixture".into(),identity:ContentHash::from_bytes([0;32])},
             &[point(OperationRequest::Simulation(SimulationOperation {
                 case,
                 profile: None,
@@ -208,7 +208,7 @@ async fn admitted_fit_descriptor_reconstructs_the_existing_owner() {
     });
     let definition = package
         .admit_study_points(
-            ContentHash::from_bytes([0; 32]),
+            super::super::PhysicalSource{revision:"explicit-ephemeral-fixture".into(),identity:ContentHash::from_bytes([0;32])},
             &[point(request)],
             &CancelSource::new(),
         )
@@ -231,7 +231,7 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
     let request = horizon(&package, case).await;
     let definition = package
         .admit_study_points(
-            ContentHash::from_bytes([0; 32]),
+            super::super::PhysicalSource{revision:"explicit-ephemeral-fixture".into(),identity:ContentHash::from_bytes([0;32])},
             &[point(OperationRequest::Horizon(Box::new(request.clone())))],
             &CancelSource::new(),
         )
@@ -252,7 +252,7 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
     equivalent.inputs[0].initial = quantity(&package, 353.15, "Temperature", "K");
     let other = package
         .admit_study_points(
-            ContentHash::from_bytes([0; 32]),
+            super::super::PhysicalSource{revision:"explicit-ephemeral-fixture".into(),identity:ContentHash::from_bytes([0;32])},
             &[point(OperationRequest::Horizon(Box::new(equivalent)))],
             &CancelSource::new(),
         )
@@ -272,7 +272,7 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
     wrong.inputs[0].initial = quantity(&package, 1., "Time", "s");
     let error = package
         .admit_study_points(
-            ContentHash::from_bytes([0; 32]),
+            super::super::PhysicalSource{revision:"explicit-ephemeral-fixture".into(),identity:ContentHash::from_bytes([0;32])},
             &[point(OperationRequest::Horizon(Box::new(wrong)))],
             &CancelSource::new(),
         )

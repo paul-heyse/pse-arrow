@@ -145,8 +145,7 @@ but a tool failure does. `policy` runs the same audits as required gates. The
 | `just native-test [nextest args]` | The full workspace with `pse-runtime/native-solvers`, `pse-tests-conformance/native-acceptance` and force-validation, under the native environment. Nextest owns selection. The wrapper writes a raw selection artifact and native identity before execution. |
 | `just doctest` | Workspace doctests with force-validation. `pse-py` is excluded because Cargo cannot run cdylib doctests. `doctest-release` is the release-profile variant. |
 | `just py-sync-native` | Rebuilds the editable extension (`dev` profile, `force-validate,native-solvers`) and regenerates the compiled API stubs. `just py-sync` installs the default profile, which lacks native solvers. |
-| `just inspection-fixture <new-dir>` | Publishes and reopens a fresh native store for component tests. |
-| `just native-python <output> [pytest args]` | Linked Python `unit or component or integration` tests, reported to `<output>/native-python.xml`. Explicit fixture consumers read `PSE_INSPECTION_PUBLICATION` (default `<output>/inspection`); create it first with `inspection-fixture`. Run `py-sync-native` after Rust edits. |
+| `just native-python <output> [pytest args]` | Linked Python `unit or component or integration` tests, reported to `<output>/native-python.xml`. Canonical fixture consumers require an initialized supervised `PSE_SURREAL_STATE`. Run `py-sync-native` after Rust edits. |
 | `just governance-tests [args]` | `pse-tests-governance` with force-validation. |
 | `just setup-test` | Stdlib `unittest` discovery over `scripts/tests`: setup, guards, runner, docs and build tooling. |
 | `just setup-test-report <output>` | The same discovery with an XML reporter, writing `setup-test.xml` and `setup-test-selected.json`. Fails on skips or an empty run. |
@@ -167,7 +166,7 @@ scopes, and document admission explicitly requires the admission scope:
 | `process` | Native runtime and conformance acceptance boundaries |
 | `preparation` | Runtime/compiler preparation and provider composition |
 | `admission` | Authored loading/admission and its runtime boundary |
-| `lifecycle` | Runtime/store/lifecycle enforcement and publication resource controls |
+| `lifecycle` | Runtime/store/lifecycle enforcement and connected result resource controls |
 | `native` | The explicit full linked workspace covering invocation |
 
 Obtain selected prerequisite evidence with, for example,
@@ -197,7 +196,7 @@ controls and cannot supply functional or performance qualification.
   runs in its own process: 10 flat Criterion samples, 250 ms warmup and a 1 s target
   measurement time, which Criterion extends for slow operations.
 - **What a sample times.** Source admission, preparation or rebuild, joined native
-  execution, validation and results access, optional publication, and teardown. Cold
+  execution, validation and results access, connected result reopening, and teardown. Cold
   cases construct their runtime inside each sample; warm cases retain revision and
   runtime.
 - **Statistics.** The collector reads Criterion's `raw.csv` and reports mean, sample
@@ -214,9 +213,9 @@ These are local observations of the design-stage profile, not release-profile
 performance. For production-equivalent measurements, use `just bench-production`
 ([§24.3](../authoritative_design/sections/operations-and-validation.md#section-24-3)).
 
-`just py-unit` and exact `just py-test -m unit` run without inspection publication.
-`py-test --collect-only` also avoids publication. Mixed component selections retain explicit
-setup before pytest workers; the all-extension IPC round trip is requested by one dedicated
+`just py-test` starts pytest directly. Fixture consumers explicitly require the initialized
+canonical substrate; collection and pure units do not start a storage fixture service.
+The all-extension IPC round trip is requested by one dedicated
 boundary test. Runtime facades, physical packages and operational databases are owned per
 test; immutable engine settings are shared for the session and configure the process-owned
 deployment resource service. Exported buffers continue to charge that same service after a

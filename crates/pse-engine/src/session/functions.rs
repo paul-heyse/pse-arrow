@@ -228,50 +228,7 @@ impl Functions {
             value.name(),
         )
     }
-    pub(super) fn admit_plan(
-        &self,
-        plan: &LogicalPlan,
-        pool: &Arc<dyn pse_columnar::MemoryPool>,
-        cancel: &pse_columnar::CancellationToken,
-    ) -> Result<()> {
-        super::traversal::visit(
-            plan,
-            super::traversal::Purpose::Evidence,
-            pool,
-            cancel,
-            |node, _| {
-                node.apply_expressions(|expression| {
-                    super::traversal::expression(expression, |expression| {
-                        match expression {
-                            Expr::ScalarFunction(call) => self.scalar(&call.func)?,
-                            Expr::AggregateFunction(call) => self.aggregate(&call.func)?,
-                            Expr::HigherOrderFunction(call) => self.higher_order(&call.func)?,
-                            Expr::WindowFunction(call) => match &call.fun {
-                                WindowFunctionDefinition::AggregateUDF(function) => {
-                                    self.aggregate(function)?;
-                                }
-                                WindowFunctionDefinition::WindowUDF(function) => {
-                                    self.window(function)?;
-                                }
-                            },
-                            _ => {}
-                        }
-                        Ok(TreeNodeRecursion::Continue)
-                    })?;
-                    Ok(TreeNodeRecursion::Continue)
-                })?;
-                // Selected provider descriptors retain their actual private view
-                // implementations. Scan filters are serialized above and checked;
-                // the provider's implementation is admitted by source ownership.
-                Ok(if matches!(node, LogicalPlan::TableScan(_)) {
-                    TreeNodeRecursion::Jump
-                } else {
-                    TreeNodeRecursion::Continue
-                })
-            },
-        )?;
-        Ok(())
-    }
+
 }
 fn check(valid: bool, kind: &str, name: &str) -> Result<()> {
     if valid {

@@ -5,10 +5,18 @@ mod route_documents;
 pub use route_documents::{EligibilityDocument, IneligibleDocument, RouteDocument};
 mod controls;
 pub use controls::{
-    InventoryControls, ProgressControls, RunControls, StudyRunControls, StudySubmitControls,
+    InventoryControls, ProgressControls, RunControls, StudyRunControls,
     StudyWaitControls,
 };
 mod completion;
+pub mod result_blocks;
+mod result_projection;
+mod connected_results;
+pub use connected_results::CanonicalResultReader;
+mod analyses;
+pub use analyses::{AnalysisHandle,AnalysisControls,AnalysisDirection};
+mod retention;
+pub use retention::ResultReclamationPage;
 mod diagnostic_documents;
 pub use diagnostic_documents::{
     DiagnosticAnnotationDocument, DiagnosticCauseDocument, DiagnosticContextDocument,
@@ -20,50 +28,34 @@ mod durable;
 pub use completion::Completion;
 pub use durable::{
     Durability, DurableRecord, LeasePolicy, Operations, Recovery, RunDurability, TerminationCause,
-    TerminationDetail,
-};
-pub use pse_operations::attempts::AttemptFilter;
-pub use pse_operations::jobs::JobFilter;
-pub mod migration;
-mod operational_tables;
-mod orphans;
-pub use migration::prepare_artifact_migration;
-pub use operational_tables::OPERATIONAL_SCHEMA;
-pub use orphans::{DiscoveryBudget, OrphanReclaimReport};
-pub use pse_model::generated::identities::ScanId;
-pub use pse_operations::inventory::{
-    CandidatePage as OrphanCandidatePage, OrphanCandidate, ScanCheckpoint,
+    TerminationDetail, SeedReadError,
 };
 mod progress_documents;
 pub use progress_documents::{IncumbentDocument, ProgressEventDocument, ProgressMetricDocument};
 mod progress;
-pub use progress::{ProgressStream, StreamRecord};
-/// The operational store a process connects to: `PSE_DATABASE_URL`, else the development
-/// default (ADR-0114 Outcome 21).
-pub use pse_operations::database_url_from_env;
+pub use progress::ProgressStream;
 mod bindings;
 mod worker;
+mod physical_cache;
 pub use bindings::{
     AdmittedBinding, AdmittedBindingEntry, BindingAssignment, BindingQuantity, BindingTarget,
     PointOverlay,
 };
 pub use worker::{
-    JOB_PAYLOAD_VERSION, JobPayload, JobStart, JobTask, ModelingJob, Processed, SourceManifest,
-    StudyFinalization, StudyOperationJob, StudyPointBinding, WorkerSettings,
+    PhysicalSource, Processed, WorkerSettings,
 };
 mod study;
 mod study_execution;
 mod study_tables;
 pub use pse_model::diagnostic::BoundaryDiagnostic;
 pub use pse_model::study::Conclusion as StudyConclusion;
-pub use study_execution::StudyReport;
+pub use study_execution::{StudyReport,StudyOccurrenceResult};
 mod study_operations;
-pub use pse_operations::jobs::RetryPolicy;
-pub use pse_operations::studies::{StudyCancel, StudyFilter, StudyId, StudyPointState, StudyState};
+pub use pse_model::generated::{identities::StudyId,enums::{StudyPointState,StudyState}};
 pub use study::{
     MAXIMUM_STUDY_POINTS, PackageSources, PointAttemptOutcome, PointOutcome, PointStatus,
     StudyDefinition, StudyHandle, StudyPlan, StudyPoint, StudyPointDefinition, StudyPointPolicy,
-    StudyRequest, StudyStatus,
+    StudyRequest, StudyStatus, StudyCancel, StudyResults,
 };
 pub use study_operations::{
     AdmittedHorizonValues, ArrivalDocument, CaseOperation, ControllerOperation, EstimatorInput,
@@ -143,14 +135,11 @@ pub use modeling::{
 pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};
 #[cfg(test)]
 mod data_documents_tests;
-#[cfg(test)]
+#[cfg(all(test,feature="canonical-tests"))]
 mod durable_tests;
 mod local_analysis;
 mod modeling_results;
-mod publication;
-mod reading;
 mod results;
-mod retention;
 mod run;
 mod simulation_results;
 #[cfg(test)]
@@ -161,13 +150,6 @@ pub(crate) mod tests;
 mod worker_tests;
 use crate::{SharedRuntime, math::MathRuntimeError};
 use pse_engine::{EngineError, session::EngineFactory};
-use pse_model::generated::identities::RunId;
-pub use publication::{
-    PublicationAttempt, PublicationSettlement, PublicationTicket, Published, Workspace,
-    prepare_artifact_publication,
-};
-pub use reading::{ExportReceipt, LeasedPublication, READER_LEASE, ReaderLeaseGuard, open_export};
-pub use retention::{CollectReport, ReclaimReport, RetireReport};
 pub use run::{RunHandle, RunReport, RunRequest, RunResult, StoredStart};
 use std::sync::Arc;
 mod canonical;
@@ -176,6 +158,12 @@ pub use canonical::{CanonicalDeployment, OuterAttestation};
 /// Errors retain the native/physical/authoring cause; no string matching or fallback.
 #[derive(Debug, thiserror::Error)]
 pub enum WorkflowError {
+    /// Typed absence of an explicitly requested immutable scientific seed.
+    #[error(transparent)]
+    SeedRead(#[from] SeedReadError),
+    /// Bounded scientific IPC framing, schema, shape or decoder refusal.
+    #[error(transparent)]
+    ResultBlock(#[from] result_blocks::ResultBlockError),
     /// Canonical revision, protected selection or portable product failure.
     #[error(transparent)]
     Canonical(#[from] pse_operations::canonical::CanonicalError),
@@ -222,56 +210,7 @@ pub enum WorkflowError {
     /// Original typed source failure, preserving diagnostic facts and causal structure.
     #[error(transparent)]
     Typed(pse_model::diagnostic::DiagnosticCause),
-    /// The operational store refused or failed a durable operation (ADR-0114).
-    #[error(transparent)]
-    Operations(#[from] pse_operations::OperationsError),
-    /// A run of the ephemeral durability class cannot be published: publication needs a
-    /// registered, finished attempt (ADR-0114 Outcome 16). This is a policy, never a
-    /// fallback.
-    #[error(
-        "run {run_id} is ephemeral: publication requires a durable run registered in the operational store"
-    )]
-    EphemeralPublication {
-        /// The run that was asked to publish.
-        run_id: RunId,
-    },
-    /// The catalog commit's outcome is unknown: its acknowledgement was lost or the
-    /// catalog became unreachable after the members were written. Never retried
-    /// implicitly: settle the publication ticket (ADR-0114 Outcome 6).
-    #[error("publication {publication} is unresolved: {reason}; settle its ticket")]
-    PublicationUnresolved {
-        /// The publication the attempt intended.
-        publication: pse_operations::catalog::PublicationId,
-        /// Why.
-        reason: String,
-    },
-    /// A workspace root holds a Delta publication control table, an unsupported
-    /// historical format; its publications are regenerated by rerunning them.
-    #[error(
-        "{root} holds a Delta publication control table (an unsupported historical format); migration required: regenerate its publications by rerunning them into a new root"
-    )]
-    LegacyWorkspace {
-        /// The refused root.
-        root: url::Url,
-    },
-    /// An exported publication's lease expired; its members may have been removed.
-    #[error("the export of publication {publication} expired at {expires_at} (microseconds)")]
-    ExportLeaseExpired {
-        /// The exported publication.
-        publication: pse_model::generated::identities::PublicationId,
-        /// Its expiry, microseconds since the Unix epoch.
-        expires_at: i64,
-    },
-    /// A stored job payload this build cannot execute (ADR-0114 Outcome 14).
-    #[error(
-        "job payload version {version} is not supported by this worker (supported: {supported})"
-    )]
-    UnknownPayloadVersion {
-        /// The stored payload version.
-        version: i32,
-        /// The version this build executes.
-        supported: i32,
-    },
+
 }
 impl From<BoundaryDiagnostic> for WorkflowError {
     fn from(error: BoundaryDiagnostic) -> Self {
@@ -280,8 +219,8 @@ impl From<BoundaryDiagnostic> for WorkflowError {
 }
 pse_diagnostics::impl_diagnostic! {
     WorkflowError,
-    code(this) {match this {Self::Input(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowInput),Self::Internal(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowInternal),Self::Typed(_)=>None,Self::EphemeralPublication{..}|Self::UnknownPayloadVersion{..}=>Some(pse_diagnostics::DiagnosticCode::ConfigInvalid),Self::PublicationUnresolved{..}|Self::ExportLeaseExpired{..}=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::LegacyWorkspace{..}=>Some(pse_diagnostics::DiagnosticCode::SchemaInvalidDeclaration),_=>None}},
-    forward(this) {match this {Self::Canonical(e)=>Some(e),Self::Boundary(e)=>Some(e.as_ref()),Self::Typed(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Operations(e)=>Some(e),_=>None}},
+    code(this) {match this {Self::Input(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowInput),Self::Internal(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowInternal),Self::Typed(_)=>None,_=>None}},
+    forward(this) {match this {Self::SeedRead(e)=>Some(e),Self::ResultBlock(e)=>Some(e),Self::Canonical(e)=>Some(e),Self::Boundary(e)=>Some(e.as_ref()),Self::Typed(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),_=>None}},
     help(_this){None},related(_this){None},source(_this){None}
 }
 fn contract(message: impl Into<String>) -> WorkflowError {
@@ -305,9 +244,9 @@ pub struct Runtime {
     pub(crate) registry: Arc<pse_schema::Registry>,
     pub(crate) sessions: Arc<EngineFactory>,
     pub(crate) canonical: CanonicalDeployment,
-    /// How this runtime's runs are kept; ephemeral unless chosen explicitly.
+    /// Application runs retain scientific outcomes; ephemerality is an explicit choice.
     pub(crate) durability: Durability,
-    orphan_streams: Arc<tokio::sync::Mutex<orphans::DiscoveryStreams>>,
+    physical_cache: Arc<physical_cache::PhysicalCache>,
 }
 impl Runtime {
     pub(crate) fn validation_context(
@@ -319,6 +258,7 @@ impl Runtime {
     /// Clear retained executable programs. Existing workers keep their owners and remain valid.
     pub fn clear_program_cache(&self) {
         self.shared.math().clear_program_cache();
+        self.physical_cache.clear();
     }
     /// Attach to the already configured shared deployment; creates no second executor or budget.
     /// Scientific source revisions and compilation products use the supplied canonical deployment.
@@ -328,13 +268,19 @@ impl Runtime {
         sessions: Arc<EngineFactory>,
         canonical: CanonicalDeployment,
     ) -> Self {
+        let durability = Durability::Durable(Operations::from_store(
+            canonical.store().clone(), Operations::process_worker("runtime"), LeasePolicy::default(), shared.pool(),
+        ));
+        let physical_cache = Arc::new(physical_cache::PhysicalCache::default());
+        let component: Arc<dyn pse_engine::cache_service::CacheComponent> = physical_cache.clone();
+        shared.caches().register_component(&component);
         Self {
             shared,
             registry,
             sessions,
             canonical,
-            durability: Durability::Ephemeral,
-            orphan_streams: Arc::new(tokio::sync::Mutex::new(orphans::DiscoveryStreams::default())),
+            durability,
+            physical_cache,
         }
     }
     /// Configured canonical scientific deployment.

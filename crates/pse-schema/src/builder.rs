@@ -647,7 +647,6 @@ impl RegistryBuilder {
                 checks: decl.checks.clone(),
                 unique_keys: decl.unique_keys.clone(),
                 foreign_keys: decl.foreign_keys.clone(),
-                delta_properties: decl.delta_properties.clone(),
                 doc: decl.doc,
                 fingerprint: ContentHash::NIL,
             });
@@ -1341,39 +1340,6 @@ mod tests {
         assert!(build(&["id"]).is_ok());
         assert!(build(&[]).is_err());
         assert!(build(&["id", "unknown"]).is_err());
-    }
-
-    #[test]
-    fn native_table_policy_changes_identity_and_survives_cold_metadata() {
-        let build = |value: &str| {
-            let mut builder = RegistryBuilder::new();
-            builder.declare_relation(
-                simple("policy")
-                    .delta_properties([("delta.logRetentionDuration".into(), value.into())]),
-            );
-            builder.build().unwrap()
-        };
-        let before = build("interval 30 days");
-        let after = build("interval 60 days");
-        let spec = before.relation("authored.policy").unwrap();
-        assert_ne!(
-            spec.fingerprint,
-            after.relation("authored.policy").unwrap().fingerprint
-        );
-        let schema = crate::arrow::relation_schema(&before, spec).unwrap();
-        assert_eq!(
-            crate::arrow::delta_properties(&schema).unwrap(),
-            spec.delta_properties
-        );
-        let mut metadata = schema.metadata().clone();
-        metadata.insert(crate::arrow::KEY_DELTA_PROPERTIES.into(),
-            "{\"delta.logRetentionDuration\":\"30 days\",\"delta.logRetentionDuration\":\"60 days\"}".into());
-        assert!(crate::arrow::delta_properties(&schema.with_metadata(metadata)).is_err());
-        let mut builder = RegistryBuilder::new();
-        builder.declare_relation(
-            simple("bad").delta_properties([("delta.constraints.shadow".into(), "true".into())]),
-        );
-        assert!(builder.build().is_err());
     }
 
     #[test]

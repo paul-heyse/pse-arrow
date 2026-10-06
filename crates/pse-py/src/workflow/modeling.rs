@@ -665,19 +665,13 @@ impl NativeModelingPackage {
             request,
             self.owner.shared.budget().math.workspace_bytes,
         )?;
-        let physical = self
-            .physical_sources
-            .as_deref()
-            .map(pse_runtime::authoring_driver::document::package_checksum)
-            .unwrap_or_else(|| {
-                pse_runtime::authoring_driver::document::package_checksum(&BTreeMap::new())
-            });
+        let physical=self.physical_sources.as_deref().ok_or_else(||invalid(py,"study admission requires its admitted physical source documents"))?;
         let cancel = CancelSource::new();
         let definition = blocking(
             py,
             &self.owner,
             self.inner
-                .admit_study_points(physical, &request.points, &cancel),
+                .admit_study_sources(physical, &request.points, &cancel),
             || cancel.cancel(),
         )?;
         documents::encode(py, &definition)
@@ -696,7 +690,7 @@ impl NativeModelingPackage {
             controls,
             self.owner.shared.budget().math.workspace_bytes,
         )?;
-        let definition = documents::decode_versioned::<native::StudyDefinition, 7>(
+        let definition = documents::decode::<native::StudyDefinition>(
             py,
             "operation",
             definition,
@@ -715,55 +709,31 @@ impl NativeModelingPackage {
         })
     }
     /// Persist the admitted document and reopen its exact canonical modeling revision.
-    #[pyo3(signature=(runtime, workspace, definition, *, controls=None))]
+    #[pyo3(signature=(runtime, definition))]
     fn start_study(
         &self,
         py: Python<'_>,
         runtime: &NativeRuntime,
-        workspace: &[u8],
         definition: &[u8],
-        controls: Option<&[u8]>,
     ) -> PyResult<NativeStudyHandle> {
-        let native::StudySubmitControls {
-            max_tries,
-            priority,
-        } = documents::controls(
-            py,
-            "study submission",
-            controls,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
         let physical_sources = self.physical_sources.as_ref().ok_or_else(|| {
             invalid(
                 py,
                 "a durable study requires the shared physical source prerequisite",
             )
         })?;
-        let workspace: native::Workspace = documents::decode(
-            py,
-            "operation",
-            workspace,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
-        let definition = documents::decode_versioned::<native::StudyDefinition, 7>(
+        let definition = documents::decode::<native::StudyDefinition>(
             py,
             "operation",
             definition,
             self.owner.shared.budget().math.workspace_bytes,
         )?;
-        let retry = native::RetryPolicy {
-            max_tries,
-            ..native::RetryPolicy::ONCE
-        };
         let inner = blocking(
             py,
             &runtime.owner,
             runtime.inner.start_defined_study(
-                &workspace,
                 physical_sources.as_ref().clone(),
                 definition,
-                retry,
-                priority,
             ),
             || {},
         )?;
@@ -1639,10 +1609,15 @@ impl NativeStudyReport {
             .results
             .get(index)
             .ok_or_else(|| invalid(py, "study occurrence outside report"))?;
-        Ok(result.as_ref().map(|inner| NativeRunResult {
-            owner: self.owner.clone(),
-            inner: inner.clone(),
-        }))
+        match result {
+            Some(native::StudyOccurrenceResult::Ephemeral(inner))=>Ok(Some(NativeRunResult{owner:self.owner.clone(),inner:inner.clone()})),
+            Some(native::StudyOccurrenceResult::Retained{..})=>Err(invalid(py,"retained occurrence uses its stored result handle")),
+            None=>Ok(None),
+        }
+    }
+    fn stored_result(&self,py:Python<'_>,index:usize)->PyResult<Option<NativeStoredResult>>{
+        let result=self.inner.results.get(index).ok_or_else(||invalid(py,"study occurrence outside report"))?;
+        Ok(result.as_ref().and_then(|result|result.stored_keys().map(|(run,attempt)|NativeStoredResult{inner:self.inner.runtime().clone(),owner:self.owner.clone(),run_id:result.run_id(),run:run.into(),attempt:attempt.into()})))
     }
     fn failure(
         &self,

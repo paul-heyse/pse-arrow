@@ -93,31 +93,8 @@ impl RunResult {
         // A durable run publishes its incumbent stream as the store held it when the
         // attempt ended (Plan 22 I13); an ephemeral run keeps its retained incumbents in
         // runtime.solve_metrics.
-        let mut incumbent_rows =
+        let incumbent_rows =
             incumbents::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
-        if let super::RunDurability::Durable(record) = &self.durability {
-            let stored = record
-                .incumbents
-                .as_ref()
-                .map_err(|error| WorkflowError::Shared(error.clone()))?;
-            for incumbent in stored {
-                incumbent_rows
-                    .push(incumbents::Row {
-                        run_id: self.run_id,
-                        seq: incumbent.seq,
-                        step: i64::from(incumbent.step),
-                        elapsed_seconds: incumbent.elapsed_seconds,
-                        phase: incumbent.phase.clone(),
-                        objective: incumbent.objective,
-                        dual_bound: incumbent.dual_bound,
-                        gap: incumbent.gap,
-                        nodes: incumbent.nodes,
-                        seconds: incumbent.seconds,
-                        solution_id: incumbent.solution_id.map(|s| s.as_id()),
-                    })
-                    .map_err(relation)?;
-            }
-        }
         for (ordinal, request) in requests.iter().enumerate() {
             let step = ordinal as i64;
             let result = self.modeling_result(ordinal);
@@ -325,17 +302,11 @@ impl RunResult {
             }
 
             if let Some(native) = native {
-                let stored = self.stored_events(step)?;
-                let events = stored.as_deref().map_or(
-                    super::results::StepEvents::Retained,
-                    super::results::StepEvents::Stored,
-                );
                 super::results::push_native_metrics(
                     &mut metric_rows,
                     self.run_id,
                     step,
                     native,
-                    events,
                 )?;
                 if let Some(row) = super::results::certificate_row(self.run_id, step, native) {
                     certificate_rows.push(row).map_err(relation)?;

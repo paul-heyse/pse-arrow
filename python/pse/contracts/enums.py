@@ -103,30 +103,12 @@ class AccuracyUnavailableReason(StrEnum):
     FAILED = "failed"
 
 
-class ArtifactReconstruction(StrEnum):
-    """The declared ArtifactReconstruction enumeration."""
-
-    NONE = "none"
-    EXACT_RELEASE = "exact_release"
-
-
 class AssertionStatus(StrEnum):
     """The declared AssertionStatus enumeration."""
 
     PASS = "pass"  # noqa: S105 -- declared enumeration spelling
     FAIL = "fail"
     OBSOLETE = "obsolete"
-
-
-class AttemptKind(StrEnum):
-    """The declared AttemptKind enumeration."""
-
-    MODELING = "modeling"
-    SIMULATION = "simulation"
-    SHOOTING = "shooting"
-    FIT = "fit"
-    STUDY = "study"
-    STUDY_FINALIZATION = "study_finalization"
 
 
 class AttemptState(StrEnum):
@@ -252,15 +234,6 @@ class CandidateUse(StrEnum):
     SEED_ONLY = "seed_only"
     DIAGNOSTIC_ONLY = "diagnostic_only"
     UNUSABLE = "unusable"
-
-
-class ChangeKind(StrEnum):
-    """The declared ChangeKind enumeration."""
-
-    INSERT = "insert"
-    DELETE = "delete"
-    UPDATE_PREIMAGE = "update_preimage"
-    UPDATE_POSTIMAGE = "update_postimage"
 
 
 class ClarabelDirect(StrEnum):
@@ -1080,17 +1053,6 @@ class IpoptLinearSolver(StrEnum):
     PARDISOMKL = "pardisomkl"
 
 
-class JobState(StrEnum):
-    """The declared JobState enumeration."""
-
-    WAITING = "waiting"
-    QUEUED = "queued"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-
-
 class KinsolOrthogonalization(StrEnum):
     """The declared KinsolOrthogonalization enumeration."""
 
@@ -1107,13 +1069,6 @@ class KinsolStrategy(StrEnum):
     NEWTON = "newton"
     LINE_SEARCH = "line_search"
     FIXED_POINT = "fixed_point"
-
-
-class MemberSelectionKind(StrEnum):
-    """The declared MemberSelectionKind enumeration."""
-
-    FULL = "full"
-    REVISION = "revision"
 
 
 class MigrationOp(StrEnum):
@@ -1714,34 +1669,6 @@ class NativeConstraintForm(StrEnum):
     CARDINALITY = "cardinality"
 
 
-class NativeDependencyEvidenceKind(StrEnum):
-    """The declared NativeDependencyEvidenceKind enumeration."""
-
-    ABSENT = "absent"
-    PRESENT = "present"
-    TEXT = "text"
-    IDENTITY = "identity"
-    IDENTIFIED_TEXT = "identified_text"
-    FINGERPRINT = "fingerprint"
-    SELECTION = "selection"
-    PROJECTION = "projection"
-
-
-class NativeDependencyKind(StrEnum):
-    """The declared NativeDependencyKind enumeration."""
-
-    OPERATION = "operation"
-    INPUT = "input"
-    CONTRACT = "contract"
-    FUNCTION = "function"
-    RULE = "rule"
-    SETTING = "setting"
-    POLICY = "policy"
-    PROVIDER = "provider"
-    SCOPE = "scope"
-    OBSERVATION = "observation"
-
-
 class NativeDerivativeCapability(StrEnum):
     """The declared NativeDerivativeCapability enumeration."""
 
@@ -2262,23 +2189,6 @@ class OperationEffect(StrEnum):
     PUBLISH = "publish"
 
 
-class OrphanDisposition(StrEnum):
-    """The declared OrphanDisposition enumeration."""
-
-    DISCOVERED = "discovered"
-    PROTECTED = "protected"
-    CLAIMED = "claimed"
-    DELETED = "deleted"
-    UNRESOLVED = "unresolved"
-
-
-class OrphanOwnership(StrEnum):
-    """The declared OrphanOwnership enumeration."""
-
-    ATTRIBUTABLE = "attributable"
-    UNATTRIBUTABLE = "unattributable"
-
-
 class PackageKind(StrEnum):
     """The declared PackageKind enumeration."""
 
@@ -2367,27 +2277,6 @@ class PresolvePolicyKind(StrEnum):
     EXPLICIT = "explicit"
 
 
-class PublicationKind(StrEnum):
-    """The declared PublicationKind enumeration."""
-
-    RELATIONS = "relations"
-    SOURCE = "source"
-    MODEL = "model"
-    CASE = "case"
-    PROBLEM = "problem"
-    RUN = "run"
-    DIAGNOSTICS = "diagnostics"
-    INSPECTION = "inspection"
-    MIGRATION = "migration"
-
-
-class PublicationMemberRole(StrEnum):
-    """The declared PublicationMemberRole enumeration."""
-
-    OUTPUT = "output"
-    INPUT = "input"
-
-
 class QuantityAdditionKind(StrEnum):
     """The declared QuantityAdditionKind enumeration."""
 
@@ -2466,21 +2355,6 @@ class ReferenceStateKind(StrEnum):
     CUSTOM = "custom"
 
 
-class RetentionPhase(StrEnum):
-    """The declared RetentionPhase enumeration."""
-
-    EXPIRING = "expiring"
-    DELETED = "deleted"
-
-
-class RetentionReason(StrEnum):
-    """The declared RetentionReason enumeration."""
-
-    PUBLICATION = "publication"
-    ATTEMPT = "attempt"
-    CHANGES = "changes"
-
-
 class ReusePolicy(StrEnum):
     """The declared ReusePolicy enumeration."""
 
@@ -2498,16 +2372,6 @@ class RowActivity(StrEnum):
     EQUALITY = "equality"
 
 
-class RuntimeTermination(StrEnum):
-    """The declared RuntimeTermination enumeration."""
-
-    CANCELLED = "cancelled"
-    INFRASTRUCTURE = "infrastructure"
-    UNATTEMPTED = "unattempted"
-    CONSTANT_EVALUATION = "constant_evaluation"
-    UNASSESSED = "unassessed"
-
-
 class ScaleKind(StrEnum):
     """The declared ScaleKind enumeration."""
 
@@ -2520,14 +2384,6 @@ class SensitivityCorrector(StrEnum):
 
     SIMULTANEOUS = "simultaneous"
     STAGGERED = "staggered"
-
-
-class SettlementOutcome(StrEnum):
-    """The declared SettlementOutcome enumeration."""
-
-    COMMITTED = "committed"
-    PROVED_NONCOMMIT = "proved_noncommit"
-    CONFLICT = "conflict"
 
 
 class Severity(StrEnum):
@@ -2594,21 +2450,6 @@ class StateSign(StrEnum):
     POSITIVE = "positive"
     NON_POSITIVE = "non_positive"
     NEGATIVE = "negative"
-
-
-class StoredSeedKind(StrEnum):
-    """The declared StoredSeedKind enumeration."""
-
-    ROOT = "root"
-    NLP = "nlp"
-    HIGHS = "highs"
-
-
-class StoredSolutionOrigin(StrEnum):
-    """The declared StoredSolutionOrigin enumeration."""
-
-    OUTPUT = "output"
-    INCUMBENT = "incumbent"
 
 
 class StructuralScopeKind(StrEnum):
@@ -2724,7 +2565,6 @@ class StudyState(StrEnum):
 
     OPEN = "open"
     CONCLUDED = "concluded"
-    PUBLISHED = "published"
 
 
 class StudyUnavailableSeedPolicy(StrEnum):
@@ -2755,16 +2595,6 @@ class TearPolicy(StrEnum):
     FREE = "free"
     MANDATORY = "mandatory"
     FORBIDDEN = "forbidden"
-
-
-class TerminationClass(StrEnum):
-    """The declared TerminationClass enumeration."""
-
-    NATIVE = "native"
-    RUN_STATE = "run_state"
-    TRAJECTORY = "trajectory"
-    RUNTIME = "runtime"
-    RULE = "rule"
 
 
 class TimeCoordinateKind(StrEnum):

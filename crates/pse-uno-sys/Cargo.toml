@@ -29,4 +29,3 @@ serde_json.workspace = true
 
 [dependencies]
 highs-sys = { workspace = true, optional = true }
-pse-workspace-hack.workspace = true

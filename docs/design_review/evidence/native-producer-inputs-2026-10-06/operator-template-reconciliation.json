@@ -1,0 +1,32 @@
+{
+  "scope": "Read-only comparison of private unqualified operator declaration to manually source-derived final template. No environment values are copied; no native completeness/grant asserted. Executable PATH candidates, owning effective values, final immutable actual build snapshots and linked artifact still pending producer owner.",
+  "private_proposal_sha256": "ca5a4bdd0ea55c62f9cee3ffc6c4aca64f6d9336cb20e2225af957af90cf5ef3",
+  "private_file_list_sha256": "9cf8eddf81fd9bb16fe4073d9d4fda460b8b616a7a9bdc8089c305fb41a8c1a2",
+  "counts": {
+    "namespace_entries": 335,
+    "absent_candidates": 2760,
+    "environment_selectors": 226,
+    "native_files": 307
+  },
+  "native_inputs_complete": false,
+  "missing_source_template_paths": {},
+  "missing_source_template_environment_names": [],
+  "generated_output_roots_in_external_namespace": [],
+  "premises_resolved": [
+    "source/helper reached effects reviewed for 26 selected runtime owners",
+    "finite native prefix link candidates now included",
+    "Cargo trim-path and Zstd override selector names now included",
+    "external namespaces preserve lookup membership and targets instead one-time flattened files",
+    "Py config-file route preserves original ABI and bypasses interpreter startup helper branch",
+    "Rustfmt and epoch/UTC explicit supported selectors"
+  ],
+  "remaining_actual_capture_checks": [
+    "owning setup selected environment values and absence assertions",
+    "PATH selection earlier executable candidates and mode/target changes",
+    "fresh custom-build/proc-macro execution including output namespace recreation",
+    "source/catalog/executable closure bases exact selected versions/features",
+    "native .d and generated outputs match immutable selected capture snapshots",
+    "no additional selected native/helper source branch",
+    "exact root linked artifact association and expected ABI"
+  ]
+}

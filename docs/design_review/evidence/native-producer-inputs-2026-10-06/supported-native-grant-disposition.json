@@ -1,0 +1,45 @@
+{
+  "evidence": "Source-backed reviewed-context recommendation; final producer/artifact qualification requires fresh current selected executor capture.",
+  "native_review_basis": "1c02acdf2d293e1b163e2a06d5a69d885c81e2a05015dc2839ad97e178f388b4",
+  "configuration_primary_basis": "8de4e148721ae580c7542482261d8d5e81fca3c9b0f3d1885cef97b501de72b9",
+  "configuration_transitive_basis": "b371f36d1b5a28140ec855eb931c1c8a644ff222696355b83d3d9da14a6913a2",
+  "disposition": "Accept source-bound native completeness declaration for the supported one-native-setup caller context; no irreversible unsupported reached branch identified.",
+  "review_bases": [
+    "source-grant-recommendations.json",
+    "helper-source-contracts.json",
+    "effective-operator-reconciliation.json",
+    "make-cmake-environment-contracts.json",
+    "native-prefix-link-inputs.json",
+    "guarded-runtime-native-inputs.json"
+  ],
+  "supported_context": {
+    "compiler_wrappers": "disabled by present-empty selectors",
+    "cc": "actual GNU compiler tools and exact helper/search/loader namespace guards",
+    "cc_debug": "0; diagnostics are not dependency authority",
+    "libclang": "exact file with default clang configuration disabled",
+    "python": "immutable selected Maturin PYO3_CONFIG_FILE, unchanged abi3 branch",
+    "clock": "SOURCE_DATE_EPOCH=0,TZ=UTC; actual generated Sundials constants verified",
+    "native_setup": "exactly once through direct recipe launcher; previous duplicated-loader discovery excluded"
+  },
+  "native_input_association": {
+    "reviewed_build_package_files": 227,
+    "guarded_namespace_files": 1699,
+    "generated_output_files": 19,
+    "uncovered_prerequisites": 0,
+    "missing_prerequisites": 0,
+    "production_objects_present": 404,
+    "compiler_detection_depfiles": 3
+  },
+  "required_final_validation": [
+    "Selected scientific targets refreshed under the exact approved one-setup declarations",
+    "Before/after external namespace/environment/file snapshots match",
+    "Actual selected output/artifact association and receipt doctor pass after current runtime source freeze",
+    "Caller recipe and native child derivation retained distinctly; pre-Cargo variables never substituted for compiler child context"
+  ],
+  "not_claimed": [
+    "The double-native-setup diagnostic is eligible",
+    "Graph-only capture compiled science or qualified an artifact",
+    "Future unknown native branches are covered"
+  ],
+  "private_declarations_sha256": "0edfe28b0d297a394fb28a003c2ea9ff560fc142cf03f45a80793c15206a2b10"
+}

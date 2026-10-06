@@ -1,0 +1,3112 @@
+{
+  "scope": "Manual effective operator declaration reconciliation after owning native setup, before fresh capture native grant. Raw environment values intentionally omitted; source-specific selected settings checked explicitly. File/PATH observations are current observer confirmations, final capture must retain same guarded basis.",
+  "operator_sha256": "0edfe28b0d297a394fb28a003c2ea9ff560fc142cf03f45a80793c15206a2b10",
+  "native_files_sha256": "88a7f8946a17b6a6b32d82db9e7bc70df54d7940e2f18e7e4bd231ed1215e43b",
+  "counts": {
+    "namespace_points": 1094,
+    "absent_candidates": 2760,
+    "native_files": 316,
+    "selectors": 235
+  },
+  "source_supported_setting_matches": {
+    "RUSTC_WRAPPER": true,
+    "RUSTC_WORKSPACE_WRAPPER": true,
+    "PSE_NATIVE_COMPILER_CACHE": true,
+    "CC_ENABLE_DEBUG_OUTPUT": true,
+    "SOURCE_DATE_EPOCH": true,
+    "TZ": true,
+    "CLANG_NO_DEFAULT_CONFIG": true,
+    "LIBCLANG_PATH": true,
+    "RUSTFMT": true,
+    "PYO3_CONFIG_FILE": true,
+    "CFLAGS_x86_64_unknown_linux_gnu": true,
+    "CXXFLAGS_x86_64_unknown_linux_gnu": true
+  },
+  "environment_observations": {
+    "AR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "ARFLAGS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "ARFLAGS_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "ARFLAGS_x86_64_unknown_linux_gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "AR_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "AR_x86_64_unknown_linux_gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "AS_SECURE_LOG_FILE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "BASHOPTS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "BASH_ENV": {
+      "present": false,
+      "value_sha256": null
+    },
+    "BINDGEN_EXTRA_CLANG_ARGS": {
+      "present": true,
+      "value_sha256": "ef997595c8947b83a184fbd2dcac5166fbf7ae25bb6c0617775af44ffd28c1a4"
+    },
+    "BINDGEN_EXTRA_CLANG_ARGS_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "BINDGEN_EXTRA_CLANG_ARGS_x86_64_unknown_linux_gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CARGO_CFG_MIRI": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CARGO_ENCODED_RUSTFLAGS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CARGO_HOME": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CARGO_TARGET_TMPDIR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CARGO_TRIM_PATHS_REMAP": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CARGO_TRIM_PATHS_SCOPE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CC": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CCC_OVERRIDE_OPTIONS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CC_ENABLE_DEBUG_OUTPUT": {
+      "present": true,
+      "value_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+    },
+    "CC_FORCE_DISABLE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CC_LOG_DIAGNOSTICS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CC_LOG_DIAGNOSTICS_FILE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CC_PRINT_HEADERS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CC_PRINT_HEADERS_FILE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CC_PRINT_HEADERS_FILTERING": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CC_PRINT_HEADERS_FORMAT": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CC_PRINT_INTERNAL_STAT": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CC_PRINT_INTERNAL_STAT_FILE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CC_PRINT_OPTIONS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CC_PRINT_OPTIONS_FILE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CC_PRINT_PROC_STAT": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CC_PRINT_PROC_STAT_FILE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CC_SHELL_ESCAPED_FLAGS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CC_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CC_x86_64_unknown_linux_gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CFLAGS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CFLAGS_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CFLAGS_x86_64_unknown_linux_gnu": {
+      "present": true,
+      "value_sha256": "0959505f51986c45af876d439a0e6961a745c3eb97439b957d5954829f5b0e4e"
+    },
+    "CINDEXTEST_PREAMBLE_FILE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CI_JOB_ID": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CI_JOB_STARTED_AT": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CLANG_CONFIG_PATH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CLANG_MODULE_CACHE_PATH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CLANG_NO_DEFAULT_CONFIG": {
+      "present": true,
+      "value_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+    },
+    "CLANG_PATH": {
+      "present": true,
+      "value_sha256": "16e4ff9c65d2f8d556c7aad4415354a839fc0b7da5848b98477201bd4c88c072"
+    },
+    "CMAKE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_AR_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_AR_x86_64_unknown_linux_gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_BUILD_PARALLEL_LEVEL": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_CXX_COMPILER_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_CXX_COMPILER_x86_64_unknown_linux_gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_C_COMPILER_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_C_COMPILER_x86_64_unknown_linux_gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_GENERATOR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_GENERATOR_INSTANCE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_GENERATOR_PLATFORM": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_GENERATOR_TOOLSET": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_GENERATOR_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_GENERATOR_x86_64_unknown_linux_gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_INSTALL_MODE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_MAKE_PROGRAM": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_MAKE_PROGRAM_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_MAKE_PROGRAM_x86_64_unknown_linux_gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_PREFIX_PATH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_PREFIX_PATH_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_PREFIX_PATH_x86_64_unknown_linux_gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_RANLIB_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_RANLIB_x86_64_unknown_linux_gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_TOOLCHAIN_FILE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_TOOLCHAIN_FILE_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_TOOLCHAIN_FILE_x86_64_unknown_linux_gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CMAKE_x86_64_unknown_linux_gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "COMPILER_PATH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CONDA_PREFIX": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CPATH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CPLUS_INCLUDE_PATH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CRATE_CC_NO_DEFAULTS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CXX": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CXXFLAGS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CXXFLAGS_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CXXFLAGS_x86_64_unknown_linux_gnu": {
+      "present": true,
+      "value_sha256": "0959505f51986c45af876d439a0e6961a745c3eb97439b957d5954829f5b0e4e"
+    },
+    "CXXSTDLIB": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CXXSTDLIB_STATIC": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CXXSTDLIB_STATIC_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CXXSTDLIB_STATIC_x86_64_unknown_linux_gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CXXSTDLIB_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CXXSTDLIB_x86_64_unknown_linux_gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CXX_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "CXX_x86_64_unknown_linux_gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "C_INCLUDE_PATH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "DESTDIR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "ENV": {
+      "present": false,
+      "value_sha256": null
+    },
+    "FORCE_CLANG_DIAGNOSTICS_CRASH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "GCC_COMPARE_DEBUG": {
+      "present": false,
+      "value_sha256": null
+    },
+    "GCC_EXEC_PREFIX": {
+      "present": false,
+      "value_sha256": null
+    },
+    "GIT_CEILING_DIRECTORIES": {
+      "present": false,
+      "value_sha256": null
+    },
+    "GIT_COMMON_DIR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "GIT_CONFIG_COUNT": {
+      "present": false,
+      "value_sha256": null
+    },
+    "GIT_CONFIG_GLOBAL": {
+      "present": false,
+      "value_sha256": null
+    },
+    "GIT_CONFIG_NOSYSTEM": {
+      "present": false,
+      "value_sha256": null
+    },
+    "GIT_CONFIG_PARAMETERS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "GIT_CONFIG_SYSTEM": {
+      "present": false,
+      "value_sha256": null
+    },
+    "GIT_DIR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "GIT_DISCOVERY_ACROSS_FILESYSTEM": {
+      "present": false,
+      "value_sha256": null
+    },
+    "GIT_EXEC_PATH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "GIT_WORK_TREE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "GLIBC_TUNABLES": {
+      "present": false,
+      "value_sha256": null
+    },
+    "GMP_MPFR_SYS_CACHE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "GNUMAKEFLAGS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HIGHS_MAJOR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HIGHS_MINOR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HIGHS_PATCH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HOME": {
+      "present": true,
+      "value_sha256": "17777b5d83d83615db527ead8efb5b930327a157b5e6d8d323975543366a9d3b"
+    },
+    "HOST_AR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HOST_ARFLAGS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HOST_CC": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HOST_CFLAGS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HOST_CMAKE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HOST_CMAKE_AR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HOST_CMAKE_CXX_COMPILER": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HOST_CMAKE_C_COMPILER": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HOST_CMAKE_GENERATOR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HOST_CMAKE_MAKE_PROGRAM": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HOST_CMAKE_PREFIX_PATH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HOST_CMAKE_RANLIB": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HOST_CMAKE_TOOLCHAIN_FILE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HOST_CXX": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HOST_CXXFLAGS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HOST_CXXSTDLIB": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HOST_CXXSTDLIB_STATIC": {
+      "present": false,
+      "value_sha256": null
+    },
+    "HOST_RANLIB": {
+      "present": false,
+      "value_sha256": null
+    },
+    "IPOPT_DIR": {
+      "present": true,
+      "value_sha256": "2e449936c6695718d52972a860fc6d021fbdb245403a22eea37ab81700ee6e5f"
+    },
+    "LANG": {
+      "present": true,
+      "value_sha256": "65ce8c93514741c928d27fcdbe7b0a754dfcaebcb2292111cd60305dc983f51f"
+    },
+    "LC_ALL": {
+      "present": true,
+      "value_sha256": "99fed2d548c2eb1022f4067f97fe838a2c3ea60ee0e0f53086788505c3ababad"
+    },
+    "LC_CTYPE": {
+      "present": true,
+      "value_sha256": "99fed2d548c2eb1022f4067f97fe838a2c3ea60ee0e0f53086788505c3ababad"
+    },
+    "LC_MESSAGES": {
+      "present": false,
+      "value_sha256": null
+    },
+    "LD_AUDIT": {
+      "present": false,
+      "value_sha256": null
+    },
+    "LD_BIND_NOW": {
+      "present": false,
+      "value_sha256": null
+    },
+    "LD_HWCAP_MASK": {
+      "present": false,
+      "value_sha256": null
+    },
+    "LD_LIBRARY_PATH": {
+      "present": true,
+      "value_sha256": "1340c1230fd1ade945b541fe842104972dcc61871f584c31fef890e11aaee56b"
+    },
+    "LD_ORIGIN_PATH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "LD_PRELOAD": {
+      "present": false,
+      "value_sha256": null
+    },
+    "LIBCLANG_DISABLE_PCH_VALIDATION": {
+      "present": false,
+      "value_sha256": null
+    },
+    "LIBCLANG_OBJTRACKING": {
+      "present": false,
+      "value_sha256": null
+    },
+    "LIBCLANG_PATH": {
+      "present": true,
+      "value_sha256": "169b79f5c92e324e5579d667a732f33b3afff3767fd74e9895ed2b7d55c08743"
+    },
+    "LIBCLANG_STATIC_PATH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "LIBCLANG_TIMING": {
+      "present": false,
+      "value_sha256": null
+    },
+    "LIBRARY_PATH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "LLVM_CONFIG_PATH": {
+      "present": true,
+      "value_sha256": "5f8fee782b7e91317c19488c728355ddda4b70ffa1dee848b9929879537e1cf6"
+    },
+    "LPATH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "MAKEFILES": {
+      "present": false,
+      "value_sha256": null
+    },
+    "MAKEFLAGS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "MOLD_REPRO": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PATH": {
+      "present": true,
+      "value_sha256": "cb7998e02c99b215a83c153f5aa4eb6dd8e7d43dede6d9d29f5c5e8a29a3b244"
+    },
+    "PETSC_DIR": {
+      "present": true,
+      "value_sha256": "f35642ffb3cbd49f4d9fec77270b15fcee784c9c8cb9d0127b9eab5c705cadef"
+    },
+    "PKG_CONFIG": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_ALLOW_SYSTEM_CFLAGS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_ALLOW_SYSTEM_LIBS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_DEBUG_SPEW": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_DISABLE_UNINSTALLED": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_DONT_DEFINE_PREFIX": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_DONT_RELOCATE_PATHS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_EARLY_TRACE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_FDO_SYSROOT_RULES": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_IGNORE_CONFLICTS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_LIBDIR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_LOG": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_MAXIMUM_TRAVERSE_DEPTH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_MSVC_SYNTAX": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_PATH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_PURE_DEPGRAPH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_SYSROOT_DIR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_SYSTEM_INCLUDE_PATH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_SYSTEM_LIBRARY_PATH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PKG_CONFIG_TOP_BUILD_DIR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PSE_NATIVE_COMPILER_CACHE": {
+      "present": true,
+      "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "PSE_ROOT_ISOLATION_DIR": {
+      "present": true,
+      "value_sha256": "308dd2fae23fa1bbcbb7e367f15a501a3df947aed3818d4e4c1c5c47fb166623"
+    },
+    "PYO3_BUILD_EXTENSION_MODULE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PYO3_CONFIG_FILE": {
+      "present": true,
+      "value_sha256": "58f20b8968ddd2cd564197301ef4984cc9935d73942e81f292ca433ffb88ae64"
+    },
+    "PYO3_CROSS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PYO3_CROSS_LIB_DIR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PYO3_CROSS_PYTHON_IMPLEMENTATION": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PYO3_CROSS_PYTHON_VERSION": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PYO3_ENVIRONMENT_SIGNATURE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PYO3_EXTRA_BUILD_SCRIPT_LINES": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PYO3_NO_PYTHON": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PYO3_PRINT_CONFIG": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PYO3_PYTHON": {
+      "present": true,
+      "value_sha256": "07dbb24a1c1143c43cd324547f1b49f0b008bdb0a543d1287c9b2a95776a5662"
+    },
+    "PYO3_SUPPRESS_BUILD_SCRIPT_LINK_LINES": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PYO3_USE_ABI3_FORWARD_COMPATIBILITY": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PYO3_USE_RAW_DYLIB": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PYO3_USE_STABLE_ABI_FORWARD_COMPATIBILITY": {
+      "present": false,
+      "value_sha256": null
+    },
+    "RANLIB": {
+      "present": false,
+      "value_sha256": null
+    },
+    "RANLIB_x86_64-unknown-linux-gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "RANLIB_x86_64_unknown_linux_gnu": {
+      "present": false,
+      "value_sha256": null
+    },
+    "RING_PREGENERATE_ASM": {
+      "present": false,
+      "value_sha256": null
+    },
+    "RUSTC": {
+      "present": false,
+      "value_sha256": null
+    },
+    "RUSTC_WORKSPACE_WRAPPER": {
+      "present": true,
+      "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "RUSTC_WRAPPER": {
+      "present": true,
+      "value_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "RUSTFMT": {
+      "present": true,
+      "value_sha256": "05d3206e76e7187d569a3cf5e80daad2d662b62ff7dcad71545af157f1a3522f"
+    },
+    "RUSTUP_HOME": {
+      "present": false,
+      "value_sha256": null
+    },
+    "RUSTUP_OVERRIDE_TOOLCHAIN": {
+      "present": false,
+      "value_sha256": null
+    },
+    "RUSTUP_TOOLCHAIN": {
+      "present": false,
+      "value_sha256": null
+    },
+    "SCIPOPTDIR": {
+      "present": true,
+      "value_sha256": "2e449936c6695718d52972a860fc6d021fbdb245403a22eea37ab81700ee6e5f"
+    },
+    "SHELLOPTS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "SOURCE_DATE_EPOCH": {
+      "present": true,
+      "value_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+    },
+    "SUITESPARSE_INCLUDE_DIR": {
+      "present": true,
+      "value_sha256": "965d3d5d8a9f93af6aa51cf39bf81591594a1060c6e4fa088e2466f4379adaf5"
+    },
+    "SUITESPARSE_LIBRARY_DIR": {
+      "present": true,
+      "value_sha256": "7c22f015cd0c14e31adaebcfa5c01de45a18fbf87dde6eedb3eb6ede45412f19"
+    },
+    "TARGET_AR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "TARGET_CC": {
+      "present": false,
+      "value_sha256": null
+    },
+    "TARGET_CFLAGS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "TARGET_CMAKE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "TARGET_CMAKE_AR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "TARGET_CMAKE_CXX_COMPILER": {
+      "present": false,
+      "value_sha256": null
+    },
+    "TARGET_CMAKE_C_COMPILER": {
+      "present": false,
+      "value_sha256": null
+    },
+    "TARGET_CMAKE_GENERATOR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "TARGET_CMAKE_MAKE_PROGRAM": {
+      "present": false,
+      "value_sha256": null
+    },
+    "TARGET_CMAKE_PREFIX_PATH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "TARGET_CMAKE_RANLIB": {
+      "present": false,
+      "value_sha256": null
+    },
+    "TARGET_CMAKE_TOOLCHAIN_FILE": {
+      "present": false,
+      "value_sha256": null
+    },
+    "TARGET_CXX": {
+      "present": false,
+      "value_sha256": null
+    },
+    "TARGET_CXXFLAGS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "TARGET_RANLIB": {
+      "present": false,
+      "value_sha256": null
+    },
+    "TEMP": {
+      "present": false,
+      "value_sha256": null
+    },
+    "TMP": {
+      "present": false,
+      "value_sha256": null
+    },
+    "TMPDIR": {
+      "present": false,
+      "value_sha256": null
+    },
+    "TZ": {
+      "present": true,
+      "value_sha256": "7e5f76c94a635c217e282f79db4fc7ee4bfd9b64044166714067602cc4be620c"
+    },
+    "UNO_DIR": {
+      "present": true,
+      "value_sha256": "ae521bb7da209d9fbae0e6c9b7894af7c367446e39abe0af4542630443dfb657"
+    },
+    "UNSAFE_PYO3_SKIP_VERSION_CHECK": {
+      "present": false,
+      "value_sha256": null
+    },
+    "XDG_CACHE_HOME": {
+      "present": false,
+      "value_sha256": null
+    },
+    "XDG_CONFIG_HOME": {
+      "present": false,
+      "value_sha256": null
+    },
+    "ZSTD_SYS_USE_PKG_CONFIG": {
+      "present": false,
+      "value_sha256": null
+    }
+  },
+  "path_tool_candidates": [
+    {
+      "name": "cc",
+      "first_executable": {
+        "path": "/usr/bin/cc",
+        "canonical": "/usr/bin/x86_64-linux-gnu-gcc-13",
+        "sha256": "1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26",
+        "mode": "0o755"
+      },
+      "earlier_and_selected_candidates": [
+        {
+          "path": "/opt/llvm-current/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0V7sINn/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg06xiyLW/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.0-x86_64-unknown-linux-musl/codex-path/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0Zhs7y9/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/sbin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/y/condabin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/llvm-23.1.2-z3-5.1/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/sbin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/bin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/sbin/cc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/bin/cc",
+          "executable": true,
+          "declared_guard": true
+        }
+      ],
+      "all_lookups_guarded": true
+    },
+    {
+      "name": "c++",
+      "first_executable": {
+        "path": "/usr/bin/c++",
+        "canonical": "/usr/bin/x86_64-linux-gnu-g++-13",
+        "sha256": "1353e9bdd29a7295c7226bf6c63abccce056d8cac31f112e5cdbecc3f28c2769",
+        "mode": "0o755"
+      },
+      "earlier_and_selected_candidates": [
+        {
+          "path": "/opt/llvm-current/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0V7sINn/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg06xiyLW/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.0-x86_64-unknown-linux-musl/codex-path/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0Zhs7y9/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/sbin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/y/condabin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/llvm-23.1.2-z3-5.1/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/sbin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/bin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/sbin/c++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/bin/c++",
+          "executable": true,
+          "declared_guard": true
+        }
+      ],
+      "all_lookups_guarded": true
+    },
+    {
+      "name": "gcc",
+      "first_executable": {
+        "path": "/usr/bin/gcc",
+        "canonical": "/usr/bin/x86_64-linux-gnu-gcc-13",
+        "sha256": "1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26",
+        "mode": "0o755"
+      },
+      "earlier_and_selected_candidates": [
+        {
+          "path": "/opt/llvm-current/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0V7sINn/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg06xiyLW/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.0-x86_64-unknown-linux-musl/codex-path/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0Zhs7y9/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/sbin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/y/condabin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/llvm-23.1.2-z3-5.1/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/sbin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/bin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/sbin/gcc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/bin/gcc",
+          "executable": true,
+          "declared_guard": true
+        }
+      ],
+      "all_lookups_guarded": true
+    },
+    {
+      "name": "g++",
+      "first_executable": {
+        "path": "/usr/bin/g++",
+        "canonical": "/usr/bin/x86_64-linux-gnu-g++-13",
+        "sha256": "1353e9bdd29a7295c7226bf6c63abccce056d8cac31f112e5cdbecc3f28c2769",
+        "mode": "0o755"
+      },
+      "earlier_and_selected_candidates": [
+        {
+          "path": "/opt/llvm-current/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0V7sINn/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg06xiyLW/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.0-x86_64-unknown-linux-musl/codex-path/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0Zhs7y9/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/sbin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/y/condabin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/llvm-23.1.2-z3-5.1/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/sbin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/bin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/sbin/g++",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/bin/g++",
+          "executable": true,
+          "declared_guard": true
+        }
+      ],
+      "all_lookups_guarded": true
+    },
+    {
+      "name": "ar",
+      "first_executable": {
+        "path": "/home/linuxbrew/.linuxbrew/bin/ar",
+        "canonical": "/home/linuxbrew/.linuxbrew/Cellar/binutils/2.47/bin/ar",
+        "sha256": "56654f3de2ffed732200a9f784ca459c09a791579438bfac09e1c4d5c72c75b1",
+        "mode": "0o555"
+      },
+      "earlier_and_selected_candidates": [
+        {
+          "path": "/opt/llvm-current/bin/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0V7sINn/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg06xiyLW/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.0-x86_64-unknown-linux-musl/codex-path/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0Zhs7y9/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/ar",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/bin/ar",
+          "executable": true,
+          "declared_guard": true
+        }
+      ],
+      "all_lookups_guarded": true
+    },
+    {
+      "name": "as",
+      "first_executable": {
+        "path": "/home/linuxbrew/.linuxbrew/bin/as",
+        "canonical": "/home/linuxbrew/.linuxbrew/Cellar/binutils/2.47/bin/as",
+        "sha256": "94f3a1538f3d37d2732aceda023847bf88e9dd6685f6570bb5a1f152f581dc0b",
+        "mode": "0o555"
+      },
+      "earlier_and_selected_candidates": [
+        {
+          "path": "/opt/llvm-current/bin/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0V7sINn/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg06xiyLW/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.0-x86_64-unknown-linux-musl/codex-path/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0Zhs7y9/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/as",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/bin/as",
+          "executable": true,
+          "declared_guard": true
+        }
+      ],
+      "all_lookups_guarded": true
+    },
+    {
+      "name": "ranlib",
+      "first_executable": {
+        "path": "/home/linuxbrew/.linuxbrew/bin/ranlib",
+        "canonical": "/home/linuxbrew/.linuxbrew/Cellar/binutils/2.47/bin/ranlib",
+        "sha256": "1e3cc7dafcd1c9e1f02f9e4bc76c20b290aa42fb6a00a99cf6ea8ac7990fb9aa",
+        "mode": "0o555"
+      },
+      "earlier_and_selected_candidates": [
+        {
+          "path": "/opt/llvm-current/bin/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0V7sINn/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg06xiyLW/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.0-x86_64-unknown-linux-musl/codex-path/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0Zhs7y9/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/ranlib",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/bin/ranlib",
+          "executable": true,
+          "declared_guard": true
+        }
+      ],
+      "all_lookups_guarded": true
+    },
+    {
+      "name": "clang",
+      "first_executable": {
+        "path": "/opt/llvm-current/bin/clang",
+        "canonical": "/opt/llvm-23.1.2-z3-5.1/bin/clang-23",
+        "sha256": "713ede64455c4adde2d2c55017089a5cfabb856b2cbe31a453db437f28d2ecbd",
+        "mode": "0o755"
+      },
+      "earlier_and_selected_candidates": [
+        {
+          "path": "/opt/llvm-current/bin/clang",
+          "executable": true,
+          "declared_guard": true
+        }
+      ],
+      "all_lookups_guarded": true
+    },
+    {
+      "name": "llvm-config",
+      "first_executable": {
+        "path": "/opt/llvm-current/bin/llvm-config",
+        "canonical": "/opt/llvm-23.1.2-z3-5.1/bin/llvm-config",
+        "sha256": "2462384bdcd678e6cfed513ca4e58c6962594475465d1dde43237bfb7ca64e0a",
+        "mode": "0o755"
+      },
+      "earlier_and_selected_candidates": [
+        {
+          "path": "/opt/llvm-current/bin/llvm-config",
+          "executable": true,
+          "declared_guard": true
+        }
+      ],
+      "all_lookups_guarded": true
+    },
+    {
+      "name": "cmake",
+      "first_executable": {
+        "path": "/usr/bin/cmake",
+        "canonical": "/usr/bin/cmake",
+        "sha256": "1c5227af4edd22d8d689def545e18ee458260c0fd579eba2187967f38817e638",
+        "mode": "0o755"
+      },
+      "earlier_and_selected_candidates": [
+        {
+          "path": "/opt/llvm-current/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0V7sINn/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg06xiyLW/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.0-x86_64-unknown-linux-musl/codex-path/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0Zhs7y9/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/sbin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/y/condabin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/llvm-23.1.2-z3-5.1/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/sbin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/bin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/sbin/cmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/bin/cmake",
+          "executable": true,
+          "declared_guard": true
+        }
+      ],
+      "all_lookups_guarded": true
+    },
+    {
+      "name": "gmake",
+      "first_executable": {
+        "path": "/usr/bin/gmake",
+        "canonical": "/usr/bin/make",
+        "sha256": "d78b8f1d099fbcfb6f2f49ab87223b9b68fb3956642f92d6ec6de812e8afa965",
+        "mode": "0o755"
+      },
+      "earlier_and_selected_candidates": [
+        {
+          "path": "/opt/llvm-current/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0V7sINn/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg06xiyLW/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.0-x86_64-unknown-linux-musl/codex-path/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0Zhs7y9/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/sbin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/y/condabin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/llvm-23.1.2-z3-5.1/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/sbin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/bin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/sbin/gmake",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/bin/gmake",
+          "executable": true,
+          "declared_guard": true
+        }
+      ],
+      "all_lookups_guarded": true
+    },
+    {
+      "name": "make",
+      "first_executable": {
+        "path": "/usr/bin/make",
+        "canonical": "/usr/bin/make",
+        "sha256": "d78b8f1d099fbcfb6f2f49ab87223b9b68fb3956642f92d6ec6de812e8afa965",
+        "mode": "0o755"
+      },
+      "earlier_and_selected_candidates": [
+        {
+          "path": "/opt/llvm-current/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0V7sINn/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg06xiyLW/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.0-x86_64-unknown-linux-musl/codex-path/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0Zhs7y9/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/sbin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/y/condabin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/llvm-23.1.2-z3-5.1/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/sbin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/bin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/sbin/make",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/bin/make",
+          "executable": true,
+          "declared_guard": true
+        }
+      ],
+      "all_lookups_guarded": true
+    },
+    {
+      "name": "pkg-config",
+      "first_executable": {
+        "path": "/usr/bin/pkg-config",
+        "canonical": "/usr/bin/pkgconf",
+        "sha256": "7e8152db1b0c7e49d47b4b82a70dc9997b557951c5d4d938b0e7f208ce9eb10b",
+        "mode": "0o755"
+      },
+      "earlier_and_selected_candidates": [
+        {
+          "path": "/opt/llvm-current/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0V7sINn/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg06xiyLW/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.0-x86_64-unknown-linux-musl/codex-path/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0Zhs7y9/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/sbin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/y/condabin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/llvm-23.1.2-z3-5.1/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/sbin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/bin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/sbin/pkg-config",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/bin/pkg-config",
+          "executable": true,
+          "declared_guard": true
+        }
+      ],
+      "all_lookups_guarded": true
+    },
+    {
+      "name": "git",
+      "first_executable": {
+        "path": "/usr/bin/git",
+        "canonical": "/usr/bin/git",
+        "sha256": "2a8c18fbf43da9f692d75474c72bea9dfd796c260b0f3dfe456376abc3bbd668",
+        "mode": "0o755"
+      },
+      "earlier_and_selected_candidates": [
+        {
+          "path": "/opt/llvm-current/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0V7sINn/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg06xiyLW/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.0-x86_64-unknown-linux-musl/codex-path/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0Zhs7y9/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/home/linuxbrew/.linuxbrew/sbin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/opt/curl-http3/curl/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/y/condabin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/llvm-23.1.2-z3-5.1/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/sbin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/bin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/sbin/git",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/bin/git",
+          "executable": true,
+          "declared_guard": true
+        }
+      ],
+      "all_lookups_guarded": true
+    },
+    {
+      "name": "rustc",
+      "first_executable": {
+        "path": "$HOME/.cargo/bin/rustc",
+        "canonical": "$HOME/.cargo/bin/rustup",
+        "sha256": "dda7234360b7f578ca8b0ddcb80145646fa61a67c1720a5abc7051b35c9fcb71",
+        "mode": "0o755"
+      },
+      "earlier_and_selected_candidates": [
+        {
+          "path": "/opt/llvm-current/bin/rustc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/rustc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/rustc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/rustc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/share/jobsearch-os-toolchain/codex-bin/rustc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "/usr/local/cuda/bin/rustc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0V7sINn/rustc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path/rustc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg06xiyLW/rustc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/packages/app-server-daemon/releases/0.160.0-x86_64-unknown-linux-musl/codex-path/rustc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.codex/tmp/arg0/codex-arg0Zhs7y9/rustc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.nvm/versions/node/v26.5.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path/rustc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.local/opt/pcre2-10.48/bin/rustc",
+          "executable": false,
+          "declared_guard": true
+        },
+        {
+          "path": "$HOME/.cargo/bin/rustc",
+          "executable": true,
+          "declared_guard": true
+        }
+      ],
+      "all_lookups_guarded": true
+    }
+  ],
+  "native_inputs_complete": false,
+  "native_grant": false,
+  "unresolved_before_final_capture": [
+    "actual source/catalog/executable closure bases match supported target units",
+    "immutable selected execution snapshots and -MD/object association",
+    "same guarded native environment/search namespace basis",
+    "root linked artifact association"
+  ]
+}

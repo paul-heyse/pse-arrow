@@ -19,7 +19,7 @@ impl SharedRuntime {
             self.budget().threads,
             profile,
         )?
-        .with_cache_service(self.caches().native().clone())
+        .with_cache_service(self.caches().clone())
         .with_extension(self.caches().clone())
         .with_extension(Arc::new(pse_engine::resources::CpuAdmission {
             permits: self.compiler_cpu(),
@@ -29,12 +29,7 @@ impl SharedRuntime {
                 }
             })?,
         }))
-        .with_extension(Arc::new(pse_engine::session::round::RoundResetSupport(
-            pse_catalog::assembly::supports_round_reset,
-        )))
-        .with_query_planner(Arc::new(pse_engine::session::planner::UnifiedPlanner::new(
-            pse_catalog::assembly::planners(),
-        )));
+        ;
         Ok(factory)
     }
 }

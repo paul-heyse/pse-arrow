@@ -31,13 +31,8 @@ fn registry_metadata_is_signed_and_enforces_its_declared_widths() {
     ] {
         let spec = registry.relation(&format!("reference.{name}")).unwrap();
         let execution = arrow::relation_schema(registry, spec).unwrap();
-        let storage = pse_schema::delta::relation_schema(registry, spec).unwrap();
         let field = execution.field_with_name(column).unwrap();
         assert_eq!(field.data_type(), &DataType::Int64);
-        assert_eq!(
-            storage.field_with_name(column).unwrap().data_type(),
-            &DataType::Int64
-        );
         assert_eq!(
             batches[&spec.key]
                 .column_by_name(column)

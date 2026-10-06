@@ -31,29 +31,6 @@ impl PartialEq for ReferenceSchemaRelationsFieldChecksItem {
     reason = "field names are the authoritative relation contract"
 )]
 #[derive(Clone, Debug)]
-pub struct ReferenceSchemaRelationsFieldDeltaPropertiesItem {
-    ///name
-    pub r#name: String,
-    ///value
-    pub r#value: String,
-}
-impl crate::SemanticEq for ReferenceSchemaRelationsFieldDeltaPropertiesItem {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
-            && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
-    }
-}
-impl PartialEq for ReferenceSchemaRelationsFieldDeltaPropertiesItem {
-    fn eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(self, other)
-    }
-}
-/// A row or nested value projected from the registry declaration.
-#[allow(
-    clippy::struct_field_names,
-    reason = "field names are the authoritative relation contract"
-)]
-#[derive(Clone, Debug)]
 pub struct ReferenceSchemaRelationsFieldUniqueKeysItem {
     ///name
     pub r#name: String,
@@ -135,8 +112,6 @@ pub struct ReferenceSchemaRelationsRow {
     pub r#doc: String,
     ///Native DataFusion SQL predicates; every predicate must evaluate to true.
     pub r#checks: Vec<ReferenceSchemaRelationsFieldChecksItem>,
-    ///Declared native Delta policies in name order; part of the exact table contract.
-    pub r#delta_properties: Vec<ReferenceSchemaRelationsFieldDeltaPropertiesItem>,
     ///Unique keys besides the primary key, in declaration order.
     pub r#unique_keys: Vec<ReferenceSchemaRelationsFieldUniqueKeysItem>,
     ///Table-level (composite) references to a target key, in declaration order.
@@ -160,10 +135,6 @@ impl crate::SemanticEq for ReferenceSchemaRelationsRow {
             ) && crate::SemanticEq::semantic_eq(&self.r#stability, &other.r#stability)
             && crate::SemanticEq::semantic_eq(&self.r#doc, &other.r#doc)
             && crate::SemanticEq::semantic_eq(&self.r#checks, &other.r#checks)
-            && crate::SemanticEq::semantic_eq(
-                &self.r#delta_properties,
-                &other.r#delta_properties,
-            )
             && crate::SemanticEq::semantic_eq(&self.r#unique_keys, &other.r#unique_keys)
             && crate::SemanticEq::semantic_eq(
                 &self.r#foreign_keys,
@@ -191,21 +162,6 @@ impl crate::HeapUsage for ReferenceSchemaRelationsFieldChecksItem {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#sql))
-    }
-}
-impl crate::SemanticFrame for ReferenceSchemaRelationsFieldDeltaPropertiesItem {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(stringify!(r#name));
-        crate::SemanticFrame::frame(&self.r#name, hash);
-        hash.str(stringify!(r#value));
-        crate::SemanticFrame::frame(&self.r#value, hash);
-    }
-}
-impl crate::HeapUsage for ReferenceSchemaRelationsFieldDeltaPropertiesItem {
-    fn heap_bytes(&self) -> usize {
-        0usize
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
     }
 }
 impl crate::SemanticFrame for ReferenceSchemaRelationsFieldUniqueKeysItem {
@@ -268,8 +224,6 @@ impl crate::SemanticFrame for ReferenceSchemaRelationsRow {
         crate::SemanticFrame::frame(&self.r#doc, hash);
         hash.str(stringify!(r#checks));
         crate::SemanticFrame::frame(&self.r#checks, hash);
-        hash.str(stringify!(r#delta_properties));
-        crate::SemanticFrame::frame(&self.r#delta_properties, hash);
         hash.str(stringify!(r#unique_keys));
         crate::SemanticFrame::frame(&self.r#unique_keys, hash);
         hash.str(stringify!(r#foreign_keys));
@@ -290,7 +244,6 @@ impl crate::HeapUsage for ReferenceSchemaRelationsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#stability))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#doc))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#checks))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#delta_properties))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unique_keys))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#foreign_keys))
     }

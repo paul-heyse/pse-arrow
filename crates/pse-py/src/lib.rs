@@ -15,9 +15,8 @@
 //! The module is imported as `pse._native`; nothing else in the Python package is
 //! allowed to import it directly (ast-grep rule `no-direct-native-import`).
 //!
-//! Exposes build provenance and read-only exact Delta publication inspection. Named table
-//! streams preserve the catalog's final-buffer reservations through Arrow C Stream
-//! consumers; opening checks exact declarations under one explicit process budget.
+//! Exposes build provenance and exact canonical scientific inspection. Named table
+//! streams retain protected source ownership through Arrow C Stream consumers.
 
 use pyo3::prelude::*;
 
@@ -36,7 +35,7 @@ fn build_info() -> documents::DocumentValue<pse_buildinfo::BuildInfo> {
 /// Compiled registry identity; does not assemble or inspect the runtime registry.
 #[pyfunction]
 fn registry_fingerprint() -> String {
-    pse_catalog::inspection::REGISTRY_FINGERPRINT.to_prefixed()
+    pse_relations::generated::REGISTRY_FINGERPRINT.to_prefixed()
 }
 
 /// Immutable admitted data inspection and build provenance.
@@ -50,11 +49,13 @@ mod _native {
             semantic_id_to_hex,
         },
         inspection::{
-            CacheSettings, DiagnosticReport, EngineSettings, InspectionError, Publication,
-            TableStream, open_export,
+            CacheSettings, DiagnosticReport, EngineSettings, InspectionError,
+            TableStream,
+            registry_table,
         },
         registry_fingerprint,
         workflow::{
+            NativeAnalysis,
             ModelingDiagnosticSettings, ModelingLimits, NativeAttempt, NativeModelingConformance,
             NativeModelingDiagnosticSamples, NativeModelingDiagnostics,
             NativeModelingElasticAttempt, NativeModelingInitialization,
@@ -62,10 +63,10 @@ mod _native {
             NativeModelingNativeAnalysis, NativeModelingNonlinearExplanation,
             NativeModelingPackage, NativeModelingResult, NativeModelingTrajectory,
             NativePhysicalContext, NativePreparedFlow, NativePreparedOperation,
-            NativePreparedStrategy, NativeProgressStream, NativePublicationAttempt,
-            NativeRunHandle, NativeRunResult, NativeRuntime, NativeStart, NativeStrategyAttempt,
-            NativeStrategyResult, NativeStudyHandle, NativeStudyReport, OperationalStore,
-            SimulationSettings, TestOperationalStore,
+            NativePreparedStrategy, NativeProgressStream,
+            NativeRunHandle, NativeRunResult, NativeStoredResult, NativeRuntime, NativeStart, NativeStrategyAttempt,
+            NativeStrategyResult, NativeStudyHandle, NativeStudyReport,
+            SimulationSettings,
         },
     };
 

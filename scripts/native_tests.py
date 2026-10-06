@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 from scripts import validation, validation_receipts
 
 ROOT = Path(__file__).resolve().parents[1]
-FEATURES = "pse-runtime/native-solvers,pse-tests-conformance/native-acceptance,pse-relations/force-validate"
+FEATURES = "pse-runtime/native-solvers,pse-runtime/canonical-tests,pse-tests-conformance/native-acceptance,pse-relations/force-validate"
 
 
 def native_provenance(

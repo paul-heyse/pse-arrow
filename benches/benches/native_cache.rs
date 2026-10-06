@@ -7,15 +7,6 @@
     clippy::print_stdout,
     reason = "standalone qualification harness emits measurements and asserts its fixtures"
 )]
-#[path = "../../crates/pse-catalog/tests/support/cache_journey.rs"]
-mod cache_journey;
-#[path = "native_cache/cdf.rs"]
-mod cdf;
-#[path = "native_cache/delta.rs"]
-mod delta;
-#[path = "../../crates/pse-catalog/tests/support/kernel_checksum.rs"]
-mod kernel_checksum;
-
 #[path = "native_cache/preparation.rs"]
 mod preparation;
 
@@ -31,7 +22,7 @@ use datafusion::{
     functions_aggregate::expr_fn::count,
     logical_expr::{LogicalPlanBuilder, col},
 };
-use pse_catalog::cache_service::{DeltaCacheBudget, DeltaCacheService};
+use pse_engine::cache_service::{CacheBudget,NativeCacheService};
 use pse_columnar::CancellationToken;
 use pse_engine::session::{EngineFactory, ExecutionSettings, ThreadBudget, native_engine_profile};
 use pse_relations::columnar::FieldCheckedBatch;
@@ -75,7 +66,7 @@ async fn prepared_rounds(rows: usize, rounds: usize) -> serde_json::Value {
         .with_memory_pool(pool.clone())
         .build_arc()
         .unwrap();
-    let caches = DeltaCacheService::new(DeltaCacheBudget::for_memory(256 << 20), &pool).unwrap();
+    let caches = NativeCacheService::new(CacheBudget::for_memory(256 << 20), &pool).unwrap();
     let factory = EngineFactory::new(
         runtime,
         pool.clone(),
@@ -87,11 +78,7 @@ async fn prepared_rounds(rows: usize, rounds: usize) -> serde_json::Value {
         native_engine_profile(),
     )
     .unwrap()
-    .with_cache_service(caches.native().clone())
-    .with_extension(caches.clone())
-    .with_query_planner(Arc::new(pse_engine::session::planner::UnifiedPlanner::new(
-        pse_catalog::assembly::planners(),
-    )));
+    .with_cache_service(caches.clone());
     let validation = factory.validation_context(&registry).unwrap();
     let cancel = CancellationToken::new();
     let empty = FieldCheckedBatch::admit(
@@ -177,25 +164,16 @@ async fn prepared_rounds(rows: usize, rounds: usize) -> serde_json::Value {
         );
     }
     let counters = caches
-        .native()
         .execution_report()
         .into_iter()
         .collect::<BTreeMap<_, _>>();
     assert_eq!(counters["physical_plans"], Some(1));
     assert_eq!(counters["reusable_executions"], Some(rounds));
-    serde_json::json!({"experiment":"prepared_rounds", "rows": rows,"rounds":rounds,"prepare_seconds":prepare_seconds,"execute_seconds":execute_seconds,"counts":counters,"reserved_bytes":pool.reserved(), "pool_peak_bytes":peak.max_reserved(), "process_peak_rss_bytes":cache_journey::process_peak_rss()})
+    serde_json::json!({"experiment":"prepared_rounds", "rows": rows,"rounds":rounds,"prepare_seconds":prepare_seconds,"execute_seconds":execute_seconds,"counts":counters,"reserved_bytes":pool.reserved(), "pool_peak_bytes":peak.max_reserved(), "process_peak_rss_bytes":process_peak_rss()})
 }
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    if let Ok(payload) = std::env::var("PSE_CACHE_COLD_OPEN") {
-        delta::cold_open(&payload).await;
-        return;
-    }
-    if let Ok(payload) = std::env::var("PSE_NATIVE_CACHE_MAINTENANCE") {
-        cache_journey::maintenance_child(&payload).await;
-        return;
-    }
     // `cargo bench` passes `--bench`; `cargo test --benches` passes no mode flag.
     let smoke = !std::env::args().any(|argument| argument == "--bench");
     tracing_subscriber::fmt()
@@ -224,26 +202,16 @@ async fn matrix(smoke: bool) {
     } else {
         vec![16, 1024, 16384]
     };
-    delta::matrix(smoke).await;
-    if !smoke {
-        for resident_bytes in [0, 64 << 10, 8 << 20] {
-            let mut policy = DeltaCacheBudget::for_memory(256 << 20);
-            policy.resident_bytes = resident_bytes;
-            let receipt =
-                Box::pin(cache_journey::run_policy(true, 16384, false, Some(policy))).await;
-            println!(
-                "{}",
-                serde_json::json!({"experiment":"cache_pressure","resident_bytes":resident_bytes,"receipt":receipt})
-            );
-        }
-    }
     for rows in sizes {
         println!(
             "{}",
             prepared_rounds(rows, if smoke { 2 } else { 20 }).await
         );
-        for enabled in [false, true] {
-            println!("{}", Box::pin(cache_journey::run(enabled, rows)).await);
-        }
+
     }
+}
+
+/// Process high water, distinct from the accounted native memory pool.
+fn process_peak_rss()->Option<u64>{
+    std::fs::read_to_string("/proc/self/status").ok()?.lines().find(|line|line.starts_with("VmHWM:"))?.split_whitespace().nth(1)?.parse::<u64>().ok()?.checked_mul(1024)
 }

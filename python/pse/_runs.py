@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Source-independent joined computation and publication handles."""
+"""Joined computation and exact canonical execution handles."""
 
 from collections.abc import Mapping, Sequence
 from types import TracebackType
@@ -9,13 +9,15 @@ from typing import Self, TypeAlias
 import attrs
 
 from pse import codec
+from pse._analyses import Analysis
+from pse.contracts.documents import AnalysisControls
 from pse._build import (
     DiagnosticReport,
     _NativePreparedOperation,
     _NativeProgressStream,
-    _NativePublicationAttempt,
     _NativeRunHandle,
     _NativeRunResult,
+    _NativeStoredResult,
     _NativeStart,
     _NativeStudyHandle,
 )
@@ -28,17 +30,14 @@ from pse.contracts.documents import (
     NumericalStrategyDocument,
     PointStatus,
     ProgressEventDocument,
-    Published,
+    StudyResults,
     RouteDocument,
     RuntimeAccuracyGoalAssessmentsRow,
     StudyCancel,
     StudyStatus,
     StudyWaitControls,
-    Workspace,
 )
 from pse.contracts.identities import (
-    AttemptId,
-    PublicationId,
     RunId,
     StudyId,
 )
@@ -48,10 +47,61 @@ StudyPointStatus: TypeAlias = PointStatus
 
 
 @attrs.frozen
+class StoredResult:
+    """Exact persisted occurrence; scientific rows reopen from canonical storage."""
+
+    _handle: _NativeStoredResult
+
+    @property
+    def run_id(self) -> RunId:
+        """Producing scientific execution identity."""
+        return RunId(SemanticId.from_hex(self._handle.run_id))
+
+    @property
+    def usable(self) -> bool:
+        """Read original candidate permissions from retained completion."""
+        return self._handle.usable
+
+    @property
+    def completion(self) -> Completion:
+        """Original bounded scientific completion, without report hydration."""
+        return codec.decode_json(self._handle.completion(), Completion)
+
+    def diagnostics(self) -> tuple[DiagnosticReport, ...]:
+        """Original scientific boundary observations."""
+        return tuple(self._handle.diagnostics())
+
+    @property
+    def run_key(self) -> str:
+        return self._handle.run_key
+
+    @property
+    def attempt_key(self) -> str:
+        return self._handle.attempt_key
+
+    def table(self, relation: str, *, start: int = 0, end: int = (1 << 64) - 1) -> TableStream:
+        return TableStream(self._handle.table(relation, start=start, end=end))
+
+    def attempt_record(self) -> TableStream:
+        """Recorded lifecycle and completion; terminal class alone is not usability."""
+        return TableStream(self._handle.attempt_record())
+
+    def progress(self) -> "ProgressStream":
+        return ProgressStream(self._handle.progress())
+
+    def export(self, relation: str, destination: str, *, start: int = 0, end: int = (1 << 64) - 1) -> None:
+        self._handle.export(relation, destination, start=start, end=end)
+
+
+@attrs.frozen
 class PreparedOperation:
     """Immutable authored solve, simulation or fitting request."""
 
     _handle: _NativePreparedOperation
+
+    def dependency_analysis(self, controls: AnalysisControls) -> Analysis:
+        """Persist original incidence and execution dependencies before dispatch."""
+        return Analysis(self._handle.dependency_analysis(codec.encode_json(controls)))
 
     @property
     def identity(self) -> ContentHash:
@@ -118,46 +168,6 @@ class PreparedOperation:
 
 
 @attrs.frozen
-class PublicationTicket:
-    """Serialized publication request, saved before any effect.
-
-    Settle it after a commit whose outcome is unknown.
-    """
-
-    json: bytes
-
-
-@attrs.frozen
-class PublicationAttempt:
-    """Explicit single-use publication of immutable results."""
-
-    _handle: _NativePublicationAttempt
-
-    @property
-    def ticket(self) -> PublicationTicket:
-        """Save before commit; it remains available after the command is consumed."""
-        return PublicationTicket(self._handle.ticket())
-
-    @property
-    def attempt_id(self) -> AttemptId:
-        """The durable attempt published: the publication attempt itself."""
-        return AttemptId(SemanticId.from_hex(self._handle.attempt_id))
-
-    @property
-    def publication_id(self) -> PublicationId:
-        """Identity of the proposed publication."""
-        return PublicationId(SemanticId.from_hex(self._handle.publication_id))
-
-    def commit(self) -> Published:
-        """Register the intent, write the members and commit once; never retried.
-
-        A conflict raises; re-prepare with the same ``publication_id`` against the new
-        head. An unresolved outcome raises; settle the ticket.
-        """
-        return codec.decode_json(self._handle.commit(), Published)
-
-
-@attrs.frozen
 class RunResult:
     """Joined immutable outcome; failed and unattempted steps remain inspectable."""
 
@@ -173,10 +183,14 @@ class RunResult:
         return RunId(SemanticId.from_hex(self._handle.run_id))
 
     @property
-    def attempt_id(self) -> AttemptId | None:
-        """Durable attempt that recorded this run; ``None`` for an ephemeral run."""
-        attempt = self._handle.attempt_id
-        return None if attempt is None else AttemptId(SemanticId.from_hex(attempt))
+    def canonical_run_key(self) -> str | None:
+        """Exact persistent run key; absent for explicit ephemeral execution."""
+        return self._handle.canonical_run_key
+
+    @property
+    def canonical_attempt_key(self) -> str | None:
+        """Exact producing attempt key, without truncation or ID reinterpretation."""
+        return self._handle.canonical_attempt_key
 
     @property
     def usable(self) -> bool:
@@ -221,34 +235,6 @@ class RunResult:
         """Return a one-consumption stream owning its final Arrow buffers."""
         return TableStream(self._handle.table(name))
 
-    def prepare_publication(
-        self,
-        workspace: Workspace,
-        *,
-        parent: PublicationId | None = None,
-        publication_id: PublicationId | None = None,
-    ) -> PublicationAttempt:
-        """Prepare the publication of this durable run in ``workspace``; no write.
-
-        Args:
-            workspace: A registered workspace.
-            parent: The exact expected head; ``None`` for the first publication.
-            publication_id: Reuse an identity when re-preparing after a conflict.
-
-        Returns:
-            A single-use attempt whose ticket exists before any effect.
-        """
-        return PublicationAttempt(
-            self._handle.prepare_publication(
-                codec.encode_json(workspace),
-                parent=None if parent is None else parent.to_hex(),
-                publication_id=None
-                if publication_id is None
-                else publication_id.to_hex(),
-            )
-        )
-
-
 @attrs.frozen
 class RunHandle:
     """Blocking and asyncio access to the same supervised native job."""
@@ -260,10 +246,15 @@ class RunHandle:
         self._handle.cancel()
 
     @property
-    def attempt_id(self) -> AttemptId | None:
-        """Durable attempt minted before any effect; ``None`` for an ephemeral run."""
-        attempt = self._handle.attempt_id
-        return None if attempt is None else AttemptId(SemanticId.from_hex(attempt))
+    def canonical_run_key(self) -> str | None:
+        """Exact persistent run key; absent for explicit ephemeral execution."""
+        return self._handle.canonical_run_key
+
+    @property
+    def canonical_attempt_key(self) -> str | None:
+        """Exact producing attempt key, without truncation or ID reinterpretation."""
+        return self._handle.canonical_attempt_key
+
 
     def wait(self) -> RunResult:
         """Release Python while waiting; join cancellation before a signal escapes."""
@@ -291,22 +282,23 @@ class RunHandle:
 
 @attrs.frozen
 class ProgressStream:
-    """A durable attempt's stored progress events and incumbents, in observation order.
+    """An admitted terminal attempt's progress, one recorded batch at a time.
 
-    Events are read from the operational store a bounded page at a time. A followed
-    stream waits for new events until the attempt stops working; otherwise it ends
-    after the events stored when it reads them. Each event carries its ``step``,
-    stream ``sequence`` and observation time ``at``; an incumbent of a
-    branch-and-bound search is an event whose ``incumbent`` is set. ``close`` ends
-    the stream, including a read that is waiting.
+    Live observations are available on ``RunHandle``. Closing this history stream
+    ends unread database work and releases its canonical result protection.
     """
 
     _handle: _NativeProgressStream
 
     @property
-    def attempt_id(self) -> AttemptId:
-        """The attempt whose streams these are."""
-        return AttemptId(SemanticId.from_hex(self._handle.attempt_id))
+    def run_key(self) -> str:
+        """Exact opaque producing run key."""
+        return self._handle.run_key
+
+    @property
+    def attempt_key(self) -> str:
+        """Exact opaque producing terminal attempt key."""
+        return self._handle.attempt_key
 
     def __iter__(self) -> Self:
         return self
@@ -335,7 +327,7 @@ class ProgressStream:
 
 @attrs.frozen
 class StudyHandle:
-    """A durable study run by workers: its status, cancellation and one publication."""
+    """A canonical study: occurrence status and exact retained result handles."""
 
     _handle: _NativeStudyHandle
 
@@ -345,26 +337,26 @@ class StudyHandle:
         return StudyId(SemanticId.from_hex(self._handle.study_id))
 
     def status(self) -> StudyStatus:
-        """Read the study and every point as the operational store holds them now."""
+        """Read exact canonical occurrence status and lineage."""
         return codec.decode_json(self._handle.status(), StudyStatus)
 
     def cancel(self) -> StudyCancel:
         """Cancel the points that have not started and stop the running tries.
 
-        What completed is still published.
+        Completed observations retain their actual canonical result identities.
         """
         return codec.decode_json(self._handle.cancel(), StudyCancel)
 
-    def result(self) -> Published | None:
-        """The study's publication once committed; ``None`` before."""
+    def result(self) -> StudyResults | None:
+        """The admitted parent and exact occurrence results; ``None`` before."""
         published = self._handle.result()
-        return None if published is None else codec.decode_json(published, Published)
+        return None if published is None else codec.decode_json(published, StudyResults)
 
-    def wait(self, *, controls: StudyWaitControls | None = None) -> Published:
-        """Wait for the study's publication under Rust-owned observation timing."""
+    def wait(self, *, controls: StudyWaitControls | None = None) -> StudyResults:
+        """Wait for admitted canonical results under Rust-owned timing."""
         return codec.decode_json(
             self._handle.wait(
                 controls=None if controls is None else codec.encode_json(controls)
             ),
-            Published,
+            StudyResults,
         )

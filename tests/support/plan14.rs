@@ -24,12 +24,14 @@ pub(crate) fn fixture(name: &str) -> std::path::PathBuf {
         .join(name)
 }
 pub(crate) fn runtime(owner: &WorkflowRuntime) -> Runtime {
+    let store=pse_operations::testing::canonical_fixture_store().unwrap();
+    owner.register_fixture(store.clone()).unwrap();
     Runtime::from_shared(
         owner.runtime.clone(),
         owner.registry.clone(),
         owner.sessions.clone(),
         pse_runtime::workflow::CanonicalDeployment::new(
-            pse_operations::testing::canonical_fixture_store().unwrap(),
+            store,
             pse_runtime::workflow::OuterAttestation {
                 source: pse_ids::ContentHash::from_bytes([0; 32]),
                 build: pse_ids::ContentHash::from_bytes([1; 32]),
@@ -146,15 +148,6 @@ pub(crate) fn near(a: f64, b: f64, tol: f64) {
         a.is_finite() && (a - b).abs() <= tol,
         "{a} != {b}, tolerance {tol}"
     )
-}
-/// A durable runtime over `owner` whose runs are attempts in the operational store at
-/// `url`; only durable runs publish (ADR-0112 Outcome 16).
-pub(crate) async fn durable(owner: &WorkflowRuntime, url: &str) -> Runtime {
-    use pse_runtime::workflow::{Durability, LeasePolicy, Operations};
-    let operations = Operations::connect(url, "plan14", LeasePolicy::default())
-        .await
-        .unwrap();
-    runtime(owner).with_durability(Durability::Durable(operations))
 }
 /// Load the explicit source package closure used by authored seed acceptance and timing.
 pub(crate) async fn seed_package(

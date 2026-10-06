@@ -246,6 +246,8 @@ impl ProtectedSelection {
 /// Thin remote client; clones share its bounded transport.
 pub struct CanonicalStore {
     pub(crate) db: Arc<Surreal<Client>>,
+    #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
+    pub(crate) result_read_drain: Arc<crate::canonical_results::ResultReadDrain>,
     activation_db: Arc<Surreal<Client>>,
     state_path: PathBuf,
     database: String,
@@ -302,6 +304,8 @@ impl CanonicalStore {
         let activation_db = connect_client(address, options, ACTIVATION_QUERY_TIMEOUT).await?;
         Ok(Self {
             db,
+            #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
+            result_read_drain: Arc::new(crate::canonical_results::ResultReadDrain::default()),
             activation_db,
             state_path: options.state_path.clone(),
             database: options.database.clone(),
@@ -617,13 +621,14 @@ impl CanonicalStore {
         Ok(())
     }
     /// Remove only this handle's explicitly isolated endpoint fixture database.
-    #[cfg(feature = "canonical-tests")]
+    #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
     pub async fn remove_isolated_fixture(&self) -> Result<(), CanonicalError> {
         if !self.database.starts_with("canonical_test_") {
             return Err(CanonicalError::Configuration(
                 "fixture removal requires an isolated test database".into(),
             ));
         }
+        self.result_read_drain.drain().await?;
         bounded_query(
             self.db
                 .query("REMOVE DATABASE $database;")

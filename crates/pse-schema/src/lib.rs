@@ -29,7 +29,6 @@
 //! - [`arrow`] — the Arrow schema of a declared relation, metadata attached at
 //!   construction (§4.3).
 //! - [`ext_metadata`] — the canonical `ARROW:extension:metadata` strings (§4.4).
-//! - [`delta`] — declared native Delta policies and field storage contracts.
 //! - `pse-codegen` owns generation; this crate exposes admitted registry contracts.
 //! - [`error`] — [`SchemaError`] with its §23.2 codes.
 //!
@@ -53,7 +52,6 @@ pub mod compatibility;
 /// Registry-owned selected-product support closure.
 pub mod product;
 
-pub mod delta;
 pub mod error;
 pub mod ext_metadata;
 pub mod field_contract;
@@ -65,7 +63,6 @@ pub mod literal;
 pub mod model;
 pub mod obligations;
 pub mod resolved_contract;
-pub mod store;
 pub mod validation;
 
 use std::sync::{Arc, OnceLock};

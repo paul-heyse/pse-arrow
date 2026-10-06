@@ -1,0 +1,99 @@
+{
+  "scope": "Actual linked compiler-artifact association plus ELF dynamic metadata. Loader environment remains separately reconciled; no scientific binary executed.",
+  "targets": [
+    {
+      "capture": "/tmp/pse-worker-producer-build-evidence.json",
+      "capture_sha256": "14f67eb3424093ba17fe231649be33593019853ebc546edbc25f26d6efbaacc0",
+      "arguments": [
+        "build",
+        "-p",
+        "xtask",
+        "--profile",
+        "producer",
+        "--locked",
+        "--offline",
+        "--bin",
+        "pse-worker",
+        "--features",
+        "native-solvers,pse-relations/force-validate",
+        "--message-format=json"
+      ],
+      "unit_count": 910,
+      "target": {
+        "kind": [
+          "bin"
+        ],
+        "crate_types": [
+          "bin"
+        ],
+        "name": "pse-worker",
+        "src_path": "$WORKSPACE/xtask/src/bin/pse-worker.rs",
+        "edition": "2024",
+        "required-features": [
+          "package-fixtures"
+        ],
+        "doc": true,
+        "doctest": false,
+        "test": true
+      },
+      "features": [
+        "default",
+        "native-solvers",
+        "package-fixtures"
+      ],
+      "fresh": false,
+      "artifact": "$WORKSPACE/target/producer/pse-worker",
+      "bytes": 692140824,
+      "sha256": "d05116d8e9cfce3f2960161759b3be310f0324c2fd944beaf7cef96c83e3653e",
+      "matches_reported_sha256": true,
+      "readelf_exit": 0,
+      "readelf_dynamic": "\nDynamic section at offset 0xf8476b0 contains 35 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libmkl_intel_lp64.so.3]\n 0x0000000000000001 (NEEDED)             Shared library: [libgomp.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libscip.so.10.0]\n 0x0000000000000001 (NEEDED)             Shared library: [libpetsc.so.3.24]\n 0x0000000000000001 (NEEDED)             Shared library: [libipopt.so.3]\n 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]\n 0x0000000000000007 (RELA)               0xce30\n 0x0000000000000008 (RELASZ)             9916704 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x0000000000000017 (JMPREL)             0x981f50\n 0x0000000000000002 (PLTRELSZ)           8208 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000003 (PLTGOT)             0xf849938\n 0x0000000000000006 (SYMTAB)             0x770\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000005 (STRTAB)             0x65d8\n 0x000000000000000a (STRSZ)              23589 (bytes)\n 0x0000000000000019 (INIT_ARRAY)         0xf84a400\n 0x000000000000001b (INIT_ARRAYSZ)       2264 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0xf849930\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x000000006ffffff0 (VERSYM)             0xc1fe\n 0x000000006ffffffe (VERNEED)            0xc9dc\n 0x000000006fffffff (VERNEEDNUM)         6\n 0x000000000000000c (INIT)               0x3259618\n 0x000000000000000d (FINI)               0x3259608\n 0x000000006ffffef5 (GNU_HASH)           0x378\n 0x000000000000001e (FLAGS)              BIND_NOW STATIC_TLS\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW PIE\n 0x0000000000000015 (DEBUG)              0x0\n 0x0000000000000000 (NULL)               0x0\n",
+      "stderr": ""
+    },
+    {
+      "capture": "/tmp/pse-py-producer-build-evidence.json",
+      "capture_sha256": "b7d4fcd5e757269f00c79c78a44beeb9c0f5be516e34ef6aabb0c17223030d6c",
+      "arguments": [
+        "build",
+        "-p",
+        "pse-py",
+        "--profile",
+        "producer",
+        "--locked",
+        "--offline",
+        "--lib",
+        "--features",
+        "native-solvers,force-validate",
+        "--message-format=json"
+      ],
+      "unit_count": 909,
+      "target": {
+        "kind": [
+          "cdylib"
+        ],
+        "crate_types": [
+          "cdylib"
+        ],
+        "name": "_native",
+        "src_path": "$WORKSPACE/crates/pse-py/src/lib.rs",
+        "edition": "2024",
+        "doc": true,
+        "doctest": false,
+        "test": false
+      },
+      "features": [
+        "force-validate",
+        "native-solvers",
+        "solver-highs"
+      ],
+      "fresh": false,
+      "artifact": "$WORKSPACE/target/producer/lib_native.so",
+      "bytes": 744054128,
+      "sha256": "f309be97d60a9cd9e08d6a2a093137347538f0f10d853408b46aa2672898b302",
+      "matches_reported_sha256": true,
+      "readelf_exit": 0,
+      "readelf_dynamic": "\nDynamic section at offset 0x1060a8c0 contains 34 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libmkl_intel_lp64.so.3]\n 0x0000000000000001 (NEEDED)             Shared library: [libgomp.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libscip.so.10.0]\n 0x0000000000000001 (NEEDED)             Shared library: [libpetsc.so.3.24]\n 0x0000000000000001 (NEEDED)             Shared library: [libipopt.so.3]\n 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]\n 0x0000000000000007 (RELA)               0x18e68\n 0x0000000000000008 (RELASZ)             10271304 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x0000000000000017 (JMPREL)             0x9e48b0\n 0x0000000000000002 (PLTRELSZ)           8256 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000003 (PLTGOT)             0x1060cb38\n 0x0000000000000006 (SYMTAB)             0x1258\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000005 (STRTAB)             0xb7b8\n 0x000000000000000a (STRSZ)              50323 (bytes)\n 0x0000000000000019 (INIT_ARRAY)         0x1060d610\n 0x000000000000001b (INIT_ARRAYSZ)       2264 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x1060cb30\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x000000006ffffff0 (VERSYM)             0x17c4c\n 0x000000006ffffffe (VERNEED)            0x18a14\n 0x000000006fffffff (VERNEEDNUM)         6\n 0x000000000000000c (INIT)               0x3524660\n 0x000000000000000d (FINI)               0x3524650\n 0x000000006ffffef5 (GNU_HASH)           0x270\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n 0x0000000000000000 (NULL)               0x0\n",
+      "stderr": ""
+    }
+  ]
+}

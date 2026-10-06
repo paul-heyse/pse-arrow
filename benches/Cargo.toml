@@ -42,8 +42,6 @@ pse-columnar = { workspace = true, features = ["bench-instrumentation"] }
 pse-codegen.workspace = true
 arrow.workspace = true
 datafusion.workspace = true
-deltalake.workspace = true
-pse-catalog.workspace = true
 pse-relations.workspace = true
 pse-schema.workspace = true
 tracing.workspace = true
@@ -86,4 +84,3 @@ name = "document_admission"
 harness = false
 
 [dependencies]
-pse-workspace-hack.workspace = true

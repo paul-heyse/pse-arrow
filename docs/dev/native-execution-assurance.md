@@ -1,8 +1,8 @@
 # Native execution assurance
 
 Execution evidence is separate from functional qualification. The surviving generic
-`pse-engine` owns native construction and execution; `pse-catalog` supplies Delta
-planners, selected-source witnesses and lifetime guards. `pse-testkit` is development
+`pse-engine` owns native construction, execution, caches and Arrow streams.
+`pse-operations` owns canonical source/result selection and durable lifetime guards. `pse-testkit` is development
 only and uses the same `EngineResources` and `EngineFactory` constructors as runtime.
 This guide covers relational/storage execution, not the mathematical compiler or
 native solver lifecycle. The latter uses Salsa preparation and the runtime's joined
@@ -21,7 +21,7 @@ engine observation by
 | Did planning retain the intended implementation? | Actual planner/function/extension identity and native plans | A rule name or pretty-printed plan is not implementation identity |
 | What properties, expressions and metrics did the native plan expose? | `pse_testkit::introspection::visit_physical`, native downcasts, `PlanProperties` and `MetricsSet` | Use native metric units and partition/execution scope; reused plans can retain cumulative metrics |
 | Was the resulting process model correct? | Targeted value/contract units and independent functional oracles | Execution tracing alone does not establish scientific or numerical correctness |
-| Was a Delta operation durably committed? | Native transaction/version evidence and application reconciliation | A successful span, IO request or absent error is not a durable receipt |
+| Was a canonical operation durably admitted? | Guarded canonical receipt and exact operation reconciliation | A successful span, IO request or absent error is not a durable receipt |
 
 `Capture::assess(operation_id, expected_nodes)` returns `Established`, `Violated` or
 `Inconclusive` for the narrow execution claim. Missing roots, fields or requested
@@ -49,15 +49,14 @@ invocation. Do not infer a common operation identity for earlier standalone prep
 
 Native phase spans and metrics replace repeated string inspection where their contracts
 answer the question. Diagnostic plan rendering remains useful for inspection behavior
-itself. Native observations complement the physical, ownership and publication
+itself. Native observations complement the physical, ownership and connected-result
 tests; comprehensive qualification covers those complete journeys.
 
 ## Isolated development fixture
 
 `NativeFixture::new` constructs finite native memory, spill, caches and an actual engine
-factory without a Delta root, solver or runtime dependency. `into_factory` retains the
-spill directory's lifetime in the factory. Catalog fixtures explicitly compose
-`pse_catalog::assembly::planners()` with the generic planner.
+factory without a database, solver or runtime dependency. `into_factory` retains the
+spill directory's lifetime in the factory. Its candidate constructor admits explicitly supplied native Arrow relations.
 
 A local capture follows this pattern (the crate unit tests are the executable example):
 
@@ -93,9 +92,9 @@ assigned. Repeated lookup and re-registration of the same returned store preserv
 actual identity. New store registrations get their own wrapper. Externally prewrapped
 stores are the caller's assembly responsibility.
 
-Delta opening, write attempts, publication commits and maintenance carry existing
-operation/attempt/version information in declared spans. The actual native result is
-recorded after the operation. No new durable receipt or retry protocol is introduced.
+Canonical admission, attempt closure and result membership have their own guarded
+operation identities and receipts. Relational execution spans do not establish those
+transactions. Connected-reader and recovery controls exercise the storage boundary.
 Native object-store spans cover calls through the registered wrapper. `get` completion
 and later payload consumption are different boundaries; list/multipart behavior follows
 the pinned method contract. Cloud IO, retries and destructive maintenance remain separate
@@ -127,7 +126,7 @@ The [qualification guide](validation-assessment.md) describes these commands.
 ## Pinned references
 
 Use the [DataFusion/Arrow skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion/SKILL.md),
-[Delta skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/deltalake/SKILL.md) and expanded
+and expanded
 [tracing skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/datafusion-tracing/SKILL.md). The latter's execution,
 context, lifecycle, metrics, filtering and storage briefs distinguish source observations
 from executed consumer probes. The project lockfile remains the consumer version authority.

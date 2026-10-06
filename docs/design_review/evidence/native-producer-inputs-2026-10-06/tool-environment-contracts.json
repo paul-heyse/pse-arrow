@@ -1,0 +1,147 @@
+{
+  "scope": "Exact selected tool source effects. Names beyond Cargo rerun hints must be bound by final supported caller environment; current observations do not prove historical Cargo child values.",
+  "contracts": [
+    {
+      "owner": "clang23 driver command injection",
+      "names": [
+        "CCC_OVERRIDE_OPTIONS"
+      ],
+      "disposition": "Absent supported branch; presence can replace/add config/plugin/response options even when default config disabled."
+    },
+    {
+      "owner": "clang23 driver output controls",
+      "names": [
+        "CC_PRINT_OPTIONS",
+        "CC_PRINT_OPTIONS_FILE",
+        "CC_PRINT_HEADERS",
+        "CC_PRINT_HEADERS_FILE",
+        "CC_PRINT_HEADERS_FORMAT",
+        "CC_PRINT_HEADERS_FILTERING",
+        "CC_LOG_DIAGNOSTICS",
+        "CC_LOG_DIAGNOSTICS_FILE",
+        "CC_PRINT_PROC_STAT",
+        "CC_PRINT_PROC_STAT_FILE",
+        "CC_PRINT_INTERNAL_STAT",
+        "CC_PRINT_INTERNAL_STAT_FILE",
+        "FORCE_CLANG_DIAGNOSTICS_CRASH"
+      ],
+      "disposition": "Bind absence in supported successful branch; additional output files/crash paths are not source inputs for current successful execution."
+    },
+    {
+      "owner": "clang23 include/link selection",
+      "names": [
+        "COMPILER_PATH",
+        "LIBRARY_PATH",
+        "CPATH",
+        "C_INCLUDE_PATH",
+        "CPLUS_INCLUDE_PATH",
+        "SOURCE_DATE_EPOCH",
+        "CLANG_CONFIG_PATH",
+        "CLANG_NO_DEFAULT_CONFIG"
+      ],
+      "disposition": "Bind values and exact reached namespace. CLANG_NO_DEFAULT_CONFIG nonempty stops implicit configuration; CCC override/explicit config still separate."
+    },
+    {
+      "owner": "clang23 unreached module/assembly output",
+      "names": [
+        "CLANG_MODULE_CACHE_PATH",
+        "AS_SECURE_LOG_FILE"
+      ],
+      "disposition": "No implicit modules in selected bindgen/driver args; integrated assembler secure logging absent. Bind absence for narrow supported scope."
+    },
+    {
+      "owner": "libclang23 frontend controls",
+      "names": [
+        "LIBCLANG_TIMING",
+        "LIBCLANG_OBJTRACKING",
+        "LIBCLANG_DISABLE_PCH_VALIDATION",
+        "CINDEXTEST_PREAMBLE_FILE"
+      ],
+      "disposition": "Bind absence. ASTUnit constructor reads first two; PCH/preamble paths conditional, no general filesystem grant."
+    },
+    {
+      "owner": "GCC13 driver selection",
+      "names": [
+        "GCC_EXEC_PREFIX",
+        "COMPILER_PATH",
+        "LIBRARY_PATH",
+        "LPATH",
+        "GCC_COMPARE_DEBUG"
+      ],
+      "disposition": "Bind absence or declared value/namespace; compare-debug selects extra executions."
+    },
+    {
+      "owner": "mold2.42 reproduction output",
+      "names": [
+        "MOLD_REPRO"
+      ],
+      "disposition": "Bind absent; nonempty adds reproduction archive writes."
+    },
+    {
+      "owner": "native helper diagnostics/temporary placement",
+      "names": [
+        "LC_ALL",
+        "LC_CTYPE",
+        "LC_MESSAGES",
+        "LANG",
+        "TZ",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ],
+      "disposition": "Bind relevant inherited values; temporary outputs remain allowed only within capture/output boundary, no ambient plugin/executor authority."
+    }
+  ],
+  "source_files": [
+    {
+      "path": "$HOME/.local/share/z3-pivot/2026-09-24/source/llvm-project-23.1.2.src/clang/tools/driver/driver.cpp",
+      "bytes": 20103,
+      "sha256": "86ce982206c31f3419b2e2fdde174720718f973cd5c719cba99345ef7f53e3fd"
+    },
+    {
+      "path": "$HOME/.local/share/z3-pivot/2026-09-24/source/llvm-project-23.1.2.src/clang/lib/Driver/Driver.cpp",
+      "bytes": 303314,
+      "sha256": "ac4f7456ec2da4e699a6a75f87c15cf34c941e920c0acaa85981796a47a28c8c"
+    },
+    {
+      "path": "$HOME/.local/share/z3-pivot/2026-09-24/source/llvm-project-23.1.2.src/clang/lib/Driver/ToolChains/Clang.cpp",
+      "bytes": 406170,
+      "sha256": "46f95d77d79decd5aeb6c0de0f4f0df6818a82acb48cb499d77b403777b9c890"
+    },
+    {
+      "path": "$HOME/.local/share/z3-pivot/2026-09-24/source/llvm-project-23.1.2.src/clang/lib/Driver/ToolChains/CommonArgs.cpp",
+      "bytes": 139896,
+      "sha256": "3e20c54b829691f135152fafaa4bde89bd0a12526fab330af4cee0b381f9ceeb"
+    },
+    {
+      "path": "$HOME/.local/share/z3-pivot/2026-09-24/source/llvm-project-23.1.2.src/clang/lib/Frontend/ASTUnit.cpp",
+      "bytes": 92503,
+      "sha256": "f9268abb80516bf174207b3d0704cfcdd695ccc0401d737294bc77c4399c1eca"
+    },
+    {
+      "path": "$HOME/.local/share/z3-pivot/2026-09-24/source/llvm-project-23.1.2.src/clang/lib/Frontend/PrecompiledPreamble.cpp",
+      "bytes": 32393,
+      "sha256": "ecb9b7f63301d7264f4a527f06d2562c1322c927e50dbf1b7926e9dcbaf830b3"
+    },
+    {
+      "path": "/tmp/pse-native-producer-audit/gcc-driver.cc",
+      "bytes": 320626,
+      "sha256": "c260c6321fb3852df326618d18642a3c795a8886c285db71acde6a97fd031b0a"
+    },
+    {
+      "path": "/tmp/pse-native-producer-audit/gcc-incpath.cc",
+      "bytes": 15771,
+      "sha256": "70dca72168648a2606684b7c8dc6d31f68472f32ca1058724997abb7185d0e39"
+    },
+    {
+      "path": "/tmp/pse-native-producer-audit/mold-cmdline.cc",
+      "bytes": 71626,
+      "sha256": "646eea68d97e69b0dc1c076f2156f2c07d82f7543e85856ece123013873844ea"
+    }
+  ],
+  "builtin_clock_search": {
+    "scope": "2387 current observed .d/header-hint paths, regular C/C++/assembly suffixes; scan DATE/TIME/TIMESTAMP builtin tokens, not generic absence proof for unselected files or future source",
+    "hits": [],
+    "result": "No literal builtin clock macro tokens in this bounded consumed-file observation. Changed bytes/new membership must invalidate reuse."
+  }
+}

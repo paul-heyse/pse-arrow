@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 
 from scripts import validation, validation_receipts
-from scripts.native_tests import native_provenance
+from scripts.native_tests import FEATURES, native_provenance
 from scripts.validation_scope import (
     FUNCTIONAL_SCOPES,
     RUST_INPUTS,
@@ -217,11 +217,7 @@ def require_functional(
         validation_receipts.verify_native(native)
         if native.get("profile", {}).get("cargo_profile") != profile:
             raise ValueError("functional Cargo profile differs from measurement")
-        expected_features = {
-            "pse-runtime/native-solvers",
-            "pse-tests-conformance/native-acceptance",
-            "pse-relations/force-validate",
-        }
+        expected_features = set(FEATURES.split(","))
         if set(native.get("profile", {}).get("features", [])) != expected_features:
             raise ValueError("functional native feature graph differs")
         origin = Path(check.get("origin", report.parent))

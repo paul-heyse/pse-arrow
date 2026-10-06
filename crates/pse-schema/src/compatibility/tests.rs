@@ -127,7 +127,7 @@ fn consumer_selection_ignores_unconsumed_roots_and_preserves_original_digest() {
     let registry = crate::registry().unwrap();
     let a = registry.relation("runtime.solve_runs").unwrap().id;
     let b = registry
-        .relation("runtime.artifact_descriptors")
+        .relation("runtime.computation_runs")
         .unwrap()
         .id;
     let source = recorded(SemanticContract::new(registry, &[a, b].into()).unwrap()).unwrap();
@@ -206,42 +206,6 @@ fn recorded_versions_remain_distinct_and_each_root_selects_its_exact_declaration
             Err(CompatibilityError::Malformed(_))
         ));
     }
-}
-#[test]
-fn missing_field_projection_is_only_the_declared_historical_descriptor_rule() {
-    let registry = crate::registry().unwrap();
-    let id = registry
-        .relation("runtime.artifact_descriptors")
-        .unwrap()
-        .id;
-    let target = SemanticContract::new(registry, &[id].into()).unwrap();
-    let mut old = target.clone();
-    old.relations.get_mut(&id).unwrap()["fields"]
-        .as_array_mut()
-        .unwrap()
-        .retain(|field| field["name"] != "profile_required_relations");
-    let old = recorded(old).unwrap();
-    let projection = old.project(&target).unwrap();
-    assert_eq!(
-        projection
-            .field_slots(id)
-            .unwrap()
-            .iter()
-            .filter(|slot| slot.is_none())
-            .count(),
-        1
-    );
-    let mut unrelated_missing = target.clone();
-    unrelated_missing.relations.get_mut(&id).unwrap()["fields"]
-        .as_array_mut()
-        .unwrap()
-        .retain(|field| field["name"] != "value_assumptions");
-    assert!(
-        recorded(unrelated_missing)
-            .unwrap()
-            .project(&target)
-            .is_err()
-    );
 }
 
 #[test]

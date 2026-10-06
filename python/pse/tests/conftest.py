@@ -2,8 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 """Fixtures for the Python boundary tests (plan §5).
 
-These fixtures encode invariants that no single test owns: current inspection
-publications are produced by Rust, the extension types are registered,
+These fixtures encode invariants that no single test owns: registry reflection is owned by Rust, the extension types are registered,
 ``import pse`` stays free of the scientific stack, and the built extension
 belongs to this checkout.
 """
@@ -12,7 +11,6 @@ import hashlib
 import os
 import subprocess
 import sys
-from collections.abc import Iterator
 from pathlib import Path
 
 import pyarrow as pa
@@ -22,8 +20,6 @@ import pytest
 from pse._build import (
     CacheSettings,
     EngineSettings,
-    OperationalStore,
-    _TestOperationalStore,
     build_info,
 )
 from pse.contracts.extension_types import EXTENSION_NAMES
@@ -70,23 +66,6 @@ def canonical_substrate() -> str:
             pytrace=False,
         )
     return state
-
-
-@pytest.fixture(scope="session")
-def native_inspection_publication() -> Path:
-    """Read the fresh publication produced before workers start by ``just py-test``."""
-    configured = os.environ.get("PSE_INSPECTION_PUBLICATION")
-    if configured is None:
-        pytest.fail(
-            "Run just py-test to build a fresh native inspection publication.",
-            pytrace=False,
-        )
-    store = Path(configured)
-    if not (store / "publication-index.json").is_file():
-        pytest.fail(
-            f"Native inspection publication is incomplete: {store}", pytrace=False
-        )
-    return store
 
 
 @pytest.fixture(scope="session")
@@ -238,8 +217,6 @@ def inspection_settings(tmp_path_factory: pytest.TempPathFactory) -> EngineSetti
         cache=CacheSettings(
             working_bytes=16 << 30,
             metadata_bytes=8 << 20,
-            snapshot_bytes=64 << 20,
-            resident_bytes=256 << 20,
             concurrent_loads=2,
             inflight_bytes=64 << 20,
             inspection_bytes=4 << 20,
@@ -247,11 +224,3 @@ def inspection_settings(tmp_path_factory: pytest.TempPathFactory) -> EngineSetti
     )
 
 
-@pytest.fixture
-def operational_store() -> Iterator[OperationalStore]:
-    """Own one isolated operational database for this test, including teardown."""
-    owner = _TestOperationalStore()
-    try:
-        yield owner.store()
-    finally:
-        owner.remove()

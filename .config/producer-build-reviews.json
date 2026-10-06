@@ -1,0 +1,1370 @@
+{
+  "build_scripts": {
+    "path+workspace://crates/pse-workspace-hack#0.0.1": {
+      "reviewed_source": "66bddbe9ae30a3120cb6b8a84a9d9216341b761cac0fcb449d9a74f512aa14fe",
+      "rationale": "Reviewed complete build.rs: empty main used solely to enable host-side dependency feature unification. No I/O or ambient input. Reviewed current generated Cargo feature-unification manifest after retirement: the same empty main remains effect-free; selected helper compilation contexts are explicitly bound and all their executable owners are separately reviewed.",
+      "reviewed_closures": [
+        "70be5970cc8804ba464dc878dfb937180763a3a85409b13daa2f98077183e976"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#ahash@0.8.12": {
+      "reviewed_source": "f3efbbfa6f177bc109402d7fc176bab4af7e1aee8558f00a90bdfc82dfd1a513",
+      "rationale": "Reviewed build.rs and reached version_check 0.9.5 / rustc_version 0.4.1 / autocfg 1.5.1 compiler helpers: derives cfg from selected compiler version or fixed Rust probes written under OUT_DIR. Captures ambient flags/wrappers; Cargo target/profile inputs and actual cfg outputs are captured separately. Compiler/wrapper/native closure is separately mandatory; no other external I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_TARGET_DIR",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "reviewed_closures": [
+        "e949ae7bb9bf15faf0ca6bbd6850b78ecafc9b80089895f7c1e41165b6bb86e8"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#anyhow@1.0.104": {
+      "reviewed_source": "b0c8ff10dee7c6ed5f1fb447bf279d4509585a500a2a0af5ca767dfefc4da560",
+      "rationale": "Reviewed complete build.rs: compiles fixed bundled Rust probes under OUT_DIR through selected compiler and optional wrappers; Cargo target/flags plus captured RUSTC_BOOTSTRAP/RUSTC_STAGE control cfg choices. Writes and removes its own probe outputs; no other file/process/network I/O. Compiler/wrapper closure is separately mandatory. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTC_BOOTSTRAP",
+        "RUSTC_STAGE",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "package_files": [
+        "src/nightly.rs"
+      ],
+      "reviewed_closures": [
+        "c510a6324ae2ff4e6cd519cc56b3aa224792a849ddf31eee8eaa1b02afe6391e"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#bigdecimal@0.4.11": {
+      "reviewed_source": "5854a1aab9400d606af7b410d96e86b9c4ebcdbb5f0598529e9bee0b30ceaa1e",
+      "rationale": "Reviewed complete build.rs and autocfg 1.5.1 paths: fixed compiler probes plus six declared decimal configuration values generate constants under OUT_DIR. No other external input files or network; compiler/wrapper closure is separately mandatory. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_TARGET_DIR",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN",
+        "RUST_BIGDECIMAL_DEFAULT_PRECISION",
+        "RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE",
+        "RUST_BIGDECIMAL_FMT_EXPONENTIAL_LOWER_THRESHOLD",
+        "RUST_BIGDECIMAL_FMT_EXPONENTIAL_UPPER_THRESHOLD",
+        "RUST_BIGDECIMAL_FMT_MAX_INTEGER_PADDING",
+        "RUST_BIGDECIMAL_SERDE_SCALE_LIMIT"
+      ],
+      "reviewed_closures": [
+        "f0f43f18262d608a043af44209dac4b67c72761a82e398f9ee8c2cf61c7132ef"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#chrono-tz@0.10.4": {
+      "reviewed_source": "9b84ebd17789e69a5bbdf6bad7c88aaba416bae8327364668bf7e85e1d1ec0c6",
+      "rationale": "Reviewed complete build.rs: main has no executable I/O when filter-by-regex and case-insensitive features are absent; their source-generator branches are explicitly excluded pending separate review. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "excluded_features": [
+        "filter-by-regex",
+        "case-insensitive"
+      ],
+      "reviewed_closures": [
+        "bcbe79ec46145db8aa39fd2535f171be1f3a3f05b3adc6d515cdc3faa925c497"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#clarabel@0.11.1": {
+      "reviewed_source": "15057b8f143a22a6b6c013941a7d3c5585fd77cbdf6096fc4711335ff928282c",
+      "rationale": "Reviewed complete build.rs: without excluded buildinfo feature, only compile-time feature tests and fixed cfg/warning output for Python BLAS binding. No file/process/network I/O; actual linked native ABI remains separately mandatory. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "excluded_features": [
+        "buildinfo"
+      ],
+      "reviewed_closures": [
+        "68541fd4cde0c61a43c9478afd7e339f9d66428f2ff8f4fff06206bd137d83af"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#crc32fast@1.5.2": {
+      "reviewed_source": "216ed89c4c282628415ddbed2d291157f09dbe2b27087165630b39801e7d5129",
+      "rationale": "Reviewed complete build.rs: executes only selected rustc --version and parses its output to emit cfg directives. Cargo-injected compiler selection plus the separately mandatory compiler/config executor closure cover that process; no other external I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "package_files": [],
+      "reviewed_closures": [
+        "6c21075c0f8f4066ed8a7620b40c3b3636bc5a29a085142759a76f74c42c53f0"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#crossbeam-deque@0.8.8": {
+      "reviewed_source": "5ea0c67214a895d73b5990d834aa6277165a45bad6a4957dd898cc3c4dc35c29",
+      "rationale": "Reviewed build.rs: only Cargo-injected target/features/sanitizer values and fixed cfg/link directives; no external file, process, network or additional ambient reads. Selected Cargo unit context and emitted outputs are captured. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [],
+      "package_files": [],
+      "reviewed_closures": [
+        "43b704b01203b48baa2e35e5bcebab7dae00f189b2cd7d9d704e5f6f7705a401"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#crossbeam-epoch@0.9.21": {
+      "reviewed_source": "e28764e5bad395075f4d03d0281c6756999be00609038f0d7af5317f8feab802",
+      "rationale": "Reviewed build.rs: only Cargo-injected target/features/sanitizer values and fixed cfg/link directives; no external file, process, network or additional ambient reads. Selected Cargo unit context and emitted outputs are captured. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [],
+      "package_files": [],
+      "reviewed_closures": [
+        "3cb09b90bf3e97672984d0e7541e588759c31e34a665a07b2d9a618829ab8007"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#crossbeam-utils@0.8.23": {
+      "reviewed_source": "bf02c62dd1f396be9f0c530111fd73fafadb77ea1de13318d935f6c7779bacc1",
+      "rationale": "Reviewed build.rs, no_atomic.rs and build-common.rs: pure target-name conversion, bundled target table and Cargo sanitizer input; emits cfg directives only. No external I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "CARGO_CFG_SANITIZE"
+      ],
+      "package_files": [
+        "no_atomic.rs",
+        "build-common.rs"
+      ],
+      "reviewed_closures": [
+        "6a4edc00a394340a465a44b6ce7dab1a291e308614b9e1c5a4d3e3a893d24972"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#diffsol-la@0.1.1": {
+      "reviewed_source": "aa17b4ec4b01f500b48717b569fb9e6413fcec14c3e7fcab4637304ee0a1a314",
+      "rationale": "Reviewed complete build.rs: no executable I/O except fixed rerun directive when cuda feature is absent. The nvcc branch is explicitly excluded pending separate native review. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "excluded_features": [
+        "cuda"
+      ],
+      "reviewed_closures": [
+        "2f76a9a308a56237d3db1dc91849da03a83a6bc6ad2b26f69dae4912937450c4"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#diffsol@0.16.2": {
+      "reviewed_source": "17bf6fa2c49836e3dddaeb8cb5a687d693e21021853b5462a4627068f431b3bc",
+      "rationale": "Reviewed complete build.rs: no executable I/O except fixed rerun directive when sundials feature is absent. The bindgen/C compilation/library branches are explicitly excluded pending separate native review. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "excluded_features": [
+        "sundials"
+      ],
+      "reviewed_closures": [
+        "39e84da34e8dfbdb646703ea83bc0e32bdeb7047255ad10d0316016bf1fabbb7"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#doc-comment@0.3.4": {
+      "reviewed_source": "793344fa758f3c2d951523e6755f2eac8fffe483bc4de2537bbbdddf3ecb0c67",
+      "rationale": "Reviewed complete build.rs: executes only selected rustc --version and parses its output to emit cfg directives. Cargo-injected compiler selection plus the separately mandatory compiler/config executor closure cover that process; no other external I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "package_files": [],
+      "reviewed_closures": [
+        "9815bb9846ee481855ed426e5dcd4efd6d1131d535f7b03b67d6a2409913f6ae"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#encoding_rs@0.8.42": {
+      "reviewed_source": "38ffae5fb15dc1b0967fb664a7f46d5e7f6a17ab41e78bb4e1277bec853f5d53",
+      "rationale": "Reviewed complete build.rs: only separately selected rustversion macro compiler-version cfg determines a fixed cfg directive. No runtime file/process/network I/O; rustversion executable owner remains separately reviewed. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "reviewed_closures": [
+        "2370ac306fe400485df40c81519ce4145772a96d581b1c5e5d1bd144791b3a71"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#erased-serde@0.4.10": {
+      "reviewed_source": "0281c6e63ad27dd393c151db3a4d2025c15343562df096f3cd148c363606c90f",
+      "rationale": "Reviewed complete build.rs: executes only selected rustc --version and parses its output to emit cfg directives. Cargo-injected compiler selection plus the separately mandatory compiler/config executor closure cover that process; no other external I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "package_files": [],
+      "reviewed_closures": [
+        "8c20952c7be077878113b2998140767b8b1ab0d11005ad6c7066b2ae9fc7533a"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#flatbuffers@25.12.19": {
+      "reviewed_source": "bdba9348559b9f2d5d2bf8101a3b1298a847906641cfc65d0dfe12e766187639",
+      "rationale": "Reviewed build.rs and reached version_check 0.9.5 / rustc_version 0.4.1 / autocfg 1.5.1 compiler helpers: derives cfg from selected compiler version or fixed Rust probes written under OUT_DIR. Captures ambient flags/wrappers; Cargo target/profile inputs and actual cfg outputs are captured separately. Compiler/wrapper/native closure is separately mandatory; no other external I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_TARGET_DIR",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "reviewed_closures": [
+        "6f1d0189d740bba3d04532e99240498f12cda1613557e11790c83d9b91ef2bf6"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#generic-array@0.14.7": {
+      "reviewed_source": "14a05253e57868b0906647f660ee1713cd15cb04b05c4af17aeda6b38c099a0f",
+      "rationale": "Reviewed build.rs and reached version_check 0.9.5 / rustc_version 0.4.1 / autocfg 1.5.1 compiler helpers: derives cfg from selected compiler version or fixed Rust probes written under OUT_DIR. Captures ambient flags/wrappers; Cargo target/profile inputs and actual cfg outputs are captured separately. Compiler/wrapper/native closure is separately mandatory; no other external I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_TARGET_DIR",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "reviewed_closures": [
+        "c79b59d14bceb732864d7a008ba354511cf5518e31e0908f65cad26b04b87fac"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#getrandom@0.3.4": {
+      "reviewed_source": "3972f6945ad0fc7d29cd4121510bb0b03d036684d6fe6e8810e0323504db21fe",
+      "rationale": "Reviewed complete build.rs: Cargo sanitizer/target-family cfg; Windows branch queries selected rustc -vV via its optional wrapper. Those compiler/config executor inputs are separately mandatory; no other file/process/network I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "package_files": [],
+      "reviewed_closures": [
+        "4fa4598d1815c49741e1b3dc14430d46fde92b8c9974cee786f81b3bf12c16c6"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#getrandom@0.4.3": {
+      "reviewed_source": "0044934af1433c4b953610dea278f0c22bd3851fa3f49e39a7e9f69722bdee36",
+      "rationale": "Reviewed build.rs: only Cargo-injected target/features/sanitizer values and fixed cfg/link directives; no external file, process, network or additional ambient reads. Selected Cargo unit context and emitted outputs are captured. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [],
+      "package_files": [],
+      "reviewed_closures": [
+        "c806c4c9bef12cf37e3b6a2e89755b9f5a383d1537e4c22c1fe59a7eaa05d81d"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#heapless@0.8.0": {
+      "reviewed_source": "8d37104535c59449254852da18aaf9045a163fb9beb4d1602e2e5ebeccee5737",
+      "rationale": "Reviewed complete build.rs: Cargo TARGET controls atomic cfg; compiles a literal ARM assembly probe stored in OUT_DIR with selected rustc and optional wrapper plus Cargo encoded flags. No external input files or network. Compiler/wrapper closure is separately mandatory. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTC_BOOTSTRAP",
+        "RUSTC_STAGE",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "reviewed_closures": [
+        "f750f917e25f6d7c389a095be83f0198e6f9e9ad51243d8769b484ee2f53edb8"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#httparse@1.10.1": {
+      "reviewed_source": "85e8076c5b2f42e37dcc1f8ececd23eb870c6a36e050da5839e370c48a1d6a9a",
+      "rationale": "Reviewed complete build.rs: selected rustc --version and Cargo target/SIMD cfg presence determine fixed cfgs. Two SIMD disable overrides and Miri presence are captured. No external files/network or other process use; compiler closure separately mandatory. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN",
+        "CARGO_CFG_MIRI",
+        "CARGO_CFG_HTTPARSE_DISABLE_SIMD",
+        "CARGO_CFG_HTTPARSE_DISABLE_SIMD_COMPILETIME"
+      ],
+      "reviewed_closures": [
+        "0d5c90ca99f6076019e9b5f36614eca6224e7be5b011ae2607a19e22b0484790"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#icu_locale_fallback_data@2.3.0": {
+      "reviewed_source": "bf6d4921ce090cac75c43ab123ac1c2730d432531e51875a49073fb1918ae95d",
+      "rationale": "Reviewed complete build.rs: reads only presence of ICU4X_DATA_DIR and emits fixed cfg directives. The environment value is captured; actual custom data includes are captured separately by rustc dep-info, no build-script file/process/network I/O.",
+      "environment": [
+        "ICU4X_DATA_DIR"
+      ],
+      "package_files": []
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#icu_normalizer_data@2.3.0": {
+      "reviewed_source": "1a8f20367543767c76d95570d268fca307274457a25bb70308d8b7b511cafd43",
+      "rationale": "Reviewed complete build.rs: reads only presence of ICU4X_DATA_DIR and emits fixed cfg directives. The environment value is captured; actual custom data includes are captured separately by rustc dep-info, no build-script file/process/network I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "ICU4X_DATA_DIR"
+      ],
+      "package_files": [],
+      "reviewed_closures": [
+        "1b9e5e30b4df28508a1cae1cf8a4f3bb8567dc873290378b588bc98ba3917575"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#icu_properties_data@2.3.0": {
+      "reviewed_source": "d1d9d0412b5dd46315ef7194add05db574a1c6bfeae99426018d7524709e4165",
+      "rationale": "Reviewed complete build.rs: reads only presence of ICU4X_DATA_DIR and emits fixed cfg directives. The environment value is captured; actual custom data includes are captured separately by rustc dep-info, no build-script file/process/network I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "ICU4X_DATA_DIR"
+      ],
+      "package_files": [],
+      "reviewed_closures": [
+        "f5b24f38d1f3054d5d8befeb35c15bcaec8b6d22b15d987afd99f9f29ce50325"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#icu_segmenter_data@2.3.0": {
+      "reviewed_source": "7d388d01a00cd697477683ed4ba07918a7511ed87d4288f16e6011b38cefd559",
+      "rationale": "Reviewed complete build.rs: reads only presence of ICU4X_DATA_DIR and emits fixed cfg directives. The environment value is captured; actual custom data includes are captured separately by rustc dep-info, no build-script file/process/network I/O.",
+      "environment": [
+        "ICU4X_DATA_DIR"
+      ],
+      "package_files": []
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#libc@0.2.190": {
+      "reviewed_source": "7b80a8aa9acbfff582deefb22d86b7b3e09db4959c96fbf9a24e40fc87e748a5",
+      "rationale": "Reviewed complete build.rs: on supported x86_64 Linux GNU target, only selected rustc --version (optional wrapper) and declared override values determine cfg output. FreeBSD/emcc/VxWorks command branches are outside the exact supported platform review. Compiler/wrapper closure separately mandatory. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant. Selected script has no direct external Rust helper invocation beyond its locally reviewed own source. Dependency run-custom-build units may forward Cargo metadata or supply independently selected native libraries; those units retain their separate reviews and never inherit this grant. The exact compiler probes/pure cfg/metadata branch recorded above is approved in this unit context. Selected script has no direct external Rust helper invocation beyond its locally reviewed own source. Dependency run-custom-build units may forward Cargo metadata or supply independently selected native libraries; those units retain their separate reviews and never inherit this grant. The exact compiler probes/pure cfg/metadata branch recorded above is approved in this unit context.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN",
+        "LIBC_BUILD_VERBOSE",
+        "LIBC_CI",
+        "RUST_LIBC_UNSTABLE_FREEBSD_VERSION",
+        "RUST_LIBC_UNSTABLE_MUSL_V1_2_3",
+        "RUST_LIBC_UNSTABLE_GNU_TIME_BITS",
+        "RUST_LIBC_UNSTABLE_GNU_FILE_OFFSET_BITS",
+        "CARGO_CFG_LIBC_UNSTABLE_MUSL_V1_2",
+        "CARGO_CFG_LIBC_UNSTABLE_MUSL_V1_2_3",
+        "CARGO_CFG_LIBC_UNSTABLE_TIME64",
+        "CARGO_CFG_LIBC_UNSTABLE_GNU_TIME_BITS",
+        "CARGO_CFG_LIBC_UNSTABLE_GNU_FILE_OFFSET_BITS",
+        "CARGO_CFG_LIBC_UNSTABLE_UCLIBC_TIME64"
+      ],
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "a0a0b00299b7d711261c4dcbbde5bf1f7bc969b313b182219e66c6d34fe3bfba",
+        "77c4b627d1e227fd63d2d1ff4aee1b3631814a369d09d1e3decdee940e14d225"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#libm@0.2.16": {
+      "reviewed_source": "351733de696feaed2fb8e22229c46514d26c8319252240098bf971832f2031ee",
+      "rationale": "Reviewed build.rs and configure.rs: Cargo target/features/profile cfg derivation plus ENSURE_NO_PANIC presence. Emits fixed cfg and environment directives; no external file/process/network I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "ENSURE_NO_PANIC"
+      ],
+      "package_files": [
+        "configure.rs"
+      ],
+      "reviewed_closures": [
+        "69e92f824f465f88713ff45b7dbf3828f5c1a5e373f4fe77c95a08a7bc3217dd"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#linfa@0.8.1": {
+      "reviewed_source": "2f4570e5d0a9bcc60a24f7b208aed4703d54e7586470f71a2c2e1678d8acd4f9",
+      "rationale": "Reviewed build.rs: only Cargo-injected target/features/sanitizer values and fixed cfg/link directives; no external file, process, network or additional ambient reads. Selected Cargo unit context and emitted outputs are captured. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [],
+      "package_files": [],
+      "reviewed_closures": [
+        "ddc9f7a522c15e7285cb6c67eb0ea6604dca7a05ae81aa1560342ff704a1f4c8"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#matrixmultiply@0.3.11": {
+      "reviewed_source": "bbfc6f76982e04a79e365f4a48b70fed590591023b73f1d733343e99acaab678",
+      "rationale": "Reviewed build.rs and reached version_check 0.9.5 / rustc_version 0.4.1 / autocfg 1.5.1 compiler helpers: derives cfg from selected compiler version or fixed Rust probes written under OUT_DIR. Captures ambient flags/wrappers; Cargo target/profile inputs and actual cfg outputs are captured separately. Compiler/wrapper/native closure is separately mandatory; no other external I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_TARGET_DIR",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "reviewed_closures": [
+        "1e0f2086c2873c8027170c4dbb78c8e65e3ae8aab099621729b7d2b04ed7fac7"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#nano-gemm-c32@0.2.1": {
+      "reviewed_source": "5a71955d4ddfbf1a9a1ce7f821351edcd1094f9a0f17a3620f37a4008c325d54",
+      "rationale": "Reviewed complete build.rs plus all reached nano-gemm-codegen0.2.1 active generator/control expressions (literal emitted intrinsic templates are data): reads only Cargo-injected OUT_DIR, constructs deterministic x86/aarch64 kernel strings from fixed numeric ranges/constants and writes codegen.rs beneath OUT_DIR. Generator has no crate dependencies; local Display, numeric, String, format and closure helpers perform no external environment/file/process/network/clock I/O. Pointer/intrinsic/FMA operations appear only in emitted kernel strings and do not execute in build script. Generated actual bytes remain captured via consumer dep-info; changed exact helper source/context requires separately approved executable closure basis. Selected nano-gemm-codegen 0.2.1 complete production x86/aarch64 generator source was reviewed: no crate helpers and no external I/O/clock/entropy. Both architecture strings are generated locally from fixed ranges before downstream compiler cfg selection. This exact raw source/unit context is approved.",
+      "reviewed_closures": [
+        "eaeee8d5b1087fbe0801883f3eff94b0bb902728be54d522ae58bc235c3f0d0d"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#nano-gemm-c64@0.2.1": {
+      "reviewed_source": "288b92b58be9e59b4c39b03194d4f496ad40fa92e1af9a769db07606e3bc2080",
+      "rationale": "Reviewed complete build.rs plus all reached nano-gemm-codegen0.2.1 active generator/control expressions (literal emitted intrinsic templates are data): reads only Cargo-injected OUT_DIR, constructs deterministic x86/aarch64 kernel strings from fixed numeric ranges/constants and writes codegen.rs beneath OUT_DIR. Generator has no crate dependencies; local Display, numeric, String, format and closure helpers perform no external environment/file/process/network/clock I/O. Pointer/intrinsic/FMA operations appear only in emitted kernel strings and do not execute in build script. Generated actual bytes remain captured via consumer dep-info; changed exact helper source/context requires separately approved executable closure basis. Selected nano-gemm-codegen 0.2.1 complete production x86/aarch64 generator source was reviewed: no crate helpers and no external I/O/clock/entropy. Both architecture strings are generated locally from fixed ranges before downstream compiler cfg selection. This exact raw source/unit context is approved.",
+      "reviewed_closures": [
+        "598576fbda290196d6e4808f72b5fc77c09341e39281108273331970f8b948d9"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#nano-gemm-f32@0.2.1": {
+      "reviewed_source": "3c1e099da68ef50dcbf5527a5e0e423ba235b39dae629ab7a6278496ba4a6f8b",
+      "rationale": "Reviewed complete build.rs plus all reached nano-gemm-codegen0.2.1 active generator/control expressions (literal emitted intrinsic templates are data): reads only Cargo-injected OUT_DIR, constructs deterministic x86/aarch64 kernel strings from fixed numeric ranges/constants and writes codegen.rs beneath OUT_DIR. Generator has no crate dependencies; local Display, numeric, String, format and closure helpers perform no external environment/file/process/network/clock I/O. Pointer/intrinsic/FMA operations appear only in emitted kernel strings and do not execute in build script. Generated actual bytes remain captured via consumer dep-info; changed exact helper source/context requires separately approved executable closure basis. Selected nano-gemm-codegen 0.2.1 complete production x86/aarch64 generator source was reviewed: no crate helpers and no external I/O/clock/entropy. Both architecture strings are generated locally from fixed ranges before downstream compiler cfg selection. This exact raw source/unit context is approved.",
+      "reviewed_closures": [
+        "d5edbddb9408ddeacf7eadb4fc369d9f17fba63bbc8e3e1e034913985fb33ced"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#nano-gemm-f64@0.2.1": {
+      "reviewed_source": "640335219f39d0e01034cd4f5a105903296d75e6d64f2e64d4c6e70065d0d581",
+      "rationale": "Reviewed complete build.rs plus all reached nano-gemm-codegen0.2.1 active generator/control expressions (literal emitted intrinsic templates are data): reads only Cargo-injected OUT_DIR, constructs deterministic x86/aarch64 kernel strings from fixed numeric ranges/constants and writes codegen.rs beneath OUT_DIR. Generator has no crate dependencies; local Display, numeric, String, format and closure helpers perform no external environment/file/process/network/clock I/O. Pointer/intrinsic/FMA operations appear only in emitted kernel strings and do not execute in build script. Generated actual bytes remain captured via consumer dep-info; changed exact helper source/context requires separately approved executable closure basis. Selected nano-gemm-codegen 0.2.1 complete production x86/aarch64 generator source was reviewed: no crate helpers and no external I/O/clock/entropy. Both architecture strings are generated locally from fixed ranges before downstream compiler cfg selection. This exact raw source/unit context is approved.",
+      "reviewed_closures": [
+        "9dec4155f2e778efbb580e3aba44cafa867e8461af66cb07c6f89a9217d868e1"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#nix@0.31.3": {
+      "reviewed_source": "04fbb1c926a1b5962760291599355a815b445f5ece610b9a5b9ee2ece4d6a988",
+      "rationale": "Reviewed complete build.rs and cfg_aliases0.2.2 macro implementation: fixed target/feature alias expressions read only Cargo CFG/FEATURE/PROFILE values and print cfg/check-cfg directives. No file/process/network I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "reviewed_closures": [
+        "30bf1163dc218eb550724f7a1ab3d5169fe1fb02a7947669c80bba22deede0fd"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#num-traits@0.2.19": {
+      "reviewed_source": "776669d3b51f97124898305cd9ad45a9f11c74c8a3411c933a1afb6e623255e3",
+      "rationale": "Reviewed build.rs and reached version_check 0.9.5 / rustc_version 0.4.1 / autocfg 1.5.1 compiler helpers: derives cfg from selected compiler version or fixed Rust probes written under OUT_DIR. Captures ambient flags/wrappers; Cargo target/profile inputs and actual cfg outputs are captured separately. Compiler/wrapper/native closure is separately mandatory; no other external I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_TARGET_DIR",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "reviewed_closures": [
+        "35fdb1a5320df8d1190cd3fd965dff0a7d8c280fb53af980d2abc2205837c52d"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#nutype_macros@0.8.0": {
+      "reviewed_source": "8f09ad1a9c31338fdbd233ecbcfef1612cbca3b507e462823bc9d6eba68f4c65",
+      "rationale": "Reviewed complete build.rs and reached compiler-version helper: selected rustc version controls cfg; ref-cast also writes fixed private module template with Cargo patch version under OUT_DIR. No other file/process/network I/O. Compiler/wrapper closure is separately mandatory. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_TARGET_DIR",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "reviewed_closures": [
+        "b401c9b2d254917ce983c817bb1ea9b077d62ff52596a608e005e74d384479e4"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#object@0.37.3": {
+      "reviewed_source": "cae4026a87887ed33c382d906b49a9ddbf2c8fc0db41c8ebdea63d961f622d63",
+      "rationale": "Reviewed complete build.rs: executes only selected rustc --version and parses its output to emit cfg directives. Cargo-injected compiler selection plus the separately mandatory compiler/config executor closure cover that process; no other external I/O.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "package_files": []
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#object@0.39.1": {
+      "reviewed_source": "910633e3ebe42691d1d1023aa0c6b1eb5c99af6a542656b96d2775fe56db6d0f",
+      "rationale": "Reviewed complete build.rs: executes only selected rustc --version and parses its output to emit cfg directives. Cargo-injected compiler selection plus the separately mandatory compiler/config executor closure cover that process; no other external I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "package_files": [],
+      "reviewed_closures": [
+        "7fb8964c82ed17a9d33ffaa49d854bf02e0a2cfe045fe7e63dafd91d6be3a666"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#parking_lot_core@0.9.12": {
+      "reviewed_source": "169e3d4e8349d95ad0c17cafddff71ff8ef46ec6ddff6097f1509825b7da123c",
+      "rationale": "Reviewed build.rs: only Cargo-injected target/features/sanitizer values and fixed cfg/link directives; no external file, process, network or additional ambient reads. Selected Cargo unit context and emitted outputs are captured. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [],
+      "package_files": [],
+      "reviewed_closures": [
+        "d3c52a5dbc52848ef8e3ea193d7f01ff9b047b9adaea864d1bb12b33c66652fb"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#paste@1.0.15": {
+      "reviewed_source": "32a96ff9cba651336b22d0f12bdeeb053bd3e0a897c1b127591d3297ca515d2a",
+      "rationale": "Reviewed complete build.rs and reached compiler-version helper: selected rustc version controls cfg; ref-cast also writes fixed private module template with Cargo patch version under OUT_DIR. No other file/process/network I/O. Compiler/wrapper closure is separately mandatory. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_TARGET_DIR",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "reviewed_closures": [
+        "8188d72ab671326bc027ff442f73c5a8a0b579c37e94b0a8508eed7e11198b97"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#portable-atomic@1.15.0": {
+      "reviewed_source": "ee9e2ddf1b895d62520d8558b9dc1ea0ab714c5d2dcb2d5b56ce14ad0b9b3196",
+      "rationale": "Reviewed complete build.rs and version.rs, plus fixed generated target tables, for selected x86_64 Linux context: consumes Cargo target/cfg/encoded flags and explicit warning/stage/bootstrap/wrapper overrides; invokes selected compiler or wrapper -vV and emits version/LLVM/target-feature cfg directives. Helpers parse strings/date/version and use compile-time target tables. No file/network or additional process input; compiler/wrapper native/config closure remains separately required. Other target contexts excluded from this review. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "environment": [
+        "PORTABLE_ATOMIC_DENY_WARNINGS",
+        "RUSTC_STAGE",
+        "RUSTC_BOOTSTRAP",
+        "RUSTC_WRAPPER"
+      ],
+      "package_files": [
+        "version.rs",
+        "src/gen/build.rs"
+      ],
+      "reviewed_closures": [
+        "d3f8e851ee568a03f6835de60f25b8626825a9c06f344266b7c83db457c6eeb8"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#proc-macro2@1.0.107": {
+      "reviewed_source": "a6d240f0d36bb30b4f85f9a44846ef3ee791c315c7bb8b872dc83377696c5409",
+      "rationale": "Reviewed complete build.rs and all src/probe files: selected compiler --version and three fixed Rust compilation probes derive cfg directives. Reads only Cargo-injected compiler/OUT_DIR/TARGET/encoded flags plus explicit RUSTC_STAGE/RUSTC_BOOTSTRAP/compiler wrapper overrides. Probe templates retained raw; writes/removes only own OUT_DIR/probe. Compiler/wrapper executable, library and configuration closures require separate source-bound native/configuration review. Diagnostic or output-directory errors cannot create an eligible successful-build capture. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant. Selected script has no direct external Rust helper invocation beyond its locally reviewed own source. Dependency run-custom-build units may forward Cargo metadata or supply independently selected native libraries; those units retain their separate reviews and never inherit this grant. The exact compiler probes/pure cfg/metadata branch recorded above is approved in this unit context. Selected script has no direct external Rust helper invocation beyond its locally reviewed own source. Dependency run-custom-build units may forward Cargo metadata or supply independently selected native libraries; those units retain their separate reviews and never inherit this grant. The exact compiler probes/pure cfg/metadata branch recorded above is approved in this unit context.",
+      "package_files": [
+        "src/probe"
+      ],
+      "environment": [
+        "RUSTC_STAGE",
+        "RUSTC_BOOTSTRAP",
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER"
+      ],
+      "reviewed_closures": [
+        "5051d4c984d6caea1d9fae365e6a52dae5a9c335f1eb1a42af4a000c6313b1e3",
+        "94d5b49c6b3cbc707c86961fc0f8c39cd87943b0b8cd1913bbe2ce31d4436e98"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#pulp@0.22.3": {
+      "reviewed_source": "06279a99ca2c9ef7998f5cfdbbf331dc359249ab3002e6bd3b0c25ec602efec1",
+      "rationale": "Reviewed complete build.rs and version_check0.9.5 compiler helper: produces x86_64 assembly from fixed integer loops/string templates, Cargo architecture and version values; writes only under OUT_DIR. Queries selected compiler minimum version; compiler/config executor closure separately mandatory. No other external I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "reviewed_closures": [
+        "bca7655912a6ac55f34d92339a282f470188d399cb21909425330bc743312bed"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#quote@1.0.47": {
+      "reviewed_source": "64ab87087250e992e4bba1c682e0b78760dcea3b71d204ba9d3b69929d87769d",
+      "rationale": "Reviewed complete build.rs: executes only selected rustc --version and parses its output to emit cfg directives. Cargo-injected compiler selection plus the separately mandatory compiler/config executor closure cover that process; no other external I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "package_files": [],
+      "reviewed_closures": [
+        "1a6836b2b4ce3f39057c55bb6df017e64817a085bce7a3d34387b6d64735be93"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#rayon-core@1.13.0": {
+      "reviewed_source": "4b80ce142a5045470665bf4750ccb47246236b70eb9d1ed9c53b5d58c6640fcb",
+      "rationale": "Reviewed build.rs: only Cargo-injected target/features/sanitizer values and fixed cfg/link directives; no external file, process, network or additional ambient reads. Selected Cargo unit context and emitted outputs are captured. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [],
+      "package_files": [],
+      "reviewed_closures": [
+        "908723ab38dc0e2bec9e4b0e7843dd6e72149f4a90167a58c439957c2c44e9ba"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#ref-cast@1.0.27": {
+      "reviewed_source": "0dbba3994f524125dbde9776ca9a7a38a10c5d77cc7f10249f00d2168b1f7676",
+      "rationale": "Reviewed complete build.rs and reached compiler-version helper: selected rustc version controls cfg; ref-cast also writes fixed private module template with Cargo patch version under OUT_DIR. No other file/process/network I/O. Compiler/wrapper closure is separately mandatory. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_TARGET_DIR",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "reviewed_closures": [
+        "8f63bfa27204153dd283890fb3d3f612a076d55e81993281529fbb9ab99c66f9"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#rug@1.30.0": {
+      "reviewed_source": "1ba691617f3c489a4b64112e863daa71281f3861614a89dcf2038987aa64142b",
+      "rationale": "Reviewed main: only reads Cargo feature and DEP_GMP_LIMB_BITS from the separately selected gmp-mpfr-sys build output and emits limb cfg. The unused compiler probe helpers are never called. No additional external I/O. Selected script has no direct external Rust helper invocation beyond its locally reviewed own source. Dependency run-custom-build units may forward Cargo metadata or supply independently selected native libraries; those units retain their separate reviews and never inherit this grant. The exact compiler probes/pure cfg/metadata branch recorded above is approved in this unit context.",
+      "environment": [],
+      "package_files": [],
+      "reviewed_closures": [
+        "66c41ddccd99e5fc46d346bef7a28b7f6b7d7cf6469b327916b49dab08bb53a7"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#rust_decimal@1.43.0": {
+      "reviewed_source": "fb67c97ea051c5d075c24a6c89b81cdd8590bcfce0fcd0c852fc2b120ee9274c",
+      "rationale": "Reviewed build.rs including prepare: reads bundled README.md and rewrites its lines into generated documentation in OUT_DIR. No external process, network or ambient input. Consumed README is captured raw. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [],
+      "package_files": [
+        "README.md"
+      ],
+      "reviewed_closures": [
+        "aa60ea7b469b750934ea2b02695a774715fc01b449eacb179ae21a7cf4c97d3f"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#rustix@1.1.5": {
+      "reviewed_source": "ab782eab2015bebcfd86251cd527e4de0b650b21f2fa1341fcd61b8c4c74ef9e",
+      "rationale": "Reviewed complete build.rs (including exact1.1.4-to1.1.5 delta) for x86_64 Linux GNU: target/Cargo cfg/features choose backend and literal compiler feature probes. Owner tests presence of src/backend/linux_raw/arch/x86_64.rs; its raw bytes are explicitly retained. Probe children are only actual Cargo-injected RUSTC or RUSTC_WRAPPER with TARGET/CARGO_ENCODED_RUSTFLAGS and fixed stdin metadata source, and output/deletion is confined to OUT_DIR. Compiler/wrapper/tool closure requires separate native/configuration review; no additional owner arbitrary file/network/clock inputs. Other target branches are outside this review. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "package_files": [
+        "src/backend/linux_raw/arch/x86_64.rs"
+      ],
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "CARGO_ENCODED_RUSTFLAGS"
+      ],
+      "reviewed_closures": [
+        "1f4607bafaef28ed6a1f45480534f4dbc69bd0d05aa2439f9c38c4aa02baa10f"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#rustls@0.23.45": {
+      "reviewed_source": "382dc8b416c445ff7340a6d8f0fd7e1be055346330bdb587c509b60064c3a789",
+      "rationale": "Reviewed complete build.rs: only compile-time Cargo feature and separately selected rustversion macro cfg determine fixed read_buf cfg output. No runtime file/process/network I/O; rustversion executable macro/build owner remains a separate mandatory review."
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#rustversion@1.0.23": {
+      "reviewed_source": "2bff4da621265ddb97a86d7aebb380a29c0a06f6e6b4d9851286f587dd419303",
+      "rationale": "Reviewed build/build.rs and build/rustc.rs: selected rustc --version via optional wrapper is parsed by pure code, writes version.expr under OUT_DIR and emits host cfg. RUSTVERSION=1 is explicitly supplied to the subprocess, no extra external I/O. Compiler/config executor closure separately mandatory. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "package_files": [
+        "build/rustc.rs"
+      ],
+      "reviewed_closures": [
+        "fd4c31c5b1064a533fa84319a9619fa3ec9bd9fd1424424adcbd838f6e5d4753"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#serde@1.0.229": {
+      "reviewed_source": "c64d5186f13fff7852fceffee9e9e18594bd60155ed16f50d48de556d01645bf",
+      "rationale": "Reviewed complete build.rs: generates private.rs solely from a fixed template and Cargo package patch version in OUT_DIR, queries selected rustc --version, and emits cfg directives. Compiler/config executor closure is separately mandatory; no additional external I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "package_files": [],
+      "reviewed_closures": [
+        "41e5abf7aaf84f97a4b20ada67b3099823e6818cb0898fa5d446cd38dd92ce34"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#serde_core@1.0.229": {
+      "reviewed_source": "8c4436e31df568cc5493d8a280eb2ddc5c82b97d08505dbb092019f428a6c3ba",
+      "rationale": "Reviewed complete build.rs: generates private.rs solely from a fixed template and Cargo package patch version in OUT_DIR, queries selected rustc --version, and emits cfg directives. Compiler/config executor closure is separately mandatory; no additional external I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant. Selected script has no direct external Rust helper invocation beyond its locally reviewed own source. Dependency run-custom-build units may forward Cargo metadata or supply independently selected native libraries; those units retain their separate reviews and never inherit this grant. The exact compiler probes/pure cfg/metadata branch recorded above is approved in this unit context. Selected script has no direct external Rust helper invocation beyond its locally reviewed own source. Dependency run-custom-build units may forward Cargo metadata or supply independently selected native libraries; those units retain their separate reviews and never inherit this grant. The exact compiler probes/pure cfg/metadata branch recorded above is approved in this unit context.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "package_files": [],
+      "reviewed_closures": [
+        "8bd241ff083a5fbfb7ba63a74fd16b75c3fe959f935a286e15268f17d3943c7f",
+        "0683a25458443d8c4de00294a70c4835921370e3d95ee44da82ac9bd3f8691fc"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#serde_json@1.0.151": {
+      "reviewed_source": "dadf8604f59ecb45499dddc196ec3bdfa53ccde126c51f1e6ab1007b7515f3da",
+      "rationale": "Reviewed build.rs: only Cargo-injected target/features/sanitizer values and fixed cfg/link directives; no external file, process, network or additional ambient reads. Selected Cargo unit context and emitted outputs are captured. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant. Selected script has no direct external Rust helper invocation beyond its locally reviewed own source. Dependency run-custom-build units may forward Cargo metadata or supply independently selected native libraries; those units retain their separate reviews and never inherit this grant. The exact compiler probes/pure cfg/metadata branch recorded above is approved in this unit context. Selected script has no direct external Rust helper invocation beyond its locally reviewed own source. Dependency run-custom-build units may forward Cargo metadata or supply independently selected native libraries; those units retain their separate reviews and never inherit this grant. The exact compiler probes/pure cfg/metadata branch recorded above is approved in this unit context.",
+      "environment": [],
+      "package_files": [],
+      "reviewed_closures": [
+        "25548bb81d10b4f4753c80e8b0cd2fe4b16f9f95e0328024e73664fdbcdb1e60",
+        "557ce87edfd734226eb8f66c6212f453dc63e3af43ec120919bd57744df008dc"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#smartstring@1.0.1": {
+      "reviewed_source": "b4805c265f6c0be6e9df975e87b584032e70d86c503244a8f33f4c7832c39c1e",
+      "rationale": "Reviewed build.rs and reached version_check 0.9.5 / rustc_version 0.4.1 / autocfg 1.5.1 compiler helpers: derives cfg from selected compiler version or fixed Rust probes written under OUT_DIR. Captures ambient flags/wrappers; Cargo target/profile inputs and actual cfg outputs are captured separately. Compiler/wrapper/native closure is separately mandatory; no other external I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_TARGET_DIR",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "reviewed_closures": [
+        "16f5436f112592f0c6c1940cccf27014ba221548ea07287820424946bd75afa8"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#snap@1.1.2": {
+      "reviewed_source": "3beeb27658b02372e42fb14734195a8ff9120bcdcb76cfa3897bbb201d24d20b",
+      "rationale": "Reviewed complete build.rs: writes deterministic CRC and tag lookup tables generated from literal polynomial/table rules to OUT_DIR. No external input reads, process or network use. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [],
+      "package_files": [],
+      "reviewed_closures": [
+        "d829b99d47434194eee1f2c4be79a4e4f70ff294b9a2459cc225f9b03552fba3"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#stacker@0.1.25": {
+      "reviewed_source": "519f9d2beb14fecca67a6419f7f1b678063eab9556a722b2ec55d4ce7a23b93e",
+      "rationale": "Reviewed complete build.rs for x86_64 Linux GNU: reads Cargo-injected TARGET and constructs cc::Build, then Windows-only compilation branch is excluded. Reached cc1.6.0::Build::new initializes lazy BuildEnv/cache state and CargoOutput::new reads CC_ENABLE_DEBUG_OUTPUT; constructor performs no compiler/process/file I/O. Cargo target remains bound to actual unit context; changed helper source/features require separately approved executable closure basis. No native compilation is executed on the supported target.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "environment": [
+        "CC_ENABLE_DEBUG_OUTPUT"
+      ],
+      "reviewed_closures": [
+        "4eec963cc78fe99dc76e49ae4bbf8aa22e89781d5da4b0a5d0ac9e19b1ff6d6b"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#surrealdb@3.3.0": {
+      "reviewed_source": "8f012757362359aee0973618d8f4df57ee49dd735f6c9348bd95aa82631bccec",
+      "rationale": "Reviewed build.rs: only Cargo-injected target/features/sanitizer values and fixed cfg/link directives; no external file, process, network or additional ambient reads. Selected Cargo unit context and emitted outputs are captured. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [],
+      "package_files": [],
+      "reviewed_closures": [
+        "4de52e7306b8b3646936dc5f801a999f001c2284b7b6ca067a03b76f24061eac"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#syn@1.0.109": {
+      "reviewed_source": "cbb1cf2cbe09ad2a5430a916b1e0fe5c5bc4114731d76d3ca0eb42e33a79979f",
+      "rationale": "Reviewed complete build.rs: executes only selected rustc --version and parses its output to emit cfg directives. Cargo-injected compiler selection plus the separately mandatory compiler/config executor closure cover that process; no other external I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "package_files": [],
+      "reviewed_closures": [
+        "a611c6fd9f8ac7c4ad83a2a75cb1af82fb0157f46cafdf11f161809924221fa0"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#thiserror@1.0.69": {
+      "reviewed_source": "e38886eedc634faaf27984ff50060a2c2f85e92ea3f67739e68ceb8563cd6bdb",
+      "rationale": "Reviewed complete build.rs: compiles fixed bundled Rust probes under OUT_DIR through selected compiler and optional wrappers; Cargo target/flags plus captured RUSTC_BOOTSTRAP/RUSTC_STAGE control cfg choices. Writes and removes its own probe outputs; no other file/process/network I/O. Compiler/wrapper closure is separately mandatory. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTC_BOOTSTRAP",
+        "RUSTC_STAGE",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "package_files": [
+        "build/probe.rs"
+      ],
+      "reviewed_closures": [
+        "17299833df3c162962286f33cc5ee0a1d8d44cca810b7dce24c9e133303c2b3c"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#thiserror@2.0.21": {
+      "reviewed_source": "4f4ed207cb54ff270ab33cae4e5070080eb5cf8b5cf276019047dd0b35b37b89",
+      "rationale": "Reviewed complete build.rs: compiles fixed bundled Rust probes under OUT_DIR through selected compiler and optional wrappers; Cargo target/flags plus captured RUSTC_BOOTSTRAP/RUSTC_STAGE control cfg choices. Writes and removes its own probe outputs; no other file/process/network I/O. Compiler/wrapper closure is separately mandatory. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTC_BOOTSTRAP",
+        "RUSTC_STAGE",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "package_files": [
+        "build/probe.rs"
+      ],
+      "reviewed_closures": [
+        "f6f13e54a2ecb59f5079213e4f16411060f511197b687535203985eca4abd7e5"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#typeid@1.0.3": {
+      "reviewed_source": "04ecfd62ab288fca1a3caf260a6c6dac5e8633499990f93fef243c12e7173c95",
+      "rationale": "Reviewed complete build.rs: executes only selected rustc --version and parses its output to emit cfg directives. Cargo-injected compiler selection plus the separately mandatory compiler/config executor closure cover that process; no other external I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "package_files": [],
+      "reviewed_closures": [
+        "9266c6b6cca70ec27baff3702d4d25e77049596706a678032119287062416175"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#typetag@0.2.23": {
+      "reviewed_source": "0f26cfae951bfeb793026d9c119623e5d681e17b1df5a07e5d4f3763bf2d48c5",
+      "rationale": "Reviewed complete build.rs: writes a fixed private module template with Cargo package patch version into OUT_DIR; no external input reads or process/network use. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [],
+      "package_files": [],
+      "reviewed_closures": [
+        "47f3490ad710a070b840888ecb7887ad930311ec033cbc63951a13a724732305"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#zerocopy@0.8.59": {
+      "reviewed_source": "386db9ed4e259fb91e4179a6fc053e473fed4e77af17dc0e7cef64cd694892f3",
+      "rationale": "Reviewed complete build.rs: reads own Cargo.toml build-rs metadata and Cargo-injected RUSTC --version, emits version threshold cfg directives. Manifest raw bytes are explicit. Other helpers only parse strings/version numbers; no additional environment/file/process/network I/O. Selected compiler executable/library/config closure remains a separate native obligation. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "package_files": [
+        "Cargo.toml"
+      ],
+      "reviewed_closures": [
+        "5bee428a77394a964a6ce0e09cca186b325b0a59a5ea7de8f0206939d4a15f5d"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#zip@2.4.2": {
+      "reviewed_source": "d0ae92bac0ce9797ccd4c383ddd64ffd53750302ef2c6fc242a27be8dfdecdf6",
+      "rationale": "Reviewed src/build.rs: only Cargo feature presence controls a fixed deprecation warning; no file/process/network I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "reviewed_closures": [
+        "4868db6afafa44f3887760de53af18783728d470f14d7594cb5c458b258692a7"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#zmij@1.0.23": {
+      "reviewed_source": "bfb3835a071876b8d247d4a5b39aed6060cf840b74ee53705f538b85a1aaf6e8",
+      "rationale": "Reviewed complete build.rs: selected rustc --version and Cargo OPT_LEVEL produce fixed cfg directives; no other external I/O. Selected compiler/native executor closure is separately mandatory. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_TARGET_DIR",
+        "PATH",
+        "RUSTUP_TOOLCHAIN",
+        "RUSTUP_HOME",
+        "RUSTUP_OVERRIDE_TOOLCHAIN"
+      ],
+      "reviewed_closures": [
+        "c21d2b373d108474561cdc66c513274938edbbcd858bf1799198cd5955c6c22a"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#zstd-safe@7.3.0": {
+      "reviewed_source": "e862daf84997d12133fa49414c5096285552977dd2249505f2c3de7df3396e7c",
+      "rationale": "Reviewed build.rs: only Cargo-injected target/features/sanitizer values and fixed cfg/link directives; no external file, process, network or additional ambient reads. Selected Cargo unit context and emitted outputs are captured. Selected script has no direct external Rust helper invocation beyond its locally reviewed own source. Dependency run-custom-build units may forward Cargo metadata or supply independently selected native libraries; those units retain their separate reviews and never inherit this grant. The exact compiler probes/pure cfg/metadata branch recorded above is approved in this unit context.",
+      "environment": [],
+      "package_files": [],
+      "reviewed_closures": [
+        "98d175b16f9eb2ae159b8006cb8897bf1fdac043387abb262f19bdf985c81d82"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#zstd-safe@8.0.0": {
+      "reviewed_source": "4404113e4e47c0e2203f286e7d621a2b44867199dffdd811bfa8fd3820bb36f5",
+      "rationale": "Reviewed build.rs: only Cargo-injected target/features/sanitizer values and fixed cfg/link directives; no external file, process, network or additional ambient reads. Selected Cargo unit context and emitted outputs are captured. Selected script has no direct external Rust helper invocation beyond its locally reviewed own source. Dependency run-custom-build units may forward Cargo metadata or supply independently selected native libraries; those units retain their separate reviews and never inherit this grant. The exact compiler probes/pure cfg/metadata branch recorded above is approved in this unit context.",
+      "environment": [],
+      "package_files": [],
+      "reviewed_closures": [
+        "55459f5a08c441b707b51ed8c5692e07ca9a91fad75e76e80b36e4e2975a1fc1"
+      ]
+    },
+    "git+https://github.com/paul-heyse/pounce?rev=ff6386944421e8037069e521222ada9f22d457e3#pounce-algorithm@0.12.0": {
+      "reviewed_source": "7f2f89fcb71c48ae483aff101a1e01367e656fcf73902f702e0a34308f34f483",
+      "reviewed_closures": [
+        "5daab979c59cd016755bc7365a0db5452047fcbbc5981673651c6d2f02d2354b"
+      ],
+      "rationale": "Source-reviewed selected no-MA57 build script only reads DEP_COINHSL_RPATH and target OS to emit metadata; reached helper dependencies empty. Absence/presence of the ambient selector is retained, Cargo dependency metadata and actual link output are separately captured. Exact selected source evidence: docs/design_review/evidence/native-producer-inputs-2026-10-06/selected-contexts.md.",
+      "excluded_features": [
+        "ma57"
+      ],
+      "environment": [
+        "DEP_COINHSL_RPATH"
+      ]
+    },
+    "git+https://github.com/paul-heyse/pounce?rev=ff6386944421e8037069e521222ada9f22d457e3#pounce-restoration@0.12.0": {
+      "reviewed_source": "c83d8a5f5947135e61da970154b070c16b35935d75a26a0a0e7e2860e85ae103",
+      "reviewed_closures": [
+        "6b7b470fc3d56778e928a103572800af6ed8ef704a6f77a1472dcfda945f1df5"
+      ],
+      "rationale": "Source-reviewed selected no-MA57 build script only reads DEP_COINHSL_RPATH and target OS to emit metadata; reached helper dependencies empty. Actual emitted link output and Cargo unit/dependency context are captured. Exact selected source evidence: docs/design_review/evidence/native-producer-inputs-2026-10-06/selected-contexts.md.",
+      "excluded_features": [
+        "ma57"
+      ],
+      "environment": [
+        "DEP_COINHSL_RPATH"
+      ]
+    },
+    "git+https://github.com/paul-heyse/pounce?rev=ff6386944421e8037069e521222ada9f22d457e3#pounce-rs@0.12.0": {
+      "reviewed_source": "28ac0a0aa078fc22e6bdaabc2a0782494ab0973cb31658a021d4e9472436a540",
+      "reviewed_closures": [
+        "d36d5d209f1b51620e38b57ee6cc440724d43b176d4088c7860786c54050e9d6"
+      ],
+      "rationale": "Source-reviewed selected no-MA57 build script only reads DEP_COINHSL_RPATH and target OS to emit metadata; reached helper dependencies empty. Actual emitted link output and Cargo unit/dependency context are captured. Exact selected source evidence: docs/design_review/evidence/native-producer-inputs-2026-10-06/selected-contexts.md.",
+      "excluded_features": [
+        "ma57"
+      ],
+      "environment": [
+        "DEP_COINHSL_RPATH"
+      ]
+    },
+    "git+https://github.com/paul-heyse/pounce?rev=ff6386944421e8037069e521222ada9f22d457e3#pounce-solve-report@0.12.0": {
+      "reviewed_source": "62bee64759d320a3eeb91c0b06a486e37fb396c4eedd8b5860f0e23bfc661cf5",
+      "reviewed_closures": [
+        "1e90ff76107cb039809e5b3ade2a24993fe2cf7ab9d1d4d2a8dcfa68a68ebb56"
+      ],
+      "rationale": "Source-reviewed complete selected build script exports Cargo TARGET as report metadata only, with no file/process/network or ambient input and no reached helpers. Exact selected source evidence: docs/design_review/evidence/native-producer-inputs-2026-10-06/selected-contexts.md."
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#bindgen@0.68.1": {
+      "reviewed_source": "f57d06389b0b7eb504f78a6bd249ba11188fd88328155849735200918de89324",
+      "reviewed_closures": [
+        "4ef5a650c49be7a6498928728ac66112d21aae1197cbd1aaafd96d8708c0c55c"
+      ],
+      "rationale": "Source-reviewed own build script writes OUT_DIR/host-target.txt using Cargo TARGET and emits fixed rerun hints; no reached helpers. This grant covers only bindgen own build script, not native libclang/Clang/Rustfmt effects when other build owners call its library. Exact selected source evidence: docs/design_review/evidence/native-producer-inputs-2026-10-06/selected-contexts.md."
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#bindgen@0.69.5": {
+      "reviewed_source": "2be1c4a77ad29a693335866b2be869c1be3b30f475e3e9395105f750b4a79157",
+      "reviewed_closures": [
+        "adfc0ee1a6adcaf7cb1645f485889c02716e055716f8a2235880a070fea09873"
+      ],
+      "rationale": "Source-reviewed own build script writes OUT_DIR/host-target.txt using Cargo TARGET and emits fixed rerun hints; no reached helpers. This grant covers only bindgen own build script, not native libclang/Clang/Rustfmt effects when other build owners call its library. Exact selected source evidence: docs/design_review/evidence/native-producer-inputs-2026-10-06/selected-contexts.md."
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#bindgen@0.72.1": {
+      "reviewed_source": "06f87f67b28f1e8b5b99ef46ac2e65e792de8b3a14717aa0664e1a7992a8c1da",
+      "reviewed_closures": [
+        "5da6cca5f7e4b40f13b3c40e08b4944f389ed02f4c669998131237938f2d725c"
+      ],
+      "rationale": "Source-reviewed own build script writes OUT_DIR/host-target.txt using Cargo TARGET and emits fixed rerun hints; no reached helpers. This grant covers only bindgen own build script, not native libclang/Clang/Rustfmt effects when other build owners call its library. Exact selected source evidence: docs/design_review/evidence/native-producer-inputs-2026-10-06/selected-contexts.md."
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#pardiso-wrapper@0.1.3": {
+      "reviewed_source": "3aff22fcfc66858ecb03e25fe1ac56ced1d8acb1e0bd3003c4a063394e740b92",
+      "reviewed_closures": [
+        "4b1917ccd9b03c0f820381778b0fbce0aa91f0f01311dfbba0c07f3353895ff1"
+      ],
+      "rationale": "Source-reviewed selected Linux MKL build script checks Cargo target_arch and DOCS_RS, emitting libm link metadata. No file discovery/subprocess or reached helpers. Native library bytes/ABI are independently mandatory. Exact selected source evidence: docs/design_review/evidence/native-producer-inputs-2026-10-06/selected-contexts.md.",
+      "environment": [
+        "DOCS_RS"
+      ],
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#prettyplease@0.2.37": {
+      "reviewed_source": "1a5b277efde7346d36efdeecd11a8c6c586cd2d50ca081f66bfcf2fd0c836a5d",
+      "reviewed_closures": [
+        "a16657ae73a99223dc234f6b4cb151eb300e6ad4436cdbd2ce637d1edb81da34"
+      ],
+      "rationale": "Source-reviewed complete own build script reads Cargo package version and emits check-cfg/version metadata, with no reached helpers or external I/O. Calling prettyplease as a formatter remains separately owned by its caller closure. Exact selected source evidence: docs/design_review/evidence/native-producer-inputs-2026-10-06/selected-contexts.md."
+    },
+    "path+workspace://crates/pse-backend-native#0.0.1": {
+      "reviewed_source": "a83b0ef50005d679dc85d2e90b480119c9a4eba6a966f70e806ecf6ae6a5e96f",
+      "rationale": "Reviewed actual Linux x86_64 selected branch: selected root-isolation and MKL prefixes, protected receipt copying, C++ bridge. Required reached input contracts: workspace Cargo.toml POUNCE revision source read; exact complete selected prefix content/membership/receipt; ibex.pc exact bytes, no Requires; pkg-config absolute-pc cflags subprocess executable/env/loader; selected C++ flags and cc/GNU/include closure; MKL pc selected Rust parse; fallback discovery unreachable; toml helper parse/source closure; final link files. Independent source review covers cc 1.6.0 core/target/tempfile/parallel/archive ordering, CMake 0.1.58 selected command construction, glob 0.3.4 prefix traversal, bindgen 0.68.1/0.69.5/0.72.1 parser/frontend/formatter and selected local SHA2/JSON/TOML hashing/parsing helpers. Token/parser/hash helpers consume supplied bytes; compiler scheduling/tempfile names do not select product content. This exact own-source and selected helper-context grant depends on the separately mandatory native ABI/tool/configuration review: actual guarded executable/loader/header/prefix/candidate namespaces, supported environment and fresh selected OUT_DIR. It does not qualify unknown native executors, historical unguarded outputs, other features or changed helpers. Generated CMake/cc outputs are outputs, never external source authority; the supported fixed SOURCE_DATE_EPOCH/TZ route binds SUNDIALS public metadata constants. Reviewed current raw-owner delta: only the generated pse-workspace-hack dependency line was removed from Cargo.toml; the actual build-script implementation and selected native branch are unchanged. The current source and helper compilation contexts are bound explicitly.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "4b0440b958e385faf82eb414976238a3668051165a1364f46d73c1409022f5bf",
+        "a81512774440febfb1eefba9d03bdd4661343bfc2d6433c2cf385b0a1e4b8823"
+      ]
+    },
+    "path+workspace://crates/pse-ipopt-sys#0.0.1": {
+      "reviewed_source": "292c10b1e4d8c2f12cc9f9c6d61f8eafedb07b38cf69ce2bc2fa467803c68f3b",
+      "rationale": "Reviewed actual Linux x86_64 selected branch: link feature consumes explicit IPOPT_DIR pc/headers/libraries and C++ bridge. Required reached input contracts: IPOPT_DIR exact prefix/pc/header/archive/shared library bytes; pc parsed in Rust selected branch; pkg-config helper compiled but fallback unreachable; bridge source/header SHA receipt and cc/GNU C++17/include closure; sha2 helper source/executable closure pure hash implementation; final static/dynamic link support inputs. Independent source review covers cc 1.6.0 core/target/tempfile/parallel/archive ordering, CMake 0.1.58 selected command construction, glob 0.3.4 prefix traversal, bindgen 0.68.1/0.69.5/0.72.1 parser/frontend/formatter and selected local SHA2/JSON/TOML hashing/parsing helpers. Token/parser/hash helpers consume supplied bytes; compiler scheduling/tempfile names do not select product content. This exact own-source and selected helper-context grant depends on the separately mandatory native ABI/tool/configuration review: actual guarded executable/loader/header/prefix/candidate namespaces, supported environment and fresh selected OUT_DIR. It does not qualify unknown native executors, historical unguarded outputs, other features or changed helpers. Generated CMake/cc outputs are outputs, never external source authority; the supported fixed SOURCE_DATE_EPOCH/TZ route binds SUNDIALS public metadata constants. Reviewed current raw-owner delta: only the generated pse-workspace-hack dependency line was removed from Cargo.toml; the actual build-script implementation and selected native branch are unchanged. The current source and helper compilation contexts are bound explicitly.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "3110890329ce7304d6bc56eb5b43c4c7b8c1b41635f342fdc025e78c105fe154",
+        "9015c00473e86b5a1a974818e5c03052196d3fed546b7e61effe0fef633c3ea7"
+      ]
+    },
+    "path+workspace://crates/pse-petsc-sys#0.0.1": {
+      "reviewed_source": "212738d02bcb2ab7867fdd72a7a661f8de4e3dd2635b634f9c1a6c886628c39d",
+      "rationale": "Reviewed actual Linux x86_64 selected branch: link feature validates explicit PETSc JSON receipt, compiles C11 bridge. Required reached input contracts: PETSC_DIR complete receipt/version and headers/libraries; serde_json/sha2 helper source closure pure parse/hash; C bridge receipt/source and cc/GNU/include guards; final link support inputs. Independent source review covers cc 1.6.0 core/target/tempfile/parallel/archive ordering, CMake 0.1.58 selected command construction, glob 0.3.4 prefix traversal, bindgen 0.68.1/0.69.5/0.72.1 parser/frontend/formatter and selected local SHA2/JSON/TOML hashing/parsing helpers. Token/parser/hash helpers consume supplied bytes; compiler scheduling/tempfile names do not select product content. This exact own-source and selected helper-context grant depends on the separately mandatory native ABI/tool/configuration review: actual guarded executable/loader/header/prefix/candidate namespaces, supported environment and fresh selected OUT_DIR. It does not qualify unknown native executors, historical unguarded outputs, other features or changed helpers. Generated CMake/cc outputs are outputs, never external source authority; the supported fixed SOURCE_DATE_EPOCH/TZ route binds SUNDIALS public metadata constants. Reviewed current raw-owner delta: only the generated pse-workspace-hack dependency line was removed from Cargo.toml; the actual build-script implementation and selected native branch are unchanged. The current source and helper compilation contexts are bound explicitly.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "0324d058ec06d23302dce16fcfd1f1cabce150ba856f534e9e5cdceead3c0c70",
+        "b3809312163d197deed00547b3433cd1e4776ced48e670ce100cb1f16ca1a255"
+      ]
+    },
+    "path+workspace://crates/pse-uno-sys#0.0.1": {
+      "reviewed_source": "b09bafa444665ce5ea4326bf4b6bf43b189d7e64ab3066a72a2112ed2882f8c8",
+      "rationale": "Reviewed actual Linux x86_64 selected branch: link feature validates explicit Uno JSON receipt, C++17 bridge/static Uno. Required reached input contracts: UNO_DIR complete receipt/pinned revision and prefix headers/libraries; selected BLAS prefix input selection; serde_json/sha2 helper source closure pure parse/hash; bridge source/header receipt and cc/GNU C++/include guards; final link support inputs. Independent source review covers cc 1.6.0 core/target/tempfile/parallel/archive ordering, CMake 0.1.58 selected command construction, glob 0.3.4 prefix traversal, bindgen 0.68.1/0.69.5/0.72.1 parser/frontend/formatter and selected local SHA2/JSON/TOML hashing/parsing helpers. Token/parser/hash helpers consume supplied bytes; compiler scheduling/tempfile names do not select product content. This exact own-source and selected helper-context grant depends on the separately mandatory native ABI/tool/configuration review: actual guarded executable/loader/header/prefix/candidate namespaces, supported environment and fresh selected OUT_DIR. It does not qualify unknown native executors, historical unguarded outputs, other features or changed helpers. Generated CMake/cc outputs are outputs, never external source authority; the supported fixed SOURCE_DATE_EPOCH/TZ route binds SUNDIALS public metadata constants. Reviewed current raw-owner delta: only the generated pse-workspace-hack dependency line was removed from Cargo.toml; the actual build-script implementation and selected native branch are unchanged. The current source and helper compilation contexts are bound explicitly.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "5460d1a83e3061488346dbb78d9806513d27ed8fc9db32f8316a0ab82c3268c8",
+        "8442abfccb173b66c71445f8c9cbd17f344d9e48321be5445266e55e73f3feea"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#blake3@1.8.7": {
+      "reviewed_source": "344a1380043953036db9f5f8207ba651b9b21ebaba0ed9897c8e8ff29e6552b3",
+      "rationale": "Reviewed actual Linux x86_64 selected branch: GNU cc AVX512/assembly flag probes and material objects. Required reached input contracts: cc 1.6 parallel selected helper closure; GNU driver/preprocessor/assembler/ar executable and loader closure; target/base/HOST CC/CFLAGS/AR selection plus PATH; ordered include absence/membership and .d bytes; package assembly/C sources and generated probe inputs. Independent source review covers cc 1.6.0 core/target/tempfile/parallel/archive ordering, CMake 0.1.58 selected command construction, glob 0.3.4 prefix traversal, bindgen 0.68.1/0.69.5/0.72.1 parser/frontend/formatter and selected local SHA2/JSON/TOML hashing/parsing helpers. Token/parser/hash helpers consume supplied bytes; compiler scheduling/tempfile names do not select product content. This exact own-source and selected helper-context grant depends on the separately mandatory native ABI/tool/configuration review: actual guarded executable/loader/header/prefix/candidate namespaces, supported environment and fresh selected OUT_DIR. It does not qualify unknown native executors, historical unguarded outputs, other features or changed helpers. Generated CMake/cc outputs are outputs, never external source authority; the supported fixed SOURCE_DATE_EPOCH/TZ route binds SUNDIALS public metadata constants.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "56df3acb59d8baa0f2ad5043f335ae2f15bc7c21300023f12c169c895ef213e0"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#gmp-mpfr-sys@1.7.1": {
+      "reviewed_source": "146ed208f99c40872f8a1ef89cc3e449cb822893cbc68c7001c276afad9f83e6",
+      "rationale": "Reviewed actual Linux x86_64 selected branch: 1.7.1 compatible cache hit: libgmp.a/gmp.h, libmpfr.a/mpfr.h, libmpc.a/mpc.h; Rust parses copied headers. Required reached input contracts: GMP compatible-version candidate namespace content/membership guard; GMP_MPFR_SYS_CACHE/HOME/XDG_CACHE_HOME exact selection; all six selected archive/header bytes bound; captured cache-hit branch; configure/make fallback excluded. Independent source review covers cc 1.6.0 core/target/tempfile/parallel/archive ordering, CMake 0.1.58 selected command construction, glob 0.3.4 prefix traversal, bindgen 0.68.1/0.69.5/0.72.1 parser/frontend/formatter and selected local SHA2/JSON/TOML hashing/parsing helpers. Token/parser/hash helpers consume supplied bytes; compiler scheduling/tempfile names do not select product content. This exact own-source and selected helper-context grant depends on the separately mandatory native ABI/tool/configuration review: actual guarded executable/loader/header/prefix/candidate namespaces, supported environment and fresh selected OUT_DIR. It does not qualify unknown native executors, historical unguarded outputs, other features or changed helpers. Generated CMake/cc outputs are outputs, never external source authority; the supported fixed SOURCE_DATE_EPOCH/TZ route binds SUNDIALS public metadata constants.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "9db5d549697f5ae0f6d34686308dafaaf27a382786d7a96f3368436113d3d53c"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#highs-sys@1.15.0": {
+      "reviewed_source": "eb46134774d6cd5d876275d79015ea98c7699e05e3be1a04351e40c433677640",
+      "rationale": "Reviewed actual Linux x86_64 selected branch: bundled Release static HiGHS then bindgen 0.72.1. Required reached input contracts: build/highs_release features; discover/ninja/libz absent; HiGHS/highs presence excludes Git submodule update; CMake/GNU/make/ar/ranlib source/tool/environment/include closure; bindgen exact libclang/clang/default Rustfmt closure; generated source/header namespace and .d association; HiGHS/.git absent; Git find-program/version candidate closure; ldd --version script and PATH candidate closure; HIPO OFF excludes FetchContent; no compilation-date timestamp; fresh generated OUT_DIR outputs per cmake-generation-contracts.json; HIGHS_MAJOR/MINOR/PATCH absence/values; HIGHS_VCPKG OFF. Independent source review covers cc 1.6.0 core/target/tempfile/parallel/archive ordering, CMake 0.1.58 selected command construction, glob 0.3.4 prefix traversal, bindgen 0.68.1/0.69.5/0.72.1 parser/frontend/formatter and selected local SHA2/JSON/TOML hashing/parsing helpers. Token/parser/hash helpers consume supplied bytes; compiler scheduling/tempfile names do not select product content. This exact own-source and selected helper-context grant depends on the separately mandatory native ABI/tool/configuration review: actual guarded executable/loader/header/prefix/candidate namespaces, supported environment and fresh selected OUT_DIR. It does not qualify unknown native executors, historical unguarded outputs, other features or changed helpers. Generated CMake/cc outputs are outputs, never external source authority; the supported fixed SOURCE_DATE_EPOCH/TZ route binds SUNDIALS public metadata constants.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "61119bf536f80c046303a3b5b522b0f445288b40dd7f797da8a73339768e546b"
+      ],
+      "excluded_features": [
+        "discover",
+        "ninja",
+        "libz"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#liblzma-sys@0.4.9": {
+      "reviewed_source": "c47dce623b0d055e568bae995ba050725b19ff739e6684f3b2190273c8546591",
+      "rationale": "Reviewed actual Linux x86_64 selected branch: static feature compiles enumerated bundled xz C files; bindgen feature uses committed bindings. Required reached input contracts: static feature true bypasses pkg-config subprocess; selected C source directory membership/content; config.h/package includes and system include guards; cc/GNU/as/ar tool environment/loader closure; parallel/LTO features absent in selected context. Independent source review covers cc 1.6.0 core/target/tempfile/parallel/archive ordering, CMake 0.1.58 selected command construction, glob 0.3.4 prefix traversal, bindgen 0.68.1/0.69.5/0.72.1 parser/frontend/formatter and selected local SHA2/JSON/TOML hashing/parsing helpers. Token/parser/hash helpers consume supplied bytes; compiler scheduling/tempfile names do not select product content. This exact own-source and selected helper-context grant depends on the separately mandatory native ABI/tool/configuration review: actual guarded executable/loader/header/prefix/candidate namespaces, supported environment and fresh selected OUT_DIR. It does not qualify unknown native executors, historical unguarded outputs, other features or changed helpers. Generated CMake/cc outputs are outputs, never external source authority; the supported fixed SOURCE_DATE_EPOCH/TZ route binds SUNDIALS public metadata constants.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "df6fb6d407d420c06f29aa9f4d6c0cbf83ad4b55702631efe06eff4d6e08e3ec"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#private-gemm-x86@0.1.20": {
+      "reviewed_source": "61ab0db3806cb4416f6e6876cfc972be2534e48bde2ccfc0e5e1b69239060d5b",
+      "rationale": "Reviewed actual Linux x86_64 selected branch: OUT_DIR assembly/Rust generation only. Required reached input contracts: selected defer/interpol helper closure independently approved; OUT_DIR generated text tracked; selected source branch/features bound. Independent source review covers cc 1.6.0 core/target/tempfile/parallel/archive ordering, CMake 0.1.58 selected command construction, glob 0.3.4 prefix traversal, bindgen 0.68.1/0.69.5/0.72.1 parser/frontend/formatter and selected local SHA2/JSON/TOML hashing/parsing helpers. Token/parser/hash helpers consume supplied bytes; compiler scheduling/tempfile names do not select product content. This exact own-source and selected helper-context grant depends on the separately mandatory native ABI/tool/configuration review: actual guarded executable/loader/header/prefix/candidate namespaces, supported environment and fresh selected OUT_DIR. It does not qualify unknown native executors, historical unguarded outputs, other features or changed helpers. Generated CMake/cc outputs are outputs, never external source authority; the supported fixed SOURCE_DATE_EPOCH/TZ route binds SUNDIALS public metadata constants.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "0a969ea8301486bafea3779773309f711f9950ffd257f08ed7364ad7f7764acc"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#psm@0.1.32": {
+      "reviewed_source": "9c57dba264e61c15902489dfbcc9b9d34d38c502bc11453f3e74dc1630e71076",
+      "rationale": "Reviewed actual Linux x86_64 selected branch: Linux x86_64 src/arch/x86_64.s through assembler-with-cpp and cc archive. Required reached input contracts: CARGO_CFG_MIRI absent; target arch/env/OS/endian and HOST; cc 1.6 executable/helper and include search guards; ar_archive_writer selected compile helper source bound but wasm object branch unreachable. Independent source review covers cc 1.6.0 core/target/tempfile/parallel/archive ordering, CMake 0.1.58 selected command construction, glob 0.3.4 prefix traversal, bindgen 0.68.1/0.69.5/0.72.1 parser/frontend/formatter and selected local SHA2/JSON/TOML hashing/parsing helpers. Token/parser/hash helpers consume supplied bytes; compiler scheduling/tempfile names do not select product content. This exact own-source and selected helper-context grant depends on the separately mandatory native ABI/tool/configuration review: actual guarded executable/loader/header/prefix/candidate namespaces, supported environment and fresh selected OUT_DIR. It does not qualify unknown native executors, historical unguarded outputs, other features or changed helpers. Generated CMake/cc outputs are outputs, never external source authority; the supported fixed SOURCE_DATE_EPOCH/TZ route binds SUNDIALS public metadata constants.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "2c1a8ed4bc305103a72c862041cce8e3a290d4df84135fec1453483d5d903ce7"
+      ],
+      "required_absent_environment": [
+        "CARGO_CFG_MIRI"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#rustix@0.38.44": {
+      "reviewed_source": "c1d7e2065ce1162191ac42127462d48043082f34e9c05dad5296fc9ca172b367",
+      "rationale": "Reviewed actual Linux x86_64 selected branch: metadata-only stdin Rust feature probes, direct RUSTC wrappers empty. Required reached input contracts: RUSTC actual executable/loader/toolchain closure; RUSTC_WRAPPER absent/empty; TARGET and CARGO_ENCODED_RUSTFLAGS; compiler probe stdout/status captures. Independent source review covers cc 1.6.0 core/target/tempfile/parallel/archive ordering, CMake 0.1.58 selected command construction, glob 0.3.4 prefix traversal, bindgen 0.68.1/0.69.5/0.72.1 parser/frontend/formatter and selected local SHA2/JSON/TOML hashing/parsing helpers. Token/parser/hash helpers consume supplied bytes; compiler scheduling/tempfile names do not select product content. This exact own-source and selected helper-context grant depends on the separately mandatory native ABI/tool/configuration review: actual guarded executable/loader/header/prefix/candidate namespaces, supported environment and fresh selected OUT_DIR. It does not qualify unknown native executors, historical unguarded outputs, other features or changed helpers. Generated CMake/cc outputs are outputs, never external source authority; the supported fixed SOURCE_DATE_EPOCH/TZ route binds SUNDIALS public metadata constants.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "b2b4c3fc50cbb21cef194aed0a976d56cd7c9eea7ecd0c3b4d1875804a0ac610"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#scip-sys@0.1.28": {
+      "reviewed_source": "1e0a2f7a059e2c20ecfb1915cf025365d4c8e761f766c707d3bc6b077f09ce4c",
+      "rationale": "Reviewed actual Linux x86_64 selected branch: SCIPOPTDIR explicit external prefix, bindgen/default features. Required reached input contracts: SCIPOPTDIR bytes and selected prefix glob libscip membership/content; bundled/from-source absent excludes downloads/build; CONDA_PREFIX fallback unreachable when selected explicit prefix valid; prefix headers/libraries, exact libclang/clang/default Rustfmt closure; glob pure matching/walking effects scoped to declared prefix. Independent source review covers cc 1.6.0 core/target/tempfile/parallel/archive ordering, CMake 0.1.58 selected command construction, glob 0.3.4 prefix traversal, bindgen 0.68.1/0.69.5/0.72.1 parser/frontend/formatter and selected local SHA2/JSON/TOML hashing/parsing helpers. Token/parser/hash helpers consume supplied bytes; compiler scheduling/tempfile names do not select product content. This exact own-source and selected helper-context grant depends on the separately mandatory native ABI/tool/configuration review: actual guarded executable/loader/header/prefix/candidate namespaces, supported environment and fresh selected OUT_DIR. It does not qualify unknown native executors, historical unguarded outputs, other features or changed helpers. Generated CMake/cc outputs are outputs, never external source authority; the supported fixed SOURCE_DATE_EPOCH/TZ route binds SUNDIALS public metadata constants.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "f9f7d4afef9b683cd89bcab1286fda6a44c090a67f760c069b1c2b2811ce7609"
+      ],
+      "excluded_features": [
+        "bundled",
+        "from-source"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#suitesparse_sys@0.1.4": {
+      "reviewed_source": "e0281973ed83b0d46cb502429832270db51cb3c89159ad379062fbdb139da533",
+      "rationale": "Reviewed actual Linux x86_64 selected branch: external explicit SuiteSparse include/library prefix; static amd/btf/colamd/klu/config. Required reached input contracts: build_vendor feature absent; explicit SUITESPARSE_INCLUDE_DIR and SUITESPARSE_LIBRARY_DIR bound; prefix five static libraries and headers bound; bindgen 0.69.5 runtime libclang/clang/default Rustfmt input closure; CMake/pkg-config helper identities bound but explicit prefix bypasses discovery/vendor subprocess. Independent source review covers cc 1.6.0 core/target/tempfile/parallel/archive ordering, CMake 0.1.58 selected command construction, glob 0.3.4 prefix traversal, bindgen 0.68.1/0.69.5/0.72.1 parser/frontend/formatter and selected local SHA2/JSON/TOML hashing/parsing helpers. Token/parser/hash helpers consume supplied bytes; compiler scheduling/tempfile names do not select product content. This exact own-source and selected helper-context grant depends on the separately mandatory native ABI/tool/configuration review: actual guarded executable/loader/header/prefix/candidate namespaces, supported environment and fresh selected OUT_DIR. It does not qualify unknown native executors, historical unguarded outputs, other features or changed helpers. Generated CMake/cc outputs are outputs, never external source authority; the supported fixed SOURCE_DATE_EPOCH/TZ route binds SUNDIALS public metadata constants.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "5b8991b900dfd8f724f726245207cb1823c5b6893dfa4055484c7cdfe4021e70"
+      ],
+      "excluded_features": [
+        "build_vendor"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#sundials-sys@0.6.2": {
+      "reviewed_source": "6e2bfb2fd7056d03cecbdcd9093988fe0bbeec65159a10a0474578c2886a2009",
+      "rationale": "Reviewed actual Linux x86_64 selected branch: bundled CMake static IDAS/KINSOL/KLU then bindgen 0.68.1. Required reached input contracts: CMake module/source/generated include namespace; CMake/GNU/make/ar/ranlib executables/loader/environment closure; selected KLU external prefix archives/headers; per-object .d plus ordered include namespace guards; bindgen exact libclang/clang/default Rustfmt closure; vendor/.git absent; FindGit version/helper closure; fresh generated OUT_DIR outputs per cmake-generation-contracts.json; SUN_JOB_* timestamp macros exported through bindgen: fixed documented SOURCE_DATE_EPOCH/TZ or explicit bound CI_JOB_ID/CI_JOB_STARTED_AT required before grant; SUNDIALS_ADIAK_ENABLED false; test/examples OFF does not by itself remove public clock constants. Independent source review covers cc 1.6.0 core/target/tempfile/parallel/archive ordering, CMake 0.1.58 selected command construction, glob 0.3.4 prefix traversal, bindgen 0.68.1/0.69.5/0.72.1 parser/frontend/formatter and selected local SHA2/JSON/TOML hashing/parsing helpers. Token/parser/hash helpers consume supplied bytes; compiler scheduling/tempfile names do not select product content. This exact own-source and selected helper-context grant depends on the separately mandatory native ABI/tool/configuration review: actual guarded executable/loader/header/prefix/candidate namespaces, supported environment and fresh selected OUT_DIR. It does not qualify unknown native executors, historical unguarded outputs, other features or changed helpers. Generated CMake/cc outputs are outputs, never external source authority; the supported fixed SOURCE_DATE_EPOCH/TZ route binds SUNDIALS public metadata constants.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "2547572f066729a20576e56be3e26527e393b9850621145b0e5f9ee316d73729"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#symbolica@3.0.1": {
+      "reviewed_source": "1fb7d46fb271d66cd2e951854da887bdcf8ff16a833c4d0106f4b646a03e384d",
+      "rationale": "Reviewed actual Linux x86_64 selected branch: Git describe and three git-path queries; current packaged-source fallback. Required reached input contracts: git executable/loader bytes; Git config/include paths and environment; ancestor .git candidate membership/topology/content; invalid ~/.cargo/.git and HEAD absence represented; captured fallback exit/output; no valid repository branch assumed; fallback package version and OUT_DIR output. Independent source review covers cc 1.6.0 core/target/tempfile/parallel/archive ordering, CMake 0.1.58 selected command construction, glob 0.3.4 prefix traversal, bindgen 0.68.1/0.69.5/0.72.1 parser/frontend/formatter and selected local SHA2/JSON/TOML hashing/parsing helpers. Token/parser/hash helpers consume supplied bytes; compiler scheduling/tempfile names do not select product content. This exact own-source and selected helper-context grant depends on the separately mandatory native ABI/tool/configuration review: actual guarded executable/loader/header/prefix/candidate namespaces, supported environment and fresh selected OUT_DIR. It does not qualify unknown native executors, historical unguarded outputs, other features or changed helpers. Generated CMake/cc outputs are outputs, never external source authority; the supported fixed SOURCE_DATE_EPOCH/TZ route binds SUNDIALS public metadata constants.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "404fb7f1e0dccf90d5b5c03b44cab9ad4d8bc6e254d69c061d7b4f70b97fa34f"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#zstd-sys@2.1.0+zstd.1.5.7": {
+      "reviewed_source": "79c59296be5de444fd5d0c202fea9b4ef481801470fb39e21f5091aaa0e2d756",
+      "rationale": "Reviewed actual Linux x86_64 selected branch: bundled non-cmake/non-bindgen with legacy/dictBuilder/x86_64 assembly. Required reached input contracts: ZSTD_SYS_USE_PKG_CONFIG absent, pkg-config/cmake/bindgen features absent; selected common/compress/decompress/dictBuilder/legacy directory membership/content; x86_64/Windows/Miri target premises; cc flag probes/material objects/archive tool/input guards; copied public headers and generated include namespace. Independent source review covers cc 1.6.0 core/target/tempfile/parallel/archive ordering, CMake 0.1.58 selected command construction, glob 0.3.4 prefix traversal, bindgen 0.68.1/0.69.5/0.72.1 parser/frontend/formatter and selected local SHA2/JSON/TOML hashing/parsing helpers. Token/parser/hash helpers consume supplied bytes; compiler scheduling/tempfile names do not select product content. This exact own-source and selected helper-context grant depends on the separately mandatory native ABI/tool/configuration review: actual guarded executable/loader/header/prefix/candidate namespaces, supported environment and fresh selected OUT_DIR. It does not qualify unknown native executors, historical unguarded outputs, other features or changed helpers. Generated CMake/cc outputs are outputs, never external source authority; the supported fixed SOURCE_DATE_EPOCH/TZ route binds SUNDIALS public metadata constants.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "cdc084d5028176f02237325318da0e33c2786f060af8a51673e587f1525d5f72"
+      ],
+      "excluded_features": [
+        "pkg-config",
+        "cmake",
+        "bindgen"
+      ],
+      "required_absent_environment": [
+        "ZSTD_SYS_USE_PKG_CONFIG"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#clang-sys@1.9.1": {
+      "reviewed_source": "dab38f5b88fd89196bc462ab6e39b3084151f9807517e1d85b460c83bda0fa81",
+      "rationale": "Reviewed exact selected own build script: runtime feature build script excludes linker/native discovery. This script has no reached arbitrary I/O in that selected context; bindgen library execution belongs to the invoking native owner, not to this own build-script grant. Selected Cargo features/target and exact helper source contexts are mandatory.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "a1cf35facbc5adf20b8e1da13a67ffafe08b66b1912877fc5fedffd5e638250b"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#bindgen@0.73.2": {
+      "reviewed_source": "855a1072e63d4260c09a6c34d049964aa876edf90506c638afe5ea722a7c6262",
+      "rationale": "Reviewed complete own build.rs: writes Cargo TARGET to its own OUT_DIR host-target.txt and emits native rebuild hints only; no frontend/libclang or formatter is executed by this script. The bindgen library execution of a future invoking owner is a separate obligation.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "0f1252d8fab44e10374376eaa5e25105f4f71dc9806674fe60ca04ff2614e0bc"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#prettyplease@0.3.0": {
+      "reviewed_source": "7acfd572cf915030be089eaad06e65b18ba503ad8fe35ea9ce4c45efef9bad0c",
+      "rationale": "Reviewed complete own build.rs: emits Cargo version/check-cfg metadata and checks Cargo-injected links/version spelling. No external file/process/network/clock/environment input.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "2d039c4f51ec6d872002bf34181f88a561159d7862e29254489f1b652702b711"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#camino@1.2.6": {
+      "reviewed_source": "9edd182eee524e04697f911ef8dca4179a23ac8c5fb9f398a10195ec2b76590d",
+      "rationale": "Reviewed complete build.rs: executes only the selected direct RUSTC --version and parses version/channel to emit fixed cfgs. Exact compiler/config/loader remains mandatory native authority; no other arbitrary I/O.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "f5ed63b751f72a6fd52df91f71d0d3f6b7a3340f7c8fa2e6cb4f1d2cbe315e61"
+      ],
+      "environment": [
+        "RUSTC"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#target-lexicon@0.13.5": {
+      "reviewed_source": "66733cc3b3455b41d944e475b57816779368e86c2485e760645294d30b5e8be3",
+      "rationale": "Reviewed complete build.rs with included data_model/triple/targets: parses Cargo TARGET, writes own OUT_DIR host.rs, queries the selected direct RUSTC --version and emits version cfg. Parsers/enums use supplied strings; exact compiler/loader/config remains mandatory native authority.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "e408562b1a013c4a2a7239e9f5ed870068f98cc25aa1ba85acbdc8a119be3ae0"
+      ],
+      "environment": [
+        "RUSTC"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#pyo3-ffi@0.29.2": {
+      "reviewed_source": "03af393156d356386809852ed35b2411290b21ca69624d4b4b80b4116f6464d9",
+      "rationale": "Reviewed complete ffi build.rs and pyo3-build-config0.29.2 resolve_build_config/from_pyo3_config_file_env/from_reader/apply_build_env: supported explicit PYO3_CONFIG_FILE branch reads the exact guarded Maturin config bytes and bypasses cross/host interpreter discovery. It validates configured ABI/version/pointer width, emits cfg/link/config data and probes direct selected RUSTC version. Linux abi3 extension target suppresses libpython linkage. PYO3_PRINT_CONFIG/version-check selectors are retained; unknown config/tool/native input remains a global refusal. Extra config lines are bound raw inputs, not permission for unreviewed link executors. Fresh OUT_DIR/compiler-unit evidence is mandatory; no interpreter-startup grant is implied.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "6b60a00ca517a05bf209ff3d1eaa812ea3072a8f3115e1d34c21e26c82c08148"
+      ],
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "PYO3_CONFIG_FILE",
+        "PYO3_PRINT_CONFIG",
+        "UNSAFE_PYO3_SKIP_VERSION_CHECK",
+        "PYO3_BUILD_EXTENSION_MODULE",
+        "PYO3_USE_ABI3_FORWARD_COMPATIBILITY",
+        "PYO3_USE_STABLE_ABI_FORWARD_COMPATIBILITY"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#pyo3@0.29.2": {
+      "reviewed_source": "2d5209a94aa19ad7dc391fbfec22134c013e8817468b73d6a5abb4cb094a21b2",
+      "rationale": "Reviewed complete build.rs: pyo3_build_config::get obtains serialized DEP_PYTHON_PYO3_CONFIG forwarded by the separately reviewed ffi build owner, parses local config bytes, checks auto-initialize and emits cfg/forwarded DEP metadata plus version probes. Linux extension branch adds no libpython rpath. Exact compiler and upstream config-file authority remains mandatory.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "1c5226826a2d680158ff9fa31c6b23674b791adaaa49745e65b9d03625e7b2cc"
+      ],
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "PYO3_CONFIG_FILE",
+        "PYO3_PRINT_CONFIG",
+        "UNSAFE_PYO3_SKIP_VERSION_CHECK",
+        "PYO3_BUILD_EXTENSION_MODULE",
+        "PYO3_USE_ABI3_FORWARD_COMPATIBILITY",
+        "PYO3_USE_STABLE_ABI_FORWARD_COMPATIBILITY"
+      ]
+    },
+    "registry+https://github.com/rust-lang/crates.io-index#numpy@0.29.0": {
+      "reviewed_source": "03b57dccf79e43b69ebe99904319b4aa895bbf7118a0e55d47c04abad8011b80",
+      "rationale": "Reviewed complete one-line build.rs use_pyo3_cfgs: pyo3-build-config get parses Cargo-forwarded serialized DEP config; it does not run host interpreter discovery. Local config parsing/emitted cfgs, selected version/ABI and upstream ffi config-file context are bound.",
+      "platforms": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "reviewed_closures": [
+        "c66164b970fdfa3a5572497bd7ce7bf9495ab3af294689eff10d75b3e9eae834"
+      ],
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "PYO3_CONFIG_FILE",
+        "PYO3_PRINT_CONFIG",
+        "UNSAFE_PYO3_SKIP_VERSION_CHECK",
+        "PYO3_BUILD_EXTENSION_MODULE",
+        "PYO3_USE_ABI3_FORWARD_COMPATIBILITY",
+        "PYO3_USE_STABLE_ABI_FORWARD_COMPATIBILITY"
+      ]
+    },
+    "path+workspace://crates/pse-buildinfo#0.0.1": {
+      "reviewed_source": "48f1dbfd9888d6d632d8e45928a5ac4d182f39ae18be7b46700b1a399c0a227e",
+      "deployment_provenance": true,
+      "rationale": "Reviewed build.rs and identity.rs, including the complete outer scanner relocation and added xtask ingress: same sorted BuildInputsV1 framing, regular raw files in crates/vendor/xtask excluding build/cache/git directories, symlinks refused. Exact four generated provenance blobs and five reported PSE provenance env values describe outer deployment only. Raw workspace/lock/config data read solely to create those reviewed blobs is outer evidence; actual selected buildinfo behavior/helper/compiler sources remain independent scientific inputs. The selected direct rustc version query and Git HEAD query use the separately mandatory exact tools/environment/loader; their returned reporting data is outer provenance. SHA2/hex and pse-ids FramedHasher consume supplied bytes without new arbitrary I/O. The current raw scanner source basis is manually approved after inspection of the relocation, added xtask ingress and unchanged framing, with the root's real inventory controls. The current selected SHA2/hex/pse-ids helper compilation basis is explicitly approved for the same previously reviewed supplied-byte hashing path. Source and selected helper closure must match before any grant; changed owner/helper contexts remain unqualified.",
+      "workspace_files": [
+        "crates",
+        "vendor",
+        "xtask",
+        "Cargo.toml",
+        "Cargo.lock",
+        "uv.lock",
+        "pyproject.toml",
+        "rust-toolchain.toml",
+        ".cargo/config.toml"
+      ],
+      "environment": [
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "PATH"
+      ],
+      "reviewed_closures": [
+        "2364c38784e91259b00cb7c439f21737c8ffd49d5e7e74ae0a9714b7e67fc71b",
+        "45ef157b75d86df21a7b7942385ec9632f88eecbd16c37a978cd390ec6726ab6"
+      ]
+    }
+  }
+}

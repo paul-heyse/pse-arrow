@@ -280,8 +280,8 @@
       ]
     },
     {
-      "id": "publication-cold-1",
-      "operation": "publication",
+      "id": "results-cold-1",
+      "operation": "results",
       "reuse": "cold",
       "blocks": 1,
       "threads": 1,
@@ -406,15 +406,15 @@
       ]
     },
     {
-      "id": "publication-chain-1",
-      "operation": "publication",
+      "id": "results-chain-1",
+      "operation": "results",
       "reuse": "cold",
       "blocks": 1,
       "threads": 1,
       "variables": [
         6
       ],
-      "publications": 3,
+      "result_reads": 3,
       "functional_scopes": [
         "process"
       ]

@@ -281,183 +281,27 @@ impl ModelingResult {
         )?;
         Ok(proposal.with_owner(owner))
     }
-    fn secant_product(
-        &self,
-        older: &Self,
-        target: &ModelingSolvePreparation,
-    ) -> Result<(crate::math::prediction::SecantHistory, f64), WorkflowError> {
-        let changed = self
-            .prepared
-            .model
-            .case
-            .compiled()
-            .plan
-            .structure()
-            .parameters()
-            .iter()
-            .filter_map(|parameter| {
-                let new = self.prepared.model.values.scalars.get(&parameter.id)?;
-                let old = older.prepared.model.values.scalars.get(&parameter.id)?;
-                (new != old).then_some((parameter.id, *old, *new))
-            })
-            .collect::<Vec<_>>();
-        let [(parameter, old, new)] = changed.as_slice() else {
-            return Err(crate::math::MathRuntimeError::from(
-                pse_backend_native::ProblemError::Unsupported(
-                    "secant requires exactly one changing authored parameter".into(),
-                ),
-            )
-            .into());
-        };
-        self.prepared
-            .solve
-            .related_target_parameters(&older.prepared.solve, &[(*parameter, *old)])
-            .map_err(crate::math::MathRuntimeError::from)?;
-        let values = target
-            .solve
-            .related_target_parameters(&self.prepared.solve, &[(*parameter, *new)])
-            .map_err(crate::math::MathRuntimeError::from)?;
-        let history = crate::math::prediction::SecantHistory::new(
-            older.prediction_anchor(*old)?,
-            self.prediction_anchor(*new)?,
-            (new - old).abs(),
-        )
-        .map_err(crate::math::MathRuntimeError::from)?;
-        Ok((history, values[0].1))
+    fn secant_product(&self,older:&Self,target:&ModelingSolvePreparation)->Result<(crate::math::prediction::SecantHistory,f64),WorkflowError>{
+        self.prediction_sample()?.secant_product(&older.prediction_sample()?,target)
     }
-    /// Select only actually qualified original products for a related Study target.
-    /// The shared selector owns preference; every selected endpoint remains a screened start.
-    pub(crate) fn available_prediction(
-        &self,
-        older: Option<&Self>,
-        target: &ModelingSolvePreparation,
-        branch: pse_model::strategy::BranchPolicy,
-        execution: &pse_backend_native::solve::Execution,
-    ) -> Result<crate::math::prediction::Proposal, WorkflowError> {
-        use crate::math::prediction::{ProposalMechanism, SelectedProposal, SelectionRequest};
-        let recoverable = |error: &WorkflowError| {
-            matches!(
-                error.boundary_diagnostic().class,
-                pse_model::diagnostic::BoundaryClass::Unsupported
-                    | pse_model::diagnostic::BoundaryClass::Incompatible
-                    | pse_model::diagnostic::BoundaryClass::Numerical
-            )
-        };
-        let root = match self.root_predictor() {
-            Ok(predictor) => Some(predictor),
-            Err(pse_backend_native::square_response::Withheld::Cause(cause)) => {
-                let error: WorkflowError = crate::math::MathRuntimeError::from(
-                    pse_backend_native::ProblemError::Math(pse_math::MathError::Typed {
-                        retained: cause.retained_bytes(),
-                        cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
-                    }),
-                )
-                .into();
-                if !recoverable(&error) {
-                    return Err(error);
-                }
-                None
-            }
-            Err(_) => None,
-        };
-        let root_parameters = root
-            .as_ref()
-            .map(|predictor| {
-                target
-                    .solve
-                    .related_target_parameters(&self.prepared.solve, predictor.parameters())
-            })
-            .transpose()
-            .map_err(crate::math::MathRuntimeError::from)?;
-        let secant = match older
-            .map(|older| self.secant_product(older, target))
-            .transpose()
-        {
-            Ok(product) => product,
-            Err(error) if recoverable(&error) => None,
-            Err(error) => return Err(error),
-        };
-        // Zeroth reuse still validates every changed authored parameter and fixed dependency.
-        let parameters = self
-            .prepared
-            .model
-            .case
-            .compiled()
-            .plan
-            .structure()
-            .parameters()
-            .iter()
-            .filter_map(|parameter| {
-                self.prepared
-                    .model
-                    .values
-                    .scalars
-                    .get(&parameter.id)
-                    .map(|value| (parameter.id, *value))
-            })
-            .collect::<Vec<_>>();
-        target
-            .solve
-            .related_target_parameters(&self.prepared.solve, &parameters)
-            .map_err(crate::math::MathRuntimeError::from)?;
-        let anchor = self.prediction_anchor(0.)?;
-        let identity = target
-            .solve
-            .original_identity()
-            .map_err(crate::math::MathRuntimeError::from)?;
-        let mut available = Vec::new();
-        let permission = &self.completion.decision;
-        if let (Some(predictor), Some(parameters)) = (root.as_ref(), root_parameters.as_ref()) {
-            available.push(SelectionRequest {
-                mechanism: ProposalMechanism::Root {
-                    predictor,
-                    parameters,
-                },
-                permission,
-                source: predictor.factor().key(),
-                target: identity,
-                branch,
-            });
-        }
-        if let Some((history, parameter)) = secant.as_ref() {
-            available.push(SelectionRequest {
-                mechanism: ProposalMechanism::Secant {
-                    history,
-                    parameter: *parameter,
-                    scaled_step_limit: 1.,
-                },
-                permission,
-                source: history.source(),
-                target: identity,
-                branch,
-            });
-        }
-        available.push(SelectionRequest {
-            mechanism: ProposalMechanism::Zeroth { anchor: &anchor },
-            permission,
-            source: anchor.source(),
-            target: identity,
-            branch,
-        });
-        let selected = crate::math::prediction::select_available(available, execution)
-            .map_err(|error| crate::math::MathRuntimeError::from(error.into_problem()))?;
-        let proposal = match selected {
-            SelectedProposal::Root { proposal, .. }
-            | SelectedProposal::Secant { proposal }
-            | SelectedProposal::Zeroth { proposal } => *proposal,
-            _ => {
-                return Err(contract(
-                    "Study proposal selection returned an unavailable producer",
-                ));
-            }
-        };
-        let owner = self.runtime.native().reserve(
-            "modeling:selected-proposal",
-            proposal
-                .retained_bytes()
-                .map_err(crate::math::MathRuntimeError::from)?,
-        )?;
-        Ok(proposal.with_owner(owner))
+    /// Use the same original-qualified proposal owner for retained and in-memory points.
+    pub(crate) fn available_prediction(&self,older:Option<&Self>,target:&ModelingSolvePreparation,branch:pse_model::strategy::BranchPolicy,execution:&pse_backend_native::solve::Execution)->Result<crate::math::prediction::Proposal,WorkflowError>{
+        self.prediction_sample()?.available_prediction(older.map(Self::prediction_sample).transpose()?.as_ref(),target,branch,execution)
+    }
+    pub(crate) fn portable_prediction(&self)->Result<Option<PortablePrediction>,WorkflowError>{
+        if !self.completion.decision.permits_use(){return Ok(None);}
+        let Outcome::Native(report)=&self.outcome else{return Ok(None);};
+        let Some(candidate)=&report.candidate else{return Ok(None);};
+        let key=self.prepared.solve.semantic_point_key(&candidate.primal).map_err(crate::math::MathRuntimeError::from)?;
+        let root=self.root_predictor().ok().map(|predictor|{
+            let values=report.observation.as_ref().ok_or_else(||contract("qualified root factor lost its original values"))?;
+            Ok::<_,WorkflowError>(PortableRootPoint{key:predictor.factor().key(),values:values.values.iter().map(|value|value.to_bits()).collect()})
+        }).transpose()?;
+        Ok(Some(PortablePrediction{key,coordinates:report.variables.clone(),primal:candidate.primal.iter().map(|value|value.to_bits()).collect(),permission:self.completion.decision.clone(),root}))
+    }
+    fn prediction_sample(&self)->Result<PredictionSample,WorkflowError>{
+        let receipt=self.portable_prediction()?.ok_or_else(||contract("prediction needs an original-permitted native point"))?;
+        Ok(PredictionSample{prepared:self.prepared.clone(),runtime:self.runtime.clone(),point:Arc::new(pse_columnar::Leased::new(Arc::new(receipt),self._native_owner.clone())),root:self.root_predictor()})
     }
     /// Track a genuinely demanded parameter change with a retained original KKT factor.
     /// Coverage and work remain library observations; this endpoint needs original correction.
@@ -1992,5 +1836,216 @@ mod tests {
             (0.0, Basis::Point)
         );
         assert_eq!(check_value(1.0, None, Some(minimum)), (1.0, Basis::Point));
+    }
+}
+
+/// Portable original coordinates and permissions; factors are rebuilt by their library owner.
+#[derive(Clone,Debug,serde::Serialize,serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PortablePrediction {
+    pub(crate) key:pse_model::strategy::SemanticProductKey,
+    pub(crate) coordinates:Vec<SemanticId>,
+    pub(crate) primal:Vec<u64>,
+    pub(crate) permission:crate::workflow::numerics::CandidateDecision,
+    pub(crate) root:Option<PortableRootPoint>,
+}
+#[derive(Clone,Debug,serde::Serialize,serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PortableRootPoint {pub(crate) key:pse_model::strategy::SemanticProductKey,pub(crate) values:Vec<u64>}
+/// The single proposal selection adapter accepts both live and reopened scientific points.
+pub(crate) struct PredictionSample {
+    pub(crate) prepared:ModelingSolvePreparation,
+    pub(crate) runtime:Runtime,
+    pub(crate) point:Arc<pse_columnar::Leased<PortablePrediction>>,
+    pub(crate) root:Result<pse_backend_native::square_response::SparsePredictor,pse_backend_native::square_response::Withheld>,
+}
+impl PredictionSample {
+    fn root_predictor(&self)->Result<pse_backend_native::square_response::SparsePredictor,pse_backend_native::square_response::Withheld>{self.root.clone()}
+    fn prediction_anchor(&self,parameter:f64)->Result<crate::math::prediction::Anchor,WorkflowError>{
+        let point=&self.point;
+        let primal=point.primal.iter().copied().map(f64::from_bits).collect::<Vec<_>>();
+        let expected=self.prepared.solve.semantic_point_key(&primal).map_err(crate::math::MathRuntimeError::from)?;
+        if expected!=point.key||self.prepared.model.case.compiled().plan.columns()!=point.coordinates.as_slice(){return Err(contract("retained prediction differs from its original source coordinates"));}
+        let anchor=crate::math::prediction::Anchor::admitted(point.key,point.coordinates.clone(),primal,parameter,point.permission.clone()).map_err(crate::math::MathRuntimeError::from)?;
+        let owner=self.runtime.native().reserve("modeling:prediction-anchor",anchor.retained_bytes().map_err(crate::math::MathRuntimeError::from)?)?;
+        Ok(anchor.with_owner(owner))
+    }
+    fn secant_product(
+        &self,
+        older: &Self,
+        target: &ModelingSolvePreparation,
+    ) -> Result<(crate::math::prediction::SecantHistory, f64), WorkflowError> {
+        let changed = self
+            .prepared
+            .model
+            .case
+            .compiled()
+            .plan
+            .structure()
+            .parameters()
+            .iter()
+            .filter_map(|parameter| {
+                let new = self.prepared.model.values.scalars.get(&parameter.id)?;
+                let old = older.prepared.model.values.scalars.get(&parameter.id)?;
+                (new != old).then_some((parameter.id, *old, *new))
+            })
+            .collect::<Vec<_>>();
+        let [(parameter, old, new)] = changed.as_slice() else {
+            return Err(crate::math::MathRuntimeError::from(
+                pse_backend_native::ProblemError::Unsupported(
+                    "secant requires exactly one changing authored parameter".into(),
+                ),
+            )
+            .into());
+        };
+        self.prepared
+            .solve
+            .related_target_parameters(&older.prepared.solve, &[(*parameter, *old)])
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let values = target
+            .solve
+            .related_target_parameters(&self.prepared.solve, &[(*parameter, *new)])
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let history = crate::math::prediction::SecantHistory::new(
+            older.prediction_anchor(*old)?,
+            self.prediction_anchor(*new)?,
+            (new - old).abs(),
+        )
+        .map_err(crate::math::MathRuntimeError::from)?;
+        Ok((history, values[0].1))
+    }
+    /// Select only actually qualified original products for a related Study target.
+    /// The shared selector owns preference; every selected endpoint remains a screened start.
+    pub(crate) fn available_prediction(
+        &self,
+        older: Option<&Self>,
+        target: &ModelingSolvePreparation,
+        branch: pse_model::strategy::BranchPolicy,
+        execution: &pse_backend_native::solve::Execution,
+    ) -> Result<crate::math::prediction::Proposal, WorkflowError> {
+        use crate::math::prediction::{ProposalMechanism, SelectedProposal, SelectionRequest};
+        let recoverable = |error: &WorkflowError| {
+            matches!(
+                error.boundary_diagnostic().class,
+                pse_model::diagnostic::BoundaryClass::Unsupported
+                    | pse_model::diagnostic::BoundaryClass::Incompatible
+                    | pse_model::diagnostic::BoundaryClass::Numerical
+            )
+        };
+        let root = match self.root_predictor() {
+            Ok(predictor) => Some(predictor),
+            Err(pse_backend_native::square_response::Withheld::Cause(cause)) => {
+                let error: WorkflowError = crate::math::MathRuntimeError::from(
+                    pse_backend_native::ProblemError::Math(pse_math::MathError::Typed {
+                        retained: cause.retained_bytes(),
+                        cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
+                    }),
+                )
+                .into();
+                if !recoverable(&error) {
+                    return Err(error);
+                }
+                None
+            }
+            Err(_) => None,
+        };
+        let root_parameters = root
+            .as_ref()
+            .map(|predictor| {
+                target
+                    .solve
+                    .related_target_parameters(&self.prepared.solve, predictor.parameters())
+            })
+            .transpose()
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let secant = match older
+            .map(|older| self.secant_product(older, target))
+            .transpose()
+        {
+            Ok(product) => product,
+            Err(error) if recoverable(&error) => None,
+            Err(error) => return Err(error),
+        };
+        // Zeroth reuse still validates every changed authored parameter and fixed dependency.
+        let parameters = self
+            .prepared
+            .model
+            .case
+            .compiled()
+            .plan
+            .structure()
+            .parameters()
+            .iter()
+            .filter_map(|parameter| {
+                self.prepared
+                    .model
+                    .values
+                    .scalars
+                    .get(&parameter.id)
+                    .map(|value| (parameter.id, *value))
+            })
+            .collect::<Vec<_>>();
+        target
+            .solve
+            .related_target_parameters(&self.prepared.solve, &parameters)
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let anchor = self.prediction_anchor(0.)?;
+        let identity = target
+            .solve
+            .original_identity()
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let mut available = Vec::new();
+        let permission = &self.point.permission;
+        if let (Some(predictor), Some(parameters)) = (root.as_ref(), root_parameters.as_ref()) {
+            available.push(SelectionRequest {
+                mechanism: ProposalMechanism::Root {
+                    predictor,
+                    parameters,
+                },
+                permission,
+                source: predictor.factor().key(),
+                target: identity,
+                branch,
+            });
+        }
+        if let Some((history, parameter)) = secant.as_ref() {
+            available.push(SelectionRequest {
+                mechanism: ProposalMechanism::Secant {
+                    history,
+                    parameter: *parameter,
+                    scaled_step_limit: 1.,
+                },
+                permission,
+                source: history.source(),
+                target: identity,
+                branch,
+            });
+        }
+        available.push(SelectionRequest {
+            mechanism: ProposalMechanism::Zeroth { anchor: &anchor },
+            permission,
+            source: anchor.source(),
+            target: identity,
+            branch,
+        });
+        let selected = crate::math::prediction::select_available(available, execution)
+            .map_err(|error| crate::math::MathRuntimeError::from(error.into_problem()))?;
+        let proposal = match selected {
+            SelectedProposal::Root { proposal, .. }
+            | SelectedProposal::Secant { proposal }
+            | SelectedProposal::Zeroth { proposal } => *proposal,
+            _ => {
+                return Err(contract(
+                    "Study proposal selection returned an unavailable producer",
+                ));
+            }
+        };
+        let owner = self.runtime.native().reserve(
+            "modeling:selected-proposal",
+            proposal
+                .retained_bytes()
+                .map_err(crate::math::MathRuntimeError::from)?,
+        )?;
+        Ok(proposal.with_owner(owner))
     }
 }

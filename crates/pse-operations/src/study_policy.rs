@@ -150,17 +150,65 @@ fn add_dependency(
     Ok(())
 }
 
-/// Pure transition over an exact snapshot, with one action per authored occurrence.
-/// Applying adapters must reread/recompute under their existing locks and check revisions.
-/// # Errors
-/// Refuses malformed graphs or incomplete/duplicate/unadmitted occurrence facts.
-pub fn transition(
-    graph: &OccurrenceGraph,
-    facts: &[PointFacts],
-    cancelled: bool,
-) -> Result<StudyDecision, PolicyError> {
-    admit(graph)?;
-    let keys: BTreeSet<_> = graph.points.iter().map(|point| point.key).collect();
+/// Once-admitted occurrence topology. Dispatch evaluates only one occurrence and its
+/// immediate scientific premises; whole-study admission is not repeated per claim.
+#[derive(Clone, Debug)]
+pub struct AdmittedStudy {
+    policies: BTreeMap<OccurrenceKey, PointPolicy>,
+    order: Vec<OccurrenceKey>,
+    predecessors: BTreeMap<OccurrenceKey, BTreeSet<OccurrenceKey>>,
+}
+
+impl AdmittedStudy {
+    /// Admit the complete immutable graph once before any execution effect.
+    pub fn new(graph: &OccurrenceGraph) -> Result<Self, PolicyError> {
+        admit(graph)?;
+        let policies = graph.points.iter().map(|point| (point.key, point.clone())).collect();
+        let predecessors = graph.points.iter().map(|point| {
+            let mut keys: BTreeSet<_> = point.dependencies.iter().map(|dependency| dependency.predecessor()).collect();
+            if let StartPolicy::Continuation(edge) = &point.start {
+                keys.insert(edge.predecessor);
+            }
+            (point.key, keys)
+        }).collect();
+        Ok(Self { policies, predecessors,order:graph.points.iter().map(|point|point.key).collect() })
+    }
+
+    /// Exact immediate read set, excluding the candidate itself.
+    pub fn predecessors(&self, key: OccurrenceKey) -> Result<&BTreeSet<OccurrenceKey>, PolicyError> {
+        self.predecessors.get(&key).ok_or(PolicyError::UnknownFacts { key })
+    }
+
+    /// Compute a claim decision from the candidate and its immediate predecessor facts.
+    /// The adapter fences every supplied revision together with cancellation before
+    /// applying this result. No transitive predecessor snapshots are needed.
+    pub fn action(&self, key: OccurrenceKey, facts: &[PointFacts], cancelled: bool) -> Result<PointAction, PolicyError> {
+        let mut expected = self.predecessors(key)?.clone();
+        expected.insert(key);
+        let mut snapshot = BTreeMap::new();
+        for fact in facts {
+            if !expected.contains(&fact.key) {
+                return Err(PolicyError::UnknownFacts { key: fact.key });
+            }
+            if snapshot.insert(fact.key, fact).is_some() {
+                return Err(PolicyError::DuplicateOccurrence { key: fact.key });
+            }
+        }
+        for required in expected {
+            get_fact(&snapshot, required)?;
+        }
+        let point = self.policies.get(&key).ok_or(PolicyError::UnknownFacts { key })?;
+        let fact = get_fact(&snapshot, key)?;
+        Ok(PointAction {
+            occurrence: key,
+            expected_revision: fact.revision,
+            kind: action(point, fact, &snapshot, &self.policies, cancelled)?,
+        })
+    }
+    /// Derive the complete conclusion once from the already-admitted topology.
+    /// Per-dispatch callers use `action`; this method does not readmit graph structure.
+    pub fn decision(&self,facts:&[PointFacts],cancelled:bool)->Result<StudyDecision,PolicyError>{
+    let keys: BTreeSet<_> = self.policies.keys().copied().collect();
     let mut snapshot = BTreeMap::new();
     for fact in facts {
         if !keys.contains(&fact.key) {
@@ -170,10 +218,11 @@ pub fn transition(
             return Err(PolicyError::DuplicateOccurrence { key: fact.key });
         }
     }
-    let mut actions = Vec::with_capacity(graph.points.len());
-    for point in &graph.points {
+    let mut actions = Vec::with_capacity(self.order.len());
+    for key in &self.order {
+        let point=self.policies.get(key).ok_or(PolicyError::UnknownFacts{key:*key})?;
         let fact = get_fact(&snapshot, point.key)?;
-        let kind = action(point, fact, &snapshot, graph, cancelled)?;
+        let kind = action(point, fact, &snapshot, &self.policies, cancelled)?;
         actions.push(PointAction {
             occurrence: point.key,
             expected_revision: fact.revision,
@@ -184,7 +233,7 @@ pub fn transition(
     let settled = actions
         .iter()
         .all(|action| matches!(action.kind, ActionKind::Wait(WaitReason::Terminal)));
-    let availability = if settled && usable == graph.points.len() {
+    let availability = if settled && usable == self.order.len() {
         Availability::Complete
     } else if usable > 0 {
         Availability::Partial
@@ -205,6 +254,43 @@ pub fn transition(
             lifecycle,
         },
     })
+    }
+}
+
+/// Effect-free scoped policy for an already-admitted immutable study. The adapter
+/// supplies exactly the candidate and immediate predecessor policies/facts and
+/// subsequently fences every consumed revision. This grants no execution authority.
+pub fn candidate_action(point: &PointPolicy, predecessor_policies: &[PointPolicy], facts: &[PointFacts], cancelled: bool) -> Result<PointAction, PolicyError> {
+    let mut required: BTreeSet<_> = point.dependencies.iter().map(|dependency| dependency.predecessor()).collect();
+    if let StartPolicy::Continuation(edge) = &point.start { required.insert(edge.predecessor); }
+    let mut policies = BTreeMap::from([(point.key, point.clone())]);
+    for predecessor in predecessor_policies {
+        if !required.contains(&predecessor.key) { return Err(PolicyError::UnknownFacts { key: predecessor.key }); }
+        if policies.insert(predecessor.key, predecessor.clone()).is_some() { return Err(PolicyError::DuplicateOccurrence { key: predecessor.key }); }
+    }
+    for key in &required { if !policies.contains_key(key) { return Err(PolicyError::MissingFacts { key: *key }); } }
+    required.insert(point.key);
+    let mut snapshot = BTreeMap::new();
+    for fact in facts {
+        if !required.contains(&fact.key) { return Err(PolicyError::UnknownFacts { key: fact.key }); }
+        if snapshot.insert(fact.key, fact).is_some() { return Err(PolicyError::DuplicateOccurrence { key: fact.key }); }
+    }
+    for key in required { get_fact(&snapshot, key)?; }
+    let fact = get_fact(&snapshot, point.key)?;
+    Ok(PointAction { occurrence: point.key, expected_revision: fact.revision,
+        kind: action(point, fact, &snapshot, &policies, cancelled)? })
+}
+
+/// Pure transition over an exact snapshot, with one action per authored occurrence.
+/// Applying adapters must reread/recompute under their existing locks and check revisions.
+/// # Errors
+/// Refuses malformed graphs or incomplete/duplicate/unadmitted occurrence facts.
+pub fn transition(
+    graph: &OccurrenceGraph,
+    facts: &[PointFacts],
+    cancelled: bool,
+) -> Result<StudyDecision, PolicyError> {
+    AdmittedStudy::new(graph)?.decision(facts,cancelled)
 }
 
 fn get_fact<'a>(
@@ -228,7 +314,7 @@ fn action(
     point: &PointPolicy,
     fact: &PointFacts,
     snapshot: &BTreeMap<OccurrenceKey, &PointFacts>,
-    graph: &OccurrenceGraph,
+    policies: &BTreeMap<OccurrenceKey, PointPolicy>,
     cancelled: bool,
 ) -> Result<ActionKind, PolicyError> {
     if fact.effect == EffectState::Unknown {
@@ -248,7 +334,7 @@ fn action(
     for dependency in &point.dependencies {
         let predecessor = dependency.predecessor();
         let previous = get_fact(snapshot, predecessor)?;
-        if !predecessor_settled(graph, previous, cancelled)? {
+        if !predecessor_settled(policies, previous, cancelled)? {
             waiting.get_or_insert(predecessor);
         } else if matches!(dependency, Dependency::UsableResult(_)) && !previous.scientific.usable {
             return Ok(ActionKind::Refuse(Refusal::DependencyUnusable {
@@ -291,7 +377,7 @@ fn action(
         }),
         StartPolicy::Continuation(edge) => {
             let previous = get_fact(snapshot, edge.predecessor)?;
-            if !predecessor_settled(graph, previous, cancelled)? {
+            if !predecessor_settled(policies, previous, cancelled)? {
                 return Ok(ActionKind::Wait(WaitReason::Dependency {
                     predecessor: edge.predecessor,
                 }));
@@ -361,7 +447,8 @@ fn action(
     }
 }
 
-fn may_retry(point: &PointPolicy, fact: &PointFacts, cancelled: bool) -> bool {
+/// A terminal failure may be retried only under the admitted attempt/effect policy.
+pub fn may_retry(point: &PointPolicy, fact: &PointFacts, cancelled: bool) -> bool {
     fact.lifecycle == StudyPointState::Failed
         && !cancelled
         && fact.retry_failure == Some(RetryFailure::Transient)
@@ -370,14 +457,12 @@ fn may_retry(point: &PointPolicy, fact: &PointFacts, cancelled: bool) -> bool {
 }
 
 fn predecessor_settled(
-    graph: &OccurrenceGraph,
+    policies: &BTreeMap<OccurrenceKey, PointPolicy>,
     fact: &PointFacts,
     cancelled: bool,
 ) -> Result<bool, PolicyError> {
-    let point = graph
-        .points
-        .iter()
-        .find(|point| point.key == fact.key)
+    let point = policies
+        .get(&fact.key)
         .ok_or(PolicyError::UnknownFacts { key: fact.key })?;
     Ok(terminal(fact.lifecycle)
         && fact.effect != EffectState::Unknown
@@ -458,6 +543,35 @@ mod study_policy_unit {
             },
             vec![fact(3, StudyPointState::Completed, true), child_fact],
         )
+    }
+
+    #[test]
+    fn scoped_dispatch_consumes_only_immediate_predecessors() {
+        let (mut graph, mut facts) = continuation();
+        let mut grandparent = point(1);
+        grandparent.seed_need = SeedNeed::NotNeeded;
+        graph.points[0].dependencies.push(Dependency::Ordering(OccurrenceKey(1)));
+        graph.points.push(grandparent);
+        // The grandparent's pending state does not need to be read again once its
+        // direct dependent has truthfully completed under that dependency.
+        facts.push(fact(1, StudyPointState::Pending, false));
+        let admitted = AdmittedStudy::new(&graph).unwrap();
+        assert_eq!(admitted.predecessors(OccurrenceKey(7)).unwrap(), &BTreeSet::from([OccurrenceKey(3)]));
+        let scoped = admitted.action(OccurrenceKey(7), &facts[..2], false).unwrap();
+        assert!(matches!(scoped.kind, ActionKind::Start(StartProvenance::Continuation { predecessor: OccurrenceKey(3), .. })));
+        assert!(admitted.action(OccurrenceKey(7), &facts, false).is_err());
+        assert!(admitted.action(OccurrenceKey(7), &facts[1..2], false).is_err());
+    }
+
+    #[test]
+    fn independent_dispatch_does_not_require_unrelated_facts() {
+        let graph = OccurrenceGraph { points: (0..1000).map(point).collect() };
+        let admitted = AdmittedStudy::new(&graph).unwrap();
+        let candidate = fact(900, StudyPointState::Pending, false);
+        let start = admitted.action(OccurrenceKey(900), &[candidate.clone()], false).unwrap();
+        assert!(matches!(start.kind, ActionKind::Start(StartProvenance::Fresh)));
+        let cancelled = admitted.action(OccurrenceKey(900), &[candidate], true).unwrap();
+        assert!(matches!(cancelled.kind, ActionKind::Cancel));
     }
     fn child_action(graph: &OccurrenceGraph, facts: &[PointFacts]) -> ActionKind {
         transition(graph, facts, false).unwrap().actions[1]

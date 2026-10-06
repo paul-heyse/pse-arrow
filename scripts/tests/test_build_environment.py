@@ -19,6 +19,41 @@ from scripts import native_cache
 
 
 class BuildEnvironmentTests(unittest.TestCase):
+    def test_explicit_libclang_file_survives_nested_setup(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            prefix = Path(directory)
+            (prefix / "bin").mkdir()
+            (prefix / "lib").mkdir()
+            (prefix / "bin/clang").touch()
+            library = prefix / "lib/libclang.so"
+            library.touch()
+            selected = {
+                "PSE_LLVM_PREFIX": str(prefix),
+                "LIBCLANG_PATH": str(library),
+            }
+            env = build.configure(build.ROOT, selected, cache="off")
+            self.assertEqual(env["LIBCLANG_PATH"], str(library))
+            self.assertEqual(build.configure(build.ROOT, env), env)
+            default = build.configure(
+                build.ROOT, {"PSE_LLVM_PREFIX": str(prefix)}, cache="off"
+            )
+            self.assertEqual(default["LIBCLANG_PATH"], str(prefix / "lib"))
+            child = subprocess.check_output(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.build_environment",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    "import os; print(os.environ['LIBCLANG_PATH'])",
+                ],
+                cwd=build.ROOT,
+                env={**os.environ, **env},
+                text=True,
+            )
+            self.assertEqual(child.strip(), str(library))
+
     def test_wrappers_disabled_missing_and_explicit_overrides(self) -> None:
         with patch.object(build.shutil, "which", return_value=None):
             self.assertNotIn("RUSTC_WRAPPER", build.configure(build.ROOT, {}))
@@ -248,6 +283,34 @@ print(prepare(base, 'fixture', {'id': 1}, ('lib/a',), builder))
             self.assertIn(f"{target}:{target}:ro", args)
             self.assertIn(f"{build.ROOT}:{build.ROOT}:ro", args)
             self.assertEqual(args[-1], str(target / "test"))
+
+    def test_native_runner_preserves_selected_canonical_profile_and_loopback(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            docker = root / "docker"
+            docker.write_text(
+                f"#!{sys.executable}\nimport json, sys\nprint(json.dumps(sys.argv[1:]))\n"
+            )
+            docker.chmod(0o755)
+            state = root / "canonical state"
+            state.mkdir()
+            environment = {
+                key: value for key, value in os.environ.items() if key != "PSE_SURREAL_STATE"
+            }
+            environment["PATH"] = str(root) + os.pathsep + os.environ["PATH"]
+            for selected, expected in [(None, "none"), (state, "host")]:
+                current = dict(environment)
+                if selected is not None:
+                    current["PSE_SURREAL_STATE"] = str(selected)
+                args = json.loads(subprocess.check_output(
+                    ["bash", "scripts/native-solver-runner.sh", "true"],
+                    cwd=build.ROOT, env=current, text=True,
+                ))
+                self.assertEqual(args[args.index("--network") + 1], expected)
+                self.assertNotIn("PSE_DATABASE_URL", args)
+                if selected is not None:
+                    self.assertIn(f"{state}:{state}:ro", args)
+                    self.assertIn(f"PSE_SURREAL_STATE={state}", args)
 
     def test_solver_image_override_must_be_immutable(self) -> None:
         def runtime(override: str | None) -> subprocess.CompletedProcess[str]:

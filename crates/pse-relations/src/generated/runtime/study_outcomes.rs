@@ -60,9 +60,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    5u8, 195u8, 201u8, 182u8, 163u8, 136u8, 116u8, 54u8, 49u8, 227u8, 25u8, 239u8, 172u8,
-    75u8, 159u8, 13u8, 71u8, 202u8, 23u8, 170u8, 206u8, 241u8, 229u8, 205u8, 156u8,
-    208u8, 67u8, 252u8, 242u8, 182u8, 105u8, 2u8,
+    131u8, 13u8, 110u8, 44u8, 104u8, 21u8, 219u8, 110u8, 153u8, 101u8, 20u8, 246u8, 0u8,
+    44u8, 196u8, 32u8, 102u8, 76u8, 225u8, 163u8, 47u8, 154u8, 114u8, 137u8, 163u8, 32u8,
+    209u8, 8u8, 88u8, 8u8, 186u8, 36u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeStudyOutcomesFieldStart {
     fn append(
@@ -4533,28 +4533,24 @@ impl crate::columnar::ArrowValue for RuntimeStudyOutcomesRow {
             &self.r#result_id,
             children[7usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#member_catalog,
-            children[8usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(&self.r#usable, children[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#usable, children[8usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#seed_permission,
-            children[10usize].as_mut(),
+            children[9usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#candidate_use,
-            children[11usize].as_mut(),
+            children[10usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#effect, children[12usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#start, children[13usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#effect, children[11usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#start, children[12usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#diagnostic,
-            children[14usize].as_mut(),
+            children[13usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#attempts,
-            children[15usize].as_mut(),
+            children[14usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -4588,26 +4584,23 @@ impl crate::columnar::ArrowValue for RuntimeStudyOutcomesRow {
         <Option<
             crate::generated::identities::RunId,
         > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
-        <Option<
-            String,
-        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         <bool as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
         <Option<
             crate::generated::enums::CandidateUse,
-        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
         <crate::generated::enums::StudyEffectState as crate::columnar::ArrowValue>::append_null(
-            children[12usize].as_mut(),
+            children[11usize].as_mut(),
         )?;
         <Option<
             RuntimeStudyOutcomesFieldStart,
-        > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
         <Option<
             RuntimeStudyOutcomesFieldDiagnostic,
-        > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
         <Vec<
             RuntimeStudyOutcomesFieldAttemptsItem,
-        > as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -4658,46 +4651,40 @@ impl crate::columnar::ArrowValue for RuntimeStudyOutcomesRow {
                 input.column(7usize).as_ref(),
                 index,
             )?,
-            r#member_catalog: <Option<
-                String,
-            > as crate::columnar::ArrowValue>::read(
+            r#usable: <bool as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
                 index,
             )?,
-            r#usable: <bool as crate::columnar::ArrowValue>::read(
-                input.column(9usize).as_ref(),
-                index,
-            )?,
             r#seed_permission: <bool as crate::columnar::ArrowValue>::read(
-                input.column(10usize).as_ref(),
+                input.column(9usize).as_ref(),
                 index,
             )?,
             r#candidate_use: <Option<
                 crate::generated::enums::CandidateUse,
             > as crate::columnar::ArrowValue>::read(
-                input.column(11usize).as_ref(),
+                input.column(10usize).as_ref(),
                 index,
             )?,
             r#effect: <crate::generated::enums::StudyEffectState as crate::columnar::ArrowValue>::read(
-                input.column(12usize).as_ref(),
+                input.column(11usize).as_ref(),
                 index,
             )?,
             r#start: <Option<
                 RuntimeStudyOutcomesFieldStart,
             > as crate::columnar::ArrowValue>::read(
-                input.column(13usize).as_ref(),
+                input.column(12usize).as_ref(),
                 index,
             )?,
             r#diagnostic: <Option<
                 RuntimeStudyOutcomesFieldDiagnostic,
             > as crate::columnar::ArrowValue>::read(
-                input.column(14usize).as_ref(),
+                input.column(13usize).as_ref(),
                 index,
             )?,
             r#attempts: <Vec<
                 RuntimeStudyOutcomesFieldAttemptsItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(15usize).as_ref(),
+                input.column(14usize).as_ref(),
                 index,
             )?,
         })
@@ -4779,28 +4766,24 @@ impl crate::columnar::RelationRow for RuntimeStudyOutcomesRow {
             &self.r#result_id,
             columns[7usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#member_catalog,
-            columns[8usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(&self.r#usable, columns[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#usable, columns[8usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#seed_permission,
-            columns[10usize].as_mut(),
+            columns[9usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#candidate_use,
-            columns[11usize].as_mut(),
+            columns[10usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#effect, columns[12usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#start, columns[13usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#effect, columns[11usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#start, columns[12usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#diagnostic,
-            columns[14usize].as_mut(),
+            columns[13usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#attempts,
-            columns[15usize].as_mut(),
+            columns[14usize].as_mut(),
         )?;
         Ok(())
     }
@@ -4837,10 +4820,10 @@ impl crate::columnar::RelationRow for RuntimeStudyOutcomesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        806_912_usize + size_of::<Self::Builder>()
+        804_864_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        6304usize
+        6288usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -4899,17 +4882,6 @@ impl crate::columnar::RelationRow for RuntimeStudyOutcomesRow {
                 crate::columnar::allocation_add(
                     1,
                     Ok::<usize, crate::RelationError>(16usize)?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
-            }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if let Some(value) = (self.r#member_catalog).as_ref() {
-                crate::columnar::allocation_add(
-                    1,
-                    crate::columnar::allocation_add(8, (value).len())?,
                 )
             } else {
                 Ok::<usize, crate::RelationError>(1)
@@ -7635,7 +7607,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 16usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 15usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "study_id",
@@ -7678,43 +7650,38 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 16usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "member_catalog",
+        name: "usable",
         position: 8usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "usable",
+        name: "seed_permission",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "seed_permission",
+        name: "candidate_use",
         position: 10usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "candidate_use",
+        name: "effect",
         position: 11usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "effect",
+        name: "start",
         position: 12usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "start",
+        name: "diagnostic",
         position: 13usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "diagnostic",
-        position: 14usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
         name: "attempts",
-        position: 15usize,
+        position: 14usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -7735,22 +7702,20 @@ pub mod columns {
     pub const ATTEMPT_STATE: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///result_id
     pub const RESULT_ID: crate::columnar::ColumnReference = super::COLUMNS[7usize];
-    ///member_catalog
-    pub const MEMBER_CATALOG: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///usable
-    pub const USABLE: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    pub const USABLE: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///seed_permission
-    pub const SEED_PERMISSION: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    pub const SEED_PERMISSION: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///candidate_use
-    pub const CANDIDATE_USE: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    pub const CANDIDATE_USE: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///effect
-    pub const EFFECT: crate::columnar::ColumnReference = super::COLUMNS[12usize];
+    pub const EFFECT: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///start
-    pub const START: crate::columnar::ColumnReference = super::COLUMNS[13usize];
+    pub const START: crate::columnar::ColumnReference = super::COLUMNS[12usize];
     ///diagnostic
-    pub const DIAGNOSTIC: crate::columnar::ColumnReference = super::COLUMNS[14usize];
+    pub const DIAGNOSTIC: crate::columnar::ColumnReference = super::COLUMNS[13usize];
     ///attempts
-    pub const ATTEMPTS: crate::columnar::ColumnReference = super::COLUMNS[15usize];
+    pub const ATTEMPTS: crate::columnar::ColumnReference = super::COLUMNS[14usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -7765,7 +7730,6 @@ pub struct RuntimeStudyOutcomesView<'a> {
     attempt_id_column: &'a arrow_array::FixedSizeBinaryArray,
     attempt_state_column: &'a arrow_array::StringArray,
     result_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    member_catalog_column: &'a arrow_array::StringArray,
     usable_column: &'a arrow_array::BooleanArray,
     seed_permission_column: &'a arrow_array::BooleanArray,
     candidate_use_column: &'a arrow_array::StringArray,
@@ -7838,30 +7802,27 @@ impl<'a> RuntimeStudyOutcomesView<'a> {
             result_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(7usize).as_ref())?,
-            member_catalog_column: crate::columnar::array::<
-                arrow_array::StringArray,
-            >(batch.column(8usize).as_ref())?,
             usable_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(9usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
             seed_permission_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(10usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
             candidate_use_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(11usize).as_ref())?,
+            >(batch.column(10usize).as_ref())?,
             effect_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(12usize).as_ref())?,
+            >(batch.column(11usize).as_ref())?,
             start_column: crate::columnar::array::<
                 arrow_array::StructArray,
-            >(batch.column(13usize).as_ref())?,
+            >(batch.column(12usize).as_ref())?,
             diagnostic_column: crate::columnar::array::<
                 arrow_array::StructArray,
-            >(batch.column(14usize).as_ref())?,
+            >(batch.column(13usize).as_ref())?,
             attempts_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(15usize).as_ref())?,
+            >(batch.column(14usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -7974,18 +7935,6 @@ impl<'a> RuntimeStudyOutcomesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "member_catalog",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn member_catalog_column(&self) -> &'a arrow_array::StringArray {
-        self.member_catalog_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "member_catalog", "`.")]
-    pub fn member_catalog_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
         "usable",
         "`, including its offsets and validity bitmap.",
     )]
@@ -7994,7 +7943,7 @@ impl<'a> RuntimeStudyOutcomesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "usable", "`.")]
     pub fn usable_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -8006,7 +7955,7 @@ impl<'a> RuntimeStudyOutcomesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "seed_permission", "`.")]
     pub fn seed_permission_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -8018,7 +7967,7 @@ impl<'a> RuntimeStudyOutcomesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "candidate_use", "`.")]
     pub fn candidate_use_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -8030,7 +7979,7 @@ impl<'a> RuntimeStudyOutcomesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "effect", "`.")]
     pub fn effect_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[12usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -8042,7 +7991,7 @@ impl<'a> RuntimeStudyOutcomesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "start", "`.")]
     pub fn start_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[13usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -8054,7 +8003,7 @@ impl<'a> RuntimeStudyOutcomesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "diagnostic", "`.")]
     pub fn diagnostic_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[14usize]
+        &self.batch.schema_ref().fields()[13usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -8066,7 +8015,7 @@ impl<'a> RuntimeStudyOutcomesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "attempts", "`.")]
     pub fn attempts_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[15usize]
+        &self.batch.schema_ref().fields()[14usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -8101,10 +8050,6 @@ impl<'a> RuntimeStudyOutcomesView<'a> {
             )?,
             r#result_id: crate::columnar::ArrowValue::read(
                 self.result_id_column,
-                index,
-            )?,
-            r#member_catalog: crate::columnar::ArrowValue::read(
-                self.member_catalog_column,
                 index,
             )?,
             r#usable: crate::columnar::ArrowValue::read(self.usable_column, index)?,

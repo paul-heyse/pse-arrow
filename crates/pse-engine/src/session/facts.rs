@@ -31,7 +31,7 @@ impl RelationFacts {
     pub const fn checked(&self) -> &FieldCheckedBatch {
         &self.checked
     }
-    /// Exact durable selection, if these fields were captured from a publication.
+    /// Exact durable selection, if these fields were captured from a durable source owner.
     pub const fn witness(&self) -> Option<&crate::provider::witness::SourceWitness> {
         self.witness.as_ref()
     }
@@ -40,7 +40,7 @@ impl RelationFacts {
 impl EngineSession {
     /// Exact durable member selected in this invocation's native namespace.
     /// # Errors
-    /// The fully qualified name has no selected Delta relation binding.
+    /// The fully qualified name has no selected owner relation binding.
     pub fn source_witness(
         &self,
         reference: &ResolvedTableReference,
@@ -53,7 +53,7 @@ impl EngineSession {
                     .then(|| binding.witness.clone())
                     .flatten()
             })
-            .ok_or_else(|| invalid("no selected Delta member has this native name"))
+            .ok_or_else(|| invalid("no selected source owner has this native name"))
     }
 
     /// Begin a declared relation read through common native policy and execution.
@@ -86,8 +86,8 @@ impl EngineSession {
     }
 
     /// Materialize one declared relation through the same native admission/policy
-    /// as SQL. The result owns Arrow buffers and the optional exact Delta selection;
-    /// no publication, execution session or producing plan survives in this owner.
+    /// as SQL. The result owns Arrow buffers and the optional exact source selection;
+    /// no producing execution session or producing plan survives in this owner.
     /// # Errors
     /// Unknown declaration/name, policy refusal, source error, cancellation or resources.
     pub async fn capture_relation(

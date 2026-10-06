@@ -36,7 +36,6 @@ import shutil
 import subprocess
 import sys
 import tomllib
-import urllib.parse
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -457,116 +456,20 @@ def check_solvers() -> Check:
     )
 
 
-OPERATIONS = ROOT / "crates/pse-operations"
-
-
-def operational_store_url() -> str:
-    """PSE_DATABASE_URL, else the default declared once in pse-operations."""
-    url = os.environ.get("PSE_DATABASE_URL", "")
-    if url:
-        return url
-    source = (OPERATIONS / "src/store.rs").read_text(encoding="utf-8")
-    found = re.search(
-        r'^pub const DEFAULT_DATABASE_URL: &str = "([^"]*)";$', source, re.MULTILINE
-    )
-    return found.group(1) if found else ""
-
-
-def is_local_database(url: str) -> bool:
-    """A Unix socket or loopback host: probing it never touches the network."""
-    parts = urllib.parse.urlsplit(url)
-    hosts = urllib.parse.parse_qs(parts.query).get("host", [])
-    host = hosts[0] if hosts else (parts.hostname or "")
-    return not host or host.startswith("/") or host in {"localhost", "127.0.0.1", "::1"}
-
-
-def expected_schema_fingerprint() -> str:
-    """The schema fingerprint this checkout generates (ADR-0114 Outcome 23)."""
-    source = (OPERATIONS / "src/generated/fingerprint.rs").read_text(encoding="utf-8")
-    found = re.search(
-        r'^pub const SCHEMA_FINGERPRINT_HEX: &str = "([0-9a-f]{64})";$',
-        source,
-        re.MULTILINE,
-    )
-    return found.group(1) if found else ""
-
-
-def check_operational_store() -> Check:
-    """Never blocking: ephemeral work runs without the operational store (ADR-0114)."""
-    setup = (
-        "just db-bootstrap (once), then just db-status; docs/dev/operational-store.md"
-    )
-    url = operational_store_url()
-    psql = shutil.which("psql")
-    if psql is None or not url:
-        detail = "psql not found" if psql is None else "no store URL"
-        return Check("opstore", False, detail, setup, blocking=False)
-    if not is_local_database(url):
-        return Check(
-            "opstore",
-            False,
-            "remote store not probed here",
-            "just db-status",
-            blocking=False,
-        )
-
-    def query(sql: str) -> tuple[int, str]:
-        try:
-            proc = subprocess.run(
-                [psql, "-X", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-d", url, "-c", sql],
-                capture_output=True,
-                text=True,
-                timeout=5,
-                check=False,
-                env={**os.environ, "PGCONNECT_TIMEOUT": "2"},
-            )
-        except (OSError, subprocess.SubprocessError) as exc:
-            return 127, str(exc)
-        return proc.returncode, (
-            proc.stdout if proc.returncode == 0 else proc.stderr
-        ).strip()
-
-    code, out = query(
-        "SELECT current_setting('server_version_num'), current_setting('server_version'),"
-        " (SELECT coalesce(obj_description(oid, 'pg_namespace'), '<none>')"
-        " FROM pg_namespace WHERE nspname = 'pse_ops')"
-    )
-    if code != 0:
-        first = (
-            out.splitlines()[0].removeprefix("psql: error: ") if out else "no answer"
-        )
-        return Check(
-            "opstore", False, f"unreachable: {first}"[:80], setup, blocking=False
-        )
-    version_num, version, recorded = out.split("|", 2)
-    version = version.split(" ", 1)[0]
-    if int(version_num) < 180000:
-        return Check(
-            "opstore",
-            False,
-            f"PostgreSQL {version}; 18 or newer is required",
-            "upgrade the server; docs/dev/operational-store.md",
-            blocking=False,
-        )
-    expected = expected_schema_fingerprint()
-    if not recorded:
-        return Check(
-            "opstore",
-            True,
-            f"PostgreSQL {version}; no pse_ops schema yet (create explicitly with just db-create)",
-            blocking=False,
-        )
-    if recorded != f"pse.ops.schema.v1 {expected}":
-        return Check(
-            "opstore",
-            False,
-            f"PostgreSQL {version}; pse_ops schema is another build's",
-            "drain workers, close store generations, then just db-migrate for a declared supported source; preserve unsupported sources",
-            blocking=False,
-        )
-    return Check(
-        "opstore", True, f"PostgreSQL {version}; schema current", blocking=False
-    )
+def check_canonical_store() -> Check:
+    """Read the selected public profile without starting or mutating its server."""
+    state = Path(os.environ.get("PSE_SURREAL_STATE",str(Path(os.environ.get("XDG_STATE_HOME",str(Path.home()/".local/state")))/"pse-arrow/surreal")))
+    setup = "just surreal setup, then just surreal start; docs/dev/surreal-substrate.md"
+    try:
+        config = json.loads((state / "config.json").read_text(encoding="utf-8"))
+        server = config["server"]
+        if config["owner"] != "pse-arrow-surreal-v1" or config["profile_version"] != 1:
+            raise ValueError("unsupported owned profile")
+        if not Path(server["binary"]).is_file():
+            raise ValueError("configured server executable is absent")
+        return Check("canonical",True,f"SurrealDB {server['version']}; configured {config['admission']} profile",blocking=False)
+    except (OSError,ValueError,KeyError,TypeError) as error:
+        return Check("canonical",False,f"canonical profile unavailable: {error}",setup,blocking=False)
 
 
 CHECKS = (
@@ -580,7 +483,7 @@ CHECKS = (
     check_repo_linters,
     check_extension,
     check_solvers,
-    check_operational_store,
+    check_canonical_store,
 )
 
 

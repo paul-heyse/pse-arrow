@@ -1,0 +1,172 @@
+{
+  "scope": "Conservative namespaces for selected native source review. Explicit compiler probes are current read-only observers, not retrospective final child proof. Prefix/header candidates come from selected OUT_DIR current logs. Declarations must retain membership, lstat mode/symlink target, consumed content and selection consistency; not automatically approve this list.",
+  "compiler_include_probes": [
+    {
+      "program": "/usr/bin/gcc",
+      "language": "c",
+      "exit": 0,
+      "ordered_search": [
+        "/usr/lib/gcc/x86_64-linux-gnu/13/include",
+        "/usr/local/include",
+        "/usr/include/x86_64-linux-gnu",
+        "/usr/include"
+      ],
+      "ignored_absent": [
+        "/usr/local/include/x86_64-linux-gnu",
+        "/usr/lib/gcc/x86_64-linux-gnu/13/include-fixed/x86_64-linux-gnu",
+        "/usr/lib/gcc/x86_64-linux-gnu/13/include-fixed",
+        "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include"
+      ]
+    },
+    {
+      "program": "/usr/bin/g++",
+      "language": "c++",
+      "exit": 0,
+      "ordered_search": [
+        "/usr/include/c++/13",
+        "/usr/include/x86_64-linux-gnu/c++/13",
+        "/usr/include/c++/13/backward",
+        "/usr/lib/gcc/x86_64-linux-gnu/13/include",
+        "/usr/local/include",
+        "/usr/include/x86_64-linux-gnu",
+        "/usr/include"
+      ],
+      "ignored_absent": [
+        "/usr/local/include/x86_64-linux-gnu",
+        "/usr/lib/gcc/x86_64-linux-gnu/13/include-fixed/x86_64-linux-gnu",
+        "/usr/lib/gcc/x86_64-linux-gnu/13/include-fixed",
+        "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include"
+      ]
+    },
+    {
+      "program": "/opt/llvm-current/bin/clang",
+      "language": "c",
+      "exit": 0,
+      "ordered_search": [
+        "/opt/llvm-23.1.2-z3-5.1/lib/clang/23/include",
+        "/usr/local/include",
+        "/usr/include/x86_64-linux-gnu",
+        "/usr/include"
+      ],
+      "ignored_absent": [
+        "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include",
+        "/include"
+      ]
+    },
+    {
+      "program": "/opt/llvm-current/bin/clang",
+      "language": "c++",
+      "exit": 0,
+      "ordered_search": [
+        "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13",
+        "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/x86_64-linux-gnu/c++/13",
+        "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/backward",
+        "/opt/llvm-23.1.2-z3-5.1/lib/clang/23/include",
+        "/usr/local/include",
+        "/usr/include/x86_64-linux-gnu",
+        "/usr/include"
+      ],
+      "ignored_absent": [
+        "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include",
+        "/include"
+      ]
+    }
+  ],
+  "system_include_roots": [
+    "/opt/llvm-23.1.2-z3-5.1/lib/clang/23/include",
+    "/usr/include",
+    "/usr/include/c++/13",
+    "/usr/include/c++/13/backward",
+    "/usr/include/x86_64-linux-gnu",
+    "/usr/include/x86_64-linux-gnu/c++/13",
+    "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13",
+    "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/c++/13/backward",
+    "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../include/x86_64-linux-gnu/c++/13",
+    "/usr/lib/gcc/x86_64-linux-gnu/13/include",
+    "/usr/local/include"
+  ],
+  "absent_default_include_candidates": [
+    "/include",
+    "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include",
+    "/usr/lib/gcc/x86_64-linux-gnu/13/include-fixed",
+    "/usr/lib/gcc/x86_64-linux-gnu/13/include-fixed/x86_64-linux-gnu",
+    "/usr/local/include/x86_64-linux-gnu"
+  ],
+  "explicit_include_roots": [
+    "$HOME/.cache/pse-arrow/native/isolation/30b53b586350b75586b47df6c9210f24a2bfdb8c651e4f1ec0efa176a54a105a/include",
+    "$HOME/.cache/pse-arrow/native/isolation/30b53b586350b75586b47df6c9210f24a2bfdb8c651e4f1ec0efa176a54a105a/include/ibex",
+    "$HOME/.cache/pse-arrow/native/isolation/30b53b586350b75586b47df6c9210f24a2bfdb8c651e4f1ec0efa176a54a105a/include/ibex/3rd",
+    "$HOME/.cache/pse-arrow/native/isolation/30b53b586350b75586b47df6c9210f24a2bfdb8c651e4f1ec0efa176a54a105a/include/ibex/3rd/soplex",
+    "$HOME/.cache/pse-arrow/native/klu/28757d4006ffc272d79121a625e4cb6510bf6b9787df45856942b7ae931ec05d/include/suitesparse",
+    "$HOME/.cache/pse-arrow/native/petsc/432b2aeb05d404275b0c813b99accd6859f8d53e496f543d76d49fca498b2dc5/include",
+    "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/include/coin-or",
+    "$HOME/.cache/pse-arrow/native/uno/73b0b26d0c6d5bfd8eeb6f86df0e4be904758d1021122c299f2cf1426ac2cb02/include/uno",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/extern",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/hipo",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/hipo/auxiliary",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/hipo/factorhighs",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/hipo/ipm",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/interfaces",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/io",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/io/filereader",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/ipm",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/ipm/basiclu",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/ipm/ipx",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/lp_data",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/mip",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/model",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/parallel",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/pdlp",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/pdlp/cupdlp",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/pdlp/hipdlp",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/presolve",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/qpsolver",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/simplex",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/test_kkt",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/highs/util",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/liblzma-sys-0.4.9",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sundials-sys-0.6.2/vendor/include",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sundials-sys-0.6.2/vendor/src/sundials",
+    "$WORKSPACE/target/producer/build/highs-sys/90cffe55e916a7bc/out/build",
+    "$WORKSPACE/target/producer/build/highs-sys/90cffe55e916a7bc/out/build/extern",
+    "$WORKSPACE/target/producer/build/sundials-sys/84f56357f1bf579b/out/build/include",
+    "$WORKSPACE/target/producer/build/sundials-sys/84f56357f1bf579b/out/build/src/sundials"
+  ],
+  "package_relative_include_roots": [
+    "xz/src/common",
+    "xz/src/liblzma/api",
+    "xz/src/liblzma/check",
+    "xz/src/liblzma/common",
+    "xz/src/liblzma/delta",
+    "xz/src/liblzma/lz",
+    "xz/src/liblzma/lzma",
+    "xz/src/liblzma/rangecoder",
+    "xz/src/liblzma/simple",
+    "zstd/lib/",
+    "zstd/lib/common",
+    "zstd/lib/legacy"
+  ],
+  "native_selected_prefixes": [
+    "$HOME/.cache/pse-arrow/native/isolation/30b53b586350b75586b47df6c9210f24a2bfdb8c651e4f1ec0efa176a54a105a",
+    "$HOME/.cache/pse-arrow/native/klu/28757d4006ffc272d79121a625e4cb6510bf6b9787df45856942b7ae931ec05d",
+    "$HOME/.cache/pse-arrow/native/petsc/432b2aeb05d404275b0c813b99accd6859f8d53e496f543d76d49fca498b2dc5",
+    "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a",
+    "$HOME/.cache/pse-arrow/native/uno/73b0b26d0c6d5bfd8eeb6f86df0e4be904758d1021122c299f2cf1426ac2cb02"
+  ],
+  "native_selected_library_roots": [
+    "$HOME/.cache/pse-arrow/native/isolation/30b53b586350b75586b47df6c9210f24a2bfdb8c651e4f1ec0efa176a54a105a/lib",
+    "$HOME/.cache/pse-arrow/native/isolation/30b53b586350b75586b47df6c9210f24a2bfdb8c651e4f1ec0efa176a54a105a/lib/ibex/3rd",
+    "$HOME/.cache/pse-arrow/native/klu/28757d4006ffc272d79121a625e4cb6510bf6b9787df45856942b7ae931ec05d/lib",
+    "$HOME/.cache/pse-arrow/native/petsc/432b2aeb05d404275b0c813b99accd6859f8d53e496f543d76d49fca498b2dc5/lib",
+    "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib",
+    "$HOME/.cache/pse-arrow/native/uno/73b0b26d0c6d5bfd8eeb6f86df0e4be904758d1021122c299f2cf1426ac2cb02/lib"
+  ],
+  "gmp_compatible_cache_candidate_root": "$HOME/.cache/gmp-mpfr-sys/1.7/x86_64-unknown-linux-gnu",
+  "gcc_installation_version_candidate_root": "/usr/lib/gcc/x86_64-linux-gnu",
+  "loader_selection_files": [
+    "/etc/ld.so.cache",
+    "/etc/ld.so.preload"
+  ],
+  "loader_premise": "Final child LD_LIBRARY_PATH/LD_PRELOAD/LD_AUDIT and DT_RPATH/DT_RUNPATH ordered candidates incl glibc-hwcaps; exact candidate absences or bounded basename namespace, not unbounded /usr/lib recursion."
+}

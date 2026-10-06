@@ -25,11 +25,7 @@ from pse.contracts.enums import (
 )
 from pse.contracts.extension_types import PseEnum, PseOrdinalRef
 from pse.contracts.reference import ReferenceUnitsRow
-from pse.contracts.structures import (
-    MemberDescriptor,
-    MemberDescriptorSelection,
-    ModelingEnvelopeGuard,
-)
+from pse.contracts.structures import ModelingEnvelopeGuard
 from pse.contracts.values import FIELD_NAME_METADATA, ContentHash, SemanticId
 
 
@@ -98,39 +94,64 @@ def test_declared_dependency_collection_rejects_duplicates_and_accepts_empty() -
 
 
 @pytest.mark.unit
-def test_typed_publication_selection_has_a_payload_free_full_case() -> None:
-    full: dict[str, object] = {"kind": "full", "revision": None}
-    value = converter().structure(full, MemberDescriptorSelection)
-    assert value.revision is None
-    revision: dict[str, object] = {"column": "revision_id", "revision_id": "01" * 16}
+def test_canonical_manifest_preserves_exact_descriptor_bytes_and_generation() -> None:
+    document = {
+        "key": "attempt-key",
+        "attempt": "attempt-key",
+        "generation": (1 << 64) - 1,
+        "digest": "descriptor-digest",
+        "descriptors": b"\x00\xffexact descriptor bytes",
+    }
+    row = structure_rows(
+        [document], runtime_contracts.RuntimeCanonicalResultManifestsRow
+    )[0]
+    assert row.descriptors == document["descriptors"]
+    assert row.generation == document["generation"]
+    assert converter().unstructure(row) == document
     for invalid in (
-        full | {"revision": revision},
-        {"kind": "revision", "revision": None},
+        document | {"generation": True},
+        document | {"generation": -1},
+        document | {"generation": 1 << 64},
+        document | {"members": []},
     ):
         with pytest.raises((ValueError, cattrs.BaseValidationError)):
-            converter().structure(invalid, MemberDescriptorSelection)
-    value = converter().structure(
-        {"kind": "revision", "revision": revision},
-        MemberDescriptorSelection,
-    )
-    assert value.revision is not None
+            structure_rows(
+                [invalid], runtime_contracts.RuntimeCanonicalResultManifestsRow
+            )
 
 
 @pytest.mark.unit
-def test_member_descriptor_is_one_named_structure() -> None:
-    # Every relation that lists members references the one registry structure.
-    manifest = attrs.fields_dict(runtime_contracts.RuntimePublicationManifestsRow)
-    release = attrs.fields_dict(runtime_contracts.RuntimeArtifactDescriptorsRow)[
-        "release_members"
-    ].type
-    for annotation in (manifest["members"].type, manifest["inputs"].type, release):
-        assert "MemberDescriptor" in str(annotation)
-    assert "VersionWindow" in str(manifest["windows"].type)
-    assert not hasattr(runtime_contracts, "RuntimePublicationManifestsFieldMembersItem")
-    assert (
-        attrs.fields_dict(MemberDescriptor)["selection"].type
-        is MemberDescriptorSelection
-    )
+def test_canonical_scalar_index_preserves_bits_and_refuses_nonfinite_projection() -> None:
+    document = {
+        "key": "cell-key",
+        "result_set": "result-set-key",
+        "batch": "batch-key",
+        "output": "original-output",
+        "partition": "0",
+        "row": 7,
+        "coordinate": "original-field",
+        "cell_kind": "float64",
+        "bits": bytes.fromhex("910000000000f87f"),
+        "projection": None,
+        "interpretation": "original-field-contract",
+    }
+    row = structure_rows([document], runtime_contracts.RuntimeCanonicalResultCellsRow)[0]
+    assert row.bits == document["bits"]
+    assert row.projection is None
+    assert converter().unstructure(row) == document
+    null_document = document | {"cell_kind": "null", "bits": None}
+    null = structure_rows(
+        [null_document], runtime_contracts.RuntimeCanonicalResultCellsRow
+    )[0]
+    assert null.bits is None
+    assert null.projection is None
+    assert null != row
+    for projection in (float("inf"), float("-inf"), float("nan")):
+        with pytest.raises((ValueError, cattrs.BaseValidationError)):
+            structure_rows(
+                [document | {"projection": projection}],
+                runtime_contracts.RuntimeCanonicalResultCellsRow,
+            )
 
 
 @pytest.mark.unit

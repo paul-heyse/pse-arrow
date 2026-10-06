@@ -1,14 +1,14 @@
 ---
 title: Public native model and result workflow
 status: implemented
-date: 2026-09-27
+date: 2026-10-06
 ---
 
 # Native workflow
 
 **Implemented:** the public Rust and Python workflow connects generated declarations,
 the Salsa compiler, library-owned mathematics, native algebraic/dynamic solvers,
-parameter fitting, the existing supervisor and exact publication. Targeted
+parameter fitting, the native supervisor and canonical retained results. Targeted
 contract tests establish the boundaries below. The architecture owners are
 [§13, §19 and §21](../authoritative_design/sections/workflows-and-results.md),
 [§18](../authoritative_design/sections/numerical-execution.md#section-18) and
@@ -29,7 +29,7 @@ source strings do not instantiate external implementations.
 |---|---|
 | `solve_case` | Original native outcome plus independent source checks, closure and reports |
 | `initialize` | Ordered immutable stage/homotopy attempts; only an accepted final original specification commits values |
-| `study` | Isolated case outcomes and explicit accepted-predecessor dependencies; with `runtime=` a durable study run by workers and published once ([studies across workers](operational-store.md#studies-across-workers)) |
+| `study` | Isolated case outcomes and explicit accepted-predecessor dependencies; with `runtime=` a durable study run by workers and retained in canonical storage ([studies across workers](operational-store.md#studies-across-workers)) |
 | `simulate` | Native trajectory, actual termination and checks at requested sample times |
 | `diagnose` / `diagnose_samples` | Bounded structural and numerical findings at declared points; missing free values remain missing |
 | `diagnose_linear` | HiGHS IIS, rays, ranging and explicitly penalized relaxation of an affine model |
@@ -87,7 +87,7 @@ scientific YAML and template builders have been removed.
 
 Physical contexts come from `PhysicalInventory` or `Runtime.physical_from_documents`.
 Production has no implicit test catalogue: quantities, operations, prerequisites and units
-come from admitted source rows retained for publication. The fixture currency catalogue is
+come from admitted source rows retained in canonical revisions. The fixture currency catalogue is
 not a default. Package manifests bind quantity aliases; imports require the declared exact
 package closure. Failed admission leaves earlier package revisions usable.
 
@@ -209,7 +209,7 @@ physical declarations. Failed, limited, cancelled and unattempted steps are reta
 exposes bounded native events and their dropped count. Each table's Arrow C stream
 owns its final buffers independently of the result and model handles.
 
-## Completion and publication
+## Completion and retained results
 
 Blocking waits release Python and check signals; interruption requests cancellation
 and waits for the existing native supervisor to join before propagating the signal.
@@ -218,19 +218,12 @@ async waiter requests native stop, while the handle retains access to the eventu
 terminal result. Native factorization may finish before cooperative cancellation is
 observed. Repeated waits never rerun a solver.
 
-Only a durable run publishes, into a workspace registered in the operational catalog
-(`runtime.register_workspace(name, root)`).
-`result.prepare_publication(workspace, parent=..., publication_id=...)` constructs a
-reviewable one-use `PublicationAttempt` whose attempt is the run's durable attempt.
-Preparation does not write. `commit()` registers the intent, writes the members under
-`{root}members/{attempt}/{publication}/` and commits the admitted record in the catalog
-if the workspace head is still `parent`; it returns `Published`. A conflict raises:
-re-prepare with the same `publication_id` against the head, which recovers the members
-already written. A lost commit acknowledgement raises as unresolved: settle the ticket
-with `runtime.settle_publication(ticket)`, which queries the catalog and never writes.
-`runtime.open(id)` and `runtime.open_head(workspace_id)` read under a catalog reader
-lease; `runtime.export_publication` writes a manifest `pse.open_export` opens offline.
-See [the operational store](operational-store.md#publication-catalog).
+Ordinary runs retain source, attempt and scientific result identities in the canonical
+store. Save `result.canonical_run_key` and `result.canonical_attempt_key`; reopen a relation
+with `runtime.results(run, attempt, relation)`. Narrow run/attempt/manifest selectors,
+output selection, Arrow export and persisted analysis graphs use the same substrate.
+Readers and returned buffers retain exact input protection. Failed and partial runs keep
+their actual scientific meaning. See [the canonical operational store](operational-store.md).
 Stored declarations rebuild mathematical products; CAS display text, Salsa handles
 and native solver factors are never durable authorities.
 
@@ -256,7 +249,7 @@ and native test builds; do not mix resource headers from another LLVM version.
 
 Targeted native units use `pse-relations/force-validate`. These are not convergence,
 storage fault, throughput, RSS-bound, empirical-validity or general solver-coverage
-claims; the process, convergence and publication evidence has its own scope.
+claims; the process, convergence and persistence evidence has its own scope.
 
 Shared authored process fixtures in `tests/fixtures/plan14`, independent offline
 references, public Rust/Python process tests and guarded Criterion workloads exercise

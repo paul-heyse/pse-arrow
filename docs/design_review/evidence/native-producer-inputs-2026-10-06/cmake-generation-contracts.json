@@ -1,0 +1,89 @@
+{
+  "scope": "Exact CMake generation/source effects in supported fresh OUT_DIR build. Generated outputs excluded from immutable external namespace. Current cache/log observations are not historical proof.",
+  "source_files": [
+    {
+      "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/CMakeLists.txt",
+      "sha256": "1a2c66fd25fb6015fc36f76f6e1a93ed01c5067f9c448a885a7511ba11a4a327",
+      "bytes": 35323
+    },
+    {
+      "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sundials-sys-0.6.2/vendor/CMakeLists.txt",
+      "sha256": "f0868db9d738ba9b50eefd63e47d00ac32c0deed3227033aa1e2722c87f514ca",
+      "bytes": 9111
+    },
+    {
+      "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sundials-sys-0.6.2/vendor/cmake/SundialsSetupConfig.cmake",
+      "sha256": "7a82606aba6e61ee8540f0205d06432d4a8d5b564c87a190e87f04dde4ad5422",
+      "bytes": 3641
+    },
+    {
+      "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sundials-sys-0.6.2/vendor/cmake/macros/SundialsCMakeMacros.cmake",
+      "sha256": "26f9a1afd46c65e4a2fe746a4194e80b11bcc04833f20d93dc8849f80a2541d8",
+      "bytes": 2861
+    },
+    {
+      "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sundials-sys-0.6.2/vendor/include/sundials/sundials_config.in",
+      "sha256": "64d9021e5ee59c5594bf2f986fc24806b195ed72352e48dd2d2f72e9e24ffe25",
+      "bytes": 8472
+    },
+    {
+      "path": "/usr/bin/ldd",
+      "sha256": "752803b8baa217b821bd4566c4fbdaec50c01cb32d2796ec056d22d190d4290f",
+      "bytes": 5382
+    }
+  ],
+  "generation_dispositions": {
+    "sundials": "SundialsSetupConfig sets JOB_ID/JOB_START_TIME from CI_JOB_ID/CI_JOB_STARTED_AT or TIMESTAMP, and sundials_config.in substitutes both SUN_JOB_* macros. Bindgen exports them as public Rust string constants; current observed constants are20261006090450. Native Adiak consumption is feature-disabled, but generated public bindings still depend on clock. Final supported branch requires documented fixed SOURCE_DATE_EPOCH plus TZ, or explicit bound CI_JOB_ID/CI_JOB_STARTED_AT values. No ambient-clock source completeness grant.",
+    "highs": "Compilation-date TIMESTAMP commented out. find_program(GIT) metadata discovery is reached; status/describe guarded by source .git presence. HIPO OFF excludes its FetchContent/OpenBLAS/Python paths. Linux ldd --version result used for CPack package filename, not compiled science library. ldd executable/script and PATH candidates nevertheless bound. HIGHS_MAJOR/MINOR/PATCH overrides affect compiled version macros; bind absence or exact values. HIGHS_VCPKG=OFF short-circuits vcpkg module.",
+    "cmake_git": "Sundials FindGit version discovery reached; describe only if call-site source .git exists. Bind package source .git absence and actual Git executable/version lookup.",
+    "generated_output": "Four recorded include roots under selected highs/sundials OUT_DIR are generated output, not immutable external input. Fresh selected build owner OUT_DIR has no starting CMakeCache authority; future reuse binds deterministic source/tools and captured generated artifacts."
+  },
+  "git_absence_candidates": [
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/HiGHS/.git",
+    "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sundials-sys-0.6.2/vendor/.git"
+  ],
+  "ci_names": [
+    "CI_JOB_ID",
+    "CI_JOB_STARTED_AT"
+  ],
+  "clock_probe": {
+    "scope": "Standalone CMake3.28 script only; no native build or Cargo. Explicit SOURCE_DATE_EPOCH=0, two repeats for each TZ; zero failure baseline.",
+    "rows": [
+      {
+        "source_date_epoch": "0",
+        "TZ": "UTC",
+        "iteration": 0,
+        "exit": 0,
+        "stdout": "",
+        "stderr": "JOB_ID=19700101000000;JOB_START_TIME=19700101000000\n"
+      },
+      {
+        "source_date_epoch": "0",
+        "TZ": "UTC",
+        "iteration": 1,
+        "exit": 0,
+        "stdout": "",
+        "stderr": "JOB_ID=19700101000000;JOB_START_TIME=19700101000000\n"
+      },
+      {
+        "source_date_epoch": "0",
+        "TZ": "EST5",
+        "iteration": 0,
+        "exit": 0,
+        "stdout": "",
+        "stderr": "JOB_ID=19691231190000;JOB_START_TIME=19691231190000\n"
+      },
+      {
+        "source_date_epoch": "0",
+        "TZ": "EST5",
+        "iteration": 1,
+        "exit": 0,
+        "stdout": "",
+        "stderr": "JOB_ID=19691231190000;JOB_START_TIME=19691231190000\n"
+      }
+    ],
+    "same_timezone_repeats_match": true,
+    "timezone_changes_local_timestamp": true,
+    "official_documentation": "https://cmake.org/cmake/help/v3.28/command/string.html#timestamp"
+  }
+}

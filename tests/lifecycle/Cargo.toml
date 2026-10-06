@@ -27,15 +27,12 @@ serde_json.workspace = true
 pse-ids.workspace = true
 pse-schema.workspace = true
 pse-relations = { workspace = true, features = ["test-support"] }
-pse-catalog.workspace = true
 pse-runtime.workspace = true
 arrow.workspace = true
 datafusion.workspace = true
 object_store.workspace = true
 url.workspace = true
-deltalake.workspace = true
 tokio.workspace = true
 tempfile.workspace = true
 
 [dependencies]
-pse-workspace-hack.workspace = true

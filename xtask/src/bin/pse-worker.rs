@@ -1,17 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! `pse-worker`: claim durable jobs from the operational store and run them (ADR-0114
-//! Outcome 18; Plan 22 O4).
-//!
-//! The worker is a composition root: one shared runtime and `MathService`, a durable
-//! runtime class bound to the store, and a claim loop. Each claimed try runs under the
-//! worker's lease; the durable cancellation flag stops it; its end goes through the job's
-//! retry policy. On start-up the worker sweeps expired leases (their jobs requeue as new
-//! attempts), and again periodically.
-//!
-//! The process-level OpenMP environment that SPRAL needs (ADR-0108) is set before any
-//! thread starts: when it is missing, the worker re-executes itself with it.
+//! `pse-worker`: serve bounded canonical study actions on the supervised deployment.
+//! Claims, cancellation and recovery use native fences. Scientific work stays outside
+//! transactions, and completed native reports are retained as compact result selections.
 
 // Match the library's depth for the shared runtime's nested async `Send` proof.
 #![recursion_limit = "256"]
@@ -31,17 +23,14 @@ mod deployment;
 
 use clap::Parser;
 use pse_runtime::workflow::{
-    Durability, LeasePolicy, Operations, Processed, Runtime, WorkerSettings, WorkflowError,
+    Durability, LeasePolicy, Operations, Runtime, WorkerSettings, WorkflowError,
 };
 use pse_runtime::{CancelSource, ResourceBudget, SharedRuntime};
 
-/// Durable job worker (ADR-0114).
+/// Managed canonical study worker.
 #[derive(Debug, Parser)]
 #[command(name = "pse-worker", version)]
 struct Cli {
-    /// Connection URL; defaults to `PSE_DATABASE_URL`, then the local Unix socket.
-    #[arg(long)]
-    url: Option<String>,
     /// Canonical database on the supervised endpoint; defaults to the profile selection.
     #[arg(long)]
     canonical_database: Option<String>,
@@ -57,10 +46,10 @@ struct Cli {
     /// Idle poll period in milliseconds.
     #[arg(long, default_value_t = 500)]
     poll_ms: u64,
-    /// Stop after this many jobs.
+    /// Stop after this many processed scheduling actions.
     #[arg(long)]
-    jobs: Option<usize>,
-    /// Stop as soon as no job is available.
+    maximum_actions: Option<usize>,
+    /// Stop as soon as a complete bounded discovery pass finds no work.
     #[arg(long)]
     until_idle: bool,
     /// Process memory budget in MiB.
@@ -136,7 +125,7 @@ fn resource_budget(cli: &Cli, configured: usize) -> Result<ResourceBudget, Strin
             target_partitions: count(threads),
         },
         execution: Default::default(),
-        cache: pse_runtime::DeltaCacheBudget::disabled(1024),
+        cache: pse_runtime::CacheBudget::disabled(1024),
         math,
         hashing_may_use_pool: false,
     })
@@ -159,12 +148,13 @@ async fn runtime(cli: &Cli) -> Result<Runtime, String> {
             .session_factory(pse_engine::session::native_engine_profile())
             .map_err(|e| format!("session factory: {e}"))?,
     );
-    Ok(Runtime::from_shared(
-        shared,
-        registry,
-        sessions,
-        deployment::open(cli.canonical_database.as_deref()).await?,
-    ))
+    let deployment=deployment::open(cli.canonical_database.as_deref()).await?;
+    let policy=LeasePolicy{lease:Duration::from_secs(cli.lease_seconds),heartbeat:Duration::from_millis(cli.heartbeat_ms),..LeasePolicy::default()};
+    if policy.lease.is_zero() || policy.heartbeat.is_zero() || policy.heartbeat>=policy.lease {
+        return Err("worker heartbeat must be positive and shorter than its lease".into());
+    }
+    let operations=Operations::from_store(deployment.store().clone(),cli.name.clone().unwrap_or_else(||Operations::process_worker("pse-worker")),policy,shared.pool());
+    Ok(Runtime::from_shared(shared,registry,sessions,deployment).with_durability(Durability::Durable(operations)))
 }
 
 fn report(error: &WorkflowError) {
@@ -177,25 +167,10 @@ fn report(error: &WorkflowError) {
     }
 }
 
-async fn serve(cli: &Cli, runtime: Runtime) -> Result<Vec<Processed>, WorkflowError> {
-    let url = cli
-        .url
-        .clone()
-        .unwrap_or_else(pse_operations::database_url_from_env);
-    let name = cli
-        .name
-        .clone()
-        .unwrap_or_else(|| Operations::process_worker("pse-worker"));
-    let policy = LeasePolicy {
-        lease: Duration::from_secs(cli.lease_seconds),
-        heartbeat: Duration::from_millis(cli.heartbeat_ms),
-        ..LeasePolicy::default()
-    };
-    let operations = Operations::connect(&url, name, policy).await?;
-    let runtime = runtime.with_durability(Durability::Durable(operations));
+async fn serve(cli: &Cli, runtime: Runtime) -> Result<usize, WorkflowError> {
     let settings = WorkerSettings {
         poll: Duration::from_millis(cli.poll_ms),
-        jobs: cli.jobs,
+        maximum_actions: cli.maximum_actions,
         until_idle: cli.until_idle,
         ..WorkerSettings::default()
     };
@@ -235,15 +210,7 @@ fn main() -> ExitCode {
     };
     match executor.block_on(serve(&cli, runtime)) {
         Ok(processed) => {
-            for ran in &processed {
-                if let Processed::Ran { job, record } = ran {
-                    let state = record
-                        .attempt
-                        .as_ref()
-                        .map_or("unrecorded", |a| a.state.as_str());
-                    println!("job {job}: attempt {} {state}", record.attempt_id);
-                }
-            }
+            println!("processed {processed} canonical scheduling actions");
             ExitCode::SUCCESS
         }
         Err(error) => {

@@ -1,0 +1,437 @@
+{
+  "scope": "Current selected linked artifacts under a source-derived explicit solver/PETSc/Uno LD_LIBRARY_PATH observer, not historical native child environment proof. Loader --list does not run scientific binary. LD_PRELOAD/LD_AUDIT absent by explicit observer construction.",
+  "loader": "/lib64/ld-linux-x86-64.so.2",
+  "loader_resolved": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+  "loader_sha256": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da",
+  "LD_LIBRARY_PATH": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib:$HOME/.cache/pse-arrow/native/petsc/432b2aeb05d404275b0c813b99accd6859f8d53e496f543d76d49fca498b2dc5/lib:$HOME/.cache/pse-arrow/native/uno/73b0b26d0c6d5bfd8eeb6f86df0e4be904758d1021122c299f2cf1426ac2cb02/lib",
+  "LD_PRELOAD": null,
+  "LD_AUDIT": null,
+  "objects": [
+    {
+      "object": "$WORKSPACE/target/producer/pse-worker",
+      "sha256": "d05116d8e9cfce3f2960161759b3be310f0324c2fd944beaf7cef96c83e3653e",
+      "bytes": 692140824,
+      "exit": 0,
+      "stdout": "\tlinux-vdso.so.1 (<address>)\n\tlibstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (<address>)\n\tlibmkl_intel_lp64.so.3 => $HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmkl_intel_lp64.so.3 (<address>)\n\tlibgomp.so.1 => /lib/x86_64-linux-gnu/libgomp.so.1 (<address>)\n\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (<address>)\n\tlibscip.so.10.0 => $HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libscip.so.10.0 (<address>)\n\tlibpetsc.so.3.24 => $HOME/.cache/pse-arrow/native/petsc/432b2aeb05d404275b0c813b99accd6859f8d53e496f543d76d49fca498b2dc5/lib/libpetsc.so.3.24 (<address>)\n\tlibipopt.so.3 => $HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libipopt.so.3 (<address>)\n\tlibgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (<address>)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (<address>)\n\t/lib64/ld-linux-x86-64.so.2 (<address>)\n\tlibdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (<address>)\n\tlibz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (<address>)\n\tlibgmp.so.10 => /lib/x86_64-linux-gnu/libgmp.so.10 (<address>)\n\tlibmpfr.so.6 => /lib/x86_64-linux-gnu/libmpfr.so.6 (<address>)\n\tlibmkl_gnu_thread.so.3 => $HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmkl_gnu_thread.so.3 (<address>)\n\tlibmkl_core.so.3 => $HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmkl_core.so.3 (<address>)\n\tlibgfortran.so.5 => /lib/x86_64-linux-gnu/libgfortran.so.5 (<address>)\n\tlibX11.so.6 => /lib/x86_64-linux-gnu/libX11.so.6 (<address>)\n\tlibcoinmumps.so.3 => $HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libcoinmumps.so.3 (<address>)\n\tlibspral.so => $HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libspral.so (<address>)\n\tlibpthread.so.0 => /lib/x86_64-linux-gnu/libpthread.so.0 (<address>)\n\tlibxcb.so.1 => /lib/x86_64-linux-gnu/libxcb.so.1 (<address>)\n\tlibmetis.so => $HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmetis.so (<address>)\n\tlibhwloc.so.15 => /lib/x86_64-linux-gnu/libhwloc.so.15 (<address>)\n\tlibXau.so.6 => /lib/x86_64-linux-gnu/libXau.so.6 (<address>)\n\tlibXdmcp.so.6 => /lib/x86_64-linux-gnu/libXdmcp.so.6 (<address>)\n\tlibudev.so.1 => /lib/x86_64-linux-gnu/libudev.so.1 (<address>)\n\tlibbsd.so.0 => /lib/x86_64-linux-gnu/libbsd.so.0 (<address>)\n\tlibcap.so.2 => /lib/x86_64-linux-gnu/libcap.so.2 (<address>)\n\tlibmd.so.0 => /lib/x86_64-linux-gnu/libmd.so.0 (<address>)\n",
+      "stderr": "",
+      "resolved_files": [
+        {
+          "selected": "$HOME/.cache/pse-arrow/native/petsc/432b2aeb05d404275b0c813b99accd6859f8d53e496f543d76d49fca498b2dc5/lib/libpetsc.so.3.24",
+          "resolved": "$HOME/.cache/pse-arrow/native/petsc/432b2aeb05d404275b0c813b99accd6859f8d53e496f543d76d49fca498b2dc5/lib/libpetsc.so.3.24.0",
+          "bytes": 24565768,
+          "sha256": "486d6f601e947ecda1cacb10c3e6ff64ff416f51343fce601eb1ebdab056bb94",
+          "symlink_target": "libpetsc.so.3.24.0"
+        },
+        {
+          "selected": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libcoinmumps.so.3",
+          "resolved": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libcoinmumps.so.3.0.14",
+          "bytes": 3095776,
+          "sha256": "a316e71e32841fa61a12701919e19ee28c62f046755960c6bc49428797887f57",
+          "symlink_target": "libcoinmumps.so.3.0.14"
+        },
+        {
+          "selected": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libipopt.so.3",
+          "resolved": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libipopt.so.3.14.20",
+          "bytes": 2829640,
+          "sha256": "cfe2df574f39a4264f36ef1301d9f54dbe542fa8d37cf0e2bd55c594a9ab11e5",
+          "symlink_target": "libipopt.so.3.14.20"
+        },
+        {
+          "selected": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmetis.so",
+          "resolved": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmetis.so",
+          "bytes": 511632,
+          "sha256": "44bd51ad42de15e3259cf97fe66c2b14693feaff4e44d32cad549886a14e5865",
+          "symlink_target": null
+        },
+        {
+          "selected": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmkl_core.so.3",
+          "resolved": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmkl_core.so.3",
+          "bytes": 76168096,
+          "sha256": "b4f086651ee5a8471140d53fedfdbbaba606287784763b0739f282872c31aa9b",
+          "symlink_target": null
+        },
+        {
+          "selected": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmkl_gnu_thread.so.3",
+          "resolved": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmkl_gnu_thread.so.3",
+          "bytes": 29436096,
+          "sha256": "444288ca845ec374f0435c887f0b4f745bf6bb68bc84059a11ddb0926de196b6",
+          "symlink_target": null
+        },
+        {
+          "selected": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmkl_intel_lp64.so.3",
+          "resolved": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmkl_intel_lp64.so.3",
+          "bytes": 19450800,
+          "sha256": "9dbdb7d4193679f028787da6b9b2b545e0e16b87a95a64ee7318f544da8b08ac",
+          "symlink_target": null
+        },
+        {
+          "selected": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libscip.so.10.0",
+          "resolved": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libscip.so.10.0.2",
+          "bytes": 17026696,
+          "sha256": "05f75cc69fe578104045901aff099da52b2d10c2dd75334e56aa96c85da70e09",
+          "symlink_target": "libscip.so.10.0.2"
+        },
+        {
+          "selected": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libspral.so",
+          "resolved": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libspral.so",
+          "bytes": 895304,
+          "sha256": "b0cc823b1dd54b6a8b8553c38fe2efe638ed2e07ce7ce3eb91290a7b0010b239",
+          "symlink_target": null
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libX11.so.6",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libX11.so.6.4.0",
+          "bytes": 1298088,
+          "sha256": "c5b5d782bd9cab3420a62df88f5c991507edf3331a89f98464ddbc538c37b879",
+          "symlink_target": "libX11.so.6.4.0"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libXau.so.6",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libXau.so.6.0.0",
+          "bytes": 18696,
+          "sha256": "8040da3f8516c1acfe39f04ff022480cdb273705ba5e7a4ca70bbdb1527cd67a",
+          "symlink_target": "libXau.so.6.0.0"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libXdmcp.so.6",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libXdmcp.so.6.0.0",
+          "bytes": 26776,
+          "sha256": "667d97d6da16016400ab10de9f83ef4ab209ceb6adf68ff9650225ec13e723b0",
+          "symlink_target": "libXdmcp.so.6.0.0"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libbsd.so.0",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libbsd.so.0.12.1",
+          "bytes": 80888,
+          "sha256": "e86cd4f0019f42c2ba5e60602e0edc8694d2948377d98c3654d0f6bddb5254bb",
+          "symlink_target": "libbsd.so.0.12.1"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libc.so.6",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+          "bytes": 2129424,
+          "sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
+          "symlink_target": null
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libcap.so.2",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libcap.so.2.66",
+          "bytes": 51536,
+          "sha256": "6ac6abc86ac891c6e13486470e26f1d939f47fda9e6b5d5508a7f5ec881adc84",
+          "symlink_target": "libcap.so.2.66"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libdl.so.2",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libdl.so.2",
+          "bytes": 14408,
+          "sha256": "c2994527172cc23b7fb0f7d611b71e00a37da27af12c2e5e9e0dc1a742886c96",
+          "symlink_target": null
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libgcc_s.so.1",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1",
+          "bytes": 183024,
+          "sha256": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb",
+          "symlink_target": null
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libgfortran.so.5",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libgfortran.so.5.0.0",
+          "bytes": 3263912,
+          "sha256": "342618ccfebe840446e4ef2b7893f4161b2084845e570f42d68a70bfde58a58d",
+          "symlink_target": "libgfortran.so.5.0.0"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libgmp.so.10",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libgmp.so.10.5.0",
+          "bytes": 534896,
+          "sha256": "0ccdfb6d6f5c039465f6d002cf7e4c072d48ac6a2cffc8dd6c748dec31592804",
+          "symlink_target": "libgmp.so.10.5.0"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libgomp.so.1",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0",
+          "bytes": 352304,
+          "sha256": "135f3c8f006d2fe5e68e51281c7974cb991a03de3bfb3593d68d174dfcf854d1",
+          "symlink_target": "libgomp.so.1.0.0"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libhwloc.so.15",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libhwloc.so.15.7.0",
+          "bytes": 392576,
+          "sha256": "86dff44a023254d997cea910b9a51f35afefe6780f4b5530f974a2009ba47487",
+          "symlink_target": "libhwloc.so.15.7.0"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libm.so.6",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libm.so.6",
+          "bytes": 952616,
+          "sha256": "fce00b6f25f459cf4ae0b7fae4257909a1a8a86f9149e7c029a5d617baf1ccd0",
+          "symlink_target": null
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libmd.so.0",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libmd.so.0.1.0",
+          "bytes": 55536,
+          "sha256": "423e18586b6ea740f4465afd64f7a9a4cb7264ed979c8e7256f9085af5345fef",
+          "symlink_target": "libmd.so.0.1.0"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libmpfr.so.6",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libmpfr.so.6.2.1",
+          "bytes": 760464,
+          "sha256": "2156351fa3dedd04a7381c6ac7a8a26efa2d6fb08b80f8a2d644ccdd653710ae",
+          "symlink_target": "libmpfr.so.6.2.1"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libpthread.so.0",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libpthread.so.0",
+          "bytes": 14408,
+          "sha256": "90491a21ce44efcf3bd4b65ec82501c091d7ebe7f8d9b341dd01d721001d9ecd",
+          "symlink_target": null
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libstdc++.so.6",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33",
+          "bytes": 2592224,
+          "sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11",
+          "symlink_target": "libstdc++.so.6.0.33"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libudev.so.1",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libudev.so.1.7.8",
+          "bytes": 207288,
+          "sha256": "4298228175fa62a36af88b1afd4406cdd8b1bf166621f957d0dbbde45a698fe5",
+          "symlink_target": "libudev.so.1.7.8"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libxcb.so.1",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libxcb.so.1.1.0",
+          "bytes": 162392,
+          "sha256": "7958a0136b121bdc4c708968569ad152a9ed208ab026e2537b1005dde64ca440",
+          "symlink_target": "libxcb.so.1.1.0"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libz.so.1",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libz.so.1.3",
+          "bytes": 113000,
+          "sha256": "86200da370f20476a2507e9097a789b5ef97269b4ca8d5e164ad82dab9d99892",
+          "symlink_target": "libz.so.1.3"
+        }
+      ]
+    },
+    {
+      "object": "$WORKSPACE/target/producer/lib_native.so",
+      "sha256": "f309be97d60a9cd9e08d6a2a093137347538f0f10d853408b46aa2672898b302",
+      "bytes": 744054128,
+      "exit": 0,
+      "stdout": "\tlinux-vdso.so.1 (<address>)\n\tlibstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (<address>)\n\tlibmkl_intel_lp64.so.3 => $HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmkl_intel_lp64.so.3 (<address>)\n\tlibgomp.so.1 => /lib/x86_64-linux-gnu/libgomp.so.1 (<address>)\n\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (<address>)\n\tlibscip.so.10.0 => $HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libscip.so.10.0 (<address>)\n\tlibpetsc.so.3.24 => $HOME/.cache/pse-arrow/native/petsc/432b2aeb05d404275b0c813b99accd6859f8d53e496f543d76d49fca498b2dc5/lib/libpetsc.so.3.24 (<address>)\n\tlibipopt.so.3 => $HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libipopt.so.3 (<address>)\n\tlibgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (<address>)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (<address>)\n\t/lib64/ld-linux-x86-64.so.2 (<address>)\n\tlibdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (<address>)\n\tlibz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (<address>)\n\tlibgmp.so.10 => /lib/x86_64-linux-gnu/libgmp.so.10 (<address>)\n\tlibmpfr.so.6 => /lib/x86_64-linux-gnu/libmpfr.so.6 (<address>)\n\tlibmkl_gnu_thread.so.3 => $HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmkl_gnu_thread.so.3 (<address>)\n\tlibmkl_core.so.3 => $HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmkl_core.so.3 (<address>)\n\tlibgfortran.so.5 => /lib/x86_64-linux-gnu/libgfortran.so.5 (<address>)\n\tlibX11.so.6 => /lib/x86_64-linux-gnu/libX11.so.6 (<address>)\n\tlibcoinmumps.so.3 => $HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libcoinmumps.so.3 (<address>)\n\tlibspral.so => $HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libspral.so (<address>)\n\tlibpthread.so.0 => /lib/x86_64-linux-gnu/libpthread.so.0 (<address>)\n\tlibxcb.so.1 => /lib/x86_64-linux-gnu/libxcb.so.1 (<address>)\n\tlibmetis.so => $HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmetis.so (<address>)\n\tlibhwloc.so.15 => /lib/x86_64-linux-gnu/libhwloc.so.15 (<address>)\n\tlibXau.so.6 => /lib/x86_64-linux-gnu/libXau.so.6 (<address>)\n\tlibXdmcp.so.6 => /lib/x86_64-linux-gnu/libXdmcp.so.6 (<address>)\n\tlibudev.so.1 => /lib/x86_64-linux-gnu/libudev.so.1 (<address>)\n\tlibbsd.so.0 => /lib/x86_64-linux-gnu/libbsd.so.0 (<address>)\n\tlibcap.so.2 => /lib/x86_64-linux-gnu/libcap.so.2 (<address>)\n\tlibmd.so.0 => /lib/x86_64-linux-gnu/libmd.so.0 (<address>)\n",
+      "stderr": "",
+      "resolved_files": [
+        {
+          "selected": "$HOME/.cache/pse-arrow/native/petsc/432b2aeb05d404275b0c813b99accd6859f8d53e496f543d76d49fca498b2dc5/lib/libpetsc.so.3.24",
+          "resolved": "$HOME/.cache/pse-arrow/native/petsc/432b2aeb05d404275b0c813b99accd6859f8d53e496f543d76d49fca498b2dc5/lib/libpetsc.so.3.24.0",
+          "bytes": 24565768,
+          "sha256": "486d6f601e947ecda1cacb10c3e6ff64ff416f51343fce601eb1ebdab056bb94",
+          "symlink_target": "libpetsc.so.3.24.0"
+        },
+        {
+          "selected": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libcoinmumps.so.3",
+          "resolved": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libcoinmumps.so.3.0.14",
+          "bytes": 3095776,
+          "sha256": "a316e71e32841fa61a12701919e19ee28c62f046755960c6bc49428797887f57",
+          "symlink_target": "libcoinmumps.so.3.0.14"
+        },
+        {
+          "selected": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libipopt.so.3",
+          "resolved": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libipopt.so.3.14.20",
+          "bytes": 2829640,
+          "sha256": "cfe2df574f39a4264f36ef1301d9f54dbe542fa8d37cf0e2bd55c594a9ab11e5",
+          "symlink_target": "libipopt.so.3.14.20"
+        },
+        {
+          "selected": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmetis.so",
+          "resolved": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmetis.so",
+          "bytes": 511632,
+          "sha256": "44bd51ad42de15e3259cf97fe66c2b14693feaff4e44d32cad549886a14e5865",
+          "symlink_target": null
+        },
+        {
+          "selected": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmkl_core.so.3",
+          "resolved": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmkl_core.so.3",
+          "bytes": 76168096,
+          "sha256": "b4f086651ee5a8471140d53fedfdbbaba606287784763b0739f282872c31aa9b",
+          "symlink_target": null
+        },
+        {
+          "selected": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmkl_gnu_thread.so.3",
+          "resolved": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmkl_gnu_thread.so.3",
+          "bytes": 29436096,
+          "sha256": "444288ca845ec374f0435c887f0b4f745bf6bb68bc84059a11ddb0926de196b6",
+          "symlink_target": null
+        },
+        {
+          "selected": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmkl_intel_lp64.so.3",
+          "resolved": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libmkl_intel_lp64.so.3",
+          "bytes": 19450800,
+          "sha256": "9dbdb7d4193679f028787da6b9b2b545e0e16b87a95a64ee7318f544da8b08ac",
+          "symlink_target": null
+        },
+        {
+          "selected": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libscip.so.10.0",
+          "resolved": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libscip.so.10.0.2",
+          "bytes": 17026696,
+          "sha256": "05f75cc69fe578104045901aff099da52b2d10c2dd75334e56aa96c85da70e09",
+          "symlink_target": "libscip.so.10.0.2"
+        },
+        {
+          "selected": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libspral.so",
+          "resolved": "$HOME/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/lib/libspral.so",
+          "bytes": 895304,
+          "sha256": "b0cc823b1dd54b6a8b8553c38fe2efe638ed2e07ce7ce3eb91290a7b0010b239",
+          "symlink_target": null
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libX11.so.6",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libX11.so.6.4.0",
+          "bytes": 1298088,
+          "sha256": "c5b5d782bd9cab3420a62df88f5c991507edf3331a89f98464ddbc538c37b879",
+          "symlink_target": "libX11.so.6.4.0"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libXau.so.6",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libXau.so.6.0.0",
+          "bytes": 18696,
+          "sha256": "8040da3f8516c1acfe39f04ff022480cdb273705ba5e7a4ca70bbdb1527cd67a",
+          "symlink_target": "libXau.so.6.0.0"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libXdmcp.so.6",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libXdmcp.so.6.0.0",
+          "bytes": 26776,
+          "sha256": "667d97d6da16016400ab10de9f83ef4ab209ceb6adf68ff9650225ec13e723b0",
+          "symlink_target": "libXdmcp.so.6.0.0"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libbsd.so.0",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libbsd.so.0.12.1",
+          "bytes": 80888,
+          "sha256": "e86cd4f0019f42c2ba5e60602e0edc8694d2948377d98c3654d0f6bddb5254bb",
+          "symlink_target": "libbsd.so.0.12.1"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libc.so.6",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+          "bytes": 2129424,
+          "sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
+          "symlink_target": null
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libcap.so.2",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libcap.so.2.66",
+          "bytes": 51536,
+          "sha256": "6ac6abc86ac891c6e13486470e26f1d939f47fda9e6b5d5508a7f5ec881adc84",
+          "symlink_target": "libcap.so.2.66"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libdl.so.2",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libdl.so.2",
+          "bytes": 14408,
+          "sha256": "c2994527172cc23b7fb0f7d611b71e00a37da27af12c2e5e9e0dc1a742886c96",
+          "symlink_target": null
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libgcc_s.so.1",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1",
+          "bytes": 183024,
+          "sha256": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb",
+          "symlink_target": null
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libgfortran.so.5",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libgfortran.so.5.0.0",
+          "bytes": 3263912,
+          "sha256": "342618ccfebe840446e4ef2b7893f4161b2084845e570f42d68a70bfde58a58d",
+          "symlink_target": "libgfortran.so.5.0.0"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libgmp.so.10",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libgmp.so.10.5.0",
+          "bytes": 534896,
+          "sha256": "0ccdfb6d6f5c039465f6d002cf7e4c072d48ac6a2cffc8dd6c748dec31592804",
+          "symlink_target": "libgmp.so.10.5.0"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libgomp.so.1",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0",
+          "bytes": 352304,
+          "sha256": "135f3c8f006d2fe5e68e51281c7974cb991a03de3bfb3593d68d174dfcf854d1",
+          "symlink_target": "libgomp.so.1.0.0"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libhwloc.so.15",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libhwloc.so.15.7.0",
+          "bytes": 392576,
+          "sha256": "86dff44a023254d997cea910b9a51f35afefe6780f4b5530f974a2009ba47487",
+          "symlink_target": "libhwloc.so.15.7.0"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libm.so.6",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libm.so.6",
+          "bytes": 952616,
+          "sha256": "fce00b6f25f459cf4ae0b7fae4257909a1a8a86f9149e7c029a5d617baf1ccd0",
+          "symlink_target": null
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libmd.so.0",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libmd.so.0.1.0",
+          "bytes": 55536,
+          "sha256": "423e18586b6ea740f4465afd64f7a9a4cb7264ed979c8e7256f9085af5345fef",
+          "symlink_target": "libmd.so.0.1.0"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libmpfr.so.6",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libmpfr.so.6.2.1",
+          "bytes": 760464,
+          "sha256": "2156351fa3dedd04a7381c6ac7a8a26efa2d6fb08b80f8a2d644ccdd653710ae",
+          "symlink_target": "libmpfr.so.6.2.1"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libpthread.so.0",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libpthread.so.0",
+          "bytes": 14408,
+          "sha256": "90491a21ce44efcf3bd4b65ec82501c091d7ebe7f8d9b341dd01d721001d9ecd",
+          "symlink_target": null
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libstdc++.so.6",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33",
+          "bytes": 2592224,
+          "sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11",
+          "symlink_target": "libstdc++.so.6.0.33"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libudev.so.1",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libudev.so.1.7.8",
+          "bytes": 207288,
+          "sha256": "4298228175fa62a36af88b1afd4406cdd8b1bf166621f957d0dbbde45a698fe5",
+          "symlink_target": "libudev.so.1.7.8"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libxcb.so.1",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libxcb.so.1.1.0",
+          "bytes": 162392,
+          "sha256": "7958a0136b121bdc4c708968569ad152a9ed208ab026e2537b1005dde64ca440",
+          "symlink_target": "libxcb.so.1.1.0"
+        },
+        {
+          "selected": "/lib/x86_64-linux-gnu/libz.so.1",
+          "resolved": "/usr/lib/x86_64-linux-gnu/libz.so.1.3",
+          "bytes": 113000,
+          "sha256": "86200da370f20476a2507e9097a789b5ef97269b4ca8d5e164ad82dab9d99892",
+          "symlink_target": "libz.so.1.3"
+        }
+      ]
+    }
+  ]
+}

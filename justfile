@@ -134,8 +134,14 @@ canonical-portable-test state:
 
 [group('local')]
 [doc('Derive a relevant production-unit identity; unknown inputs disable persistent reuse')]
+[positional-arguments]
 producer-identity *args:
-    bash scripts/native_exec.sh cargo run -p xtask --no-default-features --locked -- producer-identity {{ args }}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Cargo's run launcher injects tool-local loader paths. Build the capture tool
+    # separately so the recorded caller is the ordinary native deployment context.
+    bash scripts/build-shell.sh -c 'cargo build -p xtask --bin xtask --no-default-features --locked'
+    exec bash scripts/native_exec.sh "$PWD/target/debug/xtask" producer-identity "$@"
 
 [group('local')]
 [doc('Focused producer identity tests including irrelevant test edits and consumed-input changes')]
@@ -148,6 +154,11 @@ codegen-unit-test:
     bash scripts/native_exec.sh cargo nextest run -p xtask --bin xtask --locked --features package-fixtures {{ validate }} -E 'test(codegen::tests::) | test(codegen::physical::tests::)'
 
 [group('local')]
+[doc('Focused explicit Python target selection controls without solver discovery')]
+python-runner-unit-test:
+    cargo nextest run -p xtask --bin xtask --no-default-features --locked {{ validate }} -E 'test(python_selection_preserves_explicit_targets)'
+
+[group('local')]
 [doc('Worker CLI admission budgets against the configured managed process allocation')]
 worker-cli-unit-test:
     bash scripts/native_exec.sh cargo nextest run -p xtask --bin pse-worker --locked --features native-solvers {{ validate }}
@@ -157,97 +168,14 @@ worker-cli-unit-test:
 scientific-replay-miri:
     cargo miri test -p pse-ids -p pse-relations --lib --locked {{ validate }} scientific_replay::tests
 
-# ---- operational store (PostgreSQL 18; ADR-0114, docs/dev/operational-store.md) ----
-# The URL is PSE_DATABASE_URL, else the default declared once in pse-operations: database
-# `pse` over the local Unix socket with peer authentication, so no credential exists.
-db_default_url := replace_regex(read("crates/pse-operations/src/store.rs"), '(?s)^.*\npub const DEFAULT_DATABASE_URL: &str = "([^"]*)";.*$', '$1')
-db_url := env("PSE_DATABASE_URL", db_default_url)
-# Store tests and query generation read PSE_DATABASE_URL themselves, falling back to the
-# same default; each store test creates and drops its own database on that server.
-
-[group('env')]
-[doc('Create the peer-authenticated login role for $USER (CREATEDB) and database `pse` it owns; idempotent; runs psql as postgres via sudo')]
-[confirm('Create or update the PostgreSQL role and database `pse` for the operational store (sudo -u postgres)?')]
-db-bootstrap:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    role="${USER:-$(id -un)}"
-    socket=/var/run/postgresql
-    # Idempotent: each statement is generated only when needed, or restates the attributes.
-    sudo -u postgres psql -X -q -h "$socket" -d postgres -v ON_ERROR_STOP=1 -v role="$role" -v db=pse <<'SQL'
-    SELECT format('CREATE ROLE %I LOGIN CREATEDB', :'role')
-     WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'role') \gexec
-    SELECT format('ALTER ROLE %I LOGIN CREATEDB', :'role') \gexec
-    SELECT format('CREATE DATABASE %I OWNER %I', :'db', :'role')
-     WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'db') \gexec
-    SELECT format('ALTER DATABASE %I OWNER TO %I', :'db', :'role') \gexec
-    SQL
-    psql -X -h "$socket" -d pse -Atc "SELECT 'connected to ' || current_database() || ' as ' || current_user || ', PostgreSQL ' || current_setting('server_version')"
-    echo "next: just db-status"
-
-[group('env')]
-[doc('Explicit reset with completed external retirement inventory and atomic preservation import (ADR-0146)')]
-[confirm('Reset operational execution state after exporting complete retirement inventory outside all workspace roots?')]
-db-reset inventory_destination max_rows="1000000":
-    cargo run --quiet --locked -p pse-operations --bin pse-ops -- --url {{ quote(db_url) }} reset --inventory-destination {{ quote(inventory_destination) }} --max-rows {{ quote(max_rows) }}
-
-[group('env')]
-[doc('Explicitly create an absent operational schema')]
-db-create:
-    cargo run --quiet --locked -p pse-operations --bin pse-ops -- --url {{ quote(db_url) }} create
-
-[group('env')]
-[doc('Read-only exact operational transition plan, including committed prefixes and checksums')]
-db-migration-plan:
-    cargo run --quiet --locked -p pse-operations --bin pse-ops -- --url {{ quote(db_url) }} migration-plan
-
-[group('env')]
-[doc('Explicit preservation-first operational schema transitions; drain workers and close store generations first')]
-db-migrate:
-    cargo run --quiet --locked -p pse-operations --bin pse-ops -- --url {{ quote(db_url) }} migrate
-
-[group('env')]
-[doc('Operational store: server version (>= 18), reachability and schema fingerprint; exits 1 when another build created the schema')]
-db-status:
-    cargo run --quiet --locked -p pse-operations --bin pse-ops -- --url {{ quote(db_url) }} status
-
-[group('env')]
-[doc('Dump the operational store with pg_dump -Fc into a directory; prints the dump path')]
-db-backup dir:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    mkdir -p {{ quote(dir) }}
-    file={{ quote(dir) }}/pse-$(date -u +%Y%m%dT%H%M%SZ).dump
-    pg_dump --format=custom --file="$file" --dbname={{ quote(db_url) }}
-    echo "$file"
-
-[group('env')]
-[doc('Restore a db-backup dump into the operational store, replacing the objects it contains')]
-[confirm('Restore the operational store from the dump, replacing its current contents?')]
-db-restore file:
-    pg_restore --clean --if-exists --no-owner --single-transaction --exit-on-error --dbname={{ quote(db_url) }} {{ quote(file) }}
-
 [group('local')]
-[doc('pse-operations tests; each store test creates and drops its own database on the PSE_DATABASE_URL server')]
-db-test filter="package(pse-operations)" *args:
-    PSE_DATABASE_URL={{ quote(db_url) }} just unit-package pse-operations {{ quote(filter) }} {{ args }}
-
-[group('local')]
-[doc('Run the durable job worker (ADR-0114) against the operational store with the linked solver environment; e.g. --until-idle')]
+[doc('Run canonical execution actions in a supervised native worker; e.g. --until-idle --maximum-actions 100')]
 pse-worker *args:
     #!/usr/bin/env bash
     set -euo pipefail
     source scripts/native-execution-env.sh
     cargo build --locked -p xtask --bin pse-worker --features native-solvers
-    "{{ py }}" scripts/surreal_server.py worker --worker-command "$PWD/target/debug/pse-worker" --url {{ quote(db_url) }} {{ args }}
-
-[group('local')]
-[doc('Publication catalog maintenance (ADR-0114) against the operational store: export | release | retire | collect | reclaim')]
-pse-publication *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-execution-env.sh
-    cargo run --quiet --locked -p xtask --bin pse-publication -- --url {{ quote(db_url) }} {{ args }}
+    "{{ py }}" scripts/surreal_server.py worker --worker-command "$PWD/target/debug/pse-worker" {{ args }}
 
 [group('local')]
 [doc('The pse-worker journey: the worker binary runs an authored case in a child process against an isolated store')]
@@ -256,14 +184,6 @@ worker-test *args:
     set -euo pipefail
     bash scripts/native_exec.sh cargo build -p xtask --bin pse-worker --locked --features native-solvers
     PSE_WORKER_BINARY="$PWD/target/debug/pse-worker" bash scripts/native_exec.sh cargo nextest {{ nextest_action }} -p pse-runtime --test worker --locked --features pse-runtime/native-solvers,pse-relations/force-validate {{ args }}
-
-[group('local')]
-[doc('The publication catalog journeys (Plan 22 O8): durable attempts publish, read, export, collect and retire against isolated stores; one test runs two publisher processes')]
-publication-test *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    bash scripts/native_exec.sh cargo build -p xtask --bin pse-publication --locked
-    PSE_PUBLICATION_BINARY="$PWD/target/debug/pse-publication" PSE_DATABASE_URL={{ quote(db_url) }} bash scripts/native_exec.sh cargo nextest {{ nextest_action }} -p pse-runtime --test publication_catalog --locked {{ validate }} {{ args }}
 
 # ---------------------------------------------------------------- discovery --
 
@@ -289,11 +209,6 @@ metadata:
 [doc('Resolve the current native dependency declarations using already acquired sources')]
 metadata-resolve:
     cargo metadata --offline --format-version 1
-
-[group('discovery')]
-[doc('Verify or regenerate the pinned Delta source override; pass --apply explicitly to regenerate')]
-delta-source source *args:
-    {{ py }} scripts/vendor-delta.py {{ source }} {{ args }}
 
 # -------------------------------------------------------------------- local --
 
@@ -382,18 +297,19 @@ codegen-docs-check:
     cargo run -p xtask --no-default-features --locked -- codegen --only docs --check
 
 [group('local')]
-[doc('The operational store schema, Cornucopia mapping and fingerprint match a fresh regeneration')]
-codegen-postgres-check:
-    cargo run -p xtask --no-default-features --locked -- codegen --only postgres --check
-
-[group('local')]
-[doc('The operational store statements prepare against the generated schema and match the committed query crate; needs PostgreSQL (`just db-status`)')]
-codegen-queries-check:
-    cargo run -p xtask --no-default-features --locked -- codegen --only queries --check
+[doc('The canonical native schema and codecs match a fresh regeneration')]
+codegen-surreal-check:
+    cargo run -p xtask --no-default-features --locked -- codegen --only surreal --check
 
 [group('local')]
 codegen-bindgen-check:
     cargo run -p xtask --no-default-features --locked -- codegen --only bindgen --check
+
+[group('mutating')]
+[doc('Regenerate the workspace feature owner after dependency retirement or changes')]
+codegen-hakari:
+    cargo hakari generate
+    cargo hakari manage-deps --yes
 
 [group('local')]
 [doc('The cargo-hakari workspace-hack matches a fresh generation and every managed member depends on it (ADR-0122)')]
@@ -480,6 +396,16 @@ check-test pkg target:
     cargo check --keep-going -p {{ pkg }} --test {{ target }} --locked {{ validate }}
 
 [group('local')]
+[doc('Compile one linked native test target without executing its journeys')]
+check-native-test pkg target features:
+    bash scripts/native_exec.sh cargo check -p {{ pkg }} --test {{ target }} --locked --features {{ features }},pse-relations/force-validate
+
+[group('local')]
+[doc('Run selected functional controls in one Rust test target with explicit Arrow validation')]
+functional-test-target pkg target filter *args:
+    bash scripts/memory-cap.sh cargo nextest {{ nextest_action }} -p {{ pkg }} -p pse-relations --test {{ target }} --locked {{ validate }} -E {{ quote(filter) }} {{ args }}
+
+[group('local')]
 [doc('clippy with -D warnings, workspace, all targets (default and --no-default-features)')]
 clippy:
     python3 -m scripts.validation --group clippy
@@ -519,7 +445,7 @@ unit-typed-boundaries *args:
 [group('local')]
 [doc('Isolated contract-foundation units with one Cargo feature graph; no integration journeys')]
 unit-contract-foundations *args:
-    cargo nextest {{ nextest_action }} -p pse-ids -p pse-diagnostics -p pse-schema -p pse-relations -p pse-compiler -p pse-catalog --lib --locked {{ validate }} -E 'test(consolidation_unit::)' {{ args }}
+    cargo nextest {{ nextest_action }} -p pse-ids -p pse-diagnostics -p pse-schema -p pse-relations -p pse-compiler --lib --locked {{ validate }} -E 'test(consolidation_unit::)' {{ args }}
 
 [group('local')]
 [doc('Isolated Rust foundation units; no compiler/storage/solver journeys')]
@@ -567,9 +493,6 @@ engine-boundary-check:
 bench-builds output *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    source scripts/native-solver-env.sh
-    source scripts/native-math-env.sh
-    export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
     "{{ py }}" -m scripts.build_measurements "$@"
 
 [group('local')]
@@ -725,12 +648,12 @@ py-sync:
 
 [group('local')]
 [doc('Build the editable native solver workflow with its explicit linked library environment')]
-py-sync-native:
+py-sync-native profile="dev":
     #!/usr/bin/env bash
     set -euo pipefail
     source scripts/native-execution-env.sh
     uv sync --locked --no-install-project
-    VIRTUAL_ENV="{{ absolute_path(venv) }}" "{{ bin / 'maturin' }}" develop --uv --profile dev --locked --features force-validate,native-solvers
+    VIRTUAL_ENV="{{ absolute_path(venv) }}" "{{ bin / 'maturin' }}" develop --uv --profile {{ quote(profile) }} --locked --features force-validate,native-solvers
     cargo run -p xtask --no-default-features --locked -- python-stubs
 
 [group('local')]
@@ -778,28 +701,28 @@ typecheck:
 lint-imports:
     "{{ lint_imports }}"
 
-[group('local')]
-[doc('Publish and reopen a fresh native store for inspection; destination must be new')]
-inspection-fixture output:
-    cargo run --quiet --package xtask --locked {{ validate }} -- inspection-fixture {{ quote(output) }}
+
 
 [group('local')]
 [doc('Python tests against a fresh native store (unit + component; pass -m to override)')]
+[positional-arguments]
 py-test *args:
-    cargo run --quiet --package xtask --locked {{ validate }} -- python-tests {{ args }}
+    cargo run --quiet --package xtask --locked {{ validate }} -- python-tests "$@"
 
 [group('local')]
 [doc('Python unit tests without compiling or publishing an inspection fixture')]
+[positional-arguments]
 py-unit *args:
-    uv run --no-sync pytest --maxfail=0 --continue-on-collection-errors -m unit {{ args }}
+    uv run --no-sync pytest --maxfail=0 --continue-on-collection-errors -m unit "$@"
 
 [group('local')]
 [doc('Targeted Python functional units with the linked native solver environment')]
+[positional-arguments]
 py-unit-native *args:
     #!/usr/bin/env bash
     set -euo pipefail
     source scripts/native-execution-env.sh
-    bash scripts/memory-cap.sh "{{ py }}" -m pytest --maxfail=0 --continue-on-collection-errors -m unit {{ args }}
+    bash scripts/memory-cap.sh "{{ py }}" -m pytest --maxfail=0 --continue-on-collection-errors -m unit "$@"
 
 [group('local')]
 [doc('Run data-authored modeling fixtures and shared conformance checks; accepts Python module CLI arguments')]
@@ -824,7 +747,7 @@ lint-repo:
 
 turn_end_steps := "adr-index fmt"
 ready_steps := "skills-sync doctor"
-hygiene_checks := "lint-agents adr-frontmatter-check adr-index-check register-lint lint-typos lint-license lint-actions lint-shell lint-ast lint-py typecheck lint-imports engine-boundary-check solver-pin-check family-check codegen-hakari-check codegen-relations-check codegen-rust-contracts-check codegen-docs-check codegen-postgres-check codegen-queries-check clippy-default clippy-no-default docs-rust"
+hygiene_checks := "lint-agents adr-frontmatter-check adr-index-check register-lint lint-typos lint-license lint-actions lint-shell lint-ast lint-py typecheck lint-imports engine-boundary-check solver-pin-check family-check codegen-hakari-check codegen-relations-check codegen-rust-contracts-check codegen-docs-check codegen-surreal-check clippy-default clippy-no-default docs-rust"
 
 [group('mutating')]
 [doc('End of a turn that changed files (root agent): regenerate the ADR index and format')]
@@ -1031,7 +954,7 @@ library-catalog:
     "{{ py }}" scripts/library_utilization.py --write
 
 [group('mutating')]
-[doc('Regenerate relations, Python contracts, docs/generated, the store schema and statements, the Ipopt bindings and the cargo-hakari workspace-hack')]
+[doc('Regenerate relations, Python contracts, docs/generated, the canonical native schema and codecs, the Ipopt bindings and the cargo-hakari workspace-hack')]
 codegen *args:
     bash scripts/native_exec.sh cargo run --quiet -p xtask --features package-fixtures --locked -- codegen {{ args }}
     cargo hakari generate
@@ -1040,7 +963,7 @@ codegen *args:
 [group('mutating')]
 [doc('Generate Rust contracts, rebuild their package loader, then regenerate complete outputs')]
 codegen-bootstrap *args:
-    bash scripts/native_exec.sh cargo run -p xtask --no-default-features --locked -- codegen --only rust-contracts
+    cargo run -p xtask --no-default-features --locked -- codegen --only rust-contracts
     bash scripts/native_exec.sh cargo run -p xtask --features package-fixtures --locked -- codegen {{ args }}
 
 [group('mutating')]
@@ -1049,26 +972,16 @@ codegen-contracts:
     #!/usr/bin/env bash
     set -euo pipefail
     source scripts/build-env.sh
-    source scripts/native-solver-env.sh
-    source scripts/native-math-env.sh
     unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
-    export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
     cargo run -p xtask --no-default-features --locked -- codegen --only rust-contracts
     cargo run -p xtask --no-default-features --locked -- codegen --only python
     cargo run -p xtask --no-default-features --locked -- codegen --only docs
-    cargo run -p xtask --no-default-features --locked -- codegen --only postgres
+    cargo run -p xtask --no-default-features --locked -- codegen --only surreal
 
-[group('mutating')]
-[doc('Regenerate operational statements against an isolated disposable PostgreSQL database')]
-codegen-queries:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/build-env.sh
-    source scripts/native-solver-env.sh
-    source scripts/native-math-env.sh
-    unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
-    export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
-    cargo run -p xtask --no-default-features --locked -- codegen --only queries
+[group('local')]
+[doc('Exercise pure candidate annotation checking and refusal of native codec execution')]
+codegen-annotations-test:
+    "{{ py }}" -m unittest scripts.tests.test_python_contract_annotations -v
 
 [group('mutating')]
 [doc('Accept pending insta snapshots')]
@@ -1259,17 +1172,14 @@ list-native-contracts:
 [group('local')]
 [doc('Lint the N07-N08 implementation and consumer test sources without execution')]
 lint-native-contracts:
-    cargo clippy --keep-going -p pse-engine -p pse-schema -p pse-relations -p pse-compiler -p pse-rules -p pse-catalog -p pse-backend-native -p pse-runtime -p pse-benches --all-targets --locked {{ validate }} -- -D warnings
+    cargo clippy --keep-going -p pse-engine -p pse-schema -p pse-relations -p pse-compiler -p pse-rules -p pse-backend-native -p pse-runtime -p pse-benches --all-targets --locked {{ validate }} -- -D warnings
 
 [group('local')]
 [doc('Lint the native data pivot and every consumer, without executing test journeys')]
 lint-native-data:
     cargo clippy --keep-going --workspace --all-targets --locked {{ validate }} -- -D warnings
 
-[group('local')]
-[doc('Isolated Delta contract, bounded IO, retention and Arrow stream units; no Delta commits or publication journeys')]
-dev-delta-boundaries *args:
-    cargo nextest {{ nextest_action }} -p pse-catalog -p pse-runtime -p pse-relations --lib --locked {{ validate }} -E 'test(delta_boundary_unit::) or package(pse-catalog) and (test(delta::contract::tests::) or test(delta::layout::tests::))' {{ args }}
+
 
 [group('local')]
 [doc('Isolated native Python stub declaration and export consistency units')]

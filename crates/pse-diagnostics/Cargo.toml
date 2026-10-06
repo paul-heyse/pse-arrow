@@ -22,9 +22,4 @@ thiserror.workspace = true
 miette.workspace = true
 serde.workspace = true
 schemars.workspace = true
-postgres-types = { workspace = true, optional = true, features = ["derive"] }
 
-[features]
-# PostgreSQL values of the vocabularies a store column uses (ADR-0117 Outcome 4): each
-# maps to the store's ENUM type of its snake-case name. The value protocol only.
-postgres = ["dep:postgres-types"]

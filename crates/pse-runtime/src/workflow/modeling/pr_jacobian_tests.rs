@@ -94,7 +94,7 @@ async fn package(
             target_partitions: positive(settings.threads)?,
         },
         execution: Default::default(),
-        cache: crate::DeltaCacheBudget::for_memory(settings.memory_limit_bytes),
+        cache: crate::CacheBudget::for_memory(settings.memory_limit_bytes),
         math: crate::math::MathPolicy {
             worker_bytes: settings.math_worker_bytes,
             ..Default::default()

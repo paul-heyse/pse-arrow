@@ -67,7 +67,6 @@ pub(in crate::workflow) fn outcome_row(
         attempt_id: latest.and_then(|attempt| attempt.attempt_id),
         attempt_state: latest.and_then(|attempt| attempt.lifecycle),
         result_id: None,
-        member_catalog: None,
         usable: outcome.scientific.usable,
         seed_permission: outcome.scientific.seed_permission,
         candidate_use: outcome.scientific.candidate_use,
@@ -122,7 +121,7 @@ impl StudyReport {
             .zip(&self.results)
             .map(|((point, outcome), result)| {
                 let mut row = outcome_row(study_id, point, outcome);
-                row.result_id = result.as_ref().map(|result| result.run_id);
+                row.result_id = result.as_ref().map(|result| result.run_id());
                 row
             })
             .collect();
@@ -143,7 +142,7 @@ impl StudyReport {
         export::<pse_model::generated::runtime::modeling_findings::Row>(&self.runtime, rows)
     }
 }
-fn export<T: RelationRow + pse_model::HeapUsage>(
+pub(super) fn export<T: RelationRow + pse_model::HeapUsage>(
     runtime: &super::Runtime,
     rows: Vec<T>,
 ) -> Result<FieldCheckedBatch, WorkflowError> {

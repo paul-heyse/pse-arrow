@@ -27,4 +27,3 @@ sha2.workspace = true
 serde_json.workspace = true
 
 [dependencies]
-pse-workspace-hack.workspace = true

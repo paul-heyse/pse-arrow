@@ -115,14 +115,6 @@ pub fn declare_relations(builder: &mut RegistryBuilder) {
                 "Native DataFusion SQL predicates; every predicate must evaluate to true.",
             ),
             FieldContract::payload(
-                "delta_properties",
-                FieldContract::list(FieldContract::structure(vec![
-                    FieldContract::native(arrow_schema::DataType::Utf8).with_name("name"),
-                    FieldContract::native(arrow_schema::DataType::Utf8).with_name("value"),
-                ])),
-                "Declared native Delta policies in name order; part of the exact table contract.",
-            ),
-            FieldContract::payload(
                 "unique_keys",
                 FieldContract::list(FieldContract::structure(vec![
                     FieldContract::native(arrow_schema::DataType::Utf8).with_name("name"),

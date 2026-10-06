@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 
 use crate::{SchemaError, model::FieldContract};
 
-/// Portable logical reference metadata, retained through declared Delta layouts.
+/// Portable logical reference metadata, retained in exact Arrow fields.
 pub use super::field_facets::KEY_REFERENCE;
 
 /// Presence of the mapped key inside a visible containing value.

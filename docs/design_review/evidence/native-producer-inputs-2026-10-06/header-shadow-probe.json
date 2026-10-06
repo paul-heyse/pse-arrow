@@ -1,0 +1,28 @@
+{
+  "scope": "Scratch-only GNU13.3 header-shadow behavior; two preprocessing commands, no object/link/scientific execution or production modification",
+  "argv": [
+    "/usr/bin/gcc",
+    "-E",
+    "-MD",
+    "-MF",
+    "/tmp/pse-native-producer-audit/header-shadow-taldn2d1/input.d",
+    "-I/tmp/pse-native-producer-audit/header-shadow-taldn2d1/preferred",
+    "-I/tmp/pse-native-producer-audit/header-shadow-taldn2d1/fallback",
+    "/tmp/pse-native-producer-audit/header-shadow-taldn2d1/input.c"
+  ],
+  "before": {
+    "exit": 0,
+    "stdout": "# 0 \"/tmp/pse-native-producer-audit/header-shadow-taldn2d1/input.c\"\n# 0 \"<built-in>\"\n# 0 \"<command-line>\"\n# 1 \"/usr/include/stdc-predef.h\" 1 3 4\n# 0 \"<command-line>\" 2\n# 1 \"/tmp/pse-native-producer-audit/header-shadow-taldn2d1/input.c\"\n# 1 \"/tmp/pse-native-producer-audit/header-shadow-taldn2d1/fallback/producer_probe.h\" 1\n# 2 \"/tmp/pse-native-producer-audit/header-shadow-taldn2d1/input.c\" 2\nint producer_probe_value = 11;\n",
+    "stderr": "",
+    "dep_info": "input.o: /tmp/pse-native-producer-audit/header-shadow-taldn2d1/input.c \\\n /usr/include/stdc-predef.h \\\n /tmp/pse-native-producer-audit/header-shadow-taldn2d1/fallback/producer_probe.h\n"
+  },
+  "after": {
+    "exit": 0,
+    "stdout": "# 0 \"/tmp/pse-native-producer-audit/header-shadow-taldn2d1/input.c\"\n# 0 \"<built-in>\"\n# 0 \"<command-line>\"\n# 1 \"/usr/include/stdc-predef.h\" 1 3 4\n# 0 \"<command-line>\" 2\n# 1 \"/tmp/pse-native-producer-audit/header-shadow-taldn2d1/input.c\"\n# 1 \"/tmp/pse-native-producer-audit/header-shadow-taldn2d1/preferred/producer_probe.h\" 1\n# 2 \"/tmp/pse-native-producer-audit/header-shadow-taldn2d1/input.c\" 2\nint producer_probe_value = 29;\n",
+    "stderr": "",
+    "dep_info": "input.o: /tmp/pse-native-producer-audit/header-shadow-taldn2d1/input.c \\\n /usr/include/stdc-predef.h \\\n /tmp/pse-native-producer-audit/header-shadow-taldn2d1/preferred/producer_probe.h\n"
+  },
+  "original_source_unchanged": true,
+  "original_consumed_header_unchanged": true,
+  "new_preferred_header_changes_preprocessing": true
+}

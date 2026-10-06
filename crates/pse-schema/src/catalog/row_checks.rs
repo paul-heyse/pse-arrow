@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Native SQL row contracts. These declarations bind identically for candidate
-//! diagnostics, provider requirements and persisted Delta CHECK constraints.
+//! diagnostics, provider requirements and admitted native row predicates.
 
 use crate::model::Namespace;
 use std::collections::BTreeMap;

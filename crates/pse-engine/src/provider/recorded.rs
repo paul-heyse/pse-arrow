@@ -71,26 +71,13 @@ impl RecordedProvider {
 /// Accept only an observed recorded field's meaning and physical representation.
 /// Aliasing and native nullability inference affect occurrences, not the value domain.
 pub(crate) fn admits(fields: &[Arc<Field>], field: &Field) -> bool {
-    let decoded = if field
-        .metadata()
-        .contains_key(pse_schema::delta::KEY_EXECUTION_FIELD)
-    {
-        match pse_schema::delta::execution_schema(&datafusion::arrow::datatypes::Schema::new(vec![
-            field.clone(),
-        ])) {
-            Ok(schema) => schema.field(0).clone(),
-            Err(_) => return false,
-        }
-    } else {
-        field.clone()
-    };
     fields.iter().any(|observed| {
         observed
             .as_ref()
             .clone()
-            .with_name(decoded.name())
-            .with_nullable(decoded.is_nullable())
-            == decoded
+            .with_name(field.name())
+            .with_nullable(field.is_nullable())
+            == *field
     })
 }
 #[async_trait::async_trait]

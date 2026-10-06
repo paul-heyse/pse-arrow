@@ -30,8 +30,6 @@ fn serialization_consumers(reg: &crate::Registry) -> BTreeSet<String> {
             "authored.engineering_default_rules".into(),
             "runtime.accuracy_goal_assessments".into(),
             "runtime.resolved_numerics".into(),
-            "runtime.publication_manifests".into(),
-            "runtime.native_dependencies".into(),
             "runtime.solver_capabilities".into(),
             "runtime.solve_runs".into(),
             "runtime.computation_runs".into(),
@@ -263,9 +261,6 @@ pub(super) fn split(tree: &mut GeneratedTree, reg: &crate::Registry) -> Result<(
             pub mod extension_values;
             /// Typed entity ids declared by the registry (ADR-0115).
             pub mod identities;
-            /// PostgreSQL values of store enums and typed ids (ADR-0114 Outcome 25).
-            #[cfg(feature = "postgres")]
-            pub mod postgres;
         },
     )?;
     Ok(())

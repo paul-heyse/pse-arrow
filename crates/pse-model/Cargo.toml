@@ -31,20 +31,6 @@ schemars.workspace = true
 nutype.workspace = true
 thiserror.workspace = true
 miette.workspace = true
-postgres-types = { workspace = true, optional = true }
-postgres-protocol = { workspace = true, optional = true }
-pse-workspace-hack.workspace = true
 
-[features]
-# PostgreSQL values of the operational store's registry enums and typed ids
-# (ADR-0114 Outcome 25); only the store's query crate enables it. A source-owned
-# vocabulary's mapping lives in its owning crate's `postgres` feature (ADR-0117).
-postgres = [
-  "pse-ids/postgres",
-  "pse-diagnostics/postgres",
-  "pse-vocabulary/postgres",
-  "dep:postgres-types",
-  "dep:postgres-protocol",
-]
 
 [dev-dependencies]

@@ -10,7 +10,7 @@ use pse_engine::{
     session::{EngineFactory, native_engine_profile},
 };
 use pse_runtime::{ResourceBudget, SharedRuntime};
-use std::{num::NonZeroUsize, sync::Arc};
+use std::{num::NonZeroUsize, sync::{Arc,Mutex}};
 
 #[allow(
     dead_code,
@@ -22,8 +22,25 @@ pub(crate) struct WorkflowRuntime {
     pub cancel: CancellationToken,
     pub runtime: Arc<SharedRuntime>,
     _spill: tempfile::TempDir,
+    fixture_stores: Mutex<Vec<pse_operations::canonical::CanonicalStore>>,
 }
 impl WorkflowRuntime {
+    /// Retain only explicitly created fixture databases for sample teardown.
+    pub(crate) fn register_fixture(&self,store:pse_operations::canonical::CanonicalStore)->Result<(),pse_operations::canonical::CanonicalError> {
+        self.fixture_stores.lock().map_err(|_|pse_operations::canonical::CanonicalError::Configuration("fixture owner poisoned".into()))?.push(store);
+        Ok(())
+    }
+    /// Remove registered isolated databases after scientific consumers have drained.
+    pub(crate) async fn cleanup_fixtures(&self)->Result<(),pse_operations::canonical::CanonicalError> {
+        loop {
+            let store=self.fixture_stores.lock().map_err(|_|pse_operations::canonical::CanonicalError::Configuration("fixture owner poisoned".into()))?.last().cloned();
+            let Some(store)=store else {break;};
+            store.remove_isolated_fixture().await?;
+            self.fixture_stores.lock().map_err(|_|pse_operations::canonical::CanonicalError::Configuration("fixture owner poisoned".into()))?.retain(|retained|retained.database()!=store.database());
+        }
+        Ok(())
+    }
+
     pub(crate) fn new() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         Self::with_threads(NonZeroUsize::new(2).ok_or("two is positive")?)
     }
@@ -43,10 +60,10 @@ impl WorkflowRuntime {
             target_partitions: workers,
         };
         let mut cache =
-            pse_runtime::DeltaCacheBudget::for_memory(workflow_budget::MEMORY_LIMIT_BYTES);
-        cache.native.concurrent_queries =
+            pse_runtime::CacheBudget::for_memory(workflow_budget::MEMORY_LIMIT_BYTES);
+        cache.concurrent_queries =
             NonZeroUsize::new(workers.get().min(2)).ok_or("positive queries")?;
-        cache.native.concurrent_outputs =
+        cache.concurrent_outputs =
             NonZeroUsize::new(workers.get().min(4)).ok_or("positive outputs")?;
         let runtime = SharedRuntime::build(ResourceBudget {
             memory_limit_bytes: NonZeroUsize::new(workflow_budget::MEMORY_LIMIT_BYTES)
@@ -67,6 +84,7 @@ impl WorkflowRuntime {
             runtime,
             cancel: CancellationToken::new(),
             _spill: spill,
+            fixture_stores: Mutex::new(Vec::new()),
         })
     }
 }

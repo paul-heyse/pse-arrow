@@ -314,13 +314,6 @@ pub(crate) fn invalid(reason: &str) -> pse_engine::EngineError {
     }
 }
 
-pub(super) fn closed() -> pse_engine::EngineError {
-    pse_engine::EngineError::Admission {
-        path: "inspection handle".to_owned(),
-        reason: "handle is closed".to_owned(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

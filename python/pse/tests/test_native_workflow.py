@@ -23,8 +23,6 @@ from pse.contracts import documents
 from pse.contracts import runtime as result_contracts
 from pse.contracts.enums import (
     AccuracyGoalStatus,
-    AttemptKind,
-    AttemptState,
     CandidateQualifier,
     CandidateRefusal,
     CandidateUse,
@@ -48,8 +46,6 @@ from pse.contracts.identities import (
     DeclarationId,
     FitId,
     InstanceId,
-    PublicationId,
-    WorkspaceId,
 )
 from pse.contracts.values import SemanticId
 
@@ -242,17 +238,16 @@ def test_explicit_primal_seed_and_transactional_initialization(
 def runtime(
     inspection_settings: pse.EngineSettings, canonical_substrate: str
 ) -> pse.Runtime:
-    return pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    return pse.Runtime(inspection_settings, substrate=canonical_substrate, ephemeral=True)
 
 
 @pytest.fixture
 def durable_runtime(
     inspection_settings: pse.EngineSettings,
-    operational_store: pse.OperationalStore,
     canonical_substrate: str,
 ) -> pse.Runtime:
     return pse.Runtime(
-        inspection_settings, substrate=canonical_substrate, store=operational_store
+        inspection_settings, substrate=canonical_substrate
     )
 
 
@@ -738,7 +733,7 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
 
 
 @pytest.mark.integration
-def test_completion_projection_and_pre_effect_publication_ticket(
+def test_completion_projection_and_canonical_admission(
     runtime: pse.Runtime,
     durable_runtime: pse.Runtime,
     physical: pse.PhysicalContext,
@@ -747,19 +742,11 @@ def test_completion_projection_and_pre_effect_publication_ticket(
     prepared = revision(runtime, physical).prepare_solve(
         declaration(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
     )
-    # An ephemeral run records nothing and cannot publish (ADR-0112 Outcome 16).
+    # Ephemeral numerical execution is explicit; ordinary deployment persists.
     assert not runtime.durable
     ephemeral = prepared.start().wait()
-    assert ephemeral.attempt_id is None
-    unregistered = pse.Workspace(
-        workspace_id=identity(240).to_hex(),
-        name="ephemeral",
-        root_uri=tmp_path.as_uri() + "/",
-    )
-    with pytest.raises(pse.InspectionError, match="ephemeral"):
-        ephemeral.prepare_publication(unregistered)
-    with pytest.raises(pse.InspectionError, match="durable runtime"):
-        runtime.runs()
+    assert ephemeral.canonical_run_key is None
+    assert ephemeral.canonical_attempt_key is None
     assert durable_runtime.durable
     handle = (
         revision(durable_runtime, physical)
@@ -769,18 +756,14 @@ def test_completion_projection_and_pre_effect_publication_ticket(
         .start()
     )
     result = handle.wait()
-    assert result.attempt_id is not None
-    assert handle.attempt_id == result.attempt_id
-    # The durable attempt is listed from the store, as the registry relation.
-    (listed,) = durable_runtime.runs(run_id=result.run_id)
-    assert isinstance(listed, pse.OperationalAttempt)
-    assert listed.attempt_id == result.attempt_id
-    assert listed.run_id == result.run_id
-    assert listed.kind == AttemptKind.MODELING
-    assert listed.state == AttemptState.COMPLETED
-    assert listed.finished_at is not None
-    failed = durable_runtime.runs(run_id=result.run_id, states=[AttemptState.FAILED])
-    assert failed == ()
+    assert result.canonical_run_key is not None
+    assert result.canonical_attempt_key is not None
+    assert handle.canonical_run_key == result.canonical_run_key
+    assert handle.canonical_attempt_key == result.canonical_attempt_key
+    (listed,) = pa.table(durable_runtime.attempt_record(result.canonical_attempt_key)).to_pylist()
+    assert listed["key"] == result.canonical_attempt_key
+    assert listed["run"] == result.canonical_run_key
+    assert listed["terminal"] and listed["outcome"] == "succeeded"
     completion = result.completion
     assert completion == result.completion
     converter = codec.converter()
@@ -811,33 +794,17 @@ def test_completion_projection_and_pre_effect_publication_ticket(
     assert not result.diagnostics()
     durable_runtime.clear_program_cache()
     assert result.completion == completion
-    workspace = durable_runtime.register_workspace(
-        f"ticket-{result.run_id.to_hex()}", tmp_path
+    stored = pa.table(durable_runtime.results(
+        result.canonical_run_key, result.canonical_attempt_key, "runtime.solve_runs"
+    )).to_pylist()
+    assert stored == solves
+    destination = tmp_path / "solve.arrow"
+    durable_runtime.export_results(
+        result.canonical_run_key, result.canonical_attempt_key,
+        "runtime.solve_runs", destination,
     )
-    assert durable_runtime.workspace(workspace.name) == workspace
-    assert (
-        durable_runtime.head(WorkspaceId(SemanticId.from_hex(workspace.workspace_id)))
-        is None
-    )
-    # The publication attempt is the durable attempt; the ticket exists before any
-    # effect.
-    attempt = result.prepare_publication(
-        workspace, publication_id=PublicationId(identity(241))
-    )
-    ticket = attempt.ticket
-    assert attempt.publication_id == identity(241)
-    assert attempt.attempt_id == result.attempt_id
-    wire = msgspec.json.decode(ticket.json, type=dict[str, object])
-    candidate = cast("dict[str, object]", wire["candidate"])
-    assert candidate["attempt_id"] == result.attempt_id.to_hex()
-    assert candidate["publication_id"] == identity(241).to_hex()
-    assert candidate["workspace_id"] == workspace.workspace_id
-    assert not tuple(tmp_path.iterdir())
-    # Nothing was registered: the catalog proves nothing was committed.
-    settled = durable_runtime.settle_publication(ticket)
-    assert isinstance(settled, pse.PublicationSettlementProvedNoncommit)
-    assert settled == durable_runtime.settle_publication(ticket)
-    assert not tuple(tmp_path.iterdir())
+    with pa.ipc.open_stream(destination) as reader:
+        assert reader.read_all().to_pylist() == solves
 
 
 def price_taker_package(
@@ -907,11 +874,13 @@ def test_durable_limited_native_incumbent_is_feasible_and_nonoptimal(
     )
     handle = package.prepare_solve(case, settings).start()
     result = handle.wait()
-    assert result.attempt_id is not None
-    assert handle.attempt_id == result.attempt_id
-    (stored,) = durable_runtime.runs(run_id=result.run_id)
-    assert stored.attempt_id == result.attempt_id
-    assert stored.finished_at is not None
+    assert result.canonical_run_key is not None, tuple(
+        diagnostic.message for diagnostic in result.diagnostics()
+    )
+    assert result.canonical_attempt_key is not None
+    assert handle.canonical_attempt_key == result.canonical_attempt_key
+    (stored,) = pa.table(durable_runtime.attempt_record(result.canonical_attempt_key)).to_pylist()
+    assert stored["key"] == result.canonical_attempt_key and stored["terminal"]
     (solve,) = result.completion.solves
     assert solve.backend == NativeBackend.SCIP
     assert solve.termination == NativeTermination.SOLUTION_LIMIT
@@ -939,13 +908,13 @@ def test_durable_limited_native_incumbent_is_feasible_and_nonoptimal(
         assert assessment.usability == CandidateUse.USABLE
         assert assessment.permits_result
         assert CandidateQualifier.ACCEPTED_INCUMBENT_FEASIBLE in assessment.qualifiers
-        assert stored.state == AttemptState.COMPLETED
+        assert stored["outcome"] == "succeeded"
     else:
         assert not result.usable
         assert assessment.usability == CandidateUse.SEED_ONLY
         assert not assessment.permits_result
         assert CandidateRefusal.INCUMBENT_REFUSED in assessment.refusals
-        assert stored.state == AttemptState.FAILED
+        assert stored["outcome"] == "failed"
     assert assessment.permits_seed
     variables = pa.table(result.table("runtime.solve_variables")).to_pylist()
     candidates = [row for row in variables if not row["parameter"]]
@@ -979,13 +948,18 @@ def test_durable_native_memory_stop_keeps_unavailable_feasibility(
     )
     handle = prepared.start()
     result = handle.wait()
-    assert result.attempt_id is not None
-    assert handle.attempt_id == result.attempt_id
-    (stored,) = durable_runtime.runs(run_id=result.run_id)
-    assert stored.attempt_id == result.attempt_id
-    assert stored.state == AttemptState.FAILED
-    assert stored.finished_at is not None
-    assert stored.termination_native == NativeTermination.RESOURCE_EXHAUSTED
+    assert result.canonical_run_key is not None, tuple(
+        diagnostic.message for diagnostic in result.diagnostics()
+    )
+    assert result.canonical_attempt_key is not None
+    assert handle.canonical_attempt_key == result.canonical_attempt_key
+    (stored,) = pa.table(durable_runtime.attempt_record(result.canonical_attempt_key)).to_pylist()
+    assert stored["key"] == result.canonical_attempt_key and stored["terminal"]
+    assert stored["outcome"] == "failed"
+    (persisted,) = pa.table(durable_runtime.results(
+        result.canonical_run_key, result.canonical_attempt_key, "runtime.solve_runs"
+    )).to_pylist()
+    assert persisted["termination"] == NativeTermination.RESOURCE_EXHAUSTED.value
     (solve,) = result.completion.solves
     assert solve.backend == NativeBackend.SCIP
     assert solve.native_status == "SCIP_STATUS_MEMLIMIT"
@@ -1007,12 +981,25 @@ def test_durable_native_memory_stop_keeps_unavailable_feasibility(
     assert not assessment.permits_seed
     diagnostics = result.completion.diagnostics
     assert any(d.class_ == NativeBoundaryClass.RESOURCE_LIMIT for d in diagnostics)
-    assert stored.termination_detail is not None
-    detail = codec.decode_json(stored.termination_detail, documents.TerminationDetail)
-    assert isinstance(detail.cause, documents.TerminationCauseAssessment)
-    assert not detail.cause.usable
+    retained_assessments = pa.table(durable_runtime.results(
+        result.canonical_run_key, result.canonical_attempt_key,
+        "runtime.candidate_assessments",
+    ))
+    assert tuple(codec.structure_rows(
+        retained_assessments.to_pylist(), result_contracts.RuntimeCandidateAssessmentsRow
+    )) == codec.document_rows(
+        result.completion.assessments, result_contracts.RuntimeCandidateAssessmentsRow
+    )
+    retained_findings = pa.table(durable_runtime.results(
+        result.canonical_run_key, result.canonical_attempt_key,
+        "runtime.modeling_findings",
+    ))
+    assert retained_findings.equals(pa.table(result.table("runtime.modeling_findings")))
     assert any(
-        d.class_ == NativeBoundaryClass.RESOURCE_LIMIT for d in detail.cause.diagnostics
+        row.class_ == NativeBoundaryClass.RESOURCE_LIMIT
+        for row in codec.structure_rows(
+            retained_findings.to_pylist(), result_contracts.RuntimeModelingFindingsRow
+        )
     )
     variables = pa.table(result.table("runtime.solve_variables")).to_pylist()
     candidates = [row for row in variables if not row["parameter"]]

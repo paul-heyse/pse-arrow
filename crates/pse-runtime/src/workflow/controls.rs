@@ -52,23 +52,6 @@ impl Default for StudyRunControls {
         }
     }
 }
-/// Durable study queue submission.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(default, deny_unknown_fields)]
-pub struct StudySubmitControls {
-    /// Maximum job tries including the initial attempt.
-    pub max_tries: u32,
-    /// Queue priority passed to the operational store.
-    pub priority: i32,
-}
-impl Default for StudySubmitControls {
-    fn default() -> Self {
-        Self {
-            max_tries: super::RetryPolicy::ONCE.max_tries,
-            priority: 0,
-        }
-    }
-}
 /// Observation timing while waiting for a study publication.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
@@ -98,8 +81,6 @@ mod boundary_unit {
         assert_eq!(omitted.page, explicit.page);
         let run: RunControls = serde_json::from_str("{}").unwrap();
         assert!(!run.continue_independent);
-        let retry: StudySubmitControls = serde_json::from_str("{}").unwrap();
-        assert_eq!(retry.max_tries, super::super::RetryPolicy::ONCE.max_tries);
     }
     #[test]
     fn controls_reject_unknown_fields() {

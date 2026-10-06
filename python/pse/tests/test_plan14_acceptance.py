@@ -22,8 +22,6 @@ from pse.contracts.documents import (
     Profile,
 )
 from pse.contracts.enums import (
-    AttemptKind,
-    AttemptState,
     DynamicsMethod,
     HessianMode,
     NativeBackend,
@@ -32,7 +30,7 @@ from pse.contracts.enums import (
     NumericalTarget,
     PresolvePolicyKind,
 )
-from pse.contracts.identities import DeclarationId, PublicationId, WorkspaceId
+from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 
 
@@ -131,13 +129,12 @@ def test_public_native_process_and_exact_results(
 @pytest.mark.integration
 def test_public_dynamic_and_transient_fit(
     inspection_settings: pse.EngineSettings,
-    operational_store: pse.OperationalStore,
     tmp_path: Path,
     canonical_substrate: str,
 ) -> None:
-    # Only durable runs publish (ADR-0112 Outcome 16); every run is a stored attempt.
+    # Every ordinary run retains its exact canonical scientific attempt.
     runtime = pse.Runtime(
-        inspection_settings, substrate=canonical_substrate, store=operational_store
+        inspection_settings, substrate=canonical_substrate
     )
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
@@ -236,31 +233,27 @@ def test_public_dynamic_and_transient_fit(
     )
     for stream in sources.values():
         stream.close()
-    (listed,) = runtime.runs(run_id=joined.run_id)
-    assert joined.attempt_id is not None
-    assert listed.attempt_id == joined.attempt_id
-    assert listed.kind == AttemptKind.SIMULATION
-    assert listed.state == AttemptState.COMPLETED
-    workspace = runtime.register_workspace(f"plan14-{joined.run_id.to_hex()}", tmp_path)
-    command = joined.prepare_publication(workspace)
-    ticket = command.ticket
-    published = command.commit()
-    settled = runtime.settle_publication(ticket)
-    assert isinstance(settled, pse.PublicationSettlementCommitted)
-    assert settled.publication_id == published.publication_id
-    assert runtime.head(
-        WorkspaceId(SemanticId.from_hex(workspace.workspace_id))
-    ) == PublicationId(SemanticId.from_hex(published.publication_id))
-    with runtime.open(
-        PublicationId(SemanticId.from_hex(published.publication_id))
-    ) as publication:
-        assert publication.publication_id == PublicationId(
-            SemanticId.from_hex(published.publication_id)
-        )
-        assert publication.attempt_id == joined.attempt_id
-        assert ("artifact", "runtime", "simulation_samples") in {
-            (name.catalog, name.schema, name.table) for name in publication.tables()
-        }
+    assert joined.canonical_run_key is not None
+    assert joined.canonical_attempt_key is not None
+    (stored,) = pa.table(runtime.attempt_record(joined.canonical_attempt_key)).to_pylist()
+    assert stored["run"] == joined.canonical_run_key and stored["outcome"] == "succeeded"
+    retained_samples = pa.table(runtime.results(
+        joined.canonical_run_key, joined.canonical_attempt_key,
+        "runtime.simulation_samples",
+    ))
+    # Dense storage groups the declared output and sample keys so a selected
+    # output reads only its own blocks. Every original scientific column is
+    # preserved; relation row ranges address that canonical stored coverage.
+    expected_samples = sorted(
+        pa.table(joined.table("runtime.simulation_samples")).to_pylist(),
+        key=lambda row: (row["symbol_id"], row["sample"]),
+    )
+    assert retained_samples.to_pylist() == expected_samples
+    destination = tmp_path / "simulation.arrow"
+    runtime.export_results(joined.canonical_run_key, joined.canonical_attempt_key, "runtime.simulation_samples", destination)
+    assert destination.is_file()
+    with pa.ipc.open_stream(destination) as reader:
+        assert reader.read_all().equals(retained_samples)
     converter = codec.converter()
     fit = converter.structure(
         {
@@ -387,7 +380,6 @@ class NoPyomo(importlib.abc.MetaPathFinder):
             raise AssertionError('production attempted to import Pyomo')
 sys.meta_path.insert(0, NoPyomo())
 import pse
-from pse.contracts.identities import WorkspaceId, PublicationId
 
 
 #: A manifest dependency on the physical primitives fixture. Its document names

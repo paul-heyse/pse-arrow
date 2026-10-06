@@ -31,12 +31,11 @@ EngineSettings = _native.EngineSettings
 CacheSettings = _native.CacheSettings
 InspectionError = _native.InspectionError
 DiagnosticReport = _native.DiagnosticReport
-_NativePublication = _native.Publication
 _NativeTableStream = _native.TableStream
+_registry_table = _native.registry_table
+_NativeAnalysis = _native.NativeAnalysis
 _NativePhysicalContext = _native.NativePhysicalContext
 _NativeRuntime = _native.NativeRuntime
-OperationalStore = _native.OperationalStore
-_TestOperationalStore = _native._TestOperationalStore  # noqa: SLF001 -- private test fixture owner
 _NativeModelingNativeAnalysis = _native.NativeModelingNativeAnalysis
 _NativeModelingNonlinearExplanation = _native.NativeModelingNonlinearExplanation
 _NativeModelingElasticAttempt = _native.NativeModelingElasticAttempt
@@ -62,13 +61,9 @@ SimulationSettings = _native.SimulationSettings
 _NativeRunHandle = _native.NativeRunHandle
 _NativeStudyHandle = _native.NativeStudyHandle
 _NativeRunResult = _native.NativeRunResult
-_NativePublicationAttempt = _native.NativePublicationAttempt
+_NativeStoredResult = _native.NativeStoredResult
 NativeStrategyAttempt = _native.NativeStrategyAttempt
 _NativeProgressStream = _native.NativeProgressStream
-
-
-def _open_export(location: str, settings: EngineSettings) -> _NativePublication:
-    return _native.open_export(location, settings)
 
 
 def build_info() -> BuildInfo:

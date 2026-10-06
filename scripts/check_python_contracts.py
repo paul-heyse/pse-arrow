@@ -31,10 +31,13 @@ def main() -> None:
     package = ModuleType("pse")
     package.__path__ = [str(candidate / "python/pse"), str(repository / "python/pse")]
     sys.modules["pse"] = package
-    # Candidate contracts need only the stable scalar identity codecs. Loading the
-    # full live gateway would couple pure regeneration to new workflow classes in
-    # an extension which cannot be rebuilt until these contracts are generated.
-    native = importlib.import_module("pse._native")
+    # This checks annotations, never scalar values. Importing the native extension
+    # would couple pure generation to scientific libraries and to workflow classes
+    # that cannot be rebuilt until these candidate contracts have been generated.
+    # A forbidden invocation fails rather than substituting a second identity codec.
+    def annotation_only_codec(_value: object) -> object:
+        raise RuntimeError("annotation checking cannot execute native scalar codecs")
+
     boundary = ModuleType("pse._build")
     for name in (
         "semantic_id_from_hex",
@@ -42,7 +45,7 @@ def main() -> None:
         "content_hash_from_prefixed",
         "content_hash_to_prefixed",
     ):
-        setattr(boundary, name, getattr(native, name))
+        setattr(boundary, name, annotation_only_codec)
     sys.modules["pse._build"] = boundary
     root = importlib.import_module("pse.contracts")
     if arguments.documents:

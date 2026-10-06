@@ -3,7 +3,7 @@
 
 [package]
 name = "pse-operations"
-description = "Operational store and publication catalog on PostgreSQL 18: the registry-generated schema, the attempt lifecycle, jobs, streams, solutions and catalog commits (ADR-0114)."
+description = "Canonical graph revisions, compilation products, durable execution and exact scientific results."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -25,37 +25,24 @@ canonical-tests = []
 
 [dependencies]
 petgraph.workspace = true
-refinery.workspace = true
 pse-diagnostics.workspace = true
 pse-ids.workspace = true
-# The registry-generated rows, enumerations and typed ids of the store (ADR-0114 Outcome 22).
+# The registry owns canonical rows, enumerations and typed identities.
 pse-model.workspace = true
-# The statements, compiled by Cornucopia from queries/*.sql (ADR-0114 Outcome 24).
-pse-operations-queries.workspace = true
-tokio-postgres.workspace = true
-deadpool-postgres.workspace = true
-tokio-postgres-rustls.workspace = true
-rustls.workspace = true
-webpki-roots.workspace = true
-futures.workspace = true
 url.workspace = true
 uuid.workspace = true
-chrono.workspace = true
-time.workspace = true
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 miette.workspace = true
-# `net` and `io-util` serve the test-support fault proxy (`testing::FaultProxy`).
-tokio = { workspace = true, features = ["net", "io-util"] }
-clap.workspace = true
+tokio.workspace = true
 pse-workspace-hack.workspace = true
 surrealdb.workspace = true
 
 [dev-dependencies]
 arrow-schema.workspace = true
 pse-codegen.workspace = true
-# Store tests compare the created schema with the registry's store relations.
+# Store tests compare the created schema with canonical registry declarations.
 pse-schema.workspace = true
 url.workspace = true

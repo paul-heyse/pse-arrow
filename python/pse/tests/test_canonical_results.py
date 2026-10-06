@@ -1,0 +1,211 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+"""Exact canonical identities, bounded result streams and local IPC export."""
+
+import os
+from pathlib import Path
+
+import msgspec
+import pyarrow as pa
+import pytest
+
+import pse
+from pse.contracts.enums import (
+    NativeBackend,
+    NativeSolveIntent,
+    PresolvePolicyKind,
+)
+from pse.contracts.identities import DeclarationId
+
+#: A manifest dependency on the physical primitives fixture. Its document names
+#: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
+PRIMITIVES = (
+    'dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", '
+    'version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]'
+)
+
+SOURCE = """package algebraic { def Root {
+    param a:Scalar = 4;
+    var x:Scalar;
+    eq square:x*x==a;
+    annotation start x(1);
+    annotation bounds x(0,10);
+    annotation report x("root");
+    annotation check x(x>1);
+} }"""
+
+
+def _package(runtime: pse.Runtime) -> tuple[pse.ModelingPackage, DeclarationId]:
+    root = Path(__file__).resolve().parents[3]
+    primitives = root / "tests/fixtures/packages/physical-primitives"
+    physical = runtime.physical_from_documents(
+        {
+            str(p.relative_to(primitives)): p.read_text()
+            for p in primitives.rglob("*")
+            if p.is_file()
+        }
+    )
+    manifest = (
+        (root / "tests/fixtures/packages/minimal_explicit/package.toml")
+        .read_text()
+        .replace('id_policy = "explicit"', 'id_policy = "named"')
+    )
+    manifest = manifest.replace("dependencies = []", PRIMITIVES)
+    package = runtime.modeling_from_documents(
+        [{"package.toml": manifest, "models/root.pse": SOURCE}], physical
+    )
+    case = next(
+        row.declaration_id for row in package.declarations() if row.name == "Root"
+    )
+    return package, case
+
+
+def _settings() -> pse.SolveSettings:
+    return pse.SolveSettings(
+        backend=NativeBackend.IPOPT,
+        intent=NativeSolveIntent.FEASIBLE_POINT,
+        presolve=PresolvePolicyKind.OFF,
+    )
+
+
+@pytest.mark.integration
+def test_canonical_result_selection_and_progress_reopen(
+    inspection_settings: pse.EngineSettings,
+    canonical_substrate: str,
+    tmp_path: Path,
+) -> None:
+    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    assert runtime.durable
+    package, case = _package(runtime)
+    prepared = package.prepare_solve(case, _settings())
+    controls = pse.AnalysisControls(roots=(), direction="downstream")
+    dependencies = prepared.dependency_analysis(controls)
+    dependency_rows = pa.table(dependencies.edges()).to_pylist()
+    assert any(row["kind"] == "numerical_incidence" for row in dependency_rows)
+    assert any(row["kind"] == "execution_dependency" for row in dependency_rows)
+    assert all(row["evidence"] is None for row in dependency_rows)
+    handle = prepared.start()
+    result = handle.wait()
+    assert result.usable
+    run = result.canonical_run_key
+    attempt = result.canonical_attempt_key
+    assert run is not None and attempt is not None
+    assert handle.canonical_run_key == run
+    assert handle.canonical_attempt_key == attempt
+
+    # Another workflow handle reopens exact immutable members, without a retained
+    # RunResult or a SQL/secondary publication authority.
+    reopened = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    (header,) = pa.table(reopened.run_record(run)).to_pylist()
+    (record,) = pa.table(reopened.attempt_record(attempt)).to_pylist()
+    (manifest,) = pa.table(reopened.result_manifest(attempt)).to_pylist()
+    assert header["key"] == run
+    assert record["key"] == attempt and record["run"] == run
+    assert record["terminal"] and record["outcome"] == "succeeded"
+    assert manifest["attempt"] == attempt
+    reopened_dependencies = reopened.analysis(dependencies.key)
+    assert pa.table(reopened_dependencies.edges()).to_pylist() == dependency_rows
+    provenance = reopened.result_analysis(run, attempt, controls)
+    (analysis,) = pa.table(provenance.header()).to_pylist()
+    assert analysis["revision"] == header["revision"]
+    assert analysis["method"] == "result-sensitivity-provenance-reachability:v1"
+    assert any(row["kind"] == "input_provenance" for row in pa.table(provenance.edges()).to_pylist())
+    relation = "runtime.solve_runs"
+    exact = pa.table(reopened.results(run, attempt, relation))
+    latest = pa.table(reopened.latest_results(
+        header["problem"], relation, classes=("succeeded",)
+    ))
+    assert exact.equals(latest)
+    assert exact.num_rows == 1
+    assert pa.table(reopened.results(run, attempt, relation, start=1, end=1)).num_rows == 0
+
+    with reopened.progress(run, attempt) as stream:
+        assert stream.run_key == run and stream.attempt_key == attempt
+        events = list(stream)
+    assert events, "the canonical Ipopt attempt retains iteration observations"
+    positions = [event.sequence for event in events]
+    sequences = [sequence for sequence in positions if sequence is not None]
+    assert sequences == positions
+    assert sequences == sorted(sequences)
+    assert len(set(sequences)) == len(sequences)
+    assert all(event.step == 0 and event.phase for event in events)
+    assert [(event.sequence, event.phase) for event in reopened.progress(run, attempt)] == [
+        (event.sequence, event.phase) for event in events
+    ]
+    closed = reopened.progress(run, attempt)
+    closed.close()
+    assert list(closed) == []
+
+    destination = tmp_path / "results.arrow"
+    reopened.export_results(run, attempt, relation, destination)
+    with pa.ipc.open_stream(destination) as reader:
+        assert reader.schema.metadata[b"pse.canonical.attempt"].decode() == attempt
+        assert reader.read_all().num_rows == exact.num_rows
+    original = destination.read_bytes()
+    with pytest.raises(pse.InspectionError):
+        reopened.export_results(run, attempt, relation, destination)
+    assert destination.read_bytes() == original
+
+
+@pytest.mark.integration
+def test_canonical_eligible_deployment_receipt_reopens_original_scalar(
+    inspection_settings: pse.EngineSettings,
+    canonical_substrate: str,
+) -> None:
+    receipt_path = os.environ.get("PSE_PRODUCER_RECEIPT")
+    if receipt_path is None:
+        pytest.fail("This control requires the reviewed current pse-py deployment receipt.")
+    receipt = msgspec.json.decode(Path(receipt_path).read_bytes(), type=dict[str, object])
+    assert receipt["frame"] == "pse.producer.v1"
+    assert receipt["package"] == "pse-py"
+    assert receipt["persistent_reuse_eligible"] is True
+    assert receipt["reasons"] == []
+    assert receipt["units"]
+    outer = receipt["outer_attestation"]
+    assert isinstance(outer, dict)
+    expected_attestation = (outer["source"], outer["build"])
+
+    runtime = pse.Runtime(
+        inspection_settings, substrate=canonical_substrate, producer=receipt_path
+    )
+    package, case = _package(runtime)
+    revision = package.canonical_revision
+    prepared = package.prepare_solve(case, _settings())
+    first = prepared.start().wait()
+    assert first.usable
+    run, attempt = first.canonical_run_key, first.canonical_attempt_key
+    assert run is not None and attempt is not None
+    original = pa.table(first.table("runtime.solve_variables"))
+    (variable,) = original.to_pylist()
+    assert variable["value"] == pytest.approx(2.0, abs=1e-7)
+    checks = pa.table(first.table("runtime.modeling_checks")).to_pylist()
+    assert checks and all(row["satisfied"] for row in checks)
+    (header,) = pa.table(runtime.run_record(run)).to_pylist()
+    # These identities come from the actual loaded extension's deployment, not
+    # from feeding a receipt's own identities back into its qualification mint.
+    assert msgspec.json.decode(header["attestation"], type=tuple[str, str]) == expected_attestation
+    assert header["revision"] == revision
+    del first, prepared, package
+    runtime.clear_program_cache()
+    del runtime
+
+    reopened = pse.Runtime(
+        inspection_settings, substrate=canonical_substrate, producer=receipt_path
+    )
+    recreated, recreated_case = _package(reopened)
+    assert recreated.canonical_revision == revision
+    assert recreated_case == case
+    assert pa.table(reopened.results(run, attempt, "runtime.solve_variables")).equals(original)
+    following = recreated.prepare_solve(recreated_case, _settings()).start().wait()
+    assert following.usable
+    repeated = pa.table(following.table("runtime.solve_variables"))
+    assert repeated.drop(["run_id"]).equals(original.drop(["run_id"]))
+    repeated_checks = pa.table(following.table("runtime.modeling_checks")).to_pylist()
+    assert repeated_checks and all(row["satisfied"] for row in repeated_checks)
+    assert following.canonical_run_key is not None
+    (following_header,) = pa.table(reopened.run_record(following.canonical_run_key)).to_pylist()
+    assert following_header["revision"] == revision
+    assert msgspec.json.decode(following_header["attestation"], type=tuple[str, str]) == expected_attestation
+    # Public Python observes actual deployment admission, immutable reopening and
+    # unchanged outputs. Strict native recipe controls separately distinguish
+    # persisted reconstruction from fresh semantic admission; no timing claim.

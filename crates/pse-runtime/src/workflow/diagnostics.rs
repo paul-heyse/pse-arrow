@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Attach only source evidence supplied by the compiler or native boundary.
 use super::{RunReport, RunResult};
-use pse_model::diagnostic::{BoundaryClass as Class, BoundaryDiagnostic, Observation};
+use pse_model::diagnostic::{BoundaryDiagnostic, Observation};
 
 use pse_diagnostics::TypedDiagnostic;
 use pse_model::diagnostic::{DiagnosticProjection, DiagnosticRule, DiagnosticStage, project_facts};
@@ -40,55 +40,18 @@ impl DiagnosticProjection for super::WorkflowError {
             Self::Shared(e) => DiagnosticProjection::boundary_diagnostic(e.as_ref(), stage),
             Self::Authoring(e) => e.boundary_diagnostic(stage),
             Self::Engine(e) => pse_model::diagnostic::project_typed(e, stage),
+            Self::SeedRead(e) => pse_model::diagnostic::project_typed(e, stage),
             Self::Canonical(e) => pse_model::diagnostic::project_typed(e, stage),
-            Self::Operations(e) => {
-                let mut diagnostic = pse_model::diagnostic::project_typed(e, stage);
-                diagnostic.rule = DiagnosticRule::WorkflowOperations;
-                diagnostic
-            }
-            Self::Input(_)
-            | Self::Internal(_)
-            | Self::EphemeralPublication { .. }
-            | Self::PublicationUnresolved { .. }
-            | Self::LegacyWorkspace { .. }
-            | Self::ExportLeaseExpired { .. }
-            | Self::UnknownPayloadVersion { .. } => {
-                let mut d = project_facts(self.diagnostic_code(), self.diagnostic_facts(), stage);
-                d.rule = match self {
-                    Self::Input(_) => DiagnosticRule::WorkflowInput,
-                    Self::Internal(_) => DiagnosticRule::WorkflowInternal,
-                    Self::EphemeralPublication { .. } => {
-                        DiagnosticRule::WorkflowEphemeralPublication
-                    }
-                    Self::PublicationUnresolved { .. } => {
-                        DiagnosticRule::WorkflowPublicationUnresolved
-                    }
-                    Self::LegacyWorkspace { .. } => DiagnosticRule::WorkflowLegacyWorkspace,
-                    Self::ExportLeaseExpired { .. } => DiagnosticRule::WorkflowExportExpired,
-                    Self::UnknownPayloadVersion { .. } => DiagnosticRule::WorkflowJobPayloadVersion,
-                    Self::Boundary(_)
-                    | Self::ConditionalAdmission { .. }
-                    | Self::ModelingAdmission { .. }
-                    | Self::Math(_)
-                    | Self::Typed(_)
-                    | Self::Shared(_)
-                    | Self::Authoring(_)
-                    | Self::Engine(_)
-                    | Self::Canonical(_)
-                    | Self::Operations(_) => d.rule,
+            Self::ResultBlock(e) => pse_model::diagnostic::project_typed(e, stage),
+            Self::Input(_) | Self::Internal(_) => {
+                let mut diagnostic = project_facts(self.diagnostic_code(), self.diagnostic_facts(), stage);
+                diagnostic.rule = if matches!(self, Self::Input(_)) {
+                    DiagnosticRule::WorkflowInput
+                } else {
+                    DiagnosticRule::WorkflowInternal
                 };
-                if matches!(
-                    self,
-                    Self::EphemeralPublication { .. }
-                        | Self::LegacyWorkspace { .. }
-                        | Self::ExportLeaseExpired { .. }
-                        | Self::UnknownPayloadVersion { .. }
-                ) {
-                    d.class = Class::Incompatible;
-                }
-                d.observations
-                    .insert("detail".into(), Observation::Text(self.to_string()));
-                d
+                diagnostic.observations.insert("detail".into(), Observation::Text(self.to_string()));
+                diagnostic
             }
         }
     }
@@ -197,6 +160,7 @@ impl RunResult {
 
 #[cfg(test)]
 mod tests {
+    use pse_model::diagnostic::BoundaryClass as Class;
     use super::*;
     #[test]
     fn modeling_failure_retains_class_rule_and_source_through_wrappers() {
@@ -531,20 +495,6 @@ mod tests {
                 matches!(&diagnostic.causes[index].observations["detail"], Observation::Text(detail) if detail.contains("first invariant"))
             );
         }
-    }
-    #[test]
-    fn operational_semantic_disposition_does_not_depend_on_retry_permission() {
-        let error = pse_operations::OperationsError::CorruptValue {
-            column: "study.outcome",
-            detail: "unknown closed member".into(),
-        };
-        assert!(!error.is_retryable());
-        let diagnostic = super::super::WorkflowError::Operations(error).boundary_diagnostic();
-        assert_eq!(
-            diagnostic.code,
-            pse_diagnostics::DiagnosticCode::InternalInvariant
-        );
-        assert_eq!(diagnostic.class, Class::Internal);
     }
     #[test]
     fn detailed_taxonomy_survives_syntax_identity_units_evaluation_resource_cancel_panic_and_invariant()

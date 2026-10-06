@@ -1,0 +1,57 @@
+{
+  "scope": "Reached external Linux GNU Make4.3/CMake3.28 branch of selected CMake0.1.58 helper; explicit environment selection requirements, not a grant. No make/native compilation executed.",
+  "make_version_observation": "/usr/bin/gmake --version: GNU Make4.3 x86_64-pc-linux-gnu",
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/mirror/make/4.3/src/main.c",
+      "sha256": "2d659f833b6cd3a2da8e8b4593631c4e72d92078e5d5db5e3331db0c2233279e"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/mirror/make/4.3/src/read.c",
+      "sha256": "91cde3ef697239254ab97f94733005a5a67316e6c3e549450fad791c37969ca4"
+    },
+    {
+      "path": "/usr/share/cmake-3.28/Help/envvar/CMAKE_GENERATOR_PLATFORM.rst",
+      "sha256": "dd98434abcbc80a8c1382661b3990b8db47125166e1c23a484277e4155f68046"
+    },
+    {
+      "path": "/usr/share/cmake-3.28/Help/envvar/CMAKE_GENERATOR_TOOLSET.rst",
+      "sha256": "c5b0fe4797ad1cf81cafd57bbad5fb7a1147ce4681387b2207d904b4a3858f67"
+    },
+    {
+      "path": "/usr/share/cmake-3.28/Help/envvar/CMAKE_GENERATOR_INSTANCE.rst",
+      "sha256": "fcd196b0ae2350cf3d24dfbb9ecd368ac685cd86c7c4ce2bd8f777ed37e5450b"
+    },
+    {
+      "path": "/usr/share/cmake-3.28/Help/envvar/CMAKE_INSTALL_MODE.rst",
+      "sha256": "62d9bf0c9257d28092f3be51276913d1816988d107d0391df615ea1ed73a8e5f"
+    },
+    {
+      "path": "/usr/share/cmake-3.28/Help/envvar/CMAKE_BUILD_PARALLEL_LEVEL.rst",
+      "sha256": "b8385dbc0a13fd59fcbfdb5317e6effeab160a98b56c18a37702cf39cd58f21d"
+    }
+  ],
+  "make_effects": {
+    "main.c:1457/1462": "GNUMAKEFLAGS and MAKEFLAGS decode environment switches before command-line processing. This can alter variables/flags used in scientific source compilation.",
+    "main.c:1464-1469": "MFLAGS environment decoding enclosed #if0: no reached selector requirement merely from variable name.",
+    "read.c:read_all_makefiles": "MAKEFILES variable expands and loads extra makefiles before default/authored files; absent supported selector excludes this arbitrary include branch.",
+    "cmake-rust/src/lib.rs:843-869": "CMake0.1.58 forwards Cargo-generated CARGO_MAKEFLAGS as MAKEFLAGS for generated Unix Makefiles, but it does not remove GNUMAKEFLAGS/MAKEFILES; CMake configure/compiler try_compile also inherits caller environment."
+  },
+  "supported_environment_premises": {
+    "GNUMAKEFLAGS": "absent or exact reviewed owning value; proposed supported route absence",
+    "MAKEFILES": "absent or exact reviewed owning value; proposed supported route absence",
+    "MAKEFLAGS": "absent or exact reviewed owning value; proposed supported route absence",
+    "CMAKE_GENERATOR_PLATFORM": "absent or exact reviewed owning value; proposed supported route absence",
+    "CMAKE_GENERATOR_TOOLSET": "absent or exact reviewed owning value; proposed supported route absence",
+    "CMAKE_GENERATOR_INSTANCE": "absent or exact reviewed owning value; proposed supported route absence",
+    "CMAKE_INSTALL_MODE": "absent or exact reviewed owning value; proposed supported route absence",
+    "CMAKE_BUILD_PARALLEL_LEVEL": "absent or exact reviewed owning value; proposed supported route absence"
+  },
+  "cmake_documented_effects": {
+    "CMAKE_GENERATOR_PLATFORM/TOOLSET/INSTANCE": "Defaults generator selections when no cache entry exists; fresh output context requires explicit selectors.",
+    "CMAKE_INSTALL_MODE": "Alters install copy/symlink behavior of generated native artifacts.",
+    "CMAKE_BUILD_PARALLEL_LEVEL": "Default build scheduling; harmless to reviewed deterministic compilation semantics but preserved explicit selector rather than inferred arbitrary absent state."
+  },
+  "documentation_context7": "GNU Make /websites/gnu_software_make_manual query on environment flags and extra makefiles; exact source tag4.3 resolves installed branch.",
+  "native_grant_boundary": "These selectors enter proposed native basis before final snapshot. Cargo jobserver FDs are scheduling authority, not native scientific source data; successful original ordered object/archive semantics reviewed separately."
+}

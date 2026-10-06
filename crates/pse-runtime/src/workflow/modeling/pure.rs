@@ -52,7 +52,7 @@ pub async fn conform_pure_documents(
         budget.top_consumers,
         budget.spill_dir.clone(),
         budget.max_temp_dir_bytes,
-        budget.cache.native.clone(),
+        budget.cache.clone(),
     )?;
     let sessions = pse_engine::session::EngineFactory::new(
         resources.runtime.clone(),

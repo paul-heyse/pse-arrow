@@ -8,6 +8,7 @@ pub use details::{CacheEntries, CacheEntryReport};
 pub mod flight;
 pub(crate) mod inspection;
 pub mod load;
+pub mod settings;
 pub mod metrics;
 mod namespace;
 mod policy;
@@ -146,10 +147,13 @@ pub trait CacheComponent: std::fmt::Debug + Send + Sync {
 impl NativeCacheService {
     /// Register a cache family without making a resource ownership cycle.
     pub fn register_component(&self, component: &Arc<dyn CacheComponent>) {
-        self.components
+        let mut components = self.components
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .push(Arc::downgrade(component));
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        // Runtime-scoped families can come and go within one shared deployment.
+        // Their weak registration must not retain every historical runtime slot.
+        components.retain(|registered| registered.strong_count() != 0);
+        components.push(Arc::downgrade(component));
     }
     fn components(&self) -> Vec<Arc<dyn CacheComponent>> {
         self.components

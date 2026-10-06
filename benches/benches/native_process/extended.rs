@@ -506,6 +506,7 @@ pub(super) fn measure(
             );
             let pool = owner.runtime.pool();
             retained = retained.max(pool.reserved());
+            executor.block_on(owner.cleanup_fixtures()).unwrap();
             drop(owner);
             executor.block_on(async {
                 tokio::task::yield_now().await;

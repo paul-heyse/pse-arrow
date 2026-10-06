@@ -19,7 +19,7 @@ use crate::SchemaError;
 /// Duplicate names or any difference in fields, metadata, or nullability.
 pub fn execution_schema(actual: &Schema, expected: &Schema) -> Result<(), SchemaError> {
     declaration(expected)?;
-    compare_fields(actual.fields(), expected.fields(), "execution", false)?;
+    compare_fields(actual.fields(), expected.fields(), "execution")?;
     if actual.metadata() != expected.metadata() {
         return Err(mismatch("execution", "schema metadata differs"));
     }
@@ -66,19 +66,7 @@ pub fn durable_execution_schema(actual: &Schema, expected: &Schema) -> Result<()
 pub fn execution_field(actual: &Field, expected: &Field, path: &str) -> Result<(), SchemaError> {
     declaration(&Schema::new(vec![expected.clone()]))?;
     unique_type(actual.data_type(), path, false)?;
-    compare_field(actual, expected, path, false)
-}
-
-/// Admit the named Delta scan adaptation: BinaryView/Utf8View become Binary/Utf8.
-/// All field names, metadata and nullability must still match. Delta list element
-/// names are already part of the generated durable declaration.
-/// Schema-level metadata is outside this field check: Delta has no schema-level
-/// Arrow metadata slot. Durable relation identity needs its table declaration too.
-/// # Errors
-/// A scan differs beyond the named view-array adaptation.
-pub fn delta_scan_schema(actual: &Schema, expected: &Schema) -> Result<(), SchemaError> {
-    declaration(expected)?;
-    compare_fields(actual.fields(), expected.fields(), "delta", true)
+    compare_field(actual, expected, path)
 }
 
 /// Refuse ambiguous field paths in a native declaration.
@@ -163,7 +151,6 @@ fn compare_fields(
     actual: &arrow_schema::Fields,
     expected: &arrow_schema::Fields,
     path: &str,
-    scan: bool,
 ) -> Result<(), SchemaError> {
     unique_fields(actual, path, false)?;
     if actual.len() != expected.len() {
@@ -174,7 +161,6 @@ fn compare_fields(
             actual,
             expected,
             &format!("{path}.{}", expected.name()),
-            scan,
         )?;
     }
     Ok(())
@@ -184,7 +170,6 @@ fn compare_field(
     actual: &Field,
     expected: &Field,
     path: &str,
-    scan: bool,
 ) -> Result<(), SchemaError> {
     if actual.name() != expected.name() {
         return Err(mismatch(path, "field name or order differs"));
@@ -198,38 +183,34 @@ fn compare_field(
     if actual.dict_is_ordered() != expected.dict_is_ordered() {
         return Err(mismatch(path, "dictionary ordering declaration differs"));
     }
-    compare_type(actual.data_type(), expected.data_type(), path, scan)
+    compare_type(actual.data_type(), expected.data_type(), path)
 }
 
 fn compare_type(
     actual: &DataType,
     expected: &DataType,
     path: &str,
-    scan: bool,
 ) -> Result<(), SchemaError> {
     match (actual, expected) {
-        (DataType::BinaryView, DataType::Binary) | (DataType::Utf8View, DataType::Utf8) if scan => {
-            Ok(())
-        }
         (DataType::Struct(actual), DataType::Struct(expected)) => {
-            compare_fields(actual, expected, path, scan)
+            compare_fields(actual, expected, path)
         }
         (DataType::List(actual), DataType::List(expected))
         | (DataType::LargeList(actual), DataType::LargeList(expected))
         | (DataType::ListView(actual), DataType::ListView(expected))
         | (DataType::LargeListView(actual), DataType::LargeListView(expected)) => {
-            compare_field(actual, expected, path, scan)
+            compare_field(actual, expected, path)
         }
         (DataType::FixedSizeList(actual, a), DataType::FixedSizeList(expected, b)) if a == b => {
-            compare_field(actual, expected, path, scan)
+            compare_field(actual, expected, path)
         }
         (DataType::Map(actual, a), DataType::Map(expected, b)) if a == b => {
-            compare_field(actual, expected, path, scan)
+            compare_field(actual, expected, path)
         }
         (DataType::Dictionary(a_key, actual), DataType::Dictionary(b_key, expected))
             if a_key == b_key =>
         {
-            compare_type(actual, expected, path, scan)
+            compare_type(actual, expected, path)
         }
         (DataType::Union(actual, a), DataType::Union(expected, b)) if a == b => {
             if actual.len() != expected.len() {
@@ -239,13 +220,13 @@ fn compare_type(
                 if a_id != b_id {
                     return Err(mismatch(path, "union arm identity differs"));
                 }
-                compare_field(actual, expected, path, scan)?;
+                compare_field(actual, expected, path)?;
             }
             Ok(())
         }
         (DataType::RunEndEncoded(a_ends, actual), DataType::RunEndEncoded(b_ends, expected)) => {
-            compare_field(a_ends, b_ends, path, scan)?;
-            compare_field(actual, expected, path, scan)
+            compare_field(a_ends, b_ends, path)?;
+            compare_field(actual, expected, path)
         }
         _ if actual == expected => Ok(()),
         _ => Err(mismatch(

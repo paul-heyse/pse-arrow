@@ -189,11 +189,11 @@ impl EngineFactory {
         };
         let options = builder.config().get_or_insert_default().options_mut();
         // DataFusion 55.1's leaf-projection recovery compares only field names.
-        // It can discard same-named conversions (including Delta decode) while
+        // It can discard same-named conversions (including provider decoding) while
         // retaining raw storage fields. Keep native optimization enabled, but
         // select its supported opt-out for this unsafe rewrite pair until the
         // upstream recovery preserves expressions and complete field contracts.
-        // Regression: catalog::delta::layout::tests::source_span_obligations_preserve_decoded_view_fields.
+        // Preserve source-span field obligations at the native provider boundary.
         options.optimizer.enable_leaf_expression_pushdown = false;
         // A plain native builder retains the generic planning path from `new`.
         // Explicit caller planners remain the actual implementations;

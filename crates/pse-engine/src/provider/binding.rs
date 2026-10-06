@@ -43,7 +43,7 @@ pub struct TableBinding {
     pub ownership: Option<pse_columnar::owned_buffer::AllocationScope>,
     /// Owner-defined source evidence retained independently of optimizer elimination.
     pub witness: Option<super::witness::SourceWitness>,
-    // Actual native view inputs admitted with an exact Delta member. These are
+    // Actual native view inputs admitted with an exact source owner. These are
     // execution dependencies, not additional public namespace or policy aliases.
     /// Actual native view inputs retained for semantic source admission.
     pub dependencies: Vec<Arc<dyn TableProvider>>,

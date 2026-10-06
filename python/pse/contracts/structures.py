@@ -13,18 +13,6 @@ from pse.contracts import values as v
 
 
 @attrs.frozen(kw_only=True)
-class VersionWindow:
-    """Declared relation row or nested value."""
-
-    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    from_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    through_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.table_uri), v.scalar_key(self.from_version), v.scalar_key(self.through_version),))
-
-
-@attrs.frozen(kw_only=True)
 class VersionRequirement:
     """Declared relation row or nested value."""
 
@@ -371,51 +359,6 @@ class ModelingCell:
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.value), v.optional_key(v.record_key)(self.uncertainty),))
-
-
-@attrs.frozen(kw_only=True)
-class MemberDescriptorSelectionRevision:
-    """Declared relation row or nested value."""
-
-    column: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.column), v.scalar_key(self.revision_id),))
-
-
-@attrs.frozen(kw_only=True)
-class MemberDescriptorSelection:
-    """Declared relation row or nested value."""
-
-    kind: e.MemberSelectionKind = attrs.field(validator=attrs.validators.instance_of(e.MemberSelectionKind))
-    revision: MemberDescriptorSelectionRevision | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(MemberDescriptorSelectionRevision)))
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.kind), v.optional_key(v.record_key)(self.revision),))
-
-    def __attrs_post_init__(self) -> None:
-        if not ((self.kind == "full" and self.revision is None) or (self.kind == "revision" and self.revision is not None)):
-            message = "tagged value requires exactly its selected arm"
-            raise ValueError(message)
-
-
-@attrs.frozen(kw_only=True)
-class MemberDescriptor:
-    """Declared relation row or nested value."""
-
-    catalog_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    schema_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    table_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    relation_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
-    contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    delta_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    selection: MemberDescriptorSelection = attrs.field(validator=attrs.validators.instance_of(MemberDescriptorSelection))
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.catalog_name), v.scalar_key(self.schema_name), v.scalar_key(self.table_name), v.scalar_key(self.relation_id), v.scalar_key(self.relation_version), v.scalar_key(self.contract_fingerprint), v.scalar_key(self.table_uri), v.scalar_key(self.delta_version), v.record_key(self.selection),))
 
 
 @attrs.frozen(kw_only=True)

@@ -51,10 +51,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         env::var("PROFILE").unwrap_or_else(|_| "unknown".to_owned())
     );
     println!("cargo:rustc-env=PSE_GIT_SHA={}", git_sha(&workspace_root));
-    let mut source = Vec::new();
-    source_files(&workspace_root, &workspace_root.join("crates"), &mut source)?;
-    source_files(&workspace_root, &workspace_root.join("vendor"), &mut source)?;
-    let source = identity::digest(source);
+    let source = identity::digest(identity::source_files(&workspace_root)?);
     write_changed(&out_dir.join("source.identity"), source.as_bytes())?;
     let mut configuration = Vec::new();
     for name in [
@@ -161,38 +158,4 @@ fn git_sha(root: &Path) -> String {
         }
         _ => "sdist".to_owned(),
     }
-}
-
-fn source_files(
-    root: &Path,
-    directory: &Path,
-    files: &mut Vec<(String, Vec<u8>)>,
-) -> std::io::Result<()> {
-    println!("cargo:rerun-if-changed={}", directory.display());
-    for entry in fs::read_dir(directory)? {
-        let entry = entry?;
-        let path = entry.path();
-        let kind = entry.file_type()?;
-        if kind.is_dir() {
-            if !matches!(
-                entry.file_name().to_str(),
-                Some("target" | "__pycache__" | ".git")
-            ) {
-                source_files(root, &path, files)?;
-            }
-        } else if kind.is_file() {
-            let relative = path
-                .strip_prefix(root)
-                .map_err(std::io::Error::other)?
-                .to_string_lossy()
-                .replace('\\', "/");
-            files.push((relative, fs::read(path)?));
-        } else if kind.is_symlink() {
-            return Err(std::io::Error::other(format!(
-                "unqualified source symlink {}",
-                path.display()
-            )));
-        }
-    }
-    Ok(())
 }

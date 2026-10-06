@@ -36,6 +36,17 @@ impl From<Metric> for ProgressMetricDocument {
         }
     }
 }
+impl From<&Metric> for ProgressMetricDocument {
+    fn from(metric: &Metric) -> Self {
+        match metric {
+            Metric::Integer(value) => Self::Integer(*value),
+            Metric::Real(value) => Self::Real(Observation::number(*value)),
+            Metric::Text(value) => Self::Text(value.clone()),
+            Metric::Bool(value) => Self::Boolean(*value),
+            Metric::Unavailable(reason) => Self::Unavailable(*reason),
+        }
+    }
+}
 /// An incumbent in original objective units and its retained native search evidence.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -86,46 +97,23 @@ pub struct ProgressEventDocument {
 }
 impl From<Event> for ProgressEventDocument {
     fn from(event: Event) -> Self {
+        Self::from(&event)
+    }
+}
+impl From<&Event> for ProgressEventDocument {
+    fn from(event: &Event) -> Self {
         Self {
-            phase: event.phase,
+            phase: event.phase.clone(),
             elapsed_seconds: event.elapsed.as_secs_f64(),
             values: event
                 .values
-                .into_iter()
-                .map(|(key, value)| (key, value.into()))
+                .iter()
+                .map(|(key, value)| (key.clone(), value.into()))
                 .collect(),
             incumbent: event.incumbent.as_ref().map(Into::into),
             step: None,
             sequence: None,
             at: None,
-        }
-    }
-}
-impl From<&super::StreamRecord> for ProgressEventDocument {
-    fn from(record: &super::StreamRecord) -> Self {
-        let incumbent = match record {
-            super::StreamRecord::Incumbent(row) => Some(IncumbentDocument {
-                objective: row.objective,
-                dual_bound: row.dual_bound,
-                gap: row.gap,
-                nodes: row.nodes,
-                seconds: row.seconds,
-                solution_id: row.solution_id.map(Into::into),
-            }),
-            super::StreamRecord::Progress(_) => None,
-        };
-        Self {
-            phase: record.phase().into(),
-            elapsed_seconds: record.elapsed_seconds(),
-            values: record
-                .values()
-                .into_iter()
-                .map(|(key, value)| (key, value.into()))
-                .collect(),
-            incumbent,
-            step: Some(record.step()),
-            sequence: Some(record.sequence()),
-            at: Some(record.at()),
         }
     }
 }
@@ -143,10 +131,13 @@ mod boundary_unit {
                 ("nan".into(), Metric::Real(f64::NAN)),
             ]
             .into(),
-            incumbent: None,
+            incumbent: Some(IncumbentEvent {objective:-0.0,dual_bound:None,gap:None,nodes:(1i64<<53)+3,seconds:0.005,primal:Some(vec![2.0;32_768])}),
         };
-        let document = ProgressEventDocument::from(event);
+        let document = ProgressEventDocument::from(&event);
         let encoded = serde_json::to_vec(&document).unwrap();
+        assert!(encoded.len()<1024,"progress DTO carries incumbent scalars rather than the native primal vector");
+        assert_eq!(event.incumbent.as_ref().unwrap().primal.as_ref().unwrap().len(),32_768);
+        assert_eq!(serde_json::to_vec(&ProgressEventDocument::from(event)).unwrap(),encoded);
         let retained: ProgressEventDocument = serde_json::from_slice(&encoded).unwrap();
         assert!(
             matches!(retained.values["large"], ProgressMetricDocument::Integer(value) if value == (1i64<<53)+1)
@@ -156,6 +147,7 @@ mod boundary_unit {
             ProgressMetricDocument::Real(Observation::Nonfinite(_))
         ));
         assert!(retained.at.is_none());
-        assert!(retained.incumbent.is_none());
+        assert_eq!(retained.incumbent.as_ref().unwrap().objective.to_bits(),(-0.0f64).to_bits());
+        assert_eq!(retained.incumbent.as_ref().unwrap().nodes,Some((1i64<<53)+3));
     }
 }

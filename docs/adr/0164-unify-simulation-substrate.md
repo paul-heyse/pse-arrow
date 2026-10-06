@@ -20,7 +20,7 @@ scenarios: [docs/design_review/reviews/design_review_surrealdb-unified-simulatio
 
 ## Context
 
-PostgreSQL operational state, Delta publication, full source-bundle conversion and process-local compilation ownership make one scientific operation span several authorities and recovery protocols. The unified-substrate review supports a canonical graph and relational substrate at Proposed design strength. The maintainer authorized RC01–RC10, a clean rebuild and native queries plus Arrow, then implementation of Plan 28a/28b with the adjacent consumers required to finish them.
+PostgreSQL operational state, Delta publication, full source-bundle conversion and process-local compilation ownership make one scientific operation span several authorities and recovery protocols. The unified-substrate review supports a canonical graph and relational substrate at Proposed design strength. The maintainer authorized RC01–RC10, a clean rebuild and native queries plus Arrow, initially Plan 28a/28b and on 2026-10-06 the full 28a–28e scope with functional implementation before assembled qualification.
 
 ## Scope
 
@@ -40,7 +40,21 @@ Repurpose `pse-operations` as the concrete thin remote SDK and typed-operation o
 
 Immutable object versions and membership intervals supply linear per-problem head-CAS revisions. Named head/name/scope/retention guards protect all consumed premises; conflict retries repeat the whole decision. Selected scientific admission remains one Rust kernel. Portable admitted descriptions retain complete positive, absent-name, membership and interpretation dependencies; native handles remain process-local. Producer-specific relevant identities govern reuse, while complete dirty-build attestation belongs to the outer run.
 
+The outer source attestation includes the executable composition roots, including
+the worker's `xtask` sources, alongside library and vendored sources. It remains
+separate from the selected scientific producer closure; editing unrelated outer
+code does not automatically invalidate a scientific product.
+
 Normal runs retain scientific outcomes; ephemeral execution is explicit. Closed bounded staging admits an exact result descriptor atomically under the attempt fence. Protected selection becomes durable retained roots before preparation releases protection. Native selectors and bounded Arrow streams replace Runtime, modeling-knowledge and TableReader SQL APIs. Rebuild controlled artifacts, with no preservation importer, compatibility reader, dual writes or second production backend. Retire `pse-operations-queries` and `pse-catalog` when their last callers move.
+
+The feature-unification crate remains with actual Arrow/DataFusion or remote-store consumers.
+Pure semantic, numerical and native-ABI roots do not import that complete boundary closure
+solely to stabilize features. The supported nightly workspace feature unification still
+selects shared dependency features, and actual boundary consumers retain the generated
+workspace hack. This narrows ADR-0122's all-member attachment without weakening the single
+resolved type universe or enabling opt-in force-validation/native features globally.
+
+Versioned generated SurrealQL functions execute bounded structural transitions and native bulk ingestion. Shared scientific kernels remain the admission owner. Dense results use self-contained, uncompressed Arrow IPC blocks in the same database with operation-shaped range metadata and preflighted decoded extents; ordinary scalar selections preserve exact cells and finite derived projections. Read consumers use separate restricted sessions and require successful statement completion before declaring a stream or export complete. ISO GQL and additional front ends require a concrete qualified consumer.
 
 ### Consequences
 
@@ -67,6 +81,15 @@ Deployment producer qualification is also an explicit unsafe trust assertion: th
 
 Already rooted exact descriptions are reused atomically, so repeated preparation does not retain duplicate publications merely because it acquired a fresh pin.
 
+Terminal admission has the same explicit scientific trust boundary. The lifecycle writer
+can close and reconcile exact observations, but cannot infer scientific success from
+chosen completion bytes. Its unsafe sealing entry requires the owning kernel's actual
+completion classification and the observations admitted for that attempt. The runtime
+asserts this only after scientific completion and closed-manifest reconciliation; tests
+may mint controlled fixtures. This is a semantic authority assertion, not a memory operation.
+The occurrence observation writer similarly requires actual admitted kernel facts or an
+effect-free shared-policy refusal; stored DTOs cannot mint usable predecessor permission.
+
 ### Confirmation
 
 The cited review establishes architectural reasoning for the unified target. Plan 28 owns findings and implementation evidence; its A/B companions record their local outcomes and E records assembled correctness and measurements. This proposed record neither certifies implementation nor changes status outside the decision PR route.
@@ -82,3 +105,4 @@ One substrate makes revision selection, product discovery, result queries and re
 ## Status history
 
 - 2026-10-05 — proposed before dependent production changes, under maintainer implementation authorization. Formal acceptance and ADR-0114 supersession remain in the decision PR route.
+- 2026-10-06 — maintainer authorized all companion functional scope; capability-informed function, result-block and read contracts are included before dependent changes. Assembled verification follows full functional implementation.

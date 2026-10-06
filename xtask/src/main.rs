@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-// The inspection fixture instantiates the catalog publication futures, which prove `Send`
-// through deep async nesting: the crate needs pse-catalog's own recursion limit.
+// Match runtime-owned scientific preparation's nested async ownership proof.
 #![recursion_limit = "256"]
 #![allow(
     clippy::unwrap_used,
@@ -34,8 +33,8 @@ mod codegen;
 mod dependency_ceilings;
 #[cfg(feature = "thermodynamic-oracles")]
 mod feos_reference;
-#[cfg(feature = "package-fixtures")]
-mod inspection_fixture;
+#[cfg(any(feature = "package-fixtures", test))]
+mod python_tests;
 mod producer_identity;
 #[path = "../../scripts/workspace.rs"]
 mod workspace;
@@ -76,13 +75,7 @@ enum Cmd {
     FeosReference {
         output: PathBuf,
     },
-    /// Publish and reopen a fresh current store for inspection tests.
-    #[cfg(feature = "package-fixtures")]
-    InspectionFixture {
-        /// A new destination directory (must not already exist).
-        output: PathBuf,
-    },
-    /// Run Python tests against one fresh native store shared by all workers.
+    /// Run Python tests using their operation-owned canonical fixtures.
     #[cfg(feature = "package-fixtures")]
     PythonTests {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -138,6 +131,15 @@ struct ProducerIdentityArgs {
     profile: String,
     #[arg(long)]
     target: Option<String>,
+    /// Capture the package's library target (the default).
+    #[arg(long, conflicts_with_all = ["bin", "cdylib_manifest"])]
+    lib: bool,
+    /// Capture only this production binary and its consumed dependencies.
+    #[arg(long, conflicts_with_all = ["lib", "cdylib_manifest"])]
+    bin: Option<String>,
+    /// Capture the declared cdylib through Cargo rustc, as Maturin does.
+    #[arg(long, conflicts_with_all = ["lib", "bin"])]
+    cdylib_manifest: Option<PathBuf>,
     #[arg(long, value_delimiter = ',')]
     features: Vec<String>,
     #[arg(long)]
@@ -152,6 +154,13 @@ struct ProducerIdentityArgs {
     environment: Vec<String>,
     #[arg(long)]
     declarations: Option<PathBuf>,
+    /// Private actual build/unit/command evidence for source review, not a grant.
+    #[arg(long)]
+    build_evidence: Option<PathBuf>,
+    /// Refresh only selected build-script/proc-macro packages with Cargo clean
+    /// in the selected profile before guarded actual capture.
+    #[arg(long)]
+    refresh_executors: bool,
     /// Complete outer source attestation that contains this deployment.
     #[arg(long, requires = "outer_build")]
     outer_source: Option<String>,
@@ -173,13 +182,8 @@ enum Target {
     Python,
     /// `pse-schema` output: the reference tables in the book.
     Docs,
-    /// `pse-schema` output: the operational store's DDL, Cornucopia mapping and schema
-    /// fingerprint (ADR-0114 Outcome 22).
-    Postgres,
-    /// Cornucopia output: the operational store's statements compiled into
-    /// `crates/pse-operations-queries` against the rendered schema (ADR-0114 Outcome 24).
-    /// Needs a reachable PostgreSQL server (`PSE_DATABASE_URL`, else the store default).
-    Queries,
+    /// Registry-generated canonical native schema and codecs.
+    Surreal,
     /// `bindgen` output for the Ipopt C API.
     Bindgen,
     /// The JSON Schemas of the Rust-owned boundary documents and of the authoring
@@ -216,6 +220,9 @@ fn main() -> Result<()> {
                 package,
                 profile,
                 target,
+                lib: _,
+                bin,
+                cdylib_manifest,
                 features,
                 no_default_features,
                 dep_info,
@@ -223,6 +230,8 @@ fn main() -> Result<()> {
                 native_input,
                 environment,
                 declarations,
+                build_evidence,
+                refresh_executors,
                 outer_source,
                 outer_build,
                 output,
@@ -237,15 +246,24 @@ fn main() -> Result<()> {
                     Ok((key.to_owned(), value.to_owned()))
                 })
                 .collect::<Result<BTreeMap<_, _>>>()?;
-            let declarations = match declarations {
+            let mut declarations: producer_identity::InputDeclarations = match declarations {
                 Some(path) => serde_json::from_slice(&std::fs::read(path)?)?,
                 None => producer_identity::InputDeclarations::default(),
             };
+            if let Some(path) = build_evidence {
+                declarations.actual_build_evidence = Some(path);
+            }
+            declarations.refresh_executors |= refresh_executors;
             let mut identity = producer_identity::run(&producer_identity::ProducerOptions {
                 workspace_root: root,
                 package,
                 profile,
                 target,
+                production_target: match (bin, cdylib_manifest) {
+                    (Some(name), _) => producer_identity::ProducerTarget::Binary(name),
+                    (_, Some(manifest)) => producer_identity::ProducerTarget::Cdylib(manifest),
+                    _ => producer_identity::ProducerTarget::Library,
+                },
                 features,
                 no_default_features,
                 dep_info,
@@ -255,10 +273,13 @@ fn main() -> Result<()> {
                 declarations,
             })?;
             if let (Some(source), Some(build)) = (outer_source, outer_build) {
-                identity.outer_attestation = Some(producer_identity::OuterAttestation {
+                let supplied = producer_identity::OuterAttestation {
                     source: pse_ids::ContentHash::parse_hex(&source)?,
                     build: pse_ids::ContentHash::parse_hex(&build)?,
-                });
+                };
+                ensure!(identity.outer_attestation.as_ref().is_none_or(|actual| actual == &supplied),
+                    "supplied outer attestation differs from the actual captured deployment");
+                identity.outer_attestation = Some(supplied);
             }
             producer_identity::write_if_changed(&output, &identity)?;
             println!(
@@ -270,9 +291,7 @@ fn main() -> Result<()> {
         #[cfg(feature = "thermodynamic-oracles")]
         Cmd::FeosReference { output } => feos_reference::run(&root, &output),
         #[cfg(feature = "package-fixtures")]
-        Cmd::InspectionFixture { output } => inspection_fixture::run(&output),
-        #[cfg(feature = "package-fixtures")]
-        Cmd::PythonTests { args } => inspection_fixture::python_tests(&root, &args),
+        Cmd::PythonTests { args } => python_tests::run(&root, &args),
         Cmd::FamilyCheck {
             evidence,
             evidence_families_only,

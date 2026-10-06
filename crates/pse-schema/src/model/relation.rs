@@ -166,9 +166,6 @@ pub struct RelationSpec {
     /// Table-level (composite) references, in declaration order. A single column's
     /// reference is its field facet ([`FieldContract::fk`]).
     pub foreign_keys: Vec<ForeignKeyDecl>,
-    /// Native Delta properties. These participate in contract identity and are
-    /// verified at every declared open/write, including registry-free opening.
-    pub delta_properties: std::collections::BTreeMap<String, String>,
     /// What the relation means.
     pub doc: &'static str,
     /// The BLAKE3 digest of this relation's registry rows, filled at assembly.
@@ -223,8 +220,6 @@ pub struct RelationDecl {
     pub unique_keys: Vec<UniqueKey>,
     /// See [`RelationSpec::foreign_keys`].
     pub foreign_keys: Vec<ForeignKeyDecl>,
-    /// See [`RelationSpec::delta_properties`].
-    pub delta_properties: std::collections::BTreeMap<String, String>,
     /// See [`RelationSpec::doc`].
     pub doc: &'static str,
 }
@@ -251,14 +246,6 @@ impl RelationDecl {
             checks: std::collections::BTreeMap::new(),
             unique_keys: Vec::new(),
             foreign_keys: Vec::new(),
-            delta_properties: std::collections::BTreeMap::from([
-                ("delta.enableChangeDataFeed".into(), "true".into()),
-                // Retained publication selections own log retention. Automatic
-                // cleanup cannot see their leases or protected versions.
-                ("delta.enableExpiredLogCleanup".into(), "false".into()),
-                ("delta.checkpointInterval".into(), "10".into()),
-                ("delta.minWriterVersion".into(), "3".into()),
-            ]),
             doc,
         }
     }
@@ -318,18 +305,6 @@ impl RelationDecl {
             target,
             target_columns: target_columns.to_vec(),
         });
-        self
-    }
-
-    /// Extend or override native table policies in the authoritative declaration.
-    /// Delta validates supported property values and negotiates protocol features;
-    /// generated CHECK properties are derived separately from fields and checks.
-    #[must_use]
-    pub fn delta_properties(
-        mut self,
-        properties: impl IntoIterator<Item = (String, String)>,
-    ) -> Self {
-        self.delta_properties.extend(properties);
         self
     }
 

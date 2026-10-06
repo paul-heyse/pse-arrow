@@ -120,9 +120,8 @@ def check(metadata: Metadata) -> list[str]:
         ):
             failures.append(f"{name} creates a testkit dependency cycle")
     for relative in (
-        "crates/pse-catalog/src/session",
-        "crates/pse-catalog/src/provider",
-        "crates/pse-catalog/src/error.rs",
+        "crates/pse-catalog/Cargo.toml",
+        "crates/pse-operations-queries/Cargo.toml",
         "crates/pse-runtime/src/reserve.rs",
         "tests/support/session_factory.rs",
     ):

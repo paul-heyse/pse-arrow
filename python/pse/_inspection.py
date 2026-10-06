@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Publication inspection through the Arrow capsule protocol."""
+"""Canonical table inspection through the Arrow capsule protocol."""
 
-from pathlib import Path
 from types import TracebackType
 from typing import Self
 
@@ -11,19 +10,16 @@ import pyarrow as pa
 
 from pse._build import (
     DiagnosticReport,
-    EngineSettings,
-    _NativePublication,
     _NativeTableStream,
-    _open_export,
+    EngineSettings,
+    _registry_table,
 )
 from pse._transfer import FieldTransfer, compare_schemas
-from pse.contracts.documents import (
-    CacheReport,
-    ResourceReport,
-    TableName,
-)
-from pse.contracts.identities import AttemptId, PublicationId, WorkspaceId
-from pse.contracts.values import SemanticId
+
+
+def registry_table(name: str, *, settings: EngineSettings) -> "TableStream":
+    """Read one exact compiled reference relation through Arrow C Stream."""
+    return TableStream(_registry_table(name, settings=settings))
 
 
 @attrs.frozen
@@ -76,85 +72,3 @@ class TableStream:
     ) -> None:
         self.close()
 
-
-@attrs.frozen
-class Publication:
-    """One publication's exact member versions; later publications cannot change it."""
-
-    _handle: _NativePublication
-
-    @property
-    def publication_id(self) -> PublicationId:
-        """The publication identity."""
-        return PublicationId(SemanticId.from_hex(self._handle.publication_id))
-
-    @property
-    def workspace_id(self) -> WorkspaceId:
-        """The workspace it was published in."""
-        return WorkspaceId(SemanticId.from_hex(self._handle.workspace_id))
-
-    @property
-    def parent_publication_id(self) -> PublicationId | None:
-        """The publication it was committed on, if any."""
-        parent = self._handle.parent_publication_id
-        return None if parent is None else PublicationId(SemanticId.from_hex(parent))
-
-    @property
-    def attempt_id(self) -> AttemptId:
-        """The durable attempt it publishes."""
-        return AttemptId(SemanticId.from_hex(self._handle.attempt_id))
-
-    def tables(self) -> tuple[TableName, ...]:
-        """Return exact catalog, schema and table components for every member."""
-        return tuple(self._handle.tables())
-
-    def table(self, catalog: str, schema: str, table: str) -> TableStream:
-        """Stream an exact native member under the publication's contracts.
-
-        Args:
-            catalog: Literal native catalog name; no SQL case normalization.
-            schema: Literal native schema name.
-            table: Literal native table name.
-
-        Returns:
-            An owned Arrow stream that outlives this publication handle.
-        """
-        return TableStream(self._handle.table(catalog, schema, table))
-
-    def resource_usage(self) -> ResourceReport:
-        """Observe actual pool ownership, including arrays from closed handles."""
-        return self._handle.resource_usage()
-
-    def cache_usage(self) -> tuple[CacheReport, ...]:
-        """Observe shared cache ownership; unavailable native counters are None."""
-        return tuple(self._handle.cache_usage())
-
-    def close(self) -> None:
-        """Release this selection; existing streams retain independent ownership."""
-        self._handle.close()
-
-    def __enter__(self) -> Self:
-        return self
-
-    def __exit__(
-        self,
-        _exc_type: type[BaseException] | None,
-        _exc_value: BaseException | None,
-        _traceback: TracebackType | None,
-    ) -> None:
-        self.close()
-
-
-def open_export(location: str | Path, *, settings: EngineSettings) -> Publication:
-    """Open an exported publication offline, without the operational store.
-
-    Args:
-        location: The export manifest's URI, or a local pathlib Path.
-        settings: Explicit Rust-validated memory, thread, spill and batch bounds.
-
-    Returns:
-        Exactly the members the manifest names, while the export has not expired. A
-        former Delta control table is refused (migration required).
-    """
-    uri = location.resolve().as_uri() + "/" if isinstance(location, Path) else location
-    return Publication(_open_export(uri, settings))

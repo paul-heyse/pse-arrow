@@ -1,0 +1,1470 @@
+{
+  "scope": "Read-only Clang -### observer, 3/3 exit zero baseline; identifies driver CRT/search route and concrete support file candidates. No link performed, no historical actual Rust linker argument claim. Source .cargo/config selects clang + mold; final guarded artifact capture must bind its actual link inputs.",
+  "driver_observations": [
+    {
+      "argv": [
+        "clang",
+        "-###",
+        "-fuse-ld=mold",
+        "-x",
+        "c",
+        "/dev/null"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "clang version 23.1.2\nTarget: x86_64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /opt/llvm-23.1.2-z3-5.1/bin\nBuild config: +assertions\n \"/opt/llvm-23.1.2-z3-5.1/bin/clang-23\" \"-cc1\" \"-triple\" \"x86_64-unknown-linux-gnu\" \"-emit-obj\" \"-dumpdir\" \"/tmp/pse-native-producer-audit/uncreated-link-probe-\" \"-disable-free\" \"-clear-ast-before-backend\" \"-main-file-name\" \"null\" \"-mrelocation-model\" \"pic\" \"-pic-level\" \"2\" \"-pic-is-pie\" \"-mframe-pointer=all\" \"-fmath-errno\" \"-ffp-contract=on\" \"-fno-rounding-math\" \"-mconstructor-aliases\" \"-funwind-tables=2\" \"-target-cpu\" \"x86-64\" \"-tune-cpu\" \"generic\" \"-debugger-tuning=gdb\" \"-fdebug-compilation-dir=$WORKSPACE\" \"-fcoverage-compilation-dir=$WORKSPACE\" \"-resource-dir\" \"/opt/llvm-23.1.2-z3-5.1/lib/clang/23\" \"-internal-isystem\" \"/opt/llvm-23.1.2-z3-5.1/lib/clang/23/include\" \"-internal-isystem\" \"/usr/local/include\" \"-internal-isystem\" \"/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include\" \"-internal-externc-isystem\" \"/usr/include/x86_64-linux-gnu\" \"-internal-externc-isystem\" \"/include\" \"-internal-externc-isystem\" \"/usr/include\" \"-ferror-limit\" \"19\" \"-fgnuc-version=4.2.1\" \"-fskip-odr-check-in-gmf\" \"-fno-color-diagnostics\" \"-faddrsig\" \"-fdwarf2-cfi-asm\" \"-o\" \"/tmp/null-419330.o\" \"-x\" \"c\" \"/dev/null\"\n \"/usr/local/bin/ld.mold\" \"-z\" \"relro\" \"--hash-style=gnu\" \"--eh-frame-hdr\" \"-m\" \"elf_x86_64\" \"-pie\" \"-dynamic-linker\" \"/lib64/ld-linux-x86-64.so.2\" \"-o\" \"/tmp/pse-native-producer-audit/uncreated-link-probe\" \"/lib/x86_64-linux-gnu/Scrt1.o\" \"/lib/x86_64-linux-gnu/crti.o\" \"/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o\" \"-L/usr/lib/gcc/x86_64-linux-gnu/13\" \"-L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64\" \"-L/lib/x86_64-linux-gnu\" \"-L/lib/../lib64\" \"-L/usr/lib/x86_64-linux-gnu\" \"-L/usr/lib64\" \"-L/lib\" \"-L/usr/lib\" \"/tmp/null-419330.o\" \"-lgcc\" \"--as-needed\" \"-lgcc_s\" \"--no-as-needed\" \"-lc\" \"-lgcc\" \"--as-needed\" \"-lgcc_s\" \"--no-as-needed\" \"/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o\" \"/lib/x86_64-linux-gnu/crtn.o\"\n"
+    },
+    {
+      "argv": [
+        "clang",
+        "-###",
+        "-fuse-ld=mold",
+        "-shared",
+        "-x",
+        "c",
+        "/dev/null"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "clang version 23.1.2\nTarget: x86_64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /opt/llvm-23.1.2-z3-5.1/bin\nBuild config: +assertions\n \"/opt/llvm-23.1.2-z3-5.1/bin/clang-23\" \"-cc1\" \"-triple\" \"x86_64-unknown-linux-gnu\" \"-emit-obj\" \"-dumpdir\" \"/tmp/pse-native-producer-audit/uncreated-link-probe-\" \"-disable-free\" \"-clear-ast-before-backend\" \"-main-file-name\" \"null\" \"-mrelocation-model\" \"pic\" \"-pic-level\" \"2\" \"-pic-is-pie\" \"-mframe-pointer=all\" \"-fmath-errno\" \"-ffp-contract=on\" \"-fno-rounding-math\" \"-mconstructor-aliases\" \"-funwind-tables=2\" \"-target-cpu\" \"x86-64\" \"-tune-cpu\" \"generic\" \"-debugger-tuning=gdb\" \"-fdebug-compilation-dir=$WORKSPACE\" \"-fcoverage-compilation-dir=$WORKSPACE\" \"-resource-dir\" \"/opt/llvm-23.1.2-z3-5.1/lib/clang/23\" \"-internal-isystem\" \"/opt/llvm-23.1.2-z3-5.1/lib/clang/23/include\" \"-internal-isystem\" \"/usr/local/include\" \"-internal-isystem\" \"/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include\" \"-internal-externc-isystem\" \"/usr/include/x86_64-linux-gnu\" \"-internal-externc-isystem\" \"/include\" \"-internal-externc-isystem\" \"/usr/include\" \"-ferror-limit\" \"19\" \"-fgnuc-version=4.2.1\" \"-fskip-odr-check-in-gmf\" \"-fno-color-diagnostics\" \"-faddrsig\" \"-fdwarf2-cfi-asm\" \"-o\" \"/tmp/null-4b2ee4.o\" \"-x\" \"c\" \"/dev/null\"\n \"/usr/local/bin/ld.mold\" \"-z\" \"relro\" \"--hash-style=gnu\" \"--eh-frame-hdr\" \"-m\" \"elf_x86_64\" \"-shared\" \"-o\" \"/tmp/pse-native-producer-audit/uncreated-link-probe\" \"/lib/x86_64-linux-gnu/crti.o\" \"/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o\" \"-L/usr/lib/gcc/x86_64-linux-gnu/13\" \"-L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64\" \"-L/lib/x86_64-linux-gnu\" \"-L/lib/../lib64\" \"-L/usr/lib/x86_64-linux-gnu\" \"-L/usr/lib64\" \"-L/lib\" \"-L/usr/lib\" \"/tmp/null-4b2ee4.o\" \"-lgcc\" \"--as-needed\" \"-lgcc_s\" \"--no-as-needed\" \"-lc\" \"-lgcc\" \"--as-needed\" \"-lgcc_s\" \"--no-as-needed\" \"/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o\" \"/lib/x86_64-linux-gnu/crtn.o\"\n"
+    },
+    {
+      "argv": [
+        "clang",
+        "-###",
+        "-fuse-ld=mold",
+        "-pie",
+        "-x",
+        "c",
+        "/dev/null"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "clang version 23.1.2\nTarget: x86_64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /opt/llvm-23.1.2-z3-5.1/bin\nBuild config: +assertions\n \"/opt/llvm-23.1.2-z3-5.1/bin/clang-23\" \"-cc1\" \"-triple\" \"x86_64-unknown-linux-gnu\" \"-emit-obj\" \"-dumpdir\" \"/tmp/pse-native-producer-audit/uncreated-link-probe-\" \"-disable-free\" \"-clear-ast-before-backend\" \"-main-file-name\" \"null\" \"-mrelocation-model\" \"pic\" \"-pic-level\" \"2\" \"-pic-is-pie\" \"-mframe-pointer=all\" \"-fmath-errno\" \"-ffp-contract=on\" \"-fno-rounding-math\" \"-mconstructor-aliases\" \"-funwind-tables=2\" \"-target-cpu\" \"x86-64\" \"-tune-cpu\" \"generic\" \"-debugger-tuning=gdb\" \"-fdebug-compilation-dir=$WORKSPACE\" \"-fcoverage-compilation-dir=$WORKSPACE\" \"-resource-dir\" \"/opt/llvm-23.1.2-z3-5.1/lib/clang/23\" \"-internal-isystem\" \"/opt/llvm-23.1.2-z3-5.1/lib/clang/23/include\" \"-internal-isystem\" \"/usr/local/include\" \"-internal-isystem\" \"/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include\" \"-internal-externc-isystem\" \"/usr/include/x86_64-linux-gnu\" \"-internal-externc-isystem\" \"/include\" \"-internal-externc-isystem\" \"/usr/include\" \"-ferror-limit\" \"19\" \"-fgnuc-version=4.2.1\" \"-fskip-odr-check-in-gmf\" \"-fno-color-diagnostics\" \"-faddrsig\" \"-fdwarf2-cfi-asm\" \"-o\" \"/tmp/null-a5618a.o\" \"-x\" \"c\" \"/dev/null\"\n \"/usr/local/bin/ld.mold\" \"-z\" \"relro\" \"--hash-style=gnu\" \"--eh-frame-hdr\" \"-m\" \"elf_x86_64\" \"-pie\" \"-dynamic-linker\" \"/lib64/ld-linux-x86-64.so.2\" \"-o\" \"/tmp/pse-native-producer-audit/uncreated-link-probe\" \"/lib/x86_64-linux-gnu/Scrt1.o\" \"/lib/x86_64-linux-gnu/crti.o\" \"/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o\" \"-L/usr/lib/gcc/x86_64-linux-gnu/13\" \"-L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64\" \"-L/lib/x86_64-linux-gnu\" \"-L/lib/../lib64\" \"-L/usr/lib/x86_64-linux-gnu\" \"-L/usr/lib64\" \"-L/lib\" \"-L/usr/lib\" \"/tmp/null-a5618a.o\" \"-lgcc\" \"--as-needed\" \"-lgcc_s\" \"--no-as-needed\" \"-lc\" \"-lgcc\" \"--as-needed\" \"-lgcc_s\" \"--no-as-needed\" \"/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o\" \"/lib/x86_64-linux-gnu/crtn.o\"\n"
+    }
+  ],
+  "ordered_library_directories": [
+    "/usr/lib/gcc/x86_64-linux-gnu/13",
+    "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64",
+    "/lib/x86_64-linux-gnu",
+    "/lib/../lib64",
+    "/usr/lib/x86_64-linux-gnu",
+    "/usr/lib64",
+    "/lib",
+    "/usr/lib"
+  ],
+  "support_basename_candidates": [
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/crt1.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/Scrt1.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/rcrt1.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/crti.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/crtn.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/crtbegin.o",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/gcc/x86_64-linux-gnu/13/crtbegin.o",
+      "bytes": 2448,
+      "sha256": "092c2546e5c1a04340a35db6ba04802f3bba1d82aeea2776b8493578595efdd2"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o",
+      "bytes": 2752,
+      "sha256": "667ff5f1edc931d44d1f2bb44d313907aa274bcc207c0beff71a398335f0d29f"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/crtend.o",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/gcc/x86_64-linux-gnu/13/crtend.o",
+      "bytes": 1168,
+      "sha256": "9c8b2caad195193301ef072895dc89bea1d23371d4c19accd821debe27773063"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o",
+      "bytes": 1168,
+      "sha256": "9c8b2caad195193301ef072895dc89bea1d23371d4c19accd821debe27773063"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/libc.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/libc.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/libc_nonshared.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/libm.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/libm.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/libmvec.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so",
+      "bytes": 132,
+      "sha256": "69a56a9993b7729b29b274e65016031c81f2397f176ed5ad44d59bd50425e0bd",
+      "linker_script": "/* GNU ld script\n   Use the shared library, but some functions are only in\n   the static library.  */\nGROUP ( libgcc_s.so.1 -lgcc )\n"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so.1",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc.a",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc.a",
+      "bytes": 3093656,
+      "sha256": "d9376c55f97863a4e5fbb6c6beca2591b319bf786f3a7ca56da8964c5662171f"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_eh.a",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_eh.a",
+      "bytes": 66708,
+      "sha256": "f853cbbf842ff8714cc8dd986e2fd5bb309d34d490b0707203223ee4d52c76bc"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/libstdc++.so",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33",
+      "bytes": 2592224,
+      "sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/libstdc++.a",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/gcc/x86_64-linux-gnu/13/libstdc++.a",
+      "bytes": 6583910,
+      "sha256": "1f5a271fb1917b827ddcc3f65be5bf9bb4ab86be8de6acb6566aa638e92f602c"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/libpthread.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/libpthread.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/libdl.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/libdl.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/librt.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/librt.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/libutil.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/libutil.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/crt1.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/Scrt1.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/rcrt1.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/crti.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/crtn.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/crtbegin.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/crtbeginS.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/crtend.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/crtendS.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/libc.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/libc.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/libc_nonshared.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/libm.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/libm.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/libmvec.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/libgcc_s.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/libgcc_s.so.1",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/libgcc.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/libgcc_eh.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/libstdc++.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/libstdc++.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/libpthread.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/libpthread.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/libdl.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/libdl.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/librt.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/librt.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/libutil.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64/libutil.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/crt1.o",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/crt1.o",
+      "bytes": 1792,
+      "sha256": "5cfb30db1d2c92a9a818f6c015ad7fcd6519afaa1b88148e831504fe6e299479"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/Scrt1.o",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/Scrt1.o",
+      "bytes": 1656,
+      "sha256": "9438d15c4bac893a0e3aad2c2c86ccbceb59d5872bd07101949f237ee1c92a8b"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/rcrt1.o",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/rcrt1.o",
+      "bytes": 1656,
+      "sha256": "9438d15c4bac893a0e3aad2c2c86ccbceb59d5872bd07101949f237ee1c92a8b"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/crti.o",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/crti.o",
+      "bytes": 1192,
+      "sha256": "077ccb6c68db1794da3ee262c4a16a3c6f8e902845dd0829110ad4b7065e5aa3"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/crtn.o",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/crtn.o",
+      "bytes": 760,
+      "sha256": "a2266079f95b84ccc2162ebbf279bcd78858a748aa1882e0bdb912316c76a58f"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/crtbegin.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/crtbeginS.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/crtend.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/crtendS.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/libc.so",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libc.so",
+      "bytes": 283,
+      "sha256": "fe2a4ce2930fc6b3966aa987fae808375446c8d3823b8c21792e991aad9c75df",
+      "linker_script": "/* GNU ld script\n   Use the shared library, but some functions are only in\n   the static library, so try that secondarily.  */\nOUTPUT_FORMAT(elf64-x86-64)\nGROUP ( /lib/x86_64-linux-gnu/libc.so.6 /usr/lib/x86_64-linux-gnu/libc_nonshared.a  AS_NEEDED ( /lib64/ld-linux-x86-64.so.2 ) )\n"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/libc.a",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libc.a",
+      "bytes": 6136944,
+      "sha256": "a40c7eae7581f977b65eddb81cbc799213a695749e039d966db55bdee4ac9621"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/libc_nonshared.a",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libc_nonshared.a",
+      "bytes": 5594,
+      "sha256": "3341391290ddd596521a61152b4e2612f4625cc85f737d875b918f6cfb2b2786"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/libm.so",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libm.so",
+      "bytes": 140,
+      "sha256": "55de4a3e12e17c3e2b18eb95ee21b3f46a8893ea6cab68c0a1c3a5caaf32e6cf",
+      "linker_script": "/* GNU ld script\n*/\nOUTPUT_FORMAT(elf64-x86-64)\nGROUP ( /lib/x86_64-linux-gnu/libm.so.6  AS_NEEDED ( /lib/x86_64-linux-gnu/libmvec.so.1 ) )\n"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/libm.a",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libm.a",
+      "bytes": 132,
+      "sha256": "420cd3c406f6f8c12deb3d1291146e9c091ee015a7c39eaf2237f01e80d6f0ae",
+      "linker_script": "/* GNU ld script\n*/\nOUTPUT_FORMAT(elf64-x86-64)\nGROUP ( /usr/lib/x86_64-linux-gnu/libm-2.39.a /usr/lib/x86_64-linux-gnu/libmvec.a )\n"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/libmvec.so",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libmvec.so.1",
+      "bytes": 1018144,
+      "sha256": "57329ee0018b8fd8f8e51af5f87c723b6ecdf04679f4493134beab0f45d58ec5"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/libgcc_s.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/libgcc_s.so.1",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1",
+      "bytes": 183024,
+      "sha256": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/libgcc.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/libgcc_eh.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/libstdc++.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/libstdc++.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/libpthread.a",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libpthread.a",
+      "bytes": 8,
+      "sha256": "f0a17a43c74d2fe5474fa2fd29c8f14799e777d7d75a2cc4d11c20a6e7b161c5"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/libpthread.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/libdl.a",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libdl.a",
+      "bytes": 8,
+      "sha256": "f0a17a43c74d2fe5474fa2fd29c8f14799e777d7d75a2cc4d11c20a6e7b161c5"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/libdl.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/librt.a",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/librt.a",
+      "bytes": 8,
+      "sha256": "f0a17a43c74d2fe5474fa2fd29c8f14799e777d7d75a2cc4d11c20a6e7b161c5"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/librt.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/libutil.a",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libutil.a",
+      "bytes": 8,
+      "sha256": "f0a17a43c74d2fe5474fa2fd29c8f14799e777d7d75a2cc4d11c20a6e7b161c5"
+    },
+    {
+      "candidate": "/lib/x86_64-linux-gnu/libutil.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/crt1.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/Scrt1.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/rcrt1.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/crti.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/crtn.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/crtbegin.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/crtbeginS.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/crtend.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/crtendS.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/libc.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/libc.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/libc_nonshared.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/libm.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/libm.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/libmvec.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/libgcc_s.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/libgcc_s.so.1",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/libgcc.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/libgcc_eh.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/libstdc++.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/libstdc++.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/libpthread.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/libpthread.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/libdl.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/libdl.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/librt.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/librt.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/libutil.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/../lib64/libutil.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/crt1.o",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/crt1.o",
+      "bytes": 1792,
+      "sha256": "5cfb30db1d2c92a9a818f6c015ad7fcd6519afaa1b88148e831504fe6e299479"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/Scrt1.o",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/Scrt1.o",
+      "bytes": 1656,
+      "sha256": "9438d15c4bac893a0e3aad2c2c86ccbceb59d5872bd07101949f237ee1c92a8b"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/rcrt1.o",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/rcrt1.o",
+      "bytes": 1656,
+      "sha256": "9438d15c4bac893a0e3aad2c2c86ccbceb59d5872bd07101949f237ee1c92a8b"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/crti.o",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/crti.o",
+      "bytes": 1192,
+      "sha256": "077ccb6c68db1794da3ee262c4a16a3c6f8e902845dd0829110ad4b7065e5aa3"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/crtn.o",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/crtn.o",
+      "bytes": 760,
+      "sha256": "a2266079f95b84ccc2162ebbf279bcd78858a748aa1882e0bdb912316c76a58f"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/crtbegin.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/crtbeginS.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/crtend.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/crtendS.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/libc.so",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libc.so",
+      "bytes": 283,
+      "sha256": "fe2a4ce2930fc6b3966aa987fae808375446c8d3823b8c21792e991aad9c75df",
+      "linker_script": "/* GNU ld script\n   Use the shared library, but some functions are only in\n   the static library, so try that secondarily.  */\nOUTPUT_FORMAT(elf64-x86-64)\nGROUP ( /lib/x86_64-linux-gnu/libc.so.6 /usr/lib/x86_64-linux-gnu/libc_nonshared.a  AS_NEEDED ( /lib64/ld-linux-x86-64.so.2 ) )\n"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/libc.a",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libc.a",
+      "bytes": 6136944,
+      "sha256": "a40c7eae7581f977b65eddb81cbc799213a695749e039d966db55bdee4ac9621"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/libc_nonshared.a",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libc_nonshared.a",
+      "bytes": 5594,
+      "sha256": "3341391290ddd596521a61152b4e2612f4625cc85f737d875b918f6cfb2b2786"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/libm.so",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libm.so",
+      "bytes": 140,
+      "sha256": "55de4a3e12e17c3e2b18eb95ee21b3f46a8893ea6cab68c0a1c3a5caaf32e6cf",
+      "linker_script": "/* GNU ld script\n*/\nOUTPUT_FORMAT(elf64-x86-64)\nGROUP ( /lib/x86_64-linux-gnu/libm.so.6  AS_NEEDED ( /lib/x86_64-linux-gnu/libmvec.so.1 ) )\n"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/libm.a",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libm.a",
+      "bytes": 132,
+      "sha256": "420cd3c406f6f8c12deb3d1291146e9c091ee015a7c39eaf2237f01e80d6f0ae",
+      "linker_script": "/* GNU ld script\n*/\nOUTPUT_FORMAT(elf64-x86-64)\nGROUP ( /usr/lib/x86_64-linux-gnu/libm-2.39.a /usr/lib/x86_64-linux-gnu/libmvec.a )\n"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/libmvec.so",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libmvec.so.1",
+      "bytes": 1018144,
+      "sha256": "57329ee0018b8fd8f8e51af5f87c723b6ecdf04679f4493134beab0f45d58ec5"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/libgcc_s.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1",
+      "bytes": 183024,
+      "sha256": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/libgcc.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/libgcc_eh.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/libstdc++.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/libstdc++.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/libpthread.a",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libpthread.a",
+      "bytes": 8,
+      "sha256": "f0a17a43c74d2fe5474fa2fd29c8f14799e777d7d75a2cc4d11c20a6e7b161c5"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/libpthread.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/libdl.a",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libdl.a",
+      "bytes": 8,
+      "sha256": "f0a17a43c74d2fe5474fa2fd29c8f14799e777d7d75a2cc4d11c20a6e7b161c5"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/libdl.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/librt.a",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/librt.a",
+      "bytes": 8,
+      "sha256": "f0a17a43c74d2fe5474fa2fd29c8f14799e777d7d75a2cc4d11c20a6e7b161c5"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/librt.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/libutil.a",
+      "exists": true,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libutil.a",
+      "bytes": 8,
+      "sha256": "f0a17a43c74d2fe5474fa2fd29c8f14799e777d7d75a2cc4d11c20a6e7b161c5"
+    },
+    {
+      "candidate": "/usr/lib/x86_64-linux-gnu/libutil.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/crt1.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/Scrt1.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/rcrt1.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/crti.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/crtn.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/crtbegin.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/crtbeginS.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/crtend.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/crtendS.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/libc.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/libc.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/libc_nonshared.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/libm.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/libm.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/libmvec.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/libgcc_s.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/libgcc_s.so.1",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/libgcc.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/libgcc_eh.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/libstdc++.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/libstdc++.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/libpthread.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/libpthread.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/libdl.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/libdl.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/librt.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/librt.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/libutil.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib64/libutil.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/crt1.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/Scrt1.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/rcrt1.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/crti.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/crtn.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/crtbegin.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/crtbeginS.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/crtend.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/crtendS.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/libc.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/libc.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/libc_nonshared.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/libm.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/libm.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/libmvec.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/libgcc_s.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/libgcc_s.so.1",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/libgcc.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/libgcc_eh.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/libstdc++.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/libstdc++.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/libpthread.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/libpthread.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/libdl.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/libdl.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/librt.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/librt.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/libutil.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/lib/libutil.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/crt1.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/Scrt1.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/rcrt1.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/crti.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/crtn.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/crtbegin.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/crtbeginS.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/crtend.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/crtendS.o",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/libc.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/libc.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/libc_nonshared.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/libm.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/libm.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/libmvec.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/libgcc_s.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/libgcc_s.so.1",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/libgcc.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/libgcc_eh.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/libstdc++.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/libstdc++.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/libpthread.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/libpthread.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/libdl.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/libdl.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/librt.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/librt.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/libutil.a",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    },
+    {
+      "candidate": "/usr/lib/libutil.so",
+      "exists": false,
+      "scope": "ordered selected Clang driver observer link directory; final Rust link route must match"
+    }
+  ],
+  "driver_or_linker_script_transitive_files": [
+    {
+      "path": "/lib/x86_64-linux-gnu/Scrt1.o",
+      "resolved": "/usr/lib/x86_64-linux-gnu/Scrt1.o",
+      "bytes": 1656,
+      "sha256": "9438d15c4bac893a0e3aad2c2c86ccbceb59d5872bd07101949f237ee1c92a8b"
+    },
+    {
+      "path": "/lib/x86_64-linux-gnu/crti.o",
+      "resolved": "/usr/lib/x86_64-linux-gnu/crti.o",
+      "bytes": 1192,
+      "sha256": "077ccb6c68db1794da3ee262c4a16a3c6f8e902845dd0829110ad4b7065e5aa3"
+    },
+    {
+      "path": "/lib/x86_64-linux-gnu/crtn.o",
+      "resolved": "/usr/lib/x86_64-linux-gnu/crtn.o",
+      "bytes": 760,
+      "sha256": "a2266079f95b84ccc2162ebbf279bcd78858a748aa1882e0bdb912316c76a58f"
+    },
+    {
+      "path": "/lib/x86_64-linux-gnu/libc.so",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libc.so",
+      "bytes": 283,
+      "sha256": "fe2a4ce2930fc6b3966aa987fae808375446c8d3823b8c21792e991aad9c75df"
+    },
+    {
+      "path": "/lib/x86_64-linux-gnu/libc.so.6",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "bytes": 2129424,
+      "sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf"
+    },
+    {
+      "path": "/lib/x86_64-linux-gnu/libm.a",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libm.a",
+      "bytes": 132,
+      "sha256": "420cd3c406f6f8c12deb3d1291146e9c091ee015a7c39eaf2237f01e80d6f0ae"
+    },
+    {
+      "path": "/lib/x86_64-linux-gnu/libm.so",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libm.so",
+      "bytes": 140,
+      "sha256": "55de4a3e12e17c3e2b18eb95ee21b3f46a8893ea6cab68c0a1c3a5caaf32e6cf"
+    },
+    {
+      "path": "/lib/x86_64-linux-gnu/libm.so.6",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libm.so.6",
+      "bytes": 952616,
+      "sha256": "fce00b6f25f459cf4ae0b7fae4257909a1a8a86f9149e7c029a5d617baf1ccd0"
+    },
+    {
+      "path": "/lib/x86_64-linux-gnu/libmvec.so.1",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libmvec.so.1",
+      "bytes": 1018144,
+      "sha256": "57329ee0018b8fd8f8e51af5f87c723b6ecdf04679f4493134beab0f45d58ec5"
+    },
+    {
+      "path": "/lib64/ld-linux-x86-64.so.2",
+      "resolved": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+      "bytes": 236616,
+      "sha256": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da"
+    },
+    {
+      "path": "/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o",
+      "resolved": "/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o",
+      "bytes": 2752,
+      "sha256": "667ff5f1edc931d44d1f2bb44d313907aa274bcc207c0beff71a398335f0d29f"
+    },
+    {
+      "path": "/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o",
+      "resolved": "/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o",
+      "bytes": 1168,
+      "sha256": "9c8b2caad195193301ef072895dc89bea1d23371d4c19accd821debe27773063"
+    },
+    {
+      "path": "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so",
+      "resolved": "/usr/lib/gcc/x86_64-linux-gnu/13/libgcc_s.so",
+      "bytes": 132,
+      "sha256": "69a56a9993b7729b29b274e65016031c81f2397f176ed5ad44d59bd50425e0bd"
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/libc.so",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libc.so",
+      "bytes": 283,
+      "sha256": "fe2a4ce2930fc6b3966aa987fae808375446c8d3823b8c21792e991aad9c75df"
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/libc_nonshared.a",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libc_nonshared.a",
+      "bytes": 5594,
+      "sha256": "3341391290ddd596521a61152b4e2612f4625cc85f737d875b918f6cfb2b2786"
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/libm-2.39.a",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libm-2.39.a",
+      "bytes": 2607988,
+      "sha256": "07f819a1dde208fd783513a9cc5d4df87ecfd7cd93b748079db73a5967333a4e"
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/libm.a",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libm.a",
+      "bytes": 132,
+      "sha256": "420cd3c406f6f8c12deb3d1291146e9c091ee015a7c39eaf2237f01e80d6f0ae"
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/libm.so",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libm.so",
+      "bytes": 140,
+      "sha256": "55de4a3e12e17c3e2b18eb95ee21b3f46a8893ea6cab68c0a1c3a5caaf32e6cf"
+    },
+    {
+      "path": "/usr/lib/x86_64-linux-gnu/libmvec.a",
+      "resolved": "/usr/lib/x86_64-linux-gnu/libmvec.a",
+      "bytes": 1830076,
+      "sha256": "a775c33f9d7a18c547a111467b7f855340da8a38e454adb5e869f11ca4036abf"
+    },
+    {
+      "path": "/usr/local/bin/ld.mold",
+      "resolved": "/usr/local/bin/mold",
+      "bytes": 23071376,
+      "sha256": "4b18553c959a792a91a77ec6448408300bbb04ad54e0d1a013453149583cce69"
+    }
+  ]
+}

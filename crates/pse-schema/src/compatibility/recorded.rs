@@ -25,7 +25,6 @@ struct Relation {
     enums: BTreeMap<String, Domain>,
     extensions: BTreeMap<String, Extension>,
     checks: BTreeMap<String, String>,
-    policies: BTreeMap<String, String>,
     invariants: BTreeMap<String, Invariant>,
     #[serde(default)]
     unique_keys: BTreeMap<String, Vec<String>>,
@@ -339,7 +338,6 @@ fn validated_graph(
                 return Err(malformed("noncanonical declared check"));
             }
         }
-        crate::arrow::validate_delta_properties(&relation.policies).map_err(malformed)?;
         for (name, invariant) in &relation.invariants {
             let _ = (&invariant.kind, &invariant.severity);
             if name.is_empty()
@@ -462,14 +460,6 @@ pub(super) fn project(
                     return Err(incompatible("consumed field meaning differs"));
                 }
                 slots.push(Some(index));
-            } else if descriptor_inventory_rule(
-                &actual,
-                &expected,
-                field,
-                &source_fields,
-                &target_fields,
-            ) {
-                slots.push(None);
             } else {
                 return Err(incompatible("consumed field is absent"));
             }
@@ -514,23 +504,6 @@ pub(super) fn project(
         projection.insert(*id, slots);
     }
     Ok(projection)
-}
-fn descriptor_inventory_rule(
-    source: &serde_json::Value,
-    target: &serde_json::Value,
-    field: &Field,
-    old: &[Field],
-    current: &[Field],
-) -> bool {
-    source["relation"] == "runtime.artifact_descriptors@1"
-        && target["relation"] == source["relation"]
-        && field.name() == "profile_required_relations"
-        && field.is_nullable()
-        && current.len() == old.len() + 1
-        && current
-            .iter()
-            .filter(|f| f.name() != "profile_required_relations")
-            .eq(old.iter())
 }
 fn incompatible(reason: &str) -> CompatibilityError {
     CompatibilityError::Incompatible(reason.into())

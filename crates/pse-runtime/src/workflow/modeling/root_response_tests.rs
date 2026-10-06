@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Public Root request, physical response publication and independent withholding.
 use super::*;
+use super::results::{PortablePrediction,PredictionSample};
 use crate::math::{settings::SensitivityRequest, solves::NumericalInputs};
 use crate::workflow::tests as fixture;
 use pse_backend_native::solve::{Backend, SolveIntent, SolverSelection};
@@ -30,12 +31,23 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
         .unwrap()
         .declaration_id;
     let runtime = fixture::runtime_with(256 << 20, 16 << 20, 1 << 30);
+    let physical=fixture::physical();
+    let scalar=physical.quantities.quantity_types().find(|quantity|quantity.name.as_deref()==Some("Scalar")).unwrap();
+    let precision=pse_model::numerics::EngineeringRule{
+        rule_id:pse_ids::named_id(root.as_id(),"root-prediction-verification-precision").into(),
+        quantity_id:scalar.id.as_id(),unit_id:scalar.canonical_unit.as_id(),
+        physical_allowance:Some(1e-10),relative_fraction:None,
+        provenance:"original root, secant and surrogate correction verification precision".into(),
+    };
     let package = runtime
-        .modeling_package(rows, fixture::physical())
+        .modeling_package(rows, physical)
         .await
         .unwrap();
     let mut solver = fixture::profile();
     solver.intent = SolveIntent::Root;
+    // Without a characteristic scale, the relative fraction uses the canonical
+    // allowance. Declare the physical allowance required by the 1e-8 assertions.
+    solver.numerics.engineering_rules.push(precision);
     solver.selection = SolverSelection::Explicit(Backend::Kinsol);
     // This task explicitly admits fresh predictor proposals for its original corrector.
     solver.composition.recovery.extend([
@@ -80,16 +92,36 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
     let predictor = base.root_predictor().unwrap();
     analysis.case.values.insert("p".into(), 4.04);
     let mut target = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    assert!(target.solve.accuracy().feasibility<=1e-10);
     let scope = pse_kernels::ExecutionScope::new(
         Arc::default(),
         Some(std::time::Instant::now() + std::time::Duration::from_secs(10)),
     );
+    // Portable scientific point evidence reconstructs the existing library factor;
+    // no native factor bytes or independent permission decision are serialized.
+    target.solve=runtime.native().admit_proposal_task(target.solve.clone(),scope.clone()).unwrap();
+    let portable=base.portable_prediction().unwrap().unwrap();
+    let wire=serde_json::to_vec(&portable).unwrap();
+    let portable:PortablePrediction=serde_json::from_slice(&wire).unwrap();
+    let root=portable.root.as_ref().unwrap();
+    let primal=portable.primal.iter().copied().map(f64::from_bits).collect::<Vec<_>>();
+    let original_values=root.values.iter().copied().map(f64::from_bits).collect::<Vec<_>>();
+    let rebuilt=runtime.native().restore_root_predictor(base.prepared.solve.clone(),primal.clone(),original_values.clone(),root.key,scope.clone(),target.solve.task_admission(),&cancel).await.unwrap();
+    assert_eq!(rebuilt.factor().key(),predictor.factor().key());
+    assert_eq!(rebuilt.factor().point(),predictor.factor().point());
+    let mut wrong_point=primal;wrong_point[0]+=0.1;
+    assert!(runtime.native().restore_root_predictor(base.prepared.solve.clone(),wrong_point,original_values,root.key,scope.clone(),target.solve.task_admission(),&cancel).await.is_err());
+    let retained=PredictionSample{prepared:base.prepared.clone(),runtime:runtime.clone(),point:Arc::new(pse_columnar::Leased::new(Arc::new(portable),runtime.shared.math().reserve("test:portable-root",wire.len()).unwrap())),root:Ok(rebuilt)};
     let execution = Execution::within(
         scope.cancellation().clone(),
         &Controls::default(),
         scope.clone(),
     )
     .unwrap();
+    let mut portable_execution=Execution::within(scope.cancellation().clone(),&Controls::default(),scope.clone()).unwrap();
+    portable_execution.work_admission=target.solve.task_admission().map(|owner|->Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});
+    let restored_proposal=retained.available_prediction(None,&target,BranchPolicy::any_qualified(),&portable_execution).unwrap();
+    assert!((restored_proposal.values().next().unwrap().1-2.01).abs()<1e-12);
     let (proposal, work) = base
         .root_prediction(&target.solve, BranchPolicy::any_qualified(), &execution)
         .unwrap();
@@ -115,7 +147,7 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
     let Outcome::Native(report) = &corrected.outcome else {
         panic!("native original corrector expected");
     };
-    assert!((report.candidate.as_ref().unwrap().primal[0] - 4.04_f64.sqrt()).abs() < 1e-8);
+    assert!((report.candidate.as_ref().unwrap().primal[0] - 4.04_f64.sqrt()).abs() < 1e-8,"actual={:?}, original_values={:?}, termination={:?}, requested={:?}, quality={:?}",report.candidate.as_ref().unwrap().primal,report.observation.as_ref().map(|observed|&observed.values),report.termination,corrected.prepared.solve.accuracy(),report.quality);
     // Retained factor and source point survive independent native-session teardown.
     assert_eq!(predictor.factor().point(), [2.]);
     let mut changed = analysis.clone();
@@ -177,6 +209,7 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
     }
     let mut target = package.prepare_analysis(&analysis, &cancel).await.unwrap();
     let identity = target.solve.original_identity().unwrap();
+    assert!(target.solve.accuracy().feasibility<=1e-10);
     let correspondence = FidelityCorrespondence {
         original_target: identity,
         model_target: identity,
@@ -256,7 +289,7 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
     let Outcome::Native(report) = &corrected.outcome else {
         panic!("native original corrector expected");
     };
-    assert!((report.candidate.as_ref().unwrap().primal[0] - 4.04_f64.sqrt()).abs() < 1e-8);
+    assert!((report.candidate.as_ref().unwrap().primal[0] - 4.04_f64.sqrt()).abs() < 1e-8,"actual={:?}, original_values={:?}, termination={:?}, requested={:?}, quality={:?}",report.candidate.as_ref().unwrap().primal,report.observation.as_ref().map(|observed|&observed.values),report.termination,corrected.prepared.solve.accuracy(),report.quality);
 }
 
 #[tokio::test]

@@ -34,7 +34,6 @@ highs-sys = { workspace = true, optional = true }
 clarabel = { workspace = true, optional = true }
 sundials-sys = { workspace = true, optional = true }
 diffsol = { workspace = true, optional = true }
-pse-workspace-hack.workspace = true
 
 [dev-dependencies]
 object_store.workspace = true

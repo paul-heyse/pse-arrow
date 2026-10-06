@@ -11,7 +11,7 @@ use std::sync::Arc;
 use url::Url;
 mod admission;
 
-/// Native registry containing the same instrumented stores for DataFusion and Delta.
+/// Native registry containing the same instrumented stores for native DataFusion providers.
 #[derive(Debug)]
 pub struct ObservedStores {
     inner: DefaultObjectStoreRegistry,

@@ -1,6 +1,6 @@
 ---
 title: Durable execution and dependency-scoped studies
-status: draft
+status: in-progress
 date: 2026-10-05
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md]
@@ -130,10 +130,10 @@ without deleting canonical scientific history.
 
 | Package | Prerequisite and delivered behavior | Consumer migration and deletion | Status |
 |---|---|---|---|
-| C1 — Lifecycle and result envelope | R0; working A1/A2 operations, codec and guard slice. Implement run/attempt identities, terminal classes, operation deduplication, cancellation fences and staging contract. | Migrate lifecycle types/registry declarations and unit policy consumers; expose the real shared contract to D1 and C2. | Scheduled |
-| C2 — Automatic durable execution | C1, B2 descriptions and D1's minimal canonical result reader. Connect ordinary Rust/Python runs, bounded staging, atomic sealing and restart recovery. | Replace optional-store implicit ephemerality and ordinary explicit publication. Delete displaced `DurableAttempt`/publication mechanisms and callers when covered. | Scheduled |
-| C3 — Dependency-scoped studies | C1, B1 selected inputs and B3 preparation slice; C2 terminal selection. Implement native discovery, fenced claims, scoped/batched policy, starts and finalization. | Move all study drivers/workers and recovery consumers. Delete PostgreSQL jobs/leases and complete-snapshot-per-dispatch paths, fixtures and tests for those mechanisms. | Scheduled |
-| C4 — Interruptions and retained lifecycle | C2/C3 and A3 retention/read protection. Complete drain, stale generation rejection, uncertain acknowledgments and bounded staging reclamation. | Move operational maintenance and diagnostics. Remove cross-store reconciliation, publication intents and member-prefix cleanup as their last consumers migrate. | Scheduled |
+| C1 — Lifecycle and result envelope | R0; working A1/A2 operations, codec and guard slice. Implement run/attempt identities, terminal classes, operation deduplication, cancellation fences and staging contract. | Migrate lifecycle types/registry declarations and unit policy consumers; expose the real shared contract to D1 and C2. | Implemented; focused native controls exercised; integrated qualification remains in E3. |
+| C2 — Automatic durable execution | C1, B2 descriptions and D1's minimal canonical result reader. Connect ordinary Rust/Python runs, bounded staging, atomic sealing and restart recovery. | Replace optional-store implicit ephemerality and ordinary explicit publication. Delete displaced `DurableAttempt`/publication mechanisms and callers when covered. | Implemented; focused retention, progress and recovery controls exercised; linked Python controls and E3 remain. |
+| C3 — Dependency-scoped studies | C1, B1 selected inputs and B3 preparation slice; C2 terminal selection. Implement native discovery, fenced claims, scoped/batched policy, starts and finalization. | Move all study drivers/workers and recovery consumers. Delete PostgreSQL jobs/leases and complete-snapshot-per-dispatch paths, fixtures and tests for those mechanisms. | Implemented; focused continuation/finalization controls exercised; migrated worker journeys compile and await E3 execution. |
+| C4 — Interruptions and retained lifecycle | C2/C3 and A3 retention/read protection. Complete drain, stale generation rejection, uncertain acknowledgments and bounded staging reclamation. | Move operational maintenance and diagnostics. Remove cross-store reconciliation, publication intents and member-prefix cleanup as their last consumers migrate. | Implemented; scoped retention/race controls passed; assembled interruption journeys remain in E3. |
 
 C1 supplies only the shared lifecycle contract; its completion is not completion of automatic
 retention or studies. D1's small sealed-result reader breaks the apparent execution/query
@@ -169,10 +169,61 @@ profile, beyond pure in-memory policy units.
 
 ## Checkpoint and next step
 
-No C package is implemented by plan authoring. C1 follows R0 and A's working guard/codec
-slice. C2 and D1 then integrate together; C3 can develop policy against C1 while awaiting
-actual compiled/run consumers. This document owns C progress/local evidence; the coordinator
-owns US01/US02/US04/EF03 finding dispositions.
+C1/C2/C3 now use canonical native lifecycle functions and protected exact result
+selections. Ordinary runs retain original Arrow blocks, diagnostics and qualified seeds;
+studies retain compact run/attempt handles rather than native reports. Candidate decisions
+use the candidate and its immediate premises, with deferred numerical preparation. The local
+adapter admits the study once and prepares only its bounded ready frontier. Both the local
+and reopened durable continuation controls exercise the shared secant proposal followed by
+the original corrector. Durable seeds retain exact portable qualified point evidence;
+library-owned native factors are reconstructed only for an actual prediction consumer and
+remain process-local. Explicit absent seeds use the shared policy's structured refusal.
+
+Physical ingress, definition admission and ready occurrence preparation now share a bounded
+Runtime-local immutable admission for the exact physical revision and checksum. Ordinary
+physical IPC staging reuses only the original checked source owners, quantities, preconditions
+and package metadata under the same Operations, registry and session owners. Each purpose
+retains at most one product with a finite byte ceiling. Hits acquire fresh native protections;
+active consumers retain those guards through durable root admission. Clear and eviction fence
+in-flight loads without invalidating active values. Focused controls cover actual document/row
+reuse, changed support despite equal physical identity, changed revisions/owners, reclamation
+refusal and clear races before and after native source lookup. The actual study consumer and
+retained secant/original-corrector controls preserve the scientific outcomes; assembled
+capacity and performance claims remain in E3/E4.
+
+Linked scientific consumer checks exposed a preclaim refusal being replaced by a later
+cleanup error. Registration now keeps an acknowledged run header before claiming and
+preserves the original typed refusal when no attempt was established. Cleanup failures
+remain observable in the durable record. Focused refusal and successful-manifest controls
+pass; the underlying linked reference/SCIP registration failure is being diagnosed before
+those scientific consumers can qualify.
+
+Progress observations are projected by borrowing the native event, coalesced under the finite
+flush policy, and split into bounded immutable receipts with exact event counts and integer
+sequences. Native controls cover batching and truthful cancellation on backpressure. Study
+discovery returns an actual bounded `StudySummary`, without a fabricated metadata payload.
+Parent-summary admission atomically concludes the study; live competing writers and expired
+effect-free writers are handled without rerunning numerical points. Focused controls exercise
+pre-cancellation, summary recovery and cancellation after summary closure.
+
+The retained original-root prediction fixture's final surrogate correction exposed a test
+precision mismatch: a relative fraction without a declared engineering scale correctly uses
+the ordinary canonical allowance. The fixture now requests its unchanged numerical assertions'
+precision through an explicit scalar physical allowance; the focused native rerun passed with D's
+result controls. Occurrence discovery now carries actual ordinal/outcome fields in a typed
+`ScopedStudyPoint`; full scientific descriptors are fetched explicitly by their exact keys. The child-process worker journeys have moved to canonical study
+claims, exact retained attempts and physical revisions, preserving authored square/data,
+warm-seed, killed-worker, long-SCIP cancellation and two-worker scenarios. Those journeys
+compile; E3 must execute them in the supervised profile. No assembled-process or
+performance qualification is established by the focused mechanism controls.
+
+C4 implements explicit result retirement, source-root release and restartable bounded cleanup.
+Live readers and retained studies/analyses prevent retirement; tombstones prevent replay from
+resurrecting a retired execution. Focused controls exposed and repaired an uncertainty fallback
+that returned a retired run receipt. C4's focused native controls exercise protected buffers, exact retirement conflicts,
+restartable cleanup, immutable lifecycle receipts and all-source root release. Assembled
+interruption and consumer qualification remain in E3. This document owns C status; the coordinator owns
+finding dispositions. Integrated qualification waits for all companion functional scope.
 
 ## Outcome (recorded after implementation)
 

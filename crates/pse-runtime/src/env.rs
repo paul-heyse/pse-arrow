@@ -20,7 +20,7 @@ pub struct SharedRuntime {
     peak: Arc<PeakRecordingPool>,
     budget: ResourceBudget,
     compiler_cpu: Arc<tokio::sync::Semaphore>,
-    caches: Arc<pse_catalog::cache_service::DeltaCacheService>,
+    caches: Arc<pse_engine::cache_service::NativeCacheService>,
     math: Arc<crate::math::MathService>,
 }
 
@@ -39,13 +39,9 @@ impl SharedRuntime {
             budget.top_consumers,
             budget.spill_dir.clone(),
             budget.max_temp_dir_bytes,
-            budget.cache.native.clone(),
-        )?;
-        let caches = pse_catalog::cache_service::DeltaCacheService::with_native(
             budget.cache.clone(),
-            native.caches.clone(),
-        )
-        .map_err(|error| RuntimeError::Catalog(pse_engine::session::engine(error)))?;
+        )?;
+        let caches = native.caches.clone();
         let env = native.runtime;
         let tracked = native.tracked;
         let peak = native.peak;
@@ -69,7 +65,7 @@ impl SharedRuntime {
             compiler_cpu.clone(),
             native_cores,
             budget.math.clone(),
-            caches.native(),
+            &caches,
         );
         Ok(Arc::new(Self {
             env,
@@ -107,7 +103,7 @@ impl SharedRuntime {
     }
 
     /// The same native cache owner for all factories and provider scopes.
-    pub fn caches(&self) -> &Arc<pse_catalog::cache_service::DeltaCacheService> {
+    pub fn caches(&self) -> &Arc<pse_engine::cache_service::NativeCacheService> {
         &self.caches
     }
 
@@ -141,7 +137,7 @@ impl SharedRuntime {
             pool_reserved_now: self.peak.reserved(),
             top_consumers: consumers.into_iter().map(Into::into).collect(),
             process_peak_rss_bytes: crate::peak::process_peak_rss()?,
-            caches: self.caches.native().report(),
+            caches: self.caches.report(),
         })
     }
 }

@@ -63,7 +63,6 @@ pub use preparation::{
     CompletedComputation, DiagnosticSample, OwnedComputationStream, PreparedComputation,
     ReusableComputation, ReusableGroup, SampleRetention, TerminalDemand,
 };
-pub mod plan_codec;
 pub use observation::{ExecutionSnapshot, MetricUnit, ObservedMetric, PlanObservation};
 mod aggregate;
 pub mod cache;

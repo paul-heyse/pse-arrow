@@ -1836,8 +1836,6 @@ pub struct RuntimeStudyOutcomesRow {
     pub r#attempt_state: Option<crate::generated::enums::AttemptState>,
     ///result_id
     pub r#result_id: Option<crate::generated::identities::RunId>,
-    ///member_catalog
-    pub r#member_catalog: Option<String>,
     ///usable
     pub r#usable: bool,
     ///seed_permission
@@ -1867,10 +1865,7 @@ impl crate::SemanticEq for RuntimeStudyOutcomesRow {
                 &self.r#attempt_state,
                 &other.r#attempt_state,
             ) && crate::SemanticEq::semantic_eq(&self.r#result_id, &other.r#result_id)
-            && crate::SemanticEq::semantic_eq(
-                &self.r#member_catalog,
-                &other.r#member_catalog,
-            ) && crate::SemanticEq::semantic_eq(&self.r#usable, &other.r#usable)
+            && crate::SemanticEq::semantic_eq(&self.r#usable, &other.r#usable)
             && crate::SemanticEq::semantic_eq(
                 &self.r#seed_permission,
                 &other.r#seed_permission,
@@ -3245,8 +3240,6 @@ impl crate::SemanticFrame for RuntimeStudyOutcomesRow {
         crate::SemanticFrame::frame(&self.r#attempt_state, hash);
         hash.str(stringify!(r#result_id));
         crate::SemanticFrame::frame(&self.r#result_id, hash);
-        hash.str(stringify!(r#member_catalog));
-        crate::SemanticFrame::frame(&self.r#member_catalog, hash);
         hash.str(stringify!(r#usable));
         crate::SemanticFrame::frame(&self.r#usable, hash);
         hash.str(stringify!(r#seed_permission));
@@ -3274,7 +3267,6 @@ impl crate::HeapUsage for RuntimeStudyOutcomesRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#attempt_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#attempt_state))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#result_id))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#member_catalog))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#usable))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#seed_permission))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#candidate_use))

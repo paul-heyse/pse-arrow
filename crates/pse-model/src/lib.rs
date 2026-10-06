@@ -6,8 +6,6 @@
 /// Registry-generated semantic value declarations.
 #[rustfmt::skip]
 pub mod generated;
-/// Exact durable artifact validity, independent of storage and incremental handles.
-pub mod artifact;
 /// Exact binary content (ADR-0125).
 mod bytes;
 pub use bytes::Bytes;
@@ -25,11 +23,6 @@ pub mod forms;
 pub mod lineage;
 /// Resolved numerical meaning, independent of native solver implementations.
 pub mod numerics;
-/// Reading store rows from their PostgreSQL composite values (ADR-0114 Outcome 25).
-#[cfg(feature = "postgres")]
-pub mod postgres;
-#[cfg(all(test, feature = "postgres"))]
-mod postgres_tests;
 /// Validated single-value setting domains (ADR-0116 Outcome 8).
 pub mod scalars;
 /// Declared bounded numerical composition and consumed product contracts.
@@ -41,14 +34,6 @@ mod vocabulary_tests;
 /// An invalid declared semantic enum member.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ModelError {
-    /// Historical durable values require an explicit migration, never an implicit reader.
-    #[error("artifact format {version} requires migration to version {supported}")]
-    MigrationRequired {
-        /// Recorded interpretation.
-        version: i64,
-        /// Supported interpretation.
-        supported: i64,
-    },
     /// A tagged value violates its declared alternatives.
     #[error("{0}")]
     Malformed(String),

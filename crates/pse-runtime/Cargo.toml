@@ -57,6 +57,7 @@ pse-backend-native.workspace = true
 pse-math.workspace = true
 pse-kernels.workspace = true
 pse-structural.workspace = true
+petgraph.workspace = true
 serde.workspace = true
 # The JSON Schema of the solve settings and job documents (ADR-0116 Outcome 7).
 schemars.workspace = true
@@ -80,7 +81,6 @@ futures-util.workspace = true
 object_store.workspace = true
 pse-columnar.workspace = true
 pse-engine.workspace = true
-pse-catalog.workspace = true
 pse-diagnostics.workspace = true
 pse-ids.workspace = true
 datafusion-execution.workspace = true
@@ -90,11 +90,11 @@ miette.workspace = true
 pse-operations.workspace = true
 chrono.workspace = true
 pse-workspace-hack.workspace = true
+flatbuffers.workspace = true
 
 [dev-dependencies]
 pse-operations = { workspace = true, features = ["test-support"] }
 tempfile.workspace = true
-deltalake.workspace = true
 pse-relations = { workspace = true, features = ["test-support"] }
 url.workspace = true
 pse-testkit.workspace = true

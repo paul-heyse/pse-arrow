@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Inclusive integer domains on native signed fields. Storage and meaning are distinct:
-//! Int64 is portable to Delta; the declared bounds preserve the domain's actual width.
+//! Int64 keeps exact signed storage; declared bounds preserve the domain's actual width.
 
 use arrow_schema::{DataType, Field};
 

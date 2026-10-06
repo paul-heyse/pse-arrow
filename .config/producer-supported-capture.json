@@ -1,0 +1,8 @@
+{
+  "capture_actual_build": true,
+  "capture_caller_environment": true,
+  "review_catalogs": [
+    ".config/producer-build-reviews.json",
+    ".config/producer-macro-reviews.json"
+  ]
+}

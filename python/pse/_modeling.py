@@ -30,7 +30,7 @@ from pse._build import (
     _NativeStudyReport,
 )
 from pse._inspection import TableStream
-from pse._runs import PreparedOperation, RunResult, StudyHandle, Workspace
+from pse._runs import PreparedOperation, RunResult, StoredResult, StudyHandle
 from pse._strategies import PreparedFlow, PreparedStrategy
 from pse.contracts.authored import (
     AuthoredFitCasesRow,
@@ -60,7 +60,6 @@ from pse.contracts.documents import (
     StudyDefinition,
     StudyRequest,
     StudyRunControls,
-    StudySubmitControls,
 )
 from pse.contracts.enums import (
     ModelingDiagnosticSampleStop,
@@ -377,7 +376,10 @@ class StudyReport:
         """The study's own structural preparations and value rebinds."""
         return codec.decode_json(self._handle.preparations, PreparationCounts)
 
-    def result(self, index: int) -> RunResult | None:
+    def result(self, index: int) -> RunResult | StoredResult | None:
+        stored = self._handle.stored_result(index)
+        if stored is not None:
+            return StoredResult(stored)
         handle = self._handle.result(index)
         return None if handle is None else RunResult(handle)
 
@@ -632,7 +634,7 @@ class ModelingPackage:
     def prepare_simulation(
         self, case_id: DeclarationId, settings: SimulationSettings
     ) -> PreparedOperation:
-        """Prepare an authored trajectory for cancellable execution and publication.
+        """Prepare an authored trajectory for cancellable canonical execution.
 
         The case's fixture declares its modes, events and scheduled inputs.
         """
@@ -852,23 +854,17 @@ class ModelingPackage:
         definition: StudyDefinition,
         *,
         runtime: "Runtime",
-        workspace: Workspace,
-        controls: StudySubmitControls | None = None,
     ) -> StudyHandle: ...
 
     def study(
         self,
         definition: StudyDefinition,
         *,
-        controls: StudyRunControls | StudySubmitControls | None = None,
+        controls: StudyRunControls | None = None,
         runtime: "Runtime | None" = None,
-        workspace: Workspace | None = None,
     ) -> "StudyReport | StudyHandle":
         """Execute admitted occurrences locally or through durable workers."""
         if runtime is None:
-            if workspace is not None:
-                message = "a workspace selects a durable study; pass runtime"
-                raise ValueError(message)
             if controls is not None and not isinstance(controls, StudyRunControls):
                 message = "local studies require StudyRunControls"
                 raise TypeError(message)
@@ -878,18 +874,13 @@ class ModelingPackage:
                     controls=None if controls is None else codec.encode_json(controls),
                 )
             )
-        if workspace is None:
-            message = "a durable study publishes in a workspace"
-            raise ValueError(message)
-        if controls is not None and not isinstance(controls, StudySubmitControls):
-            message = "durable studies require StudySubmitControls"
+        if controls is not None:
+            message = "durable study retries belong to each authored point policy"
             raise TypeError(message)
         return StudyHandle(
             self._handle.start_study(
                 runtime._handle,  # noqa: SLF001 - same native boundary
-                codec.encode_json(workspace),
                 codec.encode_json(definition),
-                controls=None if controls is None else codec.encode_json(controls),
             )
         )
 

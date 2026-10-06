@@ -392,9 +392,9 @@ def edit_body(source: Path) -> tuple[Path, str]:
     return private, original
 
 
-def profile_override(source: Path, level: int | None, delta_cache: bool) -> None:
+def profile_override(source: Path, level: int | None) -> None:
     """Apply candidate policy only in the snapshot, including nested just/maturin."""
-    if level is None and not delta_cache:
+    if level is None:
         return
     config = source / ".cargo/config.toml"
     original = config.read_text()
@@ -405,8 +405,6 @@ def profile_override(source: Path, level: int | None, delta_cache: bool) -> None
         if level is not None
         else ""
     )
-    if delta_cache:
-        overrides += "\n[profile.dev.package.deltalake-core]\nincremental = false\n"
     config.write_text(original + overrides)
 
 
@@ -438,6 +436,30 @@ def execute_workload(
     finally:
         if server is not None:
             stop_cache_server(server, env)
+
+
+def capability_environment(
+    root: Path, original: dict[str, str], *, native: bool, workflow: bool
+) -> dict[str, str]:
+    """Prepare linked capabilities only when the selected workload consumes them."""
+    if not native and not workflow:
+        return original.copy()
+    output = subprocess.check_output(
+        [
+            "bash",
+            "-c",
+            'source "$1/scripts/native-execution-env.sh" >/dev/null; env -0',
+            "build-measurement-capabilities",
+            str(root),
+        ],
+        cwd=root,
+        env=original,
+    )
+    return dict(
+        entry.decode().split("=", 1)
+        for entry in output.split(b"\0")
+        if entry
+    )
 
 
 def main() -> None:
@@ -476,7 +498,6 @@ def main() -> None:
         choices=(1, 2, 3),
         help="override dependency optimization; default preserves the workspace manifest",
     )
-    parser.add_argument("--delta-cache", action="store_true")
     parser.add_argument("--recovery", action="store_true")
     parser.add_argument("--second-worktree", action="store_true")
     args = parser.parse_args()
@@ -492,10 +513,12 @@ def main() -> None:
         )
     output = validation.fresh_output(root, args.output)
     source = snapshot(root, output)
-    profile_override(source, args.dependency_opt, args.delta_cache)
+    profile_override(source, args.dependency_opt)
     env = build_environment.configure(
         root,
-        validation.command_env(),
+        capability_environment(
+            root, validation.command_env(), native=args.native, workflow=args.workflow
+        ),
         cache=args.cache,
         frontend=args.frontend,
         jobs=args.jobs,
@@ -649,7 +672,7 @@ def main() -> None:
         second = output / "second"
         second.mkdir()
         source = snapshot(root, second)
-        profile_override(source, args.dependency_opt, args.delta_cache)
+        profile_override(source, args.dependency_opt)
         env["CARGO_TARGET_DIR"] = str(output / "second-target")
         sample("second-worktree")
     source_unchanged = validation.sources(root) == json.loads(

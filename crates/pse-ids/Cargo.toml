@@ -26,12 +26,7 @@ serde_json.workspace = true
 schemars.workspace = true
 thiserror.workspace = true
 miette.workspace = true
-postgres-types = { workspace = true, optional = true }
-bytes = { workspace = true, optional = true }
 
-[features]
-# PostgreSQL values of identities (ADR-0114 Outcome 25): the value protocol only.
-postgres = ["dep:postgres-types", "dep:bytes"]
 
 [dev-dependencies]
 proptest.workspace = true

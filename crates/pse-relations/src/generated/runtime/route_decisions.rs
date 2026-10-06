@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    109u8, 46u8, 53u8, 196u8, 122u8, 248u8, 107u8, 206u8, 242u8, 227u8, 213u8, 135u8,
-    90u8, 151u8, 53u8, 254u8, 95u8, 37u8, 131u8, 50u8, 3u8, 127u8, 188u8, 200u8, 12u8,
-    4u8, 18u8, 126u8, 72u8, 50u8, 19u8, 78u8,
+    233u8, 53u8, 54u8, 168u8, 133u8, 134u8, 93u8, 227u8, 43u8, 24u8, 57u8, 155u8, 187u8,
+    22u8, 187u8, 98u8, 246u8, 156u8, 193u8, 39u8, 94u8, 114u8, 94u8, 27u8, 239u8, 3u8,
+    244u8, 165u8, 215u8, 29u8, 41u8, 197u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeRouteDecisionsFieldEligibilityItem {
     fn append(

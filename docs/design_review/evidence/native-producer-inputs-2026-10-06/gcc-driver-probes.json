@@ -1,0 +1,53 @@
+{
+  "scope": "Read-only GNUdriver -### observations under observer environment; no object or assembly generated; not actualfinalcaptureenv",
+  "commands": [
+    {
+      "argv": [
+        "/usr/bin/gcc",
+        "-print-search-dirs"
+      ],
+      "exit": 0,
+      "stdout": "install: /usr/lib/gcc/x86_64-linux-gnu/13/\nprograms: =/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/bin/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/bin/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/bin/\nlibraries: =/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/lib/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/lib/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/:/lib/x86_64-linux-gnu/13/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/13/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/lib/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../:/lib/:/usr/lib/\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/usr/bin/gcc",
+        "-print-file-name=specs"
+      ],
+      "exit": 0,
+      "stdout": "specs\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/usr/bin/gcc",
+        "-###",
+        "-x",
+        "c",
+        "-c",
+        "/dev/null",
+        "-o",
+        "/tmp/pse-native-producer-audit/unused-object.o"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "Using built-in specs.\nCOLLECT_GCC=/usr/bin/gcc\nOFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa\nOFFLOAD_TARGET_DEFAULT=1\nTarget: x86_64-linux-gnu\nConfigured with: ../src/configure -v --with-pkgversion='Ubuntu 13.3.0-6ubuntu2~24.04.1' --with-bugurl=file:///usr/share/doc/gcc-13/README.Bugs --enable-languages=c,ada,c++,go,d,fortran,objc,obj-c++,m2 --prefix=/usr --with-gcc-major-version-only --program-suffix=-13 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-nvptx/usr,amdgcn-amdhsa=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=2\nThread model: posix\nSupported LTO compression algorithms: zlib zstd\ngcc version 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) \nCOLLECT_GCC_OPTIONS='-c' '-o' '/tmp/pse-native-producer-audit/unused-object.o' '-mtune=generic' '-march=x86-64' '-dumpdir' '/tmp/pse-native-producer-audit/'\n /usr/libexec/gcc/x86_64-linux-gnu/13/cc1 -quiet -imultiarch x86_64-linux-gnu /dev/null -quiet -dumpdir /tmp/pse-native-producer-audit/ -dumpbase unused-object \"-mtune=generic\" \"-march=x86-64\" -fasynchronous-unwind-tables -fstack-protector-strong -Wformat -Wformat-security -fstack-clash-protection -fcf-protection -o /tmp/ccIlZhU0.s\nCOLLECT_GCC_OPTIONS='-c' '-o' '/tmp/pse-native-producer-audit/unused-object.o' '-mtune=generic' '-march=x86-64' '-dumpdir' '/tmp/pse-native-producer-audit/'\n as --64 -o /tmp/pse-native-producer-audit/unused-object.o /tmp/ccIlZhU0.s\nCOMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/\nLIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../:/lib/:/usr/lib/\nCOLLECT_GCC_OPTIONS='-c' '-o' '/tmp/pse-native-producer-audit/unused-object.o' '-mtune=generic' '-march=x86-64' '-dumpdir' '/tmp/pse-native-producer-audit/unused-object.'\n"
+    },
+    {
+      "argv": [
+        "/usr/bin/g++",
+        "-###",
+        "-x",
+        "c++",
+        "-c",
+        "/dev/null",
+        "-o",
+        "/tmp/pse-native-producer-audit/unused-cxx-object.o"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "Using built-in specs.\nCOLLECT_GCC=/usr/bin/g++\nOFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa\nOFFLOAD_TARGET_DEFAULT=1\nTarget: x86_64-linux-gnu\nConfigured with: ../src/configure -v --with-pkgversion='Ubuntu 13.3.0-6ubuntu2~24.04.1' --with-bugurl=file:///usr/share/doc/gcc-13/README.Bugs --enable-languages=c,ada,c++,go,d,fortran,objc,obj-c++,m2 --prefix=/usr --with-gcc-major-version-only --program-suffix=-13 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-nvptx/usr,amdgcn-amdhsa=/build/gcc-13-EldibY/gcc-13-13.3.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=2\nThread model: posix\nSupported LTO compression algorithms: zlib zstd\ngcc version 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) \nCOLLECT_GCC_OPTIONS='-c' '-o' '/tmp/pse-native-producer-audit/unused-cxx-object.o' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' '/tmp/pse-native-producer-audit/'\n /usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus -quiet -imultiarch x86_64-linux-gnu -D_GNU_SOURCE /dev/null -quiet -dumpdir /tmp/pse-native-producer-audit/ -dumpbase unused-cxx-object \"-mtune=generic\" \"-march=x86-64\" -fasynchronous-unwind-tables -fstack-protector-strong -Wformat -Wformat-security -fstack-clash-protection -fcf-protection -o /tmp/ccyJDKVm.s\nCOLLECT_GCC_OPTIONS='-c' '-o' '/tmp/pse-native-producer-audit/unused-cxx-object.o' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' '/tmp/pse-native-producer-audit/'\n as --64 -o /tmp/pse-native-producer-audit/unused-cxx-object.o /tmp/ccyJDKVm.s\nCOMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/13/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/\nLIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/13/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/13/../../../:/lib/:/usr/lib/\nCOLLECT_GCC_OPTIONS='-c' '-o' '/tmp/pse-native-producer-audit/unused-cxx-object.o' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' '/tmp/pse-native-producer-audit/unused-cxx-object.'\n"
+    }
+  ]
+}

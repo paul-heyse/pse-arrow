@@ -72,31 +72,3 @@ impl crate::SemanticFrame for Bytes {
     }
 }
 
-#[cfg(feature = "postgres")]
-mod store {
-    use super::Bytes;
-    use postgres_types::{FromSql, IsNull, ToSql, Type, to_sql_checked};
-    use pse_ids::postgres::BytesMut;
-
-    type BoxError = Box<dyn std::error::Error + Sync + Send>;
-
-    /// PostgreSQL `bytea`.
-    impl ToSql for Bytes {
-        fn to_sql(&self, ty: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
-            self.as_slice().to_sql(ty, out)
-        }
-        fn accepts(ty: &Type) -> bool {
-            <&[u8] as ToSql>::accepts(ty)
-        }
-        to_sql_checked!();
-    }
-
-    impl<'a> FromSql<'a> for Bytes {
-        fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
-            Vec::<u8>::from_sql(ty, raw).map(Self)
-        }
-        fn accepts(ty: &Type) -> bool {
-            <Vec<u8> as FromSql>::accepts(ty)
-        }
-    }
-}

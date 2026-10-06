@@ -496,17 +496,6 @@ class ReferenceSchemaRelationsFieldChecksItem:
 
 
 @attrs.frozen(kw_only=True)
-class ReferenceSchemaRelationsFieldDeltaPropertiesItem:
-    """Declared relation row or nested value."""
-
-    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    value: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.name), v.scalar_key(self.value),))
-
-
-@attrs.frozen(kw_only=True)
 class ReferenceSchemaRelationsFieldUniqueKeysItem:
     """Declared relation row or nested value."""
 
@@ -545,12 +534,11 @@ class ReferenceSchemaRelationsRow:
     stability: e.Stability = attrs.field(validator=attrs.validators.instance_of(e.Stability))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     checks: b.tuple[ReferenceSchemaRelationsFieldChecksItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceSchemaRelationsFieldChecksItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    delta_properties: b.tuple[ReferenceSchemaRelationsFieldDeltaPropertiesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceSchemaRelationsFieldDeltaPropertiesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     unique_keys: b.tuple[ReferenceSchemaRelationsFieldUniqueKeysItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceSchemaRelationsFieldUniqueKeysItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     foreign_keys: b.tuple[ReferenceSchemaRelationsFieldForeignKeysItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceSchemaRelationsFieldForeignKeysItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.relation_id), v.scalar_key(self.namespace), v.scalar_key(self.name), v.scalar_key(self.version), v.scalar_key(self.authority), v.scalar_key(self.snapshot_class), v.sequence_key(v.scalar_key)(self.primary_key), v.optional_key(v.scalar_key)(self.derivation_granularity), v.scalar_key(self.stability), v.scalar_key(self.doc), v.sequence_key(v.record_key)(self.checks), v.sequence_key(v.record_key)(self.delta_properties), v.sequence_key(v.record_key)(self.unique_keys), v.sequence_key(v.record_key)(self.foreign_keys),))
+        return (type(self), (v.scalar_key(self.relation_id), v.scalar_key(self.namespace), v.scalar_key(self.name), v.scalar_key(self.version), v.scalar_key(self.authority), v.scalar_key(self.snapshot_class), v.sequence_key(v.scalar_key)(self.primary_key), v.optional_key(v.scalar_key)(self.derivation_granularity), v.scalar_key(self.stability), v.scalar_key(self.doc), v.sequence_key(v.record_key)(self.checks), v.sequence_key(v.record_key)(self.unique_keys), v.sequence_key(v.record_key)(self.foreign_keys),))
 
 
 @attrs.frozen(kw_only=True)

@@ -11,7 +11,6 @@ mod enums;
 mod field_facets;
 pub(crate) mod identities;
 pub mod physical;
-mod postgres;
 mod relation;
 mod semantic;
 pub(crate) mod types;
@@ -171,7 +170,6 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     semantic::facts(&mut tree, reg)?;
     // After the split: typed ids are declared in pse-model and only re-exported here.
     identities::emit(&mut tree, reg)?;
-    postgres::emit(&mut tree, reg)?;
     Ok(tree)
 }
 

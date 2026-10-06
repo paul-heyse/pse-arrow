@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Immutable occurrences, scientific permissions and durable study publication."""
+"""Immutable occurrences, scientific permissions and durable study retention."""
 
-import uuid
 from pathlib import Path
 
 import msgspec
@@ -19,10 +18,8 @@ from pse.contracts.documents import (
     WorkLimits,
 )
 from pse.contracts.enums import (
-    AttemptState,
     DiagnosticCode,
     FeralOrdering,
-    JobState,
     NativeBackend,
     NativeSolveIntent,
     NativeTermination,
@@ -31,7 +28,7 @@ from pse.contracts.enums import (
     StudyPointState,
     StudyState,
 )
-from pse.contracts.identities import DeclarationId, PublicationId, WorkspaceId
+from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 from pse.tests.study_fixtures import assignment, physical_ids, point, request
 
@@ -126,7 +123,12 @@ def test_study_repeated_bindings_retain_distinct_occurrences_and_owned_results(
         assert outcome.lifecycle == StudyPointState.COMPLETED
         assert outcome.scientific.usable
         assert len(outcome.attempts) == 1
-        assert outcome.attempts[0].attempt_id is None
+        assert outcome.attempts[0].attempt_id is not None
+        retained = study.result(index)
+        assert isinstance(retained, pse.StoredResult)
+        (attempt,) = pa.table(retained.attempt_record()).to_pylist()
+        assert attempt["key"] == retained.attempt_key
+        assert attempt["run"] == retained.run_key
         assert outcome.diagnostic is None
         assert study.failure(index) is None
     history = study.table()
@@ -164,6 +166,9 @@ def test_study_unusable_predecessor_retains_refusal_without_dispatch(
     study = package.study(definition)
     assert study.unattempted == 1
     assert not study.outcome(0).scientific.usable
+    failed = study.result(0)
+    assert isinstance(failed, pse.StoredResult)
+    assert not failed.usable
     refused = study.outcome(1)
     assert refused.key == 9
     assert refused.lifecycle == StudyPointState.FAILED
@@ -413,14 +418,13 @@ def test_study_request_excludes_owner_seed_capability(
 
 
 @pytest.mark.integration
-def test_durable_study_publishes_once(
+def test_durable_study_retains_exact_results(
     inspection_settings: pse.EngineSettings,
-    operational_store: pse.OperationalStore,
     tmp_path: Path,
     canonical_substrate: str,
 ) -> None:
     runtime = pse.Runtime(
-        inspection_settings, substrate=canonical_substrate, store=operational_store
+        inspection_settings, substrate=canonical_substrate
     )
     package, case = _package(runtime)
     settings = pse.SolveSettings(
@@ -428,7 +432,6 @@ def test_durable_study_publishes_once(
         intent=NativeSolveIntent.FEASIBLE_POINT,
         presolve=PresolvePolicyKind.OFF,
     )
-    workspace = runtime.register_workspace(f"study-{uuid.uuid4().hex}", tmp_path)
     scalar, one = _physical_ids("Scalar", "dimensionless")
     definition = package.admit_study(
         request(
@@ -445,28 +448,24 @@ def test_durable_study_publishes_once(
             point(case, settings, 3, predecessor=2),
         )
     )
-    handle = package.study(definition, runtime=runtime, workspace=workspace)
+    handle = package.study(definition, runtime=runtime)
     status = handle.status()
     assert status.state == StudyState.OPEN
-    assert [point.job_state for point in status.points] == [
-        JobState.QUEUED,
-        JobState.WAITING,
-        JobState.QUEUED,
-        JobState.WAITING,
-    ]
+    assert all(point.attempt is None and not point.settled for point in status.points)
     assert handle.result() is None
-    assert any(
-        row.study_id == handle.study_id
-        for row in runtime.studies(states=(StudyState.OPEN,))
-    )
+    assert runtime.work(maximum_actions=0) == 0
+    assert all(point.attempt is None and not point.settled for point in handle.status().points)
+    assert runtime.study(handle.study_id).status().run == status.run
 
     # This process serves the queue: the points, then the study's finalization (and any
     # other job the shared store holds).
     assert runtime.work() >= 4
-    published = handle.wait(controls=pse.StudyWaitControls(timeout_seconds=60))
+    retained = handle.wait(controls=pse.StudyWaitControls(timeout_seconds=60))
     status = runtime.study(handle.study_id).status()
-    assert status.state == StudyState.PUBLISHED
-    assert status.attempt_state == AttemptState.PARTIAL
+    assert status.state == StudyState.CONCLUDED
+    assert status.result_attempt == retained.attempt
+    (attempt,) = pa.table(runtime.attempt_record(retained.attempt)).to_pylist()
+    assert attempt["outcome"] == "partial"
     assert [point.state for point in status.points] == [
         StudyPointState.COMPLETED,
         StudyPointState.COMPLETED,
@@ -479,48 +478,31 @@ def test_durable_study_publishes_once(
     assert not refused.scientific.usable
     assert refused.diagnostic is not None
     assert refused.diagnostic.rule == "study.dependency.unusable"
-    assert published.attempt_id == status.attempt_id
-    assert runtime.head(
-        WorkspaceId(SemanticId.from_hex(workspace.workspace_id))
-    ) == PublicationId(SemanticId.from_hex(published.publication_id))
-
-    publication = runtime.open(
-        PublicationId(SemanticId.from_hex(published.publication_id))
-    )
-    outcomes = pa.table(
-        publication.table("study", "runtime", "study_outcomes")
-    ).to_pylist()
-    assert [
-        row["member_catalog"]
-        for row in sorted(outcomes, key=lambda row: row["point_index"])
-    ] == [
-        "point_0",
-        "point_1",
-        "point_2",
-        None,
-    ]
+    assert retained.run == status.run
+    outcomes = pa.table(runtime.results(retained.run, retained.attempt, "runtime.study_outcomes")).to_pylist()
+    assert [row["point_index"] for row in sorted(outcomes, key=lambda row: row["point_index"])] == [0, 1, 2, 3]
     failed_member = next(row for row in outcomes if row["point_index"] == 2)
     assert failed_member["state"] == StudyPointState.FAILED
     assert failed_member["usable"] is False
-    catalogs = {name.catalog for name in publication.tables()}
-    assert catalogs == {"study", "point_0", "point_1", "point_2"}
+    assert retained.points == tuple((point.point_index, point.run, point.attempt) for point in status.points)
+    for point_status in status.points[:2]:
+        assert point_status.attempt is not None
+        assert pa.table(runtime.results(point_status.run, point_status.attempt, "runtime.solve_variables")).num_rows > 0
 
 
 @pytest.mark.integration
 def test_durable_study_cancel_and_its_refusals(
     inspection_settings: pse.EngineSettings,
-    operational_store: pse.OperationalStore,
     tmp_path: Path,
     canonical_substrate: str,
 ) -> None:
     runtime = pse.Runtime(
-        inspection_settings, substrate=canonical_substrate, store=operational_store
+        inspection_settings, substrate=canonical_substrate
     )
     package, case = _package(runtime)
     settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT
     )
-    workspace = runtime.register_workspace(f"study-cancel-{uuid.uuid4().hex}", tmp_path)
     scalar, one = _physical_ids("Scalar", "dimensionless")
     definition = package.admit_study(
         request(
@@ -535,13 +517,16 @@ def test_durable_study_cancel_and_its_refusals(
             ),
         )
     )
-    handle = package.study(definition, runtime=runtime, workspace=workspace)
+    handle = package.study(definition, runtime=runtime)
     cancelled = handle.cancel()
-    assert cancelled.cancelled == (0, 1)
-    assert cancelled.concluded
+    assert not cancelled.already_concluded
+    assert cancelled.study_id == handle.study_id
+    runtime.work()
     status = handle.status()
     assert status.state == StudyState.CONCLUDED
-    assert status.attempt_state == AttemptState.CANCELLED
+    assert status.result_attempt is not None
+    (attempt,) = pa.table(runtime.attempt_record(status.result_attempt)).to_pylist()
+    assert attempt["outcome"] == "cancelled"
     assert all(
         occurrence.state == StudyPointState.CANCELLED for occurrence in status.points
     )
@@ -551,18 +536,6 @@ def test_durable_study_cancel_and_its_refusals(
         assert occurrence.outcome.attempts == ()
         assert not occurrence.outcome.scientific.usable
 
-    # A derived package does not retain the shared physical source prerequisite
-    # required to dispatch a durable study.
-    with pytest.raises(ValueError, match="durable study"):
-        # pyrefly: ignore[unexpected-keyword] -- the overloads reject this call; its
-        # runtime refusal is what is under test
-        package.study(definition, workspace=workspace)
-    with pytest.raises(
-        pse.InspectionError, match="shared physical source prerequisite"
-    ):
-        package.with_limits(pse.ModelingLimits()).study(
-            definition, runtime=runtime, workspace=workspace
-        )
 
 
 @pytest.mark.integration

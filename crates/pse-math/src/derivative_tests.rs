@@ -642,7 +642,22 @@ fn conditional_first_reuses_exhausted_support_and_restricts_formal_coordinates()
     )
     .unwrap();
     assert_eq!(plan.supports()[0].remaining_occurrences(), 0);
-    assert_eq!(plan.dependencies(&cancel).unwrap().len(), 2);
+    let dependencies=plan.dependencies(&cancel).unwrap();
+    assert_eq!(dependencies.len(), 2);
+    let mut visited=Vec::new();
+    assert_eq!(plan.visit_dependencies(&cancel,|dependency|{visited.push(dependency);std::ops::ControlFlow::<()>::Continue(())}).unwrap(),std::ops::ControlFlow::Continue(()));
+    assert_eq!(visited,dependencies);
+    let mut calls=0;
+    assert_eq!(plan.visit_dependencies(&cancel,|dependency|{calls+=1;std::ops::ControlFlow::Break(dependency.target)}).unwrap(),std::ops::ControlFlow::Break(dependencies[0].target));
+    assert_eq!(calls,1,"a bounded consumer must stop before another contribution is projected");
+    cancel.store(true,Ordering::Relaxed);
+    assert!(matches!(plan.visit_dependencies(&cancel,|_|{calls+=1;std::ops::ControlFlow::<()>::Continue(())}),Err(MathError::Cancelled)));
+    assert_eq!(calls,1,"pre-cancelled visits must not invoke the consumer");
+    cancel.store(false,Ordering::Relaxed);
+    calls=0;
+    assert!(matches!(plan.visit_dependencies(&cancel,|_|{calls+=1;cancel.store(true,Ordering::Relaxed);std::ops::ControlFlow::<()>::Continue(())}),Err(MathError::Cancelled)));
+    assert_eq!(calls,1,"cancellation after one contribution stops the remaining inventory");
+    cancel.store(false,Ordering::Relaxed);
     let conditional = plan
         .conditional(
             &BTreeSet::from([id(11)]),

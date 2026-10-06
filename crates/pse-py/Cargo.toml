@@ -64,7 +64,6 @@ pyo3 = { workspace = true, features = [
 pyo3-arrow.workspace = true
 pse-runtime.workspace = true
 pse-buildinfo.workspace = true
-pse-catalog.workspace = true
 pse-schema.workspace = true
 pse-ids.workspace = true
 pse-kernels.workspace = true

@@ -1,6 +1,6 @@
 ---
 title: Rebuild, retirement and integrated qualification
-status: draft
+status: in-progress
 date: 2026-10-05
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md]
@@ -101,8 +101,8 @@ B3, not duplicated here.
 
 | Package | Prerequisite and delivered behavior | Completion boundary | Status |
 |---|---|---|---|
-| E1 — Controlled target regeneration | R0; A2 schema/selection and B1 admission slice. Replace storage-specific fixture setup, regenerate scientific source corpus and run configurations; add recipe-owned target DB setup. | Target inputs are admitted with exact interpretation; old test setup does not silently start PG/Delta. No migration importer or compatibility fixture service remains. | Scheduled |
-| E2 — Retirement and build locality | Joins each migrated A/B/C/D consumer as it becomes ready; tooling corrections can begin after R0 independently. Remove displaced crates/codegen/dependencies/recipes and implement scoped native setup/unchanged generation. | All target consumers work; remaining dependency consumers are explicit and justified; replaced mechanisms/tests/fixtures are gone. This does not postpone package-local deletions. | Scheduled |
+| E1 — Controlled target regeneration | R0; A2 schema/selection and B1 admission slice. Replace storage-specific fixture setup, regenerate scientific source corpus and run configurations; add recipe-owned target DB setup. | Target inputs are admitted with exact interpretation; old test setup does not silently start PG/Delta. No migration importer or compatibility fixture service remains. | Implemented; focused declaration/schema and linked scientific/generated consumers passed. |
+| E2 — Retirement and build locality | Joins each migrated A/B/C/D consumer as it becomes ready; tooling corrections can begin after R0 independently. Remove displaced crates/codegen/dependencies/recipes and implement scoped native setup/unchanged generation. | All target consumers work; remaining dependency consumers are explicit and justified; replaced mechanisms/tests/fixtures are gone. This does not postpone package-local deletions. | Implemented; focused native and linked consumers passed; runtime/worker producer qualification complete; final Python deployment admission remains. |
 | E3 — Assembled correctness and recovery | All functional A/B/C/D, B4's bounded decision and E1/E2 scope complete. Run one selected static/integration/scientific campaign against regenerated target. | Zero failures in named required scope; explain unsupported scientific/provider limits, repaired composite runs and actual crash/durability conditions. | Scheduled |
 | E4 — Preparation, build and operation measurement | E3 for scientifically comparable runtime measurements; targeted build instrumentation can be prepared earlier. Execute selected scientific and pivot efficiency measurements under recorded conditions. | Report measured scope and limitations without invented speedup thresholds or comparison to incomparable receipts. | Scheduled |
 | E5 — Assembled review and closure | E3/E4. Conduct the binding's bounded assembled design assessment, reconcile finding owners and migrate enduring meaning through the decision/design route. | Demonstrated architectural/scientific scope has owners; qualification is published honestly; plans/reviews retire only when their references have moved. | Scheduled |
@@ -156,10 +156,70 @@ generic search/MCP work needs a concrete new requirement; it is not hidden accep
 
 ## Checkpoint and next step
 
-No E package or new qualification has run during plan authoring. R0 is first. E1 then joins
-the working A2/B1 slice; E2's codegen/build corrections can proceed independently within
-coordinated shared-file ownership. Final campaign work waits for the complete target, not
-for completion of the obsolete storage stack's qualification.
+E1/E2 are active under the full-scope 2026-10-06 authorization. The native registry,
+scientific physical fixture, public contract documents, Python contracts and exact native
+schema have been regenerated through their owners. Pure contract generation avoids solver
+discovery and extension execution. Unchanged output bytes retain their timestamps.
+
+PostgreSQL operations, generated SQL/COPY/query output, Delta catalog/publication/settlement,
+legacy artifact descriptors and physical layout adapters are removed. Their callers now use
+canonical revisions/results and native engine ownership. The workspace hack and dependency
+resolution have been regenerated. DataFusion remains for native relational preparation,
+row predicates and optimizer/provider contracts; Arrow/Parquet remain typed scientific data
+boundaries. Public SQL convenience and unconsumed Delta dependencies are retired. The orphaned
+publication-only protobuf diagnostic codec and its DataFusion protobuf dependency are
+removed; native row, ownership and receiving-session controls keep their useful assertions.
+The workspace hack now attaches only to actual data-boundary and store consumers;
+normal semantic, numerical and native-ABI roots no longer import the data stack through
+feature stabilization. Supported nightly feature unification and the remaining consumers'
+fallback preserve the shared type universe. Modeling, math and compiler library checks
+compile this narrower graph; correctness tests continue to select the actual relation
+owner explicitly for force-validation.
+
+Worker, Python, engine-fixture and measurement consumers have moved to the target. Their
+focused native boundaries, worker journeys and process benchmarks compile; native row,
+ownership, pushdown, schema and declaration controls pass. Linked Python scientific controls
+now pass for the process/recycle, dynamic/transient fitting, limited-incumbent and memory-stop
+cases after separating canonical source IPC admission from the smaller result-block limit.
+Generated-contract consumers use canonical manifest and scalar-index rows. Bounded exact study
+source admission and IPC receipt reuse now pass their actual ingress, readiness, invalidation,
+retirement and early/late cache-clear controls. Active selections remain protected through
+run and analysis root admission. Escaped decoded Arrow arrays survive result reclamation and
+release their allocation only on final drop. Qualified Python deployment receipt admission
+remains before the functional handoff. Explicit Python test targets no longer also collect the entire test directory,
+and recipes preserve each argument, including compound marker expressions.
+Measurement fixture owners
+now register isolated databases and explicitly drain result-release tasks before teardown,
+preventing sample-to-sample storage accumulation. Scientific input values and independent
+numerical assertions are preserved. No old fixture publication service is started by pytest.
+
+Actual runtime library and enclosing worker qualification now have eligible receipts without
+refusal reasons under the reviewed producer profile. Current Python capture, import association
+and public deployment admission remain pending. Captures distinguish compiler unit dep-info
+from Cargo aggregate rerun hints, select a real library or binary target, and keep reviewed
+outer build provenance separate from the scientific key. Source review and native/tool
+closure remain required for the retained worker/Python profiles; successful fixture controls
+do not grant production eligibility.
+
+The actual editable Python link exposed a deployment association gap: Maturin uses its
+Cargo rustc manifest/lib route, supplies the extension-module context and patches editable
+library search paths. A conventional library build's output alias is insufficient to qualify
+that installed artifact. The capture tool now selects the observed cdylib route; targeted
+actual-Cargo controls pass. Python-only packaging inputs and immutable compiled/installed
+association are being reconciled before the public deployment control. Executor refresh
+also now uses bounded package-name families, matching Cargo's real cleanup semantics, while
+retaining exact selected IDs and fresh-build observations in evidence. Final source cleanup
+will require current root captures rather than relabeling these earlier immutable receipts.
+
+E3–E5 have not started. The previous A/B integrated testing is not being resumed. Complete
+all A–D and E1/E2 functional scope with targeted tests before the assembled target campaign,
+measurement and bounded independent review.
+
+The assembled campaign's isolated server profile is prepared with a 2 GiB server and two
+8 GiB managed worker slots within an 18 GiB allocation. This preserves the authored SCIP
+interruption workload's existing worker admission rather than reducing its scientific
+requirements to fit the smaller mechanism-test profile. Schema initialization and assembled
+execution follow the functional handoff; old application states are preserved.
 
 ## Outcome (recorded after implementation)
 

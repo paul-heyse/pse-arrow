@@ -39,24 +39,14 @@ brotli = { version = "8" }
 bytemuck = { version = "1", default-features = false, features = ["aarch64_simd", "wasm_simd"] }
 bytes = { version = "1", features = ["serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-clap = { version = "4", features = ["derive", "env"] }
-clap_builder = { version = "4", default-features = false, features = ["color", "env", "help", "std", "suggestions", "usage"] }
 comfy-table = { version = "7" }
 crc32fast = { version = "1" }
 datafusion-common = { version = "55", default-features = false, features = ["object_store", "parquet", "recursive_protection", "sql"] }
-datafusion-datasource = { version = "55", features = ["proto"] }
-datafusion-datasource-arrow = { version = "55", default-features = false, features = ["compression", "proto"] }
-datafusion-datasource-csv = { version = "55", default-features = false, features = ["proto"] }
-datafusion-datasource-json = { version = "55", default-features = false, features = ["proto"] }
-datafusion-datasource-parquet = { version = "55", default-features = false, features = ["proto"] }
 datafusion-execution = { version = "55" }
-datafusion-expr = { version = "55", features = ["proto", "recursive_protection"] }
+datafusion-expr = { version = "55", features = ["recursive_protection"] }
 datafusion-functions = { version = "55", features = ["crypto_expressions"] }
 datafusion-optimizer = { version = "55", default-features = false, features = ["recursive_protection"] }
-datafusion-physical-expr = { version = "55", default-features = false, features = ["proto", "recursive_protection"] }
-datafusion-physical-expr-common = { version = "55", default-features = false, features = ["proto"] }
-datafusion-physical-plan = { version = "55", default-features = false, features = ["proto"] }
-digest = { version = "0.11", features = ["alloc", "mac", "oid"] }
+datafusion-physical-expr = { version = "55", default-features = false, features = ["recursive_protection"] }
 either = { version = "1", features = ["use_std"] }
 fastrand = { version = "2" }
 fixedbitset = { version = "0.5" }
@@ -64,138 +54,87 @@ flatbuffers = { version = "25", features = ["serde"] }
 flate2 = { version = "1", features = ["zlib-rs"] }
 foldhash-6f8ce4dd05d13bba = { package = "foldhash", version = "0.2" }
 foldhash-c65f7effa3be6d31 = { package = "foldhash", version = "0.1" }
-form_urlencoded = { version = "1" }
 futures-channel = { version = "0.3", features = ["sink"] }
 futures-io = { version = "0.3" }
 futures-task = { version = "0.3" }
 futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
-getrandom-6f8ce4dd05d13bba = { package = "getrandom", version = "0.2", default-features = false, features = ["std"] }
 half = { version = "2", features = ["num-traits"] }
 hashbrown-3575ec1268b04181 = { package = "hashbrown", version = "0.15" }
 hashbrown-9067fe90e8c1f593 = { package = "hashbrown", version = "0.17", features = ["rayon"] }
-icu_locale_core = { version = "2", default-features = false, features = ["alloc", "zerovec"] }
-icu_provider = { version = "2", default-features = false, features = ["alloc", "baked"] }
-idna = { version = "1" }
 indexmap = { version = "2", features = ["rayon", "serde"] }
 itertools = { version = "0.13" }
 libc = { version = "0.2" }
-litemap = { version = "0.8", default-features = false, features = ["alloc"] }
 log = { version = "0.4", default-features = false, features = ["std"] }
 matrixmultiply = { version = "0.3", features = ["cgemm"] }
 memchr = { version = "2" }
-miette = { version = "7", features = ["fancy"] }
 num-complex = { version = "0.4", features = ["bytemuck"] }
 num-integer = { version = "0.1", features = ["i128"] }
 num-traits = { version = "0.2", features = ["i128", "libm"] }
-object_store = { version = "0.13", features = ["aws", "azure", "gcp", "http"] }
+object_store = { version = "0.13" }
 once_cell = { version = "1" }
 percent-encoding = { version = "2" }
 petgraph = { version = "0.8" }
-phf = { version = "0.13", features = ["macros", "unicase"] }
 phf_shared = { version = "0.13", default-features = false, features = ["std", "unicase"] }
-postgres-types = { version = "0.2", default-features = false, features = ["derive", "with-chrono-0_4", "with-serde_json-1", "with-uuid-1"] }
-potential_utf = { version = "0.1", default-features = false, features = ["alloc", "zerovec"] }
 ppv-lite86 = { version = "0.2", default-features = false, features = ["simd", "std"] }
 proc-macro2 = { version = "1", features = ["span-locations"] }
 quote = { version = "1" }
 rand-274715c4dabd11b0 = { package = "rand", version = "0.9" }
 rand-c38e5c1d305a1b54 = { package = "rand", version = "0.8", features = ["small_rng"] }
 rand_chacha = { version = "0.9", default-features = false, features = ["std"] }
-refinery-core = { version = "0.9", default-features = false, features = ["tokio-postgres"] }
 regex-automata = { version = "0.4", default-features = false, features = ["dfa-build", "dfa-onepass", "hybrid", "meta", "nfa", "perf", "std", "unicode"] }
-ring = { version = "0.17", features = ["std"] }
-rustls-pki-types = { version = "1", features = ["std"] }
+regex-syntax = { version = "0.8" }
 semver = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_core = { version = "1", features = ["alloc", "rc"] }
-serde_json = { version = "1", features = ["alloc", "preserve_order", "raw_value", "unbounded_depth"] }
-serde_spanned = { version = "1", default-features = false, features = ["serde", "std"] }
+serde_json = { version = "1", features = ["alloc", "preserve_order", "unbounded_depth"] }
 simd-adler32 = { version = "0.3", default-features = false, features = ["std"] }
 similar = { version = "2", features = ["inline"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 sqlparser = { version = "0.62", features = ["visitor"] }
-stable_deref_trait = { version = "1", default-features = false, features = ["alloc"] }
 subtle = { version = "2" }
 syn-7b89eefb6aaa9bf3 = { package = "syn", version = "3", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
-tinystr = { version = "0.8", default-features = false, features = ["alloc", "zerovec"] }
-tokio = { version = "1", features = ["fs", "io-util", "macros", "net", "parking_lot", "process", "rt-multi-thread", "signal", "sync", "time"] }
-tokio-postgres = { version = "0.7", features = ["with-chrono-0_4", "with-serde_json-1", "with-uuid-1"] }
-tokio-util = { version = "0.7", features = ["codec", "compat", "io", "rt"] }
-toml = { version = "1" }
-toml_datetime = { version = "1", default-features = false, features = ["serde", "std"] }
-toml_parser = { version = "1", default-features = false, features = ["std"] }
-toml_writer = { version = "1", default-features = false, features = ["std"] }
-tracing = { version = "0.1", features = ["log", "release_max_level_debug"] }
+tokio = { version = "1", features = ["io-util", "macros", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-util = { version = "0.7", features = ["compat", "io", "rt"] }
+tracing = { version = "0.1", features = ["release_max_level_debug"] }
 tracing-core = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 typenum = { version = "1", default-features = false, features = ["const-generics"] }
 url = { version = "2", features = ["serde"] }
-uuid = { version = "1", features = ["fast-rng", "js", "serde", "v4", "v7"] }
+uuid = { version = "1", features = ["js", "serde", "v4", "v7"] }
 winnow = { version = "1", default-features = false, features = ["ascii", "std"] }
-writeable = { version = "0.6", default-features = false, features = ["alloc"] }
-yoke = { version = "0.8", default-features = false, features = ["alloc", "derive"] }
 zerocopy = { version = "0.8", default-features = false, features = ["derive", "simd"] }
-zerofrom = { version = "0.1", default-features = false, features = ["alloc", "derive"] }
-zerotrie = { version = "0.2", default-features = false, features = ["alloc", "yoke", "zerofrom"] }
-zerovec = { version = "0.11", default-features = false, features = ["alloc", "derive", "yoke"] }
 zlib-rs = { version = "0.6", default-features = false, features = ["std"] }
 
 [build-dependencies]
 aho-corasick = { version = "1", default-features = false, features = ["perf-literal", "std"] }
 blake3 = { version = "1", features = ["rayon"] }
 cc = { version = "1", default-features = false, features = ["parallel"] }
-digest = { version = "0.11", features = ["alloc", "oid"] }
 either = { version = "1", default-features = false, features = ["use_std"] }
-form_urlencoded = { version = "1", default-features = false, features = ["std"] }
-icu_locale_core = { version = "2", default-features = false, features = ["zerovec"] }
-icu_provider = { version = "2", default-features = false, features = ["baked"] }
-idna = { version = "1", default-features = false, features = ["compiled_data", "std"] }
 memchr = { version = "2" }
-miette = { version = "7" }
-percent-encoding = { version = "2", default-features = false, features = ["std"] }
 phf_shared = { version = "0.13", default-features = false, features = ["unicase"] }
-potential_utf = { version = "0.1", default-features = false, features = ["zerovec"] }
 proc-macro2 = { version = "1" }
 quote = { version = "1" }
-refinery-core = { version = "0.9" }
 regex-automata = { version = "0.4" }
+regex-syntax = { version = "0.8" }
 semver = { version = "1" }
 serde = { version = "1", features = ["alloc", "derive", "rc"] }
 serde_core = { version = "1", default-features = false, features = ["alloc", "rc", "result", "std"] }
+serde_derive = { version = "1" }
 serde_json = { version = "1", features = ["alloc"] }
-serde_spanned = { version = "1", default-features = false, features = ["alloc", "serde"] }
-smallvec = { version = "1", default-features = false, features = ["const_generics"] }
 syn-7b89eefb6aaa9bf3 = { package = "syn", version = "3", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 syn-f595c2ba2a3f28df = { package = "syn", version = "2", features = ["extra-traits", "full", "visit-mut"] }
-tinystr = { version = "0.8", default-features = false, features = ["zerovec"] }
-toml = { version = "1", default-features = false, features = ["display", "parse", "serde"] }
-toml_datetime = { version = "1", default-features = false, features = ["alloc", "serde"] }
-toml_parser = { version = "1", default-features = false, features = ["alloc"] }
-toml_writer = { version = "1", default-features = false, features = ["alloc"] }
 typenum = { version = "1", default-features = false, features = ["const-generics"] }
-url = { version = "2" }
-yoke = { version = "0.8", default-features = false, features = ["derive"] }
-zerofrom = { version = "0.1", default-features = false, features = ["derive"] }
-zerotrie = { version = "0.2", default-features = false, features = ["yoke", "zerofrom"] }
-zerovec = { version = "0.11", default-features = false, features = ["derive", "yoke"] }
 
 [target.x86_64-unknown-linux-gnu.dependencies]
 bitflags = { version = "2", default-features = false, features = ["std"] }
-getrandom-9fbad63c4bcf4a8f = { package = "getrandom", version = "0.4", default-features = false, features = ["std", "sys_rng"] }
-hyper = { version = "1", features = ["client", "http1", "http2", "server"] }
-hyper-rustls = { version = "0.27", default-features = false, features = ["aws-lc-rs", "http1", "http2", "native-tokio", "ring", "tls12"] }
-hyper-util = { version = "0.1", features = ["client-legacy", "client-proxy", "client-proxy-system", "server-auto", "service"] }
+getrandom = { version = "0.4", default-features = false, features = ["std", "sys_rng"] }
 libc = { version = "0.2", default-features = false, features = ["extra_traits"] }
 rustix = { version = "1", features = ["fs", "stdio", "termios"] }
-rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs", "aws_lc_rs", "ring", "std", "tls12"] }
-rustls-webpki = { version = "0.103", default-features = false, features = ["aws-lc-rs", "ring", "std"] }
 simdutf8 = { version = "0.1", default-features = false, features = ["aarch64_neon", "public_imp"] }
 slab = { version = "0.4" }
-sync_wrapper = { version = "1", default-features = false, features = ["futures"] }
-tokio = { version = "1", default-features = false, features = ["io-std"] }
-tokio-rustls = { version = "0.26", default-features = false, features = ["aws-lc-rs", "ring", "tls12"] }
+tokio = { version = "1", default-features = false, features = ["fs", "io-std", "net"] }
 tokio-stream = { version = "0.1", features = ["net", "sync"] }
-tower = { version = "0.5", default-features = false, features = ["balance", "buffer", "limit", "load-shed", "retry", "timeout"] }
+tokio-util = { version = "0.7", default-features = false, features = ["codec"] }
 zstd = { version = "0.13" }
 zstd-safe = { version = "7", default-features = false, features = ["arrays", "legacy", "std", "zdict_builder"] }
 zstd-sys = { version = "2", default-features = false, features = ["legacy", "std", "zdict_builder"] }

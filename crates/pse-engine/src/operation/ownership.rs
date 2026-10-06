@@ -190,12 +190,12 @@ fn reader_partitions(plan: &Arc<dyn ExecutionPlan>) -> usize {
 }
 impl DisplayAs for RetainedExec {
     fn fmt_as(&self, _: DisplayFormatType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("DeltaReadLease")
+        f.write_str("RetainedSourceOwner")
     }
 }
 impl ExecutionPlan for RetainedExec {
     fn name(&self) -> &'static str {
-        "DeltaReadLease"
+        "RetainedSourceOwner"
     }
     fn properties(&self) -> &Arc<PlanProperties> {
         self.inner.properties()
@@ -224,7 +224,7 @@ impl ExecutionPlan for RetainedExec {
         children: Vec<Arc<dyn ExecutionPlan>>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let [inner]: [Arc<dyn ExecutionPlan>; 1] = children.try_into().map_err(|_| {
-            DataFusionError::Plan("Delta reader lease requires one native child".into())
+            DataFusionError::Plan("retained reader owner requires one native child".into())
         })?;
         Ok(Arc::new(Self::new(
             inner,

@@ -101,13 +101,6 @@ Member names are canonical string values; declaration order is presentation only
 | `refinement_disallowed` | `` | false |
 | `failed` | `` | false |
 
-## `ArtifactReconstruction`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `none` | `` | false |
-| `exact_release` | `` | false |
-
 ## `AssertionStatus`
 
 | Member | IDAES name | Deprecated |
@@ -115,17 +108,6 @@ Member names are canonical string values; declaration order is presentation only
 | `pass` | `` | false |
 | `fail` | `` | false |
 | `obsolete` | `` | false |
-
-## `AttemptKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `modeling` | `` | false |
-| `simulation` | `` | false |
-| `shooting` | `` | false |
-| `fit` | `` | false |
-| `study` | `` | false |
-| `study_finalization` | `` | false |
 
 ## `AttemptState`
 
@@ -251,15 +233,6 @@ Member names are canonical string values; declaration order is presentation only
 | `seed_only` | `` | false |
 | `diagnostic_only` | `` | false |
 | `unusable` | `` | false |
-
-## `ChangeKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `insert` | `` | false |
-| `delete` | `` | false |
-| `update_preimage` | `` | false |
-| `update_postimage` | `` | false |
 
 ## `ClarabelDirect`
 
@@ -1080,17 +1053,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `spral` | `` | false |
 | `pardisomkl` | `` | false |
 
-## `JobState`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `waiting` | `` | false |
-| `queued` | `` | false |
-| `running` | `` | false |
-| `completed` | `` | false |
-| `failed` | `` | false |
-| `cancelled` | `` | false |
-
 ## `KinsolOrthogonalization`
 
 | Member | IDAES name | Deprecated |
@@ -1108,13 +1070,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `newton` | `` | false |
 | `line_search` | `` | false |
 | `fixed_point` | `` | false |
-
-## `MemberSelectionKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `full` | `` | false |
-| `revision` | `` | false |
 
 ## `MigrationOp`
 
@@ -1714,34 +1669,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `xor` | `` | false |
 | `cardinality` | `` | false |
 
-## `NativeDependencyEvidenceKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `absent` | `` | false |
-| `present` | `` | false |
-| `text` | `` | false |
-| `identity` | `` | false |
-| `identified_text` | `` | false |
-| `fingerprint` | `` | false |
-| `selection` | `` | false |
-| `projection` | `` | false |
-
-## `NativeDependencyKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `operation` | `` | false |
-| `input` | `` | false |
-| `contract` | `` | false |
-| `function` | `` | false |
-| `rule` | `` | false |
-| `setting` | `` | false |
-| `policy` | `` | false |
-| `provider` | `` | false |
-| `scope` | `` | false |
-| `observation` | `` | false |
-
 ## `NativeDerivativeCapability`
 
 | Member | IDAES name | Deprecated |
@@ -2262,23 +2189,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `namespace` | `` | false |
 | `publish` | `` | false |
 
-## `OrphanDisposition`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `discovered` | `` | false |
-| `protected` | `` | false |
-| `claimed` | `` | false |
-| `deleted` | `` | false |
-| `unresolved` | `` | false |
-
-## `OrphanOwnership`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `attributable` | `` | false |
-| `unattributable` | `` | false |
-
 ## `PackageKind`
 
 | Member | IDAES name | Deprecated |
@@ -2367,27 +2277,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `auto` | `` | false |
 | `explicit` | `` | false |
 
-## `PublicationKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `relations` | `` | false |
-| `source` | `` | false |
-| `model` | `` | false |
-| `case` | `` | false |
-| `problem` | `` | false |
-| `run` | `` | false |
-| `diagnostics` | `` | false |
-| `inspection` | `` | false |
-| `migration` | `` | false |
-
-## `PublicationMemberRole`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `output` | `` | false |
-| `input` | `` | false |
-
 ## `QuantityAdditionKind`
 
 | Member | IDAES name | Deprecated |
@@ -2466,21 +2355,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `ideal_gas_at_conditions` | `` | false |
 | `custom` | `` | false |
 
-## `RetentionPhase`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `expiring` | `` | false |
-| `deleted` | `` | false |
-
-## `RetentionReason`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `publication` | `` | false |
-| `attempt` | `` | false |
-| `changes` | `` | false |
-
 ## `ReusePolicy`
 
 | Member | IDAES name | Deprecated |
@@ -2498,16 +2372,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `at_upper` | `` | false |
 | `equality` | `` | false |
 
-## `RuntimeTermination`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `cancelled` | `` | false |
-| `infrastructure` | `` | false |
-| `unattempted` | `` | false |
-| `constant_evaluation` | `` | false |
-| `unassessed` | `` | false |
-
 ## `ScaleKind`
 
 | Member | IDAES name | Deprecated |
@@ -2521,14 +2385,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `simultaneous` | `` | false |
 | `staggered` | `` | false |
-
-## `SettlementOutcome`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `committed` | `` | false |
-| `proved_noncommit` | `` | false |
-| `conflict` | `` | false |
 
 ## `Severity`
 
@@ -2595,21 +2451,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `positive` | `` | false |
 | `non_positive` | `` | false |
 | `negative` | `` | false |
-
-## `StoredSeedKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `root` | `` | false |
-| `nlp` | `` | false |
-| `highs` | `` | false |
-
-## `StoredSolutionOrigin`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `output` | `` | false |
-| `incumbent` | `` | false |
 
 ## `StructuralScopeKind`
 
@@ -2725,7 +2566,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `open` | `` | false |
 | `concluded` | `` | false |
-| `published` | `` | false |
 
 ## `StudyUnavailableSeedPolicy`
 
@@ -2756,16 +2596,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `free` | `` | false |
 | `mandatory` | `` | false |
 | `forbidden` | `` | false |
-
-## `TerminationClass`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `native` | `` | false |
-| `run_state` | `` | false |
-| `trajectory` | `` | false |
-| `runtime` | `` | false |
-| `rule` | `` | false |
 
 ## `TimeCoordinateKind`
 

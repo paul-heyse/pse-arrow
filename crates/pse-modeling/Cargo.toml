@@ -23,6 +23,5 @@ pse-diagnostics.workspace = true
 petgraph.workspace = true
 thiserror.workspace = true
 miette.workspace = true
-pse-workspace-hack.workspace = true
 [dev-dependencies]
 pse-quantity = { workspace = true, features = ["fixtures"] }

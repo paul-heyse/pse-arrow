@@ -21,8 +21,7 @@
 pub use pse_diagnostics::VocabularyError;
 
 /// Declares a closed vocabulary with one authoritative spelling per member: the enum,
-/// `ALL` in registry order, `as_str`, `parse`, `Display`, `FromStr` and serde, and behind
-/// the `postgres` feature the value mapping to the store ENUM type named `$sql`.
+/// `ALL` in registry order, `as_str`, `parse`, `Display`, `FromStr` and serde.
 macro_rules! vocabulary {
     (
         $(#[$meta:meta])*
@@ -39,17 +38,11 @@ macro_rules! vocabulary {
             serde::Deserialize, strum::EnumString, strum::Display, strum::VariantArray, strum::IntoStaticStr,
         )]
         #[strum(const_into_str, parse_err_ty = VocabularyError, parse_err_fn = Self::unknown_member)]
-        #[cfg_attr(
-            feature = "postgres",
-            derive(postgres_types::ToSql, postgres_types::FromSql),
-            postgres(name = $sql)
-        )]
         pub enum $name {
             $(
                 $(#[$vmeta])*
                 #[serde(rename = $text)]
                 #[strum(serialize = $text)]
-                #[cfg_attr(feature = "postgres", postgres(name = $text))]
                 $variant,
             )+
         }

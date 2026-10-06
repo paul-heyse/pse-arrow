@@ -446,7 +446,6 @@ pub(super) fn register(b: &mut RegistryBuilder) {
             column("attempt_id", T::id().with_identity("attempt")).optional(),
             column("attempt_state", T::enumeration("AttemptState")).optional(),
             column("result_id", T::id().with_identity("run")).optional(),
-            column("member_catalog", text()).optional(),
             column("usable", flag()),
             column("seed_permission", flag()),
             column("candidate_use", T::enumeration("CandidateUse")).optional(),

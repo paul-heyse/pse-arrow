@@ -1,0 +1,516 @@
+{
+  "scope": "Bounded current helper startup lookup observer, not historical build child proof. Git config values/credentials never emitted. Rustfmt acts only on scratch stdin and writes stdout, no repository formatting or Cargo.",
+  "rustfmt": {
+    "executable": {
+      "path": "$HOME/.rustup/toolchains/nightly-2026-09-29-x86_64-unknown-linux-gnu/bin/rustfmt",
+      "exists": true,
+      "symlink": false,
+      "resolved": "$HOME/.rustup/toolchains/nightly-2026-09-29-x86_64-unknown-linux-gnu/bin/rustfmt",
+      "sha256": "0f8f90119220fbbd72268c10c575000334e7b89cc348c74953b1b30155338962",
+      "bytes": 5421328
+    },
+    "bindgen_source_route": "Exact68/69 create Command default formatter with stdin/stdout, no current_dir or default config override.72 same plus edition arg. Build-script Cargo cwd is package source directory, not generated bindings OUT_DIR.",
+    "callers": [
+      {
+        "caller": "highs-sys-1.15.0",
+        "cwd": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0",
+        "argv": [
+          "$HOME/.rustup/toolchains/nightly-2026-09-29-x86_64-unknown-linux-gnu/bin/rustfmt"
+        ],
+        "exit": 0,
+        "stdout_sha256": "3985f23c35a395e67d8f1a06ad1345a32f1c2d22e87b3a371ff2ada07fedcce2",
+        "stderr": "",
+        "config_lookup_lines": [
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"/home/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"/home/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.config/rustfmt/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.config/rustfmt/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff637d5800) = -1 ENOENT (No such file or directory)"
+        ],
+        "trace_sha256": "875df32ae3e6adcdf2f2fe90f011976fca9f3090be5f9ea1bb738a680b2805c0"
+      },
+      {
+        "caller": "scip-sys-0.1.28",
+        "cwd": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scip-sys-0.1.28",
+        "argv": [
+          "$HOME/.rustup/toolchains/nightly-2026-09-29-x86_64-unknown-linux-gnu/bin/rustfmt"
+        ],
+        "exit": 0,
+        "stdout_sha256": "3985f23c35a395e67d8f1a06ad1345a32f1c2d22e87b3a371ff2ada07fedcce2",
+        "stderr": "",
+        "config_lookup_lines": [
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scip-sys-0.1.28/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scip-sys-0.1.28/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"/home/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"/home/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.config/rustfmt/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.config/rustfmt/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7ffc6490fc50) = -1 ENOENT (No such file or directory)"
+        ],
+        "trace_sha256": "495183c59c3e2322dd4aa328b338f82fa10bf87c96c93e688c8479e76bc8d6e2"
+      },
+      {
+        "caller": "suitesparse_sys-0.1.4",
+        "cwd": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/suitesparse_sys-0.1.4",
+        "argv": [
+          "$HOME/.rustup/toolchains/nightly-2026-09-29-x86_64-unknown-linux-gnu/bin/rustfmt"
+        ],
+        "exit": 0,
+        "stdout_sha256": "3985f23c35a395e67d8f1a06ad1345a32f1c2d22e87b3a371ff2ada07fedcce2",
+        "stderr": "",
+        "config_lookup_lines": [
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/suitesparse_sys-0.1.4/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/suitesparse_sys-0.1.4/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"/home/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"/home/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.config/rustfmt/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.config/rustfmt/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff137aa730) = -1 ENOENT (No such file or directory)"
+        ],
+        "trace_sha256": "ebde7f20a1624b635c3d515e1069875731b8bfade88c892ee4c9d6cd0f297241"
+      },
+      {
+        "caller": "sundials-sys-0.6.2",
+        "cwd": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sundials-sys-0.6.2",
+        "argv": [
+          "$HOME/.rustup/toolchains/nightly-2026-09-29-x86_64-unknown-linux-gnu/bin/rustfmt"
+        ],
+        "exit": 0,
+        "stdout_sha256": "3985f23c35a395e67d8f1a06ad1345a32f1c2d22e87b3a371ff2ada07fedcce2",
+        "stderr": "",
+        "config_lookup_lines": [
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sundials-sys-0.6.2/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sundials-sys-0.6.2/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/src/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/registry/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.cargo/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"/home/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"/home/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.config/rustfmt/.rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)",
+          "statx(AT_FDCWD, \"$HOME/.config/rustfmt/rustfmt.toml\", AT_STATX_SYNC_AS_STAT, STATX_ALL, 0x7fff28738d10) = -1 ENOENT (No such file or directory)"
+        ],
+        "trace_sha256": "84f5c5c2ef7eb32a6169ae2a2aaf80abbb433fc2b3833ee14a39c81db38b049a"
+      }
+    ],
+    "configuration_candidates": [
+      {
+        "path": "/.rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "/home/.rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/.rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/.rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/.rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/.rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/.rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/highs-sys-1.15.0/rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scip-sys-0.1.28/.rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scip-sys-0.1.28/rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/suitesparse_sys-0.1.4/.rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/suitesparse_sys-0.1.4/rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sundials-sys-0.6.2/.rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sundials-sys-0.6.2/rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.config/rustfmt/.rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.config/rustfmt/rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "/home/rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "/rustfmt.toml",
+        "exists": false,
+        "symlink": false
+      }
+    ]
+  },
+  "symbolica_git": {
+    "cwd": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/symbolica-3.0.1",
+    "ancestor_candidates": [
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/symbolica-3.0.1/.git",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/symbolica-3.0.1/.git/HEAD",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/symbolica-3.0.1/HEAD",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/symbolica-3.0.1/objects",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/symbolica-3.0.1/refs",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/.git",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/.git/HEAD",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/HEAD",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objects",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/refs",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/.git",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/.git/HEAD",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/HEAD",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/objects",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/src/refs",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/.git",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/.git/HEAD",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/HEAD",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/objects",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/registry/refs",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/.git",
+        "exists": true,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/.git/HEAD",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/HEAD",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/objects",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.cargo/refs",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.git",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/.git/HEAD",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/HEAD",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/objects",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "$HOME/refs",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "/home/.git",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "/home/.git/HEAD",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "/home/HEAD",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "/home/objects",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "/home/refs",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "/.git",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "/.git/HEAD",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "/HEAD",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "/objects",
+        "exists": false,
+        "symlink": false
+      },
+      {
+        "path": "/refs",
+        "exists": false,
+        "symlink": false
+      }
+    ],
+    "configs": [
+      {
+        "path": "/etc/gitconfig",
+        "exists": true,
+        "symlink": false,
+        "resolved": "/etc/gitconfig",
+        "sha256": "34773d35bc74a642fe2ace4f20b34a7c7997ed8269c6f38ed3db4f3de79e572a",
+        "bytes": 126,
+        "query_exit": 0,
+        "origin_files": [
+          "/etc/gitconfig"
+        ],
+        "include_directive_key_count": 0
+      },
+      {
+        "path": "$HOME/.gitconfig",
+        "exists": true,
+        "symlink": false,
+        "resolved": "$HOME/.gitconfig",
+        "sha256": "91fc56ed3241f972f29e53daeb8b2f4931cdc60647e61c713b18dfa6b966b5b7",
+        "bytes": 497,
+        "query_exit": 0,
+        "origin_files": [
+          "$HOME/.gitconfig"
+        ],
+        "include_directive_key_count": 0
+      },
+      {
+        "path": "$HOME/.config/git/config",
+        "exists": false,
+        "symlink": false
+      }
+    ],
+    "include_closure_result": "Both current primary configs have zero include/includeIf directive keys; origin closure contains only those two files. Binding source config bytes proves this branch; XDG defaultconfig absent.",
+    "premises": [
+      "Git relevant env overrides absent or exactdeclared",
+      "scoped Symbolica registry cwd and ancestors only; workspace Git HEAD not an input",
+      "~/.cargo/.git directory exists but HEAD absent and repository validation fails128",
+      "ancestor .git file/dir/HEAD and bare HEAD/objects/refs candidates prevent new valid repository selection",
+      "current HOME/XDG paths; library/config bytes and symlinks bound"
+    ]
+  }
+}

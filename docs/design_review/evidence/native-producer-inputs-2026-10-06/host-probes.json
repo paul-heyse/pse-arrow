@@ -1,0 +1,368 @@
+{
+  "scope": "exploratory host only; not current selected compiler-unit qualification",
+  "versions": {
+    "clang": {
+      "argv": [
+        "/opt/llvm-current/bin/clang",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "clang version 23.1.2\nTarget: x86_64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /opt/llvm-23.1.2-z3-5.1/bin\nBuild config: +assertions\n",
+      "stderr": ""
+    },
+    "gcc": {
+      "argv": [
+        "/usr/bin/gcc",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+      "stderr": ""
+    },
+    "cc": {
+      "argv": [
+        "/usr/bin/cc",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+      "stderr": ""
+    },
+    "ar": {
+      "argv": [
+        "/home/linuxbrew/.linuxbrew/bin/ar",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "GNU ar (GNU Binutils) 2.47.20260726\nCopyright (C) 2026 Free Software Foundation, Inc.\nThis program is free software; you may redistribute it under the terms of\nthe GNU General Public License version 3 or (at your option) any later version.\nThis program has absolutely no warranty.\n",
+      "stderr": ""
+    },
+    "pkg-config": {
+      "argv": [
+        "/usr/bin/pkg-config",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "1.8.1\n",
+      "stderr": ""
+    },
+    "pkgconf": {
+      "argv": [
+        "/usr/bin/pkgconf",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "1.8.1\n",
+      "stderr": ""
+    },
+    "llvm-config": {
+      "argv": [
+        "/opt/llvm-current/bin/llvm-config",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "23.1.2\n",
+      "stderr": ""
+    },
+    "mold": {
+      "argv": [
+        "/usr/local/bin/mold",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "mold 2.42.1 (9b376bc6a9899d4a16b41777de1f013989459fbc; compatible with GNU ld)\n",
+      "stderr": ""
+    },
+    "ld.mold": {
+      "argv": [
+        "/usr/local/bin/ld.mold",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "mold 2.42.1 (9b376bc6a9899d4a16b41777de1f013989459fbc; compatible with GNU ld)\n",
+      "stderr": ""
+    },
+    "ld": {
+      "argv": [
+        "/home/linuxbrew/.linuxbrew/bin/ld",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "GNU ld (GNU Binutils) 2.47.20260726\nCopyright (C) 2026 Free Software Foundation, Inc.\nThis program is free software; you may redistribute it under the terms of\nthe GNU General Public License version 3 or (at your option) a later version.\nThis program has absolutely no warranty.\n",
+      "stderr": ""
+    },
+    "sccache": {
+      "argv": [
+        "$HOME/.cargo/bin/sccache",
+        "--version"
+      ],
+      "exit": 0,
+      "stdout": "sccache 0.17.0\n",
+      "stderr": ""
+    }
+  },
+  "tools": {
+    "clang": {
+      "selected": "/opt/llvm-current/bin/clang",
+      "resolved": "/opt/llvm-23.1.2-z3-5.1/bin/clang-23",
+      "sha256": "713ede64455c4adde2d2c55017089a5cfabb856b2cbe31a453db437f28d2ecbd",
+      "bytes": 225192
+    },
+    "gcc": {
+      "selected": "/usr/bin/gcc",
+      "resolved": "/usr/bin/x86_64-linux-gnu-gcc-13",
+      "sha256": "1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26",
+      "bytes": 1023032
+    },
+    "cc": {
+      "selected": "/usr/bin/cc",
+      "resolved": "/usr/bin/x86_64-linux-gnu-gcc-13",
+      "sha256": "1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26",
+      "bytes": 1023032
+    },
+    "ar": {
+      "selected": "/home/linuxbrew/.linuxbrew/bin/ar",
+      "resolved": "/home/linuxbrew/.linuxbrew/Cellar/binutils/2.47/bin/ar",
+      "sha256": "56654f3de2ffed732200a9f784ca459c09a791579438bfac09e1c4d5c72c75b1",
+      "bytes": 75696
+    },
+    "pkg-config": {
+      "selected": "/usr/bin/pkg-config",
+      "resolved": "/usr/bin/pkgconf",
+      "sha256": "7e8152db1b0c7e49d47b4b82a70dc9997b557951c5d4d938b0e7f208ce9eb10b",
+      "bytes": 45168
+    },
+    "pkgconf": {
+      "selected": "/usr/bin/pkgconf",
+      "resolved": "/usr/bin/pkgconf",
+      "sha256": "7e8152db1b0c7e49d47b4b82a70dc9997b557951c5d4d938b0e7f208ce9eb10b",
+      "bytes": 45168
+    },
+    "llvm-config": {
+      "selected": "/opt/llvm-current/bin/llvm-config",
+      "resolved": "/opt/llvm-23.1.2-z3-5.1/bin/llvm-config",
+      "sha256": "2462384bdcd678e6cfed513ca4e58c6962594475465d1dde43237bfb7ca64e0a",
+      "bytes": 409616
+    },
+    "mold": {
+      "selected": "/usr/local/bin/mold",
+      "resolved": "/usr/local/bin/mold",
+      "sha256": "4b18553c959a792a91a77ec6448408300bbb04ad54e0d1a013453149583cce69",
+      "bytes": 23071376
+    },
+    "ld.mold": {
+      "selected": "/usr/local/bin/ld.mold",
+      "resolved": "/usr/local/bin/mold",
+      "sha256": "4b18553c959a792a91a77ec6448408300bbb04ad54e0d1a013453149583cce69",
+      "bytes": 23071376
+    },
+    "ld": {
+      "selected": "/home/linuxbrew/.linuxbrew/bin/ld",
+      "resolved": "/home/linuxbrew/.linuxbrew/Cellar/binutils/2.47/bin/ld",
+      "sha256": "d21b2cbab8964f30d34d7375c2eb57986b32c6fade62dc385e2f61f398e2295c",
+      "bytes": 3913840
+    },
+    "sccache": {
+      "selected": "$HOME/.cargo/bin/sccache",
+      "resolved": "$HOME/.cargo/bin/sccache",
+      "sha256": "066c5a84c85044c8f48b3ab571ac114293ea717c3d36985db022af8206e21e63",
+      "bytes": 22312512
+    }
+  },
+  "commands": [
+    {
+      "argv": [
+        "/usr/bin/readelf",
+        "-d",
+        "/opt/llvm-23.1.2-z3-5.1/bin/clang-23"
+      ],
+      "exit": 0,
+      "stdout": "\nDynamic section at offset 0x2c388 contains 32 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libclang-cpp.so.23.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libLLVM.so.23.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]\n 0x000000000000001d (RUNPATH)            Library runpath: [$ORIGIN/../lib:$ORIGIN]\n 0x000000000000000c (INIT)               0x9000\n 0x000000000000000d (FINI)               0x254e0\n 0x0000000000000019 (INIT_ARRAY)         0x2c2d8\n 0x000000000000001b (INIT_ARRAYSZ)       16 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x2c2e8\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0x3c8\n 0x0000000000000005 (STRTAB)             0x2590\n 0x0000000000000006 (SYMTAB)             0x4a8\n 0x000000000000000a (STRSZ)              17443 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000015 (DEBUG)              0x0\n 0x0000000000000003 (PLTGOT)             0x2c5c8\n 0x0000000000000002 (PLTRELSZ)           7152 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x7238\n 0x0000000000000007 (RELA)               0x6db8\n 0x0000000000000008 (RELASZ)             1152 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW PIE\n 0x000000006ffffffe (VERNEED)            0x6c78\n 0x000000006fffffff (VERNEEDNUM)         5\n 0x000000006ffffff0 (VERSYM)             0x69b4\n 0x000000006ffffff9 (RELACOUNT)          15\n 0x0000000000000000 (NULL)               0x0\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/usr/bin/readelf",
+        "-d",
+        "/usr/bin/x86_64-linux-gnu-gcc-13"
+      ],
+      "exit": 0,
+      "stdout": "\nDynamic section at offset 0xf7dd8 contains 25 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]\n 0x000000000000000c (INIT)               0x403000\n 0x000000000000000d (FINI)               0x465e84\n 0x0000000000000019 (INIT_ARRAY)         0x4f6a98\n 0x000000000000001b (INIT_ARRAYSZ)       24 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x4f6ab0\n 0x000000000000001c (FINI_ARRAYSZ)       16 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0x400460\n 0x0000000000000005 (STRTAB)             0x4012d0\n 0x0000000000000006 (SYMTAB)             0x4004c0\n 0x000000000000000a (STRSZ)              1658 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000015 (DEBUG)              0x0\n 0x0000000000000003 (PLTGOT)             0x4f7fe8\n 0x0000000000000002 (PLTRELSZ)           3192 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x401c80\n 0x0000000000000007 (RELA)               0x401ba8\n 0x0000000000000008 (RELASZ)             216 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffffe (VERNEED)            0x401a78\n 0x000000006fffffff (VERNEEDNUM)         2\n 0x000000006ffffff0 (VERSYM)             0x40194a\n 0x0000000000000000 (NULL)               0x0\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/usr/bin/readelf",
+        "-d",
+        "/usr/bin/x86_64-linux-gnu-gcc-13"
+      ],
+      "exit": 0,
+      "stdout": "\nDynamic section at offset 0xf7dd8 contains 25 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]\n 0x000000000000000c (INIT)               0x403000\n 0x000000000000000d (FINI)               0x465e84\n 0x0000000000000019 (INIT_ARRAY)         0x4f6a98\n 0x000000000000001b (INIT_ARRAYSZ)       24 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x4f6ab0\n 0x000000000000001c (FINI_ARRAYSZ)       16 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0x400460\n 0x0000000000000005 (STRTAB)             0x4012d0\n 0x0000000000000006 (SYMTAB)             0x4004c0\n 0x000000000000000a (STRSZ)              1658 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000015 (DEBUG)              0x0\n 0x0000000000000003 (PLTGOT)             0x4f7fe8\n 0x0000000000000002 (PLTRELSZ)           3192 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x401c80\n 0x0000000000000007 (RELA)               0x401ba8\n 0x0000000000000008 (RELASZ)             216 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffffe (VERNEED)            0x401a78\n 0x000000006fffffff (VERNEEDNUM)         2\n 0x000000006ffffff0 (VERSYM)             0x40194a\n 0x0000000000000000 (NULL)               0x0\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/usr/bin/readelf",
+        "-d",
+        "/home/linuxbrew/.linuxbrew/Cellar/binutils/2.47/bin/ar"
+      ],
+      "exit": 0,
+      "stdout": "\nDynamic section at offset 0xfa88 contains 29 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libbfd-2.47.20260726.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x000000000000000f (RPATH)              Library rpath: [/home/linuxbrew/.linuxbrew/Cellar/binutils/2.47/lib:/home/linuxbrew/.linuxbrew/opt/gcc/lib/gcc/current:/home/linuxbrew/.linuxbrew/opt/lz4/lib:/home/linuxbrew/.linuxbrew/opt/xz/lib:/home/linuxbrew/.linuxbrew/opt/zlib-ng-compat/lib:/home/linuxbrew/.linuxbrew/opt/zstd/lib:/home/linuxbrew/.linuxbrew/lib]\n 0x000000000000000c (INIT)               0x3000\n 0x000000000000000d (FINI)               0xab04\n 0x0000000000000019 (INIT_ARRAY)         0xfa78\n 0x000000000000001b (INIT_ARRAYSZ)       8 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0xfa80\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0x11a68\n 0x0000000000000005 (STRTAB)             0x12000\n 0x0000000000000006 (SYMTAB)             0x11000\n 0x000000000000000a (STRSZ)              1921 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000015 (DEBUG)              0x0\n 0x0000000000000003 (PLTGOT)             0xfc98\n 0x0000000000000002 (PLTRELSZ)           2352 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x18f8\n 0x0000000000000007 (RELA)               0x1628\n 0x0000000000000008 (RELASZ)             720 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW PIE\n 0x000000006ffffffe (VERNEED)            0x1598\n 0x000000006fffffff (VERNEEDNUM)         1\n 0x000000006ffffff0 (VERSYM)             0x14b4\n 0x000000006ffffff9 (RELACOUNT)          17\n 0x0000000000000000 (NULL)               0x0\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/usr/bin/readelf",
+        "-d",
+        "/usr/bin/pkgconf"
+      ],
+      "exit": 0,
+      "stdout": "\nDynamic section at offset 0x9bd0 contains 28 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libpkgconf.so.3]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x000000000000000c (INIT)               0x3000\n 0x000000000000000d (FINI)               0x6734\n 0x0000000000000019 (INIT_ARRAY)         0xabb0\n 0x000000000000001b (INIT_ARRAYSZ)       8 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0xabb8\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0x3b0\n 0x0000000000000005 (STRTAB)             0xa40\n 0x0000000000000006 (SYMTAB)             0x3e0\n 0x000000000000000a (STRSZ)              1283 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000015 (DEBUG)              0x0\n 0x0000000000000003 (PLTGOT)             0xadd0\n 0x0000000000000002 (PLTRELSZ)           1392 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x1b28\n 0x0000000000000007 (RELA)               0x1030\n 0x0000000000000008 (RELASZ)             2808 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW PIE\n 0x000000006ffffffe (VERNEED)            0xfd0\n 0x000000006fffffff (VERNEEDNUM)         1\n 0x000000006ffffff0 (VERSYM)             0xf44\n 0x000000006ffffff9 (RELACOUNT)          108\n 0x0000000000000000 (NULL)               0x0\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/usr/bin/readelf",
+        "-d",
+        "/usr/bin/pkgconf"
+      ],
+      "exit": 0,
+      "stdout": "\nDynamic section at offset 0x9bd0 contains 28 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libpkgconf.so.3]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x000000000000000c (INIT)               0x3000\n 0x000000000000000d (FINI)               0x6734\n 0x0000000000000019 (INIT_ARRAY)         0xabb0\n 0x000000000000001b (INIT_ARRAYSZ)       8 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0xabb8\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0x3b0\n 0x0000000000000005 (STRTAB)             0xa40\n 0x0000000000000006 (SYMTAB)             0x3e0\n 0x000000000000000a (STRSZ)              1283 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000015 (DEBUG)              0x0\n 0x0000000000000003 (PLTGOT)             0xadd0\n 0x0000000000000002 (PLTRELSZ)           1392 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x1b28\n 0x0000000000000007 (RELA)               0x1030\n 0x0000000000000008 (RELASZ)             2808 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW PIE\n 0x000000006ffffffe (VERNEED)            0xfd0\n 0x000000006fffffff (VERNEEDNUM)         1\n 0x000000006ffffff0 (VERSYM)             0xf44\n 0x000000006ffffff9 (RELACOUNT)          108\n 0x0000000000000000 (NULL)               0x0\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/usr/bin/readelf",
+        "-d",
+        "/opt/llvm-23.1.2-z3-5.1/bin/llvm-config"
+      ],
+      "exit": 0,
+      "stdout": "\nDynamic section at offset 0x3db40 contains 32 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]\n 0x000000000000001d (RUNPATH)            Library runpath: [$ORIGIN/../lib:$ORIGIN]\n 0x000000000000000c (INIT)               0xa000\n 0x000000000000000d (FINI)               0x2e4e8\n 0x0000000000000019 (INIT_ARRAY)         0x3d630\n 0x000000000000001b (INIT_ARRAYSZ)       8 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x3d638\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0x3c8\n 0x0000000000000005 (STRTAB)             0xc58\n 0x0000000000000006 (SYMTAB)             0x418\n 0x000000000000000a (STRSZ)              2154 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000015 (DEBUG)              0x0\n 0x0000000000000003 (PLTGOT)             0x3ed80\n 0x0000000000000002 (PLTRELSZ)           1680 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x8a90\n 0x0000000000000007 (RELA)               0x16c8\n 0x0000000000000008 (RELASZ)             29640 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW PIE\n 0x000000006ffffffe (VERNEED)            0x1578\n 0x000000006fffffff (VERNEEDNUM)         3\n 0x000000006ffffff0 (VERSYM)             0x14c2\n 0x000000006ffffff9 (RELACOUNT)          1219\n 0x0000000000000000 (NULL)               0x0\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/usr/bin/readelf",
+        "-d",
+        "/usr/local/bin/mold"
+      ],
+      "exit": 0,
+      "stdout": "\nDynamic section at offset 0x15e7560 contains 32 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libdl.so.2]\n 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libpthread.so.0]\n 0x0000000000000001 (NEEDED)             Shared library: [librt.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libatomic.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]\n 0x0000000000000007 (RELA)               0x29b0\n 0x0000000000000008 (RELASZ)             1791144 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x0000000000000017 (JMPREL)             0x1b7e58\n 0x0000000000000002 (PLTRELSZ)           4608 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000003 (PLTGOT)             0x1602890\n 0x0000000000000006 (SYMTAB)             0x3a8\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000005 (STRTAB)             0x1ae8\n 0x000000000000000a (STRSZ)              2899 (bytes)\n 0x0000000000000019 (INIT_ARRAY)         0x15e97c0\n 0x000000000000001b (INIT_ARRAYSZ)       440 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x15e97b0\n 0x000000000000001c (FINI_ARRAYSZ)       16 (bytes)\n 0x000000006ffffff0 (VERSYM)             0x263c\n 0x000000006ffffffe (VERNEED)            0x282c\n 0x000000006fffffff (VERNEEDNUM)         7\n 0x000000000000000c (INIT)               0x401c44\n 0x000000000000000d (FINI)               0x401c38\n 0x000000006ffffef5 (GNU_HASH)           0x320\n 0x000000006ffffffb (FLAGS_1)            Flags: PIE\n 0x0000000000000015 (DEBUG)              0x0\n 0x0000000000000000 (NULL)               0x0\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/usr/bin/readelf",
+        "-d",
+        "/usr/local/bin/mold"
+      ],
+      "exit": 0,
+      "stdout": "\nDynamic section at offset 0x15e7560 contains 32 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libdl.so.2]\n 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libpthread.so.0]\n 0x0000000000000001 (NEEDED)             Shared library: [librt.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libatomic.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-x86-64.so.2]\n 0x0000000000000007 (RELA)               0x29b0\n 0x0000000000000008 (RELASZ)             1791144 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x0000000000000017 (JMPREL)             0x1b7e58\n 0x0000000000000002 (PLTRELSZ)           4608 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000003 (PLTGOT)             0x1602890\n 0x0000000000000006 (SYMTAB)             0x3a8\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000005 (STRTAB)             0x1ae8\n 0x000000000000000a (STRSZ)              2899 (bytes)\n 0x0000000000000019 (INIT_ARRAY)         0x15e97c0\n 0x000000000000001b (INIT_ARRAYSZ)       440 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x15e97b0\n 0x000000000000001c (FINI_ARRAYSZ)       16 (bytes)\n 0x000000006ffffff0 (VERSYM)             0x263c\n 0x000000006ffffffe (VERNEED)            0x282c\n 0x000000006fffffff (VERNEEDNUM)         7\n 0x000000000000000c (INIT)               0x401c44\n 0x000000000000000d (FINI)               0x401c38\n 0x000000006ffffef5 (GNU_HASH)           0x320\n 0x000000006ffffffb (FLAGS_1)            Flags: PIE\n 0x0000000000000015 (DEBUG)              0x0\n 0x0000000000000000 (NULL)               0x0\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/usr/bin/readelf",
+        "-d",
+        "/home/linuxbrew/.linuxbrew/Cellar/binutils/2.47/bin/ld"
+      ],
+      "exit": 0,
+      "stdout": "\nDynamic section at offset 0x39afb0 contains 30 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libbfd-2.47.20260726.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libctf.so.0]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x000000000000000f (RPATH)              Library rpath: [/home/linuxbrew/.linuxbrew/Cellar/binutils/2.47/lib:/home/linuxbrew/.linuxbrew/opt/gcc/lib/gcc/current:/home/linuxbrew/.linuxbrew/opt/lz4/lib:/home/linuxbrew/.linuxbrew/opt/xz/lib:/home/linuxbrew/.linuxbrew/opt/zlib-ng-compat/lib:/home/linuxbrew/.linuxbrew/opt/zstd/lib:/home/linuxbrew/.linuxbrew/lib]\n 0x000000000000000c (INIT)               0x5e000\n 0x000000000000000d (FINI)               0x1e42d4\n 0x0000000000000019 (INIT_ARRAY)         0x3693f0\n 0x000000000000001b (INIT_ARRAYSZ)       8 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x3693f8\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0x3bd000\n 0x0000000000000005 (STRTAB)             0x3be000\n 0x0000000000000006 (SYMTAB)             0x528\n 0x000000000000000a (STRSZ)              10311 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000015 (DEBUG)              0x0\n 0x0000000000000003 (PLTGOT)             0x39b1d0\n 0x0000000000000002 (PLTRELSZ)           10488 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x5b320\n 0x0000000000000007 (RELA)               0x5ec8\n 0x0000000000000008 (RELASZ)             349272 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW PIE\n 0x000000006ffffffe (VERNEED)            0x5dd8\n 0x000000006fffffff (VERNEEDNUM)         2\n 0x000000006ffffff0 (VERSYM)             0x5a02\n 0x000000006ffffff9 (RELACOUNT)          14509\n 0x0000000000000000 (NULL)               0x0\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/usr/bin/readelf",
+        "-d",
+        "$HOME/.cargo/bin/sccache"
+      ],
+      "exit": 0,
+      "stdout": "\nDynamic section at offset 0x153f3b0 contains 21 entries:\n  Tag        Type                         Name/Value\n 0x000000000000000c (INIT)               0x10f790\n 0x000000000000000d (FINI)               0x107b176\n 0x0000000000000019 (INIT_ARRAY)         0x14682b0\n 0x000000000000001b (INIT_ARRAYSZ)       8 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x14682b8\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x0000000000000004 (HASH)               0x1c8\n 0x000000006ffffef5 (GNU_HASH)           0x1d8\n 0x0000000000000005 (STRTAB)             0x210\n 0x0000000000000006 (SYMTAB)             0x1f8\n 0x000000000000000a (STRSZ)              1 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000015 (DEBUG)              0x0\n 0x0000000000000003 (PLTGOT)             0x153f540\n 0x0000000000000007 (RELA)               0x218\n 0x0000000000000008 (RELASZ)             1111416 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x0000000000000018 (BIND_NOW)           \n 0x000000006ffffffb (FLAGS_1)            Flags: NOW PIE\n 0x000000006ffffff9 (RELACOUNT)          46309\n 0x0000000000000000 (NULL)               0x0\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/opt/llvm-current/bin/clang",
+        "-###",
+        "-x",
+        "c",
+        "-c",
+        "/dev/null"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "clang version 23.1.2\nTarget: x86_64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /opt/llvm-23.1.2-z3-5.1/bin\nBuild config: +assertions\n (in-process)\n \"/opt/llvm-23.1.2-z3-5.1/bin/clang-23\" \"-cc1\" \"-triple\" \"x86_64-unknown-linux-gnu\" \"-emit-obj\" \"-disable-free\" \"-clear-ast-before-backend\" \"-main-file-name\" \"null\" \"-mrelocation-model\" \"pic\" \"-pic-level\" \"2\" \"-pic-is-pie\" \"-mframe-pointer=all\" \"-fmath-errno\" \"-ffp-contract=on\" \"-fno-rounding-math\" \"-mconstructor-aliases\" \"-funwind-tables=2\" \"-target-cpu\" \"x86-64\" \"-tune-cpu\" \"generic\" \"-debugger-tuning=gdb\" \"-fdebug-compilation-dir=$HOME/pse-arrow\" \"-fcoverage-compilation-dir=$HOME/pse-arrow\" \"-resource-dir\" \"/opt/llvm-23.1.2-z3-5.1/lib/clang/23\" \"-internal-isystem\" \"/opt/llvm-23.1.2-z3-5.1/lib/clang/23/include\" \"-internal-isystem\" \"/usr/local/include\" \"-internal-isystem\" \"/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include\" \"-internal-externc-isystem\" \"/usr/include/x86_64-linux-gnu\" \"-internal-externc-isystem\" \"/include\" \"-internal-externc-isystem\" \"/usr/include\" \"-ferror-limit\" \"19\" \"-fgnuc-version=4.2.1\" \"-fskip-odr-check-in-gmf\" \"-fno-color-diagnostics\" \"-faddrsig\" \"-fdwarf2-cfi-asm\" \"-o\" \"null.o\" \"-x\" \"c\" \"/dev/null\"\n"
+    },
+    {
+      "argv": [
+        "/opt/llvm-current/bin/clang",
+        "-###",
+        "-fuse-ld=mold",
+        "-x",
+        "c",
+        "/dev/null",
+        "-o",
+        "/tmp/pse-native-producer-audit/not-created"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "clang version 23.1.2\nTarget: x86_64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /opt/llvm-23.1.2-z3-5.1/bin\nBuild config: +assertions\n \"/opt/llvm-23.1.2-z3-5.1/bin/clang-23\" \"-cc1\" \"-triple\" \"x86_64-unknown-linux-gnu\" \"-emit-obj\" \"-dumpdir\" \"/tmp/pse-native-producer-audit/not-created-\" \"-disable-free\" \"-clear-ast-before-backend\" \"-main-file-name\" \"null\" \"-mrelocation-model\" \"pic\" \"-pic-level\" \"2\" \"-pic-is-pie\" \"-mframe-pointer=all\" \"-fmath-errno\" \"-ffp-contract=on\" \"-fno-rounding-math\" \"-mconstructor-aliases\" \"-funwind-tables=2\" \"-target-cpu\" \"x86-64\" \"-tune-cpu\" \"generic\" \"-debugger-tuning=gdb\" \"-fdebug-compilation-dir=$HOME/pse-arrow\" \"-fcoverage-compilation-dir=$HOME/pse-arrow\" \"-resource-dir\" \"/opt/llvm-23.1.2-z3-5.1/lib/clang/23\" \"-internal-isystem\" \"/opt/llvm-23.1.2-z3-5.1/lib/clang/23/include\" \"-internal-isystem\" \"/usr/local/include\" \"-internal-isystem\" \"/usr/lib/gcc/x86_64-linux-gnu/13/../../../../x86_64-linux-gnu/include\" \"-internal-externc-isystem\" \"/usr/include/x86_64-linux-gnu\" \"-internal-externc-isystem\" \"/include\" \"-internal-externc-isystem\" \"/usr/include\" \"-ferror-limit\" \"19\" \"-fgnuc-version=4.2.1\" \"-fskip-odr-check-in-gmf\" \"-fno-color-diagnostics\" \"-faddrsig\" \"-fdwarf2-cfi-asm\" \"-o\" \"/tmp/null-120623.o\" \"-x\" \"c\" \"/dev/null\"\n \"/usr/local/bin/ld.mold\" \"-z\" \"relro\" \"--hash-style=gnu\" \"--eh-frame-hdr\" \"-m\" \"elf_x86_64\" \"-pie\" \"-dynamic-linker\" \"/lib64/ld-linux-x86-64.so.2\" \"-o\" \"/tmp/pse-native-producer-audit/not-created\" \"/lib/x86_64-linux-gnu/Scrt1.o\" \"/lib/x86_64-linux-gnu/crti.o\" \"/usr/lib/gcc/x86_64-linux-gnu/13/crtbeginS.o\" \"-L/usr/lib/gcc/x86_64-linux-gnu/13\" \"-L/usr/lib/gcc/x86_64-linux-gnu/13/../../../../lib64\" \"-L/lib/x86_64-linux-gnu\" \"-L/lib/../lib64\" \"-L/usr/lib/x86_64-linux-gnu\" \"-L/usr/lib64\" \"-L/lib\" \"-L/usr/lib\" \"/tmp/null-120623.o\" \"-lgcc\" \"--as-needed\" \"-lgcc_s\" \"--no-as-needed\" \"-lc\" \"-lgcc\" \"--as-needed\" \"-lgcc_s\" \"--no-as-needed\" \"/usr/lib/gcc/x86_64-linux-gnu/13/crtendS.o\" \"/lib/x86_64-linux-gnu/crtn.o\"\n"
+    }
+  ],
+  "environment": {
+    "PATH": "/opt/llvm-current/bin:$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path:$HOME/.local/share/jobsearch-os-toolchain/codex-bin:$HOME/.local/share/jobsearch-os-toolchain/codex-bin:$HOME/.local/share/jobsearch-os-toolchain/codex-bin:/usr/local/cuda/bin:$HOME/.codex/tmp/arg0/codex-arg0V7sINn:$HOME/.codex/packages/app-server-daemon/releases/0.160.1-x86_64-unknown-linux-musl/codex-path:$HOME/.codex/tmp/arg0/codex-arg06xiyLW:$HOME/.codex/packages/app-server-daemon/releases/0.160.0-x86_64-unknown-linux-musl/codex-path:$HOME/.codex/tmp/arg0/codex-arg0Zhs7y9:$HOME/.nvm/versions/node/v26.5.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:$HOME/.local/opt/pcre2-10.48/bin:$HOME/.cargo/bin:$HOME/.cargo/bin:/opt/curl-http3/curl/bin:/opt/curl-http3/curl/bin:/usr/lib/jvm/java-21-openjdk-amd64/bin:$HOME/.local/bin:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/local/cuda/bin:$HOME/.local/bin:$HOME/.local/opt/pcre2-10.48/bin:$HOME/.cargo/bin:/opt/curl-http3/curl/bin:/usr/lib/jvm/java-21-openjdk-amd64/bin:$HOME/.nvm/versions/node/v26.5.0/bin:$HOME/y/condabin:$HOME/.local/share/jobsearch-os-toolchain/codex-bin:$HOME/.local/opt/llvm-23.1.2-z3-5.1/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:$HOME/.dotnet/tools:$HOME/.cursor/extensions/ms-python.debugpy-2026.6.0-linux-x64/bundled/scripts/noConfigScripts",
+    "HOME": "$HOME",
+    "XDG_CONFIG_HOME": null,
+    "XDG_CACHE_HOME": null,
+    "PSE_LLVM_PREFIX": "/opt/llvm-current",
+    "CLANG_PATH": "/opt/llvm-current/bin/clang",
+    "LIBCLANG_PATH": "/opt/llvm-current/lib",
+    "LLVM_CONFIG_PATH": "/opt/llvm-current/bin/llvm-config",
+    "RUSTC_WRAPPER": "$HOME/.cargo/bin/sccache",
+    "RUSTC_WORKSPACE_WRAPPER": null,
+    "IPOPT_DIR": null,
+    "GMP_MPFR_SYS_CACHE": null,
+    "CC": null,
+    "CXX": null,
+    "AR": null,
+    "CFLAGS": null,
+    "CXXFLAGS": null,
+    "CPPFLAGS": null,
+    "LDFLAGS": null,
+    "PKG_CONFIG": null,
+    "PKG_CONFIG_PATH": null,
+    "PKG_CONFIG_LIBDIR": null,
+    "PKG_CONFIG_SYSROOT_DIR": null,
+    "PYO3_CONFIG_FILE": null,
+    "PYO3_PYTHON": null,
+    "PYTHONPATH": null,
+    "PYTHONHOME": null,
+    "PYTHONNOUSERSITE": null,
+    "VIRTUAL_ENV": null,
+    "CONDA_PREFIX": null,
+    "SCCACHE_CONF": null,
+    "SCCACHE_CACHED_CONF": null,
+    "SCCACHE_DIR": "$HOME/.cache/pse-arrow/sccache",
+    "SCCACHE_SERVER_UDS": "/tmp/pse-sccache-1000-d57cd5d09a6683fb.sock",
+    "SCCACHE_BASEDIRS": null,
+    "CLANG_NO_DEFAULT_CONFIG": null,
+    "LD_LIBRARY_PATH": null,
+    "LD_PRELOAD": null,
+    "LIBRARY_PATH": null,
+    "CPATH": null,
+    "C_INCLUDE_PATH": null,
+    "CPLUS_INCLUDE_PATH": null,
+    "GCC_EXEC_PREFIX": null,
+    "COMPILER_PATH": null
+  },
+  "python_observer": {
+    "argv": [
+      "$HOME/pse-arrow/.venv/bin/python",
+      "-c",
+      "import sys,sysconfig,json; print(json.dumps({\"executable\":sys.executable,\"prefix\":sys.prefix,\"base_prefix\":sys.base_prefix,\"sys_path\":sys.path,\"modules\":{n:m.__file__ for n,m in sys.modules.items() if getattr(m,\"__file__\",None)},\"config\":{k:sysconfig.get_config_var(k) for k in [\"SOABI\",\"EXT_SUFFIX\",\"LDLIBRARY\",\"LIBDIR\",\"Py_ENABLE_SHARED\",\"Py_GIL_DISABLED\",\"PYTHONFRAMEWORK\",\"SIZEOF_VOID_P\"]}},sort_keys=True))"
+    ],
+    "exit": 0,
+    "stdout": "{\"base_prefix\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu\", \"config\": {\"EXT_SUFFIX\": \".cpython-314-x86_64-linux-gnu.so\", \"LDLIBRARY\": \"libpython3.14.so\", \"LIBDIR\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib\", \"PYTHONFRAMEWORK\": \"\", \"Py_ENABLE_SHARED\": 1, \"Py_GIL_DISABLED\": 0, \"SIZEOF_VOID_P\": 8, \"SOABI\": \"cpython-314-x86_64-linux-gnu\"}, \"executable\": \"$HOME/pse-arrow/.venv/bin/python\", \"modules\": {\"_collections_abc\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/_collections_abc.py\", \"_frozen_importlib_external\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/importlib/_bootstrap_external.py\", \"_sitebuiltins\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/_sitebuiltins.py\", \"_virtualenv\": \"$HOME/pse-arrow/.venv/lib/python3.14/site-packages/_virtualenv.py\", \"_weakrefset\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/_weakrefset.py\", \"abc\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/abc.py\", \"codecs\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/codecs.py\", \"collections\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/collections/__init__.py\", \"collections.abc\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/_collections_abc.py\", \"contextlib\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/contextlib.py\", \"copyreg\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/copyreg.py\", \"encodings\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/encodings/__init__.py\", \"encodings.aliases\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/encodings/aliases.py\", \"encodings.utf_8\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/encodings/utf_8.py\", \"encodings.utf_8_sig\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/encodings/utf_8_sig.py\", \"enum\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/enum.py\", \"functools\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/functools.py\", \"genericpath\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/genericpath.py\", \"json\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/json/__init__.py\", \"json.decoder\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/json/decoder.py\", \"json.encoder\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/json/encoder.py\", \"json.scanner\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/json/scanner.py\", \"keyword\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/keyword.py\", \"linecache\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/linecache.py\", \"operator\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/operator.py\", \"os\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/os.py\", \"os.path\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/posixpath.py\", \"posixpath\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/posixpath.py\", \"re\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/re/__init__.py\", \"re._casefix\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/re/_casefix.py\", \"re._compiler\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/re/_compiler.py\", \"re._constants\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/re/_constants.py\", \"re._parser\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/re/_parser.py\", \"reprlib\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/reprlib.py\", \"site\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/site.py\", \"stat\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/stat.py\", \"sysconfig\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/sysconfig/__init__.py\", \"threading\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/threading.py\", \"types\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/types.py\", \"zipimport\": \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/zipimport.py\"}, \"prefix\": \"$HOME/pse-arrow/.venv\", \"sys_path\": [\"\", \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python314.zip\", \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14\", \"$HOME/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/lib-dynload\", \"$HOME/pse-arrow/.venv/lib/python3.14/site-packages\", \"$HOME/pse-arrow/python\"]}\n",
+    "stderr": ""
+  }
+}

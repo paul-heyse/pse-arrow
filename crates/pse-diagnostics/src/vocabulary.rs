@@ -25,16 +25,14 @@ crate::impl_diagnostic! {
     forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
 
-/// The `postgres` feature maps each vocabulary to the store's ENUM type of the same
-/// snake-case name, member by member (ADR-0117 Outcome 4, ADR-0114 Outcome 25).
+/// Closed platform diagnostic spellings shared by native and portable boundaries.
 macro_rules! vocabulary {
     ($name:ident as $sql:literal { $($variant:ident => ($text:literal, $description:literal)),* $(,)? }) => {
         #[doc = "Stable platform diagnostic vocabulary."]
         #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, strum::EnumString, strum::Display, strum::VariantArray, strum::IntoStaticStr, serde::Serialize, serde::Deserialize)]
         #[serde(try_from = "String", into = "String")]
         #[strum(const_into_str, parse_err_ty = VocabularyError, parse_err_fn = Self::unknown_member)]
-        #[cfg_attr(feature = "postgres", derive(postgres_types::ToSql, postgres_types::FromSql), postgres(name = $sql))]
-        pub enum $name { $(#[doc = $description] #[strum(serialize = $text)] #[cfg_attr(feature = "postgres", postgres(name = $text))] $variant),* }
+        pub enum $name { $(#[doc = $description] #[strum(serialize = $text)] $variant),* }
         impl $name {
             /// All declarations in stable order.
             pub const ALL: &'static [Self] = <Self as strum::VariantArray>::VARIANTS;
@@ -95,8 +93,7 @@ macro_rules! codes {
         #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, strum::VariantArray, strum::IntoStaticStr, serde::Serialize, serde::Deserialize)]
         #[strum(const_into_str)]
         #[serde(try_from = "String", into = "String")]
-        #[cfg_attr(feature = "postgres", derive(postgres_types::ToSql, postgres_types::FromSql), postgres(name = "diagnostic_code"))]
-        pub enum DiagnosticCode { $(#[doc = $description] #[strum(serialize = $text)] #[cfg_attr(feature = "postgres", postgres(name = $text))] $variant),* }
+        pub enum DiagnosticCode { $(#[doc = $description] #[strum(serialize = $text)] $variant),* }
         impl DiagnosticCode {
             /// All detailed codes.
             pub const ALL: &'static [Self] = <Self as strum::VariantArray>::VARIANTS;

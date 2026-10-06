@@ -23,7 +23,6 @@ pub(crate) fn invalid(context: impl Into<String>, reason: impl Into<String>) -> 
 }
 
 pub(crate) fn relation_declaration(decl: &RelationDecl) -> Result<(), SchemaError> {
-    crate::arrow::validate_delta_properties(&decl.delta_properties)?;
     let context = decl.key.to_string();
     if decl
         .checks

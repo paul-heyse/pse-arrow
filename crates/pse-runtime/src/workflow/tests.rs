@@ -54,19 +54,6 @@ pub(crate) fn runtime_with(
         },
     )
 }
-/// A runtime whose worker budget admits the default evaluation profile and 64 MiB of
-/// attempt storage, which a job's declared analysis uses.
-pub(super) fn job_runtime() -> Runtime {
-    runtime_on(
-        1 << 30,
-        crate::math::MathPolicy {
-            worker_bytes: pse_math::jets::EvaluationLimits::default().scratch_bytes + (64 << 20),
-            workspace_bytes: 128 << 20,
-            foreign_bytes: 1 << 20,
-            ..Default::default()
-        },
-    )
-}
 pub(crate) fn runtime_on(memory: usize, math: crate::math::MathPolicy) -> Runtime {
     let n = |v| NonZeroUsize::new(v).unwrap();
     let shared = SharedRuntime::build(crate::ResourceBudget {
@@ -79,7 +66,7 @@ pub(crate) fn runtime_on(memory: usize, math: crate::math::MathPolicy) -> Runtim
             target_partitions: n(1),
         },
         execution: Default::default(),
-        cache: crate::DeltaCacheBudget::disabled(1024),
+        cache: crate::CacheBudget::disabled(1024),
         math,
         hashing_may_use_pool: false,
     })
@@ -91,6 +78,7 @@ pub(crate) fn runtime_on(memory: usize, math: crate::math::MathPolicy) -> Runtim
             .unwrap(),
     );
     Runtime::from_shared(shared, registry, sessions, canonical_deployment())
+        .with_durability(Durability::Ephemeral)
 }
 pub(crate) fn canonical_deployment() -> CanonicalDeployment {
     CanonicalDeployment::new(
@@ -116,6 +104,7 @@ pub(crate) fn physical() -> PhysicalContext {
         sources: BTreeMap::new(),
         package: None,
         _inventory: None,
+        _source_owner: None,
     }
 }
 pub(crate) fn profile() -> SolverProfile {

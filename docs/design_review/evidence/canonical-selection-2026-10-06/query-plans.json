@@ -1,0 +1,340 @@
+{
+  "server": "SurrealDB 3.3.0",
+  "interpretation": "pse.substrate.v1",
+  "scope": "Installed target schema; empty application tables; concrete selector shapes; no scale or speed conclusion",
+  "plans": {
+    "scalar-output": {
+      "query": "SELECT * FROM canonical_result_cells WHERE result_set='set' AND output='x' AND partition='0' AND row>=0dec AND row<1000dec AND (NONE=NONE OR row>NONE) AND (NONE=NONE OR projection.projection>=NONE) AND (NONE=NONE OR projection.projection<=NONE) AND (NONE=NONE OR (NONE AND cell_kind='missing') OR (!NONE AND cell_kind='finite')) ORDER BY row LIMIT 64 EXPLAIN FULL;",
+      "response": [
+        {
+          "result": {
+            "attributes": {
+              "projections": "*"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "limit": "64"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "predicate": "row < 1000dec AND NONE = NONE OR row > NONE AND NONE = NONE OR projection.projection >= NONE AND NONE = NONE OR projection.projection <= NONE AND NONE = NONE OR NONE AND cell_kind = 'missing' OR ! NONE AND cell_kind = 'finite'"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "access": "['set', 'x', '0'] MoreThanEqual 0dec",
+                          "direction": "Forward",
+                          "index": "result_cell_rows"
+                        },
+                        "context": "Db",
+                        "metrics": {
+                          "elapsed_ns": 80995,
+                          "output_batches": 0,
+                          "output_rows": 0,
+                          "records_fetched": 0
+                        },
+                        "operator": "IndexScan"
+                      }
+                    ],
+                    "context": "Db",
+                    "expressions": [
+                      {
+                        "role": "predicate",
+                        "sql": "row < 1000dec AND NONE = NONE OR row > NONE AND NONE = NONE OR projection.projection >= NONE AND NONE = NONE OR projection.projection <= NONE AND NONE = NONE OR NONE AND cell_kind = 'missing' OR ! NONE AND cell_kind = 'finite'"
+                      }
+                    ],
+                    "metrics": {
+                      "elapsed_ns": 1210,
+                      "output_batches": 0,
+                      "output_rows": 0,
+                      "records_fetched": 0
+                    },
+                    "operator": "Filter"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "role": "limit",
+                    "sql": "64"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 1960,
+                  "output_batches": 0,
+                  "output_rows": 0,
+                  "records_fetched": 0
+                },
+                "operator": "Limit"
+              }
+            ],
+            "context": "Db",
+            "metrics": {
+              "elapsed_ns": 860,
+              "output_batches": 0,
+              "output_rows": 0,
+              "records_fetched": 0
+            },
+            "operator": "SelectProject",
+            "total_rows": 0
+          },
+          "status": "OK",
+          "time": "577.011\u00b5s",
+          "type": null
+        }
+      ]
+    },
+    "dense-output": {
+      "query": "SELECT * FROM canonical_result_block_outputs WHERE result_set='set' AND output='x' AND partition='0' AND end>0dec AND start<1000dec AND (NONE=NONE OR start>NONE) AND (NONE=NONE OR coordinate_max.projection>=NONE) AND (NONE=NONE OR coordinate_min.projection<=NONE) ORDER BY start LIMIT 64 EXPLAIN FULL;",
+      "response": [
+        {
+          "result": {
+            "attributes": {
+              "projections": "*"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "limit": "64"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "predicate": "end > 0dec AND NONE = NONE OR start > NONE AND NONE = NONE OR coordinate_max.projection >= NONE AND NONE = NONE OR coordinate_min.projection <= NONE"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "access": "['set', 'x', '0'] LessThan 1000dec",
+                          "direction": "Forward",
+                          "index": "result_output_range"
+                        },
+                        "context": "Db",
+                        "metrics": {
+                          "elapsed_ns": 23552,
+                          "output_batches": 0,
+                          "output_rows": 0,
+                          "records_fetched": 0
+                        },
+                        "operator": "IndexScan"
+                      }
+                    ],
+                    "context": "Db",
+                    "expressions": [
+                      {
+                        "role": "predicate",
+                        "sql": "end > 0dec AND NONE = NONE OR start > NONE AND NONE = NONE OR coordinate_max.projection >= NONE AND NONE = NONE OR coordinate_min.projection <= NONE"
+                      }
+                    ],
+                    "metrics": {
+                      "elapsed_ns": 1780,
+                      "output_batches": 0,
+                      "output_rows": 0,
+                      "records_fetched": 0
+                    },
+                    "operator": "Filter"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "role": "limit",
+                    "sql": "64"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 8210,
+                  "output_batches": 0,
+                  "output_rows": 0,
+                  "records_fetched": 0
+                },
+                "operator": "Limit"
+              }
+            ],
+            "context": "Db",
+            "metrics": {
+              "elapsed_ns": 510,
+              "output_batches": 0,
+              "output_rows": 0,
+              "records_fetched": 0
+            },
+            "operator": "SelectProject",
+            "total_rows": 0
+          },
+          "status": "OK",
+          "time": "522.598\u00b5s",
+          "type": null
+        }
+      ]
+    },
+    "block-range": {
+      "query": "SELECT * FROM canonical_result_blocks WHERE result_set='set' AND output='x' AND partition='0' AND ordinal<1000dec AND end>0dec AND start<1000dec AND (NONE=NONE OR ordinal>NONE) ORDER BY ordinal LIMIT 64 EXPLAIN FULL;",
+      "response": [
+        {
+          "result": {
+            "attributes": {
+              "projections": "*"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "limit": "64"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "predicate": "end > 0dec AND start < 1000dec AND NONE = NONE OR ordinal > NONE"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "access": "['set', 'x', '0'] LessThan 1000dec",
+                          "direction": "Forward",
+                          "index": "result_block_page"
+                        },
+                        "context": "Db",
+                        "metrics": {
+                          "elapsed_ns": 47343,
+                          "output_batches": 0,
+                          "output_rows": 0,
+                          "records_fetched": 0
+                        },
+                        "operator": "IndexScan"
+                      }
+                    ],
+                    "context": "Db",
+                    "expressions": [
+                      {
+                        "role": "predicate",
+                        "sql": "end > 0dec AND start < 1000dec AND NONE = NONE OR ordinal > NONE"
+                      }
+                    ],
+                    "metrics": {
+                      "elapsed_ns": 1380,
+                      "output_batches": 0,
+                      "output_rows": 0,
+                      "records_fetched": 0
+                    },
+                    "operator": "Filter"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "role": "limit",
+                    "sql": "64"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 2940,
+                  "output_batches": 0,
+                  "output_rows": 0,
+                  "records_fetched": 0
+                },
+                "operator": "Limit"
+              }
+            ],
+            "context": "Db",
+            "metrics": {
+              "elapsed_ns": 1250,
+              "output_batches": 0,
+              "output_rows": 0,
+              "records_fetched": 0
+            },
+            "operator": "SelectProject",
+            "total_rows": 0
+          },
+          "status": "OK",
+          "time": "569.941\u00b5s",
+          "type": null
+        }
+      ]
+    },
+    "analysis-edges": {
+      "query": "SELECT * FROM canonical_analysis_edges WHERE analysis='analysis' AND key>'' ORDER BY key LIMIT 64 EXPLAIN FULL;",
+      "response": [
+        {
+          "result": {
+            "attributes": {
+              "projections": "*"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "access": "['analysis'] MoreThan ''",
+                  "direction": "Forward",
+                  "index": "analysis_edges",
+                  "limit": "64"
+                },
+                "context": "Db",
+                "metrics": {
+                  "elapsed_ns": 17821,
+                  "output_batches": 0,
+                  "output_rows": 0,
+                  "records_fetched": 0
+                },
+                "operator": "IndexScan"
+              }
+            ],
+            "context": "Db",
+            "metrics": {
+              "elapsed_ns": 910,
+              "output_batches": 0,
+              "output_rows": 0,
+              "records_fetched": 0
+            },
+            "operator": "SelectProject",
+            "total_rows": 0
+          },
+          "status": "OK",
+          "time": "420.483\u00b5s",
+          "type": null
+        }
+      ]
+    },
+    "study-frontier": {
+      "query": "SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM canonical_study_points WHERE study='study' AND settled=false AND assigned=false AND ordinal > -1 ORDER BY ordinal LIMIT 64 EXPLAIN FULL;",
+      "response": [
+        {
+          "result": {
+            "attributes": {
+              "projections": "key, study, ordinal, occurrence, policy, facts, outcome, run, revision, assigned, settled, attempt, start"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "access": "['study', false, false] MoreThan -1",
+                  "direction": "Forward",
+                  "index": "study_candidates",
+                  "limit": "64"
+                },
+                "context": "Db",
+                "metrics": {
+                  "elapsed_ns": 32442,
+                  "output_batches": 0,
+                  "output_rows": 0,
+                  "records_fetched": 0
+                },
+                "operator": "IndexScan"
+              }
+            ],
+            "context": "Db",
+            "metrics": {
+              "elapsed_ns": 960,
+              "output_batches": 0,
+              "output_rows": 0,
+              "records_fetched": 0
+            },
+            "operator": "SelectProject",
+            "total_rows": 0
+          },
+          "status": "OK",
+          "time": "591.24\u00b5s",
+          "type": null
+        }
+      ]
+    }
+  }
+}
