@@ -370,7 +370,8 @@ impl KktFactor {
             crate::square_response::point_key(&candidate.primal) == self.point
                 && candidate.row_dual.as_deref() == Some(self.row_dual.as_ref())
                 && candidate.bound_dual.as_ref().is_some_and(|(lower, upper)| {
-                    lower.as_slice() == self.lower_dual.as_ref() && upper.as_slice() == self.upper_dual.as_ref()
+                    lower.as_slice() == self.lower_dual.as_ref()
+                        && upper.as_slice() == self.upper_dual.as_ref()
                 })
         }) && report.variables.as_slice() == self.variables.as_ref()
             && report.rows.as_slice() == self.rows.as_ref()
@@ -436,68 +437,134 @@ impl KktFactor {
         source: pse_model::strategy::SemanticProductKey,
         proof: &KktPointArithmetic,
     ) -> Result<Option<KktArithmeticRadii>, ProblemError> {
-        if proof.source != source || source.point != Some(self.point) || !self.matches_report(report) {
-            return Err(ProblemError::Contract("KKT arithmetic source differs from its factor point".into()));
+        if proof.source != source
+            || source.point != Some(self.point)
+            || !self.matches_report(report)
+        {
+            return Err(ProblemError::Contract(
+                "KKT arithmetic source differs from its factor point".into(),
+            ));
         }
-        let Some(hessian) = proof.hessian.as_deref() else { return Ok(None); };
+        let Some(hessian) = proof.hessian.as_deref() else {
+            return Ok(None);
+        };
         let n = self.layout.variables;
         let order = self.layout.dim();
-        let Some(hessian_extent) = proof.values.len().checked_mul(n).and_then(|extent| extent.checked_mul(n)) else {
+        let Some(hessian_extent) = proof
+            .values
+            .len()
+            .checked_mul(n)
+            .and_then(|extent| extent.checked_mul(n))
+        else {
             return Err(ProblemError::memory("KKT point Hessian extent"));
         };
         let Some(jacobian_extent) = proof.values.len().checked_mul(n) else {
             return Err(ProblemError::memory("KKT point Jacobian extent"));
         };
         if proof.rows.len() != self.rows.len()
-            || proof.objective.is_some_and(|index| index >= proof.values.len())
+            || proof
+                .objective
+                .is_some_and(|index| index >= proof.values.len())
             || proof.jacobian.len() != jacobian_extent
             || hessian.len() != hessian_extent
-            || proof.values.iter().chain(&proof.jacobian).chain(hessian)
+            || proof
+                .values
+                .iter()
+                .chain(&proof.jacobian)
+                .chain(hessian)
                 .any(|interval| !interval.valid())
         {
-            return Err(ProblemError::Contract("KKT point arithmetic shape or interval".into()));
+            return Err(ProblemError::Contract(
+                "KKT point arithmetic shape or interval".into(),
+            ));
         }
         for row in &proof.rows {
             if row.value >= proof.values.len()
-                || row.lower_residual.is_some_and(|index| index >= proof.values.len())
-                || row.upper_residual.is_some_and(|index| index >= proof.values.len())
+                || row
+                    .lower_residual
+                    .is_some_and(|index| index >= proof.values.len())
+                || row
+                    .upper_residual
+                    .is_some_and(|index| index >= proof.values.len())
             {
-                return Err(ProblemError::Contract("KKT point row arithmetic index".into()));
+                return Err(ProblemError::Contract(
+                    "KKT point row arithmetic index".into(),
+                ));
             }
         }
         let residual = self.original_residual(report)?;
-        let Some(observation) = report.observation.as_ref() else { return Err(ProblemError::Contract("KKT observation missing for arithmetic comparison".into())); };
-        let Some(stationarity) = observation.stationarity.as_deref() else { return Err(ProblemError::Contract("KKT stationarity missing for arithmetic comparison".into())); };
-        let Some(candidate) = report.candidate.as_ref() else { return Err(ProblemError::Contract("KKT candidate missing for arithmetic comparison".into())); };
-        let Some((zl, zu)) = candidate.bound_dual.as_ref() else { return Err(ProblemError::Contract("KKT bound multipliers missing for arithmetic comparison".into())); };
+        let Some(observation) = report.observation.as_ref() else {
+            return Err(ProblemError::Contract(
+                "KKT observation missing for arithmetic comparison".into(),
+            ));
+        };
+        let Some(stationarity) = observation.stationarity.as_deref() else {
+            return Err(ProblemError::Contract(
+                "KKT stationarity missing for arithmetic comparison".into(),
+            ));
+        };
+        let Some(candidate) = report.candidate.as_ref() else {
+            return Err(ProblemError::Contract(
+                "KKT candidate missing for arithmetic comparison".into(),
+            ));
+        };
+        let Some((zl, zu)) = candidate.bound_dual.as_ref() else {
+            return Err(ProblemError::Contract(
+                "KKT bound multipliers missing for arithmetic comparison".into(),
+            ));
+        };
         let mut residual_uncertainty = vec![0.0; order];
-        let mut matrix_uncertainty = vec![0.0; order.checked_mul(order).ok_or_else(|| ProblemError::memory("KKT arithmetic matrix extent"))?];
+        let mut matrix_uncertainty = vec![
+            0.0;
+            order.checked_mul(order).ok_or_else(|| {
+                ProblemError::memory("KKT arithmetic matrix extent")
+            })?
+        ];
 
         // Original stationarity is grad(f) + Σ λᵣ grad(gᵣ) − zL + zU.
         // Enclose that exact expression and compare it with the solver's independently
         // observed floating-point stationarity, retaining all callback arithmetic error.
         if stationarity.len() != n || zl.len() != n || zu.len() != n {
-            return Err(ProblemError::Contract("KKT stationarity arithmetic dimensions".into()));
+            return Err(ProblemError::Contract(
+                "KKT stationarity arithmetic dimensions".into(),
+            ));
         }
-        let row_dual = candidate.row_dual.as_deref().ok_or_else(|| ProblemError::Contract("KKT row multipliers missing for arithmetic comparison".into()))?;
+        let row_dual = candidate.row_dual.as_deref().ok_or_else(|| {
+            ProblemError::Contract("KKT row multipliers missing for arithmetic comparison".into())
+        })?;
         if row_dual.len() != proof.rows.len() {
-            return Err(ProblemError::Contract("KKT row multiplier arithmetic dimensions".into()));
+            return Err(ProblemError::Contract(
+                "KKT row multiplier arithmetic dimensions".into(),
+            ));
         }
         for column in 0..n {
-            let mut interval = proof.objective.map_or_else(|| point_interval(0.0), |objective| proof.jacobian[objective * n + column]);
+            let mut interval = proof.objective.map_or_else(
+                || point_interval(0.0),
+                |objective| proof.jacobian[objective * n + column],
+            );
             for (row, multiplier) in proof.rows.iter().zip(row_dual) {
-                if *multiplier == 0.0 { continue; }
+                if *multiplier == 0.0 {
+                    continue;
+                }
                 let derivative = proof.jacobian[row.value * n + column];
                 interval = match interval_add(interval, interval_scale(derivative, *multiplier)) {
                     Some(sum) => sum,
-                    None => return Err(ProblemError::numerical("nonfinite KKT stationarity enclosure")),
+                    None => {
+                        return Err(ProblemError::numerical(
+                            "nonfinite KKT stationarity enclosure",
+                        ));
+                    }
                 };
             }
             let bound_term = interval_add(point_interval(-zl[column]), point_interval(zu[column]))
                 .ok_or_else(|| ProblemError::numerical("nonfinite KKT bound stationarity term"))?;
             interval = match interval_add(interval, bound_term) {
                 Some(sum) => sum,
-                None => return Err(ProblemError::numerical("nonfinite KKT bound stationarity enclosure")),
+                None => {
+                    return Err(ProblemError::numerical(
+                        "nonfinite KKT bound stationarity enclosure",
+                    ));
+                }
             };
             residual_uncertainty[column] = interval_radius(interval, stationarity[column])?;
         }
@@ -512,35 +579,54 @@ impl KktFactor {
                 Side::Lower => mapped.lower_residual,
                 Side::Upper => mapped.upper_residual,
                 Side::Equal => mapped.lower_residual,
-            }.ok_or_else(|| ProblemError::Contract("active KKT row has no enclosed residual".into()))?;
-            residual_uncertainty[active_offset] = interval_radius(proof.values[interval_index], residual[active_offset])?;
+            }
+            .ok_or_else(|| {
+                ProblemError::Contract("active KKT row has no enclosed residual".into())
+            })?;
+            residual_uncertainty[active_offset] =
+                interval_radius(proof.values[interval_index], residual[active_offset])?;
             active_offset += 1;
         }
         for (column, side) in &self.layout.bounds {
             let (left, right) = if *side == Side::Upper {
-                (candidate.primal[column.get()], self.variable_bounds[column.get()].1)
+                (
+                    candidate.primal[column.get()],
+                    self.variable_bounds[column.get()].1,
+                )
             } else {
-                (self.variable_bounds[column.get()].0, candidate.primal[column.get()])
+                (
+                    self.variable_bounds[column.get()].0,
+                    candidate.primal[column.get()],
+                )
             };
             let observed = residual[active_offset];
             residual_uncertainty[active_offset] = subtraction_radius(left, right, observed)?;
             active_offset += 1;
         }
         if active_offset != order {
-            return Err(ProblemError::Contract("KKT arithmetic residual layout".into()));
+            return Err(ProblemError::Contract(
+                "KKT arithmetic residual layout".into(),
+            ));
         }
 
         // The physical top-left block encloses Hessian(f)+Σ λᵣ Hessian(gᵣ); compare
         // it with the actual original matrix retained by this factor.
         for row in 0..n {
             for column in 0..n {
-                let mut interval = proof.objective.map_or_else(|| point_interval(0.0), |objective| hessian[(objective * n + row) * n + column]);
+                let mut interval = proof.objective.map_or_else(
+                    || point_interval(0.0),
+                    |objective| hessian[(objective * n + row) * n + column],
+                );
                 for (source_row, multiplier) in proof.rows.iter().zip(row_dual) {
-                    if *multiplier == 0.0 { continue; }
+                    if *multiplier == 0.0 {
+                        continue;
+                    }
                     let entry = hessian[(source_row.value * n + row) * n + column];
                     interval = match interval_add(interval, interval_scale(entry, *multiplier)) {
                         Some(sum) => sum,
-                        None => return Err(ProblemError::numerical("nonfinite KKT Hessian enclosure")),
+                        None => {
+                            return Err(ProblemError::numerical("nonfinite KKT Hessian enclosure"));
+                        }
                     };
                 }
                 let actual = self.physical_matrix_entry(row, column);
@@ -559,7 +645,10 @@ impl KktFactor {
                 matrix_uncertainty[column * order + matrix_row] = radius;
             }
         }
-        Ok(Some(KktArithmeticRadii { residual: residual_uncertainty, matrix: matrix_uncertainty }))
+        Ok(Some(KktArithmeticRadii {
+            residual: residual_uncertainty,
+            matrix: matrix_uncertainty,
+        }))
     }
 
     fn physical_matrix_entry(&self, row: usize, column: usize) -> f64 {
@@ -686,7 +775,10 @@ impl KktFactor {
                 (self.variables.len() + self.rows.len()) * size_of::<pse_ids::SemanticId>(),
             )
             .saturating_add(self.variable_bounds.len() * size_of::<(f64, f64)>())
-            .saturating_add((self.row_dual.len() + self.lower_dual.len() + self.upper_dual.len()) * size_of::<f64>())
+            .saturating_add(
+                (self.row_dual.len() + self.lower_dual.len() + self.upper_dual.len())
+                    * size_of::<f64>(),
+            )
     }
 }
 /// A [`KktFactor`] answering in the normalized coordinates of the matrix it factored,
@@ -1173,28 +1265,52 @@ pub(crate) struct KktArithmeticRadii {
 }
 
 fn point_interval(value: f64) -> ProofInterval {
-    ProofInterval { lower: value, upper: value }
+    ProofInterval {
+        lower: value,
+        upper: value,
+    }
 }
 
 fn interval_add(left: ProofInterval, right: ProofInterval) -> Option<ProofInterval> {
-    if left.lower == 0.0 && left.upper == 0.0 { return Some(right); }
-    if right.lower == 0.0 && right.upper == 0.0 { return Some(left); }
+    if left.lower == 0.0 && left.upper == 0.0 {
+        return Some(right);
+    }
+    if right.lower == 0.0 && right.upper == 0.0 {
+        return Some(left);
+    }
     let lower = left.lower + right.lower;
     let upper = left.upper + right.upper;
-    if !lower.is_finite() || !upper.is_finite() { return None; }
-    Some(ProofInterval { lower: lower.next_down(), upper: upper.next_up() })
+    if !lower.is_finite() || !upper.is_finite() {
+        return None;
+    }
+    Some(ProofInterval {
+        lower: lower.next_down(),
+        upper: upper.next_up(),
+    })
 }
 
 fn interval_scale(interval: ProofInterval, scale: f64) -> ProofInterval {
-    if scale == 0.0 { return point_interval(0.0); }
-    if scale == 1.0 { return interval; }
-    if scale == -1.0 { return ProofInterval { lower: -interval.upper, upper: -interval.lower }; }
+    if scale == 0.0 {
+        return point_interval(0.0);
+    }
+    if scale == 1.0 {
+        return interval;
+    }
+    if scale == -1.0 {
+        return ProofInterval {
+            lower: -interval.upper,
+            upper: -interval.lower,
+        };
+    }
     let (lower, upper) = if scale > 0.0 {
         (interval.lower * scale, interval.upper * scale)
     } else {
         (interval.upper * scale, interval.lower * scale)
     };
-    ProofInterval { lower: lower.next_down(), upper: upper.next_up() }
+    ProofInterval {
+        lower: lower.next_down(),
+        upper: upper.next_up(),
+    }
 }
 
 fn interval_radius(interval: ProofInterval, observed: f64) -> Result<f64, ProblemError> {
@@ -1213,10 +1329,20 @@ fn interval_radius(interval: ProofInterval, observed: f64) -> Result<f64, Proble
 fn subtraction_radius(left: f64, right: f64, observed: f64) -> Result<f64, ProblemError> {
     let difference = left - right;
     if !difference.is_finite() || difference != observed {
-        return Err(ProblemError::Contract("KKT bound residual differs from its arithmetic source".into()));
+        return Err(ProblemError::Contract(
+            "KKT bound residual differs from its arithmetic source".into(),
+        ));
     }
-    if left == right { return Ok(0.0); }
-    interval_radius(ProofInterval { lower: difference.next_down(), upper: difference.next_up() }, observed)
+    if left == right {
+        return Ok(0.0);
+    }
+    interval_radius(
+        ProofInterval {
+            lower: difference.next_down(),
+            upper: difference.next_up(),
+        },
+        observed,
+    )
 }
 
 fn symmetric_product(matrix: &feral::CscMatrix, x: &[f64], absolute: bool) -> Vec<f64> {

@@ -1037,7 +1037,11 @@ impl PreparedFit {
                     observed,
                 );
                 assessment.retention.candidate = report.completion.as_ref().map_or_else(
-                    || super::super::numerics::refused(pse_model::generated::enums::CandidateRefusal::ModelChecks),
+                    || {
+                        super::super::numerics::refused(
+                            pse_model::generated::enums::CandidateRefusal::ModelChecks,
+                        )
+                    },
                     |completion| completion.decision.clone(),
                 );
                 assessment

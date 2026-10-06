@@ -41,9 +41,7 @@ fn scalar(goal: &BoundGoal, actual: QualifiedScalar) -> Result<f64, U> {
 }
 fn evidence(
     goal: &BoundGoal,
-    value: f64,
-    error: f64,
-    class: AccuracyClass,
+    (value, error, class): (f64, f64, AccuracyClass),
     validity: ContentHash,
     interpretation: I,
     method: M,
@@ -137,9 +135,7 @@ pub fn objective_interval(
         .hash(&dual.validity);
     Ok(evidence(
         goal,
-        primal.value,
-        radius,
-        class,
+        (primal.value, radius, class),
         witness.finish_hash(),
         I::ObjectiveInterval,
         M::QualifiedObjectiveInterval,
@@ -202,7 +198,10 @@ pub fn dynamic_comparison(goal: &BoundGoal, pair: Comparison) -> Result<OutputEv
     if !variation.is_finite() {
         return Err(U::Nonfinite);
     }
-    if variation < pair.resolution_floor {
+    if variation < pair.resolution_floor
+        && pair.base_uncertainty == 0.
+        && pair.contrasting_uncertainty == 0.
+    {
         return Err(U::PrecisionLimit);
     }
     let mut witness = pse_ids::FramedHasher::new(pse_ids::Frame::EngineeringGoalV1);
@@ -213,21 +212,165 @@ pub fn dynamic_comparison(goal: &BoundGoal, pair: Comparison) -> Result<OutputEv
         .hash(&pair.contrasting_controls)
         .hash(&pair.base_arithmetic)
         .hash(&pair.contrasting_arithmetic);
-    let error = variation + pair.base_uncertainty + pair.contrasting_uncertainty
-        + pair.resolution_floor;
-    let error = error.next_up();
+    // Keep the observed discrepancy unpadded for admission. Widen its positive
+    // subtraction magnitude separately before accumulating arithmetic contributions.
+    let mut error = if variation > 0. {
+        variation.next_up()
+    } else {
+        0.
+    };
     if !error.is_finite() {
         return Err(U::Nonfinite);
     }
+    for contribution in [pair.base_uncertainty, pair.contrasting_uncertainty] {
+        if contribution > 0. {
+            error = (error + contribution).next_up();
+            if !error.is_finite() {
+                return Err(U::Nonfinite);
+            }
+        }
+    }
+    // Spacing prevents an estimated zero; it supplies no rounding-error bound.
+    // Positive retained arithmetic uncertainty, rather than spacing itself, is
+    // the independent support for agreement below the representation floor.
+    let error = error.max(pair.resolution_floor);
     Ok(evidence(
         goal,
-        pair.base,
-        error,
-        AccuracyClass::Estimated,
+        (pair.base, error, AccuracyClass::Estimated),
         witness.finish_hash(),
         I::EmpiricalOutputVariation,
         M::DynamicComparison,
         None,
-        "Estimated empirical paired output variation plus same-point authored evaluation uncertainty and representational spacing; no convergence-order or certified integration-error claim",
+        "Estimated empirical paired output variation plus same-point authored evaluation uncertainty, with an explicit representational estimate floor; spacing is not a rounding-error bound, and no convergence-order or certified integration-error is claimed",
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pse_ids::SemanticId;
+    use pse_model::{
+        engineering_accuracy::AccuracyGoal,
+        generated::enums::{
+            AccuracyCriterionStatus, AccuracyGoalStatus, AccuracyGoalUse, AccuracyResolutionStatus,
+            NumericalSource, NumericalTarget,
+        },
+    };
+    fn fixture() -> (BoundGoal, Comparison) {
+        let hash = ContentHash::from_bytes([1; 32]);
+        let id = SemanticId::from_bytes([1; 16]);
+        let source = SemanticProductKey {
+            structure: hash,
+            binding: hash,
+            numerical_policy: Some(hash),
+            normalization: Some(hash),
+            point: Some(hash),
+            parameters: None,
+            derivation: None,
+            branch: Some(hash),
+            accuracy: None,
+        };
+        let goal = BoundGoal {
+            declaration: AccuracyGoal {
+                goal_id: id.into(),
+                model_id: None,
+                case_id: None,
+                instance_id: None,
+                fit_id: None,
+                target_id: id,
+                target_kind: NumericalTarget::Observable,
+                quantity_id: id,
+                unit_id: id,
+                subject: S::SelectedOutput,
+                observation: O::Endpoint,
+                time: None,
+                resolution: Some(0.1),
+                criterion_lower: Some(3.0),
+                criterion_upper: Some(5.0),
+                required_class: AccuracyClass::Estimated,
+                use_policy: AccuracyGoalUse::Assess,
+                refine: false,
+                source: NumericalSource::Analysis,
+                priority: 0,
+                provenance: "paired endpoint with admitted arithmetic contributions".into(),
+            },
+            source,
+            product: hash,
+            normalization: hash,
+        };
+        let pair = Comparison {
+            source,
+            base: 4.,
+            contrasting: 4.,
+            correspondence: hash,
+            base_controls: hash,
+            contrasting_controls: ContentHash::from_bytes([2; 32]),
+            base_arithmetic: hash,
+            contrasting_arithmetic: hash,
+            base_uncertainty: 0.,
+            contrasting_uncertainty: 0.,
+            resolution_floor: 4.0_f64.next_up() - 4.,
+        };
+        (goal, pair)
+    }
+    #[test]
+    fn dynamic_comparison_zero_and_subresolution_agreement_need_other_support() {
+        let (goal, mut pair) = fixture();
+        assert_eq!(
+            dynamic_comparison(&goal, pair).unwrap_err(),
+            U::PrecisionLimit
+        );
+        pair.base = 0.;
+        pair.contrasting = pair.resolution_floor / 2.;
+        assert_eq!(
+            dynamic_comparison(&goal, pair).unwrap_err(),
+            U::PrecisionLimit
+        );
+        pair.base_uncertainty = 0.02;
+        let actual = dynamic_comparison(&goal, pair).unwrap();
+        assert_eq!(actual.accuracy.class, AccuracyClass::Estimated);
+        assert!(actual.accuracy.error.unwrap() >= 0.02);
+    }
+    #[test]
+    fn dynamic_comparison_supported_agreement_retains_estimated_resolution_and_criterion() {
+        let (mut goal, mut pair) = fixture();
+        pair.base_uncertainty = 0.02;
+        pair.contrasting_uncertainty = 0.03;
+        let actual = dynamic_comparison(&goal, pair).unwrap();
+        assert_eq!(actual.method, M::DynamicComparison);
+        assert_eq!(actual.interpretation, I::EmpiricalOutputVariation);
+        assert_eq!(actual.accuracy.class, AccuracyClass::Estimated);
+        assert!(actual.accuracy.error.unwrap() >= 0.05 && actual.accuracy.error.unwrap() < 0.051);
+        let classified = pse_math::engineering_accuracy::classify(&goal, Some(&actual));
+        assert_eq!(classified.resolution, AccuracyResolutionStatus::Met);
+        assert_eq!(classified.criterion, AccuracyCriterionStatus::Satisfied);
+        assert_eq!(classified.status, AccuracyGoalStatus::Satisfied);
+        goal.declaration.criterion_upper = Some(4.01);
+        assert_eq!(
+            pse_math::engineering_accuracy::classify(&goal, Some(&actual)).criterion,
+            AccuracyCriterionStatus::Unresolved
+        );
+        goal.declaration.required_class = AccuracyClass::Certified;
+        assert_eq!(
+            pse_math::engineering_accuracy::classify(&goal, Some(&actual)).unavailable,
+            Some(U::InsufficientStrength)
+        );
+    }
+    #[test]
+    fn dynamic_comparison_spacing_is_only_a_floor_and_positive_sum_overflow_refuses() {
+        let (goal, mut pair) = fixture();
+        pair.base_uncertainty = pair.resolution_floor / 2.;
+        assert_eq!(
+            dynamic_comparison(&goal, pair).unwrap().accuracy.error,
+            Some(pair.resolution_floor)
+        );
+        pair.base_uncertainty = f64::MAX;
+        assert_eq!(dynamic_comparison(&goal, pair).unwrap_err(), U::Nonfinite);
+        pair.base_uncertainty = f64::MAX * 0.75;
+        pair.contrasting_uncertainty = f64::MAX * 0.75;
+        assert_eq!(dynamic_comparison(&goal, pair).unwrap_err(), U::Nonfinite);
+        pair.base = f64::MAX;
+        pair.contrasting = -f64::MAX;
+        assert_eq!(dynamic_comparison(&goal, pair).unwrap_err(), U::Nonfinite);
+    }
 }

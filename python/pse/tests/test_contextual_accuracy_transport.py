@@ -9,8 +9,7 @@ import pytest
 
 import pse
 from pse import codec
-from pse.contracts import documents
-from pse.contracts import enums
+from pse.contracts import documents, enums
 
 
 @pytest.mark.unit
@@ -30,20 +29,30 @@ def test_contextual_accuracy_current_request_leaves_refuse_obsolete_versions() -
 
 
 @pytest.mark.unit
-def test_contextual_accuracy_document_reads_require_supplied_versions_before_defaults() -> None:
-    for document in (documents.NumericalPolicy, documents.SolveSettings, documents.Profile):
+def test_contextual_accuracy_document_versions_precede_defaults() -> None:
+    for document in (
+        documents.NumericalPolicy,
+        documents.SolveSettings,
+        documents.Profile,
+    ):
         with pytest.raises(msgspec.ValidationError, match="version"):
             codec.decode_json(b"{}", document)
     # A malformed current body cannot precede a missing interpretation header.
-    with pytest.raises(msgspec.ValidationError, match="Missing required document version"):
+    with pytest.raises(
+        msgspec.ValidationError, match="Missing required document version"
+    ):
         codec.decode_json(b'{"integrality":"not a number"}', documents.NumericalPolicy)
     for invalid in (b"0", b"2", b"true", b"1.0", b"null", b'"1"'):
         with pytest.raises(msgspec.ValidationError, match="version"):
-            codec.decode_json(b'{"version":' + invalid + b"}", documents.NumericalPolicy)
+            codec.decode_json(
+                b'{"version":' + invalid + b"}", documents.NumericalPolicy
+            )
 
 
 @pytest.mark.unit
-def test_contextual_accuracy_explicit_nested_policy_cannot_be_defaulted_on_read() -> None:
+def test_contextual_accuracy_explicit_nested_policy_cannot_be_defaulted_on_read() -> (
+    None
+):
     current = codec.decode_json(b'{"version":4}', documents.SolveSettings)
     assert current.numerics.version == 1  # Omission uses the owning current default.
     wire = codec.decode_json(codec.encode_json(current), dict[str, msgspec.Raw])
@@ -51,17 +60,26 @@ def test_contextual_accuracy_explicit_nested_policy_cannot_be_defaulted_on_read(
     with pytest.raises(msgspec.ValidationError, match=r"\$\.numerics\.version"):
         codec.decode_json(codec.encode_json(wire), documents.SolveSettings)
     wire["numerics"] = msgspec.Raw(b'{"integrality":"not a number"}')
-    with pytest.raises(msgspec.ValidationError, match="Missing required document version"):
+    with pytest.raises(
+        msgspec.ValidationError, match="Missing required document version"
+    ):
         codec.decode_json(codec.encode_json(wire), documents.SolveSettings)
     # These are ordinary explicitly current typed constructions, not historical reads.
     policy = documents.NumericalPolicy()
     assert policy.version == 1
     assert pse.SolveSettings(numerics=policy).version == 4
-    assert codec.decode_json(codec.encode_json(policy), documents.NumericalPolicy) == policy
+    assert (
+        codec.decode_json(codec.encode_json(policy), documents.NumericalPolicy)
+        == policy
+    )
     # The native typed admission accepts that same explicitly current policy.
     settings = pse.SimulationSettings(
-        start=0.0, end=1.0, samples=[0.0, 1.0], atol=[0.001],
-        parameter_scales=[], numerics=policy,
+        start=0.0,
+        end=1.0,
+        samples=[0.0, 1.0],
+        atol=[0.001],
+        parameter_scales=[],
+        numerics=policy,
     )
     assert codec.decode_json(settings.to_json(), documents.Profile).numerics == policy
 
@@ -79,11 +97,14 @@ def test_contextual_accuracy_versions_are_checked_inside_typed_containers() -> N
     assert codec.decode_json(b"null", documents.NumericalPolicy | None) is None
     assert codec.decode_json(b"[]", list[documents.NumericalPolicy]) == []
     # Uninterpreted raw documents remain raw; later typed reads own admission.
-    assert bytes(codec.decode_json(b'{"policy":{}}', dict[str, msgspec.Raw])["policy"]) == b"{}"
+    assert (
+        bytes(codec.decode_json(b'{"policy":{}}', dict[str, msgspec.Raw])["policy"])
+        == b"{}"
+    )
 
 
 @pytest.mark.unit
-def test_contextual_accuracy_simulation_version_gate_runs_before_policy_interpretation() -> None:
+def test_contextual_accuracy_simulation_version_precedes_policy() -> None:
     settings = pse.SimulationSettings(
         start=0.0, end=1.0, samples=[0.0, 1.0], atol=[0.001], parameter_scales=[]
     )
@@ -109,9 +130,11 @@ def test_contextual_accuracy_simulation_version_gate_runs_before_policy_interpre
 
 
 @pytest.mark.unit
-def test_contextual_accuracy_historical_no_goal_completion_reads_without_reinterpretation() -> None:
+def test_contextual_accuracy_historical_completion_preserves_interpretation() -> None:
     products = codec.decode_json(
-        (Path(__file__).parent / "fixtures/generated-native-boundaries/products.json").read_bytes(),
+        (
+            Path(__file__).parent / "fixtures/generated-native-boundaries/products.json"
+        ).read_bytes(),
         dict[str, msgspec.Raw],
     )
     for name in ("qualified_incumbent", "event_ended_trajectory"):
@@ -174,6 +197,9 @@ def test_contextual_accuracy_completion_preserves_estimated_violated_decision() 
     assert restored.accuracy_goals[0].status == enums.AccuracyGoalStatus.VIOLATED
     assert restored.accuracy_goals[0].criterion_upper == 300.0
     assert restored.accuracy_goals[0].error == 0.02
-    assert restored.accuracy_goals[0].accuracy_class == enums.NumericalAccuracyClass.ESTIMATED
+    assert (
+        restored.accuracy_goals[0].accuracy_class
+        == enums.NumericalAccuracyClass.ESTIMATED
+    )
     assert restored.accuracy_goals[0].dependencies == ("blake3:" + "06" * 32,)
     assert codec.encode_json(restored) == encoded

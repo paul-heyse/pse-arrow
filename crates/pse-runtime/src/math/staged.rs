@@ -30,11 +30,21 @@ struct AccuracySignal<T> {
 fn accuracy_assessor<T: Send + 'static, F>(
     owner: Arc<std::sync::Mutex<F>>,
     signal: Arc<std::sync::Mutex<AccuracySignal<T>>>,
-) -> impl FnMut(&super::solves::Outcome, Option<&pse_kernels::ExecutionScope>, &Arc<WorkerBudget>)
-    -> super::strategy::Assessed<T> + Send + 'static
+) -> impl FnMut(
+    &super::solves::Outcome,
+    Option<&pse_kernels::ExecutionScope>,
+    &Arc<WorkerBudget>,
+) -> super::strategy::Assessed<T>
++ Send
++ 'static
 where
-    F: FnMut(&super::solves::Outcome, Option<&pse_kernels::ExecutionScope>, &Arc<WorkerBudget>)
-        -> super::strategy::Assessed<T> + Send + 'static,
+    F: FnMut(
+            &super::solves::Outcome,
+            Option<&pse_kernels::ExecutionScope>,
+            &Arc<WorkerBudget>,
+        ) -> super::strategy::Assessed<T>
+        + Send
+        + 'static,
 {
     move |outcome, scope, budget| {
         let assessed = match owner.lock() {
@@ -511,55 +521,83 @@ impl NativeSession {
             &super::solves::Outcome,
             Option<&pse_kernels::ExecutionScope>,
             &Arc<WorkerBudget>,
-        ) -> super::strategy::Assessed<T> + Send + 'static,
+        ) -> super::strategy::Assessed<T>
+        + Send
+        + 'static,
     ) -> Result<(super::solves::Outcome, T, super::solves::StrategyTrace), MathRuntimeError> {
-        use pse_model::generated::enums::AccuracyUnavailableReason as U;
         use super::strategy::accuracy_refinement::{Decision, Progress as AccuracyProgress};
+        use pse_model::generated::enums::AccuracyUnavailableReason as U;
         // Existing journeys without requested output evidence take exactly the
         // same path, with no additional assessment, factor or admission owner.
         if step.numerics().policy.goals.is_empty() {
-            return self.step_initial(step, previous, attempt, progress, owner, cancel, assess).await;
+            return self
+                .step_initial(step, previous, attempt, progress, owner, cancel, assess)
+                .await;
         }
         let request = step.composition_request();
-        request.validate().map_err(|e| ProblemError::Contract(e.to_string()))?;
-        let deadline = std::time::Instant::now().checked_add(step.time_limit())
+        request
+            .validate()
+            .map_err(|e| ProblemError::Contract(e.to_string()))?;
+        let deadline = std::time::Instant::now()
+            .checked_add(step.time_limit())
             .ok_or_else(|| ProblemError::Contract("accuracy task deadline extent".into()))?;
-        let scope = step.task_scope().unwrap_or_else(|| {
-            pse_kernels::ExecutionScope::new(Arc::default(), Some(deadline))
-        });
-        let mut limits = request.limits.unwrap_or_else(|| step.numerical_strategy().limits);
+        let scope = step
+            .task_scope()
+            .unwrap_or_else(|| pse_kernels::ExecutionScope::new(Arc::default(), Some(deadline)));
+        let mut limits = request
+            .limits
+            .unwrap_or_else(|| step.numerical_strategy().limits);
         if request.limits.is_none() && !step.composition_is_declared() {
             if let Some(admission) = step.task_admission() {
                 limits = admission.limits()?;
             } else {
                 limits.attempts = step.automatic_attempt_capacity(scope.cancellation())?;
             }
-            if step.task_admission().is_none() && step.numerics().policy.goals.iter().any(|goal| goal.refine) {
+            if step.task_admission().is_none()
+                && step.numerics().policy.goals.iter().any(|goal| goal.refine)
+            {
                 // A requested goal admits one default original correction before
                 // the first dispatch. The same finite owner applies throughout;
                 // explicit counters and an enclosing admission are never enlarged.
-                limits.attempts = limits.attempts.checked_add(1)
+                limits.attempts = limits
+                    .attempts
+                    .checked_add(1)
                     .ok_or_else(|| ProblemError::memory("accuracy default attempt capacity"))?;
             }
         }
         let admission = step.task_admission().unwrap_or_else(|| {
             super::strategy::admission::TaskAdmission::new(
-                limits, scope.clone(), Some(self.service.pool.clone()), step.declared_foreign_bytes() > 0,
+                limits,
+                scope.clone(),
+                Some(self.service.pool.clone()),
+                step.declared_foreign_bytes() > 0,
             )
         });
         let step = step.within_admitted_task(scope.clone(), admission.clone())?;
         let assess = Arc::new(std::sync::Mutex::new(assess));
         let signal = Arc::new(std::sync::Mutex::new(AccuracySignal::<T> {
-            original_satisfied: false, goals: Vec::new(), stop: None,
+            original_satisfied: false,
+            goals: Vec::new(),
+            stop: None,
         }));
         let callback = accuracy_assessor(assess.clone(), signal.clone());
-        let mut result = self.step_initial(
-            step.clone(), previous, attempt, progress.clone(), owner.clone(), cancel, callback,
-        ).await?;
+        let mut result = self
+            .step_initial(
+                step.clone(),
+                previous,
+                attempt,
+                progress.clone(),
+                owner.clone(),
+                cancel,
+                callback,
+            )
+            .await?;
         let mut accuracy_progress = AccuracyProgress::default();
         loop {
             let (goals, stop, decision) = {
-                let observed = signal.lock().map_err(|_| ProblemError::Internal("accuracy assessment owner panicked".into()))?;
+                let observed = signal.lock().map_err(|_| {
+                    ProblemError::Internal("accuracy assessment owner panicked".into())
+                })?;
                 let goals = observed.goals.clone();
                 let decision = accuracy_progress.next(observed.original_satisfied, &goals);
                 (goals, observed.stop, decision)
@@ -584,31 +622,53 @@ impl NativeSession {
                 break;
             }
             let point = match &result.0 {
-                super::solves::Outcome::Native(report) => report.candidate.as_ref().map(|c| c.primal.as_slice()),
+                super::solves::Outcome::Native(report) => {
+                    report.candidate.as_ref().map(|c| c.primal.as_slice())
+                }
                 _ => None,
             };
             let Some(point) = point else {
-                if let Some(stop) = stop { stop(&mut result.1, &result.0, &step.numerics().policy, U::MissingObservation); }
+                if let Some(stop) = stop {
+                    stop(
+                        &mut result.1,
+                        &result.0,
+                        &step.numerics().policy,
+                        U::MissingObservation,
+                    );
+                }
                 result.2 = self.accuracy_stopped_trace(&result.2, U::MissingObservation)?;
                 break;
             };
             let refined = match step.refine_coordinate_accuracy(&goals, point) {
-                Ok(Some(refined)) => refined.within_admitted_task(scope.clone(), admission.clone())?,
+                Ok(Some(refined)) => {
+                    refined.within_admitted_task(scope.clone(), admission.clone())?
+                }
                 preparation => {
                     let reason = match preparation {
                         Ok(None) => U::Unsupported,
                         Err(error) => return Err(error.into()),
-                        Ok(Some(_)) => return Err(ProblemError::Internal("accuracy work preparation disappeared".into()).into()),
+                        Ok(Some(_)) => {
+                            return Err(ProblemError::Internal(
+                                "accuracy work preparation disappeared".into(),
+                            )
+                            .into());
+                        }
                     };
-                    if let Some(stop) = stop { stop(&mut result.1, &result.0, &step.numerics().policy, reason); }
+                    if let Some(stop) = stop {
+                        stop(&mut result.1, &result.0, &step.numerics().policy, reason);
+                    }
                     result.2 = self.accuracy_stopped_trace(&result.2, reason)?;
                     break;
                 }
             };
-            if refined.backend() != step.backend() || refined.numerics().key != step.numerics().key
+            if refined.backend() != step.backend()
+                || refined.numerics().key != step.numerics().key
                 || refined.original_identity()? != step.original_identity()?
             {
-                return Err(ProblemError::Contract("accuracy work changed frozen original acceptance".into()).into());
+                return Err(ProblemError::Contract(
+                    "accuracy work changed frozen original acceptance".into(),
+                )
+                .into());
             }
             let declaration = refined.numerical_strategy();
             let mut mechanism = declaration.mechanisms.first().cloned().ok_or_else(|| {
@@ -616,16 +676,32 @@ impl NativeSession {
             })?;
             mechanism.required = true;
             mechanism.limits = limits;
-            mechanism.transitions = vec![pse_model::strategy::Transition::Finish, pse_model::strategy::Transition::Stop];
-            let ordinal = attempt.checked_add(usize::try_from(admission.observation()?.attempts)
-                .map_err(|_| ProblemError::memory("accuracy attempt ordinal"))?)
+            mechanism.transitions = vec![
+                pse_model::strategy::Transition::Finish,
+                pse_model::strategy::Transition::Stop,
+            ];
+            let ordinal = attempt
+                .checked_add(
+                    usize::try_from(admission.observation()?.attempts)
+                        .map_err(|_| ProblemError::memory("accuracy attempt ordinal"))?,
+                )
                 .ok_or_else(|| ProblemError::memory("accuracy attempt ordinal"))?;
-            let next = self.step_bound(
-                refined.clone(), None, ordinal, progress.clone(), owner.clone(), cancel,
-                accuracy_assessor(assess.clone(), signal.clone()),
-                Some(super::solves::PreparedRung::Original(Box::new(refined))),
-                Some(mechanism), None, false, Some(admission.clone()),
-            ).await?;
+            let next = self
+                .step_bound(
+                    refined.clone(),
+                    None,
+                    ordinal,
+                    progress.clone(),
+                    owner.clone(),
+                    cancel,
+                    accuracy_assessor(assess.clone(), signal.clone()),
+                    Some(super::solves::PreparedRung::Original(Box::new(refined))),
+                    Some(mechanism),
+                    None,
+                    false,
+                    Some(admission.clone()),
+                )
+                .await?;
             let trace = self.accuracy_merged_trace(&result.2, &next.2)?;
             result = (next.0, next.1, trace);
         }
@@ -637,30 +713,55 @@ impl NativeSession {
         trace: &super::solves::StrategyTrace,
         reason: pse_model::generated::enums::AccuracyUnavailableReason,
     ) -> Result<super::solves::StrategyTrace, MathRuntimeError> {
-        let cause = Arc::new(ProblemError::numerical(format!("output accuracy refinement stopped: {}", reason.as_str())));
-        let bytes = trace.retained_bytes()?.checked_add(size_of::<super::strategy::Event>())
+        let cause = Arc::new(ProblemError::numerical(format!(
+            "output accuracy refinement stopped: {}",
+            reason.as_str()
+        )));
+        let bytes = trace
+            .retained_bytes()?
+            .checked_add(size_of::<super::strategy::Event>())
             .and_then(|n| n.checked_add(cause.retained_bytes()))
             .ok_or_else(|| ProblemError::memory("accuracy stopping trace extent"))?;
-        let owner = self.service.reserve("math:accuracy-stopping-trace", bytes)?;
-        let mut events = Vec::with_capacity(trace.events.len().checked_add(1)
-            .ok_or_else(|| ProblemError::memory("accuracy stopping event extent"))?);
+        let owner = self
+            .service
+            .reserve("math:accuracy-stopping-trace", bytes)?;
+        let mut events = Vec::with_capacity(
+            trace
+                .events
+                .len()
+                .checked_add(1)
+                .ok_or_else(|| ProblemError::memory("accuracy stopping event extent"))?,
+        );
         events.extend(trace.events.iter().cloned());
         if let Some(mechanism) = trace.declaration.mechanisms.len().checked_sub(1) {
             events.push(super::strategy::Event {
-                mechanism, kind: pse_model::generated::enums::NumericalEventKind::Finished,
+                mechanism,
+                kind: pse_model::generated::enums::NumericalEventKind::Finished,
                 phase: pse_model::strategy::Phase::Assessment,
-                original: Some(super::strategy::OriginalConclusion::Satisfied), decision: None,
-                observation: None, transition: Some(pse_model::strategy::Transition::Stop),
+                original: Some(super::strategy::OriginalConclusion::Satisfied),
+                decision: None,
+                observation: None,
+                transition: Some(pse_model::strategy::Transition::Stop),
                 permission: trace.events.iter().rev().find_map(|e| e.permission),
-                work: None, cause: Some(cause),
+                work: None,
+                cause: Some(cause),
             });
         }
-        Ok(Arc::new(super::strategy::Trace {
-            owner: None, publication_request: trace.publication_request,
-            declaration: trace.declaration.clone(), original: trace.original, backend: trace.backend,
-            profile: trace.profile, start: trace.start, starts: trace.starts.clone(),
-            products: trace.products.clone(), events,
-        }.with_owner(owner)))
+        Ok(Arc::new(
+            super::strategy::Trace {
+                owner: None,
+                publication_request: trace.publication_request,
+                declaration: trace.declaration.clone(),
+                original: trace.original,
+                backend: trace.backend,
+                profile: trace.profile,
+                start: trace.start,
+                starts: trace.starts.clone(),
+                products: trace.products.clone(),
+                events,
+            }
+            .with_owner(owner),
+        ))
     }
 
     fn accuracy_merged_trace(
@@ -668,37 +769,67 @@ impl NativeSession {
         prefix: &super::solves::StrategyTrace,
         next: &super::solves::StrategyTrace,
     ) -> Result<super::solves::StrategyTrace, MathRuntimeError> {
-        let bytes = prefix.retained_bytes()?.checked_add(next.retained_bytes()?)
+        let bytes = prefix
+            .retained_bytes()?
+            .checked_add(next.retained_bytes()?)
             .ok_or_else(|| ProblemError::memory("accuracy composed trace extent"))?;
-        let owner = self.service.reserve("math:accuracy-composed-trace", bytes)?;
+        let owner = self
+            .service
+            .reserve("math:accuracy-composed-trace", bytes)?;
         let offset = prefix.declaration.mechanisms.len();
         let mut declaration = prefix.declaration.clone();
-        let capacity = offset.checked_add(next.declaration.mechanisms.len())
+        let capacity = offset
+            .checked_add(next.declaration.mechanisms.len())
             .ok_or_else(|| ProblemError::memory("accuracy mechanism extent"))?;
         declaration.mechanisms = Vec::with_capacity(capacity);
-        declaration.mechanisms.extend(prefix.declaration.mechanisms.iter().cloned());
-        declaration.mechanisms.extend(next.declaration.mechanisms.iter().cloned());
+        declaration
+            .mechanisms
+            .extend(prefix.declaration.mechanisms.iter().cloned());
+        declaration
+            .mechanisms
+            .extend(next.declaration.mechanisms.iter().cloned());
         let mut starts = Vec::with_capacity(capacity);
         starts.extend(prefix.starts.iter().copied());
         starts.extend(next.starts.iter().copied());
         let mut products = Vec::with_capacity(capacity);
         products.extend(prefix.products.iter().cloned());
         products.extend(next.products.iter().cloned());
-        let mut events = Vec::with_capacity(prefix.events.len().checked_add(next.events.len())
-            .ok_or_else(|| ProblemError::memory("accuracy composed event extent"))?);
+        let mut events = Vec::with_capacity(
+            prefix
+                .events
+                .len()
+                .checked_add(next.events.len())
+                .ok_or_else(|| ProblemError::memory("accuracy composed event extent"))?,
+        );
         events.extend(prefix.events.iter().cloned());
         for mut event in next.events.iter().cloned() {
-            event.mechanism = event.mechanism.checked_add(offset)
+            event.mechanism = event
+                .mechanism
+                .checked_add(offset)
                 .ok_or_else(|| ProblemError::memory("accuracy event mechanism"))?;
             events.push(event);
         }
-        Ok(Arc::new(super::strategy::Trace {
-            owner: None, publication_request: prefix.publication_request, declaration,
-            original: prefix.original, backend: prefix.backend, profile: prefix.profile,
-            start: prefix.start, starts, products, events,
-        }.with_owner(owner)))
+        Ok(Arc::new(
+            super::strategy::Trace {
+                owner: None,
+                publication_request: prefix.publication_request,
+                declaration,
+                original: prefix.original,
+                backend: prefix.backend,
+                profile: prefix.profile,
+                start: prefix.start,
+                starts,
+                products,
+                events,
+            }
+            .with_owner(owner),
+        ))
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "initial dispatch forwards the same admitted operation contract as step and step_bound"
+    )]
     async fn step_initial<T: Send + 'static>(
         &self,
         step: super::solves::PreparedSolve,
@@ -751,7 +882,8 @@ impl NativeSession {
             if let Some(admission) = step.task_admission() {
                 declaration.limits = admission.limits()?;
             } else {
-                declaration.limits.attempts = step.automatic_attempt_capacity(scope.cancellation())?;
+                declaration.limits.attempts =
+                    step.automatic_attempt_capacity(scope.cancellation())?;
             }
         }
         let ledger = step.task_admission().unwrap_or_else(|| {

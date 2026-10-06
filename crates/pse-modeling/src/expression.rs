@@ -1807,13 +1807,20 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                         .accuracy_goal
                         .as_ref()
                         .ok_or_else(|| invalid(*id, "accuracy goal members"))?;
-                    let difference = Type::Quantity(Scheme::Concrete(Scheme::Delta(Box::new(
-                        target
-                            .quantity_scheme()
-                            .ok_or_else(|| invalid(*id, "accuracy goal target is physical"))?
-                            .clone(),
-                    )).resolve_with_evidence(context.quantities, &Substitution::new(), context.preconditions)
-                        .map_err(|error| invalid(*id, error.to_string()))?));
+                    let difference = Type::Quantity(Scheme::Concrete(
+                        Scheme::Delta(Box::new(
+                            target
+                                .quantity_scheme()
+                                .ok_or_else(|| invalid(*id, "accuracy goal target is physical"))?
+                                .clone(),
+                        ))
+                        .resolve_with_evidence(
+                            context.quantities,
+                            &Substitution::new(),
+                            context.preconditions,
+                        )
+                        .map_err(|error| invalid(*id, error.to_string()))?,
+                    ));
                     for (role, expression, expected) in [
                         ("time", &goal.time, None),
                         ("resolution", &goal.resolution, Some(&difference)),
@@ -1842,13 +1849,22 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                         .engineering_scale
                         .as_ref()
                         .ok_or_else(|| invalid(*id, "engineering scale members"))?;
-                    let difference = Type::Quantity(Scheme::Concrete(Scheme::Delta(Box::new(
-                        target
-                            .quantity_scheme()
-                            .ok_or_else(|| invalid(*id, "engineering scale target is physical"))?
-                            .clone(),
-                    )).resolve_with_evidence(context.quantities, &Substitution::new(), context.preconditions)
-                        .map_err(|error| invalid(*id, error.to_string()))?));
+                    let difference = Type::Quantity(Scheme::Concrete(
+                        Scheme::Delta(Box::new(
+                            target
+                                .quantity_scheme()
+                                .ok_or_else(|| {
+                                    invalid(*id, "engineering scale target is physical")
+                                })?
+                                .clone(),
+                        ))
+                        .resolve_with_evidence(
+                            context.quantities,
+                            &Substitution::new(),
+                            context.preconditions,
+                        )
+                        .map_err(|error| invalid(*id, error.to_string()))?,
+                    ));
                     let expression =
                         p.expression_at(*id, "annotation.engineering_scale.value", 0)?;
                     if infer(expression, &env, p, context, *id, Some(&difference))? != difference {

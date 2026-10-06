@@ -10,20 +10,20 @@ use crate::{
     square_response::{ActionEvidence, SparseFactor},
 };
 pub(crate) use kkt::defer_kkt;
-pub use kkt::{DeferredKktAccuracy, KktEstimates, KktOutput, KktOutputObserver, KktOutputs, KktPointArithmetic, KktValidity, estimate_kkt};
+pub use kkt::{
+    DeferredKktAccuracy, KktEstimates, KktOutput, KktOutputObserver, KktOutputs,
+    KktPointArithmetic, KktValidity, estimate_kkt,
+};
 pub use producers::{Comparison, QualifiedScalar, dynamic_comparison, objective_interval};
 use pse_ids::ContentHash;
+use pse_math::engineering_accuracy::{GoalWorkDemand, ResidualRowDemand, refinement_allowance};
 use pse_model::{
     engineering_accuracy::{BoundGoal, OutputEvidence},
     generated::enums::{
         AccuracyCriterionStatus, AccuracyEvidenceInterpretation, AccuracyEvidenceMethod,
-        AccuracyGoalSubject, AccuracyGoalUse, AccuracyObservation,
-        AccuracyUnavailableReason,
+        AccuracyGoalSubject, AccuracyGoalUse, AccuracyObservation, AccuracyUnavailableReason,
     },
     strategy::{AccuracyClass, AccuracyEvidence, SemanticProductKey},
-};
-use pse_math::engineering_accuracy::{
-    GoalWorkDemand, ResidualRowDemand, refinement_allowance,
 };
 
 /// Actual caller-admitted local interior/branch witness at the factor point.
@@ -123,25 +123,25 @@ pub fn estimate_square(
 ) -> SquareEstimates {
     use AccuracyUnavailableReason as U;
     let source = factor.key();
-    let common = if residual.source != source || validity.is_none_or(|v| v.source != source) {
-        Some(U::InvalidValidity)
-    } else if residual.values.len() != factor.states().len()
-        || residual.residual_uncertainty.is_some_and(|values| values.len() != factor.rows().len())
+    let common = if residual.source != source
+        || validity.is_none_or(|v| v.source != source)
+        || residual.values.len() != factor.states().len()
+        || residual
+            .residual_uncertainty
+            .is_some_and(|values| values.len() != factor.rows().len())
         || residual.jacobian_uncertainty.is_some_and(|values| {
             factor.states().len().checked_mul(factor.rows().len()) != Some(values.len())
-        })
-    {
+        }) {
         Some(U::InvalidValidity)
     } else if residual.residual_uncertainty.is_none() || residual.jacobian_uncertainty.is_none() {
         Some(U::EvaluatorUncertainty)
-    } else if residual.values.iter().any(|v| !v.is_finite()) {
-        Some(U::Nonfinite)
-    } else if residual
-        .residual_uncertainty
-        .into_iter()
-        .flatten()
-        .chain(residual.jacobian_uncertainty.into_iter().flatten())
-        .any(|v| !v.is_finite())
+    } else if residual.values.iter().any(|v| !v.is_finite())
+        || residual
+            .residual_uncertainty
+            .into_iter()
+            .flatten()
+            .chain(residual.jacobian_uncertainty.into_iter().flatten())
+            .any(|v| !v.is_finite())
     {
         Some(U::Nonfinite)
     } else if residual
@@ -165,8 +165,10 @@ pub fn estimate_square(
                     || output.product != output.goal.product
                     || output.normalization != output.goal.normalization
                     || output.gradient.len() != factor.states().len()
-                    || output.gradient_uncertainty.is_some_and(|radii| radii.len() != factor.states().len()
-                        || radii.iter().any(|radius| *radius < 0.0))
+                    || output.gradient_uncertainty.is_some_and(|radii| {
+                        radii.len() != factor.states().len()
+                            || radii.iter().any(|radius| *radius < 0.0)
+                    })
                 {
                     Some(U::InvalidValidity)
                 } else if output.goal.declaration.subject != AccuracyGoalSubject::SelectedOutput {
@@ -175,7 +177,11 @@ pub fn estimate_square(
                     Some(U::UnsupportedObservation)
                 } else if !output.value.is_finite()
                     || output.gradient.iter().any(|g| !g.is_finite())
-                    || output.gradient_uncertainty.into_iter().flatten().any(|radius| !radius.is_finite())
+                    || output
+                        .gradient_uncertainty
+                        .into_iter()
+                        .flatten()
+                        .any(|radius| !radius.is_finite())
                     || output
                         .uncertainty
                         .is_some_and(|u| !u.is_finite() || u < 0.0)
@@ -292,11 +298,17 @@ pub fn estimate_square(
             .filter(|neighbor| neighbor.is_finite())
             .map(|neighbor| (neighbor - output.value).abs())
             .fold(0.0, f64::max);
-        let derivative_uncertainty = output.gradient_uncertainty.unwrap_or_default().iter()
-            .zip(&correction).map(|(radius, delta)| radius * delta.abs()).sum::<f64>();
+        let derivative_uncertainty = output
+            .gradient_uncertainty
+            .unwrap_or_default()
+            .iter()
+            .zip(&correction)
+            .map(|(radius, delta)| radius * delta.abs())
+            .sum::<f64>();
         // Fixed evaluator reserve is consumed once in the estimate and once when
         // allocating the remaining allowance; it is never assigned to residual rows.
-        let evaluator_reserve = output.uncertainty.unwrap_or(0.0) + derivative_uncertainty + spacing;
+        let evaluator_reserve =
+            output.uncertainty.unwrap_or(0.0) + derivative_uncertainty + spacing;
         let error = propagated + arithmetic_uncertainty + evaluator_reserve;
         if !error.is_finite() || error <= 0.0 {
             result.outputs.push(Err(U::PrecisionLimit));
@@ -315,10 +327,8 @@ pub fn estimate_square(
             method: AccuracyEvidenceMethod::SquareCorrection, interval: None,
             limitation: "Estimated local first-order residual correction plus output First and sparse-adjoint residual/Jacobian arithmetic uncertainty, admitted evaluator/supplier uncertainty and representational spacing; no nonlinear remainder or global branch/error certificate".into(),
         };
-        let classified = pse_math::engineering_accuracy::classify(
-            output.goal,
-            Some(&output_evidence),
-        );
+        let classified =
+            pse_math::engineering_accuracy::classify(output.goal, Some(&output_evidence));
         let mut demand = None;
         if classified.status == pse_model::generated::enums::AccuracyGoalStatus::Unresolved
             && output.goal.declaration.refine
@@ -326,62 +336,64 @@ pub fn estimate_square(
             && !(output.goal.declaration.use_policy == AccuracyGoalUse::RequireSatisfied
                 && classified.criterion == AccuracyCriterionStatus::Violated)
             && let Some(allowance) = refinement_allowance(output.goal, output.value)
+            && output.uncertainty.is_some()
         {
-            if output.uncertainty.is_some() {
-                let remainder = allowance - evaluator_reserve - arithmetic_uncertainty;
-                if remainder.is_finite() && remainder > 0.0 {
-                    if adjoint.is_none() {
-                        match factor.transpose_action(output.gradient, execution) {
-                            Ok(value) => adjoint = Some(value),
-                            Err(error) => {
-                                if result.failure.is_none() {
-                                    result.failure = Some(error);
-                                }
+            let remainder = allowance - evaluator_reserve - arithmetic_uncertainty;
+            if remainder.is_finite() && remainder > 0.0 {
+                if adjoint.is_none() {
+                    match factor.transpose_action(output.gradient, execution) {
+                        Ok(value) => adjoint = Some(value),
+                        Err(error) => {
+                            if result.failure.is_none() {
+                                result.failure = Some(error);
                             }
                         }
                     }
-                    if let Some((multipliers, adjoint_evidence)) = adjoint.as_ref() {
-                            let contributions = multipliers
-                                .iter()
-                                .zip(residual.values)
-                                .map(|(lambda, residual)| lambda.abs() * residual.abs())
-                                .collect::<Vec<_>>();
-                            let total = contributions.iter().sum::<f64>();
-                            if total.is_finite() && total > 0.0 {
-                                let mut rows = Vec::new();
-                                let mut complete = true;
-                                for ((row, lambda), contribution) in factor
-                                    .rows()
-                                    .iter()
-                                    .copied()
-                                    .zip(multipliers)
-                                    .zip(contributions)
-                                {
-                                    if contribution <= 0.0 {
-                                        continue;
-                                    }
-                                    let physical_allowance = remainder * contribution
-                                        / (total * lambda.abs());
-                                    if !lambda.is_finite()
-                                        || *lambda == 0.0
-                                        || !physical_allowance.is_finite()
-                                        || physical_allowance <= 0.0
-                                    {
-                                        complete = false;
-                                        break;
-                                    }
-                                    rows.push(ResidualRowDemand { row, physical_allowance });
-                                }
-                                if complete && !rows.is_empty() {
-                                    demand = Some(GoalWorkDemand {
-                                        product: output.product,
-                                        source,
-                                        physical_output_allowance: allowance,
-                                        adjoint_backward_error: adjoint_evidence.backward_error,
-                                        rows,
-                                    });
-                                }
+                }
+                if let Some((multipliers, adjoint_evidence)) = adjoint.as_ref() {
+                    let contributions = multipliers
+                        .iter()
+                        .zip(residual.values)
+                        .map(|(lambda, residual)| lambda.abs() * residual.abs())
+                        .collect::<Vec<_>>();
+                    let total = contributions.iter().sum::<f64>();
+                    if total.is_finite() && total > 0.0 {
+                        let mut rows = Vec::new();
+                        let mut complete = true;
+                        for ((row, lambda), contribution) in factor
+                            .rows()
+                            .iter()
+                            .copied()
+                            .zip(multipliers)
+                            .zip(contributions)
+                        {
+                            if contribution <= 0.0 {
+                                continue;
                             }
+                            let physical_allowance =
+                                remainder * contribution / (total * lambda.abs());
+                            if !lambda.is_finite()
+                                || *lambda == 0.0
+                                || !physical_allowance.is_finite()
+                                || physical_allowance <= 0.0
+                            {
+                                complete = false;
+                                break;
+                            }
+                            rows.push(ResidualRowDemand {
+                                row,
+                                physical_allowance,
+                            });
+                        }
+                        if complete && !rows.is_empty() {
+                            demand = Some(GoalWorkDemand {
+                                product: output.product,
+                                source,
+                                physical_output_allowance: allowance,
+                                adjoint_backward_error: adjoint_evidence.backward_error,
+                                rows,
+                            });
+                        }
                     }
                 }
             }
@@ -404,7 +416,7 @@ mod tests {
     };
     use faer::sparse::{Pair, SparseColMat, SymbolicSparseColMat};
     use pse_ids::SemanticId;
-    use pse_math::{normalization::Normalization, binding::ObjectiveSense};
+    use pse_math::{binding::ObjectiveSense, normalization::Normalization};
     use pse_model::{
         engineering_accuracy::AccuracyGoal,
         generated::enums::{AccuracyGoalStatus, AccuracyGoalUse, NumericalSource, NumericalTarget},
@@ -590,13 +602,23 @@ mod tests {
         let output = output(&declaration, &[2.0]);
         let batch = estimate_square(
             &factor,
-            SquareResidual { source: factor.key(), values: &[0.001], residual_uncertainty: Some(&[0.0]), jacobian_uncertainty: Some(&[0.0]) },
-            Some(SquareValidity { source: factor.key(), witness: hash(9) }),
+            SquareResidual {
+                source: factor.key(),
+                values: &[0.001],
+                residual_uncertainty: Some(&[0.0]),
+                jacobian_uncertainty: Some(&[0.0]),
+            },
+            Some(SquareValidity {
+                source: factor.key(),
+                witness: hash(9),
+            }),
             &[output],
             &execution,
         );
         assert!(batch.failure.is_none());
-        let demand = batch.work_demands[0].as_ref().expect("unresolved goal demand");
+        let demand = batch.work_demands[0]
+            .as_ref()
+            .expect("unresolved goal demand");
         assert_eq!(demand.product, declaration.product);
         assert_eq!(demand.source, factor.key());
         assert_eq!(demand.rows.len(), 1);
@@ -618,13 +640,24 @@ mod tests {
         output.uncertainty = Some(0.2);
         let batch = estimate_square(
             &factor,
-            SquareResidual { source: factor.key(), values: &[0.001], residual_uncertainty: Some(&[0.0]), jacobian_uncertainty: Some(&[0.0]) },
-            Some(SquareValidity { source: factor.key(), witness: hash(9) }),
+            SquareResidual {
+                source: factor.key(),
+                values: &[0.001],
+                residual_uncertainty: Some(&[0.0]),
+                jacobian_uncertainty: Some(&[0.0]),
+            },
+            Some(SquareValidity {
+                source: factor.key(),
+                witness: hash(9),
+            }),
             &[output],
             &execution,
         );
         assert!(batch.outputs[0].is_ok());
-        assert_eq!(batch.outputs[0].as_ref().unwrap().accuracy.class, AccuracyClass::Estimated);
+        assert_eq!(
+            batch.outputs[0].as_ref().unwrap().accuracy.class,
+            AccuracyClass::Estimated
+        );
         assert!(batch.work_demands[0].is_none());
         // One construction and the forward correction only; the fixed uncertainty
         // leaves no output budget for a transposed solve.
@@ -650,7 +683,10 @@ mod tests {
                 residual_uncertainty: Some(&[1e-5]),
                 jacobian_uncertainty: Some(&[1e-5]),
             },
-            Some(SquareValidity { source: factor.key(), witness: hash(9) }),
+            Some(SquareValidity {
+                source: factor.key(),
+                witness: hash(9),
+            }),
             &[output],
             &execution,
         );
@@ -673,9 +709,16 @@ mod tests {
         declaration.declaration.resolution = Some(0.01);
         let mut output = output(&declaration, &[2.0]);
         output.gradient_uncertainty = Some(&[0.04]);
-        let residual = SquareResidual { source: factor.key(), values: &[0.001],
-            residual_uncertainty: Some(&[0.0]), jacobian_uncertainty: Some(&[0.0]) };
-        let validity = Some(SquareValidity { source: factor.key(), witness: hash(9) });
+        let residual = SquareResidual {
+            source: factor.key(),
+            values: &[0.001],
+            residual_uncertainty: Some(&[0.0]),
+            jacobian_uncertainty: Some(&[0.0]),
+        };
+        let validity = Some(SquareValidity {
+            source: factor.key(),
+            witness: hash(9),
+        });
         // J=.001 and r=.001 give d=-1: the derivative reserve is .04*1.
         let batch = estimate_square(&factor, residual, validity, &[output], &execution);
         assert!((batch.outputs[0].as_ref().unwrap().accuracy.error.unwrap() - 2.04).abs() < 1e-10);
@@ -683,7 +726,10 @@ mod tests {
         assert_eq!(work.observations.lock().unwrap().len(), 2);
         output.gradient_uncertainty = None;
         let withheld = estimate_square(&factor, residual, validity, &[output], &execution);
-        assert!(matches!(withheld.outputs[0], Err(AccuracyUnavailableReason::EvaluatorUncertainty)));
+        assert!(matches!(
+            withheld.outputs[0],
+            Err(AccuracyUnavailableReason::EvaluatorUncertainty)
+        ));
         assert!(withheld.action.is_none());
         assert_eq!(work.observations.lock().unwrap().len(), 2);
     }
@@ -701,7 +747,10 @@ mod tests {
                 residual_uncertainty: Some(&[1e-5]),
                 jacobian_uncertainty: Some(&[0.0]),
             },
-            Some(SquareValidity { source: factor.key(), witness: hash(9) }),
+            Some(SquareValidity {
+                source: factor.key(),
+                witness: hash(9),
+            }),
             &[output(&goal, &[2.0])],
             &execution,
         );
@@ -723,7 +772,10 @@ mod tests {
                 residual_uncertainty: Some(&[0.0]),
                 jacobian_uncertainty: None,
             },
-            Some(SquareValidity { source: factor.key(), witness: hash(9) }),
+            Some(SquareValidity {
+                source: factor.key(),
+                witness: hash(9),
+            }),
             &[output(&goal, &[2.0])],
             &execution,
         );
@@ -862,12 +914,18 @@ mod tests {
         goal.declaration.subject = AccuracyGoalSubject::OptimalObjective;
         goal.declaration.target_kind = NumericalTarget::Objective;
         let primal = QualifiedScalar {
-            source: goal.source, value: 10., uncertainty: Some(0.25),
-            class: AccuracyClass::Estimated, validity: hash(12),
+            source: goal.source,
+            value: 10.,
+            uncertainty: Some(0.25),
+            class: AccuracyClass::Estimated,
+            validity: hash(12),
         };
         let dual = QualifiedScalar {
-            source: goal.source, value: 8., uncertainty: Some(0.5),
-            class: AccuracyClass::Certified, validity: hash(13),
+            source: goal.source,
+            value: 8.,
+            uncertainty: Some(0.5),
+            class: AccuracyClass::Certified,
+            validity: hash(13),
         };
         let actual = objective_interval(&goal, primal, dual, ObjectiveSense::Minimize).unwrap();
         assert_eq!(actual.interval, Some((7.5, 10.25)));
@@ -875,17 +933,36 @@ mod tests {
         assert!(actual.accuracy.error.unwrap() >= 2.5);
         assert!(actual.accuracy.error.unwrap() < 2.51);
         assert_eq!(actual.accuracy.class, AccuracyClass::Estimated);
-        assert_eq!(pse_math::engineering_accuracy::classify(&goal, Some(&actual)).status,
-            AccuracyGoalStatus::Unresolved);
-        assert!(matches!(objective_interval(&goal, primal, QualifiedScalar {
-            uncertainty: None, ..dual
-        }, ObjectiveSense::Minimize), Err(AccuracyUnavailableReason::EvaluatorUncertainty)));
-        assert!(matches!(objective_interval(&goal, primal, QualifiedScalar {
-            value: 11., ..dual
-        }, ObjectiveSense::Minimize), Err(AccuracyUnavailableReason::InvalidValidity)));
+        assert_eq!(
+            pse_math::engineering_accuracy::classify(&goal, Some(&actual)).status,
+            AccuracyGoalStatus::Unresolved
+        );
+        assert!(matches!(
+            objective_interval(
+                &goal,
+                primal,
+                QualifiedScalar {
+                    uncertainty: None,
+                    ..dual
+                },
+                ObjectiveSense::Minimize
+            ),
+            Err(AccuracyUnavailableReason::EvaluatorUncertainty)
+        ));
+        assert!(matches!(
+            objective_interval(
+                &goal,
+                primal,
+                QualifiedScalar { value: 11., ..dual },
+                ObjectiveSense::Minimize
+            ),
+            Err(AccuracyUnavailableReason::InvalidValidity)
+        ));
         goal.declaration.subject = AccuracyGoalSubject::SelectedOutput;
         goal.declaration.target_kind = NumericalTarget::Observable;
-        assert!(matches!(objective_interval(&goal, primal, dual, ObjectiveSense::Minimize),
-            Err(AccuracyUnavailableReason::UnsupportedObservation)));
+        assert!(matches!(
+            objective_interval(&goal, primal, dual, ObjectiveSense::Minimize),
+            Err(AccuracyUnavailableReason::UnsupportedObservation)
+        ));
     }
 }

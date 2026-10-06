@@ -1037,7 +1037,10 @@ mod tests {
         changed.requirements[0].absolute_tolerance = Some(10.);
         changed.kkt.stationarity = 1e-12;
         changed.kkt.complementarity = 0.5;
-        assert_eq!(operational_output_context(&registry, &target(), &changed).unwrap(), output);
+        assert_eq!(
+            operational_output_context(&registry, &target(), &changed).unwrap(),
+            output
+        );
     }
     #[test]
     fn engineering_accuracy_uses_frozen_scale_and_equivalent_unit_magnitudes() {

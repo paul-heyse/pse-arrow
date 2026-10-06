@@ -525,22 +525,25 @@ impl PreparedFit {
     /// The original scientific permission used by the numerical driver and run completion.
     pub(crate) fn assess_completion(&self, report: &FitReport) -> super::numerics::Completed {
         let policy = &self.problem.numerics.policy;
-        let accuracy = policy.goals.iter().cloned().map(|goal| {
-            pse_math::engineering_accuracy::GoalResult::unavailable(
-                goal, pse_model::generated::enums::AccuracyUnavailableReason::Unsupported,
-            )
-        }).collect::<Vec<_>>();
+        let accuracy = policy
+            .goals
+            .iter()
+            .cloned()
+            .map(|goal| {
+                pse_math::engineering_accuracy::GoalResult::unavailable(
+                    goal,
+                    pse_model::generated::enums::AccuracyUnavailableReason::Unsupported,
+                )
+            })
+            .collect::<Vec<_>>();
         let mut evidence = super::numerics::CompletionEvidence::point(
             &report.checks,
             report.checks_complete && report.validation_error.is_none(),
             self.required_closure_checks(),
         );
         evidence.accuracy = &accuracy;
-        super::numerics::complete(
-            report.candidate_use(policy),
-            evidence,
-            policy,
-        ).with_context(&self.problem.numerics)
+        super::numerics::complete(report.candidate_use(policy), evidence, policy)
+            .with_context(&self.problem.numerics)
     }
     pub(crate) fn required_closure_checks(&self) -> usize {
         self.assessments

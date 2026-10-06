@@ -2090,7 +2090,11 @@ async fn actual_full_reconstruction_uses_direct_original_outcome_without_native_
 async fn actual_single_root_full_reconstruction_preserves_native_factory_and_original_assessment() {
     full_reconstruction_kind(true, true, false).await;
 }
-#[cfg(all(feature = "solver-kinsol", feature = "solver-ipopt", feature = "solver-root-isolation"))]
+#[cfg(all(
+    feature = "solver-kinsol",
+    feature = "solver-ipopt",
+    feature = "solver-root-isolation"
+))]
 #[tokio::test]
 async fn actual_single_root_certifies_authored_observable_over_complete_coordinate_box() {
     full_reconstruction_kind(true, true, true).await;
@@ -2135,52 +2139,131 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
     } else {
         "package p { def Root { var x:Scalar; eq balance:x==3; annotation bounds x(1,4); annotation start x(2.5); } }"
     };
-    let rows = pse_authoring::language::parse(text, SemanticId::NIL,
-        pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
-    let root = rows.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+    let rows = pse_authoring::language::parse(
+        text,
+        SemanticId::NIL,
+        pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    )
+    .unwrap();
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
     let physical = crate::workflow::tests::physical();
     let quantities = physical.quantities.clone();
     let package = runtime.modeling_package(rows, physical).unwrap();
     let solver = SolverProfile {
-            intent: SolveIntent::Initialize,
-            selection: SolverSelection::Explicit(Backend::Ipopt),
-            controls: Controls { hessian: HessianMode::LimitedMemory, ..Default::default() },
+        intent: SolveIntent::Initialize,
+        selection: SolverSelection::Explicit(Backend::Ipopt),
+        controls: Controls {
+            hessian: HessianMode::LimitedMemory,
             ..Default::default()
-        };
+        },
+        ..Default::default()
+    };
     let cancel = crate::CancelSource::new();
-    let initial = package.prepare_solve(root, pse_modeling::specialize::root_instance(root),
-        pse_modeling::Bindings::default(), pse_modeling::Limits::default(),
-        pse_compiler::workspace::ModelingCaseBindings::default(), DerivativeOrder::First,
-        crate::workflow::tests::compiler_profile(), solver.clone(), NumericalInputs::default(), &cancel).await.unwrap();
+    let initial = package
+        .prepare_solve(
+            root,
+            pse_modeling::specialize::root_instance(root),
+            pse_modeling::Bindings::default(),
+            pse_modeling::Limits::default(),
+            pse_compiler::workspace::ModelingCaseBindings::default(),
+            DerivativeOrder::First,
+            crate::workflow::tests::compiler_profile(),
+            solver.clone(),
+            NumericalInputs::default(),
+            &cancel,
+        )
+        .await
+        .unwrap();
     let mut original = initial.solve.clone();
     if with_goal {
         use pse_model::generated::enums::*;
-        let variable = original.numerics.targets.iter().find(|target| target.kind == NumericalTarget::Variable).unwrap();
+        let variable = original
+            .numerics
+            .targets
+            .iter()
+            .find(|target| target.kind == NumericalTarget::Variable)
+            .unwrap();
         let (target_id, target_kind, quantity_id, unit_id) = if observable {
             let source = initial.model.model.compiled();
-            let target = source.model.symbols.iter().find(|(_, symbol)| symbol.lineage.path.ends_with(".q"))
-                .map(|(id, _)| *id).unwrap();
-            let row = source.admitted.case().rows().iter().find(|row|
-                row.id == pse_compiler::workspace::ModelingOutput::Member(target).row_id()).unwrap();
-            (target, NumericalTarget::Observable, row.quantity.as_id(),
-                quantities.quantity_type(row.quantity).unwrap().canonical_unit.as_id())
-        } else { (variable.id, variable.kind, variable.quantity, variable.unit) };
+            let target = source
+                .model
+                .symbols
+                .iter()
+                .find(|(_, symbol)| symbol.lineage.path.ends_with(".q"))
+                .map(|(id, _)| *id)
+                .unwrap();
+            let row = source
+                .admitted
+                .case()
+                .rows()
+                .iter()
+                .find(|row| {
+                    row.id == pse_compiler::workspace::ModelingOutput::Member(target).row_id()
+                })
+                .unwrap();
+            (
+                target,
+                NumericalTarget::Observable,
+                row.quantity.as_id(),
+                quantities
+                    .quantity_type(row.quantity)
+                    .unwrap()
+                    .canonical_unit
+                    .as_id(),
+            )
+        } else {
+            (variable.id, variable.kind, variable.quantity, variable.unit)
+        };
         let goal = pse_model::engineering_accuracy::AccuracyGoal {
-            goal_id: SemanticId::from_bytes([85;16]).into(), model_id: None, case_id: None, instance_id: None, fit_id: None,
-            target_id, target_kind, quantity_id, unit_id,
-            subject: AccuracyGoalSubject::SelectedOutput, observation: AccuracyObservation::Steady, time: None,
-            resolution: Some(0.1), criterion_lower: Some(2.0), criterion_upper: Some(4.0),
-            required_class: AccuracyClass::Certified, use_policy: AccuracyGoalUse::Assess, refine: false,
-            source: NumericalSource::Analysis, priority: 0, provenance: "actual complete selected-root certificate".into(),
+            goal_id: SemanticId::from_bytes([85; 16]).into(),
+            model_id: None,
+            case_id: None,
+            instance_id: None,
+            fit_id: None,
+            target_id,
+            target_kind,
+            quantity_id,
+            unit_id,
+            subject: AccuracyGoalSubject::SelectedOutput,
+            observation: AccuracyObservation::Steady,
+            time: None,
+            resolution: Some(0.1),
+            criterion_lower: Some(2.0),
+            criterion_upper: Some(4.0),
+            required_class: AccuracyClass::Certified,
+            use_policy: AccuracyGoalUse::Assess,
+            refine: false,
+            source: NumericalSource::Analysis,
+            priority: 0,
+            provenance: "actual complete selected-root certificate".into(),
         };
         original.profile.numerics.goals.push(goal.clone());
-        Arc::make_mut(&mut original.numerics).policy.goals.push(goal);
+        Arc::make_mut(&mut original.numerics)
+            .policy
+            .goals
+            .push(goal);
         if observable {
-            original = package.prepare_solve(root, pse_modeling::specialize::root_instance(root),
-                pse_modeling::Bindings::default(), pse_modeling::Limits::default(),
-                pse_compiler::workspace::ModelingCaseBindings::default(), DerivativeOrder::First,
-                crate::workflow::tests::compiler_profile(), original.profile.clone(),
-                NumericalInputs::default(), &cancel).await.unwrap().solve;
+            original = package
+                .prepare_solve(
+                    root,
+                    pse_modeling::specialize::root_instance(root),
+                    pse_modeling::Bindings::default(),
+                    pse_modeling::Limits::default(),
+                    pse_compiler::workspace::ModelingCaseBindings::default(),
+                    DerivativeOrder::First,
+                    crate::workflow::tests::compiler_profile(),
+                    original.profile.clone(),
+                    NumericalInputs::default(),
+                    &cancel,
+                )
+                .await
+                .unwrap()
+                .solve;
             assert!(original.selected_output_program().is_some());
         }
     }
@@ -2525,27 +2608,55 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
         let mut values = prepared.source.values.clone();
         values.scalars.extend(report.coordinates.iter().copied());
         let scope = ExecutionScope::new(Arc::default(), None);
-        let goals = prepared.original.coordinate_accuracy(service, &result.outcome, &values, &scope, &budget).unwrap();
+        let goals = prepared
+            .original
+            .coordinate_accuracy(service, &result.outcome, &values, &scope, &budget)
+            .unwrap();
         assert_eq!(goals.len(), 1);
-        assert_eq!(goals[0].classification.status, pse_model::generated::enums::AccuracyGoalStatus::Satisfied);
+        assert_eq!(
+            goals[0].classification.status,
+            pse_model::generated::enums::AccuracyGoalStatus::Satisfied
+        );
         let evidence = goals[0].evidence.as_ref().unwrap();
         assert_eq!(evidence.accuracy.class, AccuracyClass::Certified);
-        assert_eq!(evidence.method, pse_model::generated::enums::AccuracyEvidenceMethod::CertifiedEnclosure);
+        assert_eq!(
+            evidence.method,
+            pse_model::generated::enums::AccuracyEvidenceMethod::CertifiedEnclosure
+        );
         assert!(evidence.source.branch.is_some());
         assert!(evidence.interval.unwrap().0 <= 3.0 && evidence.interval.unwrap().1 >= 3.0);
-        assert_eq!(evidence.target_kind, if observable {
-            pse_model::generated::enums::NumericalTarget::Observable
-        } else { pse_model::generated::enums::NumericalTarget::Variable });
+        assert_eq!(
+            evidence.target_kind,
+            if observable {
+                pse_model::generated::enums::NumericalTarget::Observable
+            } else {
+                pse_model::generated::enums::NumericalTarget::Variable
+            }
+        );
         assert_eq!(evidence.value, Some(3.0));
         assert!(evidence.accuracy.error.unwrap() <= 0.1);
-        assert_eq!(receipt.coordinate_box(&prepared.original, &values).unwrap().unwrap().len(), 1);
+        assert_eq!(
+            receipt
+                .coordinate_box(&prepared.original, &values)
+                .unwrap()
+                .unwrap()
+                .len(),
+            1
+        );
         values.scalars.insert(coordinate, 3.0_f64.next_up());
-        assert!(receipt.assess_coordinates(&prepared.original, &values).unwrap().is_none());
+        assert!(
+            receipt
+                .assess_coordinates(&prepared.original, &values)
+                .unwrap()
+                .is_none()
+        );
         let mut changed = prepared.original.clone();
         changed.normalization.variables[0] *= 2.0;
         values.scalars.insert(coordinate, 3.0);
         assert!(receipt.coordinate_box(&changed, &values).unwrap().is_none());
-    } else { assert!(report.certified_reconstruction.is_none()); }
+    } else {
+        assert!(report.certified_reconstruction.is_none());
+    }
     assert!(
         result
             .proposal

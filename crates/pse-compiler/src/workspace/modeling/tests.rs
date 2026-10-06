@@ -91,12 +91,17 @@ fn authored_accuracy_and_engineering_expressions_enter_the_typed_modeling_progra
         .collect::<Vec<_>>();
     assert_eq!(hints.len(), 4);
     assert!(hints.iter().all(|(target, _, _)| *target == hints[0].0));
-    let goal_sources = hints.iter().filter(|(_, _, kind)|
-        *kind != ModelingHint::EngineeringScaleValue)
-        .map(|(_, declaration, _)| *declaration).collect::<BTreeSet<_>>();
+    let goal_sources = hints
+        .iter()
+        .filter(|(_, _, kind)| *kind != ModelingHint::EngineeringScaleValue)
+        .map(|(_, declaration, _)| *declaration)
+        .collect::<BTreeSet<_>>();
     assert_eq!(goal_sources.len(), 1);
-    let scale_source = hints.iter().find(|(_, _, kind)|
-        *kind == ModelingHint::EngineeringScaleValue).unwrap().1;
+    let scale_source = hints
+        .iter()
+        .find(|(_, _, kind)| *kind == ModelingHint::EngineeringScaleValue)
+        .unwrap()
+        .1;
     assert!(!goal_sources.contains(&scale_source));
     assert_eq!(
         hints

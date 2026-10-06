@@ -9,7 +9,7 @@ types are the authority. Every enumeration is a registry vocabulary.
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, ClassVar
+from typing import Annotated, ClassVar, Literal
 
 import msgspec
 

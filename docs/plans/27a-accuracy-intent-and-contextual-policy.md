@@ -178,9 +178,9 @@ work demands have their own identity and never mutate this frozen acceptance.
 | Package | Prerequisite | Behavior, owner, retirement and acceptance | Progress |
 |---|---|---|---|
 | A0 — Semantic proposal | Coordinator decisions and review S01–S06 | Coordinator settles the declaration, source selection, goal-use truth table and support boundary here; C0 supplies required decision records before production changes | done |
-| A1 — Working declarations/admission | A0/C0 contract route | Schema/authoring/model owner adds registry-owned goals, engineering defaults/scales and request forms; compiles protected expressions with current scientific authority; validates independently of native startup. Retire competing hand-authored boundary forms in the same change. Targeted `accuracy_goal_admission` controls | in progress |
-| A2 — Contextual resolution | Working A1 physical and source contracts | Model/math policy owner resolves independent scales and lowers default B; migrates reference shared slots without per-fixture tuning; retains explicit numerical interpretation and provenance. Delete nominal-as-default-engineering-scale mapping. Targeted `contextual_engineering_resolution` controls | in progress |
-| A3 — Binding and identity | Working A1/A2 plus C0 durable inventory | Preparation/identity owner binds goal dependencies and locations, freezes context, versions relevant frames/requests and migrates their immediate consumers. Delete old keys that omit consumed meaning; regenerate changed registry products. Targeted `accuracy_context_identity` controls | in progress |
+| A1 — Working declarations/admission | A0/C0 contract route | Schema/authoring/model owner adds registry-owned goals, engineering defaults/scales and request forms; compiles protected expressions with current scientific authority; validates independently of native startup. Retire competing hand-authored boundary forms in the same change. Targeted `accuracy_goal_admission` controls | done |
+| A2 — Contextual resolution | Working A1 physical and source contracts | Model/math policy owner resolves independent scales and lowers default B; migrates reference shared slots without per-fixture tuning; retains explicit numerical interpretation and provenance. Delete nominal-as-default-engineering-scale mapping. Targeted `contextual_engineering_resolution` controls | done |
+| A3 — Binding and identity | Working A1/A2 plus C0 durable inventory | Preparation/identity owner binds goal dependencies and locations, freezes context, versions relevant frames/requests and migrates their immediate consumers. Delete old keys that omit consumed meaning; regenerate changed registry products. Targeted `accuracy_context_identity` controls | done |
 
 **Proposed controls:** admission succeeds for value-only, decision-only and combined goals;
 wrong units, affine magnitude misuse, conflicting sources, unselected/non-scalar targets and
@@ -206,7 +206,7 @@ the ADR remains proposed pending its decision PR. A1–A3 are implemented in the
 tree: registry-owned declarations, authored admission, contextual resolution, frozen
 provenance and generated boundaries are in place. Focused resolver/admission controls
 have passed, including independence from normalization and operational work context.
-Selected computed-output binding is being integrated with B3. Final consumer and
+Selected computed-output binding consumes B3's original-program evidence. Final consumer and
 assembled migration checks remain with C/25k; these local results are not qualification.
 
 ## Outcome (recorded after implementation)

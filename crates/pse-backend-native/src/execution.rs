@@ -271,13 +271,20 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
     ) -> Result<Option<f64>, ProblemError> {
         let mut requested: Option<f64> = None;
         for &(row, allowance) in demands {
-            let scale = budgets.normalization.rows.get(row)
+            let scale = budgets
+                .normalization
+                .rows
+                .get(row)
                 .ok_or_else(|| ProblemError::Contract("work demand row is absent".into()))?;
             if !allowance.is_finite() || allowance <= 0. || !scale.is_finite() || *scale <= 0. {
-                return Err(ProblemError::Contract("invalid residual work allowance or coordinate scale".into()));
+                return Err(ProblemError::Contract(
+                    "invalid residual work allowance or coordinate scale".into(),
+                ));
             }
-            let value = pse_math::normalization::checked_ratio(allowance, *scale)
-                .map_err(|_| ProblemError::numerical("residual work tolerance is not representable"))?;
+            let value =
+                pse_math::normalization::checked_ratio(allowance, *scale).map_err(|_| {
+                    ProblemError::numerical("residual work tolerance is not representable")
+                })?;
             requested = Some(requested.map_or(value, |held| held.min(value)));
         }
         Ok(requested)

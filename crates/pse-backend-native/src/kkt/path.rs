@@ -448,7 +448,11 @@ mod tests {
             variable_bounds: vec![(f64::NEG_INFINITY, f64::INFINITY), (p, p)].into(),
             normalization: pse_math::normalization::Normalization::identity(2, usize::from(row))
                 .key(),
-            row_dual: if row { vec![p.min(0.)].into() } else { vec![].into() },
+            row_dual: if row {
+                vec![p.min(0.)].into()
+            } else {
+                vec![].into()
+            },
             lower_dual: vec![(-p).max(0.), 0.].into(),
             upper_dual: vec![0., 0.].into(),
         };

@@ -413,7 +413,12 @@ impl SparseFactor {
                     residual[(column, 0)] -= self.held.matrix.val()[entry] * z[(row, 0)];
                 }
             }
-            let error = transpose_backward(self.held.matrix.as_ref(), z.as_ref(), b.as_ref(), residual.as_ref());
+            let error = transpose_backward(
+                self.held.matrix.as_ref(),
+                z.as_ref(),
+                b.as_ref(),
+                residual.as_ref(),
+            );
             if error.is_finite() && error <= limit {
                 let values = (0..n)
                     .map(|i| z[(i, 0)] / self.held.scales.rows[i])
@@ -423,7 +428,14 @@ impl SparseFactor {
                         "nonfinite physical sparse response transpose",
                     ));
                 }
-                return Ok((values, ActionEvidence { backward_error: error, limit, backsolves }));
+                return Ok((
+                    values,
+                    ActionEvidence {
+                        backward_error: error,
+                        limit,
+                        backsolves,
+                    },
+                ));
             }
             if backsolves == 3 {
                 return Err(ProblemError::numerical(
@@ -486,14 +498,18 @@ fn transpose_backward(
     let norm = |m: faer::MatRef<'_, f64>| m.col(0).iter().map(|v| v.abs()).fold(0., f64::max);
     // ||A^T||_inf is the largest absolute column sum of A.
     let mut columns = vec![0.; a.ncols()];
-    for column in 0..a.ncols() {
+    for (column, total) in columns.iter_mut().enumerate() {
         for entry in a.symbolic().col_range(column) {
-            columns[column] += a.val()[entry].abs();
+            *total += a.val()[entry].abs();
         }
     }
     let denominator = columns.into_iter().fold(0., f64::max) * norm(x) + norm(b);
     let residual = norm(r);
-    if denominator == 0. { residual } else { residual / denominator }
+    if denominator == 0. {
+        residual
+    } else {
+        residual / denominator
+    }
 }
 /// A fresh sparse state factor paired with the parameter partials evaluated at that
 /// same original point. Every prediction reuses this factor and performs only a
@@ -827,7 +843,10 @@ mod tests {
     }
     #[test]
     fn transpose_action_applies_physical_scaling_and_charges_only_backsolves() {
-        let admission = Arc::new(Admission { factors: Some(1), ..Default::default() });
+        let admission = Arc::new(Admission {
+            factors: Some(1),
+            ..Default::default()
+        });
         let execution = admitted(admission.clone());
         let held = factor(1 << 20, &[2., 1.], &execution).unwrap();
         // J = [[4, 3], [1, 1]], so J^T [-1, 5] = [1, 2].

@@ -305,15 +305,24 @@ pub(crate) struct Completed {
 impl Completed {
     /// Preserve the actual contextual fallback limitation alongside final permission.
     pub(crate) fn with_context(mut self, context: &ResolvedNumericalPolicy) -> Self {
-        self = self.with_canonical_fallback(context.targets.iter().any(|target|
-            target.engineering.as_ref().is_some_and(|e| e.canonical_fallback)));
+        self = self.with_canonical_fallback(context.targets.iter().any(|target| {
+            target
+                .engineering
+                .as_ref()
+                .is_some_and(|e| e.canonical_fallback)
+        }));
         self
     }
     pub(crate) fn with_canonical_fallback(mut self, fallback: bool) -> Self {
         if fallback
-            && !self.decision.qualifiers.contains(&CandidateQualifier::EngineeringCanonicalFallback)
+            && !self
+                .decision
+                .qualifiers
+                .contains(&CandidateQualifier::EngineeringCanonicalFallback)
         {
-            self.decision.qualifiers.push(CandidateQualifier::EngineeringCanonicalFallback);
+            self.decision
+                .qualifiers
+                .push(CandidateQualifier::EngineeringCanonicalFallback);
         }
         self
     }
@@ -558,10 +567,10 @@ fn compose_accuracy(
                 } else {
                     None
                 };
-                if let Some(q) = qualifier {
-                    if !decision.qualifiers.contains(&q) {
-                        decision.qualifiers.push(q);
-                    }
+                if let Some(q) = qualifier
+                    && !decision.qualifiers.contains(&q)
+                {
+                    decision.qualifiers.push(q);
                 }
             }
             result
@@ -771,8 +780,10 @@ mod tests {
             AccuracyUnavailableReason as R,
         };
         let mut goal = engineering_goal();
-        let mut policy = pse_model::numerics::NumericalPolicy::default();
-        policy.goals = vec![goal.clone()];
+        let mut policy = pse_model::numerics::NumericalPolicy {
+            goals: vec![goal.clone()],
+            ..Default::default()
+        };
         let mut point = CandidateDecision::new(CandidateUse::Usable);
         let missing = compose_accuracy(&mut point, &[], &policy);
         assert_eq!(missing.len(), 1);
@@ -808,23 +819,37 @@ mod tests {
     fn engineering_goal_assessment_optional_failure_retains_cause_and_original_seed_permission() {
         use pse_model::diagnostic::{DiagnosticCause, DiagnosticProjection};
         let goal = engineering_goal();
-        let error = pse_backend_native::ProblemError::numerical("optional correction backward error");
+        let error =
+            pse_backend_native::ProblemError::numerical("optional correction backward error");
         let mut result = pse_math::engineering_accuracy::GoalResult::unavailable(
-            goal.clone(), pse_model::generated::enums::AccuracyUnavailableReason::Regularity,
+            goal.clone(),
+            pse_model::generated::enums::AccuracyUnavailableReason::Regularity,
         );
         result.failure = Some(pse_math::engineering_accuracy::GoalFailure::new(
-            DiagnosticCause::new(error), 1024,
+            DiagnosticCause::new(error),
+            1024,
         ));
-        let policy = pse_model::numerics::NumericalPolicy { goals: vec![goal], ..Default::default() };
+        let policy = pse_model::numerics::NumericalPolicy {
+            goals: vec![goal],
+            ..Default::default()
+        };
         let mut original = CandidateDecision::new(CandidateUse::Usable);
         let retained = compose_accuracy(&mut original, &[result], &policy);
         assert!(original.permits_seed());
         assert!(!original.permits_use());
         let failure = retained[0].failure.as_ref().unwrap();
-        let diagnostic = failure.cause.boundary_diagnostic(pse_diagnostics::DiagnosticStage::ModelingQualification);
-        assert_eq!(diagnostic.failure_class(), pse_diagnostics::FailureClass::SolveSolverError);
+        let diagnostic = failure
+            .cause
+            .boundary_diagnostic(pse_diagnostics::DiagnosticStage::ModelingQualification);
+        assert_eq!(
+            diagnostic.failure_class(),
+            pse_diagnostics::FailureClass::SolveSolverError
+        );
         let row = retained[0].row(RunId::from_bytes([1; 16]), 0);
-        assert!(row.limitation.contains("optional correction backward error"));
+        assert!(
+            row.limitation
+                .contains("optional correction backward error")
+        );
     }
     fn check(kind: ModelingCheckKind, satisfied: bool) -> super::super::ModelingCheck {
         super::super::ModelingCheck {

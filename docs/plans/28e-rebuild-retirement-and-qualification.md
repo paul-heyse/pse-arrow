@@ -1,0 +1,176 @@
+---
+title: Rebuild, retirement and integrated qualification
+status: draft
+date: 2026-10-05
+adrs: []
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md]
+scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
+---
+
+# 28e: Rebuild, retirement and integrated qualification
+
+## Responsibility and adoption decision
+
+This companion of [Plan 28](28-surrealdb-unified-substrate.md) owns clean regeneration,
+cross-package retirement, build/codegen efficiency and the single assembled qualification
+campaign for the pivot. Local mechanisms and targeted checks remain owned by A/B/C/D.
+The coordinator owns the common target and US01–US05/EF01–EF08 dispositions. This document
+owns E progress and final campaign evidence.
+
+On 2026-10-05 the maintainer selected a **clean rebuild and hard pivot**. Replace the review's
+preserving-import transition with regenerated controlled authored inputs, derived products
+and scientific results. No legacy import, compatibility reader, dual-write period or old
+PostgreSQL/Delta qualification prerequisite is in scope. Retire a replaced production path
+with its last migrated caller and passing targeted controls; do not retain it as a comparison
+oracle. A package can temporarily leave the unfinished application unavailable while building
+the single target. It must not fill the gap with a second production implementation.
+
+Controlled scientific fixtures, independent reference observations and clean-room IDAES
+behavioral comparisons keep their scientific purposes. Regenerate storage-specific artifacts
+through their owners rather than interpreting historical database bytes under a new codec.
+Destructive removal of an actual application state directory is not an incidental shell
+cleanup: execution identifies its target and requires that it be within the authorized rebuild
+scope. The current plan-authoring turn does not delete data or mutate production.
+
+## Qualification handoff from existing plans
+
+Plan 27 has implemented its A/B/C functional scope and immediate deletions, with a focused
+77-control native accuracy selection and generator/Python transport evidence recorded at its
+[checkpoint](27-contextual-engineering-accuracy.md#current-checkpoint).
+[25k](25k-integrated-qualification-and-closure.md#current-execution-checkpoint) still has
+incomplete K3/K4/K5 assembled work. Those facts are not completion evidence for this pivot.
+
+Transfer the remaining applicable scientific campaign obligations to E3/E4/E5 for execution
+against the rebuilt target. Keep 25k's CA finding dispositions and prior receipts at their
+owner, linking the new evidence rather than duplicating it. Preserve scientific requirements:
+physical closure, contextual accuracy, derivative/response validity, branch/rank refusals,
+partiality, event endpoints, dynamics, fitting, continuation and native failure truth. Replace
+their old PG/Delta/SQL storage journeys with A/C/D's canonical selectors, codecs and fences.
+Do not finish the old storage stack's campaign before starting this pivot, or mark K3/K4/K5
+passed merely because their requirements have moved.
+
+The 14 selected native measurements and three additional scalar controls described in 25k
+are prepared, not measured. E4 retains their applicable scientific questions and records the
+actual target conditions. Historical Plan 22/23 qualification remains historical; final
+enduring qualification documentation is amended only for demonstrated scope through the
+decision/design route. E5 reconciles findings at their existing owners.
+
+## Retirement and build foundations
+
+Repurpose `pse-operations`; retire the generated `pse-operations-queries` and `pse-catalog`
+crates after their actual consumers move. Remove PostgreSQL pool/client/COPY/DDL/query
+generation, mandatory Delta result publication, cross-store settlement, publication windows
+and member-prefix reconciliation. A3/C4 retain the necessary target read protection,
+retention, cancellation and recovery obligations.
+
+The SQL convenience retirement includes `Runtime.query`, native `query_session`,
+`TableReader::query` and `ModelingKnowledge.query`, plus their Python wrappers, examples and
+tests. Preserve their necessary user operations with D's native selectors/queries and Arrow
+export. The PyArrow C-stream adapter and generated scientific Arrow contracts still serve
+typed result and model consumers. Deleting a SQL method does not by itself remove DataFusion.
+
+`pse-engine` owns DataFusion execution/planning and `pse-relations` uses DataFusion expression
+and optimizer APIs. For each remaining mechanism, retain it only when it supplies a necessary
+operation, or replace it with an existing suitable native capability within that operation's
+owner. Do not rebuild a bespoke relational optimizer merely to remove a dependency. Remove
+unconsumed DataFusion/Delta/object-store/cloud features and crates from manifests, codegen and
+recipes once the caller inventory proves replacement. E2 records the final residual consumer
+decision; it may legitimately leave DataFusion for a necessary capability, with no SQL API.
+Preserve the single resolved Arrow/Parquet/object_store/DataFusion type universe for families
+that remain.
+
+Narrow `.config/hakari.toml` membership to actual consumers after those migrations. Do not
+attach the remote database client or embedded engine to all semantic roots. Regenerate the
+workspace hack through its owner. One feature set for real shared dependencies remains;
+force-validation stays opt-in and explicit in correctness tests.
+
+Independently fix `bench-builds` capability setup and remaining generation. Select the
+measurement target before preparing its native environment; a relations/compiler/default
+build must not initialize KLU, root isolation or unrelated Uno/PETSc discovery. Native
+qualification still prepares its required capabilities. Hashing or discovery that is needed
+must not execute unnecessarily under a shared lock or trigger nested Cargo before a usable
+cache lookup.
+
+Retire obsolete generated outputs at their generator. Remaining `write_tree`, Python stub
+and ABI/document generation preserve unchanged bytes and mtimes while deleting stale outputs.
+Use `just codegen` as part of the change; never edit protected generated files. Changed
+declaration generation must still update its real consumers. Build-key changes are owned by
+B3, not duplicated here.
+
+## Work packages
+
+| Package | Prerequisite and delivered behavior | Completion boundary | Status |
+|---|---|---|---|
+| E1 — Controlled target regeneration | R0; A2 schema/selection and B1 admission slice. Replace storage-specific fixture setup, regenerate scientific source corpus and run configurations; add recipe-owned target DB setup. | Target inputs are admitted with exact interpretation; old test setup does not silently start PG/Delta. No migration importer or compatibility fixture service remains. | Scheduled |
+| E2 — Retirement and build locality | Joins each migrated A/B/C/D consumer as it becomes ready; tooling corrections can begin after R0 independently. Remove displaced crates/codegen/dependencies/recipes and implement scoped native setup/unchanged generation. | All target consumers work; remaining dependency consumers are explicit and justified; replaced mechanisms/tests/fixtures are gone. This does not postpone package-local deletions. | Scheduled |
+| E3 — Assembled correctness and recovery | All functional A/B/C/D, B4's bounded decision and E1/E2 scope complete. Run one selected static/integration/scientific campaign against regenerated target. | Zero failures in named required scope; explain unsupported scientific/provider limits, repaired composite runs and actual crash/durability conditions. | Scheduled |
+| E4 — Preparation, build and operation measurement | E3 for scientifically comparable runtime measurements; targeted build instrumentation can be prepared earlier. Execute selected scientific and pivot efficiency measurements under recorded conditions. | Report measured scope and limitations without invented speedup thresholds or comparison to incomparable receipts. | Scheduled |
+| E5 — Assembled review and closure | E3/E4. Conduct the binding's bounded assembled design assessment, reconcile finding owners and migrate enduring meaning through the decision/design route. | Demonstrated architectural/scientific scope has owners; qualification is published honestly; plans/reviews retire only when their references have moved. | Scheduled |
+
+Root integrates shared manifests, registry/generators, recipes and qualification selection.
+Separate workers may own bounded package consumers, but must not concurrently rewrite these
+shared surfaces. E2 is a continuing integration responsibility; it is not a late permission
+to keep obsolete code after a replacement is proved.
+
+## Verification and assembled acceptance
+
+**Proposed:** during functional execution use `just check-package`, `just check` where needed,
+`just unit-package` for isolated units and `just unit-native-package` for selected adapter units.
+Add a recipe for a targeted server mechanism when no existing recipe fits. Correctness recipes
+retain explicit force-validation; heavy native/linked Python runs retain memory caps. Product
+integration and static hygiene run once at E3 after all functional scope, unless requested
+earlier by the maintainer. `just turn-end` remains the root's end-of-turn formatting bundle.
+
+E3 selects actual journeys from S01–S08 and the applicable 25k scientific controls:
+
+| Complete operation | Required evidence beyond local units |
+|---|---|
+| Edit, select, compile, solve and reopen | Exact new revision/value attribution, preserved compatible reuse and physical correctness; structural/name/deletion/provider changes invalidate the right eligibility. No full ancestry/bundle retention. |
+| Ordinary success, failure and cancellation | Scientific observations automatically queryable after restart, honest terminal/usable distinctions, actual start retained, no raw staged prefix admitted as success. |
+| Concurrent study and interrupted completion | Scoped readiness, distinct occurrences, two-worker fencing, negative-premise conflicts, frozen result membership/late-write refusal, stale generation refusal, uncertain acknowledgment settlement and cancellation/drain. |
+| Connected query, trajectory and analysis | Exact selection and method lineage; bounded streams/blocks; failed statement/export cannot become a complete artifact; retention cannot tear protected reads or delete active compilation inputs before product-root admission. |
+| Scientific workflows and refusals | Steady/dynamic flowsheets, implicit roots and response, contextual accuracy, fitting, event/shooting/continuation and partial outcomes retain independently specified meaning under native Surreal/Arrow boundaries. |
+| Rebuild, crash and restore | Controlled inputs regenerate; acknowledged writes survive abrupt termination/reopen in the selected profile; restore preserves exact identities/interpretation; stored descriptions reconstruct numerical products without full semantic recompilation. |
+
+Use the command surface's relevant `just native-test`, `just native-python`, component,
+conformance and `just parity` selections, after target fixtures and linked Python are refreshed.
+Run `just hygiene`, fix failures and rerun the failed recipes, followed by relevant manual
+`just governance`, `just docs`, native and powerset checks. Confirm final commands against
+`just --list` at execution time. No full wheel/release campaign is implied. Name each actual
+command, mode, features, memory/concurrency conditions, zero baseline and result in the Outcome.
+Do not report a repaired composite as a clean initial pass.
+
+E4 measures supported complete operations: cold and warm selected compilation/preparation,
+value and structural edits, A/B/A reuse, durable studies, long result selection and default
+versus native build turnaround. Preserve the checkout/toolchain/cache conditions; use the
+owning build-measurement recipe without broad `cargo clean` or a shared target directory.
+Capture a comparable prior baseline before deleting its mechanism if feasible; otherwise
+report target-only measurements and structural changes without a speedup claim. Retain the
+17 prepared scientific controls only with their actual valid target conditions. Counts that
+show removal of repeated work are mechanism evidence, not a replacement for timing.
+
+Completion requires executing and reporting the selected campaigns, not meeting an invented
+latency number. If an operation exposes a concrete resource/correctness failure, repair its
+owning package and rerun the affected scope. Extra SIMD/JIT/WASM/server-distribution or
+generic search/MCP work needs a concrete new requirement; it is not hidden acceptance scope.
+
+## Checkpoint and next step
+
+No E package or new qualification has run during plan authoring. R0 is first. E1 then joins
+the working A2/B1 slice; E2's codegen/build corrections can proceed independently within
+coordinated shared-file ownership. Final campaign work waits for the complete target, not
+for completion of the obsolete storage stack's qualification.
+
+## Outcome (recorded after implementation)
+
+### What was built
+
+Pending implementation. Record Implemented/Tested/Measured scope with named conditions here.
+
+### A mistake made and corrected
+
+Pending execution.
+
+### Deviations from the plan, deliberate
+
+Pending execution; consequential decision changes follow the decision route.

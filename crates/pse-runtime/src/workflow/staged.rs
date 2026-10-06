@@ -47,7 +47,8 @@ fn accuracy_stop(
     reason: pse_model::generated::enums::AccuracyUnavailableReason,
 ) {
     for goal in &mut product.0.accuracy {
-        if goal.classification.status == pse_model::generated::enums::AccuracyGoalStatus::Unresolved {
+        if goal.classification.status == pse_model::generated::enums::AccuracyGoalStatus::Unresolved
+        {
             goal.classification.unavailable = Some(reason);
         }
     }
@@ -63,7 +64,9 @@ fn batch_accuracy_stop(
     policy: &pse_model::numerics::NumericalPolicy,
     reason: pse_model::generated::enums::AccuracyUnavailableReason,
 ) {
-    if let Some(product) = product { accuracy_stop(product, outcome, policy, reason); }
+    if let Some(product) = product {
+        accuracy_stop(product, outcome, policy, reason);
+    }
 }
 
 /// Where a step starts. Starts are typed; nothing is inferred from a label (F14, F25).
@@ -265,7 +268,9 @@ impl Staged {
             .assessment(&prepared, obligations, cancel)
             .await?;
         let service = self.runtime.native();
-        prepared.solve = prepared.solve.with_point_accuracy(service)
+        prepared.solve = prepared
+            .solve
+            .with_point_accuracy(service)
             .map_err(crate::math::MathRuntimeError::from)?;
         let owner = service.reserve("math:solve-results", prepared.solve.result_bytes()?)?;
         let point_owner = service.reserve(
@@ -428,7 +433,9 @@ impl Staged {
         for prepared in preparations {
             let point = async {
                 let mut prepared = prepared.clone();
-                prepared.solve = prepared.solve.with_point_accuracy(service)
+                prepared.solve = prepared
+                    .solve
+                    .with_point_accuracy(service)
                     .map_err(crate::math::MathRuntimeError::from)?;
                 let assessment = prepared
                     .source

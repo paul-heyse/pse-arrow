@@ -802,29 +802,66 @@ impl ModelingPackage {
             for goal in &solve.numerics().policy.goals {
                 if goal.target_kind != NumericalTarget::Observable
                     || goal.subject != AccuracyGoalSubject::SelectedOutput
-                    || goal.observation != AccuracyObservation::Steady { continue; }
+                    || goal.observation != AccuracyObservation::Steady
+                {
+                    continue;
+                }
                 let row_id = ModelingOutput::Member(goal.target_id).row_id();
-                let Some(row) = source.admitted.case().rows().iter().find(|row| row.id == row_id) else { continue; };
-                let quantity = self.quantities.quantity_type(row.quantity).map_err(|cause| contract(cause.to_string()))?;
-                if row.quantity.as_id() != goal.quantity_id || quantity.canonical_unit.as_id() != goal.unit_id {
-                    return Err(contract("selected accuracy output changes its full physical quantity or canonical unit"));
+                let Some(row) = source
+                    .admitted
+                    .case()
+                    .rows()
+                    .iter()
+                    .find(|row| row.id == row_id)
+                else {
+                    continue;
+                };
+                let quantity = self
+                    .quantities
+                    .quantity_type(row.quantity)
+                    .map_err(|cause| contract(cause.to_string()))?;
+                if row.quantity.as_id() != goal.quantity_id
+                    || quantity.canonical_unit.as_id() != goal.unit_id
+                {
+                    return Err(contract(
+                        "selected accuracy output changes its full physical quantity or canonical unit",
+                    ));
                 }
                 selected.insert(goal.target_id, row_id);
             }
             if !selected.is_empty() {
-                let executable = self.runtime.shared.math().prepare_modeling_functions(
-                    self.workspace.clone(), model.model.clone(), selected.values().copied().collect(),
-                    model.case.compiled().plan.columns().to_vec(), DerivativeOrder::First, compiler, cancel,
-                ).await;
+                let executable = self
+                    .runtime
+                    .shared
+                    .math()
+                    .prepare_modeling_functions(
+                        self.workspace.clone(),
+                        model.model.clone(),
+                        selected.values().copied().collect(),
+                        model.case.compiled().plan.columns().to_vec(),
+                        DerivativeOrder::First,
+                        compiler,
+                        cancel,
+                    )
+                    .await;
                 match executable {
-                    Ok(executable) if source.admitted.provider_demands_for_plan(
-                        &executable.assembly, DerivativeOrder::First,
-                    ).map_err(crate::math::MathRuntimeError::from)?.is_empty() => solve = solve.with_selected_outputs(
-                        crate::math::solves::output_program::SelectedOutputProgram::new(
-                            self.runtime.shared.math(), executable, selected)?,
-                    ),
-                    Ok(_) => {},
-                    Err(cause) if selected_output_derivative_unavailable(&cause) => {},
+                    Ok(executable)
+                        if source
+                            .admitted
+                            .provider_demands_for_plan(&executable.assembly, DerivativeOrder::First)
+                            .map_err(crate::math::MathRuntimeError::from)?
+                            .is_empty() =>
+                    {
+                        solve = solve.with_selected_outputs(
+                            crate::math::solves::output_program::SelectedOutputProgram::new(
+                                self.runtime.shared.math(),
+                                executable,
+                                selected,
+                            )?,
+                        )
+                    }
+                    Ok(_) => {}
+                    Err(cause) if selected_output_derivative_unavailable(&cause) => {}
                     Err(cause) => return Err(cause.into()),
                 }
             }
@@ -1364,22 +1401,35 @@ impl ModelingPackage {
             if goal.subject != pse_model::generated::enums::AccuracyGoalSubject::SelectedOutput
                 || goal.observation != pse_model::generated::enums::AccuracyObservation::Steady
                 || goal.target_kind != NumericalTarget::Observable
-                || targets.iter().chain(&numerical.targets).any(|target|
-                    target.id == goal.target_id && target.kind == goal.target_kind) {
+                || targets
+                    .iter()
+                    .chain(&numerical.targets)
+                    .any(|target| target.id == goal.target_id && target.kind == goal.target_kind)
+            {
                 continue;
             }
-            let symbol = product.model.symbols.get(&goal.target_id)
+            let symbol = product
+                .model
+                .symbols
+                .get(&goal.target_id)
                 .ok_or_else(|| contract("accuracy goal target absent from selected model"))?;
             let pse_modeling::Type::Quantity(quantity) = &symbol.ty else {
                 return Err(contract("accuracy goal requires a scalar physical target"));
             };
-            let quantity = quantity.resolve(&physical, &BTreeMap::new())
+            let quantity = quantity
+                .resolve(&physical, &BTreeMap::new())
                 .map_err(|error| contract(error.to_string()))?;
-            let unit = physical.quantity_type(quantity)
-                .map_err(|error| contract(error.to_string()))?.canonical_unit;
+            let unit = physical
+                .quantity_type(quantity)
+                .map_err(|error| contract(error.to_string()))?
+                .canonical_unit;
             numerical.targets.push(pse_math::numerics::TargetSpec {
-                id: goal.target_id, kind: NumericalTarget::Observable, quantity, unit,
-                integer: false, declared_tolerance: None,
+                id: goal.target_id,
+                kind: NumericalTarget::Observable,
+                quantity,
+                unit,
+                integer: false,
+                declared_tolerance: None,
             });
         }
         targets.extend(numerical.targets.clone());
@@ -1523,7 +1573,9 @@ fn selected_output_derivative_unavailable(cause: &crate::math::MathRuntimeError)
     }
     use crate::math::MathRuntimeError as E;
     match cause {
-        E::Math(cause) | E::Solve(pse_backend_native::ProblemError::Math(cause)) => derivative(cause),
+        E::Math(cause) | E::Solve(pse_backend_native::ProblemError::Math(cause)) => {
+            derivative(cause)
+        }
         E::Compile(pse_compiler::workspace::CompileError::Math(cause)) => derivative(cause),
         E::Shared(cause) => selected_output_derivative_unavailable(cause),
         _ => false,
@@ -1549,23 +1601,35 @@ pub(in crate::workflow) fn lower_authored_accuracy(
         kind: pse_model::generated::enums::NumericalTarget,
         quantity: pse_quantity::QuantityTypeId,
     ) -> Result<pse_math::numerics::TargetSpec, WorkflowError> {
-        if let Some(target) = targets.iter().find(|target| target.id == id && target.kind == kind) {
+        if let Some(target) = targets
+            .iter()
+            .find(|target| target.id == id && target.kind == kind)
+        {
             return Ok(target.clone());
         }
-        let unit = registry.quantity_type(quantity)
-            .map_err(|error| contract(error.to_string()))?.canonical_unit;
+        let unit = registry
+            .quantity_type(quantity)
+            .map_err(|error| contract(error.to_string()))?
+            .canonical_unit;
         let target = pse_math::numerics::TargetSpec {
-            id, kind, quantity, unit, integer: false, declared_tolerance: None,
+            id,
+            kind,
+            quantity,
+            unit,
+            integer: false,
+            declared_tolerance: None,
         };
-        if !numerical.targets.iter().any(|known| known.id == id && known.kind == kind) {
+        if !numerical
+            .targets
+            .iter()
+            .any(|known| known.id == id && known.kind == kind)
+        {
             numerical.targets.push(target.clone());
         }
         targets.push(target.clone());
         Ok(target)
     }
-    use pse_model::generated::enums::{
-        AccuracyGoalSubject, NumericalSource, NumericalTarget,
-    };
+    use pse_model::generated::enums::{AccuracyGoalSubject, NumericalSource, NumericalTarget};
     use pse_modeling::specialize::Value;
 
     let row_lineage = |instance| pse_model::lineage::Lineage {
@@ -1674,7 +1738,8 @@ pub(in crate::workflow) fn lower_authored_accuracy(
                 } else {
                     annotation.target
                 };
-                let target = ensure_target(numerical, targets, registry, target_id, kind, quantity)?;
+                let target =
+                    ensure_target(numerical, targets, registry, target_id, kind, quantity)?;
                 let time = goal
                     .time
                     .as_ref()
@@ -1757,7 +1822,14 @@ pub(in crate::workflow) fn lower_authored_accuracy(
                     registry,
                     annotation.target,
                 )?;
-                let target = ensure_target(numerical, targets, registry, annotation.target, kind, quantity)?;
+                let target = ensure_target(
+                    numerical,
+                    targets,
+                    registry,
+                    annotation.target,
+                    kind,
+                    quantity,
+                )?;
                 let value = find_value(
                     annotation.target,
                     annotation.lineage.declaration,
@@ -1804,7 +1876,14 @@ pub(in crate::workflow) fn lower_authored_accuracy(
                     registry,
                     annotation.target,
                 )?;
-                let target = ensure_target(numerical, targets, registry, annotation.target, kind, quantity)?;
+                let target = ensure_target(
+                    numerical,
+                    targets,
+                    registry,
+                    annotation.target,
+                    kind,
+                    quantity,
+                )?;
                 let mut sourced = requirement(
                     row_lineage(annotation.lineage.instance),
                     annotation.target,
@@ -1835,8 +1914,9 @@ pub(in crate::workflow) fn lower_authored_accuracy(
         .filter(|goal| goal.source == NumericalSource::Analysis)
         .cloned()
         .collect::<Vec<_>>();
-    policy.goals = pse_math::engineering_accuracy::bind_goals(registry, targets, &declarations, &requested)
-        .map_err(|error| contract(error.to_string()))?;
+    policy.goals =
+        pse_math::engineering_accuracy::bind_goals(registry, targets, &declarations, &requested)
+            .map_err(|error| contract(error.to_string()))?;
     Ok(())
 }
 
@@ -2259,9 +2339,15 @@ mod tests {
             pse_authoring::ParseBudget::default(),
         )
         .unwrap();
-        let root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
         let runtime = fixture::runtime();
-        let package = runtime.modeling_package(declarations, fixture::physical()).unwrap();
+        let package = runtime
+            .modeling_package(declarations, fixture::physical())
+            .unwrap();
         let mut profile = fixture::profile();
         profile.intent = pse_backend_native::solve::SolveIntent::Optimize;
         let error = package
@@ -2279,8 +2365,12 @@ mod tests {
             )
             .await
             .expect_err("physical member quantity cannot describe a dimensionless objective");
-        assert!(error.to_string().contains("target quantity differs from the selected objective quantity"),
-            "unexpected refusal: {error}");
+        assert!(
+            error
+                .to_string()
+                .contains("target quantity differs from the selected objective quantity"),
+            "unexpected refusal: {error}"
+        );
     }
     #[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
     fn authored_symbol(

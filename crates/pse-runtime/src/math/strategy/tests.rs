@@ -22,9 +22,18 @@ fn engineering_refinement_original_success_stops_catalog_without_promoting_goal_
         permission: Some(CandidateUse::Unusable),
     };
     let request = pse_model::strategy::CompositionRequest::default();
-    assert!(matches!(next_automatic(
-        &request, &declaration.start, &[], &BTreeSet::new(), Some(&last), charge(0).observed, false,
-    ), AutoDecision::Finish));
+    assert!(matches!(
+        next_automatic(
+            &request,
+            &declaration.start,
+            &[],
+            &BTreeSet::new(),
+            Some(&last),
+            charge(0).observed,
+            false,
+        ),
+        AutoDecision::Finish
+    ));
     assert_eq!(last.permission, Some(CandidateUse::Unusable));
 }
 fn scope() -> pse_kernels::ExecutionScope {

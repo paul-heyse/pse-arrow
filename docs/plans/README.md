@@ -4,6 +4,16 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
+[Plan 28: SurrealDB unified simulation substrate](28-surrealdb-unified-substrate.md) owns the
+confirmed hard-pivot target, accepted rule changes and US01–US05/EF01–EF08 dispositions.
+Its A–E companions develop canonical revisions, selected compilation/reuse, durable execution,
+connected native queries/Arrow, and rebuild/retirement/qualification. The coordinator's
+[checkpoint](28-surrealdb-unified-substrate.md#current-checkpoint) owns the next execution route;
+[28e](28e-rebuild-retirement-and-qualification.md#qualification-handoff-from-existing-plans)
+owns assembled target qualification and adoption of the applicable remaining scientific
+campaign obligations from 25k/27. Earlier evidence and scientific finding dispositions keep
+their original owners; obsolete storage qualification is not a pivot prerequisite.
+
 [Plan 25](25-design-remediation.md) coordinates remediation of the domain-alignment reviews
 and the later full-case compilation/solver-routing review. Its companion plans describe the target contracts,
 implementation packets, dependency order and final qualification. The coordinator owns the
@@ -39,7 +49,9 @@ The subsequent solver reviews are integrated in
 [25m: Integrated solve pipeline](25m-integrated-solve-pipeline.md), which owns their adopted
 findings, functional packages and migration. Its functional handoff has resumed the
 [25k campaign](25k-integrated-qualification-and-closure.md#review-boundary--integrated-solve-pipeline),
-including repairs from assembled qualification; 25k remains the sole full campaign and closure owner.
+including repairs from assembled qualification. Its remaining applicable campaign obligations
+now route to [28e](28e-rebuild-retirement-and-qualification.md#qualification-handoff-from-existing-plans)
+for the confirmed rebuilt target; 25k retains prior evidence and its scientific dispositions.
 Execution resumed at the maintainer's request (2026-10-05); the
 [25m checkpoint](25m-integrated-solve-pipeline.md#execution-checkpoint) records integrated
 repairs, targeted verification and the dependency order for resumption.

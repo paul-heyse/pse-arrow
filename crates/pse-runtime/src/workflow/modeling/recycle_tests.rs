@@ -45,36 +45,6 @@ async fn reference_recycle_initialization(
     let initialized = package
         .initialize_declared(&declared, InitializationOverrides::default(), &cancel)
         .await?;
-    eprintln!(
-        "recycle {fixture}: completed={}, failure={:?}",
-        initialized.completed, initialized.failure
-    );
-    for attempt in &initialized.attempts {
-        if let Ok(result) = &attempt.result {
-            let model = &result.prepared.model.model.compiled().model;
-            eprintln!(
-                "attempt {:?}: outcome={:?}, completion={:?}",
-                attempt.step,
-                crate::math::strategy::observe(&result.outcome),
-                result.completion
-            );
-            for check in result
-                .checks
-                .iter()
-                .filter(|check| !check.satisfied)
-                .take(40)
-            {
-                let path = model
-                    .closures
-                    .get(&check.target_id)
-                    .map(|closure| closure.lineage.path.as_str());
-                eprintln!(
-                    "failed {:?}: target={} source={} path={path:?} value={} tolerance={:?}",
-                    check.kind, check.target_id, check.source_id, check.value, check.tolerance
-                );
-            }
-        }
-    }
     if expected_success {
         assert!(initialized.completed, "{:?}", initialized.failure);
         assert!(initialized.committed.is_some());
@@ -87,7 +57,10 @@ async fn reference_recycle_initialization(
     } else {
         assert!(!initialized.completed);
         assert!(initialized.committed.is_none());
-        let failure = initialized.failure.as_ref().unwrap();
+        let failure = initialized
+            .failure
+            .as_ref()
+            .ok_or("rejected recycle initialization omitted its failure")?;
         assert_eq!(
             failure.class,
             pse_model::diagnostic::BoundaryClass::TrialRejected
@@ -102,10 +75,10 @@ async fn reference_recycle_initialization(
             .model
             .fixtures
             .get(&declared.analysis.instance)
-            .unwrap()
+            .ok_or("prepared recycle initialization omitted its fixture")?
             .expected_failure
             .as_ref()
-            .unwrap();
+            .ok_or("rejected recycle fixture omitted its expected failure")?;
         assert!(expected.matches(failure), "{failure:?}");
     }
     Ok(())

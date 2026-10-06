@@ -8,7 +8,7 @@ from typing import Self, TypeAlias
 
 import attrs
 
-from pse import codec, contracts
+from pse import codec
 from pse._build import (
     DiagnosticReport,
     _NativePreparedOperation,
@@ -30,6 +30,7 @@ from pse.contracts.documents import (
     ProgressEventDocument,
     Published,
     RouteDocument,
+    RuntimeAccuracyGoalAssessmentsRow,
     StudyCancel,
     StudyStatus,
     StudyWaitControls,
@@ -196,7 +197,7 @@ class RunResult:
     @property
     def accuracy_goals(
         self,
-    ) -> tuple[contracts.runtime.RuntimeAccuracyGoalAssessmentsRow, ...]:
+    ) -> tuple[RuntimeAccuracyGoalAssessmentsRow, ...]:
         """Retained engineering goal outcomes; reading this performs no solver work."""
         return tuple(self.completion.accuracy_goals)
 

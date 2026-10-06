@@ -176,13 +176,19 @@ No product execution or performance measurements were performed while authoring 
 
 ## Current checkpoint
 
+The maintainer's subsequent clean-pivot decision routes assembled target qualification to
+[28e](28e-rebuild-retirement-and-qualification.md#qualification-handoff-from-existing-plans).
+This plan retains its scientific contracts and functional evidence; CA finding dispositions
+remain at 25k. The existing C5 handoff does not require completing old PG/Delta qualification
+before the pivot, and its focused passes do not qualify the new substrate.
+
 The ADR-0163 proposal, independently reviewed contracts and consumed-version inventory
 are in place. Registry-owned declarations, contextual resolution, physical goal classification,
 static evidence operations, bounded strategy refinement, dynamic comparison and retained
 completion consumers are implemented in the current tree. Focused controls exercise these
 owners; they do not establish the assembled campaign or performance.
 
-Integration is still in progress. Square and KKT consumers now include actual same-point
+Functional integration and the combined accuracy selection are complete. C5 carries the scientific work forward to 28e, retaining the finding dispositions at 25k. Square and KKT consumers now include actual same-point
 value, derivative and matrix arithmetic uncertainty from the existing IBEX/FILIB adapter.
 Active KKT output actions include the multiplier coordinates. Complete certified selected-root
 reconstruction retains a point-bound enclosure that authored outputs can consume through
@@ -210,16 +216,16 @@ Dynamic integration has corrected scheduled/endpoint input ownership, terminal f
 and pre-operation arithmetic/work admission. Generated affine-rate providers currently expose
 floating-point values without an arithmetic enclosure; outputs that consume those states cannot
 borrow an interval claim from a provider-free output expression. A time/parameter-only observable
-is the positive comparator scope being integrated alongside these explicit supplier refusals.
+is the tested positive comparator scope alongside these explicit supplier refusals.
 Integral goals remain unavailable without accumulated evaluator uncertainty; endpoint flux arithmetic
-is not a substitute. Actual selected-root goal promotion and the dynamic journeys precede the
-combined rerun and functional handoff.
+is not a substitute. Actual selected-root goal promotion and the dynamic journeys pass their focused controls. Supported zero/subresolution comparison retains actual evaluator uncertainty; spacing alone cannot resolve a goal. Temporary dynamic diagnostics are removed before the combined rerun.
 
-Next are the real native refinement and dynamic journeys, transport/readmission controls and
-remaining producer integration. Then C5 hands the stable tree to Plan 25k for scope-end hygiene,
-the assembled scientific campaign, required dev-profile measurements and final review. None of
+Native refinement, dynamic and transport/readmission controls pass separately. The combined accuracy selection passes after the scope-end repairs; the remaining assembled scientific campaign,
+required dev-profile measurements and final review transfer to 28e. None of
 those enclosing obligations is complete yet. Preserve the existing PFR/native repairs and
 historical receipts; qualify the final combined tree rather than inferring acceptance from them.
+
+**Tested, 2026-10-05, zero-failure baseline:** the final `just unit-native-selected` rerun with the named accuracy/refinement/point-arithmetic/dynamic/original-objective/selected-root filters, default Nextest profile, linked native-solvers, explicit `pse-relations/force-validate` and one test thread passed all 77 selected tests in 11.746 seconds. The schema generator selection passed 5 tests, linked Python transport passed 7, native boundary contracts passed 22 and native version admission passed 1. These are focused functional controls; remaining assembled qualification and performance transfer to 28e, with the static and parity limits retained at 25k.
 
 ## Outcome (recorded after implementation)
 

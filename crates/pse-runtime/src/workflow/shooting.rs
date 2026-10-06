@@ -1516,14 +1516,20 @@ impl ShootingProblem {
     fn original_candidate(&self, report: &ShootingReport) -> super::numerics::CandidateDecision {
         use super::numerics::{constant_use, native_use, refused};
         use pse_model::generated::enums::CandidateRefusal;
-        let fresh = report.quality.as_ref().map_or_else(
-            || refused(CandidateRefusal::Infeasible), constant_use,
-        );
-        report.solve.as_ref().map_or_else(|| fresh.clone(), |native| {
-            let mut decision = native_use(native, &self.numerics.policy);
-            if !fresh.permits_use() { decision.refuse(CandidateRefusal::Infeasible); }
-            decision
-        })
+        let fresh = report
+            .quality
+            .as_ref()
+            .map_or_else(|| refused(CandidateRefusal::Infeasible), constant_use);
+        report.solve.as_ref().map_or_else(
+            || fresh.clone(),
+            |native| {
+                let mut decision = native_use(native, &self.numerics.policy);
+                if !fresh.permits_use() {
+                    decision.refuse(CandidateRefusal::Infeasible);
+                }
+                decision
+            },
+        )
     }
     fn completion_evidence<'a>(
         &self,
@@ -1534,11 +1540,22 @@ impl ShootingProblem {
             checks: &report.checks,
             checks_complete: report.checks_complete && report.validation_error.is_none(),
             required_closure: self.simulation.required_closure_checks(),
-            endpoint_satisfied: Some(report.endpoint_assessment.as_ref().is_some_and(|a| a.satisfied)
-                && report.trajectory.as_ref().is_some_and(|t| t.error.is_none())),
+            endpoint_satisfied: Some(
+                report
+                    .endpoint_assessment
+                    .as_ref()
+                    .is_some_and(|a| a.satisfied)
+                    && report
+                        .trajectory
+                        .as_ref()
+                        .is_some_and(|t| t.error.is_none()),
+            ),
             coverage_complete: report.trajectory.as_ref().is_some_and(|trajectory| {
                 self.experiment.profile.samples.iter().all(|required| {
-                    trajectory.samples.iter().any(|sample| sample.time == *required)
+                    trajectory
+                        .samples
+                        .iter()
+                        .any(|sample| sample.time == *required)
                 })
             }),
             accuracy,
@@ -1546,7 +1563,9 @@ impl ShootingProblem {
     }
     fn original_completion(&self, report: &ShootingReport) -> super::numerics::Completed {
         super::numerics::original_completion(
-            self.original_candidate(report), self.completion_evidence(report, &[]), &self.numerics.policy,
+            self.original_candidate(report),
+            self.completion_evidence(report, &[]),
+            &self.numerics.policy,
         )
     }
     fn assess_completion(&self, report: &mut ShootingReport) {
@@ -1554,16 +1573,25 @@ impl ShootingProblem {
             .trajectory
             .as_ref()
             .map(|trajectory| trajectory.assess_endpoint(&self.experiment.profile));
-        let accuracy = self.numerics.policy.goals.iter().cloned().map(|goal| {
-            pse_math::engineering_accuracy::GoalResult::unavailable(
-                goal, pse_model::generated::enums::AccuracyUnavailableReason::Unsupported,
-            )
-        }).collect::<Vec<_>>();
+        let accuracy = self
+            .numerics
+            .policy
+            .goals
+            .iter()
+            .cloned()
+            .map(|goal| {
+                pse_math::engineering_accuracy::GoalResult::unavailable(
+                    goal,
+                    pse_model::generated::enums::AccuracyUnavailableReason::Unsupported,
+                )
+            })
+            .collect::<Vec<_>>();
         report.completion = super::numerics::complete(
             self.original_candidate(report),
             self.completion_evidence(report, &accuracy),
             &self.numerics.policy,
-        ).with_context(&self.numerics);
+        )
+        .with_context(&self.numerics);
     }
     pub(super) fn encoding_bytes(
         &self,
@@ -1661,14 +1689,24 @@ impl ShootingReport {
                 * size_of::<pse_model::generated::enums::CandidateQualifier>()
             + self.completion.decision.refusals.capacity()
                 * size_of::<pse_model::generated::enums::CandidateRefusal>()
-            + self.completion.accuracy.capacity() * size_of::<pse_math::engineering_accuracy::GoalResult>()
-            + self.completion.accuracy.iter().map(|goal| {
-                HeapUsage::heap_bytes(&goal.goal)
-                    + goal.evidence.as_ref().map_or(0, |evidence| evidence.limitation.capacity())
-                    + goal.work_demand.as_ref().map_or(0, |demand| {
-                        demand.rows.capacity() * size_of::<pse_math::engineering_accuracy::ResidualRowDemand>()
-                    })
-            }).sum::<usize>()
+            + self.completion.accuracy.capacity()
+                * size_of::<pse_math::engineering_accuracy::GoalResult>()
+            + self
+                .completion
+                .accuracy
+                .iter()
+                .map(|goal| {
+                    HeapUsage::heap_bytes(&goal.goal)
+                        + goal
+                            .evidence
+                            .as_ref()
+                            .map_or(0, |evidence| evidence.limitation.capacity())
+                        + goal.work_demand.as_ref().map_or(0, |demand| {
+                            demand.rows.capacity()
+                                * size_of::<pse_math::engineering_accuracy::ResidualRowDemand>()
+                        })
+                })
+                .sum::<usize>()
             + (self.candidate.as_ref().map_or(0, Vec::capacity)
                 + self.constraint_values.as_ref().map_or(0, Vec::capacity)
                 + self.parameters.as_ref().map_or(0, Vec::capacity)

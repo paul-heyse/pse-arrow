@@ -493,19 +493,25 @@ impl ModelingSimulation {
                 drop(worker);
                 let mut accuracy_charges = Vec::new();
                 if let Some(admission) = &accuracy_admission {
-                    accuracy_charges.push(accuracy::complete_dynamic_attempt(admission, prepared.key, 0)?);
+                    accuracy_charges.push(accuracy::complete_dynamic_attempt(
+                        admission,
+                        prepared.key,
+                        0,
+                    )?);
                 }
                 let report = native_result?;
                 let checks = prepared.check_samples(run_id, &report, &prepared.parameters, &scope);
                 let (mut report, checks, accuracy) = prepared.assess_dynamic_accuracy(
-                    run_id,
                     report,
                     checks,
-                    &scope,
-                    flag,
-                    progress.clone(),
-                    accuracy_admission,
-                    accuracy_charges,
+                    accuracy::DynamicAttemptContext {
+                        run_id,
+                        scope: &scope,
+                        flag,
+                        progress: progress.clone(),
+                        admission: accuracy_admission,
+                        charges: &mut accuracy_charges,
+                    },
                 )?;
                 if !prepared.numerics().policy.goals.is_empty() {
                     (report.progress, report.dropped_progress) = progress.snapshot();
@@ -524,9 +530,17 @@ impl ModelingSimulation {
                     })
                     .and_then(|n| n.checked_add(4 << 20))
                     .and_then(|n| n.checked_add(accuracy::retained_bytes(&accuracy)))
-                    .and_then(|n| n.checked_add(report.statistics.iter()
-                        .map(|entry| serde_json::to_vec(entry).map_or(0, |bytes| bytes.len()))
-                        .sum::<usize>()))
+                    .and_then(|n| {
+                        n.checked_add(
+                            report
+                                .statistics
+                                .iter()
+                                .map(|entry| {
+                                    serde_json::to_vec(entry).map_or(0, |bytes| bytes.len())
+                                })
+                                .sum::<usize>(),
+                        )
+                    })
                     .ok_or(crate::math::MathRuntimeError::Limit(
                         "modeling trajectory extent",
                     ))?;
@@ -563,7 +577,8 @@ impl ModelingSimulation {
                 accuracy: &accuracy,
             },
             &self.numerics().policy,
-        ).with_context(self.numerics());
+        )
+        .with_context(self.numerics());
         let header = crate::workflow::completion::simulation_header(
             run_id,
             self,
@@ -1452,15 +1467,16 @@ impl ModelingPackage {
         let accuracy_values = if accuracy_rows.is_empty() {
             BTreeMap::new()
         } else {
-            let observed = self.observe_registered(
-                model.clone(),
-                accuracy_rows,
-                values.clone(),
-                compiler,
-                providers.clone(),
-                cancel,
-            )
-            .await?;
+            let observed = self
+                .observe_registered(
+                    model.clone(),
+                    accuracy_rows,
+                    values.clone(),
+                    compiler,
+                    providers.clone(),
+                    cancel,
+                )
+                .await?;
             observed.iter().map(|(id, value)| (*id, *value)).collect()
         };
         let mut numerical_inputs = crate::math::solves::NumericalInputs::default();
@@ -2080,12 +2096,19 @@ impl ModelingPackage {
                 )
             })
             .ok_or_else(|| contract_error("dynamic check storage"))?;
-        let accuracy_bytes = profile.numerics.goals.iter().try_fold(0usize, |bytes, goal| {
-            bytes.checked_add(size_of::<pse_math::engineering_accuracy::GoalResult>() * 2)
-                .and_then(|n| n.checked_add(goal.provenance.len().checked_mul(2)?))
-                .and_then(|n| n.checked_add(2048))
-        }).ok_or_else(|| contract_error("dynamic accuracy goal storage"))?;
-        let bytes = bytes.checked_add(accuracy_bytes)
+        let accuracy_bytes = profile
+            .numerics
+            .goals
+            .iter()
+            .try_fold(0usize, |bytes, goal| {
+                bytes
+                    .checked_add(size_of::<pse_math::engineering_accuracy::GoalResult>() * 2)
+                    .and_then(|n| n.checked_add(goal.provenance.len().checked_mul(2)?))
+                    .and_then(|n| n.checked_add(2048))
+            })
+            .ok_or_else(|| contract_error("dynamic accuracy goal storage"))?;
+        let bytes = bytes
+            .checked_add(accuracy_bytes)
             .ok_or_else(|| contract_error("dynamic accuracy goal storage"))?;
         Ok(ModelingSimulation {
             solved: model.solved(),
@@ -2478,99 +2501,212 @@ mod tests {
     }
     #[tokio::test]
     async fn goal_accuracy_dynamic_shares_one_real_comparator_for_samples_endpoint_and_integral() {
-        use pse_model::generated::enums::{AccuracyGoalSubject, AccuracyGoalUse,
-            AccuracyObservation, NumericalAccuracyClass};
+        use pse_model::generated::enums::{
+            AccuracyGoalSubject, AccuracyGoalUse, AccuracyObservation, NumericalAccuracyClass,
+        };
         let runtime = super::super::super::tests::runtime();
         let cancel = crate::CancelSource::new();
         let rows = pse_authoring::language::parse(
             "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == -x[i]/1{s}; eq initial: x[0{s}] == 1{s}; let clock[i in t]: Scalar = abs(i/1{s}-0.5); let state_view[i in t]: Time = 2*x[i]; let area:Time=integral(i in t | x[i]/1{s}); annotation report clock(\"point output\"); annotation report state_view(\"state-derived output\"); annotation report area(\"integral\"); } }",
             SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default()).unwrap();
-        let root = rows.iter().find(|r| r.name == "Root").unwrap().declaration_id;
+        let root = rows
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
         let package = runtime.modeling_package(rows, physical()).unwrap();
         let compiler = super::super::super::tests::compiler_profile();
-        let profile = native::Profile { method: native::Method::Diffsol,
-            samples: vec![0.,0.5,1.], rtol: 0.02, atol: vec![0.001],
-            out_rtol: Some(0.02), out_atol: vec![0.001], ..Default::default() };
-        let prepare = |profile| package.prepare_simulation(root,
-            pse_modeling::specialize::root_instance(root), Bindings::default(), Limits::default(),
-            ModelingCaseBindings::default(), compiler, profile, DerivativeOrder::First, &cancel);
+        let profile = native::Profile {
+            method: native::Method::Diffsol,
+            samples: vec![0., 0.5, 1.],
+            rtol: 0.02,
+            atol: vec![0.001],
+            out_rtol: Some(0.02),
+            out_atol: vec![0.001],
+            ..Default::default()
+        };
+        let prepare = |profile| {
+            package.prepare_simulation(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                compiler,
+                profile,
+                DerivativeOrder::First,
+                &cancel,
+            )
+        };
         let base = prepare(profile.clone()).await.unwrap();
         let ordinary = base.run(&cancel).await.unwrap();
         assert!(ordinary.completion().accuracy.is_empty());
-        assert!(!ordinary.report().progress.iter().any(|e| e.phase == "accuracy.dynamic.comparator"));
+        assert!(
+            !ordinary
+                .report()
+                .progress
+                .iter()
+                .any(|e| e.phase == "accuracy.dynamic.comparator")
+        );
         let state = base.contract.states[0];
         let integral = base.contract.quadratures[0];
-        let symbol_named = |suffix: &str| base.model().compiled().model.symbols.values()
-            .find(|symbol| symbol.lineage.path.ends_with(suffix)).map(|symbol| symbol.id)
-            .unwrap_or_else(|| panic!("missing dynamic output {suffix}"));
+        let symbol_named = |suffix: &str| {
+            base.model()
+                .compiled()
+                .model
+                .symbols
+                .values()
+                .find(|symbol| symbol.lineage.path.ends_with(suffix))
+                .map(|symbol| symbol.id)
+                .unwrap_or_else(|| panic!("missing dynamic output {suffix}"))
+        };
         let clock = symbol_named(".clock");
         let state_view = symbol_named(".state_view");
         let mut requested = profile;
-        for (index,target,observation) in [
-            (1,clock,AccuracyObservation::Sample),
-            (2,clock,AccuracyObservation::Endpoint),
-            (3,state,AccuracyObservation::Sample),
-            (4,state,AccuracyObservation::Endpoint),
-            (5,state_view,AccuracyObservation::Sample),
-            (6,integral,AccuracyObservation::Integrated),
-        ]
-        {
-            let pse_modeling::Type::Quantity(q) = &base.model().compiled().model.symbols[&target].ty else { panic!("physical target"); };
-            let quantity = q.resolve(&base.quantities,&BTreeMap::new()).unwrap();
-            let unit = base.quantities.quantity_type(quantity).unwrap().canonical_unit;
-            requested.numerics.goals.push(pse_model::engineering_accuracy::AccuracyGoal {
-                goal_id: pse_ids::named_id(target,&format!("engineering-observation-{index}")).into(),
-                model_id: None, case_id: None, instance_id: None, fit_id: None,
-                target_id: target, target_kind: if target == state { NumericalTarget::Variable } else { NumericalTarget::Observable },
-                quantity_id: quantity.as_id(), unit_id: unit.as_id(), subject: AccuracyGoalSubject::SelectedOutput,
-                observation, time: (observation == AccuracyObservation::Sample).then_some(0.5),
-                resolution: Some(1.), criterion_lower: None, criterion_upper: Some(2.),
-                required_class: NumericalAccuracyClass::Estimated,
-                use_policy: if target == clock { AccuracyGoalUse::RequireSatisfied } else { AccuracyGoalUse::Assess },
-                refine: false, source: NumericalSource::Analysis, priority: 0, provenance: "Process-scale time output decision".into(),
-            });
+        for (index, target, observation) in [
+            (1, clock, AccuracyObservation::Sample),
+            (2, clock, AccuracyObservation::Endpoint),
+            (3, state, AccuracyObservation::Sample),
+            (4, state, AccuracyObservation::Endpoint),
+            (5, state_view, AccuracyObservation::Sample),
+            (6, integral, AccuracyObservation::Integrated),
+        ] {
+            let pse_modeling::Type::Quantity(q) =
+                &base.model().compiled().model.symbols[&target].ty
+            else {
+                panic!("physical target");
+            };
+            let quantity = q.resolve(&base.quantities, &BTreeMap::new()).unwrap();
+            let unit = base
+                .quantities
+                .quantity_type(quantity)
+                .unwrap()
+                .canonical_unit;
+            requested
+                .numerics
+                .goals
+                .push(pse_model::engineering_accuracy::AccuracyGoal {
+                    goal_id: pse_ids::named_id(target, &format!("engineering-observation-{index}"))
+                        .into(),
+                    model_id: None,
+                    case_id: None,
+                    instance_id: None,
+                    fit_id: None,
+                    target_id: target,
+                    target_kind: if target == state {
+                        NumericalTarget::Variable
+                    } else {
+                        NumericalTarget::Observable
+                    },
+                    quantity_id: quantity.as_id(),
+                    unit_id: unit.as_id(),
+                    subject: AccuracyGoalSubject::SelectedOutput,
+                    observation,
+                    time: (observation == AccuracyObservation::Sample).then_some(0.5),
+                    resolution: Some(1.),
+                    criterion_lower: None,
+                    criterion_upper: Some(2.),
+                    required_class: NumericalAccuracyClass::Estimated,
+                    use_policy: if target == clock {
+                        AccuracyGoalUse::RequireSatisfied
+                    } else {
+                        AccuracyGoalUse::Assess
+                    },
+                    refine: false,
+                    source: NumericalSource::Analysis,
+                    priority: 0,
+                    provenance: "Process-scale time output decision".into(),
+                });
         }
         let prepared = prepare(requested).await.unwrap();
         let joined = prepared.run(&cancel).await.unwrap();
-        assert!(!joined.accepted(), "the unresolved integrated goal must remain visible");
-        assert_eq!(joined.report().termination, native::Termination::Completed,
-            "the successful base trajectory remains available despite unresolved Assess evidence");
-        assert_eq!(joined.completion().accuracy.len(),6);
-        let provider_sources = prepared.programs.iter().map(|program| (
-            program.function,
-            super::accuracy::function_provider_ids(program, &super::accuracy::function_row_ids(program)).unwrap(),
-        )).filter(|(_, ids)| !ids.is_empty()).collect::<Vec<_>>();
-        let work_charges = joined.report().statistics.iter()
-            .filter(|entry| entry.get("accuracy_work_charges").is_some()).collect::<Vec<_>>();
-        let clock_stage = super::accuracy::recorded_point_stage(clock);
+        assert!(
+            !joined.accepted(),
+            "the unresolved integrated goal must remain visible"
+        );
+        assert_eq!(
+            joined.report().termination,
+            native::Termination::Completed,
+            "the successful base trajectory remains available despite unresolved Assess evidence"
+        );
+        assert_eq!(joined.completion().accuracy.len(), 6);
         for observation in [AccuracyObservation::Sample, AccuracyObservation::Endpoint] {
-            let selected = joined.completion().accuracy.iter()
-                .find(|goal| goal.goal.target_id == clock && goal.goal.observation == observation).unwrap();
-            assert_eq!(selected.classification.status, pse_model::generated::enums::AccuracyGoalStatus::Satisfied,
-                "state-independent dynamic {observation:?} goal did not satisfy; point stage={clock_stage:?}; providers by function={provider_sources:?}; work charges={work_charges:#?}; completion={:#?}", joined.completion());
-            assert!(selected.evidence.as_ref().is_some_and(|e| e.accuracy.class == NumericalAccuracyClass::Estimated));
+            let selected = joined
+                .completion()
+                .accuracy
+                .iter()
+                .find(|goal| goal.goal.target_id == clock && goal.goal.observation == observation)
+                .unwrap();
+            assert_eq!(
+                selected.classification.status,
+                pse_model::generated::enums::AccuracyGoalStatus::Satisfied,
+                "state-independent dynamic {observation:?} goal did not satisfy; completion={:#?}",
+                joined.completion()
+            );
+            assert!(
+                selected
+                    .evidence
+                    .as_ref()
+                    .is_some_and(|e| e.accuracy.class == NumericalAccuracyClass::Estimated)
+            );
         }
         for (target, observation) in [
             (state, AccuracyObservation::Sample),
             (state, AccuracyObservation::Endpoint),
             (state_view, AccuracyObservation::Sample),
         ] {
-            let selected = joined.completion().accuracy.iter()
-                .find(|goal| goal.goal.target_id == target && goal.goal.observation == observation).unwrap();
-            assert_eq!(selected.classification.unavailable,
+            let selected = joined
+                .completion()
+                .accuracy
+                .iter()
+                .find(|goal| goal.goal.target_id == target && goal.goal.observation == observation)
+                .unwrap();
+            assert_eq!(
+                selected.classification.unavailable,
                 Some(pse_model::generated::enums::AccuracyUnavailableReason::EvaluatorUncertainty),
-                "state-derived {target} {observation:?} must retain generated affine-rate uncertainty");
+                "state-derived {target} {observation:?} must retain generated affine-rate uncertainty"
+            );
         }
-        let integrated = joined.completion().accuracy.iter()
-            .find(|goal| goal.goal.observation == AccuracyObservation::Integrated).unwrap();
-        assert_eq!(integrated.classification.unavailable,
-            Some(pse_model::generated::enums::AccuracyUnavailableReason::EvaluatorUncertainty));
-        assert_eq!(joined.report().progress.iter().filter(|e| e.phase == "accuracy.dynamic.comparator").count(),1);
-        assert_eq!(joined.report().statistics.iter().filter(|s| s["accuracy_occurrence"] == 1).count(),1);
-        assert_eq!(prepared.profile.numerics.goals[0].resolution,Some(1.));
-        assert_eq!(prepared.profile.rtol,0.02);
-        assert_eq!(joined.report().samples.iter().map(|s| s.time).collect::<Vec<_>>(),vec![0.,0.5,1.]);
+        let integrated = joined
+            .completion()
+            .accuracy
+            .iter()
+            .find(|goal| goal.goal.observation == AccuracyObservation::Integrated)
+            .unwrap();
+        assert_eq!(
+            integrated.classification.unavailable,
+            Some(pse_model::generated::enums::AccuracyUnavailableReason::EvaluatorUncertainty)
+        );
+        assert_eq!(
+            joined
+                .report()
+                .progress
+                .iter()
+                .filter(|e| e.phase == "accuracy.dynamic.comparator")
+                .count(),
+            1
+        );
+        assert_eq!(
+            joined
+                .report()
+                .statistics
+                .iter()
+                .filter(|s| s["accuracy_occurrence"] == 1)
+                .count(),
+            1
+        );
+        assert_eq!(prepared.profile.numerics.goals[0].resolution, Some(1.));
+        assert_eq!(prepared.profile.rtol, 0.02);
+        assert_eq!(
+            joined
+                .report()
+                .samples
+                .iter()
+                .map(|s| s.time)
+                .collect::<Vec<_>>(),
+            vec![0., 0.5, 1.]
+        );
     }
     #[tokio::test]
     async fn trajectory_transport_shares_completion_retries_budget_and_retains_escaped_batches() {

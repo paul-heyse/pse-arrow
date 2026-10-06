@@ -1045,8 +1045,14 @@ pub(in crate::workflow) fn result_bytes(
         .and_then(|n| n.checked_add(prepared.model.model.compiled().admitted.outputs.len() * 128))
         .ok_or_else(|| contract("modeling result extent"))?;
     use pse_model::HeapUsage;
-    let accuracy = prepared.solve.numerics().policy.goals.iter().try_fold(0usize, |n, goal| {
-        n.checked_add(size_of::<pse_math::engineering_accuracy::GoalResult>())?
+    let accuracy = prepared
+        .solve
+        .numerics()
+        .policy
+        .goals
+        .iter()
+        .try_fold(0usize, |n, goal| {
+            n.checked_add(size_of::<pse_math::engineering_accuracy::GoalResult>())?
             .checked_add(size_of::<pse_model::engineering_accuracy::OutputEvidence>())?
             .checked_add(goal.heap_bytes())?
             .checked_add(prepared.model.case.compiled().plan.structure().rows().len()
@@ -1054,8 +1060,11 @@ pub(in crate::workflow) fn result_bytes(
             // Producer limitations are bounded literals; reserve the longest class
             // description and its copied completion projection once per retained goal.
             .checked_add(1024)
-    }).ok_or_else(|| contract("modeling accuracy result extent"))?;
-    bytes.checked_add(accuracy).ok_or_else(|| contract("modeling result extent"))
+        })
+        .ok_or_else(|| contract("modeling accuracy result extent"))?;
+    bytes
+        .checked_add(accuracy)
+        .ok_or_else(|| contract("modeling result extent"))
 }
 impl ModelingResult {
     #[expect(

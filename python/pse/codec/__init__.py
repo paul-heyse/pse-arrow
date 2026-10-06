@@ -147,10 +147,15 @@ def render_errors(exc: Exception) -> list[str]:
 
 
 def _version_children(info: msgspec.inspect.Type) -> tuple[msgspec.inspect.Type, ...]:
-    if isinstance(info, (
-        msgspec.inspect.StructType, msgspec.inspect.TypedDictType,
-        msgspec.inspect.DataclassType, msgspec.inspect.NamedTupleType,
-    )):
+    if isinstance(
+        info,
+        (
+            msgspec.inspect.StructType,
+            msgspec.inspect.TypedDictType,
+            msgspec.inspect.DataclassType,
+            msgspec.inspect.NamedTupleType,
+        ),
+    ):
         return tuple(field.type for field in info.fields)
     if isinstance(info, msgspec.inspect.UnionType):
         return info.types
@@ -192,20 +197,27 @@ def _check_version_headers(
         expected = getattr(info.cls, "_pse_required_version", None)
         if expected is not None:
             if "version" not in value:
-                raise msgspec.ValidationError(
-                    f"Missing required document version - at `{path}.version`"
-                )
+                message = f"Missing required document version - at `{path}.version`"
+                raise msgspec.ValidationError(message)
             version = value["version"]
-            if not isinstance(version, int) or isinstance(version, bool) or version != expected:
-                raise msgspec.ValidationError(
-                    f"Unsupported document version (current: {expected}) - at `{path}.version`"
+            if (
+                not isinstance(version, int)
+                or isinstance(version, bool)
+                or version != expected
+            ):
+                message = (
+                    f"Unsupported document version (current: {expected}) "
+                    f"- at `{path}.version`"
                 )
+                raise msgspec.ValidationError(message)
         for field in info.fields:
             if field.encode_name in value:
                 _check_version_headers(
                     value[field.encode_name], field.type, f"{path}.{field.encode_name}"
                 )
-    elif isinstance(info, (msgspec.inspect.TypedDictType, msgspec.inspect.DataclassType)) and isinstance(value, dict):
+    elif isinstance(
+        info, (msgspec.inspect.TypedDictType, msgspec.inspect.DataclassType)
+    ) and isinstance(value, dict):
         for field in info.fields:
             if field.encode_name in value:
                 _check_version_headers(
@@ -221,7 +233,9 @@ def _check_version_headers(
         for index, item in enumerate(value):
             _check_version_headers(item, info.item_type, f"{path}[{index}]")
     elif isinstance(info, msgspec.inspect.TupleType) and isinstance(value, list):
-        for index, (item, item_type) in enumerate(zip(value, info.item_types, strict=False)):
+        for index, (item, item_type) in enumerate(
+            zip(value, info.item_types, strict=False)
+        ):
             _check_version_headers(item, item_type, f"{path}[{index}]")
 
 

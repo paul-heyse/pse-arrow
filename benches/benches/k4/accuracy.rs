@@ -1,37 +1,51 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Same authored root with ordinary, separated-decision and refinement consumers.
+use super::k4_support as support;
 use super::*;
-#[path = "support.rs"]
-mod support;
 use pse_kernels::DerivativeOrder;
 use pse_relations::{columnar::RelationRow, generated::runtime::accuracy_goal_assessments};
 use pse_runtime::{math::solves::NumericalInputs, workflow::ModelingAnalysis};
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, io::Write};
 
-pub(super) fn measure(c: &mut Criterion, spec: &Value, output: &std::path::Path,
-    phases: &phases::Phases) {
+pub(super) fn measure(
+    c: &mut Criterion,
+    spec: &Value,
+    output: &std::path::Path,
+    phases: &phases::Phases,
+) {
     let name = spec["id"].as_str().unwrap();
     let goal = match spec["consumer"].as_str().unwrap() {
         "ordinary" => "",
-        "separated-decision" => "annotation accuracy_goal x(selected_output, steady, criterion_upper=10);",
+        "separated-decision" => {
+            "annotation accuracy_goal x(selected_output, steady, criterion_upper=10);"
+        }
         "refinement" => "annotation accuracy_goal x(selected_output, steady, resolution=0.1);",
         other => panic!("unknown accuracy consumer {other}"),
     };
     // This small scalar control isolates goal work. Its equation, initial point,
     // physical defaults and original acceptance remain identical in all three cases.
-    let source = format!("package k4 {{ def Root {{ var x:Scalar; eq root:0.0001*(x*x-4)==0; annotation start x(1); annotation report x(\"x\"); {goal} }} }}");
+    let source = format!(
+        "package k4 {{ def Root {{ var x:Scalar; eq root:0.0001*(x*x-4)==0; annotation start x(1); annotation report x(\"x\"); {goal} }} }}"
+    );
     let sources = support::sources(&source);
-    let executor = tokio::runtime::Builder::new_multi_thread().worker_threads(1)
-        .enable_all().build().unwrap();
+    let executor = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .enable_all()
+        .build()
+        .unwrap();
     let records_name = format!("{name}-observations.jsonl");
-    let mut records = std::io::BufWriter::new(std::fs::File::create(output.join(&records_name)).unwrap());
+    let mut records =
+        std::io::BufWriter::new(std::fs::File::create(output.join(&records_name)).unwrap());
     let mut maxima = BTreeMap::<&str, u64>::new();
     let mut observations = 0_u64;
     let mut group = c.benchmark_group("process");
-    group.sample_size(10).sampling_mode(criterion::SamplingMode::Flat)
-        .warm_up_time(Duration::from_millis(1)).measurement_time(Duration::from_secs(1));
+    group
+        .sample_size(10)
+        .sampling_mode(criterion::SamplingMode::Flat)
+        .warm_up_time(Duration::from_millis(1))
+        .measurement_time(Duration::from_secs(1));
     group.bench_function(name, |b| b.iter_custom(|iterations| {
         let mut elapsed_total = Duration::ZERO;
         for _ in 0..iterations {
@@ -126,5 +140,9 @@ pub(super) fn measure(c: &mut Criterion, spec: &Value, output: &std::path::Path,
         "sampling":"10 flat Criterion samples; source admission and result observation outside timer",
         "process_rss_scope":"whole-process lifetime peak, including compiler/allocator and bounded observation streaming; runtime pool peak is the scoped measure",
         "scope":"scalar goal-work control; no production scale or general solver speed claim", "observations_file":records_name});
-    std::fs::write(output.join(format!("{name}-memory.json")), serde_json::to_vec_pretty(&record).unwrap()).unwrap();
+    std::fs::write(
+        output.join(format!("{name}-memory.json")),
+        serde_json::to_vec_pretty(&record).unwrap(),
+    )
+    .unwrap();
 }

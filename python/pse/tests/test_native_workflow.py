@@ -22,6 +22,7 @@ from pse.contracts import authored as a
 from pse.contracts import documents
 from pse.contracts import runtime as result_contracts
 from pse.contracts.enums import (
+    AccuracyGoalStatus,
     AttemptKind,
     AttemptState,
     CandidateQualifier,
@@ -36,6 +37,7 @@ from pse.contracts.enums import (
     NativeQualification,
     NativeSolveIntent,
     NativeTermination,
+    NumericalAccuracyClass,
     NumericalCompositionPolicy,
     NumericalEventKind,
     NumericalPosition,
@@ -259,43 +261,59 @@ def test_contextual_accuracy_native_solve_admission_refuses_obsolete_request_ver
 def test_contextual_accuracy_retained_rust_python_arrow_outcomes_match_without_new_work(
     runtime: pse.Runtime, physical: pse.PhysicalContext
 ) -> None:
-    from pse.contracts.enums import AccuracyGoalStatus, NumericalAccuracyClass
-
     package = runtime.modeling_from_documents(
-        [package_documents(
-            "package accuracy { def Root { var x:Scalar; eq balance:x==3; "
-            "annotation start x(0); annotation accuracy_goal x(selected_output, steady, "
-            "resolution=0.1); } }"
-        )],
+        [
+            package_documents(
+                "package accuracy { def Root { var x:Scalar; eq balance:x==3; "
+                "annotation start x(0); "
+                "annotation accuracy_goal x(selected_output, steady, "
+                "resolution=0.1); } }"
+            )
+        ],
         physical,
     )
-    root = next(row.declaration_id for row in package.declarations() if row.name == "Root")
-    prepared = package.prepare_solve(root, pse.SolveSettings(
-        intent=NativeSolveIntent.ROOT, backend=NativeBackend.KINSOL,
-        presolve=PresolvePolicyKind.OFF,
-    ))
+    root = next(
+        row.declaration_id for row in package.declarations() if row.name == "Root"
+    )
+    prepared = package.prepare_solve(
+        root,
+        pse.SolveSettings(
+            intent=NativeSolveIntent.ROOT,
+            backend=NativeBackend.KINSOL,
+            presolve=PresolvePolicyKind.OFF,
+        ),
+    )
     result = runtime.start([prepared]).wait()
     assert result.usable
     completion_before = codec.encode_json(result.completion)
-    work_before = pa.RecordBatchReader.from_stream(
-        result.table("runtime.solve_strategy_events")
-    ).read_all().to_pylist()
+    work_before = (
+        pa.RecordBatchReader.from_stream(result.table("runtime.solve_strategy_events"))
+        .read_all()
+        .to_pylist()
+    )
     retained = result.accuracy_goals
     assert len(retained) == 1
     assert retained[0].status is AccuracyGoalStatus.SATISFIED
     assert retained[0].accuracy_class is NumericalAccuracyClass.ESTIMATED
-    assert retained[0].error is not None and 0 < retained[0].error <= 0.1
+    assert retained[0].error is not None
+    assert 0 < retained[0].error <= 0.1
     rows = codec.structure_rows(
-        pa.RecordBatchReader.from_stream(result.table("runtime.accuracy_goal_assessments"))
-        .read_all().to_pylist(),
+        pa.RecordBatchReader.from_stream(
+            result.table("runtime.accuracy_goal_assessments")
+        )
+        .read_all()
+        .to_pylist(),
         result_contracts.RuntimeAccuracyGoalAssessmentsRow,
     )
     assert tuple(rows) == retained == result.completion.accuracy_goals
     assert result.accuracy_goals == retained
     assert codec.encode_json(result.completion) == completion_before
-    assert pa.RecordBatchReader.from_stream(
-        result.table("runtime.solve_strategy_events")
-    ).read_all().to_pylist() == work_before
+    assert (
+        pa.RecordBatchReader.from_stream(result.table("runtime.solve_strategy_events"))
+        .read_all()
+        .to_pylist()
+        == work_before
+    )
 
 
 @pytest.mark.integration

@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Paired admitted studies: identical source/order/profile/policy, fresh runtime per iteration.
+use super::k4_support as support;
 use super::*;
-#[path = "support.rs"]
-mod support;
 use pse_model::{
     generated::enums::{ModelingAnalysisRoute, StudyPointState},
     scalars::FiniteBound,

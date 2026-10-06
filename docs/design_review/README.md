@@ -15,5 +15,18 @@ findings have one disposition owner in the relevant plan. A review stays here wh
 or a pending decision depends on it and then retires to Git history (ADR-0096); retained ADRs
 cite retired reviews as `git:<commit>:<path>`.
 
-`evidence/` keeps two pinned Arrow/DataFusion characterization probes that the
-[capability maps](../capability-maps/README.md) cite for library behavior.
+The [unified SurrealDB simulation-substrate follow-up](reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md)
+examines canonical problem, dependency, run and result storage with durable runs by default,
+targeted compilation and connected pre/post-simulation queries. It reassesses every finding
+and the architectural recommendation of the earlier efficiency review.
+Current accepted changes, work sequence and dispositions for both reviews belong to
+[Plan 28](../plans/28-surrealdb-unified-substrate.md). Its confirmed clean rebuild/native-query
+decisions supersede the review's legacy-preservation and optional SQL transition assumptions.
+
+The earlier [execution-efficiency and SurrealDB review](reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md)
+assesses build turnaround, model preparation and execution, source and study lifecycles, and
+database alternatives against Core 3.4 and the efficiency heuristics. Its recommendations
+are review evidence, not an implementation authorization.
+
+`evidence/` keeps supporting investigations and pinned Arrow/DataFusion characterization
+probes that the [capability maps](../capability-maps/README.md) cite for library behavior.

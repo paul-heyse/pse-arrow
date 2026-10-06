@@ -631,7 +631,8 @@ fn annotation(v: &crate::annotation::AnnotationValue) -> usize {
         A::Valid { lower, upper, .. } => expression(lower) + expression(upper),
         A::Check(p) => predicate(p),
         A::AccuracyGoal(goal) => {
-            ty(&goal.quantity)
+            size_of::<crate::annotation::AccuracyGoal>()
+                + ty(&goal.quantity)
                 + goal.time.as_ref().map_or(0, expression)
                 + goal.resolution.as_ref().map_or(0, expression)
                 + goal.criterion_lower.as_ref().map_or(0, expression)

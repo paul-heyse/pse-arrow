@@ -190,10 +190,10 @@ memory and attempt/work allowance. With insufficient allowance, return unresolve
 
 | Package | Required input | Delivery, owner and deletion | Progress |
 |---|---|---|---|
-| B1 — Evidence interpretation | Settled A0 goals and C0 boundary route | Math/model owner adds validity-bearing physical output evidence and pure classification inputs using existing accuracy products. Retire adapters that treat a residual/native success as output evidence. Targeted `engineering_accuracy_evidence` controls | in progress |
-| B2 — Influence/allocation | Working A2/A3 and B1 | Math owner implements compatible physical transports, conservative/estimated composition, outward Certified arithmetic and observed-contribution allocation. Reuse ErrorAmplification and composite ownership. Targeted `goal_error_allocation` controls | in progress |
-| B3 — Static/nested producers | Working B2 and complete selected goal dependencies | Native/math owners add square/KKT output actions, qualified objective intervals and consuming demands for implicit/reconstruction chains. Delete automatic point/action mappings from bound budgets/stationarity once migrated; preserve independent selection proof. Targeted `goal_accuracy_static` controls | in progress |
-| B4 — Dynamics/integrals | Working B2 and dynamic location binding from A3 | Dynamic owner adds bounded comparator/consumer allocation, actual observation correspondence and uncertainty retention. Retire any interpretation of local tolerance or closure residual as global output error. Targeted `goal_accuracy_dynamic` controls | in progress |
+| B1 — Evidence interpretation | Settled A0 goals and C0 boundary route | Math/model owner adds validity-bearing physical output evidence and pure classification inputs using existing accuracy products. Retire adapters that treat a residual/native success as output evidence. Targeted `engineering_accuracy_evidence` controls | done |
+| B2 — Influence/allocation | Working A2/A3 and B1 | Math owner implements compatible physical transports, conservative/estimated composition, outward Certified arithmetic and observed-contribution allocation. Reuse ErrorAmplification and composite ownership. Targeted `goal_error_allocation` controls | done |
+| B3 — Static/nested producers | Working B2 and complete selected goal dependencies | Native/math owners add square/KKT output actions, qualified objective intervals and consuming demands for implicit/reconstruction chains. Delete automatic point/action mappings from bound budgets/stationarity once migrated; preserve independent selection proof. Targeted `goal_accuracy_static` controls | done |
+| B4 — Dynamics/integrals | Working B2 and dynamic location binding from A3 | Dynamic owner adds bounded comparator/consumer allocation, actual observation correspondence and uncertainty retention. Retire any interpretation of local tolerance or closure residual as global output error. Targeted `goal_accuracy_dynamic` controls | done |
 
 The shared math/registry owners integrate B1/B2 before producer branches. B3 and B4 can be
 implemented independently after their working contracts exist, with coordinated shared files.
@@ -228,8 +228,8 @@ No new native execution or measurement occurred during authoring. Local B comple
 its stated products; end-to-end usefulness and performance require C/25k evidence.
 
 Execution checkpoint, 2026-10-05: B1/B2 interpretation and allocation are implemented
-with focused controls. B3 regular-square, KKT and objective producers are being integrated
-with original-program interval arithmetic. The producer review exposed that output
+with focused controls. B3 regular-square, KKT and objective producers consume
+original-program interval arithmetic. The producer review exposed that output
 representational spacing alone cannot account for residual/Jacobian evaluation error.
 The correction reuses bounded IBEX point evaluation of the existing authored program,
 including the required derivative order, and propagates its actual uncertainty through
@@ -239,12 +239,11 @@ receipt for its actual original coordinate enclosure; authored outputs consume i
 values over that whole box. Partial reconstruction does not certify retained free
 coordinates. B4's shared comparator and observation correspondence are implemented.
 Its focused review identified missing authored evaluation uncertainty and shared attempt
-accounting, plus optional failure and comparator retention corrections. Those repairs
-precede acceptance of the dynamic producer. The native original-square refinement reaches its
+accounting, plus optional failure and comparator retention corrections. Those repairs are implemented with focused positive and refusal controls. The native original-square refinement reaches its
 requested resolution with frozen acceptance and adapter-owned work projection. Dynamic
 state-dependent evidence remains unavailable when the generated affine-rate supplier has no
 arithmetic enclosure; provider-free time/parameter outputs are the bounded positive comparator
-scope. Real dynamic and selected-root journeys remain to be validated together. No universal
+scope. Real dynamic and selected-root journeys pass separately; their combined selection precedes the stable handoff. No universal
 certificate or performance claim follows from these implementations.
 
 ## Outcome (recorded after implementation)

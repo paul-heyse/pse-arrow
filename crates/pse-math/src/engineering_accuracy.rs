@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Physical goal classification and contributor demands; this module executes no solver.
 use crate::MathError;
+use pse_ids::{ContentHash, SemanticId};
 use pse_model::engineering_accuracy::{AccuracyGoal, BoundGoal, OutputEvidence};
 use pse_model::generated::enums::{
     AccuracyCriterionStatus as Criterion, AccuracyEvidenceInterpretation as Interpretation,
@@ -9,7 +10,6 @@ use pse_model::generated::enums::{
     AccuracyResolutionStatus as Resolution, AccuracyUnavailableReason as Unavailable,
 };
 use pse_model::strategy::{AccuracyClass, AccuracyDemand, AccuracyEvidence};
-use pse_ids::{ContentHash, SemanticId};
 
 /// One physical original-row residual allowance derived from a local output adjoint.
 /// It is operational work guidance only and grants no feasibility permission.
@@ -266,7 +266,11 @@ pub struct GoalFailure {
 impl GoalFailure {
     /// Retain the original cause and producer-reported extent.
     pub fn new(cause: pse_model::diagnostic::DiagnosticCause, bytes: usize) -> Self {
-        Self { cause: std::sync::Arc::new(cause), bytes, owner: None }
+        Self {
+            cause: std::sync::Arc::new(cause),
+            bytes,
+            owner: None,
+        }
     }
     /// Attach runtime accounting without changing diagnostic or semantic ownership.
     pub fn with_owner(mut self, owner: std::sync::Arc<dyn crate::AllocationOwner>) -> Self {
@@ -368,10 +372,14 @@ impl GoalResult {
             method: e.map(|e| e.method),
             unavailable: self.classification.unavailable,
             limitation: e.map_or_else(
-                || self.failure.as_ref().map_or_else(
-                    || "requested output evidence unavailable".into(),
-                    |failure| format!("optional output evidence unavailable: {}", failure.cause),
-                ),
+                || {
+                    self.failure.as_ref().map_or_else(
+                        || "requested output evidence unavailable".into(),
+                        |failure| {
+                            format!("optional output evidence unavailable: {}", failure.cause)
+                        },
+                    )
+                },
                 |e| e.limitation.clone(),
             ),
         }
@@ -763,14 +771,20 @@ mod tests {
             integer: false,
             declared_tolerance: None,
         };
-        let converted = bind_goals(&registry, &[target.clone()], &[goal.clone()], &[]).unwrap();
+        let converted = bind_goals(
+            &registry,
+            std::slice::from_ref(&target),
+            &[goal.clone()],
+            &[],
+        )
+        .unwrap();
         assert!((converted[0].resolution.unwrap() - 0.1).abs() < 1e-12);
         assert!((converted[0].criterion_upper.unwrap() - 273.15).abs() < 1e-12);
         let mut request = goal.clone();
         request.resolution = Some(0.36);
         let selected = bind_goals(
             &registry,
-            &[target.clone()],
+            std::slice::from_ref(&target),
             &[goal.clone()],
             &[request.clone()],
         )
@@ -781,7 +795,7 @@ mod tests {
         assert!(
             bind_goals(
                 &registry,
-                &[target.clone()],
+                std::slice::from_ref(&target),
                 &[],
                 &[request.clone(), conflicting]
             )

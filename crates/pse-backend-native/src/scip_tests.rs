@@ -1999,27 +1999,79 @@ fn exact_optimal_objective_transport_requires_original_affine_source() {
     let registry = standard_registry().unwrap();
     let case = delicate(&registry);
     let native = case.program(&FactorableRequest::default());
-    let report = run_with(&case, &native, SolveIntent::Certify, false, false,
-        &ScipSettings {exact: true, ..ScipSettings::default()}, &Controls::default(),
-        &mut Retained::default()).unwrap();
-    let receipt = report.global.as_ref().unwrap().exact_objective_transport.as_ref().unwrap();
+    let report = run_with(
+        &case,
+        &native,
+        SolveIntent::Certify,
+        false,
+        false,
+        &ScipSettings {
+            exact: true,
+            ..ScipSettings::default()
+        },
+        &Controls::default(),
+        &mut Retained::default(),
+    )
+    .unwrap();
+    let receipt = report
+        .global
+        .as_ref()
+        .unwrap()
+        .exact_objective_transport
+        .as_ref()
+        .unwrap();
     let execution = Execution::new(Arc::new(AtomicBool::new(false)), &Controls::default());
-    let original = case.assembly.exact_value_factorable_program(&case.values, 256, &execution.cancel).unwrap();
+    let original = case
+        .assembly
+        .exact_value_factorable_program(&case.values, 256, &execution.cancel)
+        .unwrap();
     let point = &report.candidate.as_ref().unwrap().primal;
-    let enclosed = receipt.original_interval(&original, point, &execution).unwrap().unwrap();
+    let enclosed = receipt
+        .original_interval(&original, point, &execution)
+        .unwrap()
+        .unwrap();
     assert_eq!((enclosed.lower, enclosed.upper), (1., 1.));
     #[cfg(feature = "root-isolation")]
     {
         use crate::root_isolation::{Ibex, PointArithmeticEvidence};
-        assert!(case.assembly.point_arithmetic_program(&case.values, 256, &execution.cancel).unwrap().is_none(),
-            "discrete First arithmetic makes no derivative regularity claim");
-        let program = case.assembly.point_arithmetic_program_for_order(&case.values,
-            DerivativeOrder::Value, 256, &execution.cancel).unwrap().unwrap();
-        let bytes = Ibex.point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::Value).unwrap();
-        let region = point.iter().map(|v| pse_math::implicit::ProofInterval {lower: *v, upper: *v}).collect::<Vec<_>>();
-        let PointArithmeticEvidence::Enclosed {values, jacobian, hessian, work} =
-            Ibex.enclose_arithmetic_box_values_with_execution(&program, &region, bytes, &execution).unwrap()
-            else { panic!("actual discrete singleton Value arithmetic withheld"); };
+        assert!(
+            case.assembly
+                .point_arithmetic_program(&case.values, 256, &execution.cancel)
+                .unwrap()
+                .is_none(),
+            "discrete First arithmetic makes no derivative regularity claim"
+        );
+        let program = case
+            .assembly
+            .point_arithmetic_program_for_order(
+                &case.values,
+                DerivativeOrder::Value,
+                256,
+                &execution.cancel,
+            )
+            .unwrap()
+            .unwrap();
+        let bytes = Ibex
+            .point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::Value)
+            .unwrap();
+        let region = point
+            .iter()
+            .map(|v| pse_math::implicit::ProofInterval {
+                lower: *v,
+                upper: *v,
+            })
+            .collect::<Vec<_>>();
+        let PointArithmeticEvidence::Enclosed {
+            values,
+            jacobian,
+            hessian,
+            work,
+        } = Ibex
+            .enclose_arithmetic_box_values_with_execution(&program, &region, bytes, &execution)
+            .unwrap()
+        else {
+            panic!("actual discrete singleton Value arithmetic withheld");
+        };
         let objective = values[program.objective.unwrap()];
         assert!(objective.lower <= 1. && objective.upper >= 1.);
         assert!(jacobian.is_empty() && hessian.is_none());
@@ -2027,18 +2079,48 @@ fn exact_optimal_objective_transport_requires_original_affine_source() {
         assert_eq!(work.jacobian_evaluations + work.hessian_evaluations, 0);
     }
     let mut rational_mismatch = original.clone();
-    let constant = rational_mismatch.nodes.iter_mut().find(|node|
-        matches!(node, Node::Const(value) if value.value() == 1e9)).unwrap();
+    let constant = rational_mismatch
+        .nodes
+        .iter_mut()
+        .find(|node| matches!(node, Node::Const(value) if value.value() == 1e9))
+        .unwrap();
     *constant = Node::Const(Constant::Rational(Rational::new(1, 3)));
-    assert!(receipt.original_interval(&rational_mismatch, point, &execution).unwrap().is_none());
-    let mut bounds = original.clone(); bounds.rows[0].upper += 1.;
-    assert!(receipt.original_interval(&bounds, point, &execution).unwrap().is_none());
-    let mut other_point = point.clone(); other_point[0] += 1.;
-    assert!(receipt.original_interval(&original, &other_point, &execution).unwrap().is_none());
+    assert!(
+        receipt
+            .original_interval(&rational_mismatch, point, &execution)
+            .unwrap()
+            .is_none()
+    );
+    let mut bounds = original.clone();
+    bounds.rows[0].upper += 1.;
+    assert!(
+        receipt
+            .original_interval(&bounds, point, &execution)
+            .unwrap()
+            .is_none()
+    );
+    let mut other_point = point.clone();
+    other_point[0] += 1.;
+    assert!(
+        receipt
+            .original_interval(&original, &other_point, &execution)
+            .unwrap()
+            .is_none()
+    );
     execution.cancel.store(true, Ordering::Release);
-    assert!(matches!(receipt.original_interval(&original, point, &execution), Err(ProblemError::Cancelled)));
+    assert!(matches!(
+        receipt.original_interval(&original, point, &execution),
+        Err(ProblemError::Cancelled)
+    ));
     let float = run(&case, &native, SolveIntent::Certify, false, false).unwrap();
-    assert!(float.global.as_ref().unwrap().exact_objective_transport.is_none());
+    assert!(
+        float
+            .global
+            .as_ref()
+            .unwrap()
+            .exact_objective_transport
+            .is_none()
+    );
 }
 
 /// A price sequence on one commitment MILP: max Σ pₜ·xₜ − 3·Σ uₜ with xₜ ≤ 5uₜ,

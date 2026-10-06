@@ -91,8 +91,11 @@ pub trait KktOutputObserver: std::fmt::Debug {
     /// No protected evaluation or correction action may run here.
     /// # Errors
     /// Cancellation or finite storage admission failed.
-    fn defer(&mut self, artifact: DeferredKktAccuracy, execution: &Execution)
-        -> Result<(), ProblemError>;
+    fn defer(
+        &mut self,
+        artifact: DeferredKktAccuracy,
+        execution: &Execution,
+    ) -> Result<(), ProblemError>;
 }
 
 /// One point's pending output operation. The existing library factor is never
@@ -106,26 +109,48 @@ pub struct DeferredKktAccuracy {
 }
 impl DeferredKktAccuracy {
     /// Actual point-stamped scientific context of the original factor.
-    pub fn source(&self) -> SemanticProductKey { self.source }
+    pub fn source(&self) -> SemanticProductKey {
+        self.source
+    }
     /// Original requested goals, bound to the actual factor point.
-    pub fn goals(&self) -> &[BoundGoal] { &self.goals }
+    pub fn goals(&self) -> &[BoundGoal] {
+        &self.goals
+    }
     /// Conservative retained factor and goal metadata extent. Overflow saturates
     /// so the ordinary finite reservation owner must refuse the allocation.
     pub fn bytes(&self) -> usize {
-        self.factor.bytes().saturating_add(std::mem::size_of::<Self>())
-            .saturating_add(self.goals.capacity().saturating_mul(std::mem::size_of::<BoundGoal>()))
-            .saturating_add(self.goals.iter().fold(0usize, |bytes, goal|
-                bytes.saturating_add(goal.declaration.provenance.capacity())))
+        self.factor
+            .bytes()
+            .saturating_add(size_of::<Self>())
+            .saturating_add(self.goals.capacity().saturating_mul(size_of::<BoundGoal>()))
+            .saturating_add(self.goals.iter().fold(0usize, |bytes, goal| {
+                bytes.saturating_add(goal.declaration.provenance.capacity())
+            }))
     }
     /// Consume this artifact after full original-model admission and protected
     /// output observation. Point, multipliers, normalization and qualification are
     /// checked again; no changed candidate may consume the old stationary factor.
-    pub fn estimate(self, report: &SolveReport, observed: KktOutputs,
-        execution: &Execution) -> KktEstimates {
-        if observed.outputs.len() != self.goals.len() || observed.outputs.iter().zip(&self.goals)
-            .any(|(output, goal)| output.goal != *goal) {
-            return withheld(self.source, self.goals, U::InvalidValidity,
-                Some(Arc::new(ProblemError::Contract("deferred KKT output observer changed its requested goals".into()))));
+    pub fn estimate(
+        self,
+        report: &SolveReport,
+        observed: KktOutputs,
+        execution: &Execution,
+    ) -> KktEstimates {
+        if observed.outputs.len() != self.goals.len()
+            || observed
+                .outputs
+                .iter()
+                .zip(&self.goals)
+                .any(|(output, goal)| output.goal != *goal)
+        {
+            return withheld(
+                self.source,
+                self.goals,
+                U::InvalidValidity,
+                Some(Arc::new(ProblemError::Contract(
+                    "deferred KKT output observer changed its requested goals".into(),
+                ))),
+            );
         }
         estimate_kkt(Some(&self.factor), report, self.source, observed, execution)
     }
@@ -188,38 +213,82 @@ fn local_reason(report: &SolveReport) -> Option<U> {
     }
 }
 
-fn withheld(source: SemanticProductKey, goals: Vec<BoundGoal>, reason: U,
-    failure: Option<Arc<ProblemError>>) -> KktEstimates {
-    KktEstimates { source, validity: None, outputs: vec![Err(reason); goals.len()], goals,
-        action: None, correction: None, failure }
+fn withheld(
+    source: SemanticProductKey,
+    goals: Vec<BoundGoal>,
+    reason: U,
+    failure: Option<Arc<ProblemError>>,
+) -> KktEstimates {
+    KktEstimates {
+        source,
+        validity: None,
+        outputs: vec![Err(reason); goals.len()],
+        goals,
+        action: None,
+        correction: None,
+        failure,
+    }
 }
 
 /// Retain the existing native factor without evaluating outputs or applying any
 /// correction. The workflow controls when full original admission permits use.
 /// A missing native prerequisite retains all goals with the actual typed reason.
-pub(crate) fn defer_kkt(observer: &mut dyn KktOutputObserver, factor: Option<KktFactor>,
-    report: &SolveReport, execution: &Execution) -> Option<KktEstimates> {
+pub(crate) fn defer_kkt(
+    observer: &mut dyn KktOutputObserver,
+    factor: Option<KktFactor>,
+    report: &SolveReport,
+    execution: &Execution,
+) -> Option<KktEstimates> {
     let mut source = observer.source();
-    source.point = report.candidate.as_ref().map(|candidate|
-        crate::square_response::point_key(&candidate.primal));
-    let goals = observer.goals().iter().cloned().map(|mut goal| {
-        goal.source = source; goal
-    }).collect::<Vec<_>>();
+    source.point = report
+        .candidate
+        .as_ref()
+        .map(|candidate| crate::square_response::point_key(&candidate.primal));
+    let goals = observer
+        .goals()
+        .iter()
+        .cloned()
+        .map(|mut goal| {
+            goal.source = source;
+            goal
+        })
+        .collect::<Vec<_>>();
     if let Some(reason) = local_reason(report) {
         return Some(withheld(source, goals, reason, None));
     }
-    let Some(factor) = factor else { return Some(withheld(source, goals, U::MissingEvidence, None)); };
-    if source.point != Some(factor.point()) || source.normalization != Some(factor.normalization())
-        || !factor.matches_report(report) {
+    let Some(factor) = factor else {
+        return Some(withheld(source, goals, U::MissingEvidence, None));
+    };
+    if source.point != Some(factor.point())
+        || source.normalization != Some(factor.normalization())
+        || !factor.matches_report(report)
+    {
         return Some(withheld(source, goals, U::InvalidValidity, None));
     }
     if let Err(error) = execution.check() {
-        return Some(withheld(source, goals, super::cause_reason(&error), Some(Arc::new(error))));
+        return Some(withheld(
+            source,
+            goals,
+            super::cause_reason(&error),
+            Some(Arc::new(error)),
+        ));
     }
     let fallback = goals.clone();
-    match observer.defer(DeferredKktAccuracy { factor, source, goals }, execution) {
+    match observer.defer(
+        DeferredKktAccuracy {
+            factor,
+            source,
+            goals,
+        },
+        execution,
+    ) {
         Ok(()) => None,
-        Err(error) => Some(withheld(source, fallback, super::cause_reason(&error), Some(Arc::new(error)))),
+        Err(error) => Some(withheld(
+            source,
+            fallback,
+            super::cause_reason(&error),
+            Some(Arc::new(error)),
+        )),
     }
 }
 
@@ -264,7 +333,9 @@ pub fn estimate_kkt(
                 Err(error) => {
                     let reason = match &error {
                         ProblemError::Contract(_) => U::InvalidValidity,
-                        ProblemError::Numerical { .. } | ProblemError::Linear { .. } => U::Nonfinite,
+                        ProblemError::Numerical { .. } | ProblemError::Linear { .. } => {
+                            U::Nonfinite
+                        }
                         ProblemError::Limit { .. } => U::ResourceLimit,
                         ProblemError::Cancelled => U::Cancelled,
                         ProblemError::Unsupported(_) => U::Unsupported,
@@ -293,9 +364,12 @@ pub fn estimate_kkt(
                     Some(U::UnsupportedObservation)
                 } else if !output.value.is_finite()
                     || output.gradient.iter().any(|value| !value.is_finite())
-                    || output.gradient_uncertainty.as_ref().is_some_and(|values|
+                    || output.gradient_uncertainty.as_ref().is_some_and(|values| {
                         values.len() != report.variables.len()
-                            || values.iter().any(|value| !value.is_finite() || *value < 0.0))
+                            || values
+                                .iter()
+                                .any(|value| !value.is_finite() || *value < 0.0)
+                    })
                     || output
                         .uncertainty
                         .is_some_and(|error| !error.is_finite() || error < 0.)
@@ -368,9 +442,16 @@ pub fn estimate_kkt(
             .zip(&correction)
             .map(|(gradient, delta)| gradient.abs() * delta.abs())
             .sum::<f64>();
-        let gradient_error = output.gradient_uncertainty.as_ref().map_or(0.0, |uncertainty| {
-            uncertainty.iter().zip(&correction).map(|(radius, delta)| radius * delta.abs()).sum::<f64>()
-        });
+        let gradient_error = output
+            .gradient_uncertainty
+            .as_ref()
+            .map_or(0.0, |uncertainty| {
+                uncertainty
+                    .iter()
+                    .zip(&correction)
+                    .map(|(radius, delta)| radius * delta.abs())
+                    .sum::<f64>()
+            });
         let mut arithmetic_error = 0.0;
         if let Some(radii) = &radii
             && output.gradient.iter().any(|value| *value != 0.0)
@@ -390,27 +471,43 @@ pub fn estimate_kkt(
                 Ok(action) => action,
                 Err(error) => {
                     result.outputs.push(Err(super::cause_reason(&error)));
-                    if result.failure.is_none() { result.failure = Some(Arc::new(error)); }
+                    if result.failure.is_none() {
+                        result.failure = Some(Arc::new(error));
+                    }
                     continue;
                 }
             };
             let dim = influence.len();
-            arithmetic_error = influence.iter().enumerate().map(|(row, multiplier)| {
-                let matrix_start = row * dim;
-                multiplier.abs() * (radii.residual[row]
-                    + radii.matrix[matrix_start..matrix_start + dim]
-                        .iter().zip(&correction)
-                        .map(|(radius, delta)| radius * delta.abs()).sum::<f64>())
-            }).sum::<f64>();
+            arithmetic_error = influence
+                .iter()
+                .enumerate()
+                .map(|(row, multiplier)| {
+                    let matrix_start = row * dim;
+                    multiplier.abs()
+                        * (radii.residual[row]
+                            + radii.matrix[matrix_start..matrix_start + dim]
+                                .iter()
+                                .zip(&correction)
+                                .map(|(radius, delta)| radius * delta.abs())
+                                .sum::<f64>())
+                })
+                .sum::<f64>();
             if !arithmetic_error.is_finite() {
                 result.outputs.push(Err(U::Nonfinite));
                 continue;
             }
             if let Some(receipt) = result.action.as_mut() {
-                receipt.action_invocations = receipt.action_invocations.saturating_add(adjoint_receipt.action_invocations);
-                receipt.backsolves = receipt.backsolves.zip(adjoint_receipt.backsolves).and_then(|(left, right)| left.checked_add(right));
+                receipt.action_invocations = receipt
+                    .action_invocations
+                    .saturating_add(adjoint_receipt.action_invocations);
+                receipt.backsolves = receipt
+                    .backsolves
+                    .zip(adjoint_receipt.backsolves)
+                    .and_then(|(left, right)| left.checked_add(right));
                 receipt.backward_error = receipt.backward_error.max(adjoint_receipt.backward_error);
-                receipt.backward_error_limit = receipt.backward_error_limit.min(adjoint_receipt.backward_error_limit);
+                receipt.backward_error_limit = receipt
+                    .backward_error_limit
+                    .min(adjoint_receipt.backward_error_limit);
             }
         }
         let spacing = [output.value.next_up(), output.value.next_down()]
@@ -418,7 +515,11 @@ pub fn estimate_kkt(
             .filter(|neighbor| neighbor.is_finite())
             .map(|neighbor| (neighbor - output.value).abs())
             .fold(0., f64::max);
-        let error = propagated + gradient_error + arithmetic_error + output.uncertainty.unwrap_or(0.) + spacing;
+        let error = propagated
+            + gradient_error
+            + arithmetic_error
+            + output.uncertainty.unwrap_or(0.)
+            + spacing;
         if !error.is_finite() || error <= 0. {
             result.outputs.push(Err(U::PrecisionLimit));
             continue;

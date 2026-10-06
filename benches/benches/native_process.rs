@@ -12,10 +12,12 @@
 mod extended;
 #[path = "../../tests/support/plan14.rs"]
 mod fixture;
-#[path = "k4/studies.rs"]
-mod k4_studies;
 #[path = "k4/accuracy.rs"]
 mod k4_accuracy;
+#[path = "k4/studies.rs"]
+mod k4_studies;
+#[path = "k4/support.rs"]
+mod k4_support;
 #[path = "native_process/observations.rs"]
 mod observations;
 #[path = "native_process/phases.rs"]

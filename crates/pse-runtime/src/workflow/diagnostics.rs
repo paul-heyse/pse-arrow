@@ -154,25 +154,38 @@ impl RunResult {
         let mut seen = Vec::<std::sync::Arc<pse_model::diagnostic::DiagnosticCause>>::new();
         let mut append = |goals: &[pse_math::engineering_accuracy::GoalResult]| {
             for failure in goals.iter().filter_map(|goal| goal.failure.as_ref()) {
-                if !seen.iter().any(|cause| std::sync::Arc::ptr_eq(cause, &failure.cause)) {
-                    diagnostics.push(failure.cause.boundary_diagnostic(DiagnosticStage::ModelingQualification));
+                if !seen
+                    .iter()
+                    .any(|cause| std::sync::Arc::ptr_eq(cause, &failure.cause))
+                {
+                    diagnostics.push(
+                        failure
+                            .cause
+                            .boundary_diagnostic(DiagnosticStage::ModelingQualification),
+                    );
                     seen.push(failure.cause.clone());
                 }
             }
         };
         match &self.report {
             Ok(RunReport::Modeling(results)) => {
-                for result in results { append(&result.completion.accuracy); }
+                for result in results {
+                    append(&result.completion.accuracy);
+                }
             }
             Ok(RunReport::Simulation(report)) => append(&report.completion().accuracy),
             #[cfg(feature = "solver-diffsol")]
             Ok(RunReport::Shooting(report)) => append(&report.completion.accuracy),
             Ok(RunReport::Fit(report)) => {
-                if let Some(completion) = &report.completion { append(&completion.accuracy); }
+                if let Some(completion) = &report.completion {
+                    append(&completion.accuracy);
+                }
             }
             Err(_) => {
                 if let Some(failure) = &self.modeling_failure {
-                    for result in &failure.completed { append(&result.completion.accuracy); }
+                    for result in &failure.completed {
+                        append(&result.completion.accuracy);
+                    }
                 }
             }
         }

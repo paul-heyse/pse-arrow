@@ -472,7 +472,10 @@ impl<'a> Emitter<'a> {
                 .and_then(|property| property.get("const"))
                 .and_then(Value::as_u64)
         {
-            let _ = writeln!(source, "    _pse_required_version: ClassVar[int] = {version}\n");
+            let _ = writeln!(
+                source,
+                "    _pse_required_version: ClassVar[int] = {version}\n"
+            );
         }
         let mut keys = Vec::new();
         let mut validation = Vec::new();
@@ -1032,8 +1035,26 @@ fn python(reg: &Registry, documents: &[Document]) -> Result<String, SchemaError>
             .find(|line| line.starts_with("from typing import "))
             .map(ToOwned::to_owned);
         match import {
-            Some(import) => source = source.replacen(&import, &format!("{import}, ClassVar"), 1),
-            None => source = source.replacen("import msgspec\n", "from typing import ClassVar\n\nimport msgspec\n", 1),
+            Some(import) => {
+                let mut names: Vec<_> = import
+                    .trim_start_matches("from typing import ")
+                    .split(", ")
+                    .chain(["ClassVar"])
+                    .collect();
+                names.sort_unstable();
+                source = source.replacen(
+                    &import,
+                    &format!("from typing import {}", names.join(", ")),
+                    1,
+                );
+            }
+            None => {
+                source = source.replacen(
+                    "import msgspec\n",
+                    "from typing import ClassVar\n\nimport msgspec\n",
+                    1,
+                )
+            }
         }
     }
     Ok(source)
@@ -1119,6 +1140,7 @@ mod tests {
         });
         let source = python(registry, &[document(schema)]).unwrap();
         for expected in [
+            "from typing import Annotated, ClassVar, Literal",
             "Budget = Annotated[float, msgspec.Meta(gt=0.0)]",
             "class ChoicePlain(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field=\"kind\", tag=\"plain\"):",
             "    size: Annotated[int, msgspec.Meta(ge=1)]",

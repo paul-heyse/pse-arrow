@@ -57,10 +57,22 @@ impl RunResult {
                                 .map(|g| g.row(self.run_id, step)),
                         );
                     } else {
-                        product.accuracy_goals.extend(request.solve.numerics().policy.goals.iter()
-                            .cloned().map(|goal| pse_math::engineering_accuracy::GoalResult::unavailable(
-                                goal, pse_model::generated::enums::AccuracyUnavailableReason::MissingEvidence
-                            ).row(self.run_id, step)));
+                        product.accuracy_goals.extend(
+                            request
+                                .solve
+                                .numerics()
+                                .policy
+                                .goals
+                                .iter()
+                                .cloned()
+                                .map(|goal| {
+                                    pse_math::engineering_accuracy::GoalResult::unavailable(
+                                        goal,
+                                        AccuracyUnavailableReason::MissingEvidence,
+                                    )
+                                    .row(self.run_id, step)
+                                }),
+                        );
                     }
                     let solved = request.model.model.solved();
                     let declaration = request.model.case.compiled().plan.structure();
@@ -216,10 +228,15 @@ impl RunResult {
                             .map(|g| g.row(self.run_id, 0)),
                     );
                 } else {
-                    product.accuracy_goals.extend(p.numerics().policy.goals.iter().cloned()
-                        .map(|goal| pse_math::engineering_accuracy::GoalResult::unavailable(
-                            goal, pse_model::generated::enums::AccuracyUnavailableReason::MissingEvidence
-                        ).row(self.run_id, 0)));
+                    product
+                        .accuracy_goals
+                        .extend(p.numerics().policy.goals.iter().cloned().map(|goal| {
+                            pse_math::engineering_accuracy::GoalResult::unavailable(
+                                goal,
+                                AccuracyUnavailableReason::MissingEvidence,
+                            )
+                            .row(self.run_id, 0)
+                        }));
                 }
                 let profile_identity = match trajectory {
                     Some(t) => t.header().profile_identity,
@@ -284,10 +301,15 @@ impl RunResult {
                         .accuracy_goals
                         .extend(r.completion.accuracy.iter().map(|g| g.row(self.run_id, 0)));
                 } else {
-                    product.accuracy_goals.extend(p.numerics().policy.goals.iter()
-                        .cloned().map(|goal| pse_math::engineering_accuracy::GoalResult::unavailable(
-                            goal, AccuracyUnavailableReason::MissingEvidence,
-                        ).row(self.run_id, 0)));
+                    product
+                        .accuracy_goals
+                        .extend(p.numerics().policy.goals.iter().cloned().map(|goal| {
+                            pse_math::engineering_accuracy::GoalResult::unavailable(
+                                goal,
+                                AccuracyUnavailableReason::MissingEvidence,
+                            )
+                            .row(self.run_id, 0)
+                        }));
                 }
                 let native = report.and_then(|r| r.solve.as_ref());
                 let trajectory = report.and_then(|r| r.trajectory.as_ref());
@@ -371,15 +393,19 @@ impl RunResult {
                     _ => None,
                 };
                 if let Some(completion) = retained {
-                    product.accuracy_goals.extend(
-                        completion.accuracy.iter()
-                            .map(|g| g.row(self.run_id, 0)),
-                    );
+                    product
+                        .accuracy_goals
+                        .extend(completion.accuracy.iter().map(|g| g.row(self.run_id, 0)));
                 } else {
-                    product.accuracy_goals.extend(p.problem.numerics.policy.goals.iter()
-                        .cloned().map(|goal| pse_math::engineering_accuracy::GoalResult::unavailable(
-                            goal, AccuracyUnavailableReason::MissingEvidence,
-                        ).row(self.run_id, 0)));
+                    product.accuracy_goals.extend(
+                        p.problem.numerics.policy.goals.iter().cloned().map(|goal| {
+                            pse_math::engineering_accuracy::GoalResult::unavailable(
+                                goal,
+                                AccuracyUnavailableReason::MissingEvidence,
+                            )
+                            .row(self.run_id, 0)
+                        }),
+                    );
                 }
                 let r = match &self.report {
                     Ok(RunReport::Fit(r)) => Some(r.as_ref()),

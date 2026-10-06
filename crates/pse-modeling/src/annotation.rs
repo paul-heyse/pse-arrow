@@ -156,7 +156,7 @@ pub enum AnnotationValue {
     Check(Predicate),
     /// Scoped scalar output or original-objective goal. Physical expressions retain their
     /// parsed AST and are interpreted by the existing typed preparation path.
-    AccuracyGoal(AccuracyGoal),
+    AccuracyGoal(Box<AccuracyGoal>),
     /// Tagged physical characteristic magnitude, independent of conditioning scales.
     EngineeringScale(EngineeringScale),
     /// A shared default selected by the identity of its source constant.
@@ -372,16 +372,22 @@ pub(crate) fn label(source: &StaticValue, at: DeclarationId) -> Result<String> {
         _ => Err(invalid(at, "annotation requires a label")),
     }
 }
-fn difference_type(target: &Type, quantities: &pse_quantity::QuantityRegistry, at: DeclarationId) -> Result<Type> {
+fn difference_type(
+    target: &Type,
+    quantities: &pse_quantity::QuantityRegistry,
+    at: DeclarationId,
+) -> Result<Type> {
     let Some(scheme) = target.quantity_scheme() else {
         return Err(invalid(
             at,
             "engineering magnitude target has a complete physical type",
         ));
     };
-    Ok(Type::Quantity(Scheme::Concrete(Scheme::Delta(Box::new(scheme.clone()))
-        .resolve(quantities, &Default::default())
-        .map_err(|error| invalid(at, error.to_string()))?)))
+    Ok(Type::Quantity(Scheme::Concrete(
+        Scheme::Delta(Box::new(scheme.clone()))
+            .resolve(quantities, &Default::default())
+            .map_err(|error| invalid(at, error.to_string()))?,
+    )))
 }
 fn compatible_difference(
     target: &Type,
@@ -414,7 +420,9 @@ fn annotation_source(
         .get(&declaration)
         .and_then(|row| row.parent_id);
     while let Some(owner) = cursor {
-        let Some(row) = package.declarations.get(&owner) else { break };
+        let Some(row) = package.declarations.get(&owner) else {
+            break;
+        };
         if row.value.kind == Kind::Case {
             return NumericalSource::Case;
         }
@@ -648,7 +656,7 @@ impl Engine<'_, '_> {
                     })
                     .transpose()?;
                 let id = pse_ids::named_id(at.as_id(), &target.to_string());
-                let value = AnnotationValue::AccuracyGoal(AccuracyGoal {
+                let value = AnnotationValue::AccuracyGoal(Box::new(AccuracyGoal {
                     id,
                     quantity: ty.clone(),
                     subject: members.subject,
@@ -661,7 +669,7 @@ impl Engine<'_, '_> {
                     use_policy: members.use_policy,
                     refine: members.refine,
                     source: annotation_source(self.p, at),
-                });
+                }));
                 self.reserve(1)?;
                 self.model.annotations.push(Annotation {
                     target,
@@ -826,7 +834,7 @@ impl Engine<'_, '_> {
             declaration: at.as_id(),
             reason,
         };
-        let scalar = Type::Quantity(pse_quantity::scheme::Scheme::Concrete(
+        let scalar = Type::Quantity(Scheme::Concrete(
             self.c
                 .quantities
                 .neutral_dimensionless()
@@ -868,8 +876,8 @@ impl Engine<'_, '_> {
         let Type::Quantity(scheme) = term else {
             return Err(invalid(at, "objective requires a physical member"));
         };
-        let difference = Type::Quantity(pse_quantity::scheme::Scheme::Concrete(
-            pse_quantity::scheme::Scheme::Delta(Box::new(scheme.clone()))
+        let difference = Type::Quantity(Scheme::Concrete(
+            Scheme::Delta(Box::new(scheme.clone()))
                 .resolve_with_evidence(
                     self.c.quantities,
                     &std::collections::BTreeMap::new(),
@@ -975,16 +983,14 @@ pub(crate) fn target_type(
             let Type::Quantity(s) = crate::expression::infer(lhs, &local, p, c, id, None)? else {
                 return Err(invalid(at, "physical row annotation required"));
             };
-            let quantity = pse_quantity::scheme::Scheme::Delta(Box::new(s))
+            let quantity = Scheme::Delta(Box::new(s))
                 .resolve_with_evidence(
                     c.quantities,
                     &std::collections::BTreeMap::new(),
                     c.preconditions,
                 )
                 .map_err(|e| invalid(at, e.to_string()))?;
-            return Ok(Type::Quantity(pse_quantity::scheme::Scheme::Concrete(
-                quantity,
-            )));
+            return Ok(Type::Quantity(Scheme::Concrete(quantity)));
         }
         if (row
             .value

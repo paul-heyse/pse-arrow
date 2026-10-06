@@ -11,6 +11,15 @@ scenario_sources: [docs/design_review/reviews/design_review_codebase-domain-alig
 
 ## Purpose and ownership
 
+**Target qualification handoff, 2026-10-05:** the maintainer selected the clean SurrealDB
+pivot in [Plan 28](28-surrealdb-unified-substrate.md). Its
+[28e handoff](28e-rebuild-retirement-and-qualification.md#qualification-handoff-from-existing-plans)
+owns the remaining applicable assembled scientific campaign against the rebuilt target,
+replacing PG/Delta/SQL journeys with canonical target operations. This document retains its
+scientific finding dispositions and prior evidence; linked target evidence supplies later
+closure. K3/K4/K5 are not thereby passed. Completing obsolete storage qualification is not
+a pivot prerequisite. The original campaign description below retains its original scope.
+
 This is the **only full qualification stage** of the [Plan 25 series](25-design-remediation.md).
 Plans 25a–25j implement the target directly, use compilation and focused behavioral checks,
 and delete replaced mechanisms as their callers move. They do not repeat this campaign at
@@ -516,6 +525,41 @@ judgment and inspected baseline remain in its principal document.
 
 ### Current execution checkpoint
 
+For the confirmed hard pivot, the next assembled campaign now routes through the
+[28e handoff](28e-rebuild-retirement-and-qualification.md#qualification-handoff-from-existing-plans).
+The earlier checkpoint below records the pre-pivot handoff and its incomplete evidence.
+
+The maintainer confirmed carrying the accuracy work forward and stopping the old-stack
+campaign before publication. Allocation accounting, feature gates, generated typing and
+shared benchmark-module repairs are integrated. The remaining scientific campaign,
+measurements and assembled review transfer to 28e; the sensitivity parity premise below
+remains unresolved. No full assessment, complete seed/domain refresh, timing campaign or
+K5 acceptance was performed on this final accuracy tree.
+
+**Tested, scoped carry-forward, 2026-10-05, zero-failure baseline:** the final
+`just unit-native-selected` accuracy selection passed 77/77 with the default Nextest
+profile, native-solvers, explicit force-validation and one test thread. The corrected
+`just features-combinations` passed all 290 depth-two selections without errors or warnings;
+its first run failed 11 root-only runtime selections, and an intermediate rerun was stopped
+when source review caught a shared dynamic caller. `just features-no-default` passed in
+the first matrix. The latest `just lint-solver-contracts`, `just clippy-default`,
+`just clippy-no-default`, `just lint-py` and `just typecheck` receipts passed after scope-end
+repairs. These are composite scoped results, not an initially clean full campaign.
+
+**Tested, parity limit, 2026-10-05, zero-failure baseline:** `just parity` with the dev
+native extension and IDAES 2.13.0 passed 8/9 tests, with one failure and no skips.
+The sensitivity comparison reported a predicted `z` of `0.00017917997928483827` against
+approximately zero at a fixed `1e-6` tolerance. Source review identifies a plausible
+premise mismatch: the test adds the sensitivity response to a retained nominal candidate,
+requests no output-accuracy goal, and compares their combined value. The receipt alone
+does not isolate the derivative from candidate error. Do not treat a KKT work tolerance as
+a forward-error bound or widen this assertion until green. E3 must separate response
+correctness from base-point accuracy under meaningful verification requirements. The
+existing test and its threshold are unchanged. The local JUnit is retained at
+`build/plan25k-20261005/contextual-accuracy-final-parity/parity.xml`.
+`just py-sync-native` subsequently restored the ordinary editable extension and passed its
+actual compiled API stub check.
+
 Review checkpoint, 2026-10-05: the maintainer paused implementation/qualification for the broader
 [contextual-accuracy design review](../design_review/reviews/design_review_contextual-accuracy-policy_2026-10-05.md).
 The independent review is complete: **Revise** the architecture for the requested target; its
@@ -524,11 +568,8 @@ Current physical-feasibility support remains a preservation constraint. The reco
 are now developed in the authorized [Plan 27 series](27-contextual-engineering-accuracy.md),
 which is being implemented at the maintainer's request. Its
 [checkpoint](27-contextual-engineering-accuracy.md#current-checkpoint) owns the current
-functional state; producer integration and real native/transport validation precede
-the full campaign. K3/K4/K5 remain incomplete. The
-[disposition table](#contextual-accuracy-review-dispositions) owns this follow-up. Next authorized
-production work follows 27's A0/C0 decision route and working prerequisites; the full campaign
-remains here after its functional handoff.
+functional handoff: all A/B/C functional packages and immediate deletions are complete, and the combined 77-control native accuracy selection plus focused generator/Python transport checks pass. Scope-end checks and the full campaign resume here. K3/K4/K5 remain incomplete. The
+[disposition table](#contextual-accuracy-review-dispositions) owns this follow-up. The ADR-0163 proposal and independently reviewed contracts remain on their decision-PR route. The next work is scope-end repair, complete qualification, the selected 17 dev measurements and final assembled review. Unsupported producer evidence remains an explicit scope limit, not an implied output guarantee.
 
 Execution resumed on 2026-10-05 at the maintainer's request from clean main
 `ad665a0222551196b1160e426f5242361215a6a0`, after Plan 26's completed testing-architecture

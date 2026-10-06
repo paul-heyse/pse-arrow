@@ -1431,8 +1431,8 @@ impl CasePlan {
             fidelity: vec![],
         };
         classify(&mut program);
-        for (_,guard) in &mut derivative_obligations {
-            classify_obligation(guard,&program.fidelity);
+        for (_, guard) in &mut derivative_obligations {
+            classify_obligation(guard, &program.fidelity);
         }
         if request.require_exact && program.fidelity() != Fidelity::Exact {
             return Err(FactorableError::ExactRequired {
@@ -1455,7 +1455,7 @@ impl CasePlan {
         limit: usize,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Option<PointArithmeticProgram>, FactorableError> {
-        self.point_arithmetic_program_for_order(values,DerivativeOrder::First,limit,cancel)
+        self.point_arithmetic_program_for_order(values, DerivativeOrder::First, limit, cancel)
     }
     /// Project the same original DAG with admission restricted to the consumed order.
     /// Value-only box evaluation retains Value domains and does not demand First
@@ -1463,64 +1463,122 @@ impl CasePlan {
     /// # Errors
     /// Source, cancellation and bounded projection extent failures.
     pub fn point_arithmetic_program_for_order(
-        &self, values: &CaseValues, requested_order: DerivativeOrder, limit: usize,
+        &self,
+        values: &CaseValues,
+        requested_order: DerivativeOrder,
+        limit: usize,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Option<PointArithmeticProgram>, FactorableError> {
         let (mut program, derivative_obligations) = self.factorable_program_core(
-            values, &FactorableRequest::default(), limit, cancel, true,
+            values,
+            &FactorableRequest::default(),
+            limit,
+            cancel,
+            true,
         )?;
-        let valid = |guard: &ProjectedObligation| guard.represented
-            && guard.fidelity == Fidelity::Exact
-            && guard.scope == ObligationScope::Unconditional;
+        let valid = |guard: &ProjectedObligation| {
+            guard.represented
+                && guard.fidelity == Fidelity::Exact
+                && guard.scope == ObligationScope::Unconditional
+        };
         if program.variables.is_empty()
             || (requested_order != DerivativeOrder::Value
-                && program.variables.iter().any(|v| v.domain != ModelingVariableDomain::Continuous))
-            || !program.auxiliaries.is_empty() || !program.implicit.is_empty()
-            || !program.native.is_empty() || program.fidelity() != Fidelity::Exact
+                && program
+                    .variables
+                    .iter()
+                    .any(|v| v.domain != ModelingVariableDomain::Continuous))
+            || !program.auxiliaries.is_empty()
+            || !program.implicit.is_empty()
+            || !program.native.is_empty()
+            || program.fidelity() != Fidelity::Exact
             || program.obligations.iter().any(|g| !valid(g))
-            || derivative_obligations.iter().any(|(order,g)| *order <= requested_order && !valid(g))
-            || program.rows.iter().any(|r| r.expression.is_none() || r.lower.is_nan() || r.upper.is_nan())
-            || program.objective.as_ref().is_some_and(|o| o.expression.is_none())
-        { return Ok(None); }
+            || derivative_obligations
+                .iter()
+                .any(|(order, g)| *order <= requested_order && !valid(g))
+            || program
+                .rows
+                .iter()
+                .any(|r| r.expression.is_none() || r.lower.is_nan() || r.upper.is_nan())
+            || program
+                .objective
+                .as_ref()
+                .is_some_and(|o| o.expression.is_none())
+        {
+            return Ok(None);
+        }
         let mut outputs = Vec::new();
         let mut rows = Vec::with_capacity(program.rows.len());
         for row in &program.rows {
-            if cancel.load(Ordering::Acquire) { return fail(MathError::Cancelled); }
-            let expression = row.expression.ok_or_else(|| MathError::Contract("point arithmetic row missing".into()))?;
-            let value = outputs.len(); outputs.push(expression);
+            if cancel.load(Ordering::Acquire) {
+                return fail(MathError::Cancelled);
+            }
+            let expression = row
+                .expression
+                .ok_or_else(|| MathError::Contract("point arithmetic row missing".into()))?;
+            let value = outputs.len();
+            outputs.push(expression);
             let mut residual = |bound: f64| -> Option<usize> {
-                if !bound.is_finite() { return None; }
+                if !bound.is_finite() {
+                    return None;
+                }
                 let output = outputs.len();
-                if bound == 0.0 { outputs.push(expression); }
-                else {
+                if bound == 0.0 {
+                    outputs.push(expression);
+                } else {
                     let constant = program.nodes.len();
                     program.nodes.push(Node::Const(Constant::Float(-bound)));
                     let node = program.nodes.len();
-                    program.nodes.push(Node::Sum(vec![expression,constant]));
+                    program.nodes.push(Node::Sum(vec![expression, constant]));
                     outputs.push(node);
                 }
                 Some(output)
             };
             let lower_residual = residual(row.lower);
-            let upper_residual = if row.lower == row.upper { lower_residual } else { residual(row.upper) };
-            rows.push(PointArithmeticRow {value,lower_residual,upper_residual});
-            if program.nodes.len() >= limit { return fail(MathError::Limit(EXTENT)); }
+            let upper_residual = if row.lower == row.upper {
+                lower_residual
+            } else {
+                residual(row.upper)
+            };
+            rows.push(PointArithmeticRow {
+                value,
+                lower_residual,
+                upper_residual,
+            });
+            if program.nodes.len() >= limit {
+                return fail(MathError::Limit(EXTENT));
+            }
         }
         let objective = if let Some(o) = &program.objective {
-            let expression = o.expression.ok_or_else(|| MathError::Contract("point arithmetic objective missing".into()))?;
-            let output = outputs.len(); outputs.push(expression); Some(output)
-        } else { None };
-        if outputs.is_empty() { return Ok(None); }
-        let zero = program.nodes.len(); program.nodes.push(Node::Const(Constant::integer(0)));
-        if program.nodes.len() > limit { return fail(MathError::Limit(EXTENT)); }
+            let expression = o
+                .expression
+                .ok_or_else(|| MathError::Contract("point arithmetic objective missing".into()))?;
+            let output = outputs.len();
+            outputs.push(expression);
+            Some(output)
+        } else {
+            None
+        };
+        if outputs.is_empty() {
+            return Ok(None);
+        }
+        let zero = program.nodes.len();
+        program.nodes.push(Node::Const(Constant::integer(0)));
+        if program.nodes.len() > limit {
+            return fail(MathError::Limit(EXTENT));
+        }
         Ok(Some(PointArithmeticProgram {
             key: program.key,
             graph: RootIsolationProgram {
-                inputs: program.variables.len(), nodes: program.nodes, residuals: outputs,
-                eligibility: vec![], criterion: [zero,zero], obligations: program.obligations,
+                inputs: program.variables.len(),
+                nodes: program.nodes,
+                residuals: outputs,
+                eligibility: vec![],
+                criterion: [zero, zero],
+                obligations: program.obligations,
                 derivative_obligations,
             },
-            rows, objective,
+            rows,
+            objective,
         }))
     }
 
@@ -1529,8 +1587,12 @@ impl CasePlan {
     /// domains; it confers neither a solver certificate nor derivative regularity.
     /// # Errors
     /// The existing bounded projection's source, cancellation and extent failures.
-    pub fn exact_value_factorable_program(&self, values: &CaseValues, limit: usize,
-        cancel: &Arc<AtomicBool>) -> Result<FactorableProgram, FactorableError> {
+    pub fn exact_value_factorable_program(
+        &self,
+        values: &CaseValues,
+        limit: usize,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<FactorableProgram, FactorableError> {
         self.factorable_program_core(values, &FactorableRequest::default(), limit, cancel, true)
             .map(|(program, _)| program)
     }
@@ -1802,16 +1864,24 @@ fn classify(p: &mut FactorableProgram) {
         };
     }
     for o in &mut p.obligations {
-        classify_obligation(o,&fidelity);
+        classify_obligation(o, &fidelity);
     }
     p.fidelity = fidelity;
 }
 fn classify_obligation(obligation: &mut ProjectedObligation, fidelity: &[Fidelity]) {
-    let worst = obligation.constraints.iter().map(|c| c.expression)
+    let worst = obligation
+        .constraints
+        .iter()
+        .map(|c| c.expression)
         .chain(obligation.argument)
         .map(|node| fidelity.get(node).copied().unwrap_or(Fidelity::Unavailable))
-        .max().unwrap_or(Fidelity::Exact);
-    obligation.fidelity = if obligation.represented {worst} else {Fidelity::Relaxed.max(worst)};
+        .max()
+        .unwrap_or(Fidelity::Exact);
+    obligation.fidelity = if obligation.represented {
+        worst
+    } else {
+        Fidelity::Relaxed.max(worst)
+    };
 }
 
 /// A factorable projection failure.
@@ -2328,7 +2398,9 @@ impl<'a> Builder<'a> {
                 Input::ScaledValue(value, scale, offset) => {
                     let v = self.float(value)?;
                     let v = self.scaled(v, scale)?;
-                    if offset == 0.0 { v } else {
+                    if offset == 0.0 {
+                        v
+                    } else {
                         let o = self.float(offset)?;
                         self.push(Node::Sum(vec![v, o]))?
                     }
@@ -2889,10 +2961,8 @@ impl<'a> Builder<'a> {
         ) else {
             return Ok(None);
         };
-        let (Some(l), Some(r)) = (
-            self.identity_definition(l)?,
-            self.identity_definition(r)?,
-        ) else {
+        let (Some(l), Some(r)) = (self.identity_definition(l)?, self.identity_definition(r)?)
+        else {
             return Ok(None);
         };
         let separation = (&l - &r).expand();
@@ -2958,8 +3028,10 @@ impl<'a> Builder<'a> {
             coefficient.to_owned()
         });
         self.check()?;
-        Ok((supported.get() && exact.as_view().get_byte_size() <= DEFINITION_BYTES)
-            .then_some(exact))
+        Ok(
+            (supported.get() && exact.as_view().get_byte_size() <= DEFINITION_BYTES)
+                .then_some(exact),
+        )
     }
     /// Substitute definitions of region-local slots so that the identity compares
     /// expressions over values shared with the parent.
@@ -2987,9 +3059,7 @@ impl<'a> Builder<'a> {
                 let Some(definition) = self.identity_definition(&definition)? else {
                     return Ok(None);
                 };
-                atom = atom
-                    .replace(library::formal(k)?)
-                    .with(definition);
+                atom = atom.replace(library::formal(k)?).with(definition);
                 self.check()?;
                 if atom.as_view().get_byte_size() > DEFINITION_BYTES {
                     return Ok(None);
@@ -3397,6 +3467,29 @@ fn constant(view: CoefficientView<'_>) -> Option<Constant> {
 #[cfg(test)]
 mod exact_constant_tests {
     use super::*;
+    #[test]
+    fn exact_branch_identity_converts_floating_coefficients_before_expansion() {
+        crate::initialize().unwrap();
+        let request = FactorableRequest::default();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut builder = Builder::new(&request, &cancel, 32, 0).unwrap();
+        builder.exact_real = true;
+        let x = library::formal(0).unwrap();
+        // The binary floating product rounds to one, but its exact dyadic product
+        // differs from one. That residual must prevent a purported branch identity.
+        let expression = Atom::num(1e16) * (&x + Atom::num(1e-16)) - Atom::num(1);
+        let exact = builder.identity_definition(&expression).unwrap().unwrap();
+        assert!(
+            !(exact - Atom::num(10_000_000_000_000_000_i64) * x)
+                .expand()
+                .is_zero()
+        );
+        cancel.store(true, Ordering::Release);
+        assert!(matches!(
+            builder.identity_definition(&expression),
+            Err(FactorableError::Math(MathError::Cancelled))
+        ));
+    }
     #[test]
     fn validated_projection_does_not_round_binary64_constant_arithmetic() {
         crate::initialize().unwrap();

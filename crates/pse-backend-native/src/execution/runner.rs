@@ -250,7 +250,11 @@ pub fn nlp(
         // The clone only shares existing factor storage. Output work is deferred
         // until the workflow completes its original scientific/model checks.
         report.evidence.output_accuracy = crate::engineering_accuracy::defer_kkt(
-            observer.as_mut(), factor.clone(), &report, &step.execution);
+            observer.as_mut(),
+            factor.clone(),
+            &report,
+            &step.execution,
+        );
     }
     // The requested sensitivities read the qualified report; their factor lives for this
     // step only, unless the request keeps it for an advanced step (ADR-0118 item 12).

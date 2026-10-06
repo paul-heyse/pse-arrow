@@ -27,8 +27,13 @@ pub(super) enum ProviderDemand<'a> {
 /// view. Mere reporting never requests this representation or numerical work. Eligibility
 /// and selected-sheet meaning remain with the compiler and the caller's existing gate.
 pub(super) fn declared_accuracy(model: &ModelingPreparation, policy: &NumericalPolicy) -> bool {
-    !policy.goals.is_empty() || model.compiled().model.annotations.iter().any(|annotation|
-        matches!(&annotation.value, pse_modeling::annotation::AnnotationValue::AccuracyGoal(_)))
+    !policy.goals.is_empty()
+        || model.compiled().model.annotations.iter().any(|annotation| {
+            matches!(
+                &annotation.value,
+                pse_modeling::annotation::AnnotationValue::AccuracyGoal(_)
+            )
+        })
 }
 
 #[derive(Debug)]
@@ -500,7 +505,8 @@ mod tests {
     }
     #[cfg(all(feature = "solver-root-isolation", feature = "solver-pounce"))]
     #[tokio::test]
-    async fn goal_accuracy_direct_selected_root_uses_original_equations_and_preserves_no_goal_provider_view() {
+    async fn goal_accuracy_direct_selected_root_uses_original_equations_and_preserves_no_goal_provider_view()
+     {
         use super::super::super::tests as fixture;
         use pse_kernels::DerivativeOrder;
         use pse_model::generated::enums::{AccuracyEvidenceMethod, AccuracyGoalStatus};
@@ -509,88 +515,167 @@ mod tests {
             impl std::fmt::Write for Prefix {
                 fn write_str(&mut self, text: &str) -> std::fmt::Result {
                     for character in text.chars() {
-                        if self.0.len() + character.len_utf8() > 1024 { return Err(std::fmt::Error); }
+                        if self.0.len() + character.len_utf8() > 1024 {
+                            return Err(std::fmt::Error);
+                        }
                         self.0.push(character);
                     }
                     Ok(())
                 }
             }
             let mut prefix = Prefix(String::with_capacity(1024));
-            if std::fmt::write(&mut prefix, format_args!("{error}")).is_err() { prefix.0.push_str("…"); }
+            if std::fmt::write(&mut prefix, format_args!("{error}")).is_err() {
+                prefix.0.push('…');
+            }
             prefix.0
         }
-        let runtime=fixture::runtime();
-        for with_goal in [false,true] {
-            let goal=if with_goal {
+        let runtime = fixture::runtime();
+        for with_goal in [false, true] {
+            let goal = if with_goal {
                 "annotation accuracy_goal q(selected_output, steady, resolution=0.1, required_class=estimated, use_policy=assess, refine=false);"
-            } else {""};
+            } else {
+                ""
+            };
             // The consuming row reads the selected provider. Its affine residual
             // proves a unique root independently of numerical bounds or starts;
             // the explicit operational selector remains the authored meaning.
-            let text=format!("package p {{ def Root {{ var x:Scalar; implicit root select operational(y=1.5) settings(\"native.kinsol.v1\") {{var y:Scalar;eq root:y==x/2;annotation bounds y(1,3);annotation start y(1.5);}} realize r on root using nested; annotation start x(4); annotation bounds x(2,8); let q:Scalar=root.y*root.y; eq pin:q==4; {goal} }} }}");
-            let rows=pse_authoring::language::parse(&text,SemanticId::NIL,
-                pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
-            let root=rows.iter().find(|row| row.name=="Root").unwrap().declaration_id;
-            let package=runtime.modeling_package(rows,fixture::physical()).unwrap();
-            let cancel=crate::CancelSource::new();
-            let compiler=fixture::compiler_profile();
-            let mut solver=fixture::profile();
-            solver.composition.policy=pse_model::strategy::CompositionPolicy::Declared;
-            solver.selection=pse_backend_native::solve::SolverSelection::Explicit(pse_backend_native::solve::Backend::Pounce);
-            solver.presolve=pse_backend_native::presolve::Policy::Off;
-            let mut prepared=package.prepare_solve(root,pse_modeling::specialize::root_instance(root),
-                Bindings::default(),Limits::default(),ModelingCaseBindings::default(),DerivativeOrder::First,
-                compiler,solver,NumericalInputs::default(),&cancel).await.unwrap_or_else(|error|
-                    panic!("Direct selected-root preparation (goal={with_goal}): {}", preparation_diagnostic(&error)));
-            let model=prepared.model.model.compiled();
-            let plan=&prepared.model.case.compiled().plan;
-            let supplier=model.admitted.implicit_systems().next().unwrap();
+            let text = format!(
+                "package p {{ def Root {{ var x:Scalar; implicit root select operational(y=1.5) settings(\"native.kinsol.v1\") {{var y:Scalar;eq root:y==x/2;annotation bounds y(1,3);annotation start y(1.5);}} realize r on root using nested; annotation start x(4); annotation bounds x(2,8); let q:Scalar=root.y*root.y; eq pin:q==4; {goal} }} }}"
+            );
+            let rows = pse_authoring::language::parse(
+                &text,
+                SemanticId::NIL,
+                pse_authoring::language::IdentityPolicy::Named,
+                pse_authoring::ParseBudget::default(),
+            )
+            .unwrap();
+            let root = rows
+                .iter()
+                .find(|row| row.name == "Root")
+                .unwrap()
+                .declaration_id;
+            let package = runtime.modeling_package(rows, fixture::physical()).unwrap();
+            let cancel = crate::CancelSource::new();
+            let compiler = fixture::compiler_profile();
+            let mut solver = fixture::profile();
+            solver.composition.policy = pse_model::strategy::CompositionPolicy::Declared;
+            solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
+                pse_backend_native::solve::Backend::Pounce,
+            );
+            solver.presolve = pse_backend_native::presolve::Policy::Off;
+            let mut prepared = package
+                .prepare_solve(
+                    root,
+                    pse_modeling::specialize::root_instance(root),
+                    Bindings::default(),
+                    Limits::default(),
+                    ModelingCaseBindings::default(),
+                    DerivativeOrder::First,
+                    compiler,
+                    solver,
+                    NumericalInputs::default(),
+                    &cancel,
+                )
+                .await
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "Direct selected-root preparation (goal={with_goal}): {}",
+                        preparation_diagnostic(&error)
+                    )
+                });
+            let model = prepared.model.model.compiled();
+            let plan = &prepared.model.case.compiled().plan;
+            let supplier = model.admitted.implicit_systems().next().unwrap();
             assert!(matches!(&supplier.selection.meaning,
                 pse_compiler::workspace::ImplicitMeaning::Operational(settings) if settings=="native.kinsol.v1"));
             assert!(supplier.selection.anchors.is_some());
-            assert_eq!(supplier.selection.equivalence,pse_math::implicit::SelectionEquivalence::NondegenerateAffine);
-            assert_eq!(supplier.selection.neighborhood_evidence,pse_compiler::workspace::SelectionNeighborhood::Static);
+            assert_eq!(
+                supplier.selection.equivalence,
+                pse_math::implicit::SelectionEquivalence::NondegenerateAffine
+            );
+            assert_eq!(
+                supplier.selection.neighborhood_evidence,
+                pse_compiler::workspace::SelectionNeighborhood::Static
+            );
             assert!(supplier.selection.restriction.is_none());
-            assert!(!prepared.providers.is_empty(),"selected supplier metadata is retained");
-            let opaque=model.admitted.provider_demands_for_plan(plan,DerivativeOrder::First).unwrap();
+            assert!(
+                !prepared.providers.is_empty(),
+                "selected supplier metadata is retained"
+            );
+            let opaque = model
+                .admitted
+                .provider_demands_for_plan(plan, DerivativeOrder::First)
+                .unwrap();
             if !with_goal {
-                assert_eq!(plan.columns().len(),1);
+                assert_eq!(plan.columns().len(), 1);
                 assert!(!opaque.is_empty());
                 assert!(prepared.solve.numerics().policy.goals.is_empty());
                 assert!(prepared.solve.selected_output_program().is_none());
                 bind_direct_provider_solve(&mut prepared);
-                let direct=prepared.solve.numerical_strategy();
-                assert_eq!(direct.mechanisms.len(),1);
-                assert_eq!(direct.mechanisms[0].kind,pse_model::strategy::MechanismKind::Direct);
+                let direct = prepared.solve.numerical_strategy();
+                assert_eq!(direct.mechanisms.len(), 1);
+                assert_eq!(
+                    direct.mechanisms[0].kind,
+                    pse_model::strategy::MechanismKind::Direct
+                );
                 continue;
             }
-            assert_eq!(plan.columns().len(),2);
-            assert!(opaque.is_empty(),"actual promoted original equations are provider-free");
-            assert!(plan.point_arithmetic_program(&prepared.model.values,100_000,
-                &Arc::new(std::sync::atomic::AtomicBool::new(false))).unwrap().is_some());
-            assert!(prepared.providers.values().any(|provider| provider
-                .source::<pse_math::implicit::reconstruction::ReconstructionFactory>()
-                .is_some_and(|factory| factory.supports_reconstruction())));
+            assert_eq!(plan.columns().len(), 2);
+            assert!(
+                opaque.is_empty(),
+                "actual promoted original equations are provider-free"
+            );
+            assert!(
+                plan.point_arithmetic_program(
+                    &prepared.model.values,
+                    100_000,
+                    &Arc::new(std::sync::atomic::AtomicBool::new(false))
+                )
+                .unwrap()
+                .is_some()
+            );
+            assert!(prepared.providers.values().any(|provider| {
+                provider
+                    .source::<pse_math::implicit::reconstruction::ReconstructionFactory>()
+                    .is_some_and(|factory| factory.supports_reconstruction())
+            }));
             assert!(prepared.solve.selected_output_program().is_some());
             bind_direct_provider_solve(&mut prepared);
-            let direct=prepared.solve.numerical_strategy();
-            assert_eq!(direct.mechanisms.len(),1);
-            assert_eq!(direct.mechanisms[0].kind,pse_model::strategy::MechanismKind::Direct);
-            let result=package.solve_case(prepared,compiler,&cancel).await.unwrap_or_else(|error|
-                panic!("Direct selected-root operation: {}", preparation_diagnostic(&error)));
-            assert!(result.accepted,"{:?}",result.validation_error);
-            assert_eq!(result.completion.accuracy.len(),1);
-            let assessed=&result.completion.accuracy[0];
-            assert_eq!(assessed.classification.status,AccuracyGoalStatus::Satisfied,"{assessed:?}");
-            let evidence=assessed.evidence.as_ref().unwrap();
-            assert_eq!(evidence.method,AccuracyEvidenceMethod::SquareCorrection);
-            assert_eq!(evidence.accuracy.class,pse_model::strategy::AccuracyClass::Estimated);
-            let value=evidence.value.unwrap();
-            let error=evidence.accuracy.error.unwrap();
-            assert!(value.is_finite()&&error.is_finite()&&error>=0.0&&error<=0.1);
-            assert!((value-4.0).abs()<=error);
-            let interval=assessed.classification.interval.unwrap();
-            assert!(interval.0<=4.0&&interval.1>=4.0);
+            let direct = prepared.solve.numerical_strategy();
+            assert_eq!(direct.mechanisms.len(), 1);
+            assert_eq!(
+                direct.mechanisms[0].kind,
+                pse_model::strategy::MechanismKind::Direct
+            );
+            let result = package
+                .solve_case(prepared, compiler, &cancel)
+                .await
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "Direct selected-root operation: {}",
+                        preparation_diagnostic(&error)
+                    )
+                });
+            assert!(result.accepted, "{:?}", result.validation_error);
+            assert_eq!(result.completion.accuracy.len(), 1);
+            let assessed = &result.completion.accuracy[0];
+            assert_eq!(
+                assessed.classification.status,
+                AccuracyGoalStatus::Satisfied,
+                "{assessed:?}"
+            );
+            let evidence = assessed.evidence.as_ref().unwrap();
+            assert_eq!(evidence.method, AccuracyEvidenceMethod::SquareCorrection);
+            assert_eq!(
+                evidence.accuracy.class,
+                pse_model::strategy::AccuracyClass::Estimated
+            );
+            let value = evidence.value.unwrap();
+            let error = evidence.accuracy.error.unwrap();
+            assert!(value.is_finite() && error.is_finite() && (0.0..=0.1).contains(&error));
+            assert!((value - 4.0).abs() <= error);
+            let interval = assessed.classification.interval.unwrap();
+            assert!(interval.0 <= 4.0 && interval.1 >= 4.0);
         }
     }
     #[test]

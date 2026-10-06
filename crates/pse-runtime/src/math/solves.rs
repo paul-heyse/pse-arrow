@@ -5,13 +5,13 @@
 pub mod blocks;
 #[cfg(feature = "solver-kinsol")]
 pub mod causal;
-mod derived;
 mod certified_accuracy;
+mod derived;
 pub(crate) mod engineering_accuracy;
-pub(crate) mod output_program;
 mod kkt_accuracy;
-mod objective_accuracy;
 pub mod multistart;
+mod objective_accuracy;
+pub(crate) mod output_program;
 pub mod paths;
 #[cfg(feature = "solver-petsc")]
 pub mod petsc;
@@ -2076,10 +2076,7 @@ impl PreparedSolve {
 /// Fresh complete original-model evaluation, independently of native components.
 #[derive(Clone, Debug)]
 pub struct ConstantReport {
-    #[expect(
-        clippy::vec_box,
-        reason = "retain actual independently owned native report allocations without moving their heap bodies"
-    )]
+    // Keep the independently owned report allocations without moving their heap bodies.
     components: Vec<Box<SolveReport>>,
     owner: Option<Arc<pse_columnar::AllocationLease>>,
     /// Authored objective if declared.
@@ -4098,7 +4095,9 @@ impl MathService {
             (
                 Representation::Algebraic(case),
                 kind @ (execution::Representation::Nlp | execution::Representation::Roots),
-            ) => self.callback_step(run, retained, case, kind, &profile, budget, output_accuracy)?,
+            ) => {
+                self.callback_step(run, retained, case, kind, &profile, budget, output_accuracy)?
+            }
             _ => {
                 return Err(ProblemError::Internal(
                     "prepared representation differs from the selected adapter".into(),
@@ -4349,7 +4348,10 @@ impl MathService {
         Ok(report)
     }
     /// Callback oracle over the compiled case for an NLP or root-system adapter.
-    #[expect(clippy::too_many_arguments, reason = "the shared callback runner also carries the point-owned deferred accuracy consumer")]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the shared callback runner also carries the point-owned deferred accuracy consumer"
+    )]
     fn callback_step(
         &self,
         run: execution::Step<'_>,

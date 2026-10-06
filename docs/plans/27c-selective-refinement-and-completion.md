@@ -180,18 +180,18 @@ resolved-policy V2 identify the changed meaning. Recorded historical Arrow resol
 remains readable under its recorded contract, without fabricating the new context. Current
 context consumption requires explicit migration/readmission. Retained metric profile JSON
 is historical provenance and is never fed through the new execution decoder. Stored bytes
-are preserved. Final consumer checks and migration qualification remain pending.
+are preserved. Focused consumer/version checks pass; assembled migration qualification remains with 25k.
 
 ## Packages and qualification handoff
 
 | Package | Prerequisite | Delivery, integration owner and acceptance | Progress |
 |---|---|---|---|
 | C0 — Decisions and boundary inventory | Settled A0/shared target | ADR-0163, current-standard contracts review and consumed-version inventory above; root owns generated/request/completion migration | done |
-| C1 — Pure assessment/completion | Working A3/B1 and C0 route | Completion owner implements physical envelope classification and composed use truth table; migrates immediate assessment consumers. Delete goal permission re-derivation. Targeted `engineering_goal_assessment` controls | in progress |
-| C2 — Finite strategy refinement | Working C1/B2 and appropriate B producer | Strategy owner admits evidence/refinement operations, work demands, progress and typed stops under one task grant. Delete workflow-local loops and borrowed tolerances once replaced. Targeted `goal_refinement_strategy` controls | in progress |
-| C3 — Retained and durable contracts | Working C1/C2 with C0 versions | Schema/operations/Python integration owner migrates retained reports, jobs and generated boundary surfaces together; deletes replaced interpretations/codecs/callers, preserving old data through the selected supported transition. Targeted `accuracy_completion_transport` controls | in progress |
-| C4 — Complete workflow adoption | Working A/B/C1–C3 | Runtime integration owner migrates all actual consumers listed above and reference shared policy use; exercises real successful, violated, unavailable and finite-refusal journeys. No hidden old production path. Targeted `accuracy_workflow_adoption` controls | in progress |
-| C5 — Stable handoff | All functional packages and immediate deletions complete | Coordinator hands final tree and accuracy acceptance/measurement scopes to 25k K3/K4/K5; scheduled independent review assesses actual integrated behavior and architecture | planned |
+| C1 — Pure assessment/completion | Working A3/B1 and C0 route | Completion owner implements physical envelope classification and composed use truth table; migrates immediate assessment consumers. Delete goal permission re-derivation. Targeted `engineering_goal_assessment` controls | done |
+| C2 — Finite strategy refinement | Working C1/B2 and appropriate B producer | Strategy owner admits evidence/refinement operations, work demands, progress and typed stops under one task grant. Delete workflow-local loops and borrowed tolerances once replaced. Targeted `goal_refinement_strategy` controls | done |
+| C3 — Retained and durable contracts | Working C1/C2 with C0 versions | Schema/operations/Python integration owner migrates retained reports, jobs and generated boundary surfaces together; deletes replaced interpretations/codecs/callers, preserving old data through the selected supported transition. Targeted `accuracy_completion_transport` controls | done |
+| C4 — Complete workflow adoption | Working A/B/C1–C3 | Runtime integration owner migrates all actual consumers listed above and reference shared policy use; exercises real successful, violated, unavailable and finite-refusal journeys. No hidden old production path. Targeted `accuracy_workflow_adoption` controls | done |
+| C5 — Stable handoff | All functional packages and immediate deletions complete | Coordinator hands final tree and accuracy acceptance/measurement scopes to 25k K3/K4/K5; scheduled independent review assesses actual integrated behavior and architecture | done |
 
 **Proposed targeted controls:** independently specified envelopes on both sides/touching a
 threshold; combined resolution and decision outcomes; Estimated versus Certified evidence;
@@ -224,17 +224,16 @@ executed once rather than a second independent qualification.
 **Implemented / Interface-checked:** existing task accounting, product identities, composed
 candidate use and immutable completion inspected at the coordinator baseline.
 C0 is complete. C1–C3 assessment, finite strategy refinement and retained/generated
-contracts are implemented with focused controls; C4 adoption is being integrated with
+contracts are implemented with focused controls; C4 adoption is implemented with
 the static and dynamic producers. Optional evidence failures retain their typed cause
 and the original candidate, while cancellation, task limits and contract failures keep
 terminal precedence. Refinement recognizes newly resolved goals and changed work
-precision without changing frozen acceptance. Native journeys and linked Python
-transport validation precede C5's stable handoff. The generated Python codec now checks
+precision without changing frozen acceptance. Native refinement, selected-root, exact-objective and dynamic journeys pass their focused controls. C5 hands the stable functional tree to 25k after the combined accuracy selection. The generated Python codec now checks
 schema-required version headers on explicitly supplied documents before constructor defaults
 apply, including nested numerical policies and typed containers. Current constructors and lawful
 omission of an owner-defaulted policy remain supported; retained no-goal completions retain their
 historical interpretation. Focused generator, transport and native-boundary controls pass in the
-regenerated tree. The final dynamic journey still precedes handoff. No performance measurements have yet
+regenerated tree. The real dynamic comparator now resolves provider-free sample and endpoint goals with retained evaluator uncertainty; unsupported state and integral goals remain unavailable. Temporary diagnostic instrumentation is removed. The combined accuracy selection passes; C5 hands off scope-end checks, assembled qualification, measurements and final review to 25k. No performance measurements have yet
 been produced for this series. A local C package pass does not qualify the unexercised
 enclosing system. Final CA-F04 resolution and series closure require linked
 corrective/assembled evidence at 25k, while this package table owns execution progress.

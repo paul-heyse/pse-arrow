@@ -7,8 +7,8 @@ use super::results::{AssessmentScope, CertifiedBound, assess_observations, asses
 use super::*;
 use crate::math::{ExecutableCase, WorkerBudget, solves::Outcome};
 use pse_math::binding::CaseValues;
-use pse_model::generated::identities::RunId;
 use pse_model::diagnostic::DiagnosticProjection;
+use pse_model::generated::identities::RunId;
 use std::sync::Arc;
 
 /// One assessed candidate: the complete values it implies, its original-model checks and
@@ -50,12 +50,20 @@ impl AssessedPoint {
                     ))
                 }),
             }
-        } else if self.original.as_ref().unwrap_or(&completion.decision).permits_use() {
+        } else if self
+            .original
+            .as_ref()
+            .unwrap_or(&completion.decision)
+            .permits_use()
+        {
             OriginalConclusion::Satisfied
         } else {
             OriginalConclusion::Refused {
                 cause: Arc::new(pse_backend_native::ProblemError::numerical(
-                    self.original.as_ref().unwrap_or(&completion.decision).reason(),
+                    self.original
+                        .as_ref()
+                        .unwrap_or(&completion.decision)
+                        .reason(),
                 )),
             }
         }
@@ -167,8 +175,12 @@ impl Assessment {
             work: Vec::new(),
             accuracy: Vec::new(),
             original: None,
-            canonical_fallback: prepared.solve.numerics().targets.iter().any(|t|
-                t.engineering.as_ref().is_some_and(|e| e.canonical_fallback)),
+            canonical_fallback: prepared
+                .solve
+                .numerics()
+                .targets
+                .iter()
+                .any(|t| t.engineering.as_ref().is_some_and(|e| e.canonical_fallback)),
         };
         match outcome {
             Outcome::Constant(report) => {
@@ -232,14 +244,14 @@ impl Assessment {
         }
         let policy = &prepared.solve.numerics().policy;
         let original = crate::workflow::numerics::original_completion(
-                outcome.candidate_use(policy),
-                crate::workflow::numerics::CompletionEvidence::point(
-                    &point.checks,
-                    point.complete && point.error.is_none(),
-                    point.required_closure,
-                ),
-                policy,
-            );
+            outcome.candidate_use(policy),
+            crate::workflow::numerics::CompletionEvidence::point(
+                &point.checks,
+                point.complete && point.error.is_none(),
+                point.required_closure,
+            ),
+            policy,
+        );
         point.original = Some(original.decision.clone());
         if !policy.goals.is_empty() {
             if original.permits_use() {
@@ -252,16 +264,17 @@ impl Assessment {
                 ) {
                     Ok(goals) => point.accuracy = goals,
                     Err(error) => {
-                        point.error =
-                            Some(error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::ModelingQualification));
+                        point.error = Some(error.boundary_diagnostic(
+                            pse_diagnostics::DiagnosticStage::ModelingQualification,
+                        ));
                         point.unavailable_cause = Some(Arc::new(error));
                     }
                 }
-            }
-            else {
+            } else {
                 if let Err(error) = prepared.solve.clear_point_accuracy() {
                     point.error = Some(error.boundary_diagnostic(
-                        pse_diagnostics::DiagnosticStage::ModelingQualification));
+                        pse_diagnostics::DiagnosticStage::ModelingQualification,
+                    ));
                     point.unavailable_cause = Some(Arc::new(error));
                 }
             }

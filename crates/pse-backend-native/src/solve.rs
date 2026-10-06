@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Library-neutral execution controls and faithful result envelopes.
-mod retention;
 mod exact_objective;
-pub use exact_objective::ExactObjectiveTransport;
+mod retention;
 use crate::ProblemError;
+pub use exact_objective::ExactObjectiveTransport;
 use pse_ids::{ContentHash, SemanticId};
 use pse_model::{
     scalar,

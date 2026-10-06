@@ -2330,65 +2330,118 @@ impl MathService {
             };
             let optional_refinement = !p.original.numerics.policy.goals.is_empty()
                 && accuracy.refinement.rounds >= prepared.suppliers.len().saturating_mul(2)
-                && accuracy.refinement.proof_cells >= (prepared.suppliers.len() as u64).saturating_mul(2);
+                && accuracy.refinement.proof_cells
+                    >= (prepared.suppliers.len() as u64).saturating_mul(2);
             // Two consumed products share the declared finite round/proof-cell ceiling.
             // No-goal execution retains its whole mandatory operational allowance.
-            let first_limits = if optional_refinement { math::RefinementLimits {
-                rounds: accuracy.refinement.rounds / 2,
-                proof_cells: accuracy.refinement.proof_cells / 2,
-            }} else { accuracy.refinement };
-            let mut point = math::ReconstructionOracle::point(
-                &mut reconstruction,
-                &[],
-                &demand,
-                first_limits,
-            )?;
+            let first_limits = if optional_refinement {
+                math::RefinementLimits {
+                    rounds: accuracy.refinement.rounds / 2,
+                    proof_cells: accuracy.refinement.proof_cells / 2,
+                }
+            } else {
+                accuracy.refinement
+            };
+            let mut point =
+                math::ReconstructionOracle::point(&mut reconstruction, &[], &demand, first_limits)?;
             let eval = WorkEvidence {
                 evaluations: Some(1),
                 iterations: Some(0),
                 factorizations: Some(0),
                 proof_steps: Some(0),
             };
-            let mut assess = |values: &[f64]| -> Result<_,ProblemError> {
-                screen_bounds(&p.physical,values)?;
-                let mut rows=vec![0.0;m];
-                execution.counted(eval,|| oracle.constraints(values,&mut rows))?;
-                let objective=execution.counted(eval,|| oracle.objective(values))?;
-                let quality=quality::observed(oracle.contract(),oracle.constraint_bounds(),values,&rows,&p.original.tolerances)?;
-                let objective=p.source.prepared.prepared.plan.structure().objective().map(|o| objective*o.sense.sign());
-                let mut observation=quality::Observation::from_values(objective,rows,oracle.constraint_bounds().to_vec())?;
-                observation.sources=oracle.constraint_sources()?;
-                Ok((quality,objective,observation))
+            let mut assess = |values: &[f64]| -> Result<_, ProblemError> {
+                screen_bounds(&p.physical, values)?;
+                let mut rows = vec![0.0; m];
+                execution.counted(eval, || oracle.constraints(values, &mut rows))?;
+                let objective = execution.counted(eval, || oracle.objective(values))?;
+                let quality = quality::observed(
+                    oracle.contract(),
+                    oracle.constraint_bounds(),
+                    values,
+                    &rows,
+                    &p.original.tolerances,
+                )?;
+                let objective = p
+                    .source
+                    .prepared
+                    .prepared
+                    .plan
+                    .structure()
+                    .objective()
+                    .map(|o| objective * o.sense.sign());
+                let mut observation = quality::Observation::from_values(
+                    objective,
+                    rows,
+                    oracle.constraint_bounds().to_vec(),
+                )?;
+                observation.sources = oracle.constraint_sources()?;
+                Ok((quality, objective, observation))
             };
-            let (mut quality,mut objective,mut observation)=assess(&point.values)?;
+            let (mut quality, mut objective, mut observation) = assess(&point.values)?;
             let mut certified_reconstruction = CertifiedReconstructionPoint::issue(
-                self,p,&point,math::ReconstructionOracle::realization(&reconstruction),
+                self,
+                p,
+                &point,
+                math::ReconstructionOracle::realization(&reconstruction),
             )?;
-            if optional_refinement && quality.feasible() && let Some(receipt)=&certified_reconstruction {
-                let _values_charge=budget.charge(case_values_bytes(p.source.values.scalars.len()
-                    .checked_add(n).ok_or(MathRuntimeError::Limit("goal reconstruction values extent"))?)?)?;
-                let mut values=p.source.values.clone();
-                values.scalars.extend(p.physical.coordinates().iter().map(|coordinate| coordinate.id)
-                    .zip(point.values.iter().copied()));
-                let consuming=match receipt.refinement_demand(self,&p.original,&values,&scope,budget,&execution) {
-                    Ok(demand)=>demand,
-                    Err(error) if super::engineering_accuracy::optional_failure(&error)=>None,
-                    Err(error)=>return Err(error.into()),
+            if optional_refinement
+                && quality.feasible()
+                && let Some(receipt) = &certified_reconstruction
+            {
+                let _values_charge = budget.charge(case_values_bytes(
+                    p.source
+                        .values
+                        .scalars
+                        .len()
+                        .checked_add(n)
+                        .ok_or(MathRuntimeError::Limit("goal reconstruction values extent"))?,
+                )?)?;
+                let mut values = p.source.values.clone();
+                values.scalars.extend(
+                    p.physical
+                        .coordinates()
+                        .iter()
+                        .map(|coordinate| coordinate.id)
+                        .zip(point.values.iter().copied()),
+                );
+                let consuming = match receipt.refinement_demand(
+                    self,
+                    &p.original,
+                    &values,
+                    &scope,
+                    budget,
+                    &execution,
+                ) {
+                    Ok(demand) => demand,
+                    Err(error) if engineering_accuracy::optional_failure(&error) => None,
+                    Err(error) => return Err(error.into()),
                 };
-                if let Some(consuming)=consuming {
-                    let remaining=math::RefinementLimits { rounds:accuracy.refinement.rounds-first_limits.rounds,
-                        proof_cells:accuracy.refinement.proof_cells-first_limits.proof_cells };
-                    match math::ReconstructionOracle::point(&mut reconstruction,&[],&consuming,remaining) {
-                        Ok(refined)=> {
-                            point=refined;
-                            (quality,objective,observation)=assess(&point.values)?;
-                            certified_reconstruction=CertifiedReconstructionPoint::issue(self,p,&point,
-                                math::ReconstructionOracle::realization(&reconstruction))?;
+                if let Some(consuming) = consuming {
+                    let remaining = math::RefinementLimits {
+                        rounds: accuracy.refinement.rounds - first_limits.rounds,
+                        proof_cells: accuracy.refinement.proof_cells - first_limits.proof_cells,
+                    };
+                    match math::ReconstructionOracle::point(
+                        &mut reconstruction,
+                        &[],
+                        &consuming,
+                        remaining,
+                    ) {
+                        Ok(refined) => {
+                            point = refined;
+                            (quality, objective, observation) = assess(&point.values)?;
+                            certified_reconstruction = CertifiedReconstructionPoint::issue(
+                                self,
+                                p,
+                                &point,
+                                math::ReconstructionOracle::realization(&reconstruction),
+                            )?;
                         }
                         // A bounded optional proof refusal retains the actual first
                         // certificate and unmet goal; original checks remain mandatory.
-                        Err(ProblemError::Math(pse_math::MathError::Refinement {..}))=>{},
-                        Err(error)=>return Err(error.into()),
+                        Err(ProblemError::Math(pse_math::MathError::Refinement { .. })) => {}
+                        Err(error) => return Err(error.into()),
                     }
                 }
             }

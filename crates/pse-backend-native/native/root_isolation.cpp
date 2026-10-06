@@ -118,6 +118,7 @@ struct Graph {
             case 7: e=&arena.keep(log(child(n.a))); break;
             case 8: e=&arena.keep(sin(child(n.a))); break;
             case 9: e=&arena.keep(cos(child(n.a))); break;
+            case 10: e=&arena.keep(abs(child(n.a))); break;
             default: throw std::invalid_argument("unsupported operation");
             }
             expr.push_back(e);
@@ -451,6 +452,11 @@ extern "C" int32_t pse_ibex_point_arithmetic(const PseRootRequest* request,
             out->status=4;return 0;
         }
         Budget budget{r};budget.check();
+        // Absolute value is admitted only for Value arithmetic. No nonsmooth
+        // derivative or Hessian contract is supplied by this transport operation.
+        if(order!=0) for(uint32_t i=0;i<r.node_count;++i) {
+            budget.check();if(r.nodes[i].op==10) return 0;
+        }
         IntervalVector point(static_cast<int>(r.unknown_count));
         for(uint32_t i=0;i<r.unknown_count;++i) {
             if(!std::isfinite(r.lower[i])||!std::isfinite(r.upper[i])||r.lower[i]>r.upper[i]) return 0;
