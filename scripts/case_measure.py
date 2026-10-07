@@ -20,6 +20,7 @@ from scripts.native_tests import FEATURES, native_provenance
 from scripts.validation_scope import (
     FUNCTIONAL_SCOPES,
     RUST_INPUTS,
+    comprehensive,
     input_identity,
     native_gate,
 )
@@ -161,11 +162,14 @@ def require_functional(
         if name not in FUNCTIONAL_SCOPES:
             raise ValueError("unknown functional prerequisite scope")
         exact = FUNCTIONAL_SCOPES[name]
-        covering = native_gate()
+        # The assembled invocation adds its setup dependency without changing
+        # nextest's selection. Accept its exact declared form as well as the
+        # standalone gate; arbitrary dependency/selection edits still refuse.
+        assembled = next(gate for gate in comprehensive() if gate.name == "native-test")
         gate = next(
             (
                 candidate
-                for candidate in (exact, covering)
+                for candidate in (exact, native_gate(), assembled)
                 if declarations.get(candidate.name)
                 == json.loads(json.dumps(validation.asdict(candidate)))
             ),

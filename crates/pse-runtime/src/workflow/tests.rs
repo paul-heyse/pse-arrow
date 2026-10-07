@@ -9,6 +9,26 @@ use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
 pub(super) fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }
+/// Read the engineering allowance frozen by production admission for this target.
+/// Tests must not substitute a coordinate nominal or a private solver tolerance.
+pub(crate) fn engineering_target(
+    numerics: &pse_model::numerics::ResolvedNumericalPolicy,
+    kind: pse_relations::generated::enums::NumericalTarget,
+    id: SemanticId,
+) -> &pse_model::numerics::ResolvedTarget {
+    let target = numerics
+        .targets
+        .iter()
+        .find(|target| target.kind == kind && target.id == id)
+        .expect("production-resolved numerical target");
+    let context = target
+        .engineering
+        .as_ref()
+        .expect("engineering interpretation for ordinary production fixture");
+    assert!(context.budget.is_finite() && context.budget > 0.);
+    assert!(target.coordinate_scale.is_finite() && target.coordinate_scale > 0.);
+    target
+}
 /// The typed ADR-0103 refusal of a free discrete variable: its instance path's last
 /// segment and the refusing analysis. The class is always `unsupported`.
 pub(super) fn free_discrete_refusal(error: &WorkflowError) -> (String, String) {

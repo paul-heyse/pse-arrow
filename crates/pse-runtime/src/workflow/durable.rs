@@ -630,7 +630,28 @@ impl DurableAttempt {
         }
         let mut record = self.record(terminal, Some(stored), solutions).await;
         if let Err(error) = ingestion {
-            record.attempt = Err(Arc::new(error));
+            // Cancellation revokes ingestion authority before native drain. An exact
+            // acknowledged cancelled terminal settles that lifecycle; its stored
+            // termination still retains the ingestion diagnostic. Other persistence
+            // errors must remain errors, including an unacknowledged cancellation.
+            let settled_cancellation = record.attempt.as_ref().is_ok_and(|attempt| {
+                attempt.terminal
+                    && attempt.closed
+                    && attempt.outcome.as_deref() == Some("cancelled")
+                    && record.attempt_key.as_deref() == Some(attempt.key.as_str())
+                    && record
+                        .run
+                        .as_ref()
+                        .is_some_and(|run| run.cancelled && run.key == attempt.run)
+                    && record.manifest.is_some()
+                    && record.completion.as_ref().is_some_and(|completion| {
+                        completion.attempt_id == self.attempt
+                            && completion.state == AttemptState::Cancelled
+                    })
+            });
+            if !settled_cancellation {
+                record.attempt = Err(Arc::new(error));
+            }
         }
         record
     }

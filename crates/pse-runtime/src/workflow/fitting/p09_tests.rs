@@ -9,23 +9,210 @@ use native::{
 };
 use std::sync::atomic::AtomicBool;
 
-/// These analytical estimates and active-bound checks require a more accurate
-/// base point than the ordinary 0.1% engineering stopping budgets. Derivatives
-/// are still checked at their stated evaluation points, and covariance is still
-/// derived at the actual returned candidate; no output-error guarantee is assumed.
-fn verification_numerics() -> pse_model::numerics::NumericalPolicy {
-    pse_model::numerics::NumericalPolicy {
-        kkt: pse_model::numerics::KktTolerances {
-            stationarity: 1e-9,
-            complementarity: 1e-9,
-        },
-        ..Default::default()
+/// Parameter estimates use the frozen physical target. Dynamic derivative actions
+/// are empirical physical-output comparisons, not certified endpoint-error bounds.
+fn parameter_allowance(problem: &FitProblem, symbol: SemanticId) -> f64 {
+    crate::workflow::tests::engineering_target(&problem.numerics, NumericalTarget::Variable, symbol)
+        .budget
+}
+
+fn assert_action(actual: f64, expected: f64, allowance: f64) {
+    assert!(actual.is_finite() && expected.is_finite() && allowance.is_finite() && allowance >= 0.);
+    assert!(
+        (actual - expected).abs() <= allowance,
+        "empirical action {actual} versus {expected}, composed physical allowance {allowance}"
+    );
+}
+
+fn objective_scale(problem: &FitProblem) -> f64 {
+    crate::workflow::tests::engineering_target(
+        &problem.numerics,
+        NumericalTarget::Objective,
+        SemanticId::NIL,
+    )
+    .coordinate_scale
+}
+
+/// Derivative-only observations use the fit's production job owner too: actual
+/// threads, prepared extent, task clock and foreign allowance remain admitted
+/// until the evaluator and native thread have been destroyed and joined.
+async fn with_admitted_fit_oracle(
+    problem: Arc<FitProblem>,
+    check: impl FnOnce(&mut FitOracle) + Send + 'static,
+) {
+    let service = problem.runtime.native().clone();
+    let controls = problem.profile.solver.controls.clone();
+    let deadline = std::time::Instant::now()
+        .checked_add(controls.time_limit)
+        .unwrap();
+    service
+        .job_scoped(
+            controls.threads,
+            problem.bytes,
+            Default::default(),
+            Some(deadline),
+            move |flag| {
+                let scope = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
+                let mut execution = Execution::within(flag, &controls, scope)?;
+                execution.memory = Some(
+                    problem
+                        .runtime
+                        .shared
+                        .budget()
+                        .math
+                        .foreign_allowance(&controls),
+                );
+                let mut oracle = FitOracle::new(problem, execution)?;
+                check(&mut oracle);
+                Ok(())
+            },
+        )
+        .await
+        .unwrap();
+}
+
+/// The fixture's affine y has unit physical gain from x. The retained production
+/// assessment supplies x's quantity allowance; the explicit steady y=p is exact.
+fn affine_output_allowances(
+    problem: &FitProblem,
+    assessments: &[modeling::Assessment],
+) -> Vec<f64> {
+    problem
+        .measurements
+        .iter()
+        .map(|observation| match &assessments[observation.experiment] {
+            modeling::Assessment::Transient(simulation) => {
+                assert_eq!(simulation.contract().states.len(), 1);
+                let target = crate::workflow::tests::engineering_target(
+                    simulation.numerics(),
+                    NumericalTarget::Variable,
+                    simulation.contract().states[0],
+                );
+                assert_eq!(target.quantity, observation.port.quantity.as_id());
+                target.budget
+            }
+            modeling::Assessment::Steady { .. } => 0.,
+        })
+        .collect()
+}
+
+/// Compose the independent physical prediction and material response comparisons
+/// through the actual weighted loss r*J. This is an empirical acceptance allowance;
+/// native local integration tolerances do not certify a global error enclosure.
+fn affine_gradient_allowance(
+    problem: &FitProblem,
+    allowances: &[f64],
+    x: f64,
+    slopes: &[f64],
+    intercepts: &[f64],
+) -> f64 {
+    let delta = 0.5 * problem.declaration.parameters[0].scale;
+    problem
+        .measurements
+        .iter()
+        .enumerate()
+        .map(|(row, observation)| {
+            let e = allowances[row];
+            let residual = intercepts[row] + slopes[row] * x - observation.value.unwrap();
+            let action = slopes[row] * delta;
+            observation.importance / observation.sigma.unwrap_or(1.).powi(2)
+                * (residual.abs() * e + action.abs() * e + e * e)
+        })
+        .sum::<f64>()
+        / objective_scale(problem)
+}
+
+/// Independent analytic response over a material half-coordinate parameter action,
+/// plus one observed parameter response under the same retained integration profile.
+/// These are empirical action checks, not certified derivative-error enclosures.
+fn assert_affine_responses(
+    oracle: &mut FitOracle,
+    x: f64,
+    slopes: &[f64],
+    intercepts: &[f64],
+    assessments: &[modeling::Assessment],
+) {
+    let problem = oracle.prepared.clone();
+    let scale = problem.declaration.parameters[0].scale;
+    let delta = 0.5 * scale;
+    assert!(delta > parameter_allowance(&problem, id(3)));
+    let RankDiagnostic {
+        responses, rank, ..
+    } = oracle.response_rank(&[x]).unwrap();
+    assert_eq!(rank, 1);
+    assert_eq!(responses.nrows(), slopes.len());
+    assert_eq!(intercepts.len(), slopes.len());
+    let base = oracle.evaluate(&[x]).unwrap().predictions.clone();
+    let changed = oracle.evaluate(&[x + delta]).unwrap().predictions.clone();
+    let allowances = affine_output_allowances(&problem, assessments);
+    for (row, &slope) in slopes.iter().enumerate() {
+        let measurement = &problem.measurements[row];
+        assert_eq!(measurement.id, [id(71), id(72)][row]);
+        assert_eq!(measurement.time, (row == 0).then_some(161.));
+        let weight = measurement.importance.sqrt() / measurement.sigma.unwrap_or(1.);
+        let expected = slope * delta * weight;
+        assert_action(
+            responses[(row, 0)] * delta * weight,
+            expected,
+            allowances[row] * weight,
+        );
+        match &assessments[measurement.experiment] {
+            modeling::Assessment::Transient(simulation) => {
+                assert_eq!(simulation.contract().states.len(), 1);
+                // The authored affine output has unit gain from physical x.
+                // Both primal integrations have their own frozen x allowance;
+                // their difference cannot use a derivative-error authority.
+                let allowance = crate::workflow::tests::engineering_target(
+                    simulation.numerics(),
+                    NumericalTarget::Variable,
+                    simulation.contract().states[0],
+                )
+                .budget;
+                assert!(delta * slope.abs() > 2. * allowance);
+                assert!((base[row] - (intercepts[row] + slope * x)).abs() <= allowance);
+                assert!(
+                    (changed[row] - (intercepts[row] + slope * (x + delta))).abs() <= allowance
+                );
+                assert!(
+                    ((changed[row] - base[row]) * weight - expected).abs()
+                        <= 2. * allowance * weight
+                );
+            }
+            modeling::Assessment::Steady { .. } => {
+                // This experiment is the explicit primitive y=p, with no local
+                // numerical solve or integration error in its value transport.
+                assert_eq!(base[row], intercepts[row] + slope * x);
+                assert_eq!(changed[row], intercepts[row] + slope * (x + delta));
+                assert_eq!((changed[row] - base[row]) * weight, expected);
+            }
+        }
     }
 }
 
-fn assert_verification_accuracy(problem: &FitProblem) {
-    assert_eq!(problem.accuracy.stationarity, 1e-9);
-    assert_eq!(problem.accuracy.complementarity, 1e-9);
+#[cfg(feature = "solver-ipopt")]
+fn assert_report_responses(
+    problem: &FitProblem,
+    report: &FitReport,
+    slopes: &[f64],
+    allowances: &[f64],
+) {
+    let candidate = report.candidate.as_ref().unwrap();
+    assert_eq!(candidate.len(), 1);
+    let responses = report.responses.as_ref().unwrap();
+    assert_eq!((responses.nrows(), responses.ncols()), (slopes.len(), 1));
+    let delta = 0.5 * problem.declaration.parameters[0].scale;
+    assert!(delta > parameter_allowance(problem, id(3)));
+    for (row, slope) in slopes.iter().enumerate() {
+        let observation = &problem.measurements[row];
+        assert_eq!(observation.id, [id(71), id(72)][row]);
+        assert_eq!(observation.time, (row == 0).then_some(161.));
+        let weight = observation.importance.sqrt() / observation.sigma.unwrap_or(1.);
+        assert_action(
+            responses[(row, 0)] * delta * weight,
+            slope * delta * weight,
+            allowances[row] * weight,
+        );
+    }
 }
 
 fn assert_diffsol_exact_hessian_refused(error: WorkflowError) {
@@ -63,10 +250,10 @@ async fn source_case(
     physical.key =
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
     let body = "{ domain t: Time from 160{s} to 161{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 2; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == p; eq initial: x[160{s}] == 10{s}; let y[i in t]: Time = x[i]+i-100{s}; let hit[i in t]: Time = x[i]-11{s}; let jump[i in t]: Time = 20{s}; annotation report y(\"measurement\"); annotation check x(x[i] >= 10{s}); }";
-    let integrate =
-        "integrate samples(160{s},161{s}) relative(1e-8) normalized_absolute(1e-8) step(1e-5{s});";
+    let integrate = "integrate samples(160{s},161{s}) relative(global) normalized_absolute(global) step(1e-5{s});";
+    let event_tolerance = pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY;
     let text = format!(
-        "package p {{ test Dynamic fixture {{dof 0; route integrated; procedure integrate; {integrate}}} {body} test DynamicReset fixture {{dof 0; route integrated; procedure integrate; {integrate} mode before; event hit[160{{s}}] direction(either) tolerance(1e-8{{s}}) reset(x[160{{s}}] = jump[160{{s}}]) next(after); mode after;}} {body} def Steady {{ param p: Scalar = 2; let y: Scalar = p; annotation check p(p > 0); }} }}"
+        "package p {{ test Dynamic fixture {{dof 0; route integrated; procedure integrate; {integrate}}} {body} test DynamicReset fixture {{dof 0; route integrated; procedure integrate; {integrate} mode before; event hit[160{{s}}] direction(either) tolerance({event_tolerance}{{s}}) reset(x[160{{s}}] = jump[160{{s}}]) next(after); mode after;}} {body} def Steady {{ param p: Scalar = 2; let y: Scalar = p; annotation check p(p > 0); }} }}"
     );
     let mut rows = pse_authoring::language::parse(
         &text,
@@ -87,7 +274,7 @@ async fn source_case(
         fit.observations.push(serde_json::from_value(serde_json::json!({"value_attribute":"value","standard_deviation_attribute":"sigma","observation_id":id(72),"experiment_id":id(75),"output_path":"y","time":null,"included":true,"importance":1.})).unwrap());
     }
     data.fits.push(fit);
-    let profile = FitProfile {
+    let mut profile = FitProfile {
         solver: SolverProfile {
             intent: SolveIntent::Optimize,
             selection: native::solve::SolverSelection::Explicit(Backend::Ipopt),
@@ -96,39 +283,42 @@ async fn source_case(
                 ..Default::default()
             },
             presolve: native::presolve::Policy::Off,
-            numerics: verification_numerics(),
+            numerics: Default::default(),
             convexity: Default::default(),
             backend: native::execution::BackendSettings::Default,
             sensitivity: None,
             composition: Default::default(),
             reconstruction: None,
         },
-        simulations: BTreeMap::from([(
-            InstanceId::from(id(74)),
-            native::dynamics::Profile {
-                start: 160.,
-                end: 161.,
-                samples: vec![160., 161.],
-                parameter_scales: vec![1.],
-                ..Default::default()
-            },
-        )]),
+        simulations: BTreeMap::new(),
         rank_tolerance: 1e-8,
         max_cells: 100000,
         derivatives: FitDerivatives::Responses,
         uncertainty: None,
     };
+    let case_id = root(case);
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
-    (
-        runtime
-            .modeling_package(rows, physical)
-            .await
-            .unwrap()
-            .with_fit_declarations(data)
-            .await
-            .unwrap(),
-        profile,
-    )
+    let package = runtime
+        .modeling_package(rows, physical)
+        .await
+        .unwrap()
+        .with_fit_declarations(data)
+        .await
+        .unwrap();
+    let simulation = package
+        .declared_simulation(
+            case_id,
+            compiler_profile(),
+            None,
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    profile
+        .simulations
+        .insert(InstanceId::from(id(74)), simulation.profile().clone());
+    (package, profile)
 }
 #[tokio::test]
 async fn mixed_shared_parameter_gradient_uses_inline_forward_sensitivities() {
@@ -151,7 +341,7 @@ async fn mixed_shared_parameter_gradient_uses_inline_forward_sensitivities() {
             .await
             .unwrap_err(),
     );
-    let (problem, _) = package
+    let (problem, assessments) = package
         .prepare_fit_problem(
             FitId::from(id(73)),
             profile,
@@ -167,21 +357,23 @@ async fn mixed_shared_parameter_gradient_uses_inline_forward_sensitivities() {
         &problem.profile.solver.controls,
     );
     let mut oracle = FitOracle::new(problem, execution).unwrap();
-    assert!((oracle.objective(&[2.]).unwrap() - 0.5).abs() < 1e-6);
+    let problem = oracle.prepared.clone();
+    let allowance = crate::workflow::tests::engineering_target(
+        &problem.numerics,
+        NumericalTarget::Objective,
+        SemanticId::NIL,
+    )
+    .budget;
+    assert!((oracle.objective(&[2.]).unwrap() - 0.5).abs() <= allowance);
     let mut gradient = [0.];
     oracle.gradient(&[2.], &mut gradient).unwrap();
-    assert!((gradient[0] - 1.).abs() < 1e-6);
-    let step = 1e-4;
-    let finite = (oracle.objective(&[2. + step]).unwrap()
-        - oracle.objective(&[2. - step]).unwrap())
-        / (2. * step);
-    assert!((finite - gradient[0]).abs() < 1e-5);
-    let RankDiagnostic {
-        responses, rank, ..
-    } = oracle.response_rank(&[2.]).unwrap();
-    assert_eq!(rank, 1);
-    assert!((responses[(0, 0)] - 1.).abs() < 1e-6);
-    assert!((responses[(1, 0)] - 1.).abs() < 1e-6);
+    let output_allowances = affine_output_allowances(&problem, &assessments);
+    assert_action(
+        gradient[0] * 0.5 / objective_scale(&problem),
+        0.5 / objective_scale(&problem),
+        affine_gradient_allowance(&problem, &output_allowances, 2., &[1., 1.], &[71., 0.]),
+    );
+    assert_affine_responses(&mut oracle, 2., &[1., 1.], &[71., 0.], &assessments);
 }
 /// I8: a Gauss–Newton Hessian needs only forward sensitivities, so a transient fit on
 /// Diffsol admits it, where the exact Hessian (the second-order adjoint, IDAS only, Y4b)
@@ -192,7 +384,10 @@ async fn gauss_newton_fit_admits_transient() {
     let (package, mut profile) = source(true, 73.).await;
     let cancel = crate::CancelSource::new();
     profile.solver.controls.hessian = HessianMode::GaussNewton;
-    let (problem, _) = package
+    for integration in profile.simulations.values_mut() {
+        integration.method = native::dynamics::Method::Diffsol;
+    }
+    let (problem, assessments) = package
         .prepare_fit_problem(
             FitId::from(id(73)),
             profile.clone(),
@@ -203,18 +398,24 @@ async fn gauss_newton_fit_admits_transient() {
         .await
         .unwrap();
     assert_eq!(problem.contract.derivatives, DerivativeOrder::Second);
-    assert_verification_accuracy(&problem);
     let execution = Execution::new(
         Arc::new(AtomicBool::new(false)),
         &problem.profile.solver.controls,
     );
     let mut oracle = FitOracle::new(problem, execution).unwrap();
     let mut hessian = vec![0.; oracle.hessian_pattern().unwrap().row_idx().len()];
+    let allowances = affine_output_allowances(&oracle.prepared, &assessments);
+    let hessian_allowance =
+        allowances.iter().map(|e| e + e * e).sum::<f64>() / objective_scale(&oracle.prepared);
     for sigma in [1., 0.25] {
         oracle.hessian(&[2.], sigma, &[], &mut hessian).unwrap();
         // Both responses are dy/dp = 1 with unit weights: σ·JᵀWJ = 2σ.
         assert_eq!(hessian.len(), 1);
-        assert!((hessian[0] - 2. * sigma).abs() < 1e-6, "{hessian:?}");
+        assert_action(
+            hessian[0] * 0.25 / objective_scale(&oracle.prepared),
+            2. * sigma * 0.25 / objective_scale(&oracle.prepared),
+            sigma * hessian_allowance,
+        );
     }
     #[cfg(feature = "solver-ipopt")]
     {
@@ -228,16 +429,19 @@ async fn gauss_newton_fit_admits_transient() {
             )
             .await
             .unwrap();
-        assert_verification_accuracy(&prepared.problem);
+        let frozen = prepared.problem.clone();
+        let output_allowances = affine_output_allowances(&frozen, &prepared.assessments);
         let result = prepared.start().unwrap().wait().await.unwrap();
         let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
             panic!("missing fit")
         };
         // Least squares of (p − 2) and (p − 1).
         assert!(
-            (report.candidate.as_ref().unwrap()[0] - 1.5).abs() < 1e-5,
+            (report.candidate.as_ref().unwrap()[0] - 1.5).abs()
+                <= parameter_allowance(&frozen, id(3)),
             "{report:?}"
         );
+        assert_report_responses(&frozen, report, &[1., 1.], &output_allowances);
         assert_eq!(report.hessian, HessianMode::GaussNewton);
         let table = result.table("runtime.solve_metrics").unwrap();
         let rows = pse_relations::generated::runtime::solve_metrics::RuntimeSolveMetricsView::from_checked(&table)
@@ -250,9 +454,9 @@ async fn gauss_newton_fit_admits_transient() {
     }
 }
 /// ADR-0110 item 3: a gradient-only fit's objective gradient is the adjoint product of its
-/// transient experiment, and it equals the forward-sensitivity gradient and central finite
-/// differences of the objective, on Diffsol and IDAS, with and without a scheduled input
-/// (declared tolerances: 1e-6 against forward, 1e-5 against differences). The gradient fit
+/// transient experiment. Forward and adjoint material actions are independently checked
+/// against the analytic affine experiment on their actual production profiles, with
+/// and without a scheduled input. The gradient fit
 /// integrates without sensitivities, needs the limited-memory Hessian, and reruns the
 /// forward sensitivities once for rank at its candidate (PS-12).
 #[tokio::test]
@@ -279,79 +483,81 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
                 });
         }
         let cancel = crate::CancelSource::new();
-        let oracle = |derivatives| {
-            let (package, mut profile) = (package.clone(), profile.clone());
-            let cancel = cancel.clone();
-            async move {
-                profile.derivatives = derivatives;
-                let (problem, _) = package
-                    .prepare_fit_problem(
-                        FitId::from(id(73)),
-                        profile,
-                        compiler_profile(),
-                        Default::default(),
-                        &cancel,
-                    )
-                    .await
-                    .unwrap();
-                let mut execution = Execution::new(
-                    Arc::new(AtomicBool::new(false)),
-                    &problem.profile.solver.controls,
+        for derivatives in [FitDerivatives::Responses, FitDerivatives::Gradient] {
+            let mut selected = profile.clone();
+            selected.derivatives = derivatives;
+            let (problem, assessments) = package
+                .prepare_fit_problem(
+                    FitId::from(id(73)),
+                    selected,
+                    compiler_profile(),
+                    Default::default(),
+                    &cancel,
+                )
+                .await
+                .unwrap();
+            with_admitted_fit_oracle(problem.into(), move |oracle| {
+                let Experiment::Transient(s) = &oracle.prepared.experiments[0] else {
+                    panic!("transient experiment")
+                };
+                assert_eq!(
+                    s.profile.sensitivity,
+                    if derivatives == FitDerivatives::Responses {
+                        native::dynamics::DynamicSensitivity::Forward
+                    } else {
+                        native::dynamics::DynamicSensitivity::Adjoint
+                    }
                 );
-                execution.memory = Some(64 << 20);
-                FitOracle::new(problem, execution).unwrap()
-            }
-        };
-        let mut forward = oracle(FitDerivatives::Responses).await;
-        let mut adjoint = oracle(FitDerivatives::Gradient).await;
-        let transient = |o: &FitOracle| {
-            let Experiment::Transient(s) = &o.prepared.experiments[0] else {
-                panic!("transient experiment")
-            };
-            s.profile.sensitivity
-        };
-        assert_eq!(
-            transient(&forward),
-            native::dynamics::DynamicSensitivity::Forward
-        );
-        assert_eq!(
-            transient(&adjoint),
-            native::dynamics::DynamicSensitivity::Adjoint
-        );
-        for x in [2.5, 0.7] {
-            let (mut g, mut a) = ([0.], [0.]);
-            forward.gradient(&[x], &mut g).unwrap();
-            adjoint.gradient(&[x], &mut a).unwrap();
-            assert!(g[0].abs() > 0.1, "a nonzero gradient at {x}: {g:?}");
-            assert!(
-                (a[0] - g[0]).abs() <= 1e-6 * (1. + g[0].abs()),
-                "{method:?} scheduled={scheduled} x={x}: adjoint {a:?} forward {g:?}"
-            );
-            let step = 1e-4;
-            let difference = (adjoint.objective(&[x + step]).unwrap()
-                - adjoint.objective(&[x - step]).unwrap())
-                / (2. * step);
-            assert!(
-                (a[0] - difference).abs() <= 1e-5 * (1. + difference.abs()),
-                "{method:?} scheduled={scheduled} x={x}: adjoint {a:?} differences {difference}"
-            );
-            // The gradient fit's own integrations carry no sensitivities.
-            let point = adjoint.evaluate(&[x]).unwrap();
-            assert!(
-                point
-                    .trajectories
-                    .values()
-                    .flat_map(|r| &r.samples)
-                    .all(|s| s.output_sensitivities.is_empty())
-            );
+                for x in [2.5, 0.7] {
+                    let mut g = [0.];
+                    oracle.gradient(&[x], &mut g).unwrap();
+                    assert!(g[0].abs() > 0.1, "a nonzero gradient at {x}: {g:?}");
+                    let expected = if scheduled {
+                        1.25 * x - 1.5
+                    } else {
+                        2. * x - 3.
+                    };
+                    let action = 0.5 / objective_scale(&oracle.prepared);
+                    let slopes = [if scheduled { 0.5 } else { 1. }, 1.];
+                    let intercepts = [if scheduled { 72. } else { 71. }, 0.];
+                    let allowances = affine_output_allowances(&oracle.prepared, &assessments);
+                    assert_action(
+                        g[0] * action,
+                        expected * action,
+                        affine_gradient_allowance(
+                            &oracle.prepared,
+                            &allowances,
+                            x,
+                            &slopes,
+                            &intercepts,
+                        ),
+                    );
+                    // The gradient fit's own integrations carry no sensitivities.
+                    if derivatives == FitDerivatives::Gradient {
+                        let point = oracle.evaluate(&[x]).unwrap();
+                        assert!(
+                            point
+                                .trajectories
+                                .values()
+                                .flat_map(|r| &r.samples)
+                                .all(|s| s.output_sensitivities.is_empty())
+                        );
+                    }
+                }
+                // The rank rerun forms the response Jacobian with forward sensitivities.
+                if derivatives == FitDerivatives::Gradient {
+                    let expected = if scheduled { 0.5 } else { 1. };
+                    assert_affine_responses(
+                        oracle,
+                        2.,
+                        &[expected, 1.],
+                        &[if scheduled { 72. } else { 71. }, 0.],
+                        &assessments,
+                    );
+                }
+            })
+            .await;
         }
-        // The rank rerun forms the response Jacobian with forward sensitivities.
-        let RankDiagnostic {
-            responses, rank, ..
-        } = adjoint.response_rank(&[2.]).unwrap();
-        assert_eq!(rank, 1);
-        let expected = if scheduled { 0.5 } else { 1. };
-        assert!((responses[(0, 0)] - expected).abs() < 1e-5, "{responses:?}");
         // No response Jacobian means no supplied Hessian.
         let mut gauss_newton = profile.clone();
         gauss_newton.derivatives = FitDerivatives::Gradient;
@@ -386,16 +592,19 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
             )
             .await
             .unwrap();
-        assert_verification_accuracy(&prepared.problem);
+        let frozen = prepared.problem.clone();
+        let output_allowances = affine_output_allowances(&frozen, &prepared.assessments);
         let result = prepared.start().unwrap().wait().await.unwrap();
         let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
             panic!("missing fit")
         };
         // Least squares of (p − 2) and (p − 1).
         assert!(
-            (report.candidate.as_ref().unwrap()[0] - 1.5).abs() < 1e-5,
+            (report.candidate.as_ref().unwrap()[0] - 1.5).abs()
+                <= parameter_allowance(&frozen, id(3)),
             "{report:?}"
         );
+        assert_report_responses(&frozen, report, &[1., 1.], &output_allowances);
         assert_eq!(report.derivatives, FitDerivatives::Gradient);
         assert_eq!(report.rank, Some(1));
         let table = result.table("runtime.solve_metrics").unwrap();
@@ -438,7 +647,7 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
                 });
         }
         let cancel = crate::CancelSource::new();
-        let (problem, _) = package
+        let (problem, assessments) = package
             .prepare_fit_problem(
                 FitId::from(id(73)),
                 profile.clone(),
@@ -455,13 +664,16 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
             &problem.profile.solver.controls,
         );
         let mut oracle = FitOracle::new(problem, execution).unwrap();
-        let RankDiagnostic {
-            responses, rank, ..
-        } = oracle.response_rank(&[2.]).unwrap();
-        assert_eq!(rank, 1);
-        assert!(
-            (responses[(0, 0)] - if mode == 1 { 0.5 } else { 1. }).abs() < 1e-5,
-            "mode {mode}"
+        assert_affine_responses(
+            &mut oracle,
+            2.,
+            &[if mode == 1 { 0.5 } else { 1. }],
+            &[match mode {
+                0 => 71.,
+                1 => 72.,
+                _ => 80.,
+            }],
+            &assessments,
         );
         drop(oracle);
         let prepared = package
@@ -474,18 +686,47 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
             )
             .await
             .unwrap();
-        assert_verification_accuracy(&prepared.problem);
+        let frozen = prepared.problem.clone();
+        let output_allowances = affine_output_allowances(&frozen, &prepared.assessments);
+        let modeling::Assessment::Transient(simulation) = &prepared.assessments[0] else {
+            panic!("missing original transient assessment")
+        };
+        assert_eq!(simulation.contract().states.len(), 1);
+        // y=x+t-100 s has unit state gain. Its physical discrepancy therefore
+        // uses the actual resolved x allowance, separately from response accuracy.
+        let output_allowance = crate::workflow::tests::engineering_target(
+            simulation.numerics(),
+            NumericalTarget::Variable,
+            simulation.contract().states[0],
+        )
+        .budget;
         let result = prepared.start().unwrap().wait().await.unwrap();
         let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
             panic!("missing fit")
         };
         assert!(
-            (report.candidate.as_ref().unwrap()[0] - 3.).abs() < 1e-4,
+            (report.candidate.as_ref().unwrap()[0] - 3.).abs()
+                <= parameter_allowance(&frozen, id(3)),
             "mode {mode}: {report:?}"
         );
         let trajectory = &report.trajectories[&InstanceId::from(id(74))];
         assert_eq!(trajectory.completed_time, 161.);
-        assert!((report.predictions[0].unwrap() - expected).abs() < 1e-4);
+        let candidate = report.candidate.as_ref().unwrap()[0];
+        let slope = if mode == 1 { 0.5 } else { 1. };
+        assert!(
+            (report.predictions[0].unwrap() - expected).abs()
+                <= slope * parameter_allowance(&frozen, id(3)) + output_allowance
+        );
+        assert_report_responses(&frozen, report, &[slope], &output_allowances);
+        let analytic = match mode {
+            0 => 71. + candidate,
+            1 => 72. + candidate / 2.,
+            _ => 80. + candidate,
+        };
+        assert!(
+            (report.predictions[0].unwrap() - analytic).abs() <= output_allowance,
+            "physical prediction at accepted candidate {candidate}: {report:?}"
+        );
         if mode == 2 {
             assert!(!trajectory.events.is_empty());
         }
@@ -505,7 +746,7 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
             exported[0].source_revision,
             package.revision.identity().as_id()
         );
-        assert!((exported[0].value - 3.).abs() < 1e-4);
+        assert_eq!(exported[0].value, report.candidate.as_ref().unwrap()[0]);
         assert!(result.usable());
         assert!(
             result
@@ -533,13 +774,13 @@ async fn authored_integration_controls_bind_to_the_experiment_instance() {
         )
         .await
         .unwrap();
-    assert_verification_accuracy(&prepared.problem);
+    let frozen = prepared.problem.clone();
     let result = prepared.start().unwrap().wait().await.unwrap();
     let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
         panic!("missing fit")
     };
     assert!(
-        (report.candidate.as_ref().unwrap()[0] - 3.).abs() < 1e-4,
+        (report.candidate.as_ref().unwrap()[0] - 3.).abs() <= parameter_allowance(&frozen, id(3)),
         "{report:?}"
     );
     assert!(result.usable(), "{report:?}");
@@ -640,13 +881,15 @@ async fn gauss_newton_covariance_labelled() {
             )
             .await
             .unwrap();
-        assert_verification_accuracy(&prepared.problem);
+        let frozen = prepared.problem.clone();
+        let output_allowances = affine_output_allowances(&frozen, &prepared.assessments);
         let result = prepared.start().unwrap().wait().await.unwrap();
         let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
             panic!("missing fit")
         };
         assert!(
-            (report.candidate.as_ref().unwrap()[0] - 2.).abs() < 1e-5,
+            (report.candidate.as_ref().unwrap()[0] - 2.).abs()
+                <= parameter_allowance(&frozen, id(3)),
             "{report:?}"
         );
         let covariance = report.covariance.as_ref().unwrap();
@@ -655,7 +898,13 @@ async fn gauss_newton_covariance_labelled() {
             CovarianceApproximation::GaussNewton
         );
         let values = covariance.values.as_ref().unwrap();
-        assert!((values[0] - 1.).abs() < 1e-6, "{hessian:?} {values:?}");
+        assert_report_responses(&frozen, report, &[1.], &output_allowances);
+        let response = report.responses.as_ref().unwrap()[(0, 0)];
+        let action = values[0] * response * response;
+        assert!(
+            (action - 1.).abs() / (action.abs() + 1.)
+                <= frozen.numerics.policy.linear_backward_error
+        );
         let rows = parameter_covariances::Row::rows(
             &result.table("runtime.parameter_covariances").unwrap(),
         )
@@ -677,7 +926,7 @@ async fn gauss_newton_covariance_labelled() {
 async fn transient_fit(
     package: &crate::workflow::ModelingPackage,
     profile: FitProfile,
-) -> Arc<crate::workflow::RunResult> {
+) -> (Arc<FitProblem>, Vec<f64>, Arc<crate::workflow::RunResult>) {
     let prepared = package
         .prepare_fit(
             FitId::from(id(73)),
@@ -689,8 +938,13 @@ async fn transient_fit(
         .await
         .unwrap();
     assert_bound_dynamic_provider_demands(&prepared.problem);
-    assert_verification_accuracy(&prepared.problem);
-    prepared.start().unwrap().wait().await.unwrap()
+    let frozen = prepared.problem.clone();
+    let output_allowances = affine_output_allowances(&frozen, &prepared.assessments);
+    (
+        frozen,
+        output_allowances,
+        prepared.start().unwrap().wait().await.unwrap(),
+    )
 }
 
 /// The programs admitted to native callbacks and the bound workers must agree on
@@ -747,19 +1001,24 @@ async fn exact_transient_covariance_matches_gauss_newton() {
     for simulation in profile.simulations.values_mut() {
         simulation.method = native::dynamics::Method::Idas;
     }
-    let result = transient_fit(&package, profile).await;
+    let (frozen, output_allowances, result) = transient_fit(&package, profile).await;
     let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
         panic!("missing fit")
     };
     assert!(report.candidate.is_some(), "{report:?}");
     assert!(
-        (report.candidate.as_ref().unwrap()[0] - 2.).abs() < 1e-5,
+        (report.candidate.as_ref().unwrap()[0] - 2.).abs() <= parameter_allowance(&frozen, id(3)),
         "{report:?}"
     );
     let covariance = report.covariance.as_ref().unwrap();
     assert_eq!(covariance.approximation, CovarianceApproximation::Exact);
     let values = covariance.values.as_ref().unwrap();
-    assert!((values[0] - 1.).abs() < 1e-6, "{values:?}");
+    assert_report_responses(&frozen, report, &[1.], &output_allowances);
+    let response = report.responses.as_ref().unwrap()[(0, 0)];
+    let action = values[0] * response * response;
+    assert!(
+        (action - 1.).abs() / (action.abs() + 1.) <= frozen.numerics.policy.linear_backward_error
+    );
     let validity =
         local_validity::Row::rows(&result.table("runtime.local_validity").unwrap()).unwrap();
     assert_eq!(validity.len(), 1);
@@ -781,13 +1040,28 @@ async fn covariance_withheld_at_bound() {
         },
     };
     let (package, profile) = source(false, 71.).await;
-    let result = transient_fit(&package, profile).await;
+    let (frozen, _, result) = transient_fit(&package, profile).await;
     let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
         panic!("missing fit")
     };
-    assert!(
-        (report.candidate.as_ref().unwrap()[0] - 0.1).abs() < 1e-6,
-        "{report:?}"
+    assert!(report.quality.as_ref().unwrap().feasible(), "{report:?}");
+    let variable = &frozen.contract.variables[0];
+    assert_eq!(variable.id, id(3));
+    let candidate = report.solve.as_ref().unwrap().candidate.as_ref().unwrap();
+    let (lower, upper) = candidate.bound_dual.as_ref().unwrap();
+    assert_eq!(
+        native::kkt::bound_activity(
+            candidate.primal[0],
+            (variable.lower, variable.upper),
+            frozen.tolerances.variables[0],
+            (lower[0], upper[0]),
+            (
+                frozen.normalization.variables[0],
+                frozen.normalization.objective
+            ),
+            frozen.accuracy.stationarity
+        ),
+        native::kkt::Activity::Strong(native::kkt::Side::Lower)
     );
     let covariance = report.covariance.as_ref().unwrap();
     assert!(
@@ -818,7 +1092,7 @@ async fn curved_source(
     physical.key =
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
     let mut rows = pse_authoring::language::parse(
-        "package p { test Decay fixture { dof 0; route integrated; procedure integrate; integrate samples(0{s},2{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-5{s}); } { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param k: Scalar = 1; param a: Scalar = 2; var x[i in t]: Scalar; var z[i in t]: Scalar; eq rate[i in t]: d(x[i])/di == -z[i]/1{s}; eq closure[i in t]: z[i] == k*x[i]*x[i]; eq initial: x[0{s}] == a; annotation start x(1); annotation start z(1); annotation report x(\"state\"); annotation report z(\"closure\"); } }",
+        "package p { test Decay fixture { dof 0; route integrated; procedure integrate; integrate samples(0{s},2{s}) relative(global) normalized_absolute(global) step(1e-5{s}); } { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param k: Scalar = 1; param a: Scalar = 2; var x[i in t]: Scalar; var z[i in t]: Scalar; eq rate[i in t]: d(x[i])/di == -z[i]/1{s}; eq closure[i in t]: z[i] == k*x[i]*x[i]; eq initial: x[0{s}] == a; annotation start x(1); annotation start z(1); annotation report x(\"state\"); annotation report z(\"closure\"); } }",
         id(20),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
@@ -849,7 +1123,7 @@ async fn curved_source(
         observations.push(serde_json::json!({"value_attribute":"value","standard_deviation_attribute":"sigma","observation_id":id(obs),"experiment_id":id(84),"output_path":format!("{member}[0{{s}}]"),"time":t,"time_basis":"model_clock","included":true,"importance":1.}));
     }
     data.fits.push(serde_json::from_value(serde_json::json!({"fit_id":id(80),"parameters":[{"symbol_id":id(81),"fixed":false,"value":1.,"lower":0.1,"upper":10.,"scale":1.},{"symbol_id":id(82),"fixed":false,"value":2.,"lower":0.1,"upper":10.,"scale":1.}],"experiments":[{"experiment_id":id(84),"case_id":root,"route":"integrated","bindings":[{"parameter_id":id(81),"path":"k"},{"parameter_id":id(82),"path":"a"}]}],"observations":observations})).unwrap());
-    let profile = FitProfile {
+    let mut profile = FitProfile {
         solver: SolverProfile {
             intent: SolveIntent::Optimize,
             selection: native::solve::SolverSelection::Explicit(Backend::Ipopt),
@@ -858,53 +1132,197 @@ async fn curved_source(
                 ..Default::default()
             },
             presolve: native::presolve::Policy::Off,
-            numerics: verification_numerics(),
+            numerics: Default::default(),
             convexity: Default::default(),
             backend: native::execution::BackendSettings::Default,
             sensitivity: None,
             composition: Default::default(),
             reconstruction: None,
         },
-        simulations: BTreeMap::from([(
-            InstanceId::from(id(84)),
-            native::dynamics::Profile {
-                method,
-                end: 2.,
-                samples: vec![0., 2.],
-                rtol: 1e-8,
-                atol: vec![1e-10; 2],
-                initial_step: 1e-5,
-                parameter_scales: vec![1.; 2],
-                ..Default::default()
-            },
-        )]),
+        simulations: BTreeMap::new(),
         rank_tolerance: 1e-8,
         max_cells: 100000,
         derivatives: FitDerivatives::Responses,
         uncertainty: None,
     };
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
-    (
-        runtime
-            .modeling_package(rows, physical)
-            .await
-            .unwrap()
-            .with_fit_declarations(data)
-            .await
-            .unwrap(),
-        profile,
-    )
+    let package = runtime
+        .modeling_package(rows, physical)
+        .await
+        .unwrap()
+        .with_fit_declarations(data)
+        .await
+        .unwrap();
+    let simulation = package
+        .declared_simulation(
+            root,
+            compiler_profile(),
+            None,
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let mut integration = simulation.profile().clone();
+    integration.method = method;
+    profile
+        .simulations
+        .insert(InstanceId::from(id(84)), integration);
+    (package, profile)
+}
+
+/// Closed form of x'=-k*x², x(0)=a, and z=k*x², differentiated
+/// independently of the integrated worker. Time is in seconds, k/a are the actual
+/// dimensionless coordinates, and each residual uses its admitted sigma/importance.
+#[cfg(feature = "solver-idas")]
+struct CurvedReference {
+    values: Vec<f64>,
+    objective: f64,
+    gradient: [f64; 2],
+    hessian: [[f64; 2]; 2],
+    first: Vec<[f64; 2]>,
+    gradient_allowance: [f64; 2],
+    hessian_allowance: [[f64; 2]; 2],
+}
+
+#[cfg(feature = "solver-idas")]
+fn curved_output_allowances(
+    problem: &FitProblem,
+    assessments: &[modeling::Assessment],
+) -> Vec<f64> {
+    problem
+        .measurements
+        .iter()
+        .map(|observation| {
+            let modeling::Assessment::Transient(simulation) = &assessments[observation.experiment]
+            else {
+                panic!("curved transient observation required")
+            };
+            assert_eq!(
+                simulation.contract().outputs[observation.row],
+                observation.port.id
+            );
+            let state = simulation
+                .contract()
+                .states
+                .iter()
+                .copied()
+                .find(|&id| {
+                    pse_compiler::workspace::ModelingOutput::Member(id).row_id()
+                        == observation.port.id
+                })
+                .expect("exact observed x/z state identity");
+            let target = crate::workflow::tests::engineering_target(
+                simulation.numerics(),
+                NumericalTarget::Variable,
+                state,
+            );
+            assert_eq!(target.quantity, observation.port.quantity.as_id());
+            assert_eq!(target.unit, observation.port.unit.as_id());
+            target.budget
+        })
+        .collect()
+}
+
+/// Product composition of empirical primal, First and Second physical-output
+/// allowances. These express meaningful output differences over the material
+/// directions; they are not global error bounds inferred from native local controls.
+#[cfg(feature = "solver-idas")]
+fn curved_loss_derivatives(
+    problem: &FitProblem,
+    point: [f64; 2],
+    allowances: &[f64],
+) -> CurvedReference {
+    let [k, a] = point;
+    let mut gradient = [0.; 2];
+    let mut hessian = [[0.; 2]; 2];
+    let mut gradient_allowance = [0.; 2];
+    let mut hessian_allowance = [[0.; 2]; 2];
+    let mut responses = Vec::new();
+    let mut values = Vec::new();
+    let mut objective = 0.;
+    assert_eq!(problem.measurements.len(), 5);
+    for (row, observation) in problem.measurements.iter().enumerate() {
+        assert_eq!(
+            observation.id,
+            [id(91), id(92), id(93), id(94), id(95)][row]
+        );
+        let t = observation.time.unwrap();
+        let d = 1. + a * k * t;
+        let x = a / d;
+        let j = [-a * a * t / (d * d), 1. / (d * d)];
+        let h = [
+            [
+                2. * a * a * a * t * t / (d * d * d),
+                -2. * a * t / (d * d * d),
+            ],
+            [-2. * a * t / (d * d * d), -2. * k * t / (d * d * d)],
+        ];
+        let (value, first, second) = if observation.id == id(95) {
+            let first = [x * x + 2. * k * x * j[0], 2. * k * x * j[1]];
+            let second = [
+                [
+                    4. * x * j[0] + 2. * k * (j[0] * j[0] + x * h[0][0]),
+                    2. * x * j[1] + 2. * k * (j[0] * j[1] + x * h[0][1]),
+                ],
+                [
+                    2. * x * j[1] + 2. * k * (j[0] * j[1] + x * h[0][1]),
+                    2. * k * (j[1] * j[1] + x * h[1][1]),
+                ],
+            ];
+            (k * x * x, first, second)
+        } else {
+            (x, j, h)
+        };
+        let weight = observation.importance / observation.sigma.unwrap_or(1.).powi(2);
+        let residual = value - observation.value.unwrap();
+        values.push(value);
+        objective += 0.5 * weight * residual * residual;
+        let e = allowances[row];
+        responses.push(first);
+        for i in 0..2 {
+            gradient[i] += weight * residual * first[i];
+            let direction_i = 0.25 * problem.declaration.parameters[i].scale;
+            let first_i = first[i] * direction_i;
+            gradient_allowance[i] += weight * (residual.abs() * e + first_i.abs() * e + e * e)
+                / objective_scale(problem);
+            for j in 0..2 {
+                hessian[i][j] += weight * (first[i] * first[j] + residual * second[i][j]);
+                let direction_j = 0.25 * problem.declaration.parameters[j].scale;
+                let first_j = first[j] * direction_j;
+                let curvature = second[i][j] * direction_i * direction_j;
+                hessian_allowance[i][j] += weight
+                    * (first_i.abs() * e
+                        + first_j.abs() * e
+                        + e * e
+                        + residual.abs() * e
+                        + curvature.abs() * e
+                        + e * e)
+                    / objective_scale(problem);
+            }
+        }
+    }
+    CurvedReference {
+        values,
+        objective,
+        gradient,
+        hessian,
+        first: responses,
+        gradient_allowance,
+        hessian_allowance,
+    }
 }
 
 /// ADR-0110 item 4 through the fit: an exact Hessian is admitted for an IDAS transient
 /// experiment, whose curvature block comes from second-order adjoint sensitivities, and
-/// refused with a typed reason for a Diffsol one. The Lagrangian Hessian equals central
-/// differences of the forward-sensitivity objective gradient (declared relative tolerance
-/// 1e-4, steps of 1e-5) at two points and two objective weights, and the solve records the
-/// transient Hessian's source (PS-07).
+/// refused with a typed reason for a Diffsol one. Integrated First and Second
+/// actions are checked against independent closed-form derivatives in the actual
+/// weighted fit coordinates, composing the actual meaningful physical-output
+/// allowances. The actual IDAS profile controls its sensitivity solves. These
+/// empirical checks do not infer global error enclosures from local tolerances.
 #[cfg(feature = "solver-idas")]
 #[tokio::test]
-async fn exact_transient_fit_hessian_matches_finite_difference() {
+async fn exact_transient_fit_hessian_satisfies_production_action_basis() {
     let cancel = crate::CancelSource::new();
     let (package, profile) = curved_source(native::dynamics::Method::Diffsol).await;
     let refused = package
@@ -919,7 +1337,7 @@ async fn exact_transient_fit_hessian_matches_finite_difference() {
         .unwrap_err();
     assert_diffsol_exact_hessian_refused(refused);
     let (package, profile) = curved_source(native::dynamics::Method::Idas).await;
-    let (problem, _) = package
+    let (problem, assessments) = package
         .prepare_fit_problem(
             FitId::from(id(80)),
             profile.clone(),
@@ -934,40 +1352,76 @@ async fn exact_transient_fit_hessian_matches_finite_difference() {
     };
     assert_eq!(s.program.contract.derivatives, DerivativeOrder::Second);
     assert!(assert_bound_dynamic_provider_demands(&problem) > 0);
-    let mut execution = Execution::new(
-        Arc::new(AtomicBool::new(false)),
-        &problem.profile.solver.controls,
-    );
-    execution.memory = Some(256 << 20);
-    let mut oracle = FitOracle::new(problem, execution).unwrap();
-    let pattern = oracle.hessian_pattern().unwrap().to_owned().unwrap();
-    for x in [[1., 2.], [1.6, 1.5]] {
-        for sigma in [1., 0.5] {
-            let mut values = vec![0.; pattern.row_idx().len()];
-            oracle.hessian(&x, sigma, &[], &mut values).unwrap();
-            let h = SparseColMat::new(pattern.clone(), values).to_dense();
-            let step = 1e-5;
-            for j in 0..2 {
-                let mut gradient = |delta: f64| {
-                    let mut y = x;
-                    y[j] += delta;
-                    let mut g = [0.; 2];
-                    oracle.gradient(&y, &mut g).unwrap();
-                    g
-                };
-                let plus = gradient(step);
-                let minus = gradient(-step);
-                for i in j..2 {
-                    let difference = sigma * (plus[i] - minus[i]) / (2. * step);
+    let output_allowances = curved_output_allowances(&problem, &assessments);
+    with_admitted_fit_oracle(problem.into(), move |oracle| {
+        let pattern = oracle.hessian_pattern().unwrap().to_owned().unwrap();
+        for x in [[1., 2.], [1.6, 1.5]] {
+            for sigma in [1., 0.5] {
+                let mut values = vec![0.; pattern.row_idx().len()];
+                oracle.hessian(&x, sigma, &[], &mut values).unwrap();
+                let h = SparseColMat::new(pattern.clone(), values).to_dense();
+                let problem = oracle.prepared.clone();
+                let analytic = curved_loss_derivatives(&problem, x, &output_allowances);
+                let mut gradient = [0.; 2];
+                oracle.gradient(&x, &mut gradient).unwrap();
+                let responses = oracle.response_rank(&x).unwrap().responses;
+                let actual_point = oracle.evaluate(&x).unwrap();
+                for row in 0..problem.measurements.len() {
                     assert!(
-                        (h[(i, j)] - difference).abs() <= 1e-4 * (1. + difference.abs()),
-                        "x={x:?} sigma={sigma}: H[{i},{j}] {} vs differences {difference}",
-                        h[(i, j)]
+                        (actual_point.predictions[row] - analytic.values[row]).abs()
+                            <= output_allowances[row]
                     );
+                }
+                let loss_allowance = problem
+                    .measurements
+                    .iter()
+                    .enumerate()
+                    .map(|(row, observation)| {
+                        let residual = analytic.values[row] - observation.value.unwrap();
+                        let e = output_allowances[row];
+                        observation.importance / observation.sigma.unwrap_or(1.).powi(2)
+                            * (residual.abs() * e + 0.5 * e * e)
+                    })
+                    .sum::<f64>();
+                assert!(
+                    (oracle.objective(&x).unwrap() - analytic.objective).abs() <= loss_allowance
+                );
+                for i in 0..2 {
+                    let scale_i = problem.declaration.parameters[i].scale;
+                    assert!(
+                        0.25 * scale_i
+                            > parameter_allowance(
+                                &problem,
+                                problem.declaration.parameters[i].symbol_id
+                            )
+                    );
+                    for row in 0..problem.measurements.len() {
+                        assert_action(
+                            responses[(row, i)] * 0.25 * scale_i,
+                            analytic.first[row][i] * 0.25 * scale_i,
+                            output_allowances[row],
+                        );
+                    }
+                    assert_action(
+                        gradient[i] * 0.25 * scale_i / objective_scale(&problem),
+                        analytic.gradient[i] * 0.25 * scale_i / objective_scale(&problem),
+                        analytic.gradient_allowance[i],
+                    );
+                    for j in 0..=i {
+                        let action =
+                            0.25 * scale_i * 0.25 * problem.declaration.parameters[j].scale
+                                / objective_scale(&problem);
+                        assert_action(
+                            h[(i, j)] * action,
+                            sigma * analytic.hessian[i][j] * action,
+                            sigma * analytic.hessian_allowance[i][j],
+                        );
+                    }
                 }
             }
         }
-    }
+    })
+    .await;
     #[cfg(feature = "solver-ipopt")]
     {
         let prepared = package
@@ -980,17 +1434,78 @@ async fn exact_transient_fit_hessian_matches_finite_difference() {
             )
             .await
             .unwrap();
-        assert_verification_accuracy(&prepared.problem);
+        let frozen = prepared.problem.clone();
+        let output_allowances = curved_output_allowances(&frozen, &prepared.assessments);
         let result = prepared.start().unwrap().wait().await.unwrap();
         let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
             panic!("missing fit")
         };
         let candidate = report.candidate.as_ref().unwrap();
+        // Stationary KKT acceptance does not promise forward parameter error.
+        // Independently assess the physical curve and weighted loss at the
+        // actual accepted candidate against the authored noiseless optimum.
+        assert!(report.quality.as_ref().unwrap().feasible(), "{report:?}");
+        assert!(report.estimate_qualified() && result.usable(), "{report:?}");
+        assert_eq!(report.hessian, HessianMode::Exact);
+        let point = [candidate[0], candidate[1]];
+        let analytic = curved_loss_derivatives(&frozen, point, &output_allowances);
+        let objective_allowance = crate::workflow::tests::engineering_target(
+            &frozen.numerics,
+            NumericalTarget::Objective,
+            SemanticId::NIL,
+        )
+        .budget;
         assert!(
-            (candidate[0] - 1.3).abs() < 1e-5 && (candidate[1] - 1.8).abs() < 1e-5,
+            analytic.objective <= objective_allowance,
+            "independent weighted loss at {point:?}: {}",
+            analytic.objective
+        );
+        assert!(
+            report.objective.unwrap() <= objective_allowance,
             "{report:?}"
         );
-        assert_eq!(report.hessian, HessianMode::Exact);
+        let responses = report.responses.as_ref().unwrap();
+        for row in 0..frozen.measurements.len() {
+            assert!(
+                (report.predictions[row].unwrap() - analytic.values[row]).abs()
+                    <= output_allowances[row]
+            );
+            for i in 0..2 {
+                let direction = 0.25 * frozen.declaration.parameters[i].scale;
+                assert_action(
+                    responses[(row, i)] * direction,
+                    analytic.first[row][i] * direction,
+                    output_allowances[row],
+                );
+            }
+        }
+        with_admitted_fit_oracle(frozen, move |actual| {
+            let frozen = actual.prepared.clone();
+            let pattern = actual.hessian_pattern().unwrap().to_owned().unwrap();
+            let mut gradient = [0.; 2];
+            actual.gradient(&point, &mut gradient).unwrap();
+            let mut values = vec![0.; pattern.row_idx().len()];
+            actual.hessian(&point, 1., &[], &mut values).unwrap();
+            let h = SparseColMat::new(pattern.clone(), values).to_dense();
+            for i in 0..2 {
+                let scale_i = frozen.declaration.parameters[i].scale;
+                assert_action(
+                    gradient[i] * 0.25 * scale_i / objective_scale(&frozen),
+                    analytic.gradient[i] * 0.25 * scale_i / objective_scale(&frozen),
+                    analytic.gradient_allowance[i],
+                );
+                for j in 0..=i {
+                    let action = 0.25 * scale_i * 0.25 * frozen.declaration.parameters[j].scale
+                        / objective_scale(&frozen);
+                    assert_action(
+                        h[(i, j)] * action,
+                        analytic.hessian[i][j] * action,
+                        analytic.hessian_allowance[i][j],
+                    );
+                }
+            }
+        })
+        .await;
         let table = result.table("runtime.solve_metrics").unwrap();
         let rows = pse_relations::generated::runtime::solve_metrics::RuntimeSolveMetricsView::from_checked(&table)
             .unwrap()

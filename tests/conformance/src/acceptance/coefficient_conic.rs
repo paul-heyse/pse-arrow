@@ -36,9 +36,13 @@ fn stamp(backend: Backend) -> Compatibility {
         backend,
     }
 }
-/// The default numerical policy's budgets at a normalized feasibility budget of 1e-8.
+/// Production policy in the explicit identity coordinates of these scalar fixtures.
 fn accuracy() -> ResolvedAccuracy {
-    ResolvedAccuracy::from_policy(&Default::default(), 1e-8).unwrap()
+    ResolvedAccuracy::from_policy(
+        &Default::default(),
+        pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY,
+    )
+    .unwrap()
 }
 /// The exact certificate of a PSD matrix (ADR-0121 Outcome 2).
 fn certify(q: &faer::sparse::SparseColMat<usize, f64>) -> GramCertificate {
@@ -76,9 +80,9 @@ fn coefficient_conic() {
             objectives: Vec::new(),
         };
         let tolerances = Tolerances {
-            variables: vec![1e-7],
-            rows: vec![1e-7],
-            integrality: 1e-7,
+            variables: vec![pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY],
+            rows: vec![pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY],
+            integrality: pse_model::numerics::NumericalPolicy::default().integrality,
         };
         let mut session = highs::Session::new(&p, None, stamp(Backend::Highs)).unwrap();
         let mut r = session
@@ -105,7 +109,7 @@ fn coefficient_conic() {
                 ModelingVariableDomain::Integer => 2.,
                 _ => 1.,
             },
-            1e-7,
+            pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY,
         );
         assert!(!r.metrics.is_empty());
     }
@@ -161,9 +165,9 @@ fn coefficient_conic() {
                 &reusable,
                 execution(&controls),
                 &Tolerances {
-                    variables: vec![1e-6],
-                    rows: vec![1e-6; m],
-                    integrality: 1e-7,
+                    variables: vec![pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY],
+                    rows: vec![pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY; m],
+                    integrality: pse_model::numerics::NumericalPolicy::default().integrality,
                 },
             )
             .unwrap();
@@ -172,7 +176,11 @@ fn coefficient_conic() {
         assert_eq!(r.termination.category, Termination::Success, "{r:?}");
         assert_eq!(r.termination.assurance, Assurance::NativeOptimal, "{r:?}");
         assert!(r.quality.as_ref().unwrap().feasible(), "{r:?}");
-        near(r.candidate.as_ref().unwrap().primal[0], expected, 2e-5);
+        near(
+            r.candidate.as_ref().unwrap().primal[0],
+            expected,
+            pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY,
+        );
     }
     // convexity/integrality are semantic eligibility, never an inferred fallback.
     let q = SparseColMat::try_new_from_triplets(1, 1, &[Triplet::new(0, 0, 2.)]).unwrap();
@@ -199,9 +207,9 @@ fn coefficient_conic() {
             &highs::Settings::default(),
             execution(&controls),
             &Tolerances {
-                variables: vec![1e-6],
+                variables: vec![pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY],
                 rows: vec![],
-                integrality: 1e-7,
+                integrality: pse_model::numerics::NumericalPolicy::default().integrality,
             },
             None,
         )
@@ -235,15 +243,20 @@ fn coefficient_conic() {
                 &highs::Settings::default(),
                 execution(&raw),
                 &Tolerances {
-                    variables: vec![1e-6],
+                    variables: vec![pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY],
                     rows: vec![],
-                    integrality: 1e-7,
+                    integrality: pse_model::numerics::NumericalPolicy::default().integrality,
                 },
                 None,
             )
             .is_err()
     );
-    near(r.candidate.unwrap().primal[0], 2., 1e-8);
+    let x = r.candidate.as_ref().unwrap().primal[0];
+    let original_cost = (x - 2.).powi(2);
+    assert!(
+        original_cost <= accuracy.gap_absolute,
+        "original objective={original_cost}, {r:?}"
+    );
     p.domains[0] = ModelingVariableDomain::Integer;
     assert!(highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs)).is_err());
     p.domains[0] = ModelingVariableDomain::Continuous;

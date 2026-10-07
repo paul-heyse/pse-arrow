@@ -357,6 +357,18 @@ result/query migration or E4 performance comparisons.
 
 ### A mistake made and corrected
 
+**Tested (2026-10-06 completion-audit correction):** the native selection
+`just unit-package pse-operations 'test(initialization_) | test(lifecycle_roots_cannot_) | test(explicit_history_roots_pins_) | test(root_and_pin_admission_race_)' --features pse-operations/canonical-tests`
+passed 6/6 with explicit relation force-validation, the authenticated isolated RocksDB/gRPC
+fixture and a zero-failure baseline. Generic mutation refuses existing run, analysis and
+active-attempt roots, while deliberate history remains mutable; protected source survives
+the composed reclamation control. Initialization refuses an error-free empty SDK response,
+verifies normal/repeated creation and marker interpretation, and distinguishes cancelled
+creation from explicit reopen after a committed lost acknowledgment. An initial rerun failed
+three cleanup assertions because new fixture names lacked the authorized test prefix; those
+names were corrected and all six controls reran. These controls do not establish the cause
+of the earlier missing-table diagnostics or physical power-loss durability.
+
 Native concurrent studies exposed missing transaction-conflict retries in protected read
 and lease operations. Those operations now rebuild the complete bounded transaction and
 recheck the current pin/reclamation guard. Independent review also exposed generic product

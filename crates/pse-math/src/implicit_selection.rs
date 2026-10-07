@@ -157,9 +157,8 @@ impl SelectionWorker {
         cancel: &Arc<AtomicBool>,
     ) -> Result<Option<Vec<f64>>, MathError> {
         if let Some(anchor) = &mut self.anchor {
-            let coordinates = std::iter::repeat_n(0., problem.unknowns.len())
-                .chain(inputs.iter().copied())
-                .collect::<Vec<_>>();
+            let unknowns = vec![0.; problem.unknowns.len()];
+            let coordinates = selected_inputs(anchor, &unknowns, inputs)?;
             return Ok(Some(
                 anchor
                     .evaluate(
@@ -203,7 +202,7 @@ impl SelectionWorker {
         cancel: &Arc<AtomicBool>,
     ) -> Result<(), MathError> {
         if let Some(restriction) = &mut self.restriction {
-            let coordinates = point.iter().chain(inputs).copied().collect::<Vec<_>>();
+            let coordinates = selected_inputs(restriction, point, inputs)?;
             let jet = restriction.evaluate(
                 &coordinates,
                 if order > DerivativeOrder::Value {

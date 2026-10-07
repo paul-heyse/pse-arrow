@@ -12,11 +12,29 @@ from pathlib import Path
 import pyarrow as pa
 
 import pse
+from pse.contracts import documents as contract_documents
 from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 
 #: python/pse/parity/tests/support.py -> pse-arrow/
 ROOT = Path(__file__).resolve().parents[4]
+
+# The generated document derives this value from the Rust numerical policy.
+ENGINEERING_RELATIVE_FRACTION = (
+    contract_documents.NumericalPolicy().engineering_relative_fraction
+)
+
+
+def scalar_canonical_allowance() -> float:
+    """Default engineering budget for canonical Scalar without declared context.
+
+    Scalar is dimensionless and its canonical fallback is one canonical unit.
+    These PID outputs have no authored or quantity engineering nominal; the
+    budget therefore uses the generated global fraction times that same floor.
+    No reference answer chooses the scale. Dimensional quantities and covariance
+    entries require their admitted context instead of this Scalar-only helper.
+    """
+    return ENGINEERING_RELATIVE_FRACTION * 1.0
 
 
 def runtime(spill: Path) -> pse.Runtime:

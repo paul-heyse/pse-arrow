@@ -1118,6 +1118,129 @@ mod tests {
         assert!(selected_inputs(&worker, &[91.0, 7.0], &[]).is_err());
     }
     #[test]
+    fn compact_selection_anchor_and_restriction_use_their_formal_signatures() {
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let quantity = registry.neutral_dimensionless().unwrap();
+        let id = SemanticId::from_bytes([98; 16]);
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut builder = crate::typed::BodyBuilder::new(
+            crate::initialize().unwrap(),
+            &registry,
+            &pse_quantity::standard::StandardInvariantChecker,
+            64,
+            crate::typed::BodyLimits::default(),
+        )
+        .unwrap();
+        let unknown = builder
+            .input(0, quantity, pse_quantity::IndexSet::new(), id)
+            .unwrap();
+        let parameter = builder
+            .input(47, quantity, pse_quantity::IndexSet::new(), id)
+            .unwrap();
+        let restriction = builder
+            .binary(
+                crate::typed::Binary::Sub,
+                unknown,
+                parameter.clone(),
+                None,
+                id,
+            )
+            .unwrap();
+        let constant = builder
+            .binary(
+                crate::typed::Binary::Sub,
+                parameter.clone(),
+                parameter.clone(),
+                None,
+                id,
+            )
+            .unwrap();
+        let source = builder
+            .prepare(&[restriction, parameter, constant])
+            .unwrap();
+        let compile = |outputs: &[usize], axes: &[usize], order| {
+            Arc::new(
+                source
+                    .compile(
+                        outputs,
+                        axes,
+                        order,
+                        crate::library::Optimization::default(),
+                        crate::jets::EvaluationLimits::default(),
+                        &cancel,
+                    )
+                    .unwrap(),
+            )
+        };
+        let problem = Problem::new(
+            id,
+            ContentHash::from_bytes([98; 32]),
+            vec![Unknown {
+                id,
+                lower: -10.,
+                upper: 10.,
+            }],
+            vec![pse_ids::named_id(id, "equation")],
+            63,
+            compile(&[0], &(0..64).collect::<Vec<_>>(), DerivativeOrder::First),
+            128,
+        )
+        .unwrap();
+        let anchor = compile(&[1], &[], DerivativeOrder::Value);
+        let restriction = compile(&[0], &[0, 47], DerivativeOrder::First);
+        assert_eq!(anchor.input_formals(), &[47]);
+        assert_eq!(restriction.input_formals(), &[0, 47]);
+        let mut worker = selection::SelectionWorker::new(&Selection {
+            anchor: Some(anchor),
+            restriction: Some(restriction),
+            ..Default::default()
+        });
+        let mut parameters = vec![f64::NAN; 63];
+        parameters[46] = 3.;
+        assert_eq!(
+            worker.anchor(&problem, &parameters, &cancel).unwrap(),
+            Some(vec![3.])
+        );
+        worker
+            .verify(
+                &problem,
+                &parameters,
+                &[4.],
+                DerivativeOrder::First,
+                &cancel,
+            )
+            .unwrap();
+        assert!(
+            worker
+                .verify(
+                    &problem,
+                    &parameters,
+                    &[4.001],
+                    DerivativeOrder::First,
+                    &cancel
+                )
+                .is_err()
+        );
+        assert!(worker.anchor(&problem, &[], &cancel).is_err());
+        parameters[46] = f64::NAN;
+        assert!(worker.anchor(&problem, &parameters, &cancel).is_err());
+        let constant = compile(&[2], &[], DerivativeOrder::Value);
+        assert!(constant.input_formals().is_empty());
+        let mut independent = selection::SelectionWorker::new(&Selection {
+            anchor: Some(constant),
+            ..Default::default()
+        });
+        assert_eq!(
+            independent.anchor(&problem, &[], &cancel).unwrap(),
+            Some(vec![0.])
+        );
+        cancel.store(true, Ordering::Release);
+        assert!(matches!(
+            independent.anchor(&problem, &[], &cancel),
+            Err(MathError::Cancelled)
+        ));
+    }
+    #[test]
     fn compact_hints_and_nominals_use_their_independent_input_signatures() {
         #[derive(Debug)]
         struct Resolver {

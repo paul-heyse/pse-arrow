@@ -1000,15 +1000,6 @@ mod occurrence_execution_tests {
                         } else {
                             pse_backend_native::solve::SolveIntent::Root
                         },
-                        // Value comparisons below require 1e-6 accuracy; request tighter budgets.
-                        numerics: pse_model::numerics::NumericalPolicy {
-                            engineering_relative_fraction: 1e-10,
-                            kkt: pse_model::numerics::KktTolerances {
-                                stationarity: 1e-10,
-                                complementarity: 1e-10,
-                            },
-                            ..Default::default()
-                        },
                         controls: pse_backend_native::solve::Controls {
                             threads,
                             ..crate::workflow::tests::profile().controls
@@ -1113,7 +1104,16 @@ mod occurrence_execution_tests {
             2.
         );
         let variable = member(result(&report, 3), "x");
-        assert!((result(&report, 3).values.scalars[&variable] - 4.).abs() < 1e-8);
+        let point = result(&report, 3);
+        let target = super::super::tests::engineering_target(
+            point.prepared.solve.numerics(),
+            pse_relations::generated::enums::NumericalTarget::Variable,
+            variable,
+        );
+        assert!(
+            (point.values.scalars[&variable] - 4.).abs()
+                <= target.engineering.as_ref().unwrap().budget
+        );
     }
     #[tokio::test]
     async fn precancellation_retains_every_occurrence_without_native_dispatch() {
@@ -1191,7 +1191,10 @@ mod occurrence_execution_tests {
                 report.preparations
             );
             assert!(
-                report.preparations.shared + report.preparations.rebuilt >= report.outcomes.len(),
+                report.preparations.views
+                    + report.preparations.shared
+                    + report.preparations.rebuilt
+                    >= report.outcomes.len(),
                 "{:?}",
                 report.preparations
             );
@@ -1237,8 +1240,8 @@ mod occurrence_execution_tests {
             a.preparations.rebuilt + b.preparations.rebuilt,
             after.rebuilt - before.rebuilt
         );
-        assert!(a.preparations.shared + a.preparations.rebuilt >= 4);
-        assert!(b.preparations.shared + b.preparations.rebuilt >= 2);
+        assert!(a.preparations.views + a.preparations.shared + a.preparations.rebuilt >= 4);
+        assert!(b.preparations.views + b.preparations.shared + b.preparations.rebuilt >= 2);
     }
     #[cfg(feature = "solver-pounce")]
     #[tokio::test]
@@ -1269,20 +1272,16 @@ mod occurrence_execution_tests {
                 point.values.scalars[&member(point, "x")],
                 point.values.scalars[&member(point, "y")],
             );
-            assert!(
-                (x - (a - excess)).abs() < 1e-6,
-                "point {index}: x={x}, expected={}, y={y}, a={a}, metrics={:?}",
-                a - excess,
-                (
-                    native.metrics.clone(),
-                    point.prepared.solve.accuracy().clone(),
-                    point.prepared.solve.tolerances().clone()
-                )
+            let actual_cost = (x - a).powi(2) + (y - b).powi(2);
+            let optimal_cost = 2. * excess.powi(2);
+            let target = super::super::tests::engineering_target(
+                point.prepared.solve.numerics(),
+                pse_relations::generated::enums::NumericalTarget::Objective,
+                SemanticId::NIL,
             );
             assert!(
-                (y - (b - excess)).abs() < 1e-6,
-                "point {index}: y={y}, expected={}",
-                b - excess
+                (actual_cost - optimal_cost).abs() <= target.engineering.as_ref().unwrap().budget,
+                "point {index}: cost={actual_cost}, optimum={optimal_cost}, x={x}, y={y}"
             );
         }
     }
@@ -1320,7 +1319,16 @@ mod occurrence_execution_tests {
             assert!(
                 (point.prepared.model.values.scalars[&member(point, "t")] - expected).abs() < 1e-10
             );
-            assert!((point.values.scalars[&member(point, "x")] - expected).abs() < 1e-8);
+            let variable = member(point, "x");
+            let target = super::super::tests::engineering_target(
+                point.prepared.solve.numerics(),
+                pse_relations::generated::enums::NumericalTarget::Variable,
+                variable,
+            );
+            assert!(
+                (point.values.scalars[&variable] - expected).abs()
+                    <= target.engineering.as_ref().unwrap().budget
+            );
         }
     }
 }

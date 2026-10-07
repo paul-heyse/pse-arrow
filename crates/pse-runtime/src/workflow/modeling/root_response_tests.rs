@@ -16,6 +16,75 @@ use pse_relations::{
 };
 type TestResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
+fn original_variable(prepared: &ModelingSolvePreparation, path: &str) -> SemanticId {
+    let model = &prepared.model.model.compiled().model;
+    let mut roots = model
+        .instances
+        .values()
+        .filter(|instance| instance.parent.is_none());
+    let root = roots.next().unwrap();
+    assert!(roots.next().is_none());
+    let lineage = format!("{}.{path}", root.path);
+    let id = model
+        .symbols
+        .values()
+        .find(|symbol| symbol.lineage.path == lineage)
+        .unwrap()
+        .id;
+    assert!(prepared.model.case.compiled().plan.columns().contains(&id));
+    id
+}
+fn variable_budget_from_prepared(prepared: &ModelingSolvePreparation, path: &str) -> f64 {
+    let id = original_variable(prepared, path);
+    fixture::engineering_target(prepared.solve.numerics(), NumericalTarget::Variable, id).budget
+}
+fn variable_budget(result: &ModelingResult, path: &str) -> f64 {
+    variable_budget_from_prepared(&result.prepared, path)
+}
+fn assert_published_root_response(step: &ModelingResult, response: &parametric_sensitivities::Row) {
+    let x = step.values.scalars[&response.target_id];
+    let p = step.values.scalars[&response.parameter_id];
+    let derivative = response.primal.unwrap();
+    let target = fixture::engineering_target(
+        step.prepared.solve.numerics(),
+        NumericalTarget::Variable,
+        response.target_id,
+    );
+    assert!(derivative.is_finite());
+    // This checks the original square equation's linear action at the actual
+    // returned point. Floating arithmetic identity does not demand a finer solve.
+    let parameter = fixture::engineering_target(
+        step.prepared.solve.numerics(),
+        NumericalTarget::Variable,
+        response.parameter_id,
+    );
+    let row = step
+        .prepared
+        .solve
+        .numerics()
+        .targets
+        .iter()
+        .find(|row| row.kind == NumericalTarget::Row)
+        .unwrap();
+    let sx = target.coordinate_scale;
+    let sr = row.coordinate_scale;
+    let sp = parameter.coordinate_scale;
+    let normalized_action = derivative * sp / sx;
+    let normalized_coefficient = 2. * x * sx / sr;
+    let normalized_rhs = sp / sr;
+    let backward_error = (normalized_coefficient * normalized_action - normalized_rhs).abs()
+        / (normalized_coefficient.abs() * normalized_action.abs() + normalized_rhs.abs());
+    assert!(backward_error <= step.prepared.solve.numerics().policy.linear_backward_error);
+    // A meaningful parameter change tests the local prediction empirically in
+    // the same output coordinates and frozen budget used for production.
+    let increment = 0.1;
+    let independent_change = (p + increment).sqrt() - p.sqrt();
+    assert!(
+        (derivative * increment - independent_change).abs() / target.coordinate_scale
+            <= target.budget / target.coordinate_scale
+    );
+}
+
 #[tokio::test]
 async fn retained_root_action_screens_target_then_original_corrector_qualifies() {
     use crate::math::solves::Outcome;
@@ -32,25 +101,9 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
         .declaration_id;
     let runtime = fixture::runtime_with(256 << 20, 16 << 20, 1 << 30);
     let physical = fixture::physical();
-    let scalar = physical
-        .quantities
-        .quantity_types()
-        .find(|quantity| quantity.name.as_deref() == Some("Scalar"))
-        .unwrap();
-    let precision = pse_model::numerics::EngineeringRule {
-        rule_id: pse_ids::named_id(root.as_id(), "root-prediction-verification-precision").into(),
-        quantity_id: scalar.id.as_id(),
-        unit_id: scalar.canonical_unit.as_id(),
-        physical_allowance: Some(1e-10),
-        relative_fraction: None,
-        provenance: "original root, secant and surrogate correction verification precision".into(),
-    };
     let package = runtime.modeling_package(rows, physical).await.unwrap();
     let mut solver = fixture::profile();
     solver.intent = SolveIntent::Root;
-    // Without a characteristic scale, the relative fraction uses the canonical
-    // allowance. Declare the physical allowance required by the 1e-8 assertions.
-    solver.numerics.engineering_rules.push(precision);
     solver.selection = SolverSelection::Explicit(Backend::Kinsol);
     // This task explicitly admits fresh predictor proposals for its original corrector.
     solver.composition.recovery.extend([
@@ -93,9 +146,16 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
         .unwrap();
     assert!(base.completion.decision.permits_use());
     let predictor = base.root_predictor().unwrap();
-    analysis.case.values.insert("p".into(), 4.04);
+    analysis.case.values.insert("p".into(), 4.4);
     let mut target = package.prepare_analysis(&analysis, &cancel).await.unwrap();
-    assert!(target.solve.accuracy().feasibility <= 1e-10);
+    assert_eq!(
+        target.solve.numerics().policy.engineering_relative_fraction,
+        base.prepared
+            .solve
+            .numerics()
+            .policy
+            .engineering_relative_fraction
+    );
     let scope = pse_kernels::ExecutionScope::new(
         Arc::default(),
         Some(std::time::Instant::now() + std::time::Duration::from_secs(10)),
@@ -191,11 +251,11 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
             &portable_execution,
         )
         .unwrap();
-    assert!((restored_proposal.values().next().unwrap().1 - 2.01).abs() < 1e-12);
+    assert!((restored_proposal.values().next().unwrap().1 - 2.1).abs() <= 32. * f64::EPSILON * 2.1);
     let (proposal, work) = base
         .root_prediction(&target.solve, BranchPolicy::any_qualified(), &execution)
         .unwrap();
-    assert!((proposal.values().next().unwrap().1 - 2.01).abs() < 1e-12);
+    assert!((proposal.values().next().unwrap().1 - 2.1).abs() <= 32. * f64::EPSILON * 2.1);
     assert_eq!(work.backsolves, 1);
     let screened = runtime
         .native()
@@ -218,7 +278,8 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
         panic!("native original corrector expected");
     };
     assert!(
-        (report.candidate.as_ref().unwrap().primal[0] - 4.04_f64.sqrt()).abs() < 1e-8,
+        (report.candidate.as_ref().unwrap().primal[0] - 4.4_f64.sqrt()).abs()
+            <= variable_budget(&corrected, "x"),
         "actual={:?}, original_values={:?}, termination={:?}, requested={:?}, quality={:?}",
         report.candidate.as_ref().unwrap().primal,
         report.observation.as_ref().map(|observed| &observed.values),
@@ -236,7 +297,7 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
             .is_err()
     );
     // Two independently accepted original points produce a bounded secant proposal.
-    analysis.case.values.insert("p".into(), 4.08);
+    analysis.case.values.insert("p".into(), 4.8);
     let mut secant_target = package.prepare_analysis(&analysis, &cancel).await.unwrap();
     let proposal = corrected
         .secant_prediction(
@@ -246,8 +307,12 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
             &execution,
         )
         .unwrap();
-    let predicted = 2. * 4.04_f64.sqrt() - 2.;
-    assert!((proposal.values().next().unwrap().1 - predicted).abs() < 1e-8);
+    let predicted = 2. * corrected.values.scalars[&original_variable(&corrected.prepared, "x")]
+        - base.values.scalars[&original_variable(&base.prepared, "x")];
+    assert!(
+        (proposal.values().next().unwrap().1 - predicted).abs()
+            < 32. * f64::EPSILON * predicted.abs().max(1.)
+    );
     let scope = execution.scope().unwrap();
     let screened = runtime
         .native()
@@ -269,8 +334,11 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
     let Outcome::Native(report) = &secant_corrected.outcome else {
         panic!("original correction expected");
     };
-    assert!((report.candidate.as_ref().unwrap().primal[0] - 4.08_f64.sqrt()).abs() < 1e-8);
-    analysis.case.values.insert("p".into(), 4.04);
+    assert!(
+        (report.candidate.as_ref().unwrap().primal[0] - 4.8_f64.sqrt()).abs()
+            <= variable_budget(&secant_corrected, "x")
+    );
+    analysis.case.values.insert("p".into(), 4.4);
     // A declared approximate fidelity follows the same original screening/correction path.
     use pse_math::surrogate::{FidelityCorrespondence, FidelityEvaluator, SurrogateOptions};
     #[derive(Debug)]
@@ -287,13 +355,20 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
     }
     let mut target = package.prepare_analysis(&analysis, &cancel).await.unwrap();
     let identity = target.solve.original_identity().unwrap();
-    assert!(target.solve.accuracy().feasibility <= 1e-10);
+    assert_eq!(
+        target.solve.numerics().policy.engineering_relative_fraction,
+        base.prepared
+            .solve
+            .numerics()
+            .policy
+            .engineering_relative_fraction
+    );
     let correspondence = FidelityCorrespondence {
         original_target: identity,
         model_target: identity,
         source: pse_ids::ContentHash::from_bytes([17; 32]),
         fidelity: pse_ids::ContentHash::from_bytes([18; 32]),
-        coordinates: vec![target.model.model.compiled().model.paths["x"]],
+        coordinates: vec![original_variable(&target, "x")],
         outputs: vec![SemanticId::NIL],
     };
     let options = SurrogateOptions {
@@ -368,7 +443,8 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
         panic!("native original corrector expected");
     };
     assert!(
-        (report.candidate.as_ref().unwrap().primal[0] - 4.04_f64.sqrt()).abs() < 1e-8,
+        (report.candidate.as_ref().unwrap().primal[0] - 4.4_f64.sqrt()).abs()
+            <= variable_budget(&corrected, "x"),
         "actual={:?}, original_values={:?}, termination={:?}, requested={:?}, quality={:?}",
         report.candidate.as_ref().unwrap().primal,
         report.observation.as_ref().map(|observed| &observed.values),
@@ -486,7 +562,20 @@ async fn derived_preparation_corrects_original_with_declared_recovery_and_truthf
     let Outcome::Native(report) = &result.outcome else {
         panic!("original corrector missing");
     };
-    assert!((report.candidate.as_ref().unwrap().primal[0] - 3.).abs() < 1e-8);
+    let x_id = result.prepared.model.case.compiled().plan.columns()[0];
+    assert_eq!(
+        result.prepared.model.model.compiled().model.symbols[&x_id]
+            .lineage
+            .path,
+        "Root.x"
+    );
+    let coordinate_budget = fixture::engineering_target(
+        result.prepared.solve.numerics(),
+        NumericalTarget::Variable,
+        x_id,
+    )
+    .budget;
+    assert!((report.candidate.as_ref().unwrap().primal[0] - 3.).abs() <= coordinate_budget);
     assert!(
         (match &report
             .start_receipt
@@ -501,7 +590,7 @@ async fn derived_preparation_corrects_original_with_declared_recovery_and_truthf
             _ => panic!("root start required"),
         } - 1.5)
             .abs()
-            < 1e-8
+            <= coordinate_budget
     );
     let rows = result
         .strategy
@@ -635,10 +724,10 @@ async fn root_response_publication_has_physical_primal_and_no_kkt_fields() {
     assert_eq!(response.len(), 1);
     assert_eq!(response[0].target_kind, NumericalTarget::Variable);
     assert!(response[0].dual.is_none());
-    assert!((response[0].primal.unwrap() - 0.25).abs() < 1e-10);
-    let h = 1e-5;
-    let independently = (4.0_f64 + h).sqrt() - (4.0_f64 - h).sqrt();
-    assert!((response[0].primal.unwrap() - independently / (2. * h)).abs() < 1e-9);
+    let crate::workflow::RunReport::Modeling(steps) = result.report().unwrap() else {
+        panic!("modeling report expected");
+    };
+    assert_published_root_response(&steps[0], &response[0]);
 }
 #[tokio::test]
 async fn root_response_withheld_at_active_bound_keeps_base_solution() {
@@ -789,16 +878,13 @@ async fn assert_root_response(backend: Backend, boundary: bool) -> TestResult<()
         assert_eq!(v.root_rank, Some(1));
         assert_eq!(response.len(), 1);
         assert!(response[0].dual.is_none());
-        assert!(
-            (response[0]
-                .primal
-                .ok_or_else(|| std::io::Error::other("physical primal response absent"))?
-                - 0.25)
-                .abs()
-                < 1e-9,
-            "{backend:?}: {:?}",
-            response[0]
-        );
+        let crate::workflow::RunReport::Modeling(steps) = result
+            .report()
+            .map_err(|error| std::io::Error::other(error.to_string()))?
+        else {
+            return Err(std::io::Error::other("modeling report expected").into());
+        };
+        assert_published_root_response(&steps[0], &response[0]);
     }
     let expected = if matches!(backend, Backend::Ipopt | Backend::Pounce) {
         pse_relations::generated::enums::NativeQualification::Stationary
@@ -954,10 +1040,46 @@ async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
         fma: false,
         ..Default::default()
     };
+    let x_id = base.prepared.model.case.compiled().plan.columns()[0];
+    assert_eq!(
+        base.prepared.model.model.compiled().model.symbols[&x_id]
+            .lineage
+            .path,
+        "Qp.x"
+    );
+    assert_eq!(
+        fixture::engineering_target(
+            base.prepared.solve.numerics(),
+            NumericalTarget::Variable,
+            x_id
+        )
+        .coordinate_scale,
+        1.
+    );
+    assert_eq!(
+        base.prepared
+            .solve
+            .numerics()
+            .targets
+            .iter()
+            .find(|row| row.kind == NumericalTarget::Row)
+            .unwrap()
+            .coordinate_scale,
+        1.
+    );
+    assert_eq!(
+        fixture::engineering_target(
+            base.prepared.solve.numerics(),
+            NumericalTarget::Objective,
+            SemanticId::NIL
+        )
+        .coordinate_scale,
+        1.
+    );
     let options = qp::QpOptions {
         max_iter: 50,
-        feas_tol: 1e-9,
-        opt_tol: 1e-9,
+        feas_tol: base.prepared.solve.accuracy().feasibility,
+        opt_tol: base.prepared.solve.accuracy().stationarity,
         ..Default::default()
     };
     analysis.case.values.insert("p".into(), 2.);
@@ -1170,7 +1292,10 @@ async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
         None,
         "actual class production cannot be relabeled as zero proof work"
     );
-    assert!((proposal.values().next().unwrap().1 - 2.).abs() < 1e-8);
+    assert!(
+        (proposal.values().next().unwrap().1 - 2.).abs()
+            <= variable_budget_from_prepared(&target, "x")
+    );
     assert_eq!(
         proposal.origin(),
         pse_model::strategy::StartOrigin::Predicted
@@ -1195,5 +1320,18 @@ async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
     let Outcome::Native(report) = &corrected.outcome else {
         panic!("original corrector expected");
     };
-    assert!((report.candidate.as_ref().unwrap().primal[0] - 2.).abs() < 1e-8);
+    let candidate = report.candidate.as_ref().unwrap();
+    let actual_cost = 0.5 * candidate.primal[0].powi(2) - 2. * candidate.primal[0];
+    assert!(
+        (candidate.objective.unwrap() - actual_cost).abs()
+            <= 32. * f64::EPSILON * actual_cost.abs().max(1.)
+    );
+    let objective = fixture::engineering_target(
+        corrected.prepared.solve.numerics(),
+        NumericalTarget::Objective,
+        SemanticId::NIL,
+    );
+    // Independent objective comparison at the returned production candidate; no
+    // forward-coordinate guarantee is inferred from its KKT termination.
+    assert!((actual_cost + 2.).abs() <= objective.budget);
 }

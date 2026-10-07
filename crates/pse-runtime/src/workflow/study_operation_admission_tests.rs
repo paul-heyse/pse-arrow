@@ -7,7 +7,8 @@
     reason = "native admission controls fail on invalid setup or unexpected operation variants"
 )]
 use super::super::{
-    BindingQuantity, PointOverlay, PreparedStudyOperation, StudyPoint, StudyPointPolicy,
+    BindingAssignment, BindingQuantity, BindingTarget, PointOverlay, PreparedStudyOperation,
+    StudyPoint, StudyPointPolicy,
 };
 use super::*;
 use pse_model::scalars::{FiniteBound, PositiveCount, Tolerance};
@@ -93,6 +94,398 @@ fn quantity(package: &ModelingPackage, magnitude: f64, name: &str, unit: &str) -
             .id
             .as_id(),
     }
+}
+async fn control_operation() -> (ModelingPackage, StudyOperation) {
+    let (package, _) = plant().await;
+    let case = package
+        .declarations()
+        .await
+        .unwrap()
+        .iter()
+        .find(|declaration| declaration.name == "Control")
+        .unwrap()
+        .declaration_id;
+    let operation = OperationRequest::DeclaredCase(CaseOperation {
+        case,
+        route: ModelingAnalysisRoute::Steady,
+        settings: SolveSettings::default(),
+    });
+    let preparation = point(operation.clone()).preparation;
+    let operation = StudyOperation {
+        version: Version,
+        source: OperationSource::of(&package),
+        preparation,
+        operation,
+        admitted_horizon: None,
+    };
+    (package, operation)
+}
+fn prior_overlay(package: &ModelingPackage, magnitude: f64, unit: &str) -> PointOverlay {
+    PointOverlay {
+        assignments: vec![BindingAssignment {
+            target: BindingTarget::Path("prior".into()),
+            value: quantity(package, magnitude, "Temperature", unit),
+        }],
+    }
+}
+
+#[tokio::test]
+async fn declared_admission_reuses_one_basis_for_thousand_physical_points() {
+    let (package, operation) = control_operation().await;
+    let cancel = CancelSource::new();
+    let ((), preparations) = crate::math::counted(async {
+        let mut admission = None;
+        let mut identities = std::collections::BTreeSet::new();
+        let mut base_allocations = std::collections::BTreeSet::new();
+        let mut demand_allocations = std::collections::BTreeSet::new();
+        for index in 0..1000 {
+            let (magnitude, unit, expected) = if index % 2 == 0 {
+                (300.0 + f64::from(index), "K", 300.0 + f64::from(index))
+            } else {
+                let magnitude = 20.0 + f64::from(index);
+                (magnitude, "degC", magnitude + 273.15)
+            };
+            let overlay = prior_overlay(&package, magnitude, unit);
+            let (binding, seed_need) = package
+                .admit_operation_overlay(&operation, &overlay, &mut admission, &cancel)
+                .await
+                .unwrap();
+            assert_eq!(seed_need, SeedNeed::Required);
+            let entry = binding.entries.values().next().unwrap();
+            assert!(entry.parameter);
+            assert_eq!(entry.canonical.into_inner(), expected);
+            assert_eq!(entry.supplied_unit, overlay.assignments[0].value.unit);
+            assert!(identities.insert(binding.identity()));
+            let basis = admission.as_ref().unwrap();
+            // Inspect the actual owner-held allocations, rather than a nominal
+            // compiler cache key. All numeric points retain these same products.
+            base_allocations.insert(basis.execution.model.compiled().model.allocation_identity());
+            demand_allocations.insert(basis.overlay_model().model.allocation_identity());
+            assert!(basis.matches(&DeclaredStudyAdmission::key(&operation, &overlay).unwrap()));
+        }
+        assert_eq!(identities.len(), 1000);
+        assert_eq!(base_allocations.len(), 1);
+        assert_eq!(demand_allocations.len(), 1);
+    })
+    .await;
+    // These production counters cover solver-view/observation construction and
+    // rebinds, not selected-source RPCs or server allocator consumption.
+    assert_eq!(preparations, crate::math::PreparationCounts::default());
+}
+
+#[tokio::test]
+async fn reused_declared_admission_rechecks_each_binding_and_structural_change() {
+    let (package, operation) = control_operation().await;
+    let cancel = CancelSource::new();
+    let overlay = prior_overlay(&package, 80.0, "degC");
+    let mut admission = None;
+    let (first, _) = package
+        .admit_operation_overlay(&operation, &overlay, &mut admission, &cancel)
+        .await
+        .unwrap();
+    let original_key = DeclaredStudyAdmission::key(&operation, &overlay).unwrap();
+    let base = admission
+        .as_ref()
+        .unwrap()
+        .execution
+        .model
+        .compiled()
+        .model
+        .clone();
+    let demand = admission.as_ref().unwrap().overlay_model().model.clone();
+    let canonical = prior_overlay(&package, 353.15, "K");
+    let (equivalent, _) = package
+        .admit_operation_overlay(&operation, &canonical, &mut admission, &cancel)
+        .await
+        .unwrap();
+    assert_eq!(first.identity(), equivalent.identity());
+    assert!(pse_math::SharedAllocation::ptr_eq(
+        &base,
+        &admission.as_ref().unwrap().execution.model.compiled().model
+    ));
+    assert!(pse_math::SharedAllocation::ptr_eq(
+        &demand,
+        &admission.as_ref().unwrap().overlay_model().model
+    ));
+
+    let mut duplicate = overlay.clone();
+    duplicate
+        .assignments
+        .push(prior_overlay(&package, 81.0, "degC").assignments.remove(0));
+    let error = package
+        .admit_operation_overlay(&operation, &duplicate, &mut admission, &cancel)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.boundary_diagnostic().rule,
+        DiagnosticRule::StudyBindingDuplicate
+    );
+    let mut wrong = overlay.clone();
+    wrong.assignments[0].value = quantity(&package, 1.0, "Time", "s");
+    let error = package
+        .admit_operation_overlay(&operation, &wrong, &mut admission, &cancel)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.boundary_diagnostic().rule,
+        DiagnosticRule::StudyBindingPhysical
+    );
+    assert!(admission.as_ref().unwrap().matches(&original_key));
+    let mut invalid_member = overlay.clone();
+    invalid_member.assignments.push(BindingAssignment {
+        target: BindingTarget::Member(SemanticId::NIL),
+        value: overlay.assignments[0].value.clone(),
+    });
+    let error = package
+        .admit_operation_overlay(&operation, &invalid_member, &mut admission, &cancel)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.boundary_diagnostic().rule,
+        DiagnosticRule::StudyBindingTarget
+    );
+    assert!(admission.as_ref().unwrap().matches(&original_key));
+    let mut forged = first.clone();
+    forged.entries.values_mut().next().unwrap().parameter = false;
+    assert!(
+        package
+            .validate_binding(
+                admission.as_ref().unwrap().execution.model.compiled(),
+                &forged
+            )
+            .is_err()
+    );
+
+    let mut changed_path = overlay.clone();
+    changed_path.assignments[0].target = BindingTarget::Path("cost".into());
+    let error = package
+        .admit_operation_overlay(&operation, &changed_path, &mut admission, &cancel)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.boundary_diagnostic().rule,
+        DiagnosticRule::StudyBindingTarget
+    );
+    assert!(!admission.as_ref().unwrap().matches(&original_key));
+
+    let mut changed_settings = operation.clone();
+    let OperationRequest::DeclaredCase(case) = &mut changed_settings.operation else {
+        unreachable!()
+    };
+    case.settings.controls.threads = 0;
+    assert!(
+        package
+            .admit_operation_overlay(&changed_settings, &overlay, &mut admission, &cancel)
+            .await
+            .is_err()
+    );
+    assert!(
+        admission.is_none(),
+        "failed replacement releases the previous basis"
+    );
+    package
+        .admit_operation_overlay(&operation, &overlay, &mut admission, &cancel)
+        .await
+        .unwrap();
+    let mut changed_limits = operation.clone();
+    changed_limits.preparation.limits.depth = 0;
+    assert!(
+        package
+            .admit_operation_overlay(&changed_limits, &overlay, &mut admission, &cancel)
+            .await
+            .is_err()
+    );
+    assert!(admission.is_none());
+    package
+        .admit_operation_overlay(&operation, &overlay, &mut admission, &cancel)
+        .await
+        .unwrap();
+    let mut changed_compiler = operation.clone();
+    changed_compiler.preparation.compiler.class_proof_work += 1;
+    assert_ne!(
+        DeclaredStudyAdmission::key(&changed_compiler, &overlay).unwrap(),
+        original_key
+    );
+    let mut changed_route = operation.clone();
+    let OperationRequest::DeclaredCase(case) = &mut changed_route.operation else {
+        unreachable!()
+    };
+    case.route = ModelingAnalysisRoute::Integrated;
+    let error = package
+        .admit_operation_overlay(&changed_route, &wrong, &mut admission, &cancel)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.boundary_diagnostic().rule,
+        DiagnosticRule::StudyBindingPhysical,
+        "overlay physical admission precedes route/procedure validation"
+    );
+    let error = package
+        .admit_operation_overlay(&changed_route, &overlay, &mut admission, &cancel)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.boundary_diagnostic().rule,
+        DiagnosticRule::StudyOperationUnsupported
+    );
+    assert!(!admission.as_ref().unwrap().matches(&original_key));
+    package
+        .admit_operation_overlay(&operation, &overlay, &mut admission, &cancel)
+        .await
+        .unwrap();
+    let cancelled = CancelSource::new();
+    cancelled.cancel();
+    let error = package
+        .admit_operation_overlay(&operation, &overlay, &mut admission, &cancelled)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.boundary_diagnostic().code,
+        pse_diagnostics::DiagnosticCode::RuntimeCancelled,
+        "{error:?}"
+    );
+    assert!(
+        admission.as_ref().unwrap().matches(&original_key),
+        "cancelled admission does not replace or prepare the structural basis"
+    );
+}
+
+#[tokio::test]
+async fn declared_admission_rechecks_nonfinite_optional_settings() {
+    let (package, operation) = control_operation().await;
+    let cancel = CancelSource::new();
+    let overlay = prior_overlay(&package, 300.0, "K");
+    let valid_key = DeclaredStudyAdmission::key(&operation, &overlay).unwrap();
+    let mut admission = None;
+    for absolute in [true, false] {
+        for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            package
+                .admit_operation_overlay(&operation, &overlay, &mut admission, &cancel)
+                .await
+                .unwrap();
+            let mut invalid = operation.clone();
+            let OperationRequest::DeclaredCase(case) = &mut invalid.operation else {
+                unreachable!()
+            };
+            if absolute {
+                case.settings.convexity_absolute = Some(value);
+            } else {
+                case.settings.convexity_relative = Some(value);
+            }
+            assert_ne!(
+                DeclaredStudyAdmission::key(&invalid, &overlay).unwrap(),
+                valid_key,
+                "canonical framing distinguishes None from Some({value})"
+            );
+            assert!(
+                package
+                    .admit_operation_overlay(&invalid, &overlay, &mut admission, &cancel)
+                    .await
+                    .is_err()
+            );
+            assert!(
+                admission.is_none(),
+                "invalid settings release the previous basis"
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn scoped_study_admission_preserves_individual_point_bindings() {
+    let (package, operation) = control_operation().await;
+    let mut points = Vec::new();
+    for (key, magnitude, unit) in [(0, 80.0, "degC"), (1, 354.15, "K")] {
+        let mut submitted = point(operation.operation.clone());
+        submitted.preparation = operation.preparation.clone();
+        submitted.policy.key = OccurrenceKey(key);
+        submitted.overlay = prior_overlay(&package, magnitude, unit);
+        points.push(submitted);
+    }
+    let definition = package
+        .admit_study_points(
+            super::super::PhysicalSource {
+                revision: "explicit-ephemeral-fixture".into(),
+                identity: ContentHash::from_bytes([0; 32]),
+            },
+            &points,
+            &CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(definition.points.len(), 2);
+    for (point, expected) in definition.points.iter().zip([353.15, 354.15]) {
+        assert_eq!(
+            point
+                .binding
+                .entries
+                .values()
+                .next()
+                .unwrap()
+                .canonical
+                .into_inner(),
+            expected
+        );
+        assert_eq!(point.binding_hash, point.binding.identity());
+        assert_eq!(point.policy.seed_need, SeedNeed::Required);
+    }
+    assert_ne!(
+        definition.points[0].binding_hash,
+        definition.points[1].binding_hash
+    );
+}
+
+#[tokio::test]
+async fn scoped_study_admission_transitions_from_declared_case_to_horizon() {
+    let (package, operation) = control_operation().await;
+    let plant = package
+        .declarations()
+        .await
+        .unwrap()
+        .iter()
+        .find(|declaration| declaration.name == "plant")
+        .unwrap()
+        .declaration_id;
+    let mut declared = point(operation.operation);
+    declared.policy.key = OccurrenceKey(0);
+    declared.overlay = prior_overlay(&package, 80.0, "degC");
+    let mut horizon = point(OperationRequest::Horizon(Box::new(
+        horizon(&package, plant).await,
+    )));
+    horizon.policy.key = OccurrenceKey(1);
+    let definition = package
+        .admit_study_points(
+            super::super::PhysicalSource {
+                revision: "explicit-ephemeral-fixture".into(),
+                identity: ContentHash::from_bytes([0; 32]),
+            },
+            &[declared, horizon],
+            &CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(definition.points.len(), 2);
+    assert_eq!(definition.points[0].policy.seed_need, SeedNeed::Required);
+    assert_eq!(
+        definition.points[0]
+            .binding
+            .entries
+            .values()
+            .next()
+            .unwrap()
+            .canonical
+            .into_inner(),
+        353.15
+    );
+    let horizon = &definition.points[1];
+    assert_eq!(horizon.policy.seed_need, SeedNeed::NotNeeded);
+    assert!(horizon.binding.entries.is_empty());
+    assert_eq!(
+        horizon.operation.admitted_horizon.as_ref().unwrap().inputs[0]
+            .canonical
+            .into_inner(),
+        353.15
+    );
 }
 async fn horizon(package: &ModelingPackage, case: DeclarationId) -> HorizonOperation {
     let simulation = package

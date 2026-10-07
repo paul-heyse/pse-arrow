@@ -407,17 +407,19 @@
     },
     {
       "id": "results-chain-1",
-      "operation": "results",
-      "reuse": "cold",
-      "blocks": 1,
+      "operation": "result_analysis",
+      "reuse": "admitted-retained",
+      "blocks": 128,
       "threads": 1,
       "variables": [
-        6
+        128
       ],
       "result_reads": 3,
       "functional_scopes": [
-        "process"
-      ]
+        "process",
+        "lifecycle"
+      ],
+      "samples": 31
     },
     {
       "id": "k4-study-in-process-8",
@@ -449,7 +451,9 @@
       "reuse": "cold",
       "blocks": 1,
       "threads": 1,
-      "functional_scopes": ["process"]
+      "functional_scopes": [
+        "process"
+      ]
     },
     {
       "id": "k4-accuracy-separated-decision-1",
@@ -458,7 +462,9 @@
       "reuse": "cold",
       "blocks": 1,
       "threads": 1,
-      "functional_scopes": ["process"]
+      "functional_scopes": [
+        "process"
+      ]
     },
     {
       "id": "k4-accuracy-refinement-1",
@@ -467,7 +473,9 @@
       "reuse": "cold",
       "blocks": 1,
       "threads": 1,
-      "functional_scopes": ["process"]
+      "functional_scopes": [
+        "process"
+      ]
     }
   ]
 }

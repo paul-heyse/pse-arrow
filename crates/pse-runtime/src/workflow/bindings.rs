@@ -106,41 +106,40 @@ impl ModelingPackage {
         &self,
         operation: &super::StudyOperation,
         overlay: &PointOverlay,
+        admission: &mut Option<super::study_operations::DeclaredStudyAdmission>,
         cancel: &crate::CancelSource,
-    ) -> Result<AdmittedBinding, WorkflowError> {
-        if let super::OperationRequest::DeclaredCase(case) = &operation.operation {
-            let execution = self
-                .declared_execution(
-                    case.case,
-                    operation.preparation.compiler,
-                    case.settings.clone().profile()?,
-                    Default::default(),
-                    operation.preparation.limits,
-                    cancel,
-                )
-                .await?;
-            let mut bindings = execution.analysis.bindings.clone();
-            bindings
-                .demand
-                .extend(overlay.assignments.iter().filter_map(
-                    |assignment| match &assignment.target {
-                        BindingTarget::Path(path) => Some(path.clone()),
-                        BindingTarget::Member(_) => None,
-                    },
-                ));
-            bindings.demand.sort();
-            bindings.demand.dedup();
-            let model = self
-                .prepare(
-                    execution.analysis.root,
-                    execution.analysis.instance,
-                    bindings,
-                    execution.analysis.limits,
-                    cancel,
-                )
-                .await?;
-            return self.admit_overlay(model.compiled(), overlay);
+    ) -> Result<(AdmittedBinding, pse_model::study::SeedNeed), WorkflowError> {
+        cancel
+            .token()
+            .checkpoint()
+            .map_err(pse_engine::EngineError::from)?;
+        operation.source.check(self)?;
+        if matches!(
+            &operation.operation,
+            super::OperationRequest::DeclaredCase(_)
+        ) {
+            let key = super::study_operations::DeclaredStudyAdmission::key(operation, overlay)?;
+            if !admission
+                .as_ref()
+                .is_some_and(|admission| admission.matches(&key))
+            {
+                // Release the previous structural owner before preparing its replacement.
+                *admission = None;
+                *admission = Some(
+                    super::study_operations::DeclaredStudyAdmission::prepare(
+                        self, operation, key, cancel,
+                    )
+                    .await?,
+                );
+            }
+            let admission = admission
+                .as_mut()
+                .ok_or_else(|| super::contract("missing declared study admission"))?;
+            let binding = self.admit_overlay(admission.overlay_model(), overlay)?;
+            let seed_need = admission.admit_binding_seed_need(self, &binding)?;
+            return Ok((binding, seed_need));
         }
+        *admission = None;
         if !overlay.assignments.is_empty() {
             return Err(pse_model::diagnostic::BoundaryDiagnostic::new(
                 pse_model::diagnostic::BoundaryClass::Unsupported,
@@ -150,11 +149,15 @@ impl ModelingPackage {
             )
             .into());
         }
-        Ok(AdmittedBinding {
+        let binding = AdmittedBinding {
             revision: self.revision.identity(),
             context: self.physical.identity(),
             entries: BTreeMap::new(),
-        })
+        };
+        let seed_need = operation
+            .admit_binding_seed_need(self, &binding, cancel)
+            .await?;
+        Ok((binding, seed_need))
     }
     /// Reconstruct the existing operation and apply its admitted coordinates once.
     pub(in crate::workflow) async fn prepare_bound_operation(

@@ -88,7 +88,37 @@ async fn clarabel_serves_explicit_linear_program() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].backend, Some(Backend::Clarabel));
     assert_eq!(rows[0].feasible, Some(true), "{rows:?}");
-    assert!((rows[0].objective.unwrap() - 1.5).abs() < 1e-6, "{rows:?}");
+    let crate::workflow::RunReport::Modeling(reports) = clarabel.report().unwrap() else {
+        panic!("expected modeling result")
+    };
+    let report = &reports[0];
+    let allowance = fixture::engineering_target(
+        report.prepared.solve.numerics(),
+        pse_relations::generated::enums::NumericalTarget::Objective,
+        SemanticId::NIL,
+    )
+    .engineering
+    .as_ref()
+    .unwrap()
+    .budget;
+    let model = &report.prepared.model.model.compiled().model;
+    let member = |path: &str| {
+        let members = model
+            .symbols
+            .iter()
+            .filter(|(_, symbol)| symbol.lineage.path == path)
+            .map(|(id, _)| *id)
+            .collect::<Vec<_>>();
+        assert_eq!(members.len(), 1, "one original LP member at {path}");
+        members[0]
+    };
+    let x = report.values.scalars[&member("Root.x")];
+    let y = report.values.scalars[&member("Root.y")];
+    assert_eq!(rows[0].objective.unwrap(), x + y);
+    assert!(
+        (rows[0].objective.unwrap() - 1.5).abs() <= allowance,
+        "{rows:?}"
+    );
     let certificates = infeasibility_certificates::Row::rows(
         &clarabel
             .table("runtime.infeasibility_certificates")

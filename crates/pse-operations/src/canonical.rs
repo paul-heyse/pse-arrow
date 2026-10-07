@@ -246,6 +246,8 @@ impl ProtectedSelection {
 /// Thin remote client; clones share its bounded transport.
 pub struct CanonicalStore {
     pub(crate) db: Arc<Surreal<Client>>,
+    #[cfg(any(test, feature = "test-support"))]
+    fixture_lifetime: Option<Arc<crate::testing::FixtureLifetime>>,
     #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
     pub(crate) result_read_drain: Arc<crate::canonical_results::ResultReadDrain>,
     activation_db: Arc<Surreal<Client>>,
@@ -304,6 +306,8 @@ impl CanonicalStore {
         let activation_db = connect_client(address, options, ACTIVATION_QUERY_TIMEOUT).await?;
         Ok(Self {
             db,
+            #[cfg(any(test, feature = "test-support"))]
+            fixture_lifetime: None,
             #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
             result_read_drain: Arc::new(crate::canonical_results::ResultReadDrain::default()),
             activation_db,
@@ -332,14 +336,22 @@ impl CanonicalStore {
                 ));
             }
         }
-        let response = request(
-            self.db
-                .query(initialization_statement())
-                .bind(("interpretation", wire::INTERPRETATION))
-                .bind(("schema_digest", wire::SCHEMA_DIGEST)),
-        )
-        .await;
+        let response = self.submit_initialization().await;
         self.finish_initialization(response).await
+    }
+    async fn submit_initialization(&self) -> Result<surrealdb::IndexedResults, CanonicalError> {
+        self.ensure_writes()?;
+        // Installing the complete schema is an atomic structural transition.
+        // Its client deadline must match that role, rather than an ordinary read.
+        let query = self
+            .activation_db
+            .query(initialization_statement())
+            .bind(("interpretation", wire::INTERPRETATION))
+            .bind(("schema_digest", wire::SCHEMA_DIGEST));
+        tokio::time::timeout(ACTIVATION_REQUEST_TIMEOUT, query.into_future())
+            .await
+            .map_err(|_| CanonicalError::Timeout)
+            .and_then(|response| response.map_err(CanonicalError::from))
     }
     // Acknowledgment is necessary even if a marker is readable after a lost response.
     // The caller may explicitly open after uncertainty; initialization never retries DDL.
@@ -398,6 +410,13 @@ impl CanonicalStore {
             crate::canonical_staging::StageOutcome::Acknowledged(revision) => return Ok(revision),
             crate::canonical_staging::StageOutcome::Closed(stage) => stage,
         };
+        self.activate_source_stage(&stage).await
+    }
+    /// Activate only the caller's closed source stage under its generation and head fences.
+    pub(crate) async fn activate_source_stage(
+        &self,
+        stage: &crate::canonical_staging::ClosedStage,
+    ) -> Result<Revision, CanonicalError> {
         for attempt in 0..8 {
             self.ensure_writes()?;
             let query = self
@@ -424,7 +443,7 @@ impl CanonicalStore {
             if let Err(error) = result {
                 // A lost acknowledgment or concurrent identical activation is settled
                 // exclusively by the immutable operation receipt, never by the head.
-                if let Ok(Some(revision)) = self.revision(operation).await {
+                if let Ok(Some(revision)) = self.revision(&stage.operation).await {
                     return if revision.request.as_slice() == stage.request.as_slice() {
                         Ok(revision)
                     } else {
@@ -439,7 +458,7 @@ impl CanonicalStore {
                 }
                 return Err(error);
             }
-            let revision = self.revision(operation).await?;
+            let revision = self.revision(&stage.operation).await?;
             return revision
                 .ok_or_else(|| CanonicalError::Configuration("committed revision missing".into()));
         }
@@ -635,13 +654,23 @@ impl CanonicalStore {
         Ok(())
     }
     /// Remove only this handle's explicitly isolated endpoint fixture database.
-    #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
+    #[cfg(any(test, feature = "test-support", feature = "canonical-tests"))]
     pub async fn remove_isolated_fixture(&self) -> Result<(), CanonicalError> {
         if !self.database.starts_with("canonical_test_") {
             return Err(CanonicalError::Configuration(
                 "fixture removal requires an isolated test database".into(),
             ));
         }
+        #[cfg(any(test, feature = "test-support"))]
+        let mut removed = match &self.fixture_lifetime {
+            Some(lifetime) => Some(lifetime.removed.lock().await),
+            None => None,
+        };
+        #[cfg(any(test, feature = "test-support"))]
+        if removed.as_deref().is_some_and(|removed| *removed) {
+            return Ok(());
+        }
+        #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
         self.result_read_drain.drain().await?;
         bounded_query(
             self.db
@@ -649,7 +678,25 @@ impl CanonicalStore {
                 .bind(("database", self.database.clone())),
         )
         .await?;
+        #[cfg(any(test, feature = "test-support"))]
+        if let Some(removed) = removed.as_mut() {
+            **removed = true;
+        }
         Ok(())
+    }
+    /// Retain only an automatically created fixture, after leaving its executor.
+    #[cfg(any(test, feature = "test-support"))]
+    pub(crate) fn own_fixture(mut self, executor: &'static tokio::runtime::Runtime) -> Self {
+        // The cleanup handle has no lifetime owner, so there is no reference cycle.
+        let detached = self.clone();
+        self.fixture_lifetime = Some(Arc::new(crate::testing::FixtureLifetime::new(
+            detached, executor,
+        )));
+        self
+    }
+    #[cfg(all(test, feature = "canonical-tests"))]
+    pub(crate) fn owns_fixture(&self) -> bool {
+        self.fixture_lifetime.is_some()
     }
 }
 
@@ -920,6 +967,25 @@ mod canonical_server_unit {
         (CanonicalStore::connect(&options).await.unwrap(), options)
     }
     #[tokio::test]
+    async fn initialization_uses_atomic_transition_client_for_complete_schema() {
+        let (mut store, options) = initialization_fixture().await;
+        let address = url::Url::parse(&options.endpoint)
+            .unwrap()
+            .socket_addrs(|| None)
+            .unwrap()[0];
+        store.db = connect_client(address, &options, std::time::Duration::from_millis(250))
+            .await
+            .unwrap();
+        let cancelled = request(store.db.query("SLEEP 750ms; RETURN true;")).await;
+        assert!(
+            cancelled.and_then(complete_response).is_err(),
+            "the ordinary client retains its shorter query deadline"
+        );
+        store.create().await.unwrap();
+        store.open().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
     async fn initialization_requires_complete_response_and_verified_marker() {
         let (store, _) = initialization_fixture().await;
         // Use an actual SDK zero-statement response, not a fabricated response value.
@@ -957,15 +1023,7 @@ mod canonical_server_unit {
     #[tokio::test]
     async fn initialization_lost_ack_is_uncertain_without_ddl_replay() {
         let (store, _) = initialization_fixture().await;
-        let completed = request(
-            store
-                .db
-                .query(initialization_statement())
-                .bind(("interpretation", wire::INTERPRETATION))
-                .bind(("schema_digest", wire::SCHEMA_DIGEST)),
-        )
-        .await
-        .unwrap();
+        let completed = store.submit_initialization().await.unwrap();
         complete_response(completed).unwrap();
         // Commit occurred, but the caller lost its acknowledgment at this boundary.
         assert!(matches!(

@@ -92,6 +92,10 @@ struct OwnerReview {
     package_files: Vec<PathBuf>,
     #[serde(default)]
     workspace_files: Vec<PathBuf>,
+    /// Exact source-reviewed workspace absence premises. Reappearance requires
+    /// a fresh branch review rather than silently inheriting this grant.
+    #[serde(default)]
+    workspace_absent_files: Vec<PathBuf>,
     /// Fixed paths read relative to the invoking Cargo package. Every selected
     /// package is a possible caller; retain exact presence/absence and raw bytes.
     #[serde(default)]
@@ -241,6 +245,9 @@ pub(crate) struct ProducerIdentity {
     pub(crate) outer_attestation: Option<OuterAttestation>,
     pub(crate) frame: String,
     pub(crate) package: String,
+    /// Actual selected Cargo production root, separate from dependency membership.
+    #[serde(default)]
+    pub(crate) selected_root: Option<String>,
     pub(crate) identity: String,
     pub(crate) persistent_reuse_eligible: bool,
     pub(crate) reasons: Vec<String>,
@@ -405,9 +412,11 @@ pub(crate) fn qualified_fixture(repository: &Path, output: &Path) -> Result<()> 
         return Ok(());
     }
     let temporary = tempfile::tempdir()?;
-    let root = temporary.path();
+    let root = temporary.path().join("package");
+    fs::create_dir(&root)?;
     fs::create_dir(root.join("src"))?;
-    fs::create_dir(root.join("cargo-home"))?;
+    let cargo_home = temporary.path().join("cargo-home");
+    fs::create_dir(&cargo_home)?;
     fs::write(root.join("Cargo.toml"), FINITE_FIXTURE_MANIFEST)?;
     fs::write(root.join("src/lib.rs"), FINITE_FIXTURE_SOURCE)?;
     fs::copy(
@@ -420,8 +429,8 @@ pub(crate) fn qualified_fixture(repository: &Path, output: &Path) -> Result<()> 
         .current_dir(repository)
         .args(["producer-identity-fixture", "--output"])
         .arg(output)
-        .env(CHILD_ROOT, root)
-        .env("CARGO_HOME", root.join("cargo-home"))
+        .env(CHILD_ROOT, &root)
+        .env("CARGO_HOME", &cargo_home)
         .env_remove("RUSTC")
         .env_remove("RUSTC_WRAPPER")
         .env_remove("RUSTC_WORKSPACE_WRAPPER")
@@ -1187,6 +1196,22 @@ fn expand_reviews(
                 }
             }
         }
+        for path in &review.workspace_absent_files {
+            ensure!(
+                !path.as_os_str().is_empty()
+                    && path
+                        .components()
+                        .all(|part| matches!(part, std::path::Component::Normal(_))),
+                "reviewed workspace absence must be a workspace-relative path"
+            );
+            let path = root.join(path);
+            ensure!(
+                !path_entry_exists(&path)?,
+                "reviewed absent workspace input {} is present or inaccessible",
+                path.display()
+            );
+            declaration.absent_files.push(path);
+        }
         for name in &review.environment_trees {
             let prefix = std::env::var_os(name)
                 .with_context(|| format!("reviewed input prefix {name} is absent"))?;
@@ -1532,7 +1557,10 @@ fn reviewed_input_state(
             let path = absolute(root, path);
             state.insert(
                 path.to_string_lossy().into_owned(),
-                hash_parts(&[b"reviewed-file-absence", &[u8::from(path.try_exists()?)]]),
+                hash_parts(&[
+                    b"reviewed-file-absence",
+                    &[u8::from(path_entry_exists(&path)?)],
+                ]),
             );
         }
         for name in review.environment.keys() {
@@ -1569,7 +1597,10 @@ fn reviewed_input_state(
             let path = absolute(root, path);
             state.insert(
                 path.to_string_lossy().into_owned(),
-                hash_parts(&[b"reviewed-file-absence", &[u8::from(path.try_exists()?)]]),
+                hash_parts(&[
+                    b"reviewed-file-absence",
+                    &[u8::from(path_entry_exists(&path)?)],
+                ]),
             );
         }
         for path in &declaration.namespaces {
@@ -2789,6 +2820,7 @@ fn capture(
         frame: Frame::ProducerV1.as_str().into(),
         outer_attestation: outer_attestation.into_iter().next(),
         package: options.package.clone(),
+        selected_root: Some(keys[&graph.roots[0]].clone()),
         identity: String::new(),
         persistent_reuse_eligible: reasons.is_empty(),
         reasons: reasons.into_iter().collect(),
@@ -2832,6 +2864,14 @@ fn reviewed_source_identity(root: &Path) -> Result<String> {
 }
 fn review_matches(declaration: &BuildScriptInputs, source: &str) -> bool {
     declaration.complete && declaration.reviewed_source.as_deref() == Some(source)
+}
+
+fn path_entry_exists(path: &Path) -> std::io::Result<bool> {
+    match fs::symlink_metadata(path) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error),
+    }
 }
 fn add_reviewed_inputs(
     inputs: &mut BTreeMap<String, Vec<ConsumedInput>>,
@@ -2886,7 +2926,7 @@ fn add_reviewed_inputs_with_environment(
     }
     for path in &declaration.absent_files {
         let path = absolute(root, path);
-        if path.try_exists()? {
+        if path_entry_exists(&path)? {
             reasons.insert(format!(
                 "{package}: reviewed absent file {} is present",
                 path.display()
@@ -4536,6 +4576,10 @@ mod tests {
             recorded.units[recorded.roots[0]].target.name,
             "producer_fixture"
         );
+        assert_eq!(
+            first.selected_root.as_ref(),
+            unit_keys(&recorded, root).unwrap().get(&recorded.roots[0])
+        );
         // A new arbitrary-input review cannot rely on CargoFresh output from a
         // preceding unguarded invocation whose script omitted a rerun hint.
         fs::write(root.join("ambient-header-name"), "changed-header").unwrap();
@@ -4847,7 +4891,8 @@ mod tests {
         let review = serde_json::json!({"reviewed_source": reviewed_source_identity(&owner).unwrap(),
             "reviewed_closures":[executable_closure_basis(&graph,index,&sources,&keys).unwrap()],
             "rationale":"This isolated fixture reads only provenance.input to produce outer data; value remains seven.",
-            "deployment_provenance":true,"workspace_files":["provenance.input"]});
+            "deployment_provenance":true,"workspace_files":["provenance.input"],
+            "workspace_absent_files":["vendor"]});
         fs::write(
             root.join("review.json"),
             serde_json::to_vec(
@@ -4894,6 +4939,25 @@ mod tests {
             serde_json::to_vec(&first.deployment_provenance).unwrap(),
             serde_json::to_vec(&changed_provenance.deployment_provenance).unwrap()
         );
+        assert!(
+            first
+                .deployment_provenance
+                .values()
+                .flatten()
+                .any(|input| input.path.ends_with("vendor"))
+        );
+        fs::create_dir(root.join("vendor")).unwrap();
+        let reappeared = run(&options).unwrap_err();
+        assert!(reappeared.to_string().contains("absent workspace input"));
+        fs::remove_dir(root.join("vendor")).unwrap();
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink("missing-target", root.join("vendor")).unwrap();
+            // The raw source inventory can reject a symlink before review
+            // expansion; either boundary must refuse the capture.
+            assert!(run(&options).is_err());
+            fs::remove_file(root.join("vendor")).unwrap();
+        }
         fs::write(owner.join("src/lib.rs"), behavior.replace("{7}", "{8}")).unwrap();
         let changed_behavior = run(&options).unwrap();
         assert_ne!(first.identity, changed_behavior.identity);
@@ -6047,6 +6111,7 @@ mod tests {
             frame: Frame::ProducerV1.as_str().into(),
             outer_attestation: None,
             package: "producer".into(),
+            selected_root: None,
             identity: "first".into(),
             persistent_reuse_eligible: false,
             reasons: vec!["unknown inputs".into()],

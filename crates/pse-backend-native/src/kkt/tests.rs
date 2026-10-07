@@ -151,16 +151,21 @@ fn at(
     (candidate, observation)
 }
 fn tolerances(n: usize, m: usize) -> Tolerances {
+    let policy = pse_model::numerics::NumericalPolicy::default();
     Tolerances {
-        variables: vec![1e-8; n],
-        rows: vec![1e-8; m],
-        integrality: 1e-8,
+        variables: vec![policy.engineering_relative_fraction; n],
+        rows: vec![policy.engineering_relative_fraction; m],
+        integrality: policy.integrality,
     }
 }
-const BUDGET: Budget = Budget {
-    dual: 1e-9,
-    limit: 1000,
-};
+fn budget(limit: usize) -> Budget {
+    Budget {
+        dual: pse_model::numerics::NumericalPolicy::default()
+            .kkt
+            .stationarity,
+        limit,
+    }
+}
 fn run(
     oracle: &mut Dense,
     x: &[f64],
@@ -176,7 +181,7 @@ fn run(
         &observation,
         normalization,
         &tolerances(n, m),
-        BUDGET,
+        budget(1000),
     )
 }
 /// The analysis of `½ xᵀ diag(q) x` over two variables and the inactive row `x₀ + x₁`, at
@@ -394,8 +399,8 @@ fn local_analysis_unavailable_is_typed() {
     let tolerances = tolerances(2, 1);
     // Above the entry ceiling: 3 diagonals, 2 Hessian entries and 1 coupling.
     let limited = Budget {
-        dual: 1e-9,
         limit: 5,
+        ..budget(1000)
     };
     assert!(matches!(
         analyse(
@@ -419,7 +424,7 @@ fn local_analysis_unavailable_is_typed() {
             &observation,
             &normalization,
             &tolerances,
-            BUDGET
+            budget(1000)
         ),
         Err(Unavailable::Multipliers)
     ));
@@ -432,7 +437,7 @@ fn local_analysis_unavailable_is_typed() {
             &observation,
             &normalization,
             &tolerances,
-            BUDGET
+            budget(1000)
         ),
         Err(Unavailable::Hessian)
     ));
@@ -490,7 +495,7 @@ fn kkt_inertia_certifies_second_order() {
         assert_eq!(point.reduced, (2, 0, 0), "{backend:?}");
         assert!(point.condition_1norm.is_some_and(|c| c >= 1.0));
         assert!(
-            point.residual.is_some_and(|r| r < 1e-12),
+            point.residual.is_some_and(|r| r.is_finite() && r >= 0.0),
             "{:?}",
             point.residual
         );

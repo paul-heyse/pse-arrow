@@ -51,6 +51,19 @@ def native_provenance(
                     files[str(library)] = digest(library)
     if not files:
         raise ValueError("no actual native binaries to bind")
+    # These receipts grant deployment reuse. Bind their actual bytes as well as
+    # executable bytes; replacing a receipt at the same path changes the premise.
+    for name in (
+        "PSE_PRODUCER_RECEIPT",
+        "PSE_PRODUCER_FIXTURE_RECEIPT",
+        "PSE_WORKER_PRODUCER_RECEIPT",
+        "PSE_PYTHON_PRODUCER_RECEIPT",
+        "PSE_PYTHON_DEPLOYMENT_ATTESTATION",
+    ):
+        selected = native_environment.get(name)
+        if selected:
+            path = Path(selected).resolve()
+            files[str(path)] = digest(path)
     return {
         "schema": "native-profile-v1",
         "profile": profile,
@@ -203,6 +216,7 @@ def main() -> int:
         validation.write_json(provenance, native)
         # The running pytest session must consume the same imported extension.
         env["PSE_NATIVE_EXPECTED_BINARY"] = str(binary)
+        env["PSE_NATIVE_EXPECTED_SHA256"] = native["files"][str(binary)]
         selection = report.with_name(report.stem + "-selected.txt")
         if owner == "standalone":
             env["PSE_TEST_ENUMERATION"] = str(selection)

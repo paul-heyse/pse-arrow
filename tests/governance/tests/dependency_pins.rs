@@ -225,7 +225,10 @@ fn registry_dependencies_must_be_exact_and_holds_must_be_current() {
     for (dependencies, offender) in [
         ("serde = '1.0.229'\nheld = '=1.0.0'", "serde"),
         ("serde = '^1.0.229'\nheld = '=1.0.0'", "serde"),
-        ("serde = { version = '1.0.229', features = ['derive'] }\nheld = '=1.0.0'", "serde"),
+        (
+            "serde = { version = '1.0.229', features = ['derive'] }\nheld = '=1.0.0'",
+            "serde",
+        ),
         ("serde = '>=1.0'\nheld = '=1.0.0'", "serde"),
         ("serde = '=1.0.229, <2'\nheld = '=1.0.0'", "serde"),
         ("serde = '>=1.0, <2'\nheld = '=1.0.0'", "serde"),

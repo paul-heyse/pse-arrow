@@ -138,14 +138,17 @@ assessed commit `06302af7748923100f17a7c8fda9c57b6a536690` with concurrent work 
 current tree. The dated review and earlier Outcomes keep their original evidence conditions;
 new source controls do not retrospectively turn failed or interrupted runs into passes.
 
-Current source restricts generic retention to deliberate history, requires complete
-initialization responses followed by interpretation verification, groups part of selected
-name acquisition, and corrects several fixture and wire premises. These are **Implemented**
-corrections awaiting fresh acceptance. Selection payload hydration, installed Python
-association and composed recovery still need investigation or execution. Before taking a
-slice, inspect its current diff and existing controls; integrate concurrent implementations
-rather than duplicating them. This documentation revision authorizes no additional product
-repair, tolerance change, ADR acceptance or retirement by itself.
+Current source restricts generic retention to deliberate history and requires complete
+initialization responses followed by interpretation verification. Native lifecycle,
+initialization, selected cursor/staging, lost-ack and protected result-retirement controls pass.
+Selected namespace pages and grouped payloads reserve resources before acquisition, complete
+membership observations before dependency admission, and settle concurrent identical product
+publication without a local shared token. Scalar replay and the modeling suite exercise the
+current closure behavior. Scientific fixture and wire premises are corrected without changing
+production accuracy defaults or original assertion thresholds. Current installed producer
+association, the new long result/analysis control, E3 qualification, E4 measurements and final
+E5 acceptance remain at E's owner. The dated audit retains its original failed/interrupted
+scope. Preserve concurrent edits and integrate their actual owners.
 
 The repo now selects the shared `neo4j-surrealdb` skill. The
 [capability investigation](../design_review/evidence/plan-28-surrealdb-capabilities-2026-10-06/README.md)
@@ -247,9 +250,9 @@ evidence owners; resolve only when correction and relevant acceptance actually e
 | [EF06](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef06) | S06/S08 | Scheduled | E2/E4 | Target selection before native setup; comparable cache/toolchain measurements. |
 | [EF07](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef07) | S05/S06 | Scheduled | A2/E2 | Obsolete outputs retired; unchanged output mtimes stable; stale outputs deleted. |
 | [EF08](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef08) | S01/S07 | Resolved | B4 | [B Outcome](28b-selected-compilation-and-reuse.md#outcome-recorded-after-implementation): actual evaluator accepts selected compact formals; migrated consumers and 26 native implicit controls preserve guards, providers and ordered derivative axes. No measured speedup is inferred. |
-| [F01](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f01) | S01/S03/S07 | Scheduled | A3; C2/C4; E3 | History-only generic mutation is implemented in source; execute native lifecycle-root refusal and composed retention/readback controls before resolution. |
-| [F02](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f02) | S01/S02/S08 | Scheduled | A2; B1; E4 | Grouped name/frontier source changes are partial correction; complete exact guarded acquisition/hydration, targeted controls and honest operation measurements. |
-| [F03](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f03) | S03/S07 | Scheduled | A1; E3 | Complete-response and interpretation verification are implemented in source; execute zero-result/lost-ack/cancellation controls without assuming the historical campaign cause. |
+| [F01](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f01) | S01/S03/S07 | Resolved | A3; C2/C4 | [A Outcome](28a-canonical-substrate-and-revisions.md#outcome-recorded-after-implementation): native generic lifecycle-root refusal, history mutation and protected reclamation controls pass; enclosing E3 remains separate. |
+| [F02](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f02) | S01/S02/S08 | Scheduled | A2; B1; E4 | Exact pinned namespace cursors, pre-RPC reservations, grouped manifests/payloads and concurrent acknowledgment settlement have positive targeted controls at [E Outcome](28e-rebuild-retirement-and-qualification.md#outcome-recorded-after-implementation). Complete-operation measurements remain E4. |
+| [F03](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f03) | S03/S07 | Resolved | A1 | [A Outcome](28a-canonical-substrate-and-revisions.md#outcome-recorded-after-implementation): zero-result, lost-ack, cancellation, normal/repeated creation and marker refusal controls pass. They do not establish the cause of historical missing-table failures. |
 | [F04](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f04) | S01/S03/S04/S07 | Scheduled | E1/E2; B3; C/D; E3 | Validate corrected fixture/wire premises, eligible installed producers, progress and intended-point scientific controls, then complete the stable assembled campaign against zero. |
 | [F05](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f05) | S06/S08 | Scheduled | B3; E3/E4/E5 | Actual installed deployment association, full qualification, all applicable prepared measurements, accepted assembled review and enduring-owner retirement route. |
 
@@ -274,6 +277,48 @@ acceptance. Unsupported scientific/provider scope remains explicit. Document che
 series do not establish those product claims.
 
 ## Current checkpoint
+
+Remaining-scope execution on 2026-10-06 has completed grouped exact namespace,
+supplier, record, document and physical acquisitions, including complete-inventory
+premises and precharged hydration. Deployment qualification now checks the actual
+selected Cargo root against the receiving executable target. Study claim/summary
+uncertainty uses exact existing operation receipts; native start uncertainty uses a
+fresh invocation receipt, preventing another call from recovering an earlier start.
+The server also admits only one start per actual attempt, while an authored retry
+retains prior failure history and starts a distinct attempt. Multipage result protection
+hands off to an admitted analysis before retirement. Focused controls and bounded
+implementation review are positive; scope-end checks and fresh installed deployment
+association precede E3. The selected supervised profile has positive abrupt
+restart and quiesced offline restore evidence. Build review now expresses the
+retired vendor directory's absence explicitly; stale or reappearing inputs refuse
+qualification. The result-chain measurement exercises actual retained trajectory,
+selected-output and paged analysis reads, with global engineering accuracy and
+exact original transport checks. Its functional smoke exposed a quadratic checked
+row-selection memory reservation; the correction preserves repeated/nested-value
+accounting and its targeted controls and the complete smoke now pass. The smoke
+also corrected a scalar-only validation assertion to exercise actual trajectory
+endpoint, feasibility and full authored sample-check obligations.
+Sensitivity qualification controls now use the production default policy, actual
+returned candidate, frozen parameter/output coordinate scales and admitted engineering
+allowances. Base error, derivative response and perturbed endpoint agreement are
+separate empirical checks; a factor backsolve diagnostic adds no tighter solve
+requirement. Native Ipopt/POUNCE perturbation coverage and exact matrix/transport
+mechanics remain. The shared restart fixture also resolves production accuracy rather
+than substituting a verification budget. Parity and the affected native/runtime controls
+now pass. The restart comparison uses its original objective as the decision quantity
+and retains exact transport and iteration-reduction controls; physical feasibility
+budgets imply no coordinate-error guarantee. Current worker/Python producer captures
+are eligible and share the actual source/build attestation. The installed Python
+artifact matches the captured producer binary after Maturin's exact editable RPATH
+transformation; its public solve/reopen control independently observes that same
+attestation and reopens the original revision. The assembled gate remains next.
+The genuine cross-role control uses the independently observed imported Python
+run-header attestation rather than each receipt's own claimed pair. Current
+exclusive source/deployment ownership is retained for the assembled campaign.
+Measurement admission now recognizes both exact standalone and assembled native
+gate declarations, including the latter's producer-fixture prerequisite, while
+arbitrary selections/dependency edits still refuse. E4 measurements and E5 acceptance
+remain open at 28e.
 
 On 2026-10-06 the maintainer authorized implementation of all functional scope across
 28a–28e using the capability-informed execution approach. Functional work and targeted

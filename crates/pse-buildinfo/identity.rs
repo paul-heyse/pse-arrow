@@ -8,7 +8,14 @@ use std::{fs, path::Path};
 pub(crate) fn source_files(root: &Path) -> std::io::Result<Vec<(String, Vec<u8>)>> {
     let mut files = Vec::new();
     for name in ["crates", "vendor", "xtask"] {
-        collect_sources(root, &root.join(name), &mut files)?;
+        let directory = root.join(name);
+        // Retired source overrides leave no vendor directory in a fresh checkout.
+        // Observe its reappearance so a future actual override still rekeys the build.
+        if name == "vendor" && !directory.try_exists()? {
+            println!("cargo:rerun-if-changed={}", directory.display());
+            continue;
+        }
+        collect_sources(root, &directory, &mut files)?;
     }
     Ok(files)
 }
@@ -57,6 +64,22 @@ pub(crate) fn digest(mut entries: Vec<(String, Vec<u8>)>) -> pse_ids::ContentHas
 }
 #[cfg(test)]
 mod foundation_unit {
+    #[test]
+    fn absent_vendor_is_valid_and_later_vendored_sources_rekey() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        for name in ["crates/a/src", "xtask/src"] {
+            std::fs::create_dir_all(root.join(name)).unwrap();
+        }
+        std::fs::write(root.join("crates/a/src/lib.rs"), b"library").unwrap();
+        std::fs::write(root.join("xtask/src/main.rs"), b"worker").unwrap();
+        let original = super::digest(super::source_files(root).unwrap());
+        std::fs::create_dir(root.join("vendor")).unwrap();
+        assert_eq!(original, super::digest(super::source_files(root).unwrap()));
+        std::fs::write(root.join("vendor/override.rs"), b"actual override").unwrap();
+        assert_ne!(original, super::digest(super::source_files(root).unwrap()));
+    }
+
     #[test]
     fn actual_outer_inventory_rekeys_dirty_worker_sources_and_excludes_build_outputs() {
         let directory = tempfile::tempdir().unwrap();

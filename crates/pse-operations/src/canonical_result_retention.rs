@@ -312,6 +312,210 @@ mod canonical_result_retention_server_unit {
             .unwrap();
     }
     #[tokio::test]
+    async fn multipage_result_read_hands_protection_to_analysis_before_retirement() {
+        use crate::{
+            canonical_analyses::{Analysis, AnalysisNode},
+            canonical_execution::{result_batch_key, result_payload_digest, result_set_key},
+        };
+        use pse_model::generated::runtime::canonical_result_blocks::Row as BlockMetadata;
+        let (store, database) = fixture().await;
+        let request = request(&store, "multipage").await;
+        store.begin_run(&request).await.unwrap();
+        let fence = store
+            .claim_run(
+                &request.key,
+                "claim-multipage",
+                "worker",
+                Duration::from_secs(60),
+            )
+            .await
+            .unwrap();
+        let set = result_set_key(fence.attempt(), "trajectory");
+        // Cross the real 64-member metadata page boundary, not merely a payload
+        // chunk boundary in one database response.
+        for ordinal in 0..65_u64 {
+            let payload = vec![ordinal as u8, 17];
+            let key = result_batch_key(fence.attempt(), &set, ordinal);
+            let block = BlockMetadata {
+                key: key.clone(),
+                result_set: set.clone(),
+                batch: key,
+                output: "temperature".into(),
+                partition: "time".into(),
+                ordinal,
+                start: ordinal,
+                end: ordinal + 1,
+                rows: 1,
+                columns: 1,
+                coordinate_min: Some(ordinal as f64),
+                coordinate_max: Some(ordinal as f64),
+                payload_bytes: payload.len() as u64,
+                payload_digest: result_payload_digest(&payload),
+                interpretation: wire::INTERPRETATION.into(),
+            };
+            store
+                .append_result_block(
+                    &fence,
+                    &format!("append-multipage-{ordinal}"),
+                    "trajectory",
+                    ordinal,
+                    &payload,
+                    1,
+                    &block,
+                )
+                .await
+                .unwrap();
+        }
+        let closed = store
+            .close_result_ingestion(&fence, "close-multipage")
+            .await
+            .unwrap();
+        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        // SAFETY: this transport fixture asserts partial observations, not science.
+        unsafe { store.seal_attempt(&manifest, "seal-multipage", TerminalClass::Partial, &[42]) }
+            .await
+            .unwrap();
+        let read = store
+            .read_results(&request.key, fence.attempt(), Duration::from_secs(60))
+            .await
+            .unwrap();
+        let (first, retired) = tokio::join!(
+            store.result_block_page(&read, &set, "temperature", "time", 0, 65, None),
+            store.forget_run_results(&request.key)
+        );
+        let first = first.unwrap();
+        assert_eq!(first.len(), 64);
+        assert!(retired.is_err());
+        let escaped = store.result_block(&read, first[0].clone()).await.unwrap();
+        // Advance the source head and relinquish default history: the protected
+        // read and resulting analysis must preserve this exact older source.
+        store
+            .edit(
+                &request.revision.problem,
+                Some(&request.revision.key),
+                "multipage-source-next",
+                &[],
+            )
+            .await
+            .unwrap();
+        store.forget_history(&request.revision).await.unwrap();
+        let header = Analysis {
+            key: "multipage-analysis".into(),
+            revision: request.revision.key.clone(),
+            method: "bounded-reader-handoff-fixture:v1".into(),
+            configuration: vec![1].into(),
+            input_digest: manifest.row().key.clone(),
+            interpretation: wire::INTERPRETATION.into(),
+            node_count: 1,
+            edge_count: 0,
+            active: false,
+        };
+        let node = AnalysisNode {
+            key: "multipage-node".into(),
+            analysis: header.key.clone(),
+            semantic: "temperature".into(),
+            kind: "result".into(),
+        };
+        let nodes = [node];
+        let (analysis, retired) = tokio::join!(
+            store.persist_analysis(
+                &header,
+                std::slice::from_ref(&request.revision),
+                std::slice::from_ref(&read),
+                &nodes,
+                &[]
+            ),
+            store.forget_run_results(&request.key)
+        );
+        assert!(analysis.unwrap().active);
+        assert!(retired.is_err());
+        let second = store
+            .result_block_page(
+                &read,
+                &set,
+                "temperature",
+                "time",
+                0,
+                65,
+                Some(first.last().unwrap().ordinal),
+            )
+            .await
+            .unwrap();
+        assert_eq!(second.len(), 1);
+        assert_eq!(second[0].ordinal, 64);
+        assert_eq!(
+            store
+                .result_block(&read, second[0].clone())
+                .await
+                .unwrap()
+                .batch
+                .payload
+                .as_slice(),
+            &[64, 17]
+        );
+        assert!(
+            store
+                .result_block_page(&read, &set, "temperature", "time", 0, 65, Some(64))
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        drop(read);
+        assert!(store.forget_run_results(&request.key).await.is_err());
+        assert_eq!(escaped.batch.payload.as_slice(), &[0, 17]);
+        drop(escaped);
+        store.result_read_drain.drain().await.unwrap();
+        assert!(
+            store.forget_run_results(&request.key).await.is_err(),
+            "analysis input retention must take over before reader release"
+        );
+        let mut roots = store
+            .db
+            .query(
+                "SELECT key FROM canonical_roots WHERE owner_kind='analysis' AND owner=$analysis;",
+            )
+            .bind(("analysis", header.key.clone()))
+            .await
+            .and_then(checked)
+            .unwrap();
+        assert_eq!(roots.take::<Vec<Object>>(0).unwrap().len(), 1);
+        store.forget_analysis_results(&header.key).await.unwrap();
+        store.forget_run_results(&request.key).await.unwrap();
+        let mut reclaimed = 0;
+        for _ in 0..70 {
+            let page = store.reclaim_result_page(&request.key).await.unwrap();
+            reclaimed += page.batches;
+            if page.complete {
+                break;
+            }
+        }
+        assert_eq!(reclaimed, 65);
+        assert!(
+            store
+                .reclaim_result_page(&request.key)
+                .await
+                .unwrap()
+                .complete
+        );
+        assert_eq!(
+            store
+                .canonical_attempt(fence.attempt())
+                .await
+                .unwrap()
+                .unwrap()
+                .outcome
+                .as_deref(),
+            Some("partial")
+        );
+        store
+            .db
+            .query(format!("REMOVE DATABASE {database};"))
+            .await
+            .and_then(checked)
+            .unwrap();
+    }
+
+    #[tokio::test]
     async fn result_read_and_retirement_conflict_on_exact_selection() {
         let (store, database) = fixture().await;
         for index in 0..8 {

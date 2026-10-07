@@ -15,18 +15,12 @@ import pse
 from pse import codec
 from pse.contracts import authored
 from pse.contracts import runtime as runtime_contracts
-from pse.contracts.documents import (
-    AuthoredNumericalRequirementsRow,
-    KktTolerances,
-    NumericalPolicy,
-    Profile,
-)
+from pse.contracts.documents import NumericalPolicy, Profile
 from pse.contracts.enums import (
     DynamicsMethod,
     HessianMode,
     NativeBackend,
     NativeSolveIntent,
-    NumericalCoordinates,
     NumericalTarget,
     PresolvePolicyKind,
 )
@@ -105,12 +99,15 @@ def test_public_native_process_and_exact_results(
         ("root.phase.rho", 34.565566349336066),
         ("root.recycle", 5.0),
     ]:
-        actual = next(
-            row["value"]
+        (coordinate,) = (
+            row
             for row in rows
             if SemanticId(row["symbol_id"]) == coordinates[f"heater_recycle.{path}"]
         )
-        assert actual == pytest.approx(expected, abs=1e-5)
+        assert coordinate["tolerance"] > 0.0
+        assert coordinate["value"] == pytest.approx(
+            expected, rel=0.0, abs=coordinate["tolerance"]
+        )
     assert result.usable
     checks = pa.table(result.table("runtime.modeling_checks")).to_pylist()
     assert checks
@@ -174,8 +171,8 @@ def test_public_dynamic_and_transient_fit(
         }
         test experiment_integrated fixture {
           dof 0; route integrated; procedure integrate;
-          integrate samples(0{s},0.5{s},1{s}) relative(1e-9)
-            normalized_absolute(1e-10) step(1e-4{s});
+          integrate samples(0{s},0.5{s},1{s}) relative(global)
+            normalized_absolute(global) step(1e-4{s});
         } { child root:Experiment=Experiment(); }
         entity kind origin provenance {attribute title:Text;}
         entity origin experiment {title="analytic total(t)=2 s+3*t"}
@@ -194,13 +191,14 @@ def test_public_dynamic_and_transient_fit(
         for d in package.declarations()
         if d.name == "experiment_integrated"
     )
+    numerics = NumericalPolicy()
     settings = pse.SimulationSettings(
         method=DynamicsMethod.DIFFSOL,
         start=0.0,
         end=1.0,
         samples=[0.0, 0.5, 1.0],
-        atol=[1e-10],
-        rtol=1e-9,
+        atol=[numerics.engineering_relative_fraction],
+        rtol=numerics.engineering_relative_fraction,
         parameter_scales=[1.0],
         sensitivity="forward",
     )
@@ -210,8 +208,6 @@ def test_public_dynamic_and_transient_fit(
     samples = pa.table(simulation.table()).to_pylist()
     assert len(samples) == 6
     assert {sample["time"] for sample in samples} == {0.0, 0.5, 1.0}
-    for sample in samples:
-        assert sample["value"] == pytest.approx(2.0 + 3.0 * sample["time"], abs=1e-6)
     prepared = package.prepare_simulation(case, settings)
     handle = prepared.start()
     joined = handle.wait()
@@ -219,6 +215,18 @@ def test_public_dynamic_and_transient_fit(
     assert joined.usable
     assert joined.completion.computation is not None
     assert joined.completion.computation.backend == "diffsol"
+    (state_policy,) = (
+        row
+        for row in pa.table(joined.table("runtime.resolved_numerics")).to_pylist()
+        if row["target_kind"] == NumericalTarget.VARIABLE
+    )
+    assert state_policy["budget"] > 0.0
+    # The authored observation is the total state itself in the same Time unit.
+    # Both channels therefore use that state's actual frozen physical allowance.
+    for sample in samples:
+        assert sample["value"] == pytest.approx(
+            2.0 + 3.0 * sample["time"], rel=0.0, abs=state_policy["budget"]
+        )
     assert pa.table(joined.table("runtime.simulation_samples")).to_pylist() == [
         {**row, "run_id": bytes.fromhex(joined.run_id.to_hex())} for row in samples
     ]
@@ -304,51 +312,18 @@ def test_public_dynamic_and_transient_fit(
     )
     package = package.with_fit_declarations((fit,))
     simulation_profile = codec.decode_json(settings.to_json(), Profile)
+    fit_settings = pse.SolveSettings(
+        backend=NativeBackend.IPOPT,
+        intent=NativeSolveIntent.OPTIMIZE,
+        presolve=PresolvePolicyKind.OFF,
+        controls=pse.SolveControls(hessian=HessianMode.LIMITED_MEMORY),
+    )
+    assert fit_settings.numerics == numerics
     result = (
         package.prepare_fit(
             fit.fit_id,
             pse.FitPreparationDocument(
-                solver=pse.SolveSettings(
-                    backend=NativeBackend.IPOPT,
-                    intent=NativeSolveIntent.OPTIMIZE,
-                    presolve=PresolvePolicyKind.OFF,
-                    controls=pse.SolveControls(hessian=HessianMode.LIMITED_MEMORY),
-                    # This analytic fit promises a 1e-5 rate, with a standardized
-                    # scalar least-squares objective. Bind its actual coordinates
-                    # and retain independent first-order optimality requirements.
-                    numerics=NumericalPolicy(
-                        kkt=KktTolerances(stationarity=1e-8, complementarity=1e-8),
-                        requirements=tuple(
-                            AuthoredNumericalRequirementsRow(
-                                requirement_id=identity(index).to_hex(),
-                                fit_id=fit.fit_id.to_hex(),
-                                target_id=target,
-                                target_kind=kind,
-                                unit_id=identity(10).to_hex(),
-                                coordinates=NumericalCoordinates.PHYSICAL,
-                                absolute_tolerance=absolute,
-                                relative_tolerance=0.0,
-                                priority=1,
-                                required=True,
-                                provenance="analytic transient fit output accuracy",
-                            )
-                            for index, target, kind, absolute in (
-                                (
-                                    107,
-                                    fit.parameters[0].symbol_id.to_hex(),
-                                    NumericalTarget.VARIABLE,
-                                    1e-7,
-                                ),
-                                (
-                                    108,
-                                    identity(0).to_hex(),
-                                    NumericalTarget.OBJECTIVE,
-                                    1e-10,
-                                ),
-                            )
-                        ),
-                    ),
-                ),
+                solver=fit_settings,
                 simulations={
                     fit.experiments[0].experiment_id.to_hex(): simulation_profile
                 },
@@ -359,7 +334,47 @@ def test_public_dynamic_and_transient_fit(
     )
     parameters = pa.table(result.table("runtime.fit_parameters")).to_pylist()
     assert len(parameters) == 1
-    assert parameters[0]["value"] == pytest.approx(3.0, abs=1e-5)
+    (parameter_policy,) = (
+        row
+        for row in pa.table(result.table("runtime.resolved_numerics")).to_pylist()
+        if row["target_kind"] == NumericalTarget.VARIABLE
+        and SemanticId(row["target_id"]) == fit.parameters[0].symbol_id
+    )
+    assert parameter_policy["budget"] > 0.0
+    assert parameter_policy["coordinate_scale"] == fit.parameters[0].scale
+    assert parameters[0]["value"] == pytest.approx(
+        3.0, rel=0.0, abs=parameter_policy["budget"]
+    )
+    (response,) = pa.table(result.table("runtime.response_sensitivities")).to_pylist()
+    assert response["run_id"] == bytes(result.run_id)
+    assert SemanticId(response["experiment_id"]) == fit.experiments[0].experiment_id
+    assert SemanticId(response["parameter_id"]) == fit.parameters[0].symbol_id
+    assert response["sample"] == 0
+    assert response["time"] == 1.0
+    assert response["parameter_unit_id"] == parameters[0]["unit_id"]
+    (observation,) = pa.table(result.table("runtime.fit_observations")).to_pylist()
+    assert (
+        SemanticId(observation["observation_id"]) == fit.observations[0].observation_id
+    )
+    assert observation["run_id"] == response["run_id"]
+    assert observation["experiment_id"] == response["experiment_id"]
+    assert observation["included"] is True
+    assert response["output_unit_id"] == observation["unit_id"]
+    # total(t)=2 s+rate*t is affine. The response uses production's weighted,
+    # parameter-scaled coordinates; this observation has sigma=1 s, importance=1.
+    # A half-scale rate change is material and avoids differencing integrated noise.
+    delta = 0.5 * parameter_policy["coordinate_scale"]
+    assert delta > parameter_policy["budget"]
+    upper = fit.parameters[0].upper
+    assert upper is not None
+    assert parameters[0]["value"] + delta <= upper
+    # The output is the same physical Time state admitted above. Assess the
+    # effect of the response at that resolution; this is an empirical comparison,
+    # not a derivative-error certificate inferred from local integration controls.
+    assert delta * response["time"] > state_policy["budget"]
+    assert response["value"] * delta == pytest.approx(
+        delta * response["time"], rel=0.0, abs=state_policy["budget"]
+    )
     run = pa.table(result.table("runtime.computation_runs")).to_pylist()
     assert len(run) == 1
     assert run[0]["termination"] in {"success", "acceptable"}
@@ -367,7 +382,7 @@ def test_public_dynamic_and_transient_fit(
     assert run[0]["estimate_qualified"]
     exported = pa.table(result.export_fit_parameters()).to_pylist()
     assert len(exported) == 1
-    assert exported[0]["value"] == pytest.approx(3.0, abs=1e-5)
+    assert exported[0]["value"] == parameters[0]["value"]
     assert exported[0]["run_id"] == bytes(result.run_id)
     assert result.completion.computation is not None
     assert codec.document_rows(

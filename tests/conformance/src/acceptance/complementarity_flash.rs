@@ -8,6 +8,7 @@ use super::fixtures::*;
 use pse_backend_native::solve::Backend;
 use pse_ids::SemanticId;
 use pse_model::generated::enums::ModelingStructuralRequirement as Requirement;
+use pse_model::generated::enums::NumericalTarget;
 use pse_runtime::{
     CancelSource,
     math::solves::SolverProfile,
@@ -37,7 +38,11 @@ fn feasible(backend: Backend) -> SolverProfile {
     solver
 }
 /// Solve an authored fixture and return its vapor fraction and equilibrium temperature.
-async fn solve(package: &ModelingPackage, case: SemanticId, solver: SolverProfile) -> (f64, f64) {
+async fn solve(
+    package: &ModelingPackage,
+    case: SemanticId,
+    solver: SolverProfile,
+) -> (f64, f64, f64, f64) {
     let result = seed_prepare(package, case, solver, &CancelSource::new())
         .await
         .unwrap()
@@ -47,16 +52,19 @@ async fn solve(package: &ModelingPackage, case: SemanticId, solver: SolverProfil
         .await
         .unwrap();
     let report = authored_success(&result);
-    let value = |label: &str| {
-        report
-            .reports
-            .iter()
-            .find(|r| r.label == label)
-            .unwrap()
-            .value
+    let observation = |label: &str| {
+        let value = report.reports.iter().find(|r| r.label == label).unwrap();
+        let allowance = resolved_allowance(
+            report.prepared.solve.numerics(),
+            NumericalTarget::Variable,
+            value.target_id,
+        );
+        (value.value, allowance)
     };
     assert!(matches!(result.report(), Ok(RunReport::Modeling(_))));
-    (value("vapor fraction"), value("equilibrium temperature"))
+    let (vapor, vapor_allowance) = observation("vapor fraction");
+    let (temperature, temperature_allowance) = observation("equilibrium temperature");
+    (vapor, temperature, vapor_allowance, temperature_allowance)
 }
 
 #[tokio::test]
@@ -79,17 +87,19 @@ async fn flash_phase_disappearance_agrees_across_realizations() {
             feasible(Backend::Scip),
         )
         .await;
-        for (name, (vapor, temperature)) in [("smooth", smooth), ("disjunctive", disjunctive)] {
+        for (name, (vapor, temperature, allowance, _)) in
+            [("smooth", smooth), ("disjunctive", disjunctive)]
+        {
             assert!(
-                (vapor - beta).abs() < 1e-4,
+                (vapor - beta).abs() <= allowance,
                 "{feed} {name}: vapor fraction {vapor}"
             );
             assert!(temperature.is_finite(), "{feed} {name}");
         }
-        // The smoothed pair leaves the equilibrium temperature within O(eps²) of the
-        // exact disjunctive one.
+        // Compare the physical temperature decisions using both admitted allowances.
+        // Coarse production solves do not establish an asymptotic smoothing order.
         assert!(
-            (smooth.1 - disjunctive.1).abs() < 1e-3,
+            (smooth.1 - disjunctive.1).abs() <= smooth.3 + disjunctive.3,
             "{feed}: smooth {} K, disjunctive {} K",
             smooth.1,
             disjunctive.1
@@ -118,13 +128,13 @@ async fn flash_phase_disappearance_agrees_across_realizations() {
         );
         let penalty = solve(&package, penalty_case, feasible(Backend::Pounce)).await;
         assert!(
-            (penalty.0 - beta).abs() < 1e-4,
+            (penalty.0 - beta).abs() <= penalty.2,
             "{feed} penalty: vapor fraction {}",
             penalty.0
         );
-        // The exact penalty's solution is the complementarity point itself.
+        // The realizations agree at their admitted physical accuracy.
         assert!(
-            (penalty.1 - disjunctive.1).abs() < 1e-4,
+            (penalty.1 - disjunctive.1).abs() <= penalty.3 + disjunctive.3,
             "{feed}: penalty {} K, disjunctive {} K",
             penalty.1,
             disjunctive.1

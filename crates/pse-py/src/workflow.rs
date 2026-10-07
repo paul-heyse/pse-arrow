@@ -402,7 +402,7 @@ impl NativeRuntime {
             #[allow(unsafe_code, reason = "ADR-0164 controlled deployment qualification; no unsafe memory operation")]
             // SAFETY: this deployment boundary binds the supplied reviewed receipt
             // to the complete attestation of the actual loaded native extension.
-            unsafe { pse_runtime::math::portable::QualifiedProducer::from_deployment_receipt(&bytes, attestation.source, attestation.build) }
+            unsafe { pse_runtime::math::portable::QualifiedProducer::from_deployment_receipt(&bytes, attestation.source, attestation.build, pse_runtime::math::portable::ExpectedProducerTarget::PYTHON) }
                 .map_err(|e| errors::diagnostic(py, &e))
         }).transpose()?.flatten();
         let inner = native::Runtime::from_shared(

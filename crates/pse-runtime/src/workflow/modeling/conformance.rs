@@ -2152,6 +2152,19 @@ mod tests {
             )
             .await
             .unwrap();
+        let plan = &prepared.compiled().plan;
+        let row_ids = plan
+            .structure()
+            .rows()
+            .iter()
+            .map(|row| row.id)
+            .collect::<Vec<_>>();
+        let tolerances = pse_backend_native::quality::Tolerances::from_policy(
+            &resolution.numerics,
+            plan.columns(),
+            &row_ids,
+        )
+        .unwrap();
         let assembly = service.assemble(prepared).await.unwrap();
         let scopes = Arc::new(Mutex::new(Vec::new()));
         let providers = |delay| {
@@ -2198,7 +2211,13 @@ mod tests {
             )
             .await
             .unwrap();
-        assert!(result.iter().all(|value| value.abs() < 1e-8));
+        assert_eq!(result.len(), tolerances.rows.len());
+        for ((id, value), allowance) in row_ids.iter().zip(&result).zip(&tolerances.rows) {
+            assert!(
+                value.abs() <= *allowance,
+                "row {id}: {value} exceeds {allowance}"
+            );
+        }
         let observed = scopes.lock().unwrap()[0].clone();
         assert_eq!(observed.deadline(), expected.deadline());
         assert!(Arc::ptr_eq(

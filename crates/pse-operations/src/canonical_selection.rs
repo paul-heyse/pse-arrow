@@ -20,6 +20,24 @@ use surrealdb::types::Object;
 /// Reserved writer role for compiler-issued descriptions eligible for scientific replay.
 pub const SCIENTIFIC_PRODUCER_PREFIX: &str = "pse.qualified-math-producer.v1:";
 
+/// Maximum exact inventories sharing one protected 64-membership response.
+pub const SELECTED_INVENTORY_BATCH: usize = 8;
+
+/// Private-cursor complete membership read, tied to one selected-read pin. A
+/// cancelled/dropped cursor leaves its read ineligible for publication/reuse.
+#[derive(Debug)]
+pub struct SelectedMemberships {
+    key: String,
+    selection: ProtectedSelection,
+    scope: Option<String>,
+    source_kind: Option<String>,
+    target: Option<(String, String)>,
+    after: String,
+    pages: Vec<Vec<(String, String)>>,
+    member_count: usize,
+    bytes: usize,
+}
+
 /// A semantic premise actually inspected while resolving an immutable selection.
 /// Conflict generations are deliberately separate from these immutable meanings.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -175,6 +193,7 @@ pub struct SelectedRead {
     logicals: BTreeMap<String, Option<String>>,
     kinds: KindSelections,
     references: BTreeMap<(String, String, String), Vec<(String, String)>>,
+    pending_inventories: std::collections::BTreeSet<String>,
 }
 impl SelectedRead {
     /// Start from the store-issued live protection acquired before scientific work.
@@ -187,6 +206,7 @@ impl SelectedRead {
             logicals: BTreeMap::new(),
             kinds: BTreeMap::new(),
             references: BTreeMap::new(),
+            pending_inventories: Default::default(),
         }
     }
     /// Exact canonical revision; it is not a source-content hash.
@@ -206,6 +226,8 @@ impl SelectedRead {
         Ok(())
     }
     fn merge_delta(&mut self, delta: Self) -> Result<(), CanonicalError> {
+        self.complete()?;
+        delta.complete()?;
         fn compatible<K: Ord, V: PartialEq>(
             original: &BTreeMap<K, V>,
             delta: &BTreeMap<K, V>,
@@ -242,6 +264,7 @@ impl SelectedRead {
     }
     /// Exact encoded dependency extent, counted before cloning or allocating JSON.
     pub fn dependency_bytes(&self) -> Result<usize, CanonicalError> {
+        self.complete()?;
         let mut counter = DependencyCounter(0);
         serde_json::to_writer(&mut counter, &BorrowedDependencies(self))
             .map_err(|_| CanonicalError::PayloadLimit)?;
@@ -250,6 +273,7 @@ impl SelectedRead {
     /// Allocation-free bound for dependency cloning, escaping, JSON and blob copies.
     /// The caller additionally reserves its portable payload's assembly copies.
     pub fn publication_scratch_bytes(&self) -> Result<usize, CanonicalError> {
+        self.complete()?;
         let mut bytes = 4096usize;
         let mut add = |length: usize| -> Result<(), CanonicalError> {
             bytes = bytes
@@ -286,6 +310,15 @@ impl SelectedRead {
             }
         }
         Ok(bytes)
+    }
+    fn complete(&self) -> Result<(), CanonicalError> {
+        if self.pending_inventories.is_empty() {
+            Ok(())
+        } else {
+            Err(CanonicalError::Configuration(
+                "selected namespace inventory is incomplete".into(),
+            ))
+        }
     }
     #[cfg(all(test, feature = "canonical-tests"))]
     fn dependencies(&self) -> Dependencies {
@@ -418,13 +451,15 @@ impl CanonicalStore {
         scope: Option<&str>,
         source_kind: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
-        let members = self
-            .filtered_memberships(&read.selection, scope, source_kind, None)
-            .await?;
-        read.kinds.insert(
-            (scope.map(str::to_owned), source_kind.into()),
-            membership_meaning(&members),
-        );
+        let mut cursor = self.kind_pages(read, scope, source_kind)?;
+        let mut members = Vec::new();
+        loop {
+            let page = self.next_membership_page(read, &mut cursor).await?;
+            if page.is_empty() {
+                break;
+            }
+            members.extend(page);
+        }
         Ok(members)
     }
     /// Follow authored inverse references at this revision; scientific resolution stays
@@ -436,40 +471,257 @@ impl CanonicalStore {
         target_name: &str,
         source_kind: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
-        let members = self
-            .filtered_memberships(
-                &read.selection,
-                None,
-                source_kind,
-                Some((target_scope, target_name)),
-            )
-            .await?;
-        read.references.insert(
-            (target_scope.into(), target_name.into(), source_kind.into()),
-            membership_meaning(&members),
-        );
-        Ok(members)
-    }
-    async fn filtered_memberships(
-        &self,
-        selection: &ProtectedSelection,
-        scope: Option<&str>,
-        source_kind: &str,
-        target: Option<(&str, &str)>,
-    ) -> Result<Vec<Membership>, CanonicalError> {
-        let mut after = String::new();
+        let mut cursor = self.reference_pages(read, target_scope, target_name, source_kind)?;
         let mut members = Vec::new();
         loop {
-            let page = self
-                .selection_membership_page(selection, scope, Some(source_kind), target, &after)
-                .await?;
-            let Some(last) = page.last() else {
+            let page = self.next_membership_page(read, &mut cursor).await?;
+            if page.is_empty() {
                 break;
-            };
-            after = last.key.clone();
+            }
             members.extend(page);
         }
         Ok(members)
+    }
+
+    /// Begin an exact full namespace inventory; only its protected terminal page
+    /// establishes completeness. The cursor's next key cannot be supplied by callers.
+    pub fn scope_pages(
+        &self,
+        read: &mut SelectedRead,
+        scope: &str,
+    ) -> Result<SelectedMemberships, CanonicalError> {
+        self.membership_cursor(read, Some(scope), None, None)
+    }
+    /// Begin a complete filtered inventory, including an empty scoped kind.
+    pub fn kind_pages(
+        &self,
+        read: &mut SelectedRead,
+        scope: Option<&str>,
+        source_kind: &str,
+    ) -> Result<SelectedMemberships, CanonicalError> {
+        self.membership_cursor(read, scope, Some(source_kind), None)
+    }
+    /// Begin a complete inverse scientific supplier inventory.
+    pub fn reference_pages(
+        &self,
+        read: &mut SelectedRead,
+        scope: &str,
+        name: &str,
+        source_kind: &str,
+    ) -> Result<SelectedMemberships, CanonicalError> {
+        self.membership_cursor(read, None, Some(source_kind), Some((scope, name)))
+    }
+    fn membership_cursor(
+        &self,
+        read: &mut SelectedRead,
+        scope: Option<&str>,
+        source_kind: Option<&str>,
+        target: Option<(&str, &str)>,
+    ) -> Result<SelectedMemberships, CanonicalError> {
+        if scope
+            .into_iter()
+            .chain(source_kind)
+            .chain(target.into_iter().flat_map(|(scope, name)| [scope, name]))
+            .any(|value| value.len() > crate::canonical_staging::IDENTITY_BYTES)
+            || read.pending_inventories.len() >= 64
+        {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let key = uuid::Uuid::new_v4().simple().to_string();
+        read.pending_inventories.insert(key.clone());
+        Ok(SelectedMemberships {
+            key,
+            selection: read.selection.clone(),
+            scope: scope.map(str::to_owned),
+            source_kind: source_kind.map(str::to_owned),
+            target: target.map(|(scope, name)| (scope.into(), name.into())),
+            after: String::new(),
+            pages: Vec::new(),
+            member_count: 0,
+            bytes: 0,
+        })
+    }
+    /// One protected 64-row page. Partial/abandoned cursors refuse dependency
+    /// publication and qualification; the final page moves its exact premise once.
+    pub async fn next_membership_page(
+        &self,
+        read: &mut SelectedRead,
+        cursor: &mut SelectedMemberships,
+    ) -> Result<Vec<Membership>, CanonicalError> {
+        let mut pages = self
+            .next_membership_pages(read, std::slice::from_mut(cursor))
+            .await?;
+        Ok(pages.remove(0))
+    }
+    /// Group exact inventory cursors in one protected transaction. The combined
+    /// response contains at most 64 memberships, regardless of cursor count.
+    pub async fn next_membership_pages(
+        &self,
+        read: &mut SelectedRead,
+        cursors: &mut [SelectedMemberships],
+    ) -> Result<Vec<Vec<Membership>>, CanonicalError> {
+        if cursors.is_empty() || cursors.len() > SELECTED_INVENTORY_BATCH {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        for cursor in cursors.iter() {
+            if cursor.selection.key() != read.selection.key()
+                || cursor.selection.revision() != read.selection.revision()
+                || !read.pending_inventories.contains(&cursor.key)
+            {
+                return Err(CanonicalError::Configuration(
+                    "selected inventory cursor differs or is complete".into(),
+                ));
+            }
+        }
+        let limit = 64 / cursors.len();
+        let mut sql = PROTECTED_BEGIN.to_owned();
+        for index in 0..cursors.len() {
+            sql.push_str(&format!("\nSELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope{index} = NONE OR scope = $scope{index}) AND key > $after{index} AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($kind{index} = NONE OR (out.kind = $kind{index} AND out.closed = true)) AND ($target_scope{index} = NONE OR (SELECT VALUE key FROM canonical_edges WHERE source_version = $parent.version AND target_scope = $target_scope{index} AND target_name = $target_name{index} LIMIT 1) != []) ORDER BY key LIMIT {limit};"));
+        }
+        sql.push_str("\nCOMMIT;");
+        let mut response = protected_query(|| {
+            let mut query = self
+                .db
+                .query(sql.clone())
+                .bind(("problem", read.selection.revision().problem.clone()))
+                .bind(("revision", read.selection.revision().key.clone()))
+                .bind(("protection", read.selection.key().to_owned()))
+                .bind((
+                    "sequence",
+                    crate::canonical_codec::encode_uint(read.selection.revision().sequence)?,
+                ));
+            for (index, cursor) in cursors.iter().enumerate() {
+                query = query
+                    .bind((format!("scope{index}"), cursor.scope.clone()))
+                    .bind((format!("after{index}"), cursor.after.clone()))
+                    .bind((format!("kind{index}"), cursor.source_kind.clone()))
+                    .bind((
+                        format!("target_scope{index}"),
+                        cursor.target.as_ref().map(|(scope, _)| scope.clone()),
+                    ))
+                    .bind((
+                        format!("target_name{index}"),
+                        cursor.target.as_ref().map(|(_, name)| name.clone()),
+                    ));
+            }
+            Ok(query)
+        })
+        .await?;
+        let first = response
+            .num_statements()
+            .checked_sub(cursors.len() + 1)
+            .ok_or(CanonicalError::IncompleteResponse)?;
+        // Decode the complete response before moving any cursor's premise.
+        let mut pages = Vec::with_capacity(cursors.len());
+        for index in first..first + cursors.len() {
+            let rows: Vec<Object> = response.take(index)?;
+            pages.push(
+                rows.into_iter()
+                    .map(wire::decode_canonical_memberships)
+                    .collect::<Result<Vec<_>, _>>()?,
+            );
+        }
+        for (cursor, page) in cursors.iter_mut().zip(&pages) {
+            self.accept_membership_page(read, cursor, page)?;
+        }
+        Ok(pages)
+    }
+    fn accept_membership_page(
+        &self,
+        read: &mut SelectedRead,
+        cursor: &mut SelectedMemberships,
+        page: &[Membership],
+    ) -> Result<(), CanonicalError> {
+        if let Some(last) = page.last() {
+            for member in page {
+                let name = if cursor.source_kind.is_some() {
+                    &member.logical
+                } else {
+                    &member.name
+                };
+                cursor.bytes = cursor
+                    .bytes
+                    .checked_add(name.len())
+                    .and_then(|bytes| bytes.checked_add(member.version.len() + 64))
+                    .filter(|bytes| *bytes <= 32 * 1024 * 1024)
+                    .ok_or(CanonicalError::PayloadLimit)?;
+            }
+            let mut identities = Vec::new();
+            identities.try_reserve_exact(page.len()).map_err(|error| {
+                CanonicalError::Configuration(format!("selected inventory allocation: {error}"))
+            })?;
+            identities.extend(page.iter().map(|member| {
+                (
+                    if cursor.source_kind.is_some() {
+                        member.logical.clone()
+                    } else {
+                        member.name.clone()
+                    },
+                    member.version.clone(),
+                )
+            }));
+            cursor.pages.try_reserve(1).map_err(|error| {
+                CanonicalError::Configuration(format!("selected inventory pages: {error}"))
+            })?;
+            cursor.member_count += identities.len();
+            cursor.pages.push(identities);
+            cursor.after = last.key.clone();
+        } else {
+            let mut members = Vec::new();
+            members
+                .try_reserve_exact(cursor.member_count)
+                .map_err(|error| {
+                    CanonicalError::Configuration(format!("selected complete inventory: {error}"))
+                })?;
+            for page in std::mem::take(&mut cursor.pages) {
+                members.extend(page);
+            }
+            members.sort();
+            if let Some((scope, name)) = &cursor.target {
+                let kind = cursor.source_kind.as_ref().ok_or_else(|| {
+                    CanonicalError::Configuration("supplier cursor requires kind".into())
+                })?;
+                let key = (scope.clone(), name.clone(), kind.clone());
+                if read
+                    .references
+                    .get(&key)
+                    .is_some_and(|previous| previous != &members)
+                {
+                    return Err(CanonicalError::Configuration(
+                        "selected supplier inventory differs".into(),
+                    ));
+                }
+                read.references.insert(key, members);
+            } else if let Some(kind) = &cursor.source_kind {
+                let key = (cursor.scope.clone(), kind.clone());
+                if read
+                    .kinds
+                    .get(&key)
+                    .is_some_and(|previous| previous != &members)
+                {
+                    return Err(CanonicalError::Configuration(
+                        "selected kind inventory differs".into(),
+                    ));
+                }
+                read.kinds.insert(key, members);
+            } else {
+                let scope = cursor.scope.as_ref().ok_or_else(|| {
+                    CanonicalError::Configuration("namespace cursor requires scope".into())
+                })?;
+                if read
+                    .scopes
+                    .get(scope)
+                    .is_some_and(|previous| previous != &members)
+                {
+                    return Err(CanonicalError::Configuration(
+                        "selected namespace inventory differs".into(),
+                    ));
+                }
+                read.scopes.insert(scope.clone(), members);
+            }
+            read.pending_inventories.remove(&cursor.key);
+        }
+        Ok(())
     }
     async fn selection_membership_page(
         &self,
@@ -557,6 +809,74 @@ impl CanonicalStore {
         }
         Ok(members)
     }
+    /// Resolve an exact sparse set of lexical pairs, preserving absent pairs
+    /// without admitting the cross product of independently grouped scopes/names.
+    pub async fn resolve_name_pairs(
+        &self,
+        read: &mut SelectedRead,
+        pairs: &[(String, String)],
+    ) -> Result<Vec<Membership>, CanonicalError> {
+        if pairs.is_empty() {
+            return Ok(Vec::new());
+        }
+        if pairs.len() > 64
+            || pairs.iter().any(|(scope, name)| {
+                scope.len() > crate::canonical_staging::IDENTITY_BYTES
+                    || name.len() > crate::canonical_staging::IDENTITY_BYTES
+            })
+        {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let predicate = (0..pairs.len())
+            .map(|index| format!("(scope = $scope{index} AND name = $name{index})"))
+            .collect::<Vec<_>>()
+            .join(" OR ");
+        let sql = format!(
+            "{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND ({predicate}) AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nCOMMIT;"
+        );
+        let mut response = protected_query(|| {
+            let mut query = self
+                .db
+                .query(sql.clone())
+                .bind(("problem", read.selection.revision().problem.clone()))
+                .bind(("revision", read.selection.revision().key.clone()))
+                .bind(("protection", read.selection.key().to_owned()))
+                .bind((
+                    "sequence",
+                    crate::canonical_codec::encode_uint(read.selection.revision().sequence)?,
+                ));
+            for (index, (scope, name)) in pairs.iter().enumerate() {
+                query = query
+                    .bind((format!("scope{index}"), scope.clone()))
+                    .bind((format!("name{index}"), name.clone()));
+            }
+            Ok(query)
+        })
+        .await?;
+        let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
+        let members = rows
+            .into_iter()
+            .map(wire::decode_canonical_memberships)
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut present = BTreeMap::new();
+        for member in &members {
+            if present
+                .insert(
+                    (member.scope.clone(), member.name.clone()),
+                    member.version.clone(),
+                )
+                .is_some()
+            {
+                return Err(CanonicalError::Configuration(
+                    "immutable name is not unique".into(),
+                ));
+            }
+        }
+        for pair in pairs {
+            read.names.insert(pair.clone(), present.get(pair).cloned());
+        }
+        Ok(members)
+    }
     /// One bounded inventory page; no cursor exposes unprotected subsequent reads.
     pub async fn membership_page(
         &self,
@@ -578,24 +898,15 @@ impl CanonicalStore {
         read: &mut SelectedRead,
         scope: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
-        let mut after = String::new();
+        let mut cursor = self.scope_pages(read, scope)?;
         let mut members = Vec::new();
         loop {
-            let page = self
-                .membership_page(&read.selection, Some(scope), &after)
-                .await?;
-            let Some(last) = page.last() else {
+            let page = self.next_membership_page(read, &mut cursor).await?;
+            if page.is_empty() {
                 break;
-            };
-            after = last.key.clone();
+            }
             members.extend(page);
         }
-        let mut premise = members
-            .iter()
-            .map(|member| (member.name.clone(), member.version.clone()))
-            .collect::<Vec<_>>();
-        premise.sort();
-        read.scopes.insert(scope.into(), premise);
         Ok(members)
     }
     /// Fetch an exact immutable object within a live selection. Independent pages
@@ -711,7 +1022,22 @@ impl CanonicalStore {
         let stage = self
             .stage_product_blob(&product.problem, &product.key, edit)
             .await?;
-        self.admit_product(&read.selection, &product, &stage).await
+        if let Some(stage) = stage {
+            return self.admit_product(&read.selection, &product, &stage).await;
+        }
+        // Native acquisition identified the exact live/activated writer. No
+        // second writer token escapes; only its immutable acknowledgment settles.
+        tokio::time::timeout(crate::canonical::REQUEST_TIMEOUT, async {
+            loop {
+                self.ensure_writes()?;
+                if let Some(key) = self.product_acknowledged(&product).await? {
+                    return Ok(key);
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .map_err(|_| CanonicalError::Timeout)?
     }
     /// Corrupt only a disposable native fixture's first immutable product block.
     #[cfg(feature = "canonical-tests")]
@@ -782,6 +1108,7 @@ impl CanonicalStore {
         read: &mut SelectedRead,
         candidate: &ProductCandidate,
     ) -> Result<Option<ReusableProduct>, CanonicalError> {
+        read.complete()?;
         if candidate.product.problem != read.selection().revision().problem {
             return Err(CanonicalError::Configuration(
                 "product candidate belongs to a different problem".into(),
@@ -918,15 +1245,6 @@ impl CanonicalStore {
     }
 }
 
-fn membership_meaning(members: &[Membership]) -> Vec<(String, String)> {
-    let mut meaning = members
-        .iter()
-        .map(|member| (member.logical.clone(), member.version.clone()))
-        .collect::<Vec<_>>();
-    meaning.sort();
-    meaning
-}
-
 #[cfg(all(test, feature = "canonical-tests"))]
 mod canonical_server_unit {
     use super::*;
@@ -1000,6 +1318,349 @@ mod canonical_server_unit {
         product.dependencies = Vec::new().into();
         product
     }
+    #[tokio::test]
+    async fn paged_selected_inventory_closes_only_after_protected_terminal_page() {
+        let store = fixture().await;
+        let edits = (0..130)
+            .map(|index| {
+                edit(
+                    &format!("member-{index:03}"),
+                    &format!("v-{index}"),
+                    "definition",
+                    if index == 0 {
+                        vec![("p".into(), "target".into())]
+                    } else {
+                        vec![]
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+        let revision = store.edit("p", None, "source", &edits).await.unwrap();
+        let mut selected = read(&store, revision.clone()).await;
+        let mut cursor = store.scope_pages(&mut selected, "p").unwrap();
+        assert_eq!(
+            store
+                .next_membership_page(&mut selected, &mut cursor)
+                .await
+                .unwrap()
+                .len(),
+            64
+        );
+        assert!(selected.scopes.is_empty());
+        assert!(selected.dependency_bytes().is_err());
+        assert!(selected.publication_scratch_bytes().is_err());
+        assert!(
+            store
+                .publish_product(&selected, product(&selected, b"partial"))
+                .await
+                .is_err()
+        );
+        let mut other_pin = read(&store, revision.clone()).await;
+        assert!(
+            store
+                .next_membership_page(&mut other_pin, &mut cursor)
+                .await
+                .is_err(),
+            "cursor cannot be substituted into another protected read"
+        );
+        assert_eq!(
+            store
+                .next_membership_page(&mut selected, &mut cursor)
+                .await
+                .unwrap()
+                .len(),
+            64
+        );
+        assert_eq!(
+            store
+                .next_membership_page(&mut selected, &mut cursor)
+                .await
+                .unwrap()
+                .len(),
+            2
+        );
+        assert!(
+            selected.dependency_bytes().is_err(),
+            "a short page is not yet the protected terminal page"
+        );
+        assert!(
+            store
+                .next_membership_page(&mut selected, &mut cursor)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(selected.scopes["p"].len(), 130);
+        assert!(selected.dependency_bytes().is_ok());
+        assert!(
+            store
+                .next_membership_page(&mut selected, &mut cursor)
+                .await
+                .is_err()
+        );
+        let key = store
+            .publish_product(&selected, product(&selected, b"complete"))
+            .await
+            .unwrap();
+        assert_eq!(
+            store
+                .test_reuse_product(&mut other_pin, b"exact-request", "qualified-fixture", "")
+                .await
+                .unwrap()
+                .unwrap()
+                .key(),
+            key
+        );
+        let mut kinds = store
+            .kind_pages(&mut selected, Some("p"), "absent-kind")
+            .unwrap();
+        assert!(
+            store
+                .next_membership_page(&mut selected, &mut kinds)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            selected
+                .kinds
+                .get(&(Some("p".into()), "absent-kind".into())),
+            Some(&vec![])
+        );
+        let mut suppliers = store
+            .reference_pages(&mut selected, "p", "target", "definition")
+            .unwrap();
+        assert_eq!(
+            store
+                .next_membership_page(&mut selected, &mut suppliers)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(selected.dependency_bytes().is_err());
+        assert!(
+            store
+                .next_membership_page(&mut selected, &mut suppliers)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            selected.references[&("p".into(), "target".into(), "definition".into())],
+            [("member-000".into(), "v-0".into())]
+        );
+        let mut grouped = read(&store, revision.clone()).await;
+        let mut cursors = vec![
+            store.scope_pages(&mut grouped, "p").unwrap(),
+            store
+                .kind_pages(&mut grouped, Some("p"), "absent-kind")
+                .unwrap(),
+        ];
+        let pages = store
+            .next_membership_pages(&mut grouped, &mut cursors)
+            .await
+            .unwrap();
+        assert_eq!(
+            pages.iter().map(Vec::len).sum::<usize>(),
+            32,
+            "group responses share the fixed 64-row budget"
+        );
+        assert!(pages[1].is_empty());
+        cursors.remove(1);
+        let mut count = pages[0].len();
+        loop {
+            let pages = store
+                .next_membership_pages(&mut grouped, &mut cursors)
+                .await
+                .unwrap();
+            if pages[0].is_empty() {
+                break;
+            }
+            count += pages[0].len();
+        }
+        assert_eq!(count, 130);
+        assert!(grouped.dependency_bytes().is_ok());
+        let mut abandoned = read(&store, revision.clone()).await;
+        let mut dropped = store.scope_pages(&mut abandoned, "p").unwrap();
+        assert_eq!(
+            store
+                .next_membership_page(&mut abandoned, &mut dropped)
+                .await
+                .unwrap()
+                .len(),
+            64
+        );
+        drop(dropped);
+        assert!(
+            abandoned.dependency_bytes().is_err(),
+            "cancelled/dropped inventory needs a fresh read"
+        );
+        let mut expired = read(&store, revision.clone()).await;
+        let mut empty = store.scope_pages(&mut expired, "missing-scope").unwrap();
+        crate::canonical::bounded_query(
+            store
+                .db
+                .query("UPDATE type::record('canonical_protections', $pin) SET expires_at = 0;")
+                .bind(("pin", expired.selection().key().to_owned())),
+        )
+        .await
+        .unwrap();
+        assert!(
+            store
+                .next_membership_page(&mut expired, &mut empty)
+                .await
+                .is_err()
+        );
+        assert!(expired.scopes.is_empty());
+        assert!(expired.dependency_bytes().is_err());
+        for read in [&selected, &other_pin, &grouped, &abandoned, &expired] {
+            store.release(read.selection()).await.unwrap();
+        }
+    }
+    #[tokio::test]
+    async fn grouped_lexical_pairs_preserve_sparse_selection_and_absence() {
+        let store = fixture().await;
+        let edits = [("left", "a"), ("left", "b"), ("right", "a"), ("right", "b")]
+            .into_iter()
+            .map(|(scope, name)| {
+                let identity = format!("{scope}-{name}");
+                let mut row = edit(&identity, &format!("v-{identity}"), "definition", vec![]);
+                row.scope = scope.into();
+                row.name = name.into();
+                row
+            })
+            .collect::<Vec<_>>();
+        let revision = store.edit("p", None, "pair-source", &edits).await.unwrap();
+        let mut selected = read(&store, revision).await;
+        let pairs = [
+            ("left".into(), "a".into()),
+            ("right".into(), "b".into()),
+            ("right".into(), "absent".into()),
+        ];
+        let members = store
+            .resolve_name_pairs(&mut selected, &pairs)
+            .await
+            .unwrap();
+        let names = members
+            .iter()
+            .map(|row| row.logical.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(names, ["left-a", "right-b"].into_iter().collect());
+        assert_eq!(selected.names[&pairs[0]], Some("v-left-a".into()));
+        assert_eq!(selected.names[&pairs[1]], Some("v-right-b".into()));
+        assert_eq!(selected.names[&pairs[2]], None);
+        assert_eq!(
+            selected.names.len(),
+            3,
+            "cross pairs were never read premises"
+        );
+        store.release(selected.selection()).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn grouped_inventory_preserves_exact_supplier_pairs_and_terminal_premises() {
+        let store = fixture().await;
+        let edits = [
+            edit(
+                "left-a",
+                "v-left-a",
+                "dataset",
+                vec![("left".into(), "a".into())],
+            ),
+            edit(
+                "right-b",
+                "v-right-b",
+                "dataset",
+                vec![("right".into(), "b".into())],
+            ),
+            edit(
+                "left-b-cross",
+                "v-cross-left",
+                "dataset",
+                vec![("left".into(), "b".into())],
+            ),
+            edit(
+                "right-a-cross",
+                "v-cross-right",
+                "dataset",
+                vec![("right".into(), "a".into())],
+            ),
+        ];
+        let revision = store
+            .edit("p", None, "supplier-source", &edits)
+            .await
+            .unwrap();
+        let mut selected = read(&store, revision.clone()).await;
+        let mut cursors = vec![
+            store
+                .reference_pages(&mut selected, "left", "a", "dataset")
+                .unwrap(),
+            store
+                .reference_pages(&mut selected, "right", "b", "dataset")
+                .unwrap(),
+            store
+                .reference_pages(&mut selected, "missing", "a", "dataset")
+                .unwrap(),
+        ];
+        let pages = store
+            .next_membership_pages(&mut selected, &mut cursors)
+            .await
+            .unwrap();
+        assert_eq!(
+            pages[0]
+                .iter()
+                .map(|row| row.logical.as_str())
+                .collect::<Vec<_>>(),
+            ["left-a"]
+        );
+        assert_eq!(
+            pages[1]
+                .iter()
+                .map(|row| row.logical.as_str())
+                .collect::<Vec<_>>(),
+            ["right-b"]
+        );
+        assert!(pages[2].is_empty());
+        assert_eq!(
+            selected.references[&("missing".into(), "a".into(), "dataset".into())],
+            []
+        );
+        assert!(
+            selected.dependency_bytes().is_err(),
+            "nonempty inventories remain provisional until terminal page"
+        );
+        cursors.pop();
+        assert!(
+            store
+                .next_membership_pages(&mut selected, &mut cursors)
+                .await
+                .unwrap()
+                .iter()
+                .all(Vec::is_empty)
+        );
+        assert_eq!(
+            selected.references[&("left".into(), "a".into(), "dataset".into())],
+            [("left-a".into(), "v-left-a".into())]
+        );
+        assert_eq!(
+            selected.references[&("right".into(), "b".into(), "dataset".into())],
+            [("right-b".into(), "v-right-b".into())]
+        );
+        assert!(selected.dependency_bytes().is_ok());
+        let mut other = read(&store, revision).await;
+        assert!(
+            store
+                .next_membership_pages(&mut other, &mut cursors)
+                .await
+                .is_err(),
+            "grouped cursors cannot change protection"
+        );
+        for read in [&selected, &other] {
+            store.release(read.selection()).await.unwrap();
+        }
+    }
+
     #[tokio::test]
     async fn bounded_qualification_rejects_grown_wide_scope_and_merges_only_matching_delta() {
         let store = fixture().await;
@@ -1105,7 +1766,15 @@ mod canonical_server_unit {
     #[tokio::test]
     async fn identical_selected_product_publications_settle_one_native_acknowledgment() {
         let store = fixture().await;
-        let revision = store.edit("p", None, "source", &[edit("Root", "root", "definition", vec![])]).await.unwrap();
+        let revision = store
+            .edit(
+                "p",
+                None,
+                "source",
+                &[edit("Root", "root", "definition", vec![])],
+            )
+            .await
+            .unwrap();
         let mut selected = read(&store, revision.clone()).await;
         store.resolve_scope(&mut selected, "p").await.unwrap();
         // Multiple transport blocks keep both discoveries in staging while their
@@ -1127,25 +1796,80 @@ mod canonical_server_unit {
         let mut response = crate::canonical::bounded_query(store.db.query("SELECT * FROM canonical_stages WHERE problem='p' AND key!='source' ORDER BY key LIMIT 2; RETURN time::micros();")).await.unwrap();
         let stages: Vec<Object> = response.take(0).unwrap();
         let now = crate::canonical_codec::decode_int(response.take::<Value>(1).unwrap()).unwrap();
-        assert_eq!(stages.len(), 1, "same selected read and product must identify one stage");
+        assert_eq!(
+            stages.len(),
+            1,
+            "same selected read and product must identify one stage"
+        );
         let stage = wire::decode_canonical_stages(stages.into_iter().next().unwrap()).unwrap();
-        assert!(stage.generation > 0);
-        assert!(stage.expires_at > now, "publication stage expired: generation={}, expires_at={}, now={}, activated={}, closed={}, abandoned={}", stage.generation, stage.expires_at, now, stage.activated, stage.closed, stage.abandoned);
-        assert!(first.is_ok() && second.is_ok(), "identical live publication must settle, first={first:?}, second={second:?}; generation={}, expires_at={}, now={}, activated={}, closed={}, abandoned={}", stage.generation, stage.expires_at, now, stage.activated, stage.closed, stage.abandoned);
+        assert_eq!(
+            stage.generation, 1,
+            "a concurrent exact publisher cannot reacquire the live writer generation"
+        );
+        assert!(
+            stage.expires_at > now,
+            "publication stage expired: generation={}, expires_at={}, now={}, activated={}, closed={}, abandoned={}",
+            stage.generation,
+            stage.expires_at,
+            now,
+            stage.activated,
+            stage.closed,
+            stage.abandoned
+        );
+        assert!(
+            first.is_ok() && second.is_ok(),
+            "identical live publication must settle, first={first:?}, second={second:?}; generation={}, expires_at={}, now={}, activated={}, closed={}, abandoned={}",
+            stage.generation,
+            stage.expires_at,
+            now,
+            stage.activated,
+            stage.closed,
+            stage.abandoned
+        );
         let key = first.unwrap();
         assert_eq!(second.unwrap(), key);
         assert_eq!(stage.key, key);
         assert!(stage.activated && stage.closed && !stage.abandoned);
-        let candidate = store.product_candidate(selected.selection(), b"exact-request", "qualified-fixture", "").await.unwrap().unwrap();
+        let candidate = store
+            .product_candidate(
+                selected.selection(),
+                b"exact-request",
+                "qualified-fixture",
+                "",
+            )
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(candidate.key(), key);
-        assert_eq!(store.product_acknowledged(&candidate.product).await.unwrap(), Some(key.clone()));
+        assert_eq!(
+            store
+                .product_acknowledged(&candidate.product)
+                .await
+                .unwrap(),
+            Some(key.clone())
+        );
         let mut qualified = selected.clone();
-        assert_eq!(store.qualify_product(&mut qualified, &candidate).await.unwrap().unwrap().payload(), payload);
+        assert_eq!(
+            store
+                .qualify_product(&mut qualified, &candidate)
+                .await
+                .unwrap()
+                .unwrap()
+                .payload(),
+            payload
+        );
         let mut roots = crate::canonical::bounded_query(store.db.query("SELECT * FROM canonical_roots WHERE owner_kind='product' AND owner=$owner LIMIT 2;").bind(("owner", key.clone()))).await.unwrap();
         assert_eq!(roots.take::<Vec<Object>>(0).unwrap().len(), 1);
         assert_eq!(current_head(&store).await, revision.key);
-        assert_eq!(store.publish_product(&selected, proposed).await.unwrap(), key, "a completed repeat settles without reopening the stage");
-        let row: Option<Object> = crate::canonical::request(store.db.select(("canonical_stages", stage.key))).await.unwrap();
+        assert_eq!(
+            store.publish_product(&selected, proposed).await.unwrap(),
+            key,
+            "a completed repeat settles without reopening the stage"
+        );
+        let row: Option<Object> =
+            crate::canonical::request(store.db.select(("canonical_stages", stage.key)))
+                .await
+                .unwrap();
         let repeated = wire::decode_canonical_stages(row.unwrap()).unwrap();
         assert_eq!(repeated.generation, stage.generation);
         assert_eq!(repeated.expires_at, stage.expires_at);
@@ -1257,6 +1981,7 @@ mod canonical_server_unit {
         let raced_stage = store
             .stage_product_blob("p", &raced.key, reserved_edit.clone())
             .await
+            .unwrap()
             .unwrap();
         assert_eq!(
             store
@@ -1533,6 +2258,7 @@ mod canonical_server_unit {
         let stage = store
             .stage_product_blob("p", &proposed.key, edit)
             .await
+            .unwrap()
             .unwrap();
         let mut fenced = stage.clone();
         fenced.generation += 1;

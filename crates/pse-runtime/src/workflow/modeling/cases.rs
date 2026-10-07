@@ -2409,7 +2409,7 @@ mod tests {
             },
         );
         let declarations = pse_authoring::language::parse(
-            "package p {def Root {param p:Scalar=1;var x:Scalar;annotation start x(1.5);annotation bounds x(0.5,3);implicit a {var y:Scalar;eq ey:y==2*x+p;annotation start y(4);annotation bounds y(1,8);}realize ra on a using nested;implicit b {var z:Scalar;eq ez:z==3*x-p;annotation start z(3.5);annotation bounds z(0.1,9);}realize rb on b using nested;eq floor:a.y+b.z>=3;let cost:Scalar=(x-2)*(x-2);annotation objective cost(minimize);annotation report a.y(\"y\");annotation report b.z(\"z\");}}",
+            "package p {def Root {param p:Scalar=1;var x:Scalar;annotation start x(1.5);annotation bounds x(0.5,3);implicit a {var y:Scalar;eq ey:y==2*x+p;annotation start y(4);annotation bounds y(1,8);}realize ra on a using nested;implicit b {var z:Scalar;eq ez:z==3*x-p;annotation start z(3.5);annotation bounds z(0.1,9);}realize rb on b using nested;eq floor:a.y+b.z>=3;let cost:Scalar=(x-2)*(x-2);annotation objective cost(minimize);annotation report cost(\"cost\");annotation report a.y(\"y\");annotation report b.z(\"z\");}}",
             SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default()).unwrap();
         let root = declarations
@@ -2511,10 +2511,45 @@ mod tests {
             .await
             .unwrap();
         assert!(result.accepted, "diagnostic={:?}", result.diagnostic());
-        assert!((result.values.scalars[&x] - 2.0).abs() < 1e-5);
-        assert!((result.values.scalars[&y] - 5.0).abs() < 1e-5);
-        assert!((result.values.scalars[&z] - 5.0).abs() < 1e-5);
-        assert!(result.values.scalars[&y] + result.values.scalars[&z] >= 3.0);
+        let actual_x = result.values.scalars[&x];
+        let actual_y = result.values.scalars[&y];
+        let actual_z = result.values.scalars[&z];
+        let actual_p = result.values.scalars[&p];
+        let numerics = result.prepared.solve.numerics();
+        let objective =
+            fixture::engineering_target(numerics, NumericalTarget::Objective, SemanticId::NIL);
+        let cost = (actual_x - 2.0).powi(2);
+        assert!(cost <= objective.budget, "actual original cost={cost}");
+        let published_cost = result
+            .reports
+            .iter()
+            .find(|r| r.label == "cost")
+            .unwrap()
+            .value;
+        assert!((published_cost - cost).abs() <= objective.budget);
+        let original_cost = match &result.outcome {
+            Outcome::Native(native) => native.candidate.as_ref().unwrap().objective.unwrap(),
+            Outcome::Constant(constant) => constant.objective.unwrap(),
+            Outcome::Rejected(error) => panic!("{error}"),
+        };
+        assert_eq!(published_cost, original_cost);
+        let row_budget = |suffix: &str| {
+            let id = result
+                .prepared
+                .model
+                .model
+                .compiled()
+                .model
+                .equations
+                .iter()
+                .find(|row| row.lineage.path.ends_with(suffix))
+                .unwrap()
+                .id;
+            fixture::engineering_target(numerics, NumericalTarget::Row, id).budget
+        };
+        assert!((actual_y - (2.0 * actual_x + actual_p)).abs() <= row_budget(".a.ey"));
+        assert!((actual_z - (3.0 * actual_x - actual_p)).abs() <= row_budget(".b.ez"));
+        assert!(actual_y + actual_z >= 3.0 - row_budget(".floor"));
         let trace = result.strategy.as_ref().unwrap();
         assert!(
             trace
@@ -2775,7 +2810,7 @@ mod tests {
         use super::super::super::tests as fixture;
         for objective in [true, false] {
             let cost = if objective {
-                "let cost:Scalar=(x-2)*(x-2);annotation objective cost(minimize);"
+                "let cost:Scalar=(x-2)*(x-2);annotation objective cost(minimize);annotation report cost(\"cost\");"
             } else {
                 ""
             };
@@ -2861,7 +2896,29 @@ mod tests {
             assert!((0.5..=3.0).contains(&actual_x));
             assert!((1.0..=8.0).contains(&actual_y));
             if objective {
-                assert!((actual_x - 2.0).abs() < 1e-5);
+                let budget = fixture::engineering_target(
+                    result.prepared.solve.numerics(),
+                    NumericalTarget::Objective,
+                    SemanticId::NIL,
+                )
+                .budget;
+                let cost = (actual_x - 2.0).powi(2);
+                assert!(cost <= budget);
+                let published_cost = result
+                    .reports
+                    .iter()
+                    .find(|r| r.label == "cost")
+                    .unwrap()
+                    .value;
+                assert!((published_cost - cost).abs() <= budget);
+                let original_cost = match &result.outcome {
+                    Outcome::Native(native) => {
+                        native.candidate.as_ref().unwrap().objective.unwrap()
+                    }
+                    Outcome::Constant(constant) => constant.objective.unwrap(),
+                    Outcome::Rejected(error) => panic!("{error}"),
+                };
+                assert_eq!(published_cost, original_cost);
             }
             assert!(
                 result
@@ -4220,7 +4277,17 @@ mod native_tests {
     async fn kernel_native_root_solves_and_qualifies_the_authored_model() {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
-        let rows=pse_authoring::language::parse("package p { def Root { var x:Scalar; eq e:x*x==4; annotation start x(1); annotation bounds x(0.5,3); annotation nominal x(2); annotation valid x(0.5,3); annotation check x(x>0); annotation report x(\"root\"); expect x == 2 tolerance 1e-6; } }",SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
+        let allowance = pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY;
+        let source = format!(
+            "package p {{ def Root {{ var x:Scalar; eq e:x*x==4; annotation start x(1); annotation bounds x(0.5,3); annotation nominal x(2); annotation valid x(0.5,3); annotation check x(x>0); annotation report x(\"root\"); expect x == 2 tolerance {allowance}; }} }}"
+        );
+        let rows = pse_authoring::language::parse(
+            &source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
         let root = rows
             .iter()
             .find(|r| r.name == "Root")
@@ -4286,16 +4353,43 @@ mod native_tests {
             "{:?}; {:?}",
             result.validation_error, result.outcome
         );
-        assert!(
-            (result
-                .reports
-                .iter()
-                .find(|r| r.label == "root")
-                .unwrap()
-                .value
-                - 2.)
-                .abs()
-                < 1e-6
+        let model = &result.prepared.model.model.compiled().model;
+        let x = model
+            .symbols
+            .values()
+            .find(|symbol| symbol.lineage.path.ends_with(".x"))
+            .unwrap()
+            .id;
+        let row = model
+            .equations
+            .iter()
+            .find(|row| row.lineage.path.ends_with(".e"))
+            .unwrap()
+            .id;
+        let target = super::super::super::tests::engineering_target(
+            result.prepared.solve.numerics(),
+            NumericalTarget::Variable,
+            x,
+        );
+        assert_eq!(target.budget, allowance);
+        let value = result
+            .reports
+            .iter()
+            .find(|r| r.label == "root")
+            .unwrap()
+            .value;
+        assert!((value - 2.0).abs() <= target.budget);
+        let row_budget = super::super::super::tests::engineering_target(
+            result.prepared.solve.numerics(),
+            NumericalTarget::Row,
+            row,
+        )
+        .budget;
+        assert!((value * value - 4.0).abs() <= row_budget);
+        assert!(result.prepared.profile.sensitivity.is_none());
+        assert_eq!(
+            result.prepared.profile.intent,
+            pse_backend_native::solve::SolveIntent::Root
         );
         assert!(result.checks.iter().any(|c| c.kind
             == pse_model::generated::enums::ModelingCheckKind::Expectation

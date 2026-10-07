@@ -226,6 +226,46 @@ pub struct StudyClaim {
     /// Actual selected start, not an inferred success label.
     pub start: StartProvenance,
 }
+impl StudyClaim {
+    fn begin_dispatch(&self) -> Result<StudyDispatchAdmission<'_>, CanonicalError> {
+        let mut facts = point_facts(&self.point)?;
+        if facts.native_started {
+            return Err(CanonicalError::Configuration(
+                "study occurrence already crossed its native dispatch boundary".into(),
+            ));
+        }
+        facts.revision = 0;
+        facts.native_started = true;
+        let facts = encode(&facts)?;
+        let nonce: pse_ids::SemanticId = crate::mint_id();
+        let operation = format!("study-start:{nonce}");
+        let request = encode(&(
+            &self.point.study,
+            &self.point.key,
+            self.point.revision,
+            self.fence.run(),
+            self.fence.attempt(),
+            self.fence.generation(),
+            &facts,
+            &self.start,
+        ))?;
+        Ok(StudyDispatchAdmission {
+            claim: self,
+            operation,
+            request,
+            facts,
+        })
+    }
+}
+
+// Private and noncloneable: only this start invocation knows its fresh operation
+// identity. A historical start from another invocation cannot settle this one.
+struct StudyDispatchAdmission<'a> {
+    claim: &'a StudyClaim,
+    operation: String,
+    request: Vec<u8>,
+    facts: Vec<u8>,
+}
 
 fn encode<T: Serialize>(value: &T) -> Result<Vec<u8>, CanonicalError> {
     serde_json::to_vec(value).map_err(|error| CanonicalError::Configuration(error.to_string()))
@@ -610,6 +650,9 @@ impl CanonicalStore {
             .checked_add(1)
             .ok_or(CanonicalError::PayloadLimit)?;
         facts.lifecycle = StudyPointState::Assigned;
+        // Native-start is a fact of this actual attempt. A policy-authorized retry
+        // keeps prior outcomes but has not crossed its own dispatch boundary yet.
+        facts.native_started = false;
         let facts = encode(&facts)?;
         let expected = std::iter::once(&scope.point)
             .chain(scope.predecessors.iter())
@@ -640,17 +683,73 @@ impl CanonicalStore {
             wire::INTERPRETATION,
         ))?;
         self.ensure_writes()?;
-        let mut response=protected_query(||Ok(self.db.query("RETURN fn::pse_study_v1::claim($study,$generation,$point,$expected,$start,$operation,$request,$claim_request,$attempt,$worker,$lifetime,$facts);").bind(("study",scope.study.clone())).bind(("generation",codec::encode_uint(scope.generation)?)).bind(("point",scope.point.key.clone())).bind(("expected",expected.clone())).bind(("start",Bytes::from(start_bytes.clone()))).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("claim_request",Bytes::from(claim_request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)).bind(("facts",Bytes::from(facts.clone()))))).await?;
-        let row = wire::decode_canonical_attempts(
-            response
-                .take::<Option<Object>>(0)?
-                .ok_or(CanonicalError::IncompleteResponse)?,
-        )?;
+        let response=protected_query(||Ok(self.db.query("RETURN fn::pse_study_v1::claim($study,$generation,$point,$expected,$start,$operation,$request,$claim_request,$attempt,$worker,$lifetime,$facts);").bind(("study",scope.study.clone())).bind(("generation",codec::encode_uint(scope.generation)?)).bind(("point",scope.point.key.clone())).bind(("expected",expected.clone())).bind(("start",Bytes::from(start_bytes.clone()))).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("claim_request",Bytes::from(claim_request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)).bind(("facts",Bytes::from(facts.clone()))))).await;
+        let response = response.and_then(|mut response| {
+            Ok(wire::decode_canonical_attempts(
+                response
+                    .take::<Option<Object>>(0)?
+                    .ok_or(CanonicalError::IncompleteResponse)?,
+            )?)
+        });
+        self.finish_study_claim(scope, start, operation, &request, &claim_request, response)
+            .await
+    }
+
+    // The operation receipt is the sole acknowledgment authority. A readable point
+    // alone cannot establish that this exact decision, worker and lease committed.
+    async fn finish_study_claim(
+        &self,
+        scope: &StudyScope,
+        start: StartProvenance,
+        operation: &str,
+        request: &[u8],
+        claim_request: &[u8],
+        response: Result<crate::canonical_execution::CanonicalAttempt, CanonicalError>,
+    ) -> Result<StudyClaim, CanonicalError> {
+        let row = match response {
+            Ok(row) => row,
+            Err(error) => match self
+                .settle_operation(operation, "study-claim", request)
+                .await?
+            {
+                Some(key) => self.canonical_attempt(&key).await?.ok_or(error)?,
+                None => return Err(error),
+            },
+        };
+        let expected_attempt =
+            execution_attempt_key(&scope.point.run, &format!("{operation}:attempt"));
+        if row.key != expected_attempt
+            || row.run != scope.point.run
+            || row.claim_operation != format!("{operation}:attempt")
+            || row.request.as_slice() != claim_request
+        {
+            return Err(CanonicalError::OperationReused);
+        }
         let fence = AttemptFence::from_row(row)?;
         let point = self
             .canonical_study_point(&scope.point.key)
             .await?
             .ok_or(CanonicalError::IncompleteResponse)?;
+        if point.study != scope.study
+            || point.run != scope.point.run
+            || point.occurrence != scope.point.occurrence
+            || !point.assigned
+            || point.settled
+            || point.revision
+                != scope
+                    .point
+                    .revision
+                    .checked_add(1)
+                    .ok_or(CanonicalError::PayloadLimit)?
+            || point.attempt.as_deref() != Some(fence.attempt())
+            || point.start.as_ref().map(|bytes| bytes.as_slice())
+                != Some(encode(&start)?.as_slice())
+            || point_facts(&point)?.native_started
+        {
+            return Err(CanonicalError::Configuration(
+                "study claim acknowledgment no longer names the pre-dispatch occurrence".into(),
+            ));
+        }
         Ok(StudyClaim {
             fence,
             point,
@@ -713,22 +812,93 @@ impl CanonicalStore {
         )?)
     }
     /// Record the exact pre-dispatch boundary under current cancellation and attempt
-    /// authority. A claim alone is never reported as a native start.
+    /// authority. Each invocation owns a fresh exact receipt; only that receipt may
+    /// settle an uncertain response. A claim alone is never reported as a native start.
     pub async fn mark_study_started(
         &self,
         claim: &StudyClaim,
     ) -> Result<StudyPoint, CanonicalError> {
-        let mut facts = point_facts(&claim.point)?;
-        facts.revision = 0;
-        facts.native_started = true;
-        let facts = encode(&facts)?;
         self.ensure_writes()?;
-        let mut result=protected_query(||Ok(self.db.query("RETURN fn::pse_study_v1::started($study,$point,$revision,$run,$attempt,$generation,$facts);").bind(("study",claim.point.study.clone())).bind(("point",claim.point.key.clone())).bind(("revision",codec::encode_uint(claim.point.revision)?)).bind(("run",claim.fence.run().to_owned())).bind(("attempt",claim.fence.attempt().to_owned())).bind(("generation",codec::encode_uint(claim.fence.generation())?)).bind(("facts",Bytes::from(facts.clone()))))).await?;
+        let admission = claim.begin_dispatch()?;
+        let result = self.send_study_started(&admission).await;
+        self.finish_study_started(admission, result).await
+    }
+
+    async fn send_study_started(
+        &self,
+        admission: &StudyDispatchAdmission<'_>,
+    ) -> Result<StudyPoint, CanonicalError> {
+        let claim = admission.claim;
+        let result=protected_query(||Ok(self.db.query("RETURN fn::pse_study_v1::started($study,$point,$revision,$run,$attempt,$generation,$operation,$request,$facts);").bind(("study",claim.point.study.clone())).bind(("point",claim.point.key.clone())).bind(("revision",codec::encode_uint(claim.point.revision)?)).bind(("run",claim.fence.run().to_owned())).bind(("attempt",claim.fence.attempt().to_owned())).bind(("generation",codec::encode_uint(claim.fence.generation())?)).bind(("operation",admission.operation.clone())).bind(("request",Bytes::from(admission.request.clone()))).bind(("facts",Bytes::from(admission.facts.clone()))))).await;
+        let mut result = result?;
         Ok(wire::decode_canonical_study_points(
             result
                 .take::<Option<Object>>(0)?
                 .ok_or(CanonicalError::IncompleteResponse)?,
         )?)
+    }
+
+    async fn finish_study_started(
+        &self,
+        admission: StudyDispatchAdmission<'_>,
+        response: Result<StudyPoint, CanonicalError>,
+    ) -> Result<StudyPoint, CanonicalError> {
+        let claim = admission.claim;
+        let point = match response {
+            Ok(point) => point,
+            Err(error) => {
+                // A definite rejection of a repeated start must not authorize a
+                // second dispatch merely because the first boundary is readable.
+                let uncertain = matches!(&error, CanonicalError::Timeout | CanonicalError::IncompleteResponse)
+                    // gRPC DeadlineExceeded has an unstructured query category;
+                    // only this invocation's committed receipt can resolve it.
+                    || matches!(&error, CanonicalError::Driver(error) if error.is_connection()
+                        || (error.is_query() && error.query_details().is_none()));
+                if !uncertain {
+                    return Err(error);
+                }
+                match self
+                    .settle_operation(&admission.operation, "study-start", &admission.request)
+                    .await?
+                {
+                    Some(attempt) if attempt == claim.fence.attempt() => (),
+                    Some(_) => return Err(CanonicalError::OperationReused),
+                    None => return Err(error),
+                }
+                // Fence the readback against cancellation, replacement and expiry;
+                // do not repeat the start transition or authorize another dispatch.
+                let mut response = protected_query(|| Ok(self.db.query(
+                    "BEGIN; fn::pse_execution_v1::fence($run,$attempt,$generation); SELECT * FROM ONLY type::record('canonical_study_points',$point); COMMIT;"
+                ).bind(("run", claim.fence.run().to_owned()))
+                    .bind(("attempt", claim.fence.attempt().to_owned()))
+                    .bind(("generation", codec::encode_uint(claim.fence.generation())?))
+                    .bind(("point", claim.point.key.clone())))).await?;
+                let index = response.num_statements().saturating_sub(2);
+                let Some(row) = response.take::<Option<Object>>(index)? else {
+                    return Err(error);
+                };
+                wire::decode_canonical_study_points(row)?
+            }
+        };
+        if point.study != claim.point.study
+            || point.run != claim.fence.run()
+            || point.revision
+                != claim
+                    .point
+                    .revision
+                    .checked_add(1)
+                    .ok_or(CanonicalError::PayloadLimit)?
+            || point.attempt.as_deref() != Some(claim.fence.attempt())
+            || !point.assigned
+            || point.settled
+            || point.start != claim.point.start
+            || point.facts.as_slice() != admission.facts.as_slice()
+        {
+            return Err(CanonicalError::Configuration(
+                "study start acknowledgment does not match the exact admitted dispatch".into(),
+            ));
+        }
+        Ok(point)
     }
     /// Exact indexed study parent association used by effect-free summary recovery.
     pub async fn canonical_study_for_run(
@@ -780,11 +950,43 @@ impl CanonicalStore {
             wire::INTERPRETATION,
         ))?;
         self.ensure_writes()?;
-        let mut result=protected_query(||Ok(self.db.query("RETURN fn::pse_study_v1::finalize($study,$operation,$request,$attempt,$worker,$lifetime);").bind(("study",study.key.clone())).bind(("operation",operation.clone())).bind(("request",Bytes::from(request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)))).await?;
-        result
-            .take::<Option<Object>>(0)?
-            .map(|row| AttemptFence::from_row(wire::decode_canonical_attempts(row)?))
-            .transpose()
+        let result=protected_query(||Ok(self.db.query("RETURN fn::pse_study_v1::finalize($study,$operation,$request,$attempt,$worker,$lifetime);").bind(("study",study.key.clone())).bind(("operation",operation.clone())).bind(("request",Bytes::from(request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)))).await;
+        let result = result.and_then(|mut result| {
+            result
+                .take::<Option<Object>>(0)?
+                .map(wire::decode_canonical_attempts)
+                .transpose()
+                .map_err(Into::into)
+        });
+        self.finish_study_finalization(&study.run, &operation, &request, result)
+            .await
+    }
+
+    async fn finish_study_finalization(
+        &self,
+        run: &str,
+        operation: &str,
+        request: &[u8],
+        response: Result<Option<crate::canonical_execution::CanonicalAttempt>, CanonicalError>,
+    ) -> Result<Option<AttemptFence>, CanonicalError> {
+        let row = match response {
+            Ok(row) => row,
+            Err(error) => match self.settle_operation(operation, "claim", request).await? {
+                Some(key) => Some(self.canonical_attempt(&key).await?.ok_or(error)?),
+                None => return Err(error),
+            },
+        };
+        row.map(|row| {
+            if row.run != run
+                || row.key != execution_attempt_key(run, operation)
+                || row.claim_operation != operation
+                || row.request.as_slice() != request
+            {
+                return Err(CanonicalError::OperationReused);
+            }
+            AttemptFence::from_row(row)
+        })
+        .transpose()
     }
     /// Assigned occurrences are independently discoverable for explicit lost-worker
     /// recovery; no complete study graph or immutable descriptors are returned.
@@ -1010,6 +1212,340 @@ mod canonical_studies_server_unit {
                 .await
         }
         .unwrap()
+    }
+
+    #[tokio::test]
+    async fn study_committed_claim_start_and_summary_lost_ack_settle_exact_identity() {
+        let (store, database, revision) = fixture().await;
+        store
+            .create_study(
+                "lost-ack",
+                &request(&revision, "parent"),
+                &[9],
+                &[occurrence(&revision, 0, vec![])],
+            )
+            .await
+            .unwrap();
+        let scope = store
+            .study_scope(&point_key("lost-ack", OccurrenceKey(0)))
+            .await
+            .unwrap();
+        let duplicate_scope = store
+            .study_scope(&point_key("lost-ack", OccurrenceKey(0)))
+            .await
+            .unwrap();
+        let operation = "claim-lost-ack";
+        let lifetime = Duration::from_secs(60);
+        let mut claim = store
+            .claim_study_point(&scope, None, operation, "worker", lifetime)
+            .await
+            .unwrap();
+        let request = encode(&(
+            operation,
+            &scope.study,
+            scope.generation,
+            &scope.point.key,
+            scope.point.revision,
+            &claim.start,
+            "worker",
+            60_000_000_i64,
+        ))
+        .unwrap();
+        let attempt = store
+            .canonical_attempt(claim.fence.attempt())
+            .await
+            .unwrap()
+            .unwrap();
+        let recovered = store
+            .finish_study_claim(
+                &scope,
+                claim.start.clone(),
+                operation,
+                &request,
+                attempt.request.as_slice(),
+                Err(CanonicalError::Timeout),
+            )
+            .await
+            .unwrap();
+        assert_eq!(recovered.fence.attempt(), claim.fence.attempt());
+        assert_eq!(recovered.fence.generation(), claim.fence.generation());
+        assert_eq!(recovered.point, claim.point);
+        assert_eq!(recovered.start, claim.start);
+        assert!(matches!(
+            store
+                .finish_study_claim(
+                    &scope,
+                    claim.start.clone(),
+                    operation,
+                    b"another request",
+                    attempt.request.as_slice(),
+                    Err(CanonicalError::Timeout)
+                )
+                .await,
+            Err(CanonicalError::OperationReused)
+        ));
+        assert!(matches!(
+            store
+                .finish_study_claim(
+                    &scope,
+                    claim.start.clone(),
+                    "not-committed",
+                    &request,
+                    attempt.request.as_slice(),
+                    Err(CanonicalError::Timeout)
+                )
+                .await,
+            Err(CanonicalError::Timeout)
+        ));
+
+        // Independently replay the same admitted claim before either dispatch.
+        // These are distinct objects, not merely clones sharing local state.
+        let duplicate = store
+            .claim_study_point(&duplicate_scope, None, operation, "worker", lifetime)
+            .await
+            .unwrap();
+        let admission = claim.begin_dispatch().unwrap();
+        let started = store.send_study_started(&admission).await.unwrap();
+        let duplicate_admission = duplicate.begin_dispatch().unwrap();
+        assert_ne!(admission.operation, duplicate_admission.operation);
+        assert!(
+            store
+                .send_study_started(&duplicate_admission)
+                .await
+                .is_err()
+        );
+        assert!(
+            matches!(
+                store
+                    .finish_study_started(duplicate_admission, Err(CanonicalError::Timeout))
+                    .await,
+                Err(CanonicalError::Timeout)
+            ),
+            "losing the second rejection cannot settle the first committed start"
+        );
+        // A caller can refresh the public revision while keeping old pre-start
+        // facts. The server's per-attempt receipt must independently refuse it.
+        let mut false_refresh = duplicate.clone();
+        false_refresh.point.revision = started.revision;
+        let false_admission = false_refresh.begin_dispatch().unwrap();
+        assert!(store.send_study_started(&false_admission).await.is_err());
+        assert!(matches!(
+            store
+                .finish_study_started(false_admission, Err(CanonicalError::Timeout))
+                .await,
+            Err(CanonicalError::Timeout)
+        ));
+        assert_eq!(
+            store
+                .finish_study_started(admission, Err(CanonicalError::Timeout))
+                .await
+                .unwrap(),
+            started
+        );
+        assert!(store.mark_study_started(&claim.clone()).await.is_err());
+        assert!(
+            store
+                .finish_study_claim(
+                    &scope,
+                    claim.start.clone(),
+                    operation,
+                    &request,
+                    attempt.request.as_slice(),
+                    Err(CanonicalError::Timeout)
+                )
+                .await
+                .is_err(),
+            "a committed start cannot be recovered as a second pre-dispatch claim"
+        );
+        claim.point = started;
+        assert!(
+            store.mark_study_started(&claim).await.is_err(),
+            "refreshing to the exact returned point cannot admit a second dispatch"
+        );
+        assert!(
+            claim.begin_dispatch().is_err(),
+            "a recorded native start is refused before minting another nonce"
+        );
+        fail(&store, &claim).await;
+        let summary =
+            StudySummary::from(&store.canonical_study("lost-ack").await.unwrap().unwrap());
+        let fence = store
+            .begin_study_finalization(&summary, "summary-worker", lifetime)
+            .await
+            .unwrap()
+            .unwrap();
+        let attempt = store
+            .canonical_attempt(fence.attempt())
+            .await
+            .unwrap()
+            .unwrap();
+        let recovered = store
+            .finish_study_finalization(
+                &summary.run,
+                &attempt.claim_operation,
+                attempt.request.as_slice(),
+                Err(CanonicalError::Timeout),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(recovered.attempt(), fence.attempt());
+        assert_eq!(recovered.generation(), fence.generation());
+        assert!(matches!(
+            store
+                .finish_study_finalization(
+                    &summary.run,
+                    &attempt.claim_operation,
+                    b"different worker request",
+                    Err(CanonicalError::Timeout)
+                )
+                .await,
+            Err(CanonicalError::OperationReused)
+        ));
+        let mut response = bounded_query(
+            store
+                .db
+                .query("SELECT key FROM canonical_attempts WHERE run=$run;")
+                .bind(("run", summary.run)),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            response.take::<Vec<Object>>(0).unwrap().len(),
+            1,
+            "lost summary acknowledgment must not mint a second generation"
+        );
+
+        store
+            .db
+            .query(format!("REMOVE DATABASE {database};"))
+            .await
+            .and_then(checked)
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn study_start_lost_ack_cannot_redispatch_after_cancellation() {
+        let (store, database, revision) = fixture().await;
+        store
+            .create_study(
+                "cancel-start",
+                &request(&revision, "parent"),
+                &[9],
+                &[occurrence(&revision, 0, vec![])],
+            )
+            .await
+            .unwrap();
+        let scope = store
+            .study_scope(&point_key("cancel-start", OccurrenceKey(0)))
+            .await
+            .unwrap();
+        let claim = store
+            .claim_study_point(&scope, None, "claim", "worker", Duration::from_secs(60))
+            .await
+            .unwrap();
+        let admission = claim.begin_dispatch().unwrap();
+        store.send_study_started(&admission).await.unwrap();
+        store.cancel_study("cancel-start").await.unwrap();
+        assert!(
+            store
+                .finish_study_started(admission, Err(CanonicalError::Timeout))
+                .await
+                .is_err()
+        );
+        assert!(
+            point_facts(
+                &store
+                    .canonical_study_point(&claim.point.key)
+                    .await
+                    .unwrap()
+                    .unwrap()
+            )
+            .unwrap()
+            .native_started,
+            "the committed boundary remains historical fact"
+        );
+        store
+            .db
+            .query(format!("REMOVE DATABASE {database};"))
+            .await
+            .and_then(checked)
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn study_retry_new_attempt_has_its_own_native_start_boundary() {
+        let (store, database, revision) = fixture().await;
+        let mut point = occurrence(&revision, 0, vec![]);
+        point.policy.attempt_limit = 2;
+        store
+            .create_study("retry-start", &request(&revision, "parent"), &[9], &[point])
+            .await
+            .unwrap();
+        let scope = store
+            .study_scope(&point_key("retry-start", OccurrenceKey(0)))
+            .await
+            .unwrap();
+        let mut first = store
+            .claim_study_point(&scope, None, "first", "worker", Duration::from_secs(60))
+            .await
+            .unwrap();
+        first.point = store.mark_study_started(&first).await.unwrap();
+        let closed = store
+            .close_result_ingestion(&first.fence, "close-first")
+            .await
+            .unwrap();
+        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        // SAFETY: this controlled lifecycle fixture asserts failure and no effect.
+        unsafe { store.seal_attempt(&manifest, "seal-first", TerminalClass::Failed, &[]) }
+            .await
+            .unwrap();
+        let (mut facts, outcome) = observation(&first.point, StudyPointState::Failed);
+        facts.retry_failure = Some(pse_model::study::RetryFailure::Transient);
+        // SAFETY: an actual failed terminal receipt backs this effect-free retry fact.
+        unsafe { store.observe_study_point(&first.point, &facts, &outcome, false) }
+            .await
+            .unwrap();
+        let scope = store.study_scope(&first.point.key).await.unwrap();
+        assert!(matches!(
+            scope.action(None).unwrap().kind,
+            ActionKind::Start(_)
+        ));
+        let retry = store
+            .claim_study_point(&scope, None, "retry", "worker", Duration::from_secs(60))
+            .await
+            .unwrap();
+        assert_ne!(retry.fence.attempt(), first.fence.attempt());
+        assert!(retry.fence.generation() > first.fence.generation());
+        assert!(!point_facts(&retry.point).unwrap().native_started);
+        let started = store.mark_study_started(&retry).await.unwrap();
+        let facts = point_facts(&started).unwrap();
+        assert!(facts.native_started);
+        assert_eq!(facts.attempt_count, 2);
+        assert_eq!(
+            store
+                .canonical_attempt(first.fence.attempt())
+                .await
+                .unwrap()
+                .unwrap()
+                .outcome
+                .as_deref(),
+            Some("failed")
+        );
+        let mut response = bounded_query(store.db.query(
+            "SELECT key FROM canonical_execution_operations WHERE run=$run AND kind='study-start';"
+        ).bind(("run", first.fence.run().to_owned()))).await.unwrap();
+        assert_eq!(
+            response.take::<Vec<Object>>(0).unwrap().len(),
+            2,
+            "each genuinely new attempt owns one dispatch boundary"
+        );
+        store
+            .db
+            .query(format!("REMOVE DATABASE {database};"))
+            .await
+            .and_then(checked)
+            .unwrap();
     }
 
     #[tokio::test]

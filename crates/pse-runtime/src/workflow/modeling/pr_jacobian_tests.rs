@@ -1,30 +1,32 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Original PR fixture derivatives against independent evaluations of the same case.
+//! Original PR assembly and implicit derivative conditions on the production accuracy basis.
 use super::*;
-use crate::math::{MathRuntimeError, WorkerBudget};
+use crate::math::WorkerBudget;
 use pse_backend_native::solve::{Controls, Execution, SolveIntent};
 use pse_columnar::flight::FlightCancellation;
-use pse_kernels::DerivativeOrder;
+use pse_kernels::{
+    DerivativeOrder, EvaluationContext, ExecutionScope, Provider, ProviderError, ProviderFactory,
+    ProviderKey, ProviderRequest, ProviderSpec, ProviderValues, Registration,
+};
 use pse_math::{
-    assembly::CaseWorker,
-    binding::CaseValues,
     diagnostics::{MatrixPolicy, analyze_matrix},
+    guarded::{CompiledBody, Evaluation, PreparedBody},
+    implicit::{Configuration, Factory, ImplicitFactory, Options},
     index::{GlobalCol, GlobalRow},
     normalization::Normalization,
 };
 use serde::{Deserialize, Serialize};
-use std::{num::NonZeroUsize, path::Path, sync::Arc, time::Duration};
+use std::{
+    collections::BTreeSet,
+    num::NonZeroUsize,
+    path::Path,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 type TestResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 const DIMENSION: usize = 120;
-const RELATIVE_STEP: f64 = 1e-9;
-const STABLE_RELATIVE: f64 = 2e-4;
-const STABLE_ABSOLUTE: f64 = 1e-6;
-const STRONG: f64 = 1e-3;
-const AGREEMENT_RELATIVE: f64 = 1e-3;
-const AGREEMENT_ABSOLUTE: f64 = 1e-5;
-
 #[derive(Deserialize)]
 struct Manifest {
     settings: Settings,
@@ -170,75 +172,182 @@ struct Member {
     declaration: Option<DeclarationId>,
 }
 #[derive(Serialize)]
-struct Column {
-    member: Member,
-    initial: f64,
-    nominal: f64,
-    step: f64,
-    central: bool,
-    selected_root_input: bool,
-}
-#[derive(Serialize)]
-struct Row {
+struct Coordinate {
     member: Member,
     initial: f64,
     nominal: f64,
 }
+#[derive(Clone, Debug)]
+struct ObservedJet {
+    inputs: Vec<f64>,
+    order: DerivativeOrder,
+    values: ProviderValues,
+}
+type Observations = Arc<Mutex<BTreeMap<ProviderKey, ObservedJet>>>;
+
+/// Observe the existing factory, without changing its scope, configuration or math.
+#[derive(Debug)]
+struct ObservedFactory {
+    original: Registration,
+    observations: Observations,
+    scope: ExecutionScope,
+    source_key: ProviderKey,
+}
+impl ProviderFactory for ObservedFactory {
+    fn spec(&self) -> &ProviderSpec {
+        self.original.spec()
+    }
+    fn configuration_key(&self) -> pse_ids::ContentHash {
+        self.original.configuration_key()
+    }
+    fn envelope(&self) -> Option<Vec<(f64, f64)>> {
+        self.original.envelope().map(<[_]>::to_vec)
+    }
+    fn create(&self) -> Result<Box<dyn Provider>, ProviderError> {
+        self.create_scoped(self.scope.clone())
+    }
+    fn create_scoped(&self, scope: ExecutionScope) -> Result<Box<dyn Provider>, ProviderError> {
+        assert!(Arc::ptr_eq(scope.cancellation(), self.scope.cancellation()));
+        assert_eq!(scope.deadline(), self.scope.deadline());
+        Ok(Box::new(ObservedProvider {
+            inner: self.original.worker_scoped(scope)?,
+            observations: self.observations.clone(),
+            source_key: self.source_key,
+        }))
+    }
+}
+#[derive(Debug)]
+struct ObservedProvider {
+    inner: Box<dyn Provider>,
+    observations: Observations,
+    source_key: ProviderKey,
+}
+impl Provider for ObservedProvider {
+    fn spec(&self) -> &ProviderSpec {
+        self.inner.spec()
+    }
+    fn evaluate(
+        &mut self,
+        inputs: &[f64],
+        request: &ProviderRequest,
+        context: &EvaluationContext<'_>,
+    ) -> Result<ProviderValues, ProviderError> {
+        request.validate(self.spec(), context)?;
+        // The implicit factory already computes the full root jet before projecting.
+        // Requesting all outputs observes that jet; it adds no perturbed inner solve.
+        let all = ProviderRequest::all(self.spec(), request.order);
+        all.validate(self.spec(), context)?;
+        let full = self.inner.evaluate(inputs, &all, context)?;
+        full.validate(self.spec(), &all)?;
+        let mut observations = self
+            .observations
+            .lock()
+            .map_err(|_| ProviderError::Contract("PR observation lock poisoned".into()))?;
+        let key = self.source_key;
+        if observations
+            .get(&key)
+            .is_none_or(|previous| previous.order <= request.order)
+        {
+            observations.insert(
+                key,
+                ObservedJet {
+                    inputs: inputs.to_vec(),
+                    order: request.order,
+                    values: full.clone(),
+                },
+            );
+        }
+        drop(observations);
+        let n = self.spec().inputs.len();
+        let mut projected = ProviderValues {
+            values: Vec::new(),
+            jacobian: Vec::new(),
+            hessians: Vec::new(),
+        };
+        for &output in &request.outputs {
+            projected.values.push(full.values[output]);
+            if request.order >= DerivativeOrder::First {
+                projected
+                    .jacobian
+                    .extend_from_slice(&full.jacobian[output * n..(output + 1) * n]);
+            }
+            if request.order >= DerivativeOrder::Second {
+                projected
+                    .hessians
+                    .extend_from_slice(&full.hessians[output * n * n..(output + 1) * n * n]);
+            }
+        }
+        projected.validate(self.spec(), request)?;
+        Ok(projected)
+    }
+}
+
+#[derive(Clone)]
+struct RootCase {
+    key: ProviderKey,
+    spec: ProviderSpec,
+    unknowns: Vec<SemanticId>,
+    rows: Vec<SemanticId>,
+    residual: Arc<PreparedBody>,
+    eligibility: Arc<PreparedBody>,
+    factory: Factory,
+    fraction: usize,
+}
 #[derive(Serialize)]
-struct Cell {
+struct RootEvidence {
+    provider: SemanticId,
+    unknowns: Vec<SemanticId>,
+    rows: Vec<SemanticId>,
+    parameters: Vec<SemanticId>,
+    inputs: Vec<f64>,
+    point: Vec<f64>,
+    physical_variable_allowances: Vec<f64>,
+    physical_row_allowances: Vec<f64>,
+    residuals: Vec<f64>,
+    first_backward_errors: Vec<f64>,
+    second_backward_errors: Vec<f64>,
+    jacobian: Vec<f64>,
+    hessians: Vec<f64>,
+}
+#[derive(Serialize)]
+struct MaterialResponse {
+    provider: SemanticId,
+    input_delta: Vec<f64>,
+    observed: Vec<f64>,
+    predicted: Vec<f64>,
+    allowances: Vec<f64>,
+}
+#[derive(Clone, Serialize)]
+struct RootLink {
     row: usize,
-    column: usize,
-    analytic: f64,
-    difference: f64,
-    half_difference: f64,
-    normalized_error: f64,
-    normalized_drift: f64,
-    stable: bool,
-    strong: bool,
-    permitted_error: f64,
+    identity_column: usize,
+    provider: SemanticId,
+    output: usize,
+    input_columns: Vec<usize>,
 }
 #[derive(Serialize)]
 struct Sample {
     fixture: DeclarationId,
-    rows: Vec<Row>,
-    columns: Vec<Column>,
-    /// Complete raw physical derivatives, row-major, including structural zeros.
+    /// Original admitted case start, not a completed outer steady-state solve.
+    rows: Vec<Coordinate>,
+    columns: Vec<Coordinate>,
     analytic: Vec<f64>,
-    difference: Vec<f64>,
-    half_difference: Vec<f64>,
-    cells: Vec<Cell>,
-    stable_strong: usize,
-    disagreements: usize,
-    noisy: usize,
-    selected_root_rows: Vec<usize>,
-    selected_root_stable_strong: usize,
-    hessians: Vec<HessianSample>,
+    all_original_weighted_hessian: Vec<f64>,
+    selected_root_weighted_hessian: Vec<f64>,
+    selected_root_weights: Vec<f64>,
+    selected_root_links: Vec<RootLink>,
+    roots: Vec<RootEvidence>,
+    material_response: MaterialResponse,
+    linear_backward_error: f64,
+    /// Retained production supplier action authority; not a Second certificate.
+    supplier_action_accuracy: f64,
     rank: usize,
     rank_cutoff: f64,
     singular_values: Vec<f64>,
-    row_norms: Vec<f64>,
-    column_norms: Vec<f64>,
     worker_bytes: usize,
     elapsed_seconds: f64,
 }
-#[derive(Serialize)]
-struct HessianSample {
-    name: &'static str,
-    source_rows: Vec<usize>,
-    /// Physical row multipliers: distinct dimensionless weights divided by Sr.
-    weights: Vec<f64>,
-    gradient: Vec<f64>,
-    /// Complete raw physical weighted Hessian, row-major, including structural zeros.
-    analytic: Vec<f64>,
-    difference: Vec<f64>,
-    half_difference: Vec<f64>,
-    cells: Vec<Cell>,
-    stable_strong: usize,
-    disagreements: usize,
-    noisy: usize,
-}
 
-/// The original nested overrides link outer x/y/beta to the selected implicit roots.
 fn selected_root_source(member: &Member) -> bool {
     member.declaration.is_some_and(|id| {
         matches!(
@@ -250,270 +359,280 @@ fn selected_root_source(member: &Member) -> bool {
     })
 }
 
-/// These are provider inputs, excluding the outer identity x/y/beta coordinates.
-fn selected_root_input(row: &Member, column: &Member) -> bool {
-    row.path
-        .rsplit_once('.')
-        .is_some_and(|(parent, _)| column.path.starts_with(&format!("{parent}.closure.")))
+/// Same componentwise linear backward error used by the production implicit solver.
+/// Published row/unknown coordinate substitutions cancel componentwise in this
+/// ratio; parameter scales cancel for each First or Second right-hand side.
+fn backward_error(actual: f64, rhs: f64, absolute_terms: f64) -> f64 {
+    assert!(actual.is_finite() && rhs.is_finite() && absolute_terms.is_finite());
+    let denominator = rhs.abs() + absolute_terms;
+    if denominator == 0. {
+        assert_eq!(actual, rhs, "a structural zero must remain zero");
+        0.
+    } else {
+        (actual - rhs).abs() / denominator
+    }
 }
 
-fn weighted_gradients(
-    worker: &mut CaseWorker,
-    values: &CaseValues,
-    weights: &[Vec<f64>],
-) -> Result<Vec<Vec<f64>>, MathRuntimeError> {
-    let matrix = worker.jacobian(values)?;
-    if weights.iter().any(|w| w.len() != matrix.nrows()) {
-        return Err(pse_math::MathError::Contract("weighted PR Jacobian rows".into()).into());
-    }
-    Ok(weights
+fn evaluate_compact(
+    body: &CompiledBody,
+    formals: &[f64],
+    order: DerivativeOrder,
+    scope: &ExecutionScope,
+) -> Result<Evaluation, pse_math::MathError> {
+    let mut worker = body.worker_scoped(scope.clone());
+    let inputs = worker
+        .input_formals()
         .iter()
-        .map(|w| {
-            (0..matrix.ncols())
-                .map(|column| {
-                    matrix
-                        .row_idx_of_col(column)
-                        .zip(matrix.val_of_col(column))
-                        .map(|(row, value)| w[row] * value)
-                        .sum()
-                })
-                .collect()
+        .map(|&formal| {
+            formals.get(formal).copied().ok_or_else(|| {
+                pse_math::MathError::Contract("PR primitive compact formal missing".into())
+            })
         })
-        .collect())
+        .collect::<Result<Vec<_>, _>>()?;
+    // This fixture's primitive residual and hint programs are explicit. Any hidden
+    // provider dependency is a capability gap, rather than another nested oracle.
+    worker.evaluate(&inputs, order, &mut BTreeMap::new(), scope.cancellation())
 }
 
-/// Differentiate actual Jacobians, independently of CaseWorker.hessian and its patterns.
-fn gradient_difference(
-    worker: &mut CaseWorker,
-    base: &CaseValues,
-    weights: &[Vec<f64>],
-    id: SemanticId,
-    step: f64,
-    central: bool,
-) -> Result<Vec<Vec<f64>>, MathRuntimeError> {
-    let x = base.scalars[&id];
-    let mut plus = base.clone();
-    plus.scalars.insert(id, x + step);
-    let upper = worker.jacobian(&plus)?.clone();
-    let (lower_values, divisor) = if central {
-        let mut minus = base.clone();
-        minus.scalars.insert(id, x - step);
-        (minus, (x + step) - (x - step))
-    } else {
-        (base.clone(), (x + step) - x)
+/// Invoke the retained production resolver on its actual hints and original terms.
+/// Nominals condition the equations; variable_tolerance supplies physical accuracy.
+fn production_options(
+    root: &RootCase,
+    inputs: &[f64],
+    scope: &ExecutionScope,
+) -> Result<Options, pse_math::MathError> {
+    match &root.factory.configuration {
+        Configuration::Fixed(_, options) => Ok(options.clone()),
+        Configuration::Hints(resolver) => {
+            let formals = std::iter::repeat_n(0., root.unknowns.len())
+                .chain(inputs.iter().copied())
+                .collect::<Vec<_>>();
+            let hints = if let Some(body) = &root.factory.hints {
+                assert!(
+                    body.input_formals()
+                        .iter()
+                        .all(|&f| f >= root.unknowns.len())
+                );
+                evaluate_compact(body, &formals, DerivativeOrder::Value, scope)?.values
+            } else {
+                Vec::new()
+            };
+            let (_, initial) = resolver.resolve(&hints, None, None)?;
+            if let Some(body) = &root.factory.terms {
+                let nominal = initial
+                    .variable_nominals
+                    .iter()
+                    .copied()
+                    .chain(inputs.iter().copied())
+                    .collect::<Vec<_>>();
+                let terms = evaluate_compact(body, &nominal, DerivativeOrder::Value, scope)?.values;
+                Ok(resolver.resolve(&hints, Some(&terms), None)?.1)
+            } else {
+                Ok(initial)
+            }
+        }
+    }
+}
+
+fn primitive(
+    root: &RootCase,
+    scope: &ExecutionScope,
+    allowance: usize,
+) -> Result<(CompiledBody, CompiledBody), pse_math::MathError> {
+    assert!(
+        root.residual.providers().is_empty(),
+        "explicit PR residual required"
+    );
+    assert!(
+        root.eligibility.providers().is_empty(),
+        "explicit PR guard required"
+    );
+    let width = root.unknowns.len() + root.spec.inputs.len();
+    let limits = pse_math::jets::EvaluationLimits {
+        scratch_bytes: allowance,
+        ..Default::default()
     };
-    let lower = worker.jacobian(&lower_values)?;
-    weighted_jacobian_difference(upper.as_ref(), lower.as_ref(), weights, divisor)
+    let residual = root.residual.compile(
+        &(0..root.rows.len()).collect::<Vec<_>>(),
+        &(0..width).collect::<Vec<_>>(),
+        DerivativeOrder::Second,
+        Default::default(),
+        limits,
+        scope.cancellation(),
+    )?;
+    assert_eq!(residual.coordinates(), &(0..width).collect::<Vec<_>>());
+    let eligibility = root.eligibility.compile(
+        &[0],
+        &[],
+        DerivativeOrder::Value,
+        Default::default(),
+        limits,
+        scope.cancellation(),
+    )?;
+    Ok((residual, eligibility))
 }
 
-fn weighted_jacobian_difference(
-    upper: faer::sparse::SparseColMatRef<'_, usize, f64>,
-    lower: faer::sparse::SparseColMatRef<'_, usize, f64>,
-    weights: &[Vec<f64>],
-    divisor: f64,
-) -> Result<Vec<Vec<f64>>, MathRuntimeError> {
-    if divisor == 0.
-        || !divisor.is_finite()
-        || upper.nrows() != lower.nrows()
-        || upper.ncols() != lower.ncols()
-        || weights.iter().any(|w| w.len() != upper.nrows())
+fn qualified_point(
+    root: &RootCase,
+    residual: &CompiledBody,
+    eligibility: &CompiledBody,
+    inputs: &[f64],
+    point: &[f64],
+    options: &Options,
+    order: DerivativeOrder,
+    scope: &ExecutionScope,
+) -> Result<Evaluation, pse_math::MathError> {
+    assert_eq!(point.len(), root.unknowns.len());
+    assert_eq!(options.variable_tolerance.len(), point.len());
+    assert_eq!(options.residual_tolerance.len(), root.rows.len());
+    let formals = point
+        .iter()
+        .copied()
+        .chain(inputs.iter().copied())
+        .collect::<Vec<_>>();
+    let guard = evaluate_compact(eligibility, &formals, DerivativeOrder::Value, scope)?;
+    assert_eq!(
+        guard.values,
+        vec![1.],
+        "authored two-phase regime must actually be eligible"
+    );
+    let fraction = point[root.fraction];
+    let allowance = options.variable_tolerance[root.fraction];
+    assert!(
+        fraction > allowance && fraction < 1. - allowance,
+        "selected fraction must be interior beyond production physical allowance"
+    );
+    let evaluation = evaluate_compact(residual, &formals, order, scope)?;
+    for (row, (&value, &allowance)) in evaluation
+        .values
+        .iter()
+        .zip(&options.residual_tolerance)
+        .enumerate()
     {
-        return Err(pse_math::MathError::Contract(
-            "representable PR gradient difference step".into(),
-        )
-        .into());
-    }
-    let mut result = vec![vec![0.; upper.ncols()]; weights.len()];
-    let mut differences = vec![0.; upper.nrows()];
-    for column in 0..upper.ncols() {
-        differences.fill(0.);
-        // Align original row identities, including structural zeros. Subtract before
-        // weighting: a large unchanged row must not erase another row's small change.
-        for (row, value) in upper.row_idx_of_col(column).zip(upper.val_of_col(column)) {
-            differences[row] += value;
-        }
-        for (row, value) in lower.row_idx_of_col(column).zip(lower.val_of_col(column)) {
-            differences[row] -= value;
-        }
-        for (output, weights) in result.iter_mut().zip(weights) {
-            output[column] = weights
-                .iter()
-                .zip(&differences)
-                .map(|(weight, difference)| weight * difference)
-                .sum::<f64>()
-                / divisor;
-        }
-    }
-    Ok(result)
-}
-
-#[test]
-fn weighted_jacobian_difference_preserves_changes_beside_large_unchanged_rows() {
-    use faer::sparse::{SparseColMat, Triplet};
-    let upper = SparseColMat::try_new_from_triplets(
-        4,
-        1,
-        &[
-            Triplet::new(0, 0, 1e20),
-            Triplet::new(1, 0, 0.25),
-            Triplet::new(2, 0, 0.5),
-        ],
-    )
-    .unwrap();
-    let lower = SparseColMat::try_new_from_triplets(
-        4,
-        1,
-        &[
-            Triplet::new(0, 0, 1e20),
-            Triplet::new(1, 0, 0.125),
-            Triplet::new(3, 0, 0.0625),
-        ],
-    )
-    .unwrap();
-    let weights = vec![vec![2., 3., 4., 8.]];
-    let weighted = |matrix: &SparseColMat<usize, f64>| {
-        matrix
-            .row_idx_of_col(0)
-            .zip(matrix.val_of_col(0))
-            .map(|(row, value)| weights[0][row] * value)
-            .sum::<f64>()
-    };
-    assert_eq!(weighted(&upper) - weighted(&lower), 0.);
-    for divisor in [0.25, 0.125] {
-        let actual =
-            weighted_jacobian_difference(upper.as_ref(), lower.as_ref(), &weights, divisor)
-                .unwrap();
-        assert_eq!(actual, vec![vec![1.875 / divisor]]);
-    }
-}
-
-/// Finite differences use only Value results; actual representable offsets set the divisor.
-fn difference(
-    worker: &mut CaseWorker,
-    base: &CaseValues,
-    initial: &[f64],
-    id: SemanticId,
-    step: f64,
-    central: bool,
-) -> Result<Vec<f64>, MathRuntimeError> {
-    let x = base.scalars[&id];
-    let mut plus = base.clone();
-    plus.scalars.insert(id, x + step);
-    let upper = worker.constraints(&plus)?;
-    let (lower, divisor) = if central {
-        let mut minus = base.clone();
-        minus.scalars.insert(id, x - step);
-        (worker.constraints(&minus)?, (x + step) - (x - step))
-    } else {
-        (initial.to_vec(), (x + step) - x)
-    };
-    if divisor == 0. || !divisor.is_finite() || upper.len() != lower.len() {
-        return Err(
-            pse_math::MathError::Contract("representable PR difference step".into()).into(),
+        assert!(
+            allowance.is_finite() && allowance > 0. && value.abs() <= allowance,
+            "actual inner PR row {} outside production budget: {} > {}",
+            root.rows[row],
+            value.abs(),
+            allowance
         );
     }
-    Ok(upper
-        .iter()
-        .zip(lower)
-        .map(|(a, b)| (a - b) / divisor)
-        .collect())
+    Ok(evaluation)
+}
+
+fn root_conditions(
+    root: &RootCase,
+    jet: &ObservedJet,
+    primitive: &Evaluation,
+    options: &Options,
+    tolerance: f64,
+) -> RootEvidence {
+    let m = root.unknowns.len();
+    let n = root.spec.inputs.len();
+    let width = m + n;
+    assert_eq!(jet.order, DerivativeOrder::Second);
+    assert_eq!(options.derivative_tolerance, tolerance);
+    assert_eq!(primitive.jacobian.len(), m * width);
+    assert_eq!(primitive.hessians.len(), m * width * width);
+    let mut first = Vec::with_capacity(m * n);
+    let mut second = Vec::with_capacity(m * n * n);
+    for row in 0..m {
+        for a in 0..n {
+            let terms = (0..m)
+                .map(|y| primitive.jacobian[row * width + y] * jet.values.jacobian[y * n + a])
+                .collect::<Vec<_>>();
+            first.push(backward_error(
+                terms.iter().sum(),
+                -primitive.jacobian[row * width + m + a],
+                terms.iter().map(|t| t.abs()).sum(),
+            ));
+            for b in 0..n {
+                let mut curvature = 0.;
+                for i in 0..width {
+                    let va = if i < m {
+                        jet.values.jacobian[i * n + a]
+                    } else {
+                        if i == m + a { 1. } else { 0. }
+                    };
+                    for j in 0..width {
+                        let vb = if j < m {
+                            jet.values.jacobian[j * n + b]
+                        } else {
+                            if j == m + b { 1. } else { 0. }
+                        };
+                        curvature +=
+                            va * primitive.hessians[row * width * width + i * width + j] * vb;
+                    }
+                }
+                let terms = (0..m)
+                    .map(|y| {
+                        primitive.jacobian[row * width + y]
+                            * jet.values.hessians[y * n * n + a * n + b]
+                    })
+                    .collect::<Vec<_>>();
+                second.push(backward_error(
+                    terms.iter().sum(),
+                    -curvature,
+                    terms.iter().map(|t| t.abs()).sum(),
+                ));
+            }
+        }
+    }
+    for (order, errors) in [("First", &first), ("Second", &second)] {
+        assert!(
+            errors.iter().all(|e| *e <= tolerance),
+            "PR {order} implicit equations exceed production backward budget {tolerance}: {errors:?}"
+        );
+    }
+    RootEvidence {
+        provider: root.spec.id,
+        unknowns: root.unknowns.clone(),
+        rows: root.rows.clone(),
+        parameters: root.spec.inputs.iter().map(|p| p.id).collect(),
+        inputs: jet.inputs.clone(),
+        point: jet.values.values.clone(),
+        physical_variable_allowances: options.variable_tolerance.clone(),
+        physical_row_allowances: options.residual_tolerance.clone(),
+        residuals: primitive.values.clone(),
+        first_backward_errors: first,
+        second_backward_errors: second,
+        jacobian: jet.values.jacobian.clone(),
+        hessians: jet.values.hessians.clone(),
+    }
+}
+
+fn path_symbol(
+    expression: &pse_authoring::dsl::Expr,
+    names: &BTreeMap<String, SemanticId>,
+) -> SemanticId {
+    let pse_authoring::dsl::ExprKind::Path(path) = &expression.kind else {
+        panic!("original selected-root links require direct authored aliases");
+    };
+    assert_eq!(path.segments.len(), 1);
+    assert!(path.segments[0].indices.is_empty());
+    names[&path.segments[0].name]
 }
 
 #[expect(
     clippy::print_stderr,
-    reason = "bounded named native diagnostic evidence accompanies assertions"
+    reason = "bounded named native diagnostic evidence"
 )]
 fn describe(sample: &Sample, artifact: &Path) {
     eprintln!(
-        "original PR Jacobian: {}x{}, stable strong={}, disagreements={}, noisy={}, rank={}, cutoff={:.3e}, elapsed={:.1}s, worker_bytes={}, raw artifact={}",
+        "original PR production-basis conditions: {}x{} at authored outer start; {} accepted inner roots, {} original links; backward budget={}, elapsed={:.1}s, worker_bytes={}, raw artifact={}",
         sample.rows.len(),
         sample.columns.len(),
-        sample.stable_strong,
-        sample.disagreements,
-        sample.noisy,
-        sample.rank,
-        sample.rank_cutoff,
+        sample.roots.len(),
+        sample.selected_root_links.len(),
+        sample.linear_backward_error,
         sample.elapsed_seconds,
         sample.worker_bytes,
         artifact.display()
     );
-    eprintln!(
-        "selected-root Jacobian coverage: source_rows={:?}, stable strong closure-input cells={}",
-        sample.selected_root_rows, sample.selected_root_stable_strong
-    );
-    let mut worst = sample
-        .cells
-        .iter()
-        .filter(|c| c.strong || !c.stable)
-        .collect::<Vec<_>>();
-    worst.sort_by(|a, b| b.normalized_error.total_cmp(&a.normalized_error));
-    for cell in worst.into_iter().take(20) {
-        let row = &sample.rows[cell.row];
-        let column = &sample.columns[cell.column];
-        eprintln!(
-            "row={} {} source={:?}; column={} {} source={:?}; F={:.9e} x={:.9e} h={:.3e} J={:.9e} FDh={:.9e} FDh2={:.9e} scaled_error={:.3e} scaled_drift={:.3e} stable={} strong={} allowance={:.3e}",
-            row.member.id,
-            row.member.path,
-            row.member.declaration,
-            column.member.id,
-            column.member.path,
-            column.member.declaration,
-            row.initial,
-            column.initial,
-            column.step,
-            cell.analytic,
-            cell.difference,
-            cell.half_difference,
-            cell.normalized_error,
-            cell.normalized_drift,
-            cell.stable,
-            cell.strong,
-            cell.permitted_error
-        );
-    }
-    for hessian in &sample.hessians {
-        eprintln!(
-            "weighted Hessian {}: source_rows={:?}, stable strong={}, disagreements={}, noisy={}",
-            hessian.name,
-            hessian.source_rows,
-            hessian.stable_strong,
-            hessian.disagreements,
-            hessian.noisy
-        );
-        let mut worst = hessian
-            .cells
-            .iter()
-            .filter(|c| c.strong || !c.stable)
-            .collect::<Vec<_>>();
-        worst.sort_by(|a, b| b.normalized_error.total_cmp(&a.normalized_error));
-        for cell in worst.into_iter().take(20) {
-            let row = &sample.columns[cell.row];
-            let column = &sample.columns[cell.column];
-            eprintln!(
-                "H {}: coordinate={} {} source={:?}; coordinate={} {} source={:?}; h={:.3e} H={:.9e} FDh={:.9e} FDh2={:.9e} scaled_error={:.3e} scaled_drift={:.3e} stable={} strong={} allowance={:.3e}",
-                hessian.name,
-                row.member.id,
-                row.member.path,
-                row.member.declaration,
-                column.member.id,
-                column.member.path,
-                column.member.declaration,
-                column.step,
-                cell.analytic,
-                cell.difference,
-                cell.half_difference,
-                cell.normalized_error,
-                cell.normalized_drift,
-                cell.stable,
-                cell.strong,
-                cell.permitted_error
-            );
-        }
-    }
 }
 
 #[tokio::test]
-async fn original_pr_case_jacobian_matches_stable_value_differences() -> TestResult<()> {
+async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> TestResult<()> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/reference");
     let manifest: Manifest =
         toml::from_str(&std::fs::read_to_string(root.join("conformance.toml"))?)?;
@@ -623,378 +742,417 @@ async fn original_pr_case_jacobian_matches_stable_value_differences() -> TestRes
         );
     }
     let normalization = Normalization::from_policy(&resolved.numerics, &column_ids, &row_ids)?;
+    let numerics = resolved.numerics.clone();
+    let backward_budget = numerics.policy.linear_backward_error;
+    let two_phase = DeclarationId::from(SemanticId::parse_hex("01a0eeced80374ab83c081e54c29cda5")?);
+    let fraction_declaration =
+        DeclarationId::from(SemanticId::parse_hex("01a0eeced80374ab83c081db14994aa2")?);
+    let mut roots = Vec::new();
+    for inner in resolved.model.model.compiled().implicit_order()? {
+        let alternatives = inner
+            .residuals
+            .iter()
+            .filter(|residual| {
+                model
+                    .regimes
+                    .values()
+                    .flat_map(|selection| &selection.alternatives)
+                    .any(|regime| regime.id == residual.id && regime.declaration == two_phase)
+            })
+            .collect::<Vec<_>>();
+        if alternatives.is_empty() {
+            continue;
+        }
+        assert_eq!(
+            alternatives.len(),
+            1,
+            "one authored PR two-phase regime per selector"
+        );
+        let residual = alternatives[0];
+        let key = inner.descriptor.spec().key();
+        let registration = resolved
+            .providers
+            .get(&key)
+            .ok_or_else(|| std::io::Error::other("actual PR provider registration absent"))?;
+        let source = registration
+            .source::<pse_math::implicit::reconstruction::ReconstructionFactory>()
+            .ok_or_else(|| {
+                std::io::Error::other(
+                    "actual PR factory source unavailable for production configuration",
+                )
+            })?;
+        let ImplicitFactory::Regimes(factory) = source.factory() else {
+            return Err(std::io::Error::other("authored PR regime factory required").into());
+        };
+        let branch = factory
+            .alternatives
+            .iter()
+            .find(|branch| branch.residual.spec.id == residual.id)
+            .ok_or_else(|| std::io::Error::other("actual authored two-phase factory absent"))?;
+        assert_eq!(branch.residual.rows, residual.rows);
+        assert_eq!(
+            inner.unknowns,
+            registration
+                .spec()
+                .outputs
+                .iter()
+                .map(|p| p.id)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            branch
+                .residual
+                .unknowns
+                .iter()
+                .map(|u| u.id)
+                .collect::<Vec<_>>(),
+            inner.unknowns
+        );
+        let fraction = inner
+            .unknowns
+            .iter()
+            .position(|id| model.symbols[id].lineage.declaration == fraction_declaration)
+            .ok_or_else(|| std::io::Error::other("authored PR phase fraction absent"))?;
+        let assessment = residual
+            .assessment
+            .as_ref()
+            .ok_or_else(|| std::io::Error::other("authored PR two-phase eligibility absent"))?;
+        roots.push(RootCase {
+            key,
+            spec: registration.spec().clone(),
+            unknowns: inner.unknowns.clone(),
+            rows: residual.rows.clone(),
+            residual: residual.body.math().clone(),
+            eligibility: assessment.eligibility.math().clone(),
+            factory: branch.residual.clone(),
+            fraction,
+        });
+    }
+    assert_eq!(roots.len(), 2, "original inlet and outlet PR selectors");
+    for root in &roots {
+        assert_eq!((root.unknowns.len(), root.spec.inputs.len()), (7, 4));
+        for port in &root.spec.inputs {
+            assert!(
+                column_ids.contains(&port.id),
+                "original physical provider input must retain its column identity"
+            );
+            assert!(resolved.model.values.scalars[&port.id].is_finite());
+        }
+    }
+    let names = model
+        .symbols
+        .keys()
+        .map(|id| (pse_modeling::specialize::symbol_name(*id), *id))
+        .collect::<BTreeMap<_, _>>();
+    let mut links = Vec::new();
+    for (row, member) in row_members
+        .iter()
+        .enumerate()
+        .filter(|(_, m)| selected_root_source(m))
+    {
+        let equation = &model
+            .equations
+            .iter()
+            .find(|e| e.id == member.id)
+            .ok_or_else(|| std::io::Error::other("original selected-root equation absent"))?
+            .equation;
+        let pse_authoring::dsl::EquationKind::Relation {
+            lhs,
+            sense: pse_authoring::dsl::EquationSense::Eq,
+            rhs,
+        } = &equation.kind
+        else {
+            return Err(std::io::Error::other("original selected-root equality required").into());
+        };
+        let lhs = path_symbol(lhs, &names);
+        let mut rhs = path_symbol(rhs, &names);
+        let mut visited = BTreeSet::new();
+        while !roots.iter().any(|root| root.unknowns.contains(&rhs)) {
+            assert!(visited.insert(rhs), "selected-root alias cycle");
+            rhs = path_symbol(
+                model.symbols[&rhs].expression.as_ref().ok_or_else(|| {
+                    std::io::Error::other("selected-root direct alias unavailable")
+                })?,
+                &names,
+            );
+        }
+        let root = roots
+            .iter()
+            .find(|root| root.unknowns.contains(&rhs))
+            .unwrap();
+        // The admitted fixture uses canonical direct link contributions. Verify that
+        // exact interpretation before independently composing the provider derivatives.
+        let contributions = plan
+            .structure()
+            .instances()
+            .iter()
+            .flat_map(|binding| {
+                binding
+                    .contributions
+                    .iter()
+                    .filter(move |c| c.target == pse_math::binding::Target::Row(member.id))
+                    .map(move |c| (binding, c))
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(contributions.len(), 1);
+        let (binding, contribution) = contributions[0];
+        assert_eq!(contribution.scale, 1.);
+        for slot in &binding.slots {
+            assert_eq!(
+                (slot.scale(), slot.offset()),
+                (1., 0.),
+                "canonical original PR link inputs"
+            );
+        }
+        links.push(RootLink {
+            row,
+            identity_column: column_ids
+                .iter()
+                .position(|id| *id == lhs)
+                .ok_or_else(|| std::io::Error::other("original link identity coordinate absent"))?,
+            provider: root.spec.id,
+            output: root.unknowns.iter().position(|id| *id == rhs).unwrap(),
+            input_columns: root
+                .spec
+                .inputs
+                .iter()
+                .map(|p| column_ids.iter().position(|id| *id == p.id).unwrap())
+                .collect(),
+        });
+    }
+    assert_eq!(links.len(), 10, "two original five-row nested root links");
+    assert_eq!(
+        links
+            .iter()
+            .map(|link| row_members[link.row].declaration.unwrap())
+            .collect::<BTreeSet<_>>()
+            .len(),
+        3
+    );
+    for root in &roots {
+        assert_eq!(
+            links
+                .iter()
+                .filter(|link| link.provider == root.spec.id)
+                .count(),
+            5
+        );
+    }
+    let composition_axes = roots
+        .iter()
+        .map(|root| {
+            root.spec
+                .inputs
+                .iter()
+                .enumerate()
+                .filter_map(|(i, p)| {
+                    model.symbols[&p.id]
+                        .lineage
+                        .path
+                        .ends_with(".z")
+                        .then_some(i)
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    for axes in &composition_axes {
+        assert_eq!(axes.len(), 2);
+    }
     let base = resolved.model.values.clone();
     let controls = resolved.solver.controls.clone();
     let service = package.runtime.shared.math();
     let executable = service.assemble(resolved.model.case.clone()).await?;
     let worker_allowance = package.runtime.shared.budget().math.worker_bytes;
-    // The native source/workspace leases are retained by registrations. This job owns
-    // one numeric worker and the bounded matrix inspection, never one worker per column.
-    // Three full derivative comparisons retain 43,200 classified cells and nine
-    // 120x120 arrays, alongside the bounded SVD workspace and original identity maps.
+    // One ordinary assembly worker, two observed root jets, primitive programs and
+    // three raw 120x120 matrices are bounded by the deployment's numeric allowance.
+    // This is no longer a 43,200-cell finite-difference qualification campaign.
     let diagnostic_bytes = 8 << 20;
-    let _diagnostic_owner = service.reserve("math:pr-jacobian-diagnostic", diagnostic_bytes)?;
+    let _diagnostic_owner =
+        service.reserve("math:pr-production-basis-diagnostic", diagnostic_bytes)?;
     let budget = WorkerBudget::new(worker_allowance);
     let job_service = service.clone();
-    let providers = resolved.providers;
-    let sample = service
-        .job(
-            1,
-            worker_allowance,
-            FlightCancellation::default(),
-            move |flag| {
-                let execution = Execution::new(flag.clone(), &controls);
-                let scope = execution.scope()?;
-                let checkpoint = || {
-                    scope
-                        .check()
-                        .map_err(pse_backend_native::ProblemError::Provider)
-                };
-                let mut owned =
-                    job_service.worker(executable, &providers, scope.clone(), &budget)?;
-                let worker = owned.worker();
-                let worker_bytes = worker.assembly().numeric_worker_bytes();
-                // First binds each mathematical selector before perturbed Value calls.
-                let matrix = worker.jacobian(&base)?;
-                checkpoint()?;
-                let mut analytic = vec![0.; DIMENSION * DIMENSION];
-                for column in 0..DIMENSION {
-                    for (row, value) in matrix.row_idx_of_col(column).zip(matrix.val_of_col(column))
-                    {
-                        analytic[row * DIMENSION + column] = *value;
+    let original_providers = resolved.providers;
+    let sample = service.job(1, worker_allowance, FlightCancellation::default(), move |flag| {
+        let execution = Execution::new(flag.clone(), &controls);
+        let scope = execution.scope()?;
+        let checkpoint = || scope.check().map_err(pse_backend_native::ProblemError::Provider);
+        let observations: Observations = Arc::new(Mutex::new(BTreeMap::new()));
+        let mut providers = original_providers.clone();
+        for root in &roots {
+            let original = original_providers[&root.key].clone();
+            // Registration already frames a declared envelope into its configuration
+            // key. These actual implicit factories declare none, so delegation is exact.
+            assert!(original.envelope().is_none());
+            let observed = Registration::bind(original.descriptor(), Arc::new(ObservedFactory {
+                original: original.clone(), observations: observations.clone(), scope: scope.clone(), source_key: root.key,
+            })).map_err(pse_backend_native::ProblemError::Provider)?;
+            assert_eq!(observed.spec(), original.spec());
+            assert_eq!(observed.configuration_key(), original.configuration_key());
+            providers.insert(root.key, observed);
+        }
+        let mut owned = job_service.worker(executable, &providers, scope.clone(), &budget)?;
+        let worker = owned.worker();
+        let worker_bytes = worker.assembly().numeric_worker_bytes();
+        let matrix = worker.jacobian(&base)?;
+        let mut analytic = vec![0.; DIMENSION*DIMENSION];
+        for column in 0..DIMENSION {
+            for (row,value) in matrix.row_idx_of_col(column).zip(matrix.val_of_col(column)) {
+                analytic[row*DIMENSION+column] = *value;
+            }
+        }
+        let evidence = analyze_matrix::<GlobalRow, GlobalCol>(matrix.as_ref(),
+            &normalization.rows.iter().map(|v|1./v).collect::<Vec<_>>(),
+            &normalization.variables.iter().map(|v|1./v).collect::<Vec<_>>(),
+            MatrixPolicy { dense_entries: 3*DIMENSION*DIMENSION, findings: DIMENSION*DIMENSION,
+                // Rank interpretation is separate from physical convergence accuracy.
+                parallel_tolerance: 1e-8, rank_absolute: 1e-12, rank_relative: 1e-8, singular_vector: 0.1 }, &flag)?;
+        checkpoint()?;
+        let initial = worker.constraints(&base)?;
+        assert_eq!(initial.len(), DIMENSION);
+        let all_weights = normalization.rows.iter().enumerate()
+            .map(|(row,nominal)| (1.+(row+1) as f64/(DIMENSION+1) as f64)/nominal).collect::<Vec<_>>();
+        let root_weights = all_weights.iter().enumerate().map(|(row,w)|
+            if links.iter().any(|link|link.row == row) { *w } else { 0. }).collect::<Vec<_>>();
+        let mut hessians = Vec::new();
+        for weights in [&all_weights, &root_weights] {
+            checkpoint()?;
+            let matrix = worker.hessian(&base, 0., weights)?;
+            let mut full = vec![0.; DIMENSION*DIMENSION];
+            for column in 0..DIMENSION {
+                for (row,value) in matrix.row_idx_of_col(column).zip(matrix.val_of_col(column)) {
+                    full[row*DIMENSION+column] = *value;
+                    full[column*DIMENSION+row] = *value;
+                }
+            }
+            assert!(full.iter().all(|v|v.is_finite()));
+            hessians.push(full);
+        }
+        let jets = observations.lock().map_err(|_| pse_math::MathError::Contract("PR observation lock poisoned".into()))?.clone();
+        assert_eq!(jets.len(), 2);
+        let mut root_evidence = Vec::new();
+        let mut compiled_bytes = 0;
+        let mut material_response = None;
+        for (index, root) in roots.iter().enumerate() {
+            checkpoint()?;
+            let jet = &jets[&root.key];
+            assert_eq!(jet.inputs, root.spec.inputs.iter().map(|p|base.scalars[&p.id]).collect::<Vec<_>>());
+            let (residual, eligibility) = primitive(root, &scope, diagnostic_bytes)?;
+            let bytes = residual.retained_bytes()+residual.worker_bytes()+eligibility.retained_bytes()+eligibility.worker_bytes();
+            compiled_bytes += bytes;
+            assert!(compiled_bytes <= diagnostic_bytes, "bounded primitive diagnostic storage");
+            let _primitive_owner = job_service.reserve("math:pr-primitive-conditions", bytes)?;
+            let options = production_options(root, &jet.inputs, &scope)?;
+            let actual = qualified_point(root, &residual, &eligibility, &jet.inputs,
+                &jet.values.values, &options, DerivativeOrder::Second, &scope)?;
+            root_evidence.push(root_conditions(root, jet, &actual, &options, backward_budget));
+            if index == 0 {
+                // One material physical composition change, keeping total composition
+                // fixed, replaces hundreds of sub-budget perturbed nested evaluations.
+                let axes = &composition_axes[index];
+                let input_budget = axes.iter().map(|&axis| crate::workflow::tests::engineering_target(
+                    &numerics, pse_relations::generated::enums::NumericalTarget::Variable,
+                    root.spec.inputs[axis].id).budget).fold(f64::INFINITY, f64::min);
+                let step = 10.*input_budget;
+                let mut changed = jet.inputs.clone();
+                changed[axes[0]] += step;
+                changed[axes[1]] -= step;
+                for &axis in axes {
+                    let (lower,upper) = bounds[&root.spec.inputs[axis].id];
+                    assert!(changed[axis] >= lower && changed[axis] <= upper);
+                    assert!(changed[axis] > 0. && changed[axis] < 1.);
+                }
+                let mut supplier = original_providers[&root.key].worker_scoped(scope.clone())
+                    .map_err(pse_backend_native::ProblemError::Provider)?;
+                let request = ProviderRequest::all(&root.spec, DerivativeOrder::Value);
+                let context = EvaluationContext { cancelled: &flag, max_result_bytes: diagnostic_bytes };
+                let changed_values = supplier.evaluate(&changed, &request, &context)
+                    .map_err(pse_backend_native::ProblemError::Provider)?;
+                changed_values.validate(&root.spec, &request)
+                    .map_err(pse_backend_native::ProblemError::Provider)?;
+                let changed_options = production_options(root, &changed, &scope)?;
+                qualified_point(root, &residual, &eligibility, &changed, &changed_values.values,
+                    &changed_options, DerivativeOrder::Value, &scope)?;
+                let delta = changed.iter().zip(&jet.inputs).map(|(a,b)|a-b).collect::<Vec<_>>();
+                let observed = changed_values.values.iter().zip(&jet.values.values).map(|(a,b)|a-b).collect::<Vec<_>>();
+                let predicted = (0..root.unknowns.len()).map(|y| delta.iter().enumerate()
+                    .map(|(a,d)|jet.values.jacobian[y*delta.len()+a]*d).sum::<f64>()).collect::<Vec<_>>();
+                let allowances = options.variable_tolerance.iter().zip(&changed_options.variable_tolerance)
+                    .map(|(a,b)|a+b).collect::<Vec<_>>();
+                assert!(observed[root.fraction].abs() > allowances[root.fraction],
+                    "composition response must be resolved beyond production accuracy");
+                // Empirical response at this step; this is neither a certified Taylor
+                // remainder nor a claim that a First action enclosure certifies Second.
+                for y in 0..root.unknowns.len() {
+                    assert!((observed[y]-predicted[y]).abs() <= allowances[y],
+                        "material PR response {} exceeds actual physical production budgets", root.unknowns[y]);
+                }
+                material_response = Some(MaterialResponse { provider: root.spec.id,
+                    input_delta: delta, observed, predicted, allowances });
+            }
+        }
+        let mut expected_hessian = vec![0.; DIMENSION*DIMENSION];
+        let mut absolute_hessian_terms = expected_hessian.clone();
+        for link in &links {
+            let root = roots.iter().find(|root|root.spec.id == link.provider).unwrap();
+            let jet = &jets[&root.key];
+            let n = root.spec.inputs.len();
+            let lhs = base.scalars[&column_ids[link.identity_column]];
+            let rhs = jet.values.values[link.output];
+            assert!(backward_error(initial[link.row], lhs-rhs, lhs.abs()+rhs.abs()) <= backward_budget);
+            for column in 0..DIMENSION {
+                let mut expected: f64 = if column == link.identity_column { 1. } else { 0. };
+                let mut magnitude = expected.abs();
+                for (axis,&input_column) in link.input_columns.iter().enumerate() {
+                    if column == input_column {
+                        let term = jet.values.jacobian[link.output*n+axis];
+                        expected -= term;
+                        magnitude += term.abs();
                     }
                 }
-                let row_scales = normalization
-                    .rows
-                    .iter()
-                    .map(|v| 1. / v)
-                    .collect::<Vec<_>>();
-                let column_scales = normalization
-                    .variables
-                    .iter()
-                    .map(|v| 1. / v)
-                    .collect::<Vec<_>>();
-                let evidence = analyze_matrix::<GlobalRow, GlobalCol>(
-                    matrix.as_ref(),
-                    &row_scales,
-                    &column_scales,
-                    MatrixPolicy {
-                        dense_entries: 3 * DIMENSION * DIMENSION,
-                        findings: DIMENSION * DIMENSION,
-                        parallel_tolerance: 1e-8,
-                        rank_absolute: 1e-12,
-                        rank_relative: 1e-8,
-                        singular_vector: 0.1,
-                    },
-                    &flag,
-                )?;
-                checkpoint()?;
-                let initial = worker.constraints(&base)?;
-                assert_eq!(initial.len(), DIMENSION);
-                let selected_root_rows = row_members
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, member)| selected_root_source(member).then_some(i))
-                    .collect::<Vec<_>>();
-                assert_eq!(
-                    selected_root_rows.len(),
-                    10,
-                    "two original five-row nested root links"
-                );
-                let rows: Vec<Row> = row_members
-                    .into_iter()
-                    .enumerate()
-                    .map(|(i, member)| Row {
-                        member,
-                        initial: initial[i],
-                        nominal: normalization.rows[i],
-                    })
-                    .collect();
-                // Nonuniform positive weights make each normalized constraint contribute
-                // differently; the second comparison isolates the original selected-root links.
-                let all_weights = normalization
-                    .rows
-                    .iter()
-                    .enumerate()
-                    .map(|(row, nominal)| {
-                        (1. + (row + 1) as f64 / (DIMENSION + 1) as f64) / nominal
-                    })
-                    .collect::<Vec<_>>();
-                let root_weights = all_weights
-                    .iter()
-                    .enumerate()
-                    .map(|(row, weight)| {
-                        if selected_root_rows.contains(&row) {
-                            *weight
-                        } else {
-                            0.
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                let weights = vec![all_weights, root_weights];
-                let initial_gradients = weighted_gradients(worker, &base, &weights)?;
-                let mut hessians = Vec::with_capacity(weights.len());
-                for (group, weights) in weights.iter().enumerate() {
-                    checkpoint()?;
-                    let matrix = worker.hessian(&base, 0., weights)?;
-                    let mut full = vec![0.; DIMENSION * DIMENSION];
-                    for column in 0..DIMENSION {
-                        for (row, value) in
-                            matrix.row_idx_of_col(column).zip(matrix.val_of_col(column))
-                        {
-                            full[row * DIMENSION + column] = *value;
-                            full[column * DIMENSION + row] = *value;
-                        }
-                    }
-                    hessians.push(HessianSample {
-                        name: if group == 0 {
-                            "all_original_rows"
-                        } else {
-                            "selected_root_links"
-                        },
-                        source_rows: if group == 0 {
-                            (0..DIMENSION).collect()
-                        } else {
-                            selected_root_rows.clone()
-                        },
-                        weights: weights.clone(),
-                        gradient: initial_gradients[group].clone(),
-                        analytic: full,
-                        difference: vec![0.; DIMENSION * DIMENSION],
-                        half_difference: vec![0.; DIMENSION * DIMENSION],
-                        cells: vec![],
-                        stable_strong: 0,
-                        disagreements: 0,
-                        noisy: 0,
-                    });
+                assert!(backward_error(analytic[link.row*DIMENSION+column], expected, magnitude) <= backward_budget,
+                    "original PR link Jacobian row {} column {}", row_ids[link.row], column_ids[column]);
+            }
+            for (a,&column_a) in link.input_columns.iter().enumerate() {
+                for (b,&column_b) in link.input_columns.iter().enumerate() {
+                    let term = -root_weights[link.row]*jet.values.hessians[link.output*n*n+a*n+b];
+                    let entry = column_a*DIMENSION+column_b;
+                    expected_hessian[entry] += term;
+                    absolute_hessian_terms[entry] += term.abs();
                 }
-                checkpoint()?;
-                let mut columns = Vec::with_capacity(DIMENSION);
-                let mut full_difference = vec![0.; analytic.len()];
-                let mut half_difference = full_difference.clone();
-                for (column, member) in column_members.into_iter().enumerate() {
-                    checkpoint()?;
-                    let x = base.scalars[&member.id];
-                    let (lower, upper) = bounds[&member.id];
-                    assert!(
-                        lower <= x && x <= upper,
-                        "original start {} outside bounds",
-                        member.path
-                    );
-                    let selected_root_input = selected_root_rows
-                        .iter()
-                        .any(|row| selected_root_input(&rows[*row].member, &member));
-                    // Central differences balance O(h^2) truncation against O(epsilon/h)
-                    // roundoff at cbrt(epsilon). Tiny steps can leave weighted-gradient changes
-                    // only a few ULPs above a large affine baseline; even equal h/h2 estimates
-                    // then fail to establish resolution. Actual selector inputs retain the
-                    // smaller step inside the observed 1e-8 relative certified chart; all other
-                    // coordinates leave those inputs unchanged. Chart validation still governs
-                    // every perturbed evaluation, including any narrower chart in this fixture.
-                    let relative_step = if selected_root_input {
-                        RELATIVE_STEP
-                    } else {
-                        f64::EPSILON.cbrt()
-                    };
-                    let magnitude = relative_step * x.abs().max(1.);
-                    let central = x - magnitude >= lower && x + magnitude <= upper;
-                    let step = if x + magnitude <= upper {
-                        magnitude
-                    } else {
-                        -magnitude
-                    };
-                    assert!(
-                        x + step >= lower && x + step <= upper && x + step != x,
-                        "no legal representable FD direction for {}",
-                        member.path
-                    );
-                    let coarse = difference(worker, &base, &initial, member.id, step, central)?;
-                    let fine = difference(worker, &base, &initial, member.id, step / 2., central)?;
-                    for row in 0..DIMENSION {
-                        full_difference[row * DIMENSION + column] = coarse[row];
-                        half_difference[row * DIMENSION + column] = fine[row];
-                    }
-                    let coarse_gradients =
-                        gradient_difference(worker, &base, &weights, member.id, step, central)?;
-                    let fine_gradients = gradient_difference(
-                        worker,
-                        &base,
-                        &weights,
-                        member.id,
-                        step / 2.,
-                        central,
-                    )?;
-                    for (group, hessian) in hessians.iter_mut().enumerate() {
-                        for row in 0..DIMENSION {
-                            hessian.difference[row * DIMENSION + column] =
-                                coarse_gradients[group][row];
-                            hessian.half_difference[row * DIMENSION + column] =
-                                fine_gradients[group][row];
-                        }
-                    }
-                    columns.push(Column {
-                        member,
-                        initial: x,
-                        nominal: normalization.variables[column],
-                        step,
-                        central,
-                        selected_root_input,
-                    });
-                }
-                checkpoint()?;
-                let mut cells = Vec::with_capacity(analytic.len());
-                let (mut stable_strong, mut disagreements, mut noisy) = (0, 0, 0);
-                for row in 0..DIMENSION {
-                    for column in 0..DIMENSION {
-                        let index = row * DIMENSION + column;
-                        let scale = normalization.variables[column] / normalization.rows[row];
-                        let a = analytic[index] * scale;
-                        let coarse = full_difference[index] * scale;
-                        let fine = half_difference[index] * scale;
-                        assert!(a.is_finite() && coarse.is_finite() && fine.is_finite());
-                        let drift = (coarse - fine).abs();
-                        let stable = drift
-                            <= STABLE_ABSOLUTE + STABLE_RELATIVE * coarse.abs().max(fine.abs());
-                        let strong = a.abs().max(fine.abs()) >= STRONG;
-                        let error = (a - fine).abs();
-                        let permitted = AGREEMENT_ABSOLUTE
-                            + AGREEMENT_RELATIVE * a.abs().max(fine.abs())
-                            + 4. * drift;
-                        stable_strong += usize::from(stable && strong);
-                        disagreements += usize::from(stable && strong && error > permitted);
-                        noisy += usize::from(!stable);
-                        cells.push(Cell {
-                            row,
-                            column,
-                            analytic: analytic[index],
-                            difference: full_difference[index],
-                            half_difference: half_difference[index],
-                            normalized_error: error,
-                            normalized_drift: drift,
-                            stable,
-                            strong,
-                            permitted_error: permitted,
-                        });
-                    }
-                }
-                let selected_root_stable_strong = cells
-                    .iter()
-                    .filter(|cell| {
-                        cell.stable
-                            && cell.strong
-                            && selected_root_source(&rows[cell.row].member)
-                            && selected_root_input(
-                                &rows[cell.row].member,
-                                &columns[cell.column].member,
-                            )
-                    })
-                    .count();
-                for hessian in &mut hessians {
-                    hessian.cells = Vec::with_capacity(analytic.len());
-                    for row in 0..DIMENSION {
-                        for column in 0..DIMENSION {
-                            let index = row * DIMENSION + column;
-                            let scale =
-                                normalization.variables[row] * normalization.variables[column];
-                            let a = hessian.analytic[index] * scale;
-                            let coarse = hessian.difference[index] * scale;
-                            let fine = hessian.half_difference[index] * scale;
-                            assert!(a.is_finite() && coarse.is_finite() && fine.is_finite());
-                            let drift = (coarse - fine).abs();
-                            let stable = drift
-                                <= STABLE_ABSOLUTE + STABLE_RELATIVE * coarse.abs().max(fine.abs());
-                            let strong = a.abs().max(fine.abs()) >= STRONG;
-                            let error = (a - fine).abs();
-                            let permitted = AGREEMENT_ABSOLUTE
-                                + AGREEMENT_RELATIVE * a.abs().max(fine.abs())
-                                + 4. * drift;
-                            hessian.stable_strong += usize::from(stable && strong);
-                            hessian.disagreements +=
-                                usize::from(stable && strong && error > permitted);
-                            hessian.noisy += usize::from(!stable);
-                            hessian.cells.push(Cell {
-                                row,
-                                column,
-                                analytic: hessian.analytic[index],
-                                difference: hessian.difference[index],
-                                half_difference: hessian.half_difference[index],
-                                normalized_error: error,
-                                normalized_drift: drift,
-                                stable,
-                                strong,
-                                permitted_error: permitted,
-                            });
-                        }
-                    }
-                }
-                checkpoint()?;
-                Ok(Sample {
-                    fixture,
-                    rows,
-                    columns,
-                    analytic,
-                    difference: full_difference,
-                    half_difference,
-                    cells,
-                    stable_strong,
-                    disagreements,
-                    noisy,
-                    selected_root_rows,
-                    selected_root_stable_strong,
-                    hessians,
-                    rank: evidence.rank,
-                    rank_cutoff: evidence.cutoff,
-                    singular_values: evidence.modes.into_iter().map(|m| m.value).collect(),
-                    row_norms: evidence.row_norms,
-                    column_norms: evidence.column_norms,
-                    worker_bytes,
-                    elapsed_seconds: execution.started.elapsed().as_secs_f64(),
-                })
-            },
-        )
-        .await?;
-    // Retain complete raw matrices and original identity maps for diagnosis without
-    // flooding native test output with 14,400 entries.
+            }
+        }
+        for entry in 0..expected_hessian.len() {
+            assert!(backward_error(hessians[1][entry], expected_hessian[entry], absolute_hessian_terms[entry]) <= backward_budget,
+                "original PR selected-root weighted Hessian entry {entry}");
+        }
+        checkpoint()?;
+        Ok(Sample {
+            fixture,
+            rows: row_members.into_iter().enumerate().map(|(i,member)| Coordinate {
+                member, initial: initial[i], nominal: normalization.rows[i] }).collect(),
+            columns: column_members.into_iter().enumerate().map(|(i,member)| Coordinate {
+                initial: base.scalars[&member.id], member, nominal: normalization.variables[i] }).collect(),
+            analytic, all_original_weighted_hessian: hessians.remove(0),
+            selected_root_weighted_hessian: hessians.remove(0), selected_root_weights: root_weights,
+            selected_root_links: links, roots: root_evidence, material_response: material_response.unwrap(),
+            linear_backward_error: backward_budget, supplier_action_accuracy: numerics.policy.supplier_action_accuracy, rank: evidence.rank, rank_cutoff: evidence.cutoff,
+            singular_values: evidence.modes.into_iter().map(|m|m.value).collect(),
+            worker_bytes, elapsed_seconds: execution.started.elapsed().as_secs_f64(),
+        })
+    }).await?;
     let mut artifact = tempfile::Builder::new()
-        .prefix("pse-original-pr-jacobian-")
+        .prefix("pse-original-pr-production-basis-")
         .suffix(".json")
         .tempfile()?;
     serde_json::to_writer(artifact.as_file_mut(), &sample)?;
     let (_file, artifact_path) = artifact.keep()?;
     describe(&sample, &artifact_path);
-    assert_eq!(sample.cells.len(), DIMENSION * DIMENSION);
-    assert!(
-        sample.stable_strong >= DIMENSION,
-        "too few stable strong derivatives: {}; raw diagnostic {}",
-        sample.stable_strong,
-        artifact_path.display()
-    );
-    assert_eq!(
-        sample.disagreements,
-        0,
-        "stable strong analytic/Value disagreements; raw diagnostic {}",
-        artifact_path.display()
-    );
-    assert!(
-        sample.selected_root_stable_strong > 0,
-        "no stable strong selected-root closure-input Jacobian cells; raw diagnostic {}",
-        artifact_path.display()
-    );
-    for hessian in &sample.hessians {
-        assert_eq!(hessian.cells.len(), DIMENSION * DIMENSION);
-        assert!(
-            hessian.stable_strong > 0,
-            "no stable material Hessian subset for {}; raw diagnostic {}",
-            hessian.name,
-            artifact_path.display()
-        );
-        assert_eq!(
-            hessian.disagreements,
-            0,
-            "stable strong Hessian/Jacobian-FD disagreements for {}; raw diagnostic {}",
-            hessian.name,
-            artifact_path.display()
-        );
+    assert_eq!(sample.analytic.len(), DIMENSION * DIMENSION);
+    assert_eq!(sample.selected_root_links.len(), 10);
+    assert_eq!(sample.roots.len(), 2);
+    for root in &sample.roots {
+        assert_eq!(root.first_backward_errors.len(), 7 * 4);
+        assert_eq!(root.second_backward_errors.len(), 7 * 4 * 4);
     }
     Ok(())
 }

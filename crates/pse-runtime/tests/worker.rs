@@ -570,7 +570,7 @@ async fn assert_value(local: &Runtime, run: &str, attempt: &str, wanted: f64) {
         .sessions()
         .validation_context(local.registry())
         .unwrap();
-    let mut found = false;
+    let mut variables = 0;
     while let Some(batch) = stream.next_batch().await.unwrap() {
         let view =
             pse_relations::generated::runtime::solve_variables::View::try_from_batch_with_registry(
@@ -580,10 +580,26 @@ async fn assert_value(local: &Runtime, run: &str, attempt: &str, wanted: f64) {
             )
             .unwrap();
         for row in view.rows().unwrap() {
-            found |= row.value.is_some_and(|value| (value - wanted).abs() < 1e-8);
+            if !row.parameter && !row.fixed {
+                assert_eq!(row.step, 0);
+                let value = row.value.expect("retained original variable value");
+                let allowance = row
+                    .tolerance
+                    .expect("published production variable allowance");
+                assert!(allowance.is_finite() && allowance > 0.);
+                assert!(
+                    (value - wanted).abs() <= allowance,
+                    "original variable {}: {value}, expected {wanted}, allowance {allowance}",
+                    row.symbol_id
+                );
+                variables += 1;
+            }
         }
     }
-    assert!(found, "original variable result {wanted} was absent");
+    assert_eq!(
+        variables, 1,
+        "one original free scalar variable, excluding fixed parameters"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

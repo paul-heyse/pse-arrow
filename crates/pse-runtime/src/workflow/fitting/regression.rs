@@ -189,9 +189,6 @@ pub(in crate::workflow) fn report(result: &RunResult) -> &FitReport {
     assert_eq!(final_row.factorizations, None);
     report
 }
-pub(in crate::workflow) fn close(actual: f64, expected: f64, relative: f64) -> bool {
-    (actual - expected).abs() <= relative * (1.0 + expected.abs())
-}
 /// The fit's validity rows by quantity.
 pub(in crate::workflow) fn validity(result: &RunResult) -> Vec<local_validity::Row> {
     local_validity::Row::rows(&result.table("runtime.local_validity").unwrap()).unwrap()

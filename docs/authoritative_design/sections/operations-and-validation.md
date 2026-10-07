@@ -27,7 +27,6 @@ computation can never change its scientific or publication outcome
 |---|---|
 | `pse-compiler::workspace` | `pse.case.definition_admission`, `pse.case.structural_analysis`, `pse.case.program_optimization`, `pse.case.sparse_plan` |
 | `pse-runtime::math` | `pse.case.program_assembly`, `pse.case.function_assembly` |
-| `pse-catalog::delta` | `pse.delta.open`, `pse.delta.write_attempt`, `pse.delta.commit`, `pse.delta.maintain` |
 | `pse-engine::session` | `pse.operation` around native query, round and command execution |
 
 Fields known only at the end of a span are declared `tracing::field::Empty` at creation
@@ -75,9 +74,7 @@ An absent original-space feasibility assessment is an explicit refusal distinct 
 > realization refusal `modeling.realization` (Plan 22 M3 and M4, implemented);
 > [ADR-0103](../../adr/0103-variable-domain-facet.md) — the recorded bound tightening
 > `modeling.domain.tightened` and the conflicting-bound refusal (Plan 22 M2a, implemented);
-> [ADR-0114](../../adr/0114-typed-operational-store.md) — operational-store failures are classified by SQLSTATE constants, never strings;
-> CHECK and foreign-key violations are a typed invariant violation, not `Internal` (Plan 22
-> B2, implemented).
+> [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed; authorized implementation) — canonical SDK, codec, completion and lifecycle failures retain typed causes and exact operation identity.
 
 > Supplement: [ADR-0148](../../adr/0148-studies-diagnostics-and-admitted-bindings.md)
 > (proposed; maintainer-authorized Plan 25f implementation).
@@ -237,36 +234,9 @@ exhaustion → `Limit` (`Memory`); invalid or panic → `Internal`; every other 
 (`pse-math::MathError::Native`) carries `solve.solver_error` and keeps its typed native
 cause, which the workflow classifies together with the block identity.
 
-**Operational store failures.** `pse_operations::OperationsError` classifies a driver
-failure once, by `SqlState` constant and connection state, never by a code's spelling
-(`sqlstate_classified_by_constant`), and keeps the driver's error as an opaque cause, so no
-driver type appears in the public API. Retry decisions read the variant
-(`is_retryable`), never the message:
+**Canonical store failures.** `pse_operations::canonical::CanonicalError` retains typed SDK and codec causes, interpretation mismatch, reused operation identity, payload limits, quiesced admission, deadline expiry and missing statement completion. A transport success alone cannot establish absence, write success or a complete exported stream. Native SDK statement results and application result shape are checked before those conclusions.
 
-| SQLSTATE or condition | Variant | Code | Retryable |
-|---|---|---|---|
-| 40001, 40P01 | `Retryable` | `runtime.infrastructure` | yes |
-| 55P03 | `LockUnavailable` | `runtime.infrastructure` | yes |
-| 57014 | `Cancelled` | `runtime.cancelled` | no |
-| 23505 | `Duplicate` | `runtime.infrastructure` | no |
-| 23514, 23503 | `InvariantViolation`: the table and the violated named row check or reference | `validation.invariant` | no |
-| class 08, 57P01–57P03, 53300, or a closed connection | `Unavailable`, naming the connection target without credentials | `runtime.infrastructure` | yes |
-| any other SQLSTATE | `Internal` | `internal.invariant` | no |
-
-The store's own refusals are typed as well: `SchemaMismatch` (another schema fingerprint,
-remedied by `just db-reset`) and `Configuration` are `config.invalid`; an illegal lifecycle
-transition, a missing row, an invalid request, a reused publication identity, an abandoned
-intent and a retired input are `validation.invariant`; a lost lease, a publication
-conflict, a retiring or protected publication, active readers and a lapsed reader lease
-are `runtime.infrastructure`. At the workflow boundary a retryable store failure is class
-`infrastructure` and any other store refusal `conflict` (rule `workflow.operations`); an
-ephemeral run asked to publish (`workflow.ephemeral_publication`), an unknown job payload
-version (`workflow.job_payload_version`), a former Delta control root
-(`workflow.legacy_workspace`) and an expired export (`workflow.export_expired`) are
-`incompatible`; an unconfirmed catalog commit is `infrastructure`
-(`workflow.publication_unresolved`). A fixture's execution policy is authored with the
-fixture ([§6.10](schema-and-relations.md#section-6-10)); no runtime policy can contradict
-its declared intent.
+Definite transaction conflicts retry the complete fresh guarded decision. Unknown acknowledgments settle the original immutable operation request; they cannot authorize new scientific effects. Initialization uses the existing longer bounded atomic-client timeout, while ordinary reads retain their shorter deadline. Reopening verifies interpretation and never installs schema. Codec domain/shape errors remain validation failures; workflow boundaries preserve resource, cancellation, incompatible and infrastructure distinctions. Messages do not supply lifecycle authority. A fixture's scientific execution policy remains authored with that fixture ([§6.10](schema-and-relations.md#section-6-10)).
 
 **Native engine errors.** `pse-columnar::engine` classifies `DataFusionError` in one
 place, by the plan's origin (`PlanOrigin`), never per call site:
@@ -306,8 +276,8 @@ design-change tracking are owned by
 | Governance | `tests/governance` | workspace invariants: sole hasher, dependency pins and floors, error taxonomy, crate registration, FFI unwind containment, no shadow structs, registry governance, MSRV, unsafe allowlist |
 | Engine | `tests/engine` | provider hierarchy, plan codec, pushdown truthfulness against unpruned sources, relational expansion, unified sources |
 | Conformance | `tests/conformance` | `pse.canon.v2` properties (layout, null payload, signed zero, encoding round trips) and selected scientific acceptance journeys |
-| Lifecycle | `tests/lifecycle` | interrupted Delta publication leaves the old or the committed state; canonicalization, query and result memory budgets |
-| Python | `python/pse/tests` | the native Python boundary: generated contracts, extension round trips, extra-key refusal, nullable-array refusal, workflows, publication streams |
+| Lifecycle | `tests/lifecycle` | guarded canonical admission, interruption, exact retained reads and result memory budgets |
+| Python | `python/pse/tests` | the native Python boundary: generated contracts, extension round trips, extra-key refusal, nullable-array refusal, workflows, protected canonical Arrow streams |
 | Parity | `python/pse/parity` | the IDAES 2.13.0 environment and selected scientific reference comparisons (proposed [ADR-0097](../../adr/0097-modeling-scope-and-parity.md)) |
 
 Structural algorithms are tested in their owning production crates; no empty structural

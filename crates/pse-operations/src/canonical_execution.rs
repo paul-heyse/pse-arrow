@@ -1332,7 +1332,7 @@ impl CanonicalStore {
         }
         Ok(())
     }
-    async fn settle_operation(
+    pub(crate) async fn settle_operation(
         &self,
         operation: &str,
         kind: &str,

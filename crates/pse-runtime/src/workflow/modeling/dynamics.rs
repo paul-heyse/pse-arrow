@@ -2889,6 +2889,8 @@ mod tests {
         let runtime = super::super::super::tests::runtime();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
+        let allowance =
+            pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction;
         let mut methods = vec![native::Method::Diffsol];
         #[cfg(feature = "solver-idas")]
         methods.push(native::Method::Idas);
@@ -2907,12 +2909,14 @@ mod tests {
                 ),
             ] {
                 let quadrature = if integral.is_empty() {
-                    ""
+                    String::new()
                 } else {
-                    "quadrature_relative(1e-9) quadrature_absolute(root.total=1e-10{s})"
+                    format!(
+                        "quadrature_relative({allowance}) quadrature_absolute(root.total={allowance}{{s}})"
+                    )
                 };
                 let source = format!(
-                    "package p {{ def Root {{ domain t:Time from 0{{s}} to 1{{s}}; discretize grid on t using integrated(elements=1,order=1); param p:Scalar=0.5; var x[i in t]:Time; conserve stock[i in t]:Time on t inventory x[i] flux p tolerance 1e-6{{s}}; eq initial:x[0{{s}}]==1{{s}}; let hit[i in t]:Time=x[i]-1.25{{s}}; {integral} }} test stopped fixture {{ dof 0; route integrated; procedure integrate; {endpoint} integrate samples(0{{s}},0.2{{s}},0.8{{s}},1{{s}}) relative(1e-9) normalized_absolute(1e-11) step(1e-4{{s}}) {quadrature}; mode arc; event root.hit[0{{s}}] direction(either) tolerance(1e-8{{s}}) terminal; }} {{ child root:Root=Root(); }} }}"
+                    "package p {{ def Root {{ domain t:Time from 0{{s}} to 1{{s}}; discretize grid on t using integrated(elements=1,order=1); param p:Scalar=0.5; var x[i in t]:Time; conserve stock[i in t]:Time on t inventory x[i] flux p tolerance {allowance}{{s}}; eq initial:x[0{{s}}]==1{{s}}; let hit[i in t]:Time=x[i]-1.25{{s}}; {integral} }} test stopped fixture {{ dof 0; route integrated; procedure integrate; {endpoint} integrate samples(0{{s}},0.2{{s}},0.8{{s}},1{{s}}) relative({allowance}) normalized_absolute({allowance}) step(1e-4{{s}}) {quadrature}; mode arc; event root.hit[0{{s}}] direction(either) tolerance({allowance}{{s}}) terminal; }} {{ child root:Root=Root(); }} }}"
                 );
                 let rows = pse_authoring::language::parse(
                     &source,
@@ -2933,8 +2937,8 @@ mod tests {
                     .unwrap();
                 if accepted {
                     let resetting = source.replace(
-                        "tolerance(1e-8{s}) terminal;",
-                        "tolerance(1e-8{s}) reset(root.x[0{s}]=root.x[0{s}]) terminal;",
+                        &format!("tolerance({allowance}{{s}}) terminal;"),
+                        &format!("tolerance({allowance}{{s}}) reset(root.x[0{{s}}]=root.x[0{{s}}]) terminal;"),
                     );
                     let rows = pse_authoring::language::parse(
                         &resetting,
@@ -2943,8 +2947,9 @@ mod tests {
                         pse_authoring::ParseBudget::default(),
                     )
                     .unwrap();
-                    let error = runtime
-                        .modeling_package(rows, physical())
+                    let resetting = runtime.modeling_package(rows, physical()).await.unwrap();
+                    let error = resetting
+                        .declared_simulation(root, compiler, None, Limits::default(), &cancel)
                         .await
                         .unwrap_err();
                     assert!(
@@ -2954,8 +2959,10 @@ mod tests {
                 }
                 let mut profile = prepared.profile().clone();
                 profile.method = method;
-                profile.out_rtol = Some(1e-9);
-                profile.out_atol = vec![1e-10; prepared.contract.quadratures.len()];
+                assert_eq!(profile.rtol, allowance);
+                assert!(profile.atol.iter().all(|value| *value == allowance));
+                assert_eq!(prepared.contract.balances[0].tolerance, allowance);
+                assert!(profile.out_atol.iter().all(|value| *value == allowance));
                 let prepared = package
                     .declared_simulation(
                         root,
@@ -2987,7 +2994,15 @@ mod tests {
                     "{:?}",
                     trajectory.report().error
                 );
-                assert!((trajectory.report().completed_time - 0.5).abs() < 1e-6);
+                let inventory = prepared.contract.states[0];
+                let budget = super::super::super::tests::engineering_target(
+                    prepared.numerics(),
+                    NumericalTarget::Variable,
+                    inventory,
+                )
+                .budget;
+                assert_eq!(budget, allowance);
+                assert!((trajectory.report().completed_time - 0.5).abs() <= budget / 0.5);
                 assert_eq!(trajectory.report().samples.len(), 2);
                 assert_eq!(
                     trajectory.accepted(),
@@ -3014,7 +3029,7 @@ mod tests {
                     trajectory.report().completed_time
                 );
                 let endpoint = trajectory.report().endpoint.as_ref().unwrap();
-                assert!((endpoint.point.outputs[0] - 1.25).abs() < 1e-6);
+                assert!((endpoint.point.outputs[0] - 1.25).abs() <= budget);
                 let tables = trajectory.tables().unwrap();
                 assert!(tables.contains_key(
                     &pse_relations::generated::runtime::trajectory_endpoints::RELATION_ID
@@ -4401,7 +4416,26 @@ mod tests {
         let rows = parse(&format!(
             "package p {{ {def} test declared fixture {{ dof 0; route simultaneous; procedure solve; {events} }} {{ child root: Root = Root(); }} }}"
         ));
-        let error = runtime.modeling_package(rows, physical).await.unwrap_err();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
+        let declared = package
+            .declarations()
+            .await
+            .unwrap()
+            .iter()
+            .find(|row| row.name == "declared")
+            .unwrap()
+            .declaration_id;
+        let error = package
+            .declared_execution(
+                declared,
+                super::super::super::tests::compiler_profile(),
+                super::super::super::tests::profile(),
+                Default::default(),
+                Limits::default(),
+                &cancel,
+            )
+            .await
+            .unwrap_err();
         assert!(error.to_string().contains("integrated route"), "{error}");
     }
     #[tokio::test]
@@ -5171,7 +5205,11 @@ mod tests {
         let profile = native::Profile {
             end: 1.,
             samples: vec![0., 0.1, 0.5, 1.],
-            atol: vec![1e-8; 2],
+            rtol: pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction,
+            atol: vec![
+                pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction;
+                2
+            ],
             parameter_scales: vec![1., 1.],
             sensitivity: native::DynamicSensitivity::Forward,
             ..Default::default()
@@ -5204,10 +5242,18 @@ mod tests {
             "{:?}",
             result.report().error
         );
-        assert!((result.report().consistent_initial[yi] - 4.).abs() < 1e-7);
+        let state_budget = |index| {
+            super::super::super::tests::engineering_target(
+                prepared.numerics(),
+                NumericalTarget::Variable,
+                prepared.contract.states[index],
+            )
+            .budget
+        };
+        assert!((result.report().consistent_initial[yi] - 4.).abs() <= state_budget(yi));
         for sample in &result.report().samples {
-            assert!((sample.outputs[xi] - (1. + 4. * sample.time)).abs() < 1e-6);
-            assert!((sample.outputs[yi] - 4.).abs() < 1e-6);
+            assert!((sample.outputs[xi] - (1. + 4. * sample.time)).abs() <= state_budget(xi));
+            assert!((sample.outputs[yi] - 4.).abs() <= state_budget(yi));
         }
         let singular = package
             .with_declarations(parse(&source.replace("y == 2*p", "p == 2")))
@@ -5229,7 +5275,7 @@ mod tests {
                 .await
                 .is_err()
         );
-        let no_initial = package
+        let no_initial = singular
             .with_declarations(parse(&source.replace("eq initial: x[0{s}] == offset;", "")))
             .await
             .unwrap();
@@ -5251,7 +5297,7 @@ mod tests {
                 .to_string()
                 .contains("initial condition")
         );
-        let guarded = package
+        let guarded = no_initial
             .with_declarations(parse(&source.replace(
                 "annotation start x(0{s});",
                 "annotation start x(0{s}); annotation valid x(0{s},2{s});",
@@ -5316,7 +5362,7 @@ mod tests {
         assert!(result.report().error.is_some());
         assert!(!result.report().samples.is_empty());
         assert!(result.report().samples.iter().all(|s| s.outputs[xi] <= 2.));
-        let bounded = package
+        let bounded = guarded
             .with_declarations(parse(&source.replace(
                 "annotation start x(0{s});",
                 "annotation start x(0{s}); annotation bounds x(0{s},2{s});",

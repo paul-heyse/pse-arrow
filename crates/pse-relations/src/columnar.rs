@@ -10,6 +10,8 @@ mod codec;
 mod collection;
 mod row;
 mod storage;
+#[cfg(test)]
+mod take_tests;
 pub use collection::Collection;
 pub(crate) use collection::encode_rows;
 pub(crate) use row::allocation_add;
@@ -90,6 +92,100 @@ type StorageMetadata = (
     Arc<pse_columnar::AllocationLease>,
     std::sync::Weak<dyn pse_columnar::MemoryPool>,
 );
+
+/// Dense unions and run encoding can repeat a child's physical value even when
+/// every selected parent index is distinct. A container can select many such
+/// children at once, and nested aliases compound along their physical path.
+fn take_child_alias_factor(
+    data: &arrow::array::ArrayData,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<Option<usize>, RelationError> {
+    use arrow_schema::{DataType, UnionMode};
+    cancel.checkpoint()?;
+    let mut child_factor: Option<usize> = None;
+    for child in data.child_data() {
+        if let Some(factor) = take_child_alias_factor(child, cancel)? {
+            child_factor = Some(child_factor.unwrap_or(1).max(factor));
+        }
+    }
+    if matches!(
+        data.data_type(),
+        DataType::Union(_, UnionMode::Dense) | DataType::RunEndEncoded(..)
+    ) {
+        return data
+            .len()
+            .max(1)
+            .checked_mul(child_factor.unwrap_or(1))
+            .map(Some)
+            .ok_or_else(|| mismatch("bounded take child alias fanout"));
+    }
+    // Dictionary and list-view gathers retain their child values. Propagating
+    // child factors there is deliberately conservative, rather than undercounting
+    // a different container that gathers the same physical child representation.
+    Ok(child_factor)
+}
+
+fn take_source_copies(
+    batch: &RecordBatch,
+    indices: &arrow_array::UInt32Array,
+    pool: &Arc<dyn pse_columnar::MemoryPool>,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<usize, RelationError> {
+    // Check the complete index domain before asking for memory. In particular,
+    // zero-column batches have no individual Arrow kernel to check their bounds.
+    if indices.null_count() != 0 {
+        return Err(mismatch("nonnull take indices"));
+    }
+    for (position, &index) in indices.values().iter().enumerate() {
+        if position % 1024 == 0 {
+            cancel.checkpoint()?;
+        }
+        if index as usize >= batch.num_rows() {
+            return Err(arrow_schema::ArrowError::ComputeError(format!(
+                "Array index out of bounds, cannot get item at index {index} from {} entries",
+                batch.num_rows()
+            ))
+            .into());
+        }
+    }
+    cancel.checkpoint()?;
+    let mut alias_factor: Option<usize> = None;
+    for column in batch.columns() {
+        if let Some(factor) = take_child_alias_factor(&column.to_data(), cancel)? {
+            alias_factor = Some(alias_factor.unwrap_or(1).max(factor));
+        }
+    }
+    if let Some(factor) = alias_factor {
+        return indices
+            .len()
+            .max(1)
+            .checked_mul(factor)
+            .ok_or_else(|| mismatch("bounded take alias copies"));
+    }
+    let scratch_extent = batch
+        .num_rows()
+        .checked_mul(size_of::<usize>())
+        .ok_or_else(|| mismatch("bounded take occurrence counts"))?;
+    let scratch = pse_columnar::MemoryConsumer::new("relations:checked-take-counts").register(pool);
+    scratch
+        .try_grow(scratch_extent)
+        .map_err(pse_columnar::CanonError::from)?;
+    let mut counts = vec![0usize; batch.num_rows()];
+    let mut copies = 1;
+    for (position, &index) in indices.values().iter().enumerate() {
+        if position % 1024 == 0 {
+            cancel.checkpoint()?;
+        }
+        let count = &mut counts[index as usize];
+        *count = count
+            .checked_add(1)
+            .ok_or_else(|| mismatch("bounded take occurrence count"))?;
+        copies = copies.max(*count);
+    }
+    cancel.checkpoint()?;
+    // Both scratch owners end here, before the destination's allowance is held.
+    Ok(copies)
+}
 
 #[cfg(test)]
 mod foundation_unit {
@@ -431,11 +527,13 @@ impl FieldCheckedBatch {
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<Self, RelationError> {
         cancel.checkpoint()?;
-        if indices.null_count() != 0 {
-            return Err(mismatch("nonnull take indices"));
-        }
+        let copies = take_source_copies(&self.storage.batch, indices, pool, cancel)?;
+        // Ordinary Arrow layouts copy each source row at most `copies` times.
+        // The whole-batch working allowance therefore covers a permutation once,
+        // while still bounding repeated variable-width and nested values. A subset
+        // deliberately retains the conservative whole-input allowance.
         let extent = pse_columnar::allocation_extent::algorithm_decode_extent(&self.storage.batch)?
-            .checked_mul(indices.len().max(1))
+            .checked_mul(copies)
             .ok_or_else(|| mismatch("bounded take extent"))?;
         let reservation =
             pse_columnar::MemoryConsumer::new("relations:checked-take").register(pool);

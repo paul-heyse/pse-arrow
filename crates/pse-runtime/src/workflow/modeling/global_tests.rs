@@ -160,22 +160,88 @@ async fn price_taker_quadratic_cost_miqp() {
             .await
             .is_err()
     );
-    let result = solve(
-        &package,
-        &analysis(root, profile(SolveIntent::Optimize, SolverSelection::Auto)),
-    )
-    .await;
+    let mut request = analysis(root, profile(SolveIntent::Optimize, SolverSelection::Auto));
+    request.bindings.demand = ["h1", "h2", "h3"]
+        .into_iter()
+        .flat_map(|period| {
+            [
+                format!("on[{period}]"),
+                format!("output[{period}]"),
+                format!("load[{period}]"),
+            ]
+        })
+        .collect();
+    let result = solve(&package, &request).await;
     let Outcome::Native(native) = &result.outcome else {
         panic!("{:?}", result.outcome);
     };
     assert_eq!(native.backend, Backend::Scip);
     assert!(result.accepted, "{:?}", result.validation_error);
+    let model = &result.prepared.model.model.compiled().model;
+    let numerics = result.prepared.solve.numerics();
+    let at = |path: &str| result.values.scalars[&model.paths[path]];
+    let variable_budget = |path: &str| {
+        fixture::engineering_target(
+            numerics,
+            pse_model::generated::enums::NumericalTarget::Variable,
+            model.paths[path],
+        )
+        .budget
+    };
+    let row_budget = |suffix: &str| {
+        let budgets = model
+            .equations
+            .iter()
+            .filter(|row| row.lineage.path.ends_with(suffix))
+            .map(|row| {
+                fixture::engineering_target(
+                    numerics,
+                    pse_model::generated::enums::NumericalTarget::Row,
+                    row.id,
+                )
+                .budget
+            })
+            .collect::<Vec<_>>();
+        assert!(!budgets.is_empty());
+        assert!(budgets.iter().all(|budget| *budget == budgets[0]));
+        budgets[0]
+    };
+    let mut margin = 0.0;
+    let mut energy = 0.0;
+    for (period, price, on) in [("h1", -0.5, 0.0), ("h2", 0.8, 0.0), ("h3", 1.2, 1.0)] {
+        let output_path = format!("output[{period}]");
+        let load_path = format!("load[{period}]");
+        let output = at(&output_path);
+        let load = at(&load_path);
+        assert_eq!(at(&format!("on[{period}]")), on);
+        assert!(
+            output >= -variable_budget(&output_path)
+                && output <= 150.0 + variable_budget(&output_path)
+        );
+        assert!(load >= -variable_budget(&load_path) && load <= 1.5 + variable_budget(&load_path));
+        assert!(output <= 150.0 * on + row_budget(".most"));
+        assert!(output >= 40.0 * on - row_budget(".least"));
+        assert!((output - 100.0 * load).abs() <= row_budget(".loading"));
+        energy += output;
+        margin += price * output - 50.0 * load * load - 50.0 * on;
+    }
+    assert!(energy <= 150.0 + row_budget(".energy"));
+    let objective_budget = fixture::engineering_target(
+        numerics,
+        pse_model::generated::enums::NumericalTarget::Objective,
+        SemanticId::NIL,
+    )
+    .budget;
     assert!(
-        (report(&result, "margin") - 22.0).abs() < 1e-5,
-        "{}",
-        report(&result, "margin")
+        (margin - 22.0).abs() <= objective_budget,
+        "actual original margin={margin}"
     );
-    assert!((report(&result, "h3") - 120.0).abs() < 1e-4);
+    assert!((report(&result, "margin") - margin).abs() <= objective_budget);
+    assert_eq!(
+        report(&result, "margin"),
+        native.candidate.as_ref().unwrap().objective.unwrap()
+    );
+    assert_eq!(report(&result, "h3"), at("output[h3]"));
     assert_eq!(native.qualification, Qualification::GapQualified);
     assert_eq!(native.termination.assurance, Assurance::GlobalBound);
 }

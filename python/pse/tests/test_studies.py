@@ -2,6 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 """Immutable occurrences, scientific permissions and durable study retention."""
 
+import math
 from pathlib import Path
 
 import msgspec
@@ -47,6 +48,20 @@ SOURCE = """package algebraic { def Root {
     annotation report x("root");
     annotation check x(x>1);
 } }"""
+
+
+def _assert_scalar_root(table: pa.Table, expected: float) -> None:
+    """Assess the original root using its published production allowance."""
+    variables = [row for row in table.to_pylist() if not row["parameter"]]
+    assert len(variables) == 1
+    value = variables[0]["value"]
+    allowance = variables[0]["tolerance"]
+    assert isinstance(value, float)
+    assert math.isfinite(value)
+    assert isinstance(allowance, float)
+    assert math.isfinite(allowance)
+    assert allowance > 0
+    assert abs(value - expected) <= allowance
 
 
 def _package(
@@ -137,9 +152,7 @@ def test_study_repeated_bindings_retain_distinct_occurrences_and_owned_results(
     assert [row["point_index"] for row in rows] == [7, 11]
     assert all(row["usable"] and len(row["attempts"]) == 1 for row in rows)
     variables = pa.table(values).to_pylist()
-    assert [row["value"] for row in variables if not row["parameter"]] == pytest.approx(
-        [2.0]
-    )
+    _assert_scalar_root(pa.table(values), 2.0)
     assert [row["value"] for row in variables if row["parameter"]] == [4.0]
 
 
@@ -671,11 +684,13 @@ def test_flash_sweep_prepares_structure_once(
         )
     # Each point solved its own feed temperature ...
     assert values[0] != values[-1]
-    # Admission already froze and cached the solver view. These counters measure
-    # execution only: every point rebinds that view, and none prepares another one.
+    # Structural admission prepares no solver view. Ready execution freezes at
+    # most one shared view and admits every point's actual numerical values.
     preparations = study.preparations
-    assert preparations.views == 0, preparations
-    assert preparations.rebuilt + preparations.shared == len(temperatures), preparations
+    assert preparations.views <= 1, preparations
+    assert preparations.views + preparations.rebuilt + preparations.shared >= len(
+        temperatures
+    ), preparations
 
 
 @pytest.mark.integration
@@ -714,10 +729,7 @@ def test_fresh_capped_study_preserves_individual_automatic_execution(
         assert paired.outcome(index).scientific.usable
         result = paired.result(index)
         assert result is not None
-        values = pa.table(result.table("runtime.solve_variables")).to_pylist()
-        assert [
-            row["value"] for row in values if not row["parameter"]
-        ] == pytest.approx([2.0])
+        _assert_scalar_root(pa.table(result.table("runtime.solve_variables")), 2.0)
         events = pa.table(result.table("runtime.solve_strategy_events")).to_pylist()
         assert any(
             row["kind"] == "started" and row["decision_identity"] for row in events

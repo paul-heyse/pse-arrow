@@ -95,15 +95,24 @@ DEFINE FUNCTION fn::pse_study_v1::settle($study: string, $generation: decimal, $
     RETURN UPDATE ONLY type::record('canonical_study_points',$point) SET revision += 1dec, facts=$facts,outcome=$outcome,settled=true;
 };
 
-DEFINE FUNCTION fn::pse_study_v1::started($study: string, $point: string, $revision: decimal, $run: string, $attempt: string, $generation: decimal, $facts: bytes) -> object {
+DEFINE FUNCTION fn::pse_study_v1::started($study: string, $point: string, $revision: decimal, $run: string, $attempt: string, $generation: decimal, $operation: string, $request: bytes, $facts: bytes) -> object {
     fn::pse_execution_v1::touch('study:' + $study);
     LET $s = SELECT * FROM ONLY type::record('canonical_studies',$study);
     IF $s = NONE OR $s.cancelled OR $s.terminal { THROW 'study cancelled before native dispatch'; };
+    fn::pse_execution_v1::fence($run,$attempt,$generation);
+    LET $op = fn::pse_execution_v1::operation($operation,'study-start',$request);
+    IF $op != NONE {
+        IF $op.run != $run OR $op.attempt != $attempt { THROW 'study start operation reused'; };
+        RETURN SELECT * FROM ONLY type::record('canonical_study_points',$point);
+    };
+    LET $started = SELECT key FROM canonical_execution_operations WHERE run=$run AND kind='study-start' AND attempt=$attempt LIMIT 1;
+    IF array::len($started) != 0 { THROW 'study native start already admitted'; };
     fn::pse_execution_v1::touch('study-point:' + $point);
     LET $p = SELECT * FROM ONLY type::record('canonical_study_points',$point);
     IF $p = NONE OR $p.study != $study OR $p.run != $run OR $p.attempt != $attempt OR $p.revision != $revision OR $p.assigned = false OR $p.settled { THROW 'study native start premise changed'; };
-    fn::pse_execution_v1::fence($run,$attempt,$generation);
-    RETURN UPDATE ONLY type::record('canonical_study_points',$point) SET revision += 1dec,facts=$facts;
+    LET $saved = UPDATE ONLY type::record('canonical_study_points',$point) SET revision += 1dec,facts=$facts;
+    CREATE ONLY type::record('canonical_execution_operations',$operation) SET key=$operation,run=$run,attempt=$attempt,kind='study-start',request=$request,result=$request;
+    RETURN $saved;
 };
 
 DEFINE FUNCTION fn::pse_study_v1::finalize($study: string, $operation: string, $request: bytes, $attempt: string, $worker: string, $lifetime: int) -> option<object> {

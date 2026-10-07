@@ -152,7 +152,7 @@ def expand(names: tuple[str, ...]) -> list[Gate]:
     return list(output.values())
 
 
-def comprehensive() -> list[Gate]:
+def comprehensive(python_profile: str = "dev") -> list[Gate]:
     """Canonical linked Rust graph, focused absence controls and Python once."""
     static = expand(
         (
@@ -180,7 +180,12 @@ def comprehensive() -> list[Gate]:
         if gate.name != "governance-tests"
     ]
     return [
-        Gate("py-sync-native", input_scope="python-product"),
+        Gate(
+            "py-sync-native",
+            (python_profile,),
+            profile=python_profile,
+            input_scope="python-product",
+        ),
         *static,
         Gate(
             "python-stubs",
@@ -189,10 +194,15 @@ def comprehensive() -> list[Gate]:
             input_scope="python-product",
         ),
         Gate(
+            "producer-fixture",
+            ("{output}/producer-fixture.json",),
+            input_scope="tooling",
+        ),
+        Gate(
             "feature-absence",
             (
                 "--profile",
-                "ci",
+                "local",
                 "-p",
                 "pse-backend-native",
                 "-p",
@@ -200,15 +210,16 @@ def comprehensive() -> list[Gate]:
                 "-E",
                 "test(feature_absence::) | test(clarabel_tests::clarabel_mkl_pardiso_refused_without_profile)",
             ),
-            "{target}/nextest/ci/junit.xml",
+            "{target}/nextest/local/junit.xml",
             enumerate_native=True,
             recipe="feature-absence",
             mode="force-validate-feature-absence",
             input_scope="rust-product",
-            profile="ci",
+            profile="local",
+            dependencies=("producer-fixture",),
         ),
         Gate("doctest", input_scope="rust-product"),
-        native_gate(),
+        replace(native_gate(), dependencies=("producer-fixture",)),
         Gate(
             "native-python",
             ("{output}",),
@@ -349,6 +360,12 @@ PRODUCT_ENVIRONMENT = (
     "OPENBLAS_NUM_THREADS",
     "MKL_NUM_THREADS",
     "PSE_SURREAL_STATE",
+    "PSE_WORKER_BINARY",
+    "PSE_PRODUCER_RECEIPT",
+    "PSE_WORKER_PRODUCER_RECEIPT",
+    "PSE_PYTHON_PRODUCER_RECEIPT",
+    "PSE_PYTHON_DEPLOYMENT_ATTESTATION",
+    "PSE_PRODUCER_FIXTURE_RECEIPT",
     "PSE_MEMORY_MAX",
     "SYMBOLICA_LICENSE",
     "LOCAL_NATIVE_ENVIRONMENT",
@@ -392,11 +409,11 @@ def native_gate(name: str = "native-test", selection: str | None = None) -> Gate
     """Declared linked invocation; covering identity never infers filter equivalence."""
     return Gate(
         name,
-        ("--profile", "ci", *(("-E", selection) if selection else ())),
-        "{target}/nextest/ci/junit.xml",
+        ("--profile", "local", *(("-E", selection) if selection else ())),
+        "{target}/nextest/local/junit.xml",
         recipe="native-test" if name != "native-test" else None,
         mode="native-force-validate",
-        profile="ci",
+        profile="local",
         input_scope="rust-product",
     )
 

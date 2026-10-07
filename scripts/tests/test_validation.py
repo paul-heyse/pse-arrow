@@ -19,7 +19,15 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts import case_measure, native_tests, validation, validation_receipts
-from scripts.validation_scope import GROUPS, INPUT_SCOPES, Gate, comprehensive, expand
+from scripts.validation_scope import (
+    FUNCTIONAL_SCOPES,
+    GROUPS,
+    INPUT_SCOPES,
+    Gate,
+    comprehensive,
+    expand,
+    native_gate,
+)
 
 
 class ValidationTests(unittest.TestCase):
@@ -307,11 +315,67 @@ class ValidationTests(unittest.TestCase):
         source = Path(__file__).resolve().parents[2] / ".config/nextest.toml"
         (self.root / ".config").mkdir()
         (self.root / ".config/nextest.toml").write_bytes(source.read_bytes())
-        copied = validation.native_report_config(self.root, self.output, "native")
-        original = tomllib.loads(source.read_text())
-        actual = tomllib.loads(copied.read_text())
-        original["profile"]["ci"]["junit"]["path"] = str(self.output / "native.xml")
-        self.assertEqual(original, actual)
+        for profile in ("local", "ci"):
+            with self.subTest(profile=profile):
+                copied = validation.native_report_config(
+                    self.root, self.output, f"native-{profile}", profile
+                )
+                original = tomllib.loads(source.read_text())
+                actual = tomllib.loads(copied.read_text())
+                original["profile"][profile]["junit"]["path"] = str(
+                    self.output / f"native-{profile}.xml"
+                )
+                # Isolation may change only the selected report destination;
+                # production task limits and inherited runner settings stay owned
+                # by the source configuration, including the local override.
+                self.assertEqual(original, actual)
+
+    def test_selected_local_and_manual_ci_reports_are_isolated_and_collected(
+        self,
+    ) -> None:
+        source = Path(__file__).resolve().parents[2] / ".config/nextest.toml"
+        (self.root / ".config").mkdir()
+        (self.root / ".config/nextest.toml").write_bytes(source.read_bytes())
+        commands: dict[str, list[str]] = {}
+        real_execute = validation.execute
+
+        def execute(
+            root: Path, output: Path, name: str, command: list[str], env: dict[str, str]
+        ) -> dict:
+            commands[name] = command
+            result = real_execute(
+                root, output, name, [sys.executable, "-c", "pass"], env
+            )
+            (output / f"{name}.xml").write_text(
+                f'<testsuite><testcase classname="fixture" name="{name}"/></testsuite>'
+            )
+            return result
+
+        gates = [
+            Gate(
+                f"selected-{profile}",
+                ("--profile", profile),
+                f"{{target}}/nextest/{profile}/junit.xml",
+                recipe="test",
+                profile=profile,
+            )
+            for profile in ("local", "ci")
+        ]
+        with patch.object(validation, "execute", side_effect=execute):
+            code = validation.run_gates(self.root, self.output, gates, capture=False)
+        self.assertEqual(code, 0)
+        checks = json.loads((self.output / "checks.json").read_text())["checks"]
+        for gate, check in zip(gates, checks, strict=True):
+            command = commands[gate.name]
+            self.assertEqual(command[command.index("--profile") + 1], gate.profile)
+            config = Path(command[command.index("--config-file") + 1])
+            selected = tomllib.loads(config.read_text())["profile"][gate.profile]
+            self.assertEqual(
+                selected["junit"]["path"], str(self.output / f"{gate.name}.xml")
+            )
+            self.assertEqual(check["profile"], gate.profile)
+            self.assertEqual(check["results"][0]["name"], gate.name)
+            self.assertEqual(check["report_errors"], [])
 
     def test_failed_setup_blocks_only_dependents_and_records_unattempted_work(
         self,
@@ -488,6 +552,67 @@ class ValidationTests(unittest.TestCase):
             ],
             [],
         )
+
+    def test_python_producer_profile_keeps_native_dev_graph(self) -> None:
+        gates = {gate.name: gate for gate in comprehensive("producer")}
+        self.assertEqual(gates["py-sync-native"].args, ("producer",))
+        self.assertEqual(gates["py-sync-native"].profile, "producer")
+        self.assertEqual(gates["native-python"].dependencies, ("py-sync-native",))
+        self.assertEqual(
+            gates["native-test"],
+            next(g for g in comprehensive() if g.name == "native-test"),
+        )
+
+    def test_native_fixture_precedes_every_fixture_receipt_consumer(self) -> None:
+        gates = comprehensive("producer")
+        positions = {gate.name: index for index, gate in enumerate(gates)}
+        for consumer in ("feature-absence", "native-test"):
+            gate = gates[positions[consumer]]
+            self.assertLess(positions["producer-fixture"], positions[consumer])
+            self.assertIn("producer-fixture", gate.dependencies)
+            self.assertEqual(gate.profile, "local")
+            self.assertEqual(gate.args[:2], ("--profile", "local"))
+            self.assertEqual(gate.report, "{target}/nextest/local/junit.xml")
+
+    def test_assessment_routes_each_deployment_receipt_to_its_consumer(self) -> None:
+        observed: dict[str, str] = {}
+        execute = validation.execute
+
+        def child(
+            root: Path,
+            output: Path,
+            name: str,
+            _command: list[str],
+            environment: dict[str, str],
+        ) -> dict:
+            observed[name] = environment["PSE_PRODUCER_RECEIPT"]
+            return execute(
+                root, output, name, [sys.executable, "-c", "pass"], environment
+            )
+
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "PSE_WORKER_PRODUCER_RECEIPT": "/deployment/worker.json",
+                    "PSE_PYTHON_PRODUCER_RECEIPT": "/deployment/python.json",
+                },
+            ),
+            patch.object(validation, "execute", side_effect=child),
+        ):
+            validation.run_gates(
+                self.root,
+                self.output,
+                [
+                    Gate("worker", recipe="native-test"),
+                    Gate("python", recipe="native-python"),
+                ],
+                capture=False,
+            )
+        self.assertEqual(
+            observed,
+            {"worker": "/deployment/worker.json", "python": "/deployment/python.json"},
+        )
         for group in GROUPS:
             leaves = [g.name for g in expand((group,))]
             self.assertEqual(len(leaves), len(set(leaves)))
@@ -587,6 +712,14 @@ class ValidationTests(unittest.TestCase):
             original,
             validation.input_identity("rust-product", before, {"IPOPT_DIR": "b"}),
         )
+        # Gate routing is selected by these inputs even when the generic receipt
+        # variable is absent; changing either deployment must invalidate reuse.
+        for key in ("PSE_WORKER_PRODUCER_RECEIPT", "PSE_PYTHON_PRODUCER_RECEIPT"):
+            for scope in ("rust-product", "python-product"):
+                self.assertNotEqual(
+                    validation.input_identity(scope, before, {key: "first.json"}),
+                    validation.input_identity(scope, before, {key: "second.json"}),
+                )
         self.assertEqual(
             validation.input_identity("unknown", before, {})["files"], before
         )
@@ -755,8 +888,13 @@ class ValidationTests(unittest.TestCase):
 
     def test_native_command_preserves_filter_and_full_feature_graph(self) -> None:
         selection = "test(=a) or test(=b); $(touch injected)"
-        command = native_tests.rust_command("list", ["-E", selection])
+        gate = native_gate("selected-native", selection)
+        command = native_tests.rust_command("list", list(gate.args))
+        self.assertEqual(command[-len(gate.args) :], list(gate.args))
         self.assertEqual(command[-2:], ["-E", selection])
+        self.assertTrue(
+            all(gate.profile == "local" for gate in FUNCTIONAL_SCOPES.values())
+        )
         self.assertIn("--workspace", command)
         self.assertIn(
             "pse-relations/force-validate", command[command.index("--features") + 1]
@@ -785,7 +923,11 @@ class ValidationTests(unittest.TestCase):
                     sys, "argv", ["native_tests", "python", f"--junitxml={path}"]
                 ),
                 patch.dict(os.environ, {}, clear=True),
-                patch.object(native_tests, "native_provenance", return_value={}),
+                patch.object(
+                    native_tests,
+                    "native_provenance",
+                    return_value={"files": {"/owned/extension.so": "digest"}},
+                ),
                 patch.object(
                     native_tests,
                     "python_native_binary",

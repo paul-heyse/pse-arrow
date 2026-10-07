@@ -7,6 +7,7 @@
 use super::fixtures::*;
 use pse_backend_native::solve::{Backend, Qualification, SolverSelection};
 use pse_ids::SemanticId;
+use pse_relations::generated::enums::NumericalTarget;
 use pse_runtime::{
     CancelSource,
     math::solves::{Outcome, SolverProfile},
@@ -116,6 +117,51 @@ fn native(result: &ModelingResult) -> &pse_backend_native::solve::SolveReport {
         other => panic!("{other:?}"),
     }
 }
+/// Qualify the actual candidate against every original physical row and bound.
+/// The tracking objective does not specify a unique vector of collocation inputs.
+fn physical_premises(result: &ModelingResult) {
+    let native = native(result);
+    assert!(native.quality.as_ref().unwrap().feasible());
+    let observation = native.observation.as_ref().unwrap();
+    let plan = &result.prepared.model.case.compiled().plan;
+    let numerics = result.prepared.solve.numerics();
+    let rows = plan.structure().rows();
+    assert_eq!(observation.values.len(), rows.len());
+    assert_eq!(observation.bounds.len(), rows.len());
+    for ((row, value), (lower, upper)) in rows
+        .iter()
+        .zip(&observation.values)
+        .zip(&observation.bounds)
+    {
+        let allowance = resolved_allowance(numerics, NumericalTarget::Row, row.id);
+        assert!(
+            value.is_finite() && *value >= lower - allowance && *value <= upper + allowance,
+            "original row {}: {value} outside ({lower}, {upper}) with allowance {allowance}",
+            row.id
+        );
+    }
+    for variable in plan.structure().variables() {
+        let id = variable.port.id;
+        let value = result.values.scalars[&id];
+        let allowance = if variable.fixed {
+            assert_eq!(value, result.prepared.model.values.scalars[&id]);
+            0.0
+        } else {
+            resolved_allowance(numerics, NumericalTarget::Variable, id)
+        };
+        assert!(value.is_finite());
+        assert!(
+            variable
+                .lower
+                .is_none_or(|lower| value >= lower - allowance)
+        );
+        assert!(
+            variable
+                .upper
+                .is_none_or(|upper| value <= upper + allowance)
+        );
+    }
+}
 
 /// A bounded input tracking a target: saturated at its bound for target 1, with the
 /// analytic x = 1 − e^{−t}; switching at t = ln 2 to hold x = 0.5 for target 0.5. The
@@ -139,16 +185,45 @@ async fn simultaneous_dynamic_optimization_matches_analytic() {
     // declared degrees of freedom are its free inputs.
     assert_eq!(native(result).backend, Backend::Highs);
     assert_eq!(degrees_of_freedom(result), 24);
-    near(tracking(result), saturated_tracking(), 1e-6);
+    let objective_allowance = resolved_allowance(
+        result.prepared.solve.numerics(),
+        NumericalTarget::Objective,
+        SemanticId::NIL,
+    );
+    near(tracking(result), saturated_tracking(), objective_allowance);
+    physical_premises(result);
     let inputs = values(result, "u");
     // One input per mesh node, the fixed left boundary included.
     assert_eq!(inputs.len(), 25);
-    for (_, u) in &inputs {
-        near(*u, 1.0, 1e-5);
+    for (id, u) in &inputs {
+        let variable = result
+            .prepared
+            .model
+            .case
+            .compiled()
+            .plan
+            .structure()
+            .variables()
+            .iter()
+            .find(|variable| variable.port.id == *id)
+            .unwrap();
+        if variable.fixed {
+            assert_eq!(*u, 1., "authored fixed left input");
+        }
     }
     let simultaneous_states = [0, 1, 2].map(|k| result.values.scalars[&holdups[k]]);
-    for ((t, _), x) in HOLDUPS.into_iter().zip(simultaneous_states) {
-        near(x, 1.0 - (-t).exp(), 1e-6);
+    let simultaneous_allowances = holdups
+        .iter()
+        .map(|id| {
+            resolved_allowance(
+                result.prepared.solve.numerics(),
+                NumericalTarget::Variable,
+                *id,
+            )
+        })
+        .collect::<Vec<_>>();
+    for (k, ((t, _), x)) in HOLDUPS.into_iter().zip(simultaneous_states).enumerate() {
+        near(x, 1.0 - (-t).exp(), simultaneous_allowances[k]);
     }
     // Tracking half the reachable range switches off the saturated input at x = 0.5.
     let (half, holdups) = simultaneous(
@@ -160,17 +235,26 @@ async fn simultaneous_dynamic_optimization_matches_analytic() {
     )
     .await;
     let half = authored_success(&half);
-    near(tracking(half), half_tracking(), 1e-3);
-    near(half.values.scalars[&holdups[2]], 0.5, 1e-3);
-    let inputs = values(half, "u");
-    assert!(
-        inputs.iter().any(|(_, u)| (u - 0.5).abs() < 1e-3),
-        "{inputs:?}"
+    near(
+        tracking(half),
+        half_tracking(),
+        resolved_allowance(
+            half.prepared.solve.numerics(),
+            NumericalTarget::Objective,
+            SemanticId::NIL,
+        ),
     );
-    assert!(
-        inputs.iter().any(|(_, u)| (u - 1.0).abs() < 1e-3),
-        "{inputs:?}"
+    physical_premises(half);
+    near(
+        half.values.scalars[&holdups[2]],
+        0.5,
+        resolved_allowance(
+            half.prepared.solve.numerics(),
+            NumericalTarget::Variable,
+            holdups[2],
+        ),
     );
+    assert_eq!(values(half, "u").len(), 25);
 
     // Integrated, with the input scheduled in two intervals at its saturated optimum.
     let cancel = CancelSource::new();
@@ -216,15 +300,27 @@ async fn simultaneous_dynamic_optimization_matches_analytic() {
         .outputs
         .iter()
         .position(|id| *id == state);
-    for (sample, x) in trajectory.report().samples.iter().zip(simultaneous_states) {
+    let integrated_allowance =
+        resolved_allowance(simulation.numerics(), NumericalTarget::Variable, state);
+    for (k, (sample, x)) in trajectory
+        .report()
+        .samples
+        .iter()
+        .zip(simultaneous_states)
+        .enumerate()
+    {
         let integrated = output.map_or(sample.state[0], |o| sample.outputs[o]);
-        near(integrated, 1.0 - (-sample.time).exp(), 1e-7);
-        near(integrated, x, 1e-6);
+        near(integrated, 1.0 - (-sample.time).exp(), integrated_allowance);
+        near(
+            integrated,
+            x,
+            integrated_allowance + simultaneous_allowances[k],
+        );
     }
     near(
         trajectory.report().samples.last().unwrap().integrals[0],
         saturated_tracking(),
-        1e-8,
+        objective_allowance,
     );
 }
 
@@ -257,8 +353,15 @@ async fn simultaneous_dynamic_optimization_with_discrete_decision() {
         native.qualification
     );
     let value = tracking(result);
+    physical_premises(result);
+    let objective_allowance = resolved_allowance(
+        result.prepared.solve.numerics(),
+        NumericalTarget::Objective,
+        SemanticId::NIL,
+    );
     assert!(
-        value >= half_tracking() - 5e-3 && value <= half_always_on() + 5e-3,
+        value >= half_tracking() - objective_allowance
+            && value <= half_always_on() + objective_allowance,
         "{value}"
     );
     // The switched inputs are the committed assignment: binary, and both on and off.
@@ -290,7 +393,7 @@ async fn simultaneous_dynamic_optimization_with_discrete_decision() {
     assert_eq!(on.len(), 9);
     for (id, (committed, _)) in &commitment.columns {
         let solved = on.iter().find(|(o, _)| o == id).unwrap().1;
-        near(solved, *committed, 1e-9);
+        assert_eq!(solved, *committed);
     }
     let runs = pse_relations::generated::runtime::solve_runs::View::from_checked(
         &run.table("runtime.solve_runs").unwrap(),

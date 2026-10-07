@@ -11,7 +11,8 @@ solver = { max-threads = 2 }
 # At most two such processes run together (128 GiB aggregate declared ceiling).
 engineering = { max-threads = 4 }
 # All canonical fixture consumers share the selected server, even with isolated databases.
-# Ordinary journeys reserve two slots; a managed-worker journey reserves all four.
+# Each canonical fixture owns the server installation interval. Its internal
+# concurrency still exercises readers and managed workers against the same database.
 store = { max-threads = 4 }
 
 [profile.default]
@@ -30,7 +31,7 @@ threads-required = 4
 # Tests using isolated canonical databases on the explicitly selected server.
 filter = 'package(pse-operations) | (package(pse-runtime) & (test(workflow::) | test(math::) | binary(worker))) | (package(pse-tests-conformance) & test(acceptance::)) | (package(pse-tests-engine) & (binary(native_session_controls) | binary(pushdown_vs_unpruned)))'
 test-group = "store"
-threads-required = 2
+threads-required = 4
 
 [[profile.default.overrides]]
 filter = '(package(pse-backend-native) & test(/^(kinsol|ipopt|uno|petsc|root_isolation|dynamics|highs|clarabel_tests|restart_tests|scip_tests|l1_tests|pounce_convex_tests|measurement_tests)::/)) | test(/(^|::)solve_/)'
@@ -52,8 +53,8 @@ slow-timeout = { period = "300s", terminate-after = 3 }
 
 [[profile.default.overrides]]
 # This original scientific closure has untimed preparation followed by a bounded
-# 1800-second native derivative diagnostic on one worker.
-filter = 'test(original_pr_case_jacobian_matches_stable_value_differences)'
+# 1800-second derivative-condition and material-response job on one worker.
+filter = 'test(original_pr_case_derivatives_satisfy_production_basis_conditions)'
 test-group = "engineering"
 threads-required = 2
 slow-timeout = { period = "300s", terminate-after = 9 }
@@ -64,7 +65,28 @@ slow-timeout = { period = "300s", terminate-after = 9 }
 filter = 'test(/^acceptance::global_certification::/)'
 slow-timeout = { period = "300s", terminate-after = 6 }
 
-# CI: run everything, retry nothing. A flaky test is a red test.
+# Local scientific validation keeps the production task's own deadline. The
+# runner reports slow tests without cutting off a declared 600-second solve at
+# 120/360 seconds. A finite whole-run timeout still bounds broken orchestration.
+[profile.local]
+inherits = "default"
+retries = 0
+slow-timeout = "60s"
+global-timeout = "2h"
+success-output = "never"
+failure-output = "immediate-final"
+status-level = "fail"
+final-status-level = "flaky"
+
+[[profile.local.overrides]]
+filter = 'all()'
+slow-timeout = "60s"
+
+[profile.local.junit]
+path = "junit.xml"
+store-failure-output = true
+
+# Explicit CI profile: run everything, retry nothing. Local validation uses local.
 [profile.ci]
 fail-fast = false
 retries = 0

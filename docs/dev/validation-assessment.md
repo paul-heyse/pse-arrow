@@ -54,6 +54,11 @@ manual qualification.
 - Results are local outputs under the ignored `build/` directory; they are not
   committed. The runner refuses an output path that Git does not ignore or that
   already exists.
+- Local scientific validation uses Nextest's `local` profile. It reports slow tests
+  and retains a finite two-hour whole-run bound, while the production task owns its
+  numerical deadline. It does not terminate a declared 600-second solve after 120
+  or 360 seconds. Resource groups, memory caps, force-validation and zero retries
+  remain in effect. The separate `ci` profile is available for an explicit CI run.
 
 ## Full local assessment
 
@@ -64,15 +69,18 @@ manual qualification.
 
 The comprehensive scope runs these gates in order:
 
-1. `py-sync-native`, then the formatting, TOML and both Clippy gates.
+1. `py-sync-native` with the selected `--python-profile` (`dev` by default), then
+   the formatting, TOML and both Clippy gates.
 2. Quality: Python contracts, format, lint, types and imports; repository lint; agent
    configuration; setup controls through `setup-test-report`; solver pins.
 3. Generation freshness and family checks, plus ADR, index and register lint.
    Governance tests are covered by the linked workspace invocation.
 4. `check`, `docs-rust`, `docs` and `python-stubs --check`.
-5. Focused `feature-absence --profile ci` in the default graph, `doctest`, and
-   `native-test --profile ci` as the single common Rust execution graph.
-6. `inspection-fixture` and `native-python`.
+5. Focused `feature-absence --profile local` in the default graph, `doctest`, and
+   the actual `producer-fixture` capture and `native-test --profile local` as the
+   single common Rust execution graph.
+6. `native-python` against the installed extension. The selected Python profile
+   does not change the Rust test graph.
 
 A gate whose dependency did not qualify is recorded as `blocked`; the run continues.
 
@@ -98,6 +106,16 @@ retain their own default graph identity, including the real serial QDLDL control
 Native Python resolves the imported package and extension in pytest's interpreter/import
 environment, refuses origins outside this checkout, and checks the same loaded extension
 inside pytest before collection. On-disk candidates are not execution identity.
+
+For assembled persisted-reuse qualification, supply current actual captures through
+`PSE_WORKER_PRODUCER_RECEIPT` and `PSE_PYTHON_PRODUCER_RECEIPT`. Before the assembled
+Rust campaign, run the eligible Python solve/reopen control with
+`PSE_PYTHON_DEPLOYMENT_ATTESTATION` naming its output file. That control writes the
+actual imported extension's run-header attestation after checking it against its
+capture. The native cross-role control requires both eligible captures to match
+that independently observed pair and refuses each receipt for the other receiving
+role. Provenance hashes both captures and the observed header bytes; a receipt's
+self-reported attestation cannot supply this control's expected pair.
 
 One before/after contextual inventory captures source hashes, additions, deletions, modes,
 symlink targets and Git provenance. Each gate projects that map into a versioned declared

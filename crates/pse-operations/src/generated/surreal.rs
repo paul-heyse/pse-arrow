@@ -5,7 +5,7 @@
 /// Exact interpretation of schema, codec and structural operations.
 pub const INTERPRETATION: &str = "pse.substrate.v1";
 /// Exact generated schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "15747f48810c1b0084ba6df0987b72ef03a335e984f5b4d4971301e66c05a603";
+pub const SCHEMA_DIGEST: &str = "5ef28674d5b396a2f147c4edf89e6a0a920399ee2e29d1151841999693eb0105";
 /// Registry-derived database declarations.
 pub const SCHEMA: &str = include_str!("surreal.surql");
 ///Encode the registry row using native exact values.

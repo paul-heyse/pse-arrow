@@ -692,8 +692,8 @@ const SMOOTH_MIN: &str = "fn smooth_min<Q>(a: Q, b: Q, eps: Delta<Q>) -> Q valid
 
 #[tokio::test]
 async fn smooth_complementarity_product_equals_eps_sq_over_4() {
-    // 0 <= a ⊥ b >= 0 smoothed by CHKS: at a fixed a the solve finds a·b = eps²/4, and the
-    // width is a value, so continuing it rebinds the prepared structure.
+    // Check the exact manufactured identity separately from the approximate native
+    // point's original pin and smoothing rows. Continuing width reuses the structure.
     let (package, root) = package(&format!(
         "package p {{ {SMOOTH_MIN} def Root {{ param eps: Scalar = 0.1; param a0: Scalar = 0.2; var a: Scalar; var b: Scalar; eq pin: a == a0;
         complements c: (a >= 0, b >= 0); realize r on c using smooth(smooth_min, eps);
@@ -735,11 +735,49 @@ async fn smooth_complementarity_product_equals_eps_sq_over_4() {
                 .unwrap()
                 .value
         };
-        let product = report("a") * report("b");
+        let manufactured_a = 0.2;
+        let manufactured_b = eps * eps / (4.0 * manufactured_a);
+        let smooth = |a: f64, b: f64| 0.5 * (a + b - ((a - b).powi(2) + eps * eps).sqrt());
+        assert!(smooth(manufactured_a, manufactured_b).abs() <= 8.0 * f64::EPSILON);
+        let model = &result.prepared.model.model.compiled().model;
+        let pin = model
+            .equations
+            .iter()
+            .find(|row| row.lineage.path.ends_with(".pin"))
+            .unwrap()
+            .id;
+        let smoothed = model
+            .equations
+            .iter()
+            .find(|row| row.lineage.path.ends_with(".c"))
+            .unwrap()
+            .id;
+        let numerics = result.prepared.solve.numerics();
+        let pin_budget = fixture::engineering_target(
+            numerics,
+            pse_model::generated::enums::NumericalTarget::Row,
+            pin,
+        )
+        .budget;
+        let smooth_budget = fixture::engineering_target(
+            numerics,
+            pse_model::generated::enums::NumericalTarget::Row,
+            smoothed,
+        )
+        .budget;
+        let (a, b) = (report("a"), report("b"));
+        let residual = smooth(a, b);
+        assert!(a.is_finite() && b.is_finite());
+        assert!((a - 0.2).abs() <= pin_budget);
         assert!(
-            (product - eps * eps / 4.0).abs() < 1e-9,
-            "eps={eps}: a·b = {product}"
+            residual.abs() <= smooth_budget,
+            "eps={eps}: residual={residual}"
         );
+        // The product discrepancy at an approximate point follows its actual row
+        // residual; it is not a tighter solver convergence requirement.
+        let product_defect = 4.0 * a * b - eps * eps;
+        let identity = 4.0 * residual * (a + b - residual);
+        assert!((product_defect - identity).abs() <= 32.0 * f64::EPSILON * (1.0 + (a * b).abs()));
     }
     assert_eq!(structures.len(), 1, "the width is continued by value");
 }
@@ -847,8 +885,40 @@ async fn authored_l1_realization_selects_route() {
             .unwrap()
             .value
     };
-    assert!((report("a") - 0.2).abs() < 1e-6, "a = {}", report("a"));
-    assert!(report("b").abs() < 1e-6, "b = {}", report("b"));
+    let pin = result
+        .prepared
+        .model
+        .model
+        .compiled()
+        .model
+        .equations
+        .iter()
+        .find(|row| row.lineage.path.ends_with(".pin"))
+        .unwrap()
+        .id;
+    let numerics = result.prepared.solve.numerics();
+    let pin_budget = fixture::engineering_target(
+        numerics,
+        pse_model::generated::enums::NumericalTarget::Row,
+        pin,
+    )
+    .budget;
+    let objective_budget = fixture::engineering_target(
+        numerics,
+        pse_model::generated::enums::NumericalTarget::Objective,
+        SemanticId::NIL,
+    )
+    .budget;
+    assert!(
+        (report("a") - 0.2).abs() <= pin_budget,
+        "a = {}",
+        report("a")
+    );
+    assert!(report("b").abs() <= objective_budget, "b = {}", report("b"));
+    assert_eq!(
+        report("b"),
+        native.candidate.as_ref().unwrap().objective.unwrap()
+    );
     // A backend, or a POUNCE method, that cannot honour the requirement is refused.
     let error = second(profile(SolverSelection::Explicit(Backend::Ipopt)))
         .await

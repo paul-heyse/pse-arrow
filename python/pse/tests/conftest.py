@@ -54,6 +54,13 @@ def pytest_sessionstart() -> None:
     if actual is None or Path(actual).resolve() != Path(expected).resolve():
         message = "native Python import differs from the binary recorded by the wrapper"
         raise pytest.UsageError(message)
+    expected_hash = os.environ.get("PSE_NATIVE_EXPECTED_SHA256")
+    if expected_hash is not None:
+        with Path(actual).open("rb") as stream:
+            observed_hash = hashlib.file_digest(stream, "sha256").hexdigest()
+        if observed_hash != expected_hash:
+            message = "native Python binary changed after wrapper provenance capture"
+            raise pytest.UsageError(message)
 
 
 @pytest.fixture(scope="session")

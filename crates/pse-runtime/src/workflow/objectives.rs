@@ -696,33 +696,49 @@ mod tests {
     }
     const MISS: &str = "(x + y - 2)*(x + y - 2)";
 
-    /// A quadratic level is staged. As the degradation vanishes the staged optimum tends to
-    /// the limit of the weighted sum w·miss + effort as w grows: x + y = 2 at the least
-    /// effort, x = 4/3 and y = 2/3.
+    /// A quadratic level is staged with a degradation distinguishable at production
+    /// accuracy. For a fixed sum s, the independent minimum effort is 2s²/3.
     #[tokio::test]
-    async fn lexicographic_nlp_staged_matches_weighted_limit() {
-        let (package, analysis) = package(&nlp(MISS, "1e-6", "0")).await;
+    async fn lexicographic_nlp_staged_respects_meaningful_degradation() {
+        let (package, analysis) = package(&nlp(MISS, "0.01", "0")).await;
         let report = solve(&package, &analysis).await;
         assert_eq!(report.route, ModelingObjectiveRoute::Staged);
         assert_eq!(report.steps.len(), 2);
         let result = report.result().unwrap();
         let (x, y) = (value(result, "x"), value(result, "y"));
+        let first = report.steps[0].as_ref().unwrap();
+        let first_budget = fixture::engineering_target(
+            first.prepared.solve.numerics(),
+            pse_model::generated::enums::NumericalTarget::Objective,
+            SemanticId::NIL,
+        )
+        .budget;
+        assert!(report.levels[0].optimum.unwrap().abs() <= first_budget);
+        let beta = report.levels[0].bound.unwrap();
+        assert_eq!(beta, report.levels[0].optimum.unwrap() + 0.01);
+        assert!(0.01 > first.prepared.solve.objective_accuracy());
+        // The inserted miss row has its own physical allowance. It cannot establish
+        // an optimum for an exact bound tighter than that admitted allowance.
+        assert_eq!(result.prepared.solve.tolerances().rows.len(), 1);
+        let row_budget = result.prepared.solve.tolerances().rows[0];
+        let objective_budget = fixture::engineering_target(
+            result.prepared.solve.numerics(),
+            pse_model::generated::enums::NumericalTarget::Objective,
+            SemanticId::NIL,
+        )
+        .budget;
+        let miss = (x + y - 2.).powi(2);
+        let effort = x * x + 2. * y * y;
+        assert!(miss <= beta + row_budget, "{miss} vs {beta}");
+        assert!((report.levels[0].value.unwrap() - miss).abs() <= row_budget);
+        assert!((report.levels[1].value.unwrap() - effort).abs() <= objective_budget);
+        let optimum = |bound: f64| (2. / 3.) * (2. - bound.sqrt()).powi(2);
         assert!(
-            (x - 4.0 / 3.0).abs() < 2e-3 && (y - 2.0 / 3.0).abs() < 2e-3,
-            "{x} {y}"
+            effort >= optimum(beta + row_budget) - objective_budget
+                && effort <= optimum(beta) + objective_budget,
+            "{effort}; beta={beta}, row={row_budget}"
         );
-        // A single weighted objective with a large weight on the first level agrees.
-        let weighted = "package p { def Root {
-            var x: Scalar; var y: Scalar;
-            let blend: Scalar = 1e5*(x + y - 2)*(x + y - 2) + x*x + 2*y*y;
-            annotation objective blend(minimize);
-            annotation bounds x(-10, 10); annotation bounds y(-10, 10);
-            annotation start x(0); annotation start y(0); } }";
-        let (blended, mut analysis) = self::package(weighted).await;
-        analysis.solver.selection = SolverSelection::Explicit(Backend::Ipopt);
-        let limit = solve(&blended, &analysis).await;
-        let limit = limit.result().unwrap();
-        assert!((value(limit, "x") - x).abs() < 2e-3 && (value(limit, "y") - y).abs() < 2e-3);
+        assert!((effort - (2. / 3.) * (x + y).powi(2)).abs() <= objective_budget);
     }
 
     /// T12: every later level holds an earlier one within f* + max(abs, rel·|f*|); the
@@ -768,7 +784,7 @@ mod tests {
             assert!(error.to_string().contains("tolerance"), "{error}");
         };
         let cancel = crate::CancelSource::new();
-        for (absolute, relative) in [("0", "0"), ("0", "0.1")] {
+        for (absolute, relative) in [("0", "0"), ("0", "0.1"), ("1e-6", "0")] {
             let (package, analysis) = package(&nlp(MISS, absolute, relative)).await;
             refused(
                 package

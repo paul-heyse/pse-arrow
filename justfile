@@ -114,9 +114,9 @@ surreal-fixture-test:
 
 [group('local')]
 [doc('Released-server native canonical schema, source/product and gated offline recovery control')]
-canonical-recovery-test:
+canonical-recovery-test *args:
     bash scripts/native_exec.sh cargo build -p xtask --bin pse-canonical-recovery --no-default-features --features canonical-tools,pse-relations/force-validate --locked
-    "{{ py }}" -m scripts.tests.canonical_recovery_check target/debug/pse-canonical-recovery
+    "{{ py }}" -m scripts.tests.canonical_recovery_check target/debug/pse-canonical-recovery {{ args }}
 
 [group('local')]
 [doc('Native gRPC exact codec and guarded revision controls against a supervised server state')]
@@ -131,6 +131,11 @@ canonical-portable-test state:
     fixture_receipt="$PWD/target/producer-qualified-fixture.json"
     bash scripts/native_exec.sh cargo run -p xtask --no-default-features --locked -- producer-identity-fixture --output "$fixture_receipt"
     PSE_PRODUCER_FIXTURE_RECEIPT="$fixture_receipt" PSE_SURREAL_STATE={{ quote(state) }} NEXTEST_TEST_THREADS=8 just unit-native-package pse-runtime 'canonical-tests,pse-relations/force-validate' 'test(canonical_portable_body)'
+
+[group('local')]
+[doc('Actual finite production capture prerequisite for persisted replay controls')]
+producer-fixture output:
+    bash scripts/native_exec.sh cargo run -p xtask --bin xtask --no-default-features --locked -- producer-identity-fixture --output {{ quote(output) }}
 
 [group('local')]
 [doc('Derive a relevant production-unit identity; unknown inputs disable persistent reuse')]

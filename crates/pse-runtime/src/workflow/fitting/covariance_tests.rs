@@ -28,7 +28,7 @@ use pse_relations::{
 )]
 #[tokio::test]
 async fn linear_regression_covariance_analytic() {
-    let (expected, estimate) = analytic();
+    let (_, estimate) = analytic();
     let package = package(declared(), [1.0; 4]).await;
     for (hessian, approximation) in [
         (HessianMode::Exact, CovarianceApproximation::Exact),
@@ -41,12 +41,29 @@ async fn linear_regression_covariance_analytic() {
             CovarianceApproximation::GaussNewton,
         ),
     ] {
-        let result = fit(&package, profile(hessian, None)).await;
+        let prepared = package
+            .prepare_fit(
+                id(32).into(),
+                profile(hessian, None),
+                compiler_profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let frozen = prepared.problem.clone();
+        let result = prepared.start().unwrap().wait().await.unwrap();
         let report = report(&result);
         let candidate = report.candidate.as_ref().unwrap();
         for k in 0..2 {
             assert!(
-                close(candidate[k], estimate[k], 1e-6),
+                (candidate[k] - estimate[k]).abs()
+                    <= crate::workflow::tests::engineering_target(
+                        &frozen.numerics,
+                        NumericalTarget::Variable,
+                        [id(A), id(B)][k],
+                    )
+                    .budget,
                 "{hessian:?} {candidate:?}"
             );
         }
@@ -55,8 +72,9 @@ async fn linear_regression_covariance_analytic() {
         )
         .unwrap();
         assert_eq!(exported.len(), 2);
-        for (cell, expected) in exported.iter().zip(estimate) {
-            assert!(close(cell.value, expected, 1e-6));
+        for (k, cell) in exported.iter().enumerate() {
+            assert_eq!(cell.parameter_id, [id(A), id(B)][k]);
+            assert_eq!(cell.value, candidate[k]);
             assert_eq!(cell.source_revision, package.revision.identity().as_id());
             assert_eq!(cell.run_id, result.run_id);
         }
@@ -64,8 +82,32 @@ async fn linear_regression_covariance_analytic() {
         assert_eq!(covariance.approximation, approximation);
         assert_eq!(covariance.parameters, vec![id(A), id(B)]);
         let values = covariance.values.as_ref().unwrap();
-        for (actual, expected) in values.iter().zip(expected) {
-            assert!(close(*actual, expected, 1e-6), "{hessian:?} {values:?}");
+        // Independent information operator of the authored weighted linear
+        // regression. Covariance has parameter-squared units; its inverse action
+        // uses the actual dimensionless production linear backward-error budget.
+        let mut information = [[0.; 2]; 2];
+        for (x, sigma) in X.iter().zip(SIGMA) {
+            let row = [1., *x];
+            for i in 0..2 {
+                for j in 0..2 {
+                    information[i][j] += row[i] * row[j] / (sigma * sigma);
+                }
+            }
+        }
+        for i in 0..2 {
+            for j in 0..2 {
+                let rhs = f64::from(i == j);
+                let terms = [
+                    information[i][0] * values[j],
+                    information[i][1] * values[2 + j],
+                ];
+                let residual = (terms.iter().sum::<f64>() - rhs).abs();
+                let magnitude = rhs.abs() + terms.iter().map(|v| v.abs()).sum::<f64>();
+                assert!(
+                    residual <= frozen.numerics.policy.linear_backward_error * magnitude,
+                    "{hessian:?} inverse information action [{i},{j}]: {values:?}"
+                );
+            }
         }
         // The published covariance and its certified validity.
         let rows = parameter_covariances::Row::rows(
@@ -93,6 +135,92 @@ async fn linear_regression_covariance_analytic() {
         assert_eq!(directions.len(), 4);
         assert!(directions.iter().all(|d| d.identifiable));
     }
+}
+
+/// The active-bound admission needs both complete original-coordinate multiplier
+/// vectors. Mutate only that evidence in one genuinely executed Gauss–Newton fit;
+/// its original candidate, responses and quality remain available.
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
+#[tokio::test]
+async fn covariance_withheld_for_missing_or_malformed_bound_multipliers() {
+    let package = package(declared(), [1.; 4]).await;
+    let prepared = package
+        .prepare_fit(
+            id(32).into(),
+            profile(HessianMode::GaussNewton, None),
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let problem = &prepared.problem;
+    let mut report = problem
+        .execute_profile(
+            &problem.profile.solver,
+            prepared.route(),
+            pse_kernels::ExecutionScope::new(
+                Arc::default(),
+                std::time::Instant::now().checked_add(problem.profile.solver.controls.time_limit),
+            ),
+            Arc::new(native::solve::Progress::new(16)),
+            1,
+            None,
+        )
+        .unwrap();
+    problem.estimate_valid(&report).unwrap();
+    assert!(report.quality.as_ref().unwrap().feasible(), "{report:?}");
+    assert_eq!(report.rank, Some(2));
+    assert!(report.responses.is_some());
+    let original = report.solve.as_ref().unwrap().clone();
+    let candidate = report.candidate.as_ref().unwrap().clone();
+    let baseline = problem.covariance(&report).unwrap();
+    assert_eq!(baseline.approximation, CovarianceApproximation::GaussNewton);
+    assert!(baseline.values.is_ok(), "{baseline:?}");
+    // The same real solve supplies every negative control; no altered evidence
+    // is fed back to the solver and no new candidate or qualification is forged.
+    for malformed in 0..3 {
+        report.solve = Some(original.clone());
+        let multipliers = &mut report
+            .solve
+            .as_mut()
+            .unwrap()
+            .candidate
+            .as_mut()
+            .unwrap()
+            .bound_dual;
+        match malformed {
+            0 => *multipliers = None,
+            1 => {
+                assert!(multipliers.as_mut().unwrap().0.pop().is_some());
+            }
+            2 => {
+                assert!(multipliers.as_mut().unwrap().1.pop().is_some());
+            }
+            _ => unreachable!(),
+        }
+        problem.estimate_valid(&report).unwrap();
+        assert_eq!(report.candidate.as_ref().unwrap(), &candidate);
+        assert_eq!(report.rank, Some(2));
+        assert!(report.responses.is_some());
+        assert!(report.quality.as_ref().unwrap().feasible());
+        let withheld = problem.covariance(&report).unwrap();
+        assert!(
+            matches!(
+                &withheld.values,
+                Err(FitWithheld::Local(Withheld::Multipliers))
+            ),
+            "{withheld:?}"
+        );
+    }
+    report.solve = Some(original);
+    assert_eq!(
+        problem.covariance(&report).unwrap().values.unwrap(),
+        baseline.values.unwrap()
+    );
 }
 
 /// F02 (ADR-0118 item 2): the declared model needs a standard deviation for every included
@@ -223,23 +351,24 @@ async fn covariance_withheld_without_responses() {
     );
 }
 
-/// On a linear model the signed root `√(2(f − f*))` is linear in the pinned value, so the
-/// profile-likelihood ends are the Wald ends. Two chains run at once.
+/// On a linear model independent minimized weighted likelihoods establish the
+/// profile/Wald endpoint agreement at production accuracy. The interval root uses
+/// its default statistic control; two chains run at once.
 #[cfg_attr(
     not(feature = "native-solvers"),
     ignore = "needs the linked native solvers"
 )]
 #[tokio::test]
 async fn profile_likelihood_matches_wald_on_linear_model() {
-    let (expected, _) = analytic();
+    let (expected, estimate) = analytic();
     let profile = profile(
         HessianMode::Exact,
         Some(FitUncertainty {
             level: scalar!(Fraction(0.9)),
             profile: Some(ProfileControls {
                 points: scalar!(PositiveCount(20)),
-                tolerance: scalar!(Fraction(1e-6)),
                 workers: Some(scalar!(PositiveCount(2))),
+                ..Default::default()
             }),
             predictions: false,
         }),
@@ -287,30 +416,137 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
         chain.actual_parallelism = 1;
     }
     assert_eq!(serial, parallel);
-    let result = fit(&package, profile).await;
+    let frozen = prepared.problem.clone();
+    let uncertainty = frozen.profile.uncertainty.as_ref().unwrap();
+    let controls = uncertainty.profile.as_ref().unwrap();
+    let threshold = statrs::distribution::ChiSquared::new(1.)
+        .unwrap()
+        .inverse_cdf(uncertainty.level.into_inner())
+        .sqrt();
+    let statistic_allowance = controls.tolerance.into_inner() * threshold;
+    let objective_allowance = crate::workflow::tests::engineering_target(
+        &frozen.numerics,
+        NumericalTarget::Objective,
+        SemanticId::NIL,
+    )
+    .budget;
+    // Independently minimize the authored weighted linear likelihood. This
+    // objective allowance is checked empirically for the base and every accepted
+    // pinned fit; the root tolerance is a separate dimensionless statistic control.
+    let optimum = (0..X.len())
+        .map(|i| 0.5 * ((estimate[0] + estimate[1] * X[i] - Y[i]) / SIGMA[i]).powi(2))
+        .sum::<f64>();
+    for chain in serial.iter().chain(&parallel) {
+        let k = [id(A), id(B)]
+            .iter()
+            .position(|parameter| *parameter == chain.parameter)
+            .unwrap();
+        for point in chain.points.iter().filter(|point| point.accepted) {
+            let analytic_objective =
+                optimum + (point.value - estimate[k]).powi(2) / (2. * expected[3 * k]);
+            assert!(
+                (point.objective.unwrap() - analytic_objective).abs() <= objective_allowance,
+                "independent serial/parallel pinned likelihood: {point:?}"
+            );
+        }
+    }
+    let result = prepared.start().unwrap().wait().await.unwrap();
     let report = report(&result);
+    assert!(result.usable(), "{report:?}");
+    assert!(
+        (report.objective.unwrap() - optimum).abs() <= objective_allowance,
+        "{report:?}"
+    );
     let wald = report.wald.as_ref().unwrap().as_ref().unwrap();
     let chains = report.profiles.as_ref().unwrap().as_ref().unwrap();
     assert_eq!(chains.len(), 4);
-    let z = 1.6448536269514722;
     for (k, interval) in wald.iter().enumerate() {
         let error = expected[3 * k].sqrt();
+        let parameter_allowance = crate::workflow::tests::engineering_target(
+            &frozen.numerics,
+            NumericalTarget::Variable,
+            [id(A), id(B)][k],
+        )
+        .budget;
         let half = interval.upper.value.unwrap() - interval.estimate;
-        assert!(close(half, z * error, 1e-6), "{interval:?}");
+        let center_error = (interval.estimate - estimate[k]).abs();
+        let width_error = (half - threshold * error).abs();
+        assert!(center_error <= parameter_allowance, "{interval:?}");
+        assert!(width_error <= parameter_allowance, "{interval:?}");
         for chain in chains.iter().filter(|c| c.parameter == interval.parameter) {
+            assert_eq!(chain.estimate, interval.estimate);
             assert_eq!(chain.bound.outcome, IntervalOutcome::Threshold, "{chain:?}");
+            assert!(
+                chain.points.len() <= controls.points.into_inner(),
+                "{chain:?}"
+            );
+            for point in chain.points.iter().filter(|point| point.accepted) {
+                let analytic_objective =
+                    optimum + (point.value - estimate[k]).powi(2) / (2. * expected[3 * k]);
+                assert!(
+                    (point.objective.unwrap() - analytic_objective).abs() <= objective_allowance,
+                    "independent pinned likelihood: {point:?}"
+                );
+                assert_eq!(
+                    point.statistic.unwrap(),
+                    (2. * (point.objective.unwrap() - report.objective.unwrap()).max(0.)).sqrt()
+                );
+                assert!(
+                    matches!(
+                        point.qualification,
+                        Some(
+                            Qualification::Stationary
+                                | Qualification::OptimalWithinTolerance
+                                | Qualification::GapQualified
+                        )
+                    ),
+                    "{point:?}"
+                );
+            }
             let wald = if chain.end == IntervalEnd::Lower {
                 &interval.lower
             } else {
                 &interval.upper
             };
             let value = chain.bound.value.unwrap();
+            let width_error =
+                ((wald.value.unwrap() - interval.estimate).abs() - threshold * error).abs();
+            assert!(width_error <= parameter_allowance, "{interval:?}");
+            let endpoint = chain
+                .points
+                .iter()
+                .find(|point| point.accepted && point.value == value)
+                .unwrap();
             assert!(
-                (value - wald.value.unwrap()).abs() <= 1e-5 * error,
+                (endpoint.statistic.unwrap() - threshold).abs() <= statistic_allowance,
+                "{chain:?}"
+            );
+            // Two checked likelihood errors compose into 4*allowance in the
+            // squared statistic. Transform that discrepancy into parameter units,
+            // then separately include the checked Wald center and width errors.
+            let lower_radius = ((threshold - statistic_allowance).powi(2)
+                - 4. * objective_allowance)
+                .max(0.)
+                .sqrt();
+            let upper_radius =
+                ((threshold + statistic_allowance).powi(2) + 4. * objective_allowance).sqrt();
+            let endpoint_allowance =
+                error * (threshold - lower_radius).max(upper_radius - threshold);
+            let direction = if chain.end == IntervalEnd::Lower {
+                -1.
+            } else {
+                1.
+            };
+            assert!(direction * (value - estimate[k]) > 0., "{chain:?}");
+            assert!(
+                (value - (estimate[k] + direction * threshold * error)).abs() <= endpoint_allowance,
+                "{chain:?}"
+            );
+            assert!(
+                (value - wald.value.unwrap()).abs()
+                    <= endpoint_allowance + center_error + width_error,
                 "{value} {wald:?} {chain:?}"
             );
-            // The secant in the signed root is exact: two pinned fits reach the end.
-            assert!(chain.points.len() <= 3, "{chain:?}");
         }
     }
     let rows =
@@ -346,11 +582,7 @@ async fn profile_chain_seeds_from_predecessor() {
     let uncertainty = || {
         Some(FitUncertainty {
             level: scalar!(Fraction(0.95)),
-            profile: Some(ProfileControls {
-                points: scalar!(PositiveCount(40)),
-                tolerance: scalar!(Fraction(1e-2)),
-                workers: None,
-            }),
+            profile: Some(ProfileControls::default()),
             predictions: false,
         })
     };
@@ -364,11 +596,25 @@ async fn profile_chain_seeds_from_predecessor() {
         report(&result).profiles,
         Some(Err(FitWithheld::NonunitImportance(_)))
     ));
-    let result = fit(
-        &package_with(true, declared(), [1.0; 4]).await,
-        profile(HessianMode::LimitedMemory, uncertainty()),
-    )
-    .await;
+    let package = package_with(true, declared(), [1.0; 4]).await;
+    let prepared = package
+        .prepare_fit(
+            id(32).into(),
+            profile(HessianMode::LimitedMemory, uncertainty()),
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let frozen = prepared.problem.clone();
+    let uncertainty = frozen.profile.uncertainty.as_ref().unwrap();
+    let controls = uncertainty.profile.as_ref().unwrap();
+    let threshold = statrs::distribution::ChiSquared::new(1.)
+        .unwrap()
+        .inverse_cdf(uncertainty.level.into_inner())
+        .sqrt();
+    let result = prepared.start().unwrap().wait().await.unwrap();
     let report = report(&result);
     assert!(
         matches!(
@@ -403,12 +649,16 @@ async fn profile_chain_seeds_from_predecessor() {
             assert_eq!(chain.bound.value.map(f64::abs), Some(100.0), "{chain:?}");
         }
         assert!(chain.points.len() > 2, "{chain:?}");
+        assert!(
+            chain.points.len() <= controls.points.into_inner(),
+            "{chain:?}"
+        );
         assert_eq!(chain.points[0].seed, None, "{chain:?}");
         // The seed of every later point is the latest accepted point below the threshold.
         for (i, point) in chain.points.iter().enumerate().skip(1) {
             let predecessor = (0..i)
                 .rev()
-                .find(|&j| chain.points[j].accepted && r(&chain.points[j]) < 1.959963984540054);
+                .find(|&j| chain.points[j].accepted && r(&chain.points[j]) < threshold);
             assert_eq!(point.seed, predecessor, "{i} {chain:?}");
         }
         assert!(chain.points.iter().all(|p| p.accepted), "{chain:?}");

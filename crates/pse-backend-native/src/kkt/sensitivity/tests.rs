@@ -42,6 +42,7 @@ struct Analytic {
 /// Coordinate scales of the parametric view: `x₁, x₂, x₃, p₁, p₂`.
 const SCALES: [f64; 5] = [2.0, 0.5, 1.0, 4.0, 0.25];
 const OBJECTIVE_SCALE: f64 = 5.0;
+const ROW_SCALE: f64 = 3.0;
 impl Analytic {
     fn new(p: [f64; 2], c: f64, duplicate: bool, parametric: bool) -> Self {
         let n = if parametric { 5 } else { 3 };
@@ -98,7 +99,7 @@ impl Analytic {
             hessian_values,
             normalization: Normalization {
                 variables: SCALES[..n].to_vec(),
-                rows: vec![3.0; m],
+                rows: vec![ROW_SCALE; m],
                 objective: OBJECTIVE_SCALE,
             },
         }
@@ -204,13 +205,18 @@ fn request(parametric: Analytic, reduced_hessian: bool) -> Sensitivity {
     }
 }
 fn tolerances(n: usize, m: usize) -> Tolerances {
+    let policy = pse_model::numerics::NumericalPolicy::default();
+    // These authored fixture coordinates are canonical scalar units. Their
+    // engineering characteristic is one; SCALES only conditions the KKT system.
     Tolerances {
-        variables: vec![1e-8; n],
-        rows: vec![1e-8; m],
-        integrality: 1e-8,
+        variables: vec![policy.engineering_relative_fraction; n],
+        rows: vec![policy.engineering_relative_fraction; m],
+        integrality: policy.integrality,
     }
 }
 fn close(actual: f64, expected: f64) -> bool {
+    // Manufactured exact candidates and factor transport test arithmetic,
+    // without requesting greater accuracy from a production solver.
     (actual - expected).abs() <= 1e-6 * (1.0 + expected.abs())
 }
 /// The runner's tail at an exact candidate: original observation, KKT evidence,
@@ -222,7 +228,7 @@ fn tail(
     lambda: &[f64],
     zl: [f64; 3],
 ) -> SolveReport {
-    retaining(solve, parametric, x, lambda, zl, false, 1e-8).0
+    retaining(solve, parametric, x, lambda, zl, false).0
 }
 /// [`tail`] for a request that keeps its factor for an advanced step, when `retain`.
 fn retaining(
@@ -232,7 +238,6 @@ fn retaining(
     lambda: &[f64],
     zl: [f64; 3],
     retain: bool,
-    bound_tolerance: f64,
 ) -> (SolveReport, Option<crate::kkt::Advance>) {
     let (n, m) = (3, solve.bounds.len());
     let execution = Execution::new(Default::default(), &Controls::default());
@@ -258,12 +263,10 @@ fn retaining(
         slacks: None,
         commitment: None,
     });
-    let accuracy = ResolvedAccuracy::verification();
-    let tolerances = Tolerances {
-        variables: vec![bound_tolerance; n],
-        ..tolerances(n, m)
-    };
+    let policy = pse_model::numerics::NumericalPolicy::default();
+    let tolerances = tolerances(n, m);
     let normalization = solve.normalization.clone();
+    let accuracy = ResolvedAccuracy::resolve(&policy, &tolerances, &normalization).unwrap();
     quality::attach_nlp(
         &mut report,
         &mut solve,
@@ -538,6 +541,15 @@ mod solved {
         solve::Compatibility,
     };
 
+    fn engineering_allowance() -> f64 {
+        pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction
+    }
+    /// Empirical response comparison for one frozen normalized parameter step. Its
+    /// allowance is independent of the expected answer, not an output-error guarantee.
+    fn close_scaled(actual: f64, expected: f64, scale: f64, allowance: f64) -> bool {
+        actual.is_finite() && ((actual - expected) * scale).abs() <= allowance
+    }
+
     /// One solve of the analytic NLP through the one NLP runner with a sensitivity request.
     pub(super) fn solve(backend: Backend, p: [f64; 2], sense: ObjectiveSense) -> SolveReport {
         run(
@@ -563,11 +575,10 @@ mod solved {
         let solve = Analytic::new(p, 2.0, false, false);
         let (n, m) = (3, solve.bounds.len());
         let controls = Controls::default();
-        // The independent analytic solution and first-order prediction are
-        // compared below at 1e-7, so resolve the existing verification policy.
-        let accuracy = ResolvedAccuracy::verification();
+        let policy = pse_model::numerics::NumericalPolicy::default();
         let normalization = solve.normalization.clone();
         let tolerances = tolerances(n, m);
+        let accuracy = ResolvedAccuracy::resolve(&policy, &tolerances, &normalization).unwrap();
         execution::nlp(
             Step {
                 snapshot: &execution::Snapshot::observe(&LINKED),
@@ -673,13 +684,51 @@ mod solved {
             let parametric = report.evidence.sensitivity.as_ref().unwrap();
             assert_eq!(parametric.parameters, vec![id(50), id(51)]);
             let s = parametric.sensitivities.as_ref().unwrap();
+            let candidate = report.candidate.as_ref().unwrap();
+            let lambda = candidate.row_dual.as_ref().unwrap()[0];
+            let objective = [candidate.primal[2] - lambda, -candidate.primal[0]];
+            let dual_allowance = pse_model::numerics::NumericalPolicy::default()
+                .kkt
+                .stationarity;
             for k in 0..2 {
                 for j in 0..3 {
-                    assert!(close(s.primal[k][j], DX[k][j]), "{backend:?} {s:?}");
+                    assert!(
+                        close_scaled(
+                            s.primal[k][j],
+                            DX[k][j],
+                            SCALES[3 + k] / SCALES[j],
+                            engineering_allowance() / SCALES[j]
+                        ),
+                        "{backend:?} {s:?}"
+                    );
                 }
-                assert!(close(s.rows[k][0], DLAMBDA[k]), "{backend:?} {s:?}");
-                assert!(close(s.bounds[k][2], DZ[k]), "{backend:?} {s:?}");
-                assert!(close(s.objective[k], DF[k]), "{backend:?} {s:?}");
+                assert!(
+                    close_scaled(
+                        s.rows[k][0],
+                        DLAMBDA[k],
+                        ROW_SCALE * SCALES[3 + k] / OBJECTIVE_SCALE,
+                        dual_allowance
+                    ),
+                    "{backend:?} {s:?}"
+                );
+                assert!(
+                    close_scaled(
+                        s.bounds[k][2],
+                        DZ[k],
+                        SCALES[2] * SCALES[3 + k] / OBJECTIVE_SCALE,
+                        dual_allowance
+                    ),
+                    "{backend:?} {s:?}"
+                );
+                assert!(
+                    close_scaled(
+                        s.objective[k],
+                        objective[k],
+                        SCALES[3 + k] / OBJECTIVE_SCALE,
+                        engineering_allowance() / OBJECTIVE_SCALE
+                    ),
+                    "{backend:?} {s:?}"
+                );
             }
             // The pinned parametric point: the row, x₃'s bound and both pins are strongly
             // active, In(K) = In(ZᵀHZ) + (4, 4, 0) over a one-dimensional null space.
@@ -689,22 +738,50 @@ mod solved {
                 crate::kkt::Activity::Strong(Side::Equal)
             );
             assert_eq!((point.inertia, point.reduced), ((5, 4, 0), (1, 0, 0)));
-            // A first-order step predicts the solution at a perturbed parameter.
-            let moved = solve(
-                backend,
-                [P[0] + 1e-3, P[1] - 2e-3],
-                ObjectiveSense::Minimize,
+            // Exercise both native solvers at a material parameter step. The
+            // analytic active-set response is independent of either returned
+            // candidate's remaining engineering error.
+            let delta = [0.1, -0.2];
+            let moved_parameters = [P[0] + delta[0], P[1] + delta[1]];
+            let moved = solve(backend, moved_parameters, ObjectiveSense::Minimize);
+            assert_eq!(
+                moved.qualification,
+                Qualification::Stationary,
+                "{backend:?}"
             );
-            let (x0, x1) = (
-                &report.candidate.as_ref().unwrap().primal,
-                &moved.candidate.as_ref().unwrap().primal,
-            );
+            let x0 = &candidate.primal;
+            let x1 = &moved.candidate.as_ref().unwrap().primal;
+            let exact = |p: [f64; 2]| [(p[1] + 2.0 * p[0]) / 3.0, (p[0] - p[1]) / 3.0, 0.0];
+            let (base_reference, moved_reference) = (exact(P), exact(moved_parameters));
             for j in 0..3 {
-                let predicted = x0[j] + 1e-3 * s.primal[0][j] - 2e-3 * s.primal[1][j];
+                let increment = delta[0] * s.primal[0][j] + delta[1] * s.primal[1][j];
+                let predicted = x0[j] + increment;
                 assert!(
-                    (predicted - x1[j]).abs() < 1e-7,
-                    "{backend:?} {predicted} {}",
-                    x1[j]
+                    close_scaled(x0[j], base_reference[j], 1.0, engineering_allowance()),
+                    "{backend:?} base {j}"
+                );
+                assert!(
+                    close_scaled(x1[j], moved_reference[j], 1.0, engineering_allowance()),
+                    "{backend:?} moved {j}"
+                );
+                assert!(
+                    close_scaled(
+                        increment,
+                        moved_reference[j] - base_reference[j],
+                        1.0,
+                        engineering_allowance()
+                    ),
+                    "{backend:?} increment {j}"
+                );
+                assert!(
+                    close_scaled(predicted, moved_reference[j], 1.0, engineering_allowance()),
+                    "{backend:?} prediction {j}"
+                );
+                // Two independently returned candidates contribute their own
+                // frozen physical allowances to this direct comparison.
+                assert!(
+                    close_scaled(predicted, x1[j], 1.0, 2.0 * engineering_allowance()),
+                    "{backend:?} returned prediction {j}"
                 );
             }
         }
@@ -723,9 +800,6 @@ mod solved {
             .unwrap()
             .as_ref()
             .unwrap();
-        for (actual, expected) in hessian.values.iter().zip(H) {
-            assert!(close(*actual, expected), "{hessian:?}");
-        }
         assert!(hessian.values[3] < 0.0 && hessian.values[0] > 0.0);
         // Ĥ = S_p·H·S_p / S_f under the declared scales, with its eigenpairs ascending.
         let s = [SCALES[3], SCALES[4]];
@@ -733,7 +807,21 @@ mod solved {
             for j in 0..2 {
                 let expected = s[i] * H[2 * i + j] * s[j] / OBJECTIVE_SCALE;
                 assert!(
-                    close(hessian.normalized[2 * i + j], expected),
+                    close_scaled(
+                        hessian.values[2 * i + j],
+                        H[2 * i + j],
+                        s[i] * s[j] / OBJECTIVE_SCALE,
+                        engineering_allowance() / OBJECTIVE_SCALE
+                    ),
+                    "{hessian:?}"
+                );
+                assert!(
+                    close_scaled(
+                        hessian.normalized[2 * i + j],
+                        expected,
+                        1.0,
+                        engineering_allowance() / OBJECTIVE_SCALE
+                    ),
                     "{hessian:?}"
                 );
             }
@@ -754,10 +842,35 @@ mod solved {
         let maximized = solve(Backend::Ipopt, P, ObjectiveSense::Maximize);
         let flipped = maximized.evidence.sensitivity.as_ref().unwrap();
         let s = flipped.sensitivities.as_ref().unwrap();
-        assert!(close(s.objective[0], -DF[0]) && close(s.objective[1], -DF[1]));
+        let candidate = maximized.candidate.as_ref().unwrap();
+        let lambda = candidate.row_dual.as_ref().unwrap()[0];
+        let objective = [lambda - candidate.primal[2], candidate.primal[0]];
+        assert!(
+            close_scaled(
+                s.objective[0],
+                objective[0],
+                SCALES[3] / OBJECTIVE_SCALE,
+                engineering_allowance() / OBJECTIVE_SCALE
+            ) && close_scaled(
+                s.objective[1],
+                objective[1],
+                SCALES[4] / OBJECTIVE_SCALE,
+                engineering_allowance() / OBJECTIVE_SCALE
+            )
+        );
         let hessian = flipped.reduced_hessian.as_ref().unwrap().as_ref().unwrap();
-        for (actual, expected) in hessian.values.iter().zip(H) {
-            assert!(close(*actual, -expected), "{hessian:?}");
+        for i in 0..2 {
+            for j in 0..2 {
+                assert!(
+                    close_scaled(
+                        hessian.values[2 * i + j],
+                        -H[2 * i + j],
+                        SCALES[3 + i] * SCALES[3 + j] / OBJECTIVE_SCALE,
+                        engineering_allowance() / OBJECTIVE_SCALE
+                    ),
+                    "{hessian:?}"
+                );
+            }
         }
     }
 }
@@ -778,7 +891,6 @@ fn advanced_step_predicts_within_the_active_set() {
         &[2.0 / 3.0, 0.0],
         [0.0, 0.0, 1.0],
         true,
-        1e-8,
     );
     let advance = advance.expect("a certified step keeps its factor");
     let parametric = report.evidence.sensitivity.as_ref().unwrap();
@@ -836,7 +948,6 @@ fn advanced_step_needs_certified_sensitivities() {
         &[2.0, 0.0],
         [0.0, 0.0, 1.0],
         true,
-        1e-8,
     );
     assert!(advance.is_none());
     assert_eq!(report.evidence.sensitivity.as_ref().unwrap().retained, None);
@@ -844,12 +955,12 @@ fn advanced_step_needs_certified_sensitivities() {
 
 /// An interior-point candidate keeps an active bound's slack at `μ/z`, which may exceed the
 /// declared bound tolerance. The bound `x₃ ≥ 0` is still active when its normalized
-/// multiplier is strong and exceeds its normalized slack: at `x₃ = 10⁻⁹` under a tolerance
-/// of `10⁻¹⁰`, with `z_L,3 = p₁ + x₃` (stationary), the analysis pins `x₃` and the
+/// multiplier is strong and exceeds its normalized slack: at twice the default physical
+/// bound allowance, with `z_L,3 = p₁ + x₃` (stationary), the analysis pins `x₃` and the
 /// sensitivities are the analytic ones, `dx₃/dp = 0`, rather than those of a free `x₃`.
 #[test]
 fn interior_point_active_bound_beyond_its_tolerance_is_active() {
-    let slack = 1e-9;
+    let slack = 2.0 * tolerances(3, 2).variables[2];
     let (report, _) = retaining(
         Analytic::new(P, 2.0, false, false),
         Analytic::new(P, 2.0, false, true),
@@ -857,8 +968,9 @@ fn interior_point_active_bound_beyond_its_tolerance_is_active() {
         &[2.0 / 3.0, 0.0],
         [0.0, 0.0, P[0] + slack],
         false,
-        1e-10,
     );
+    assert_eq!(report.qualification, Qualification::Stationary);
+    assert_eq!(report.evidence.kkt.unwrap().complementarity, Some(true));
     let parametric = report.evidence.sensitivity.as_ref().unwrap();
     let point = parametric.point.as_ref().unwrap();
     assert_eq!(

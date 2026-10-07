@@ -122,10 +122,13 @@ pub(crate) const TARGET: [f64; 6] = [0.9, 0.5, -0.3, -0.2, 0.25, -0.5];
 pub(crate) const PERTURBED: [f64; 6] = [0.92, 0.47, -0.31, -0.18, 0.27, -0.52];
 
 pub(crate) fn tolerances(n: usize) -> Tolerances {
+    let policy = pse_model::numerics::NumericalPolicy::default();
+    // The simplex coordinates and row are canonical scalar units with an
+    // admitted engineering characteristic of one.
     Tolerances {
-        variables: vec![1e-8; n],
-        rows: vec![1e-8],
-        integrality: 1e-8,
+        variables: vec![policy.engineering_relative_fraction; n],
+        rows: vec![policy.engineering_relative_fraction],
+        integrality: policy.integrality,
     }
 }
 /// One run of `backend` through the shared NLP runner.
@@ -146,11 +149,10 @@ pub(crate) fn run(
         },
         ..Controls::default()
     };
-    // Cold and warm solutions are compared at 1e-6; use the explicit
-    // verification budgets rather than ordinary engineering allowances.
-    let accuracy = ResolvedAccuracy::verification();
+    let policy = pse_model::numerics::NumericalPolicy::default();
     let normalization = oracle.normalization.clone();
     let tolerances = tolerances(n);
+    let accuracy = ResolvedAccuracy::resolve(&policy, &tolerances, &normalization).unwrap();
     let initial = vec![1.0 / n as f64; n];
     execution::nlp(
         Step {
@@ -204,6 +206,7 @@ pub(crate) fn iterations(report: &SolveReport) -> i64 {
 fn solved(report: &SolveReport) -> bool {
     report.termination.category == Termination::Success
         && report.quality.as_ref().is_some_and(|q| q.feasible())
+        && report.qualification == Qualification::Stationary
 }
 
 #[cfg(feature = "ipopt")]
@@ -334,15 +337,15 @@ fn warm_restart_reduces_iterations_on_perturbed_case() {
         (Backend::Ipopt, BackendSettings::Ipopt(Default::default())),
         (Backend::Pounce, BackendSettings::Pounce(Default::default())),
     ] {
-        let seed = run(
+        let initial = run(
             backend,
             &settings,
             Simplex::new(&TARGET, 1.0, 1.0),
             None,
             &Policy::Auto,
-        )
-        .warm_start
-        .unwrap();
+        );
+        assert!(solved(&initial), "{backend:?} {:?}", initial.termination);
+        let seed = initial.warm_start.unwrap();
         let cold = run(
             backend,
             &settings,
@@ -364,10 +367,38 @@ fn warm_restart_reduces_iterations_on_perturbed_case() {
             &cold.candidate.as_ref().unwrap().primal,
             &warm.candidate.as_ref().unwrap().primal,
         );
-        assert!(
-            a.iter().zip(b).all(|(a, b)| (a - b).abs() < 1e-6),
-            "{a:?} {b:?}"
-        );
+        assert_eq!(a.len(), b.len());
+        assert_eq!(a.len(), PERTURBED.len());
+        assert!(a.iter().chain(b).all(|value| value.is_finite()));
+        // Production KKT stopping bounds residuals, not coordinate forward
+        // error. This restart has no requested output-coordinate goal. Check
+        // the decision quantity: distance to the target, independently of the
+        // remaining barrier slack in either accepted candidate.
+        // The simplex projection subtracts 0.22 from the three positive
+        // coordinates of PERTURBED and clips its other coordinates to zero.
+        let optimum = [0.70, 0.25, 0.0, 0.0, 0.05, 0.0];
+        let expected: f64 = optimum
+            .iter()
+            .zip(PERTURBED)
+            .map(|(x, target)| (x - target) * (x - target))
+            .sum();
+        let allowance =
+            pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction;
+        let objectives =
+            [&cold, &warm].map(|report| report.observation.as_ref().unwrap().objective.unwrap());
+        for (objective, primal) in objectives.into_iter().zip([a, b]) {
+            let reevaluated: f64 = primal
+                .iter()
+                .zip(PERTURBED)
+                .map(|(x, target)| (x - target) * (x - target))
+                .sum();
+            assert_eq!(objective, reevaluated);
+            assert!(
+                objective.is_finite() && (objective - expected).abs() <= allowance,
+                "{backend:?} objective {objective}, reference {expected}"
+            );
+        }
+        assert!((objectives[0] - objectives[1]).abs() <= 2.0 * allowance);
         assert!(warm.evidence.restart.is_some(), "{backend:?}");
         assert!(
             iterations(&warm) < iterations(&cold),

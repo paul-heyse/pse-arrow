@@ -15,7 +15,10 @@ use pse_model::{
     },
 };
 use pse_modeling::selected_source::{self, LexicalLookup, Lookup};
-use pse_operations::{canonical::ObjectEdit, canonical_selection::SelectedRead};
+use pse_operations::{
+    canonical::ObjectEdit,
+    canonical_selection::{SELECTED_INVENTORY_BATCH, SelectedRead},
+};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
@@ -248,6 +251,43 @@ async fn object(
     selected_object(runtime, read, &member.version)
         .await
         .map(Some)
+}
+/// Resolve each exact nullable identity once, then precharge and hydrate its
+/// immutable objects as a group. Absent identities remain read premises.
+async fn objects(
+    runtime: &Runtime,
+    read: &mut SelectedRead,
+    logicals: &[String],
+    cancel: &crate::CancelSource,
+) -> Result<BTreeMap<String, OwnedObject>, WorkflowError> {
+    let mut objects = BTreeMap::new();
+    for logicals in logicals.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH) {
+        checkpoint(cancel)?;
+        let _scratch = runtime.shared.math().reserve(
+            "modeling:exact-object-metadata",
+            pse_operations::canonical_staging::SELECTED_OBJECT_HEADER_SCRATCH,
+        )?;
+        let members = runtime
+            .canonical
+            .store()
+            .resolve_logicals(read, logicals)
+            .await?;
+        let versions = members
+            .iter()
+            .map(|member| member.version.clone())
+            .collect::<Vec<_>>();
+        if versions.is_empty() {
+            continue;
+        }
+        let selected = selected_objects(runtime, read, &versions, cancel).await?;
+        for (member, object) in members.into_iter().zip(selected) {
+            if member.logical != object.logical || member.version != object.key {
+                return Err(contract("canonical exact object association differs"));
+            }
+            objects.insert(member.logical, object);
+        }
+    }
+    Ok(objects)
 }
 async fn context(
     runtime: &Runtime,
@@ -1659,50 +1699,64 @@ impl ModelingPackage {
             });
             let mut logicals = Vec::new();
             let mut names = BTreeMap::<Option<DeclarationId>, Vec<String>>::new();
+            let mut inventories = Vec::new();
+            let requested_scopes = requests
+                .iter()
+                .filter_map(|request| match request {
+                    Request::Members(owner) => Some(*owner),
+                    _ => None,
+                })
+                .collect::<BTreeSet<_>>();
             for request in requests {
-                if let Request::Logical(id) = request {
-                    logicals.push(id);
-                    continue;
-                }
-                if let Request::Name(parent, name) = &request {
-                    if index.needs_name(*parent, name) {
-                        names.entry(*parent).or_default().push(name.clone());
-                    }
-                    continue;
-                }
-                if let Request::Imports(owner) = &request
-                    && index.scopes.contains(owner)
-                {
-                    continue;
-                }
-                let members = match &request {
-                    Request::Logical(_) => {
-                        return Err(contract("logical frontier was not grouped"));
-                    }
-                    Request::Name(_, _) => return Err(contract("name frontier was not grouped")),
-                    Request::Imports(owner) => {
-                        store
-                            .resolve_kind_scope(read, Some(&logical(*owner)), "modeling:import")
-                            .await?
-                    }
-                    Request::Members(owner) => store.resolve_scope(read, &logical(*owner)).await?,
-                };
-                self.insert_members(&mut index, read, members, &mut leases, cancel)
-                    .await?;
                 match request {
-                    Request::Name(_, _) => return Err(contract("name frontier was not grouped")),
-                    Request::Imports(owner) => {
-                        index.imports.insert(owner);
+                    Request::Logical(id) => logicals.push(id),
+                    Request::Name(parent, name) => {
+                        if index.needs_name(parent, &name) {
+                            names.entry(parent).or_default().push(name);
+                        }
                     }
-                    Request::Members(owner) => {
-                        index.scopes.insert(owner);
-                        index.imports.insert(owner);
-                    }
-                    Request::Logical(_) => {}
+                    Request::Imports(owner)
+                        if index.scopes.contains(&owner) || requested_scopes.contains(&owner) => {}
+                    request => inventories.push(request),
                 }
             }
+            for requests in inventories.chunks(SELECTED_INVENTORY_BATCH) {
+                let mut cursors = requests
+                    .iter()
+                    .map(|request| match request {
+                        Request::Imports(owner) => {
+                            store.kind_pages(read, Some(&logical(*owner)), "modeling:import")
+                        }
+                        Request::Members(owner) => store.scope_pages(read, &logical(*owner)),
+                        _ => Err(pse_operations::canonical::CanonicalError::Configuration(
+                            "invalid inventory frontier".into(),
+                        )),
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                self.insert_inventories(&mut index, read, &mut cursors, &mut leases, cancel)
+                    .await?;
+                for request in requests {
+                    match request {
+                        Request::Imports(owner) => {
+                            index.imports.insert(*owner);
+                        }
+                        Request::Members(owner) => {
+                            index.scopes.insert(*owner);
+                            index.imports.insert(*owner);
+                        }
+                        _ => return Err(contract("invalid inventory frontier")),
+                    }
+                }
+            }
+            logicals.retain(|id| {
+                !index.rows.contains_key(id) && !index.record_sources.contains_key(id)
+            });
             for ids in logicals.chunks(64) {
                 checkpoint(cancel)?;
+                let scratch = self.runtime.shared.math().reserve(
+                    "modeling:logical-frontier-metadata",
+                    pse_operations::canonical_staging::SELECTED_OBJECT_HEADER_SCRATCH,
+                )?;
                 let members = store
                     .resolve_logicals(read, &ids.iter().copied().map(logical).collect::<Vec<_>>())
                     .await?;
@@ -1712,17 +1766,27 @@ impl ModelingPackage {
                     .collect::<BTreeSet<_>>();
                 self.insert_members(&mut index, read, members, &mut leases, cancel)
                     .await?;
-                for id in ids {
-                    if present.contains(&logical(*id)) {
-                        continue;
-                    }
-                    let supplier = object(&self.runtime, read, &format!("record:{id}"))
-                        .await?
-                        .ok_or_else(|| {
-                            contract(
-                                "selected modeling declaration, record or lexical ancestor absent",
-                            )
-                        })?;
+                let missing = ids
+                    .iter()
+                    .filter(|id| !present.contains(&logical(**id)))
+                    .copied()
+                    .collect::<Vec<_>>();
+                drop(present);
+                drop(scratch);
+                let mut records = objects(
+                    &self.runtime,
+                    read,
+                    &missing
+                        .iter()
+                        .map(|id| format!("record:{id}"))
+                        .collect::<Vec<_>>(),
+                    cancel,
+                )
+                .await?;
+                for id in missing {
+                    let supplier = records.remove(&format!("record:{id}")).ok_or_else(|| {
+                        contract("selected modeling declaration, record or lexical ancestor absent")
+                    })?;
                     if supplier.kind != "record_supplier" {
                         return Err(contract("canonical record supplier interpretation differs"));
                     }
@@ -1731,22 +1795,32 @@ impl ModelingPackage {
                         .versions
                         .insert(supplier.logical.clone(), supplier.key.clone());
                     leases.push(supplier.lease.clone());
-                    index.record_sources.insert(*id, origin);
+                    index.record_sources.insert(id, origin);
                     index.requests.insert(Request::Logical(origin));
                 }
             }
-            for (parent, names) in names {
-                for names in names.chunks(64) {
-                    checkpoint(cancel)?;
-                    let members = store.resolve_names(read, &scope(parent), names).await?;
-                    self.insert_members(&mut index, read, members, &mut leases, cancel)
-                        .await?;
-                    index
-                        .names
-                        .extend(names.iter().cloned().map(|name| (parent, name)));
-                }
+            let names = names
+                .into_iter()
+                .flat_map(|(parent, names)| names.into_iter().map(move |name| (parent, name)))
+                .filter(|(parent, name)| index.needs_name(*parent, name))
+                .collect::<Vec<_>>();
+            for names in names.chunks(64) {
+                checkpoint(cancel)?;
+                let _scratch = self.runtime.shared.math().reserve(
+                    "modeling:lexical-pair-metadata",
+                    pse_operations::canonical_staging::SELECTED_OBJECT_HEADER_SCRATCH,
+                )?;
+                let pairs = names
+                    .iter()
+                    .map(|(parent, name)| (scope(*parent), name.clone()))
+                    .collect::<Vec<_>>();
+                let members = store.resolve_name_pairs(read, &pairs).await?;
+                self.insert_members(&mut index, read, members, &mut leases, cancel)
+                    .await?;
+                index.names.extend(names.iter().cloned());
             }
             let new_rows = std::mem::take(&mut index.new_rows);
+            let mut supplier_demands = Vec::new();
             for id in new_rows {
                 checkpoint(cancel)?;
                 let scratch = index.rows[&id]
@@ -1801,13 +1875,21 @@ impl ModelingPackage {
                         _ => &["modeling:dataset"],
                     };
                     for source_kind in source_kinds {
-                        let members = store
-                            .resolve_references(read, &scope(row.parent_id), &row.name, source_kind)
-                            .await?;
-                        self.insert_members(&mut index, read, members, &mut leases, cancel)
-                            .await?;
+                        supplier_demands.push((
+                            scope(row.parent_id),
+                            row.name.clone(),
+                            *source_kind,
+                        ));
                     }
                 }
+            }
+            for demands in supplier_demands.chunks(SELECTED_INVENTORY_BATCH) {
+                let mut cursors = demands
+                    .iter()
+                    .map(|(scope, name, kind)| store.reference_pages(read, scope, name, kind))
+                    .collect::<Result<Vec<_>, _>>()?;
+                self.insert_inventories(&mut index, read, &mut cursors, &mut leases, cancel)
+                    .await?;
             }
             for (owner, references) in std::mem::take(&mut index.pending_references) {
                 checkpoint(cancel)?;
@@ -1833,108 +1915,162 @@ impl ModelingPackage {
         {
             return Err(contract("selected modeling root absent"));
         }
-        if let Some(visible) = &mut physical.documents {
-            for document in index
-                .rows
-                .values()
-                .map(|row| row.document_id)
-                .collect::<BTreeSet<_>>()
-            {
-                if let Some(value) = object(
-                    &self.runtime,
-                    read,
-                    &format!("physical_scope_document:{document}"),
-                )
-                .await?
-                {
-                    let entry: PhysicalScope = decode(value.payload.as_slice())?;
-                    if entry.package != physical.package
-                        || entry.documents != Some(BTreeSet::from([document]))
-                    {
-                        return Err(contract("canonical document physical scope differs"));
-                    }
-                    visible.insert(document);
-                    index
-                        .versions
-                        .insert(value.logical.clone(), value.key.clone());
-                    leases.push(value.lease.clone());
-                }
-            }
+        let document_ids = index
+            .rows
+            .values()
+            .map(|row| row.document_id)
+            .collect::<BTreeSet<_>>();
+        let mut metadata_ids = document_ids
+            .iter()
+            .map(|id| format!("document:{id}"))
+            .collect::<Vec<_>>();
+        if physical.documents.is_some() {
+            metadata_ids.extend(
+                document_ids
+                    .iter()
+                    .map(|id| format!("physical_scope_document:{id}")),
+            );
         }
+        let mut metadata_objects = objects(&self.runtime, read, &metadata_ids, cancel).await?;
         let mut documents = pse_modeling::document::DocumentInventory {
             field_spans: index.fields.clone(),
             ..Default::default()
         };
         let mut metadata_by_document = BTreeMap::new();
-        for row in index.rows.values() {
-            if let std::collections::btree_map::Entry::Vacant(entry) =
-                metadata_by_document.entry(row.document_id)
+        for id in document_ids {
+            if let Some(visible) = &mut physical.documents
+                && let Some(value) =
+                    metadata_objects.remove(&format!("physical_scope_document:{id}"))
             {
-                let metadata = object(
-                    &self.runtime,
-                    read,
-                    &format!("document:{}", row.document_id),
-                )
-                .await?;
-                if let Some(metadata) = metadata {
-                    index
-                        .versions
-                        .insert(metadata.logical.clone(), metadata.key.clone());
-                    leases.push(metadata.lease.clone());
-                    let metadata: pse_model::generated::authored::documents::Row =
-                        decode(metadata.payload.as_slice())?;
-                    documents
-                        .packages
-                        .insert(row.document_id, metadata.package_id.as_id());
-                    entry.insert(Some(metadata));
-                } else {
-                    entry.insert(None);
-                }
-            }
-            if let Some(metadata) = &metadata_by_document[&row.document_id] {
-                if let Some(path) = row
-                    .value
-                    .dataset
-                    .as_ref()
-                    .and_then(|dataset| dataset.document.as_ref())
+                let entry: PhysicalScope = decode(value.payload.as_slice())?;
+                if value.kind != "physical_scope_document"
+                    || entry.package != physical.package
+                    || entry.documents != Some(BTreeSet::from([id]))
                 {
-                    let id = pse_ids::named_id(metadata.package_id.as_id(), path);
-                    if let std::collections::btree_map::Entry::Vacant(entry) =
-                        documents.documents.entry(id)
-                    {
-                        let bytes = object(&self.runtime, read, &format!("data:{id}"))
-                            .await?
-                            .ok_or_else(|| contract("selected dataset data document absent"))?;
-                        index
-                            .versions
-                            .insert(bytes.logical.clone(), bytes.key.clone());
-                        leases.push(bytes.lease.clone());
-                        let (document, lease) =
-                            crate::authoring_driver::document::decode_selected_data(
-                                id,
-                                path.clone(),
-                                bytes.row.payload.into_vec().into(),
-                                Default::default(),
-                                &self.runtime.shared.pool(),
-                                &cancel.token(),
-                            )
-                            .map_err(WorkflowError::Authoring)?;
-                        entry.insert(document);
-                        leases.push(lease);
-                    }
+                    return Err(contract("canonical document physical scope differs"));
                 }
-            } else if row
+                visible.insert(id);
+                index
+                    .versions
+                    .insert(value.logical.clone(), value.key.clone());
+                leases.push(value.lease.clone());
+            }
+            if let Some(metadata) = metadata_objects.remove(&format!("document:{id}")) {
+                if metadata.kind != "document" {
+                    return Err(contract(
+                        "canonical document metadata interpretation differs",
+                    ));
+                }
+                index
+                    .versions
+                    .insert(metadata.logical.clone(), metadata.key.clone());
+                leases.push(metadata.lease.clone());
+                let metadata: pse_model::generated::authored::documents::Row =
+                    decode(metadata.payload.as_slice())?;
+                documents.packages.insert(id, metadata.package_id.as_id());
+                metadata_by_document.insert(id, metadata);
+            }
+        }
+        let mut data_documents = BTreeMap::new();
+        for row in index.rows.values() {
+            if let Some(path) = row
                 .value
                 .dataset
                 .as_ref()
-                .is_some_and(|dataset| dataset.document.is_some())
+                .and_then(|dataset| dataset.document.as_ref())
             {
-                return Err(contract(
-                    "selected dataset declaring document metadata absent",
-                ));
+                let metadata = metadata_by_document.get(&row.document_id).ok_or_else(|| {
+                    contract("selected dataset declaring document metadata absent")
+                })?;
+                let id = pse_ids::named_id(metadata.package_id.as_id(), path);
+                data_documents.insert(id, path.clone());
             }
         }
+        let mut data_objects = objects(
+            &self.runtime,
+            read,
+            &data_documents
+                .keys()
+                .map(|id| format!("data:{id}"))
+                .collect::<Vec<_>>(),
+            cancel,
+        )
+        .await?;
+        for (id, path) in data_documents {
+            checkpoint(cancel)?;
+            let bytes = data_objects
+                .remove(&format!("data:{id}"))
+                .ok_or_else(|| contract("selected dataset data document absent"))?;
+            if bytes.kind != "data" {
+                return Err(contract(
+                    "canonical dataset document interpretation differs",
+                ));
+            }
+            index
+                .versions
+                .insert(bytes.logical.clone(), bytes.key.clone());
+            leases.push(bytes.lease.clone());
+            let (document, lease) = crate::authoring_driver::document::decode_selected_data(
+                id,
+                path,
+                bytes.row.payload.into_vec().into(),
+                Default::default(),
+                &self.runtime.shared.pool(),
+                &cancel.token(),
+            )
+            .map_err(WorkflowError::Authoring)?;
+            documents.documents.insert(id, document);
+            leases.push(lease);
+        }
         Ok((index, physical, documents, leases))
+    }
+    async fn insert_inventories(
+        &self,
+        index: &mut SourceIndex,
+        read: &mut SelectedRead,
+        cursors: &mut Vec<pse_operations::canonical_selection::SelectedMemberships>,
+        leases: &mut Vec<Arc<pse_columnar::AllocationLease>>,
+        cancel: &crate::CancelSource,
+    ) -> Result<(), WorkflowError> {
+        while !cursors.is_empty() {
+            checkpoint(cancel)?;
+            let scratch = self.runtime.shared.math().reserve(
+                "modeling:namespace-page",
+                pse_operations::canonical_staging::SELECTED_OBJECT_HEADER_SCRATCH,
+            )?;
+            let pages = self
+                .runtime
+                .canonical
+                .store()
+                .next_membership_pages(read, cursors)
+                .await?;
+            checkpoint(cancel)?;
+            let completed = pages.iter().map(Vec::is_empty).collect::<Vec<_>>();
+            let members = pages.into_iter().flatten().collect::<Vec<_>>();
+            // Every cursor records its own exact complete premise, while shared
+            // source objects are decoded just once across overlapping suppliers.
+            let extent = members
+                .owned_bytes()
+                .checked_mul(4)
+                .and_then(|bytes| bytes.checked_add(4096))
+                .ok_or_else(|| contract("selected namespace metadata extent overflow"))?;
+            leases.push(
+                self.runtime
+                    .shared
+                    .math()
+                    .reserve("modeling:namespace-identities", extent)?,
+            );
+            self.insert_members(index, read, members, leases, cancel)
+                .await?;
+            let mut position = 0;
+            cursors.retain(|_| {
+                let retain = !completed[position];
+                position += 1;
+                retain
+            });
+            drop(scratch);
+        }
+        Ok(())
     }
     async fn insert_members(
         &self,
@@ -1944,7 +2080,7 @@ impl ModelingPackage {
         leases: &mut Vec<Arc<pse_columnar::AllocationLease>>,
         cancel: &crate::CancelSource,
     ) -> Result<(), WorkflowError> {
-        let mut unread = Vec::new();
+        let mut unread = BTreeMap::<String, Membership>::new();
         for member in members {
             checkpoint(cancel)?;
             if let Some(version) = index.versions.get(&member.logical) {
@@ -1953,8 +2089,15 @@ impl ModelingPackage {
                 }
                 continue;
             }
-            unread.push(member);
+            if let Some(previous) = unread.get(&member.logical) {
+                if previous.version != member.version {
+                    return Err(contract("one selected logical has incompatible versions"));
+                }
+            } else {
+                unread.insert(member.logical.clone(), member);
+            }
         }
+        let unread = unread.into_values().collect::<Vec<_>>();
         for members in unread.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH) {
             let versions = members
                 .iter()
@@ -2158,9 +2301,14 @@ mod tests {
                 .unwrap()
                 .id;
             changed.scalars.insert(x, 129.0);
-            let (initial, changed) = runtime.shared.math().with_worker(executable, BTreeMap::new(), &cancel, move |worker| {
-                Ok((worker.constraints(&values)?, worker.constraints(&changed)?))
-            }).await.unwrap();
+            let (initial, changed) = runtime
+                .shared
+                .math()
+                .with_worker(executable, BTreeMap::new(), &cancel, move |worker| {
+                    Ok((worker.constraints(&values)?, worker.constraints(&changed)?))
+                })
+                .await
+                .unwrap();
             assert_eq!(initial, [0.0]);
             assert_eq!(changed, [1.0]);
         }
@@ -2170,23 +2318,109 @@ mod tests {
     async fn grouped_source_precharges_resources_and_preserves_cancellation() {
         let runtime = crate::workflow::tests::runtime();
         let rows = parse("package p {def Root {var x:Scalar; eq e:x==1;} }");
-        let root = rows.iter().find(|row| row.name == "Root").unwrap().declaration_id;
-        let package = runtime.modeling_package(rows, crate::workflow::tests::physical()).await.unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(rows, crate::workflow::tests::physical())
+            .await
+            .unwrap();
         let cancel = crate::CancelSource::new();
         let selected = package.selected_source(root, &cancel).await.unwrap();
         let versions = vec![selected.versions[&logical(root)].clone()];
         let before = runtime.shared.pool().reserved();
         let available = runtime.shared.budget().memory_limit_bytes.get() - before;
-        let hold = runtime.shared.math().reserve("test:source-frontier-pressure", available - (8 << 20)).unwrap();
-        let error = selected_objects(&runtime, &selected.read, &versions, &cancel).await.unwrap_err();
-        assert_eq!(error.boundary_diagnostic().class, pse_model::diagnostic::BoundaryClass::ResourceLimit, "{error}");
+        let hold = runtime
+            .shared
+            .math()
+            .reserve("test:source-frontier-pressure", available - (8 << 20))
+            .unwrap();
+        let error = match package.selected_source(root, &cancel).await {
+            Ok(_) => panic!("low-budget selected source unexpectedly admitted"),
+            Err(error) => error,
+        };
+        assert_eq!(
+            error.boundary_diagnostic().class,
+            pse_model::diagnostic::BoundaryClass::ResourceLimit,
+            "{error}"
+        );
+        assert!(
+            error
+                .to_string()
+                .contains("modeling:logical-frontier-metadata"),
+            "the entrypoint must refuse at the precharged logical RPC, before payload/header acquisition: {error}"
+        );
+        assert_eq!(
+            runtime.shared.pool().reserved(),
+            before + hold.size(),
+            "entrypoint refusal releases physical decode and metadata allowances"
+        );
+        let error = selected_objects(&runtime, &selected.read, &versions, &cancel)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.boundary_diagnostic().class,
+            pse_model::diagnostic::BoundaryClass::ResourceLimit,
+            "{error}"
+        );
+        let mut pending = selected.read.clone();
+        let mut cursors = vec![
+            runtime
+                .canonical
+                .store()
+                .scope_pages(&mut pending, &logical(root))
+                .unwrap(),
+        ];
+        let mut index = SourceIndex::default();
+        let mut leases = Vec::new();
+        let error = package
+            .insert_inventories(&mut index, &mut pending, &mut cursors, &mut leases, &cancel)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.boundary_diagnostic().class,
+            pse_model::diagnostic::BoundaryClass::ResourceLimit,
+            "{error}"
+        );
+        assert!(index.rows.is_empty() && leases.is_empty());
+        assert!(
+            pending.dependency_bytes().is_err(),
+            "an unacquired inventory cannot publish partial meaning"
+        );
         drop(hold);
-        assert_eq!(runtime.shared.pool().reserved(), before, "failed acquisitions release their transient reservations");
+        assert_eq!(
+            runtime.shared.pool().reserved(),
+            before,
+            "failed acquisitions release their transient reservations"
+        );
         cancel.cancel();
-        let error = selected_objects(&runtime, &selected.read, &versions, &cancel).await.unwrap_err();
-        assert_eq!(error.boundary_diagnostic().class, pse_model::diagnostic::BoundaryClass::Cancelled, "{error}");
+        let error = selected_objects(&runtime, &selected.read, &versions, &cancel)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.boundary_diagnostic().class,
+            pse_model::diagnostic::BoundaryClass::Cancelled,
+            "{error}"
+        );
+        let error = package
+            .insert_inventories(&mut index, &mut pending, &mut cursors, &mut leases, &cancel)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.boundary_diagnostic().class,
+            pse_model::diagnostic::BoundaryClass::Cancelled,
+            "{error}"
+        );
+        assert!(index.rows.is_empty() && leases.is_empty());
         assert_eq!(runtime.shared.pool().reserved(), before);
-        runtime.canonical.store().release(selected.read.selection()).await.unwrap();
+        runtime
+            .canonical
+            .store()
+            .release(selected.read.selection())
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -2320,7 +2554,7 @@ mod tests {
     async fn canonical_synthetic_record_selects_its_admitted_supplier() {
         let runtime = crate::workflow::tests::runtime();
         let rows = parse(
-            "package p {entity kind sample {key id:Integer;attribute value:Scalar;} entity kind source provenance {} entity source origin {} enum role {published} dataset readings:sample provenance(origin,role.published) {[7]=[2];} def D {var x:Scalar;eq e:x==2;} def Unrelated {var broken:MissingType;}}",
+            "package p {entity kind sample {key id:Integer;attribute value:Scalar;} entity kind source provenance {} entity source origin {} enum role {published} dataset readings:sample provenance(origin,role.published) {[7]=[2];[8]=[3];[9]=[4];} def D {var x:Scalar;eq e:x==2;} def Unrelated {var broken:MissingType;}}",
         );
         let root = rows
             .iter()
@@ -2341,12 +2575,21 @@ mod tests {
             kind,
             &[pse_modeling::specialize::Value::Integer(7)],
         );
+        let other_records = [8, 9].map(|key| {
+            pse_modeling::entity::keyed_identity(
+                kind,
+                &[pse_modeling::specialize::Value::Integer(key)],
+            )
+        });
         let package = runtime
             .modeling_package(rows, crate::workflow::tests::physical())
             .await
             .unwrap();
         let selected = package
-            .selected_sources(&[root, record], &crate::CancelSource::new())
+            .selected_sources(
+                &[root, record, other_records[0], other_records[1]],
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         assert_eq!(selected.record_sources[&record], supplier);
@@ -2357,7 +2600,27 @@ mod tests {
                 .iter()
                 .any(|row| row.name == "Unrelated" || row.name == "broken")
         );
+        for record in other_records {
+            assert_eq!(selected.record_sources[&record], supplier);
+            assert!(selected.versions.contains_key(&format!("record:{record}")));
+        }
+        assert_eq!(
+            selected
+                .rows
+                .iter()
+                .filter(|row| row.declaration_id == supplier)
+                .count(),
+            1,
+            "shared suppliers are hydrated once across exact record demands"
+        );
         let admitted = package.admit_source(&selected).unwrap();
+        for (record, expected) in other_records.into_iter().zip([3.0, 4.0]) {
+            let value = admitted.checked().record(record).unwrap();
+            assert_eq!(value.origin, supplier);
+            assert!(
+                matches!(value.values["value"], pse_modeling::specialize::Value::Number { bits, .. } if f64::from_bits(bits) == expected)
+            );
+        }
         assert_eq!(admitted.checked().record(record).unwrap().origin, supplier);
         assert!(
             matches!(admitted.checked().record(record).unwrap().values["value"], pse_modeling::specialize::Value::Number { bits, .. } if f64::from_bits(bits) == 2.0)

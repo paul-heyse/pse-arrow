@@ -16,7 +16,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts import case_measure, native_tests, validation, validation_receipts
-from scripts.validation_scope import FUNCTIONAL_SCOPES, Gate, native_gate
+from scripts.validation_scope import FUNCTIONAL_SCOPES, Gate, comprehensive, native_gate
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -97,6 +97,37 @@ class NativePythonImportIdentity(unittest.TestCase):
         self.assertIn("differs from the binary recorded", result.stderr)
         self.assertFalse((self.output / "executed").exists())
 
+    def test_running_pytest_refuses_replacement_at_the_same_path(self) -> None:
+        (self.package / "_build.py").write_text(
+            "CacheSettings = EngineSettings = object\ndef build_info(): return None\n"
+        )
+        contracts = self.package / "contracts"
+        contracts.mkdir()
+        (contracts / "__init__.py").write_text("")
+        (contracts / "extension_types.py").write_text("EXTENSION_NAMES = ()\n")
+        tests = self.output / "tests"
+        tests.mkdir()
+        (tests / "conftest.py").write_bytes(
+            (ROOT / "python/pse/tests/conftest.py").read_bytes()
+        )
+        (tests / "test_probe.py").write_text(
+            "def test_must_not_execute(): raise AssertionError('executed')\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-m", "pytest", "tests", "-q", "-p", "no:cacheprovider"],
+            cwd=self.output,
+            env={
+                **self.environment,
+                "PSE_NATIVE_EXPECTED_BINARY": str(self.package / "_native.py"),
+                "PSE_NATIVE_EXPECTED_SHA256": "previous-artifact",
+            },
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 4, result.stdout + result.stderr)
+        self.assertIn("changed after wrapper provenance capture", result.stderr)
+
 
 class ExecutionContracts(unittest.TestCase):
     def setUp(self) -> None:
@@ -107,6 +138,40 @@ class ExecutionContracts(unittest.TestCase):
         self.native_binary = self.enterContext(
             patch.object(native_tests, "python_native_binary", return_value=binary)
         )
+
+    def test_native_provenance_refuses_changed_deployment_inputs(self) -> None:
+        binary = self.output / "worker"
+        binary.write_bytes(b"observed executable")
+        names = (
+            "PSE_PRODUCER_RECEIPT",
+            "PSE_WORKER_PRODUCER_RECEIPT",
+            "PSE_PYTHON_PRODUCER_RECEIPT",
+            "PSE_PYTHON_DEPLOYMENT_ATTESTATION",
+        )
+        inputs = {name: self.output / f"{name}.json" for name in names}
+        for path in inputs.values():
+            path.write_bytes(b"observed input")
+        environment = {
+            **{name: str(path) for name, path in inputs.items()},
+            "OMP_NUM_THREADS": "1",
+            "OPENBLAS_NUM_THREADS": "1",
+            "MKL_NUM_THREADS": "1",
+        }
+        with patch.object(
+            native_tests.subprocess, "check_output", return_value="observed tool output"
+        ):
+            native = native_tests.native_provenance(
+                {}, [str(binary)], environment=environment
+            )
+        validation_receipts.verify_native(native)
+        for name, path in inputs.items():
+            with self.subTest(name=name):
+                path.write_bytes(b"replacement input")
+                with self.assertRaisesRegex(
+                    ValueError, "binary or linked library changed"
+                ):
+                    validation_receipts.verify_native(native)
+                path.write_bytes(b"observed input")
 
     def test_native_wrapper_lists_once_then_runs_with_exact_filter(self) -> None:
         provenance = self.output / "native.json"
@@ -125,7 +190,11 @@ class ExecutionContracts(unittest.TestCase):
                 os.environ, {"PSE_NATIVE_PROVENANCE": str(provenance)}, clear=True
             ),
             patch.object(sys, "argv", ["native_tests", "rust", "-E", selection]),
-            patch.object(native_tests, "native_provenance", return_value={}),
+            patch.object(
+                native_tests,
+                "native_provenance",
+                return_value={"files": {str(ROOT / "python/pse/_native.so"): "digest"}},
+            ),
             patch.object(
                 native_tests.subprocess,
                 "run",
@@ -202,7 +271,9 @@ class ExecutionContracts(unittest.TestCase):
                 ],
             ) as build,
             patch.object(
-                native_tests, "native_provenance", return_value={}
+                native_tests,
+                "native_provenance",
+                return_value={"files": {str(ROOT / "python/pse/_native.so"): "digest"}},
             ) as provenance,
             patch.object(native_tests.subprocess, "call", return_value=0) as run,
         ):
@@ -251,7 +322,11 @@ class ExecutionContracts(unittest.TestCase):
                     "--terminal-owner=assessment",
                 ],
             ),
-            patch.object(native_tests, "native_provenance", return_value={}),
+            patch.object(
+                native_tests,
+                "native_provenance",
+                return_value={"files": {str(ROOT / "python/pse/_native.so"): "digest"}},
+            ),
             patch.object(native_tests.subprocess, "call", return_value=9),
             patch.object(validation, "compose_terminal") as compose,
         ):
@@ -272,7 +347,10 @@ class ExecutionContracts(unittest.TestCase):
             Path(env["PSE_TEST_ENUMERATION"]).write_text("one\n")
             return 7
 
-        native = {"schema": "native-profile-v1", "files": {"actual-library": "digest"}}
+        native = {
+            "schema": "native-profile-v1",
+            "files": {str(ROOT / "python/pse/_native.so"): "digest"},
+        }
         # A synchronous mocked child can finish inside the filesystem timestamp
         # tick. Give this successful report a deterministic invocation boundary;
         # freshness rejection is exercised independently below.
@@ -323,7 +401,11 @@ class ExecutionContracts(unittest.TestCase):
             patch.object(
                 sys, "argv", ["native_tests", "python", f"--junitxml={report}"]
             ),
-            patch.object(native_tests, "native_provenance", return_value={}),
+            patch.object(
+                native_tests,
+                "native_provenance",
+                return_value={"files": {str(ROOT / "python/pse/_native.so"): "digest"}},
+            ),
             patch.object(native_tests.subprocess, "call", side_effect=run),
         ):
             self.assertEqual(native_tests.main(), 1)
@@ -446,16 +528,21 @@ class ExecutionContracts(unittest.TestCase):
     def test_selected_measurement_accepts_exact_or_explicit_covering_native_claim(
         self,
     ) -> None:
-        for gate in (FUNCTIONAL_SCOPES["preparation"], native_gate()):
+        assembled = next(gate for gate in comprehensive() if gate.name == "native-test")
+        for gate in (FUNCTIONAL_SCOPES["preparation"], native_gate(), assembled):
             consumed = self.require(self.claim(gate))
             self.assertEqual(
                 consumed["prerequisites"]["preparation"]["gate"], gate.name
             )
         arbitrary = replace(
-            native_gate(), args=("--profile", "ci", "-E", "package(pse-runtime)")
+            native_gate(), args=("--profile", "local", "-E", "package(pse-runtime)")
         )
         with self.assertRaisesRegex(ValueError, "exact functional invocation"):
             self.require(self.claim(arbitrary))
+        with self.assertRaisesRegex(ValueError, "exact functional invocation"):
+            self.require(
+                self.claim(replace(assembled, dependencies=("unreviewed-setup",)))
+            )
 
     def test_selected_measurement_rejects_wrong_workload_mode_or_incomplete_claim(
         self,

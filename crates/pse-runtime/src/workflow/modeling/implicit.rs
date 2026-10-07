@@ -478,6 +478,178 @@ mod tests {
     use super::*;
     use pse_compiler::workspace::ModelingOutput;
     use pse_math::binding::CaseValues;
+    #[derive(Debug)]
+    struct ObservedInputsFactory {
+        original: pse_kernels::Registration,
+        inputs: Arc<Mutex<Option<Vec<f64>>>>,
+    }
+    #[derive(Debug)]
+    struct ObservedInputsProvider {
+        original: Box<dyn pse_kernels::Provider>,
+        inputs: Arc<Mutex<Option<Vec<f64>>>>,
+    }
+    impl pse_kernels::ProviderFactory for ObservedInputsFactory {
+        fn spec(&self) -> &pse_kernels::ProviderSpec {
+            self.original.spec()
+        }
+        fn configuration_key(&self) -> pse_ids::ContentHash {
+            self.original.configuration_key()
+        }
+        fn create(&self) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
+            Ok(Box::new(ObservedInputsProvider {
+                original: self.original.worker()?,
+                inputs: self.inputs.clone(),
+            }))
+        }
+        fn create_scoped(
+            &self,
+            scope: pse_kernels::ExecutionScope,
+        ) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
+            Ok(Box::new(ObservedInputsProvider {
+                original: self.original.worker_scoped(scope)?,
+                inputs: self.inputs.clone(),
+            }))
+        }
+        fn envelope(&self) -> Option<Vec<(f64, f64)>> {
+            self.original.envelope().map(<[_]>::to_vec)
+        }
+    }
+    impl pse_kernels::Provider for ObservedInputsProvider {
+        fn spec(&self) -> &pse_kernels::ProviderSpec {
+            self.original.spec()
+        }
+        fn evaluate(
+            &mut self,
+            inputs: &[f64],
+            request: &pse_kernels::ProviderRequest,
+            context: &pse_kernels::EvaluationContext<'_>,
+        ) -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
+            let result = self.original.evaluate(inputs, request, context)?;
+            let mut captured = self.inputs.lock().unwrap();
+            if let Some(previous) = captured.as_ref() {
+                assert!(
+                    previous
+                        .iter()
+                        .map(|value| value.to_bits())
+                        .eq(inputs.iter().map(|value| value.to_bits()))
+                );
+            } else {
+                *captured = Some(inputs.to_vec());
+            }
+            Ok(result)
+        }
+    }
+    /// Resolve retained production configuration at the returned outer inputs.
+    /// Resolve the actual retained hints and original terms in their factory scope.
+    async fn actual_inner_options(
+        runtime: &Runtime,
+        prepared: &ModelingSolvePreparation,
+        unknown: SemanticId,
+        values: &CaseValues,
+    ) -> Options {
+        let inner = prepared
+            .model
+            .model
+            .compiled()
+            .admitted
+            .implicit_systems()
+            .find(|inner| inner.unknowns.contains(&unknown))
+            .unwrap();
+        let registration = &prepared.providers[&inner.descriptor.spec().key()];
+        let source = registration
+            .source::<pse_math::implicit::reconstruction::ReconstructionFactory>()
+            .expect("retained production implicit configuration");
+        let pse_math::implicit::ImplicitFactory::Root(factory) = source.factory() else {
+            panic!("single authored residual expected");
+        };
+        let inputs = factory
+            .spec
+            .inputs
+            .iter()
+            .map(|port| values.scalars[&port.id])
+            .collect::<Vec<_>>();
+        actual_factory_options(runtime, factory.clone(), inputs).await
+    }
+    async fn actual_factory_options(
+        runtime: &Runtime,
+        factory: pse_math::implicit::Factory,
+        inputs: Vec<f64>,
+    ) -> Options {
+        let bytes = factory
+            .hints
+            .iter()
+            .chain(&factory.terms)
+            .map(|body| body.worker_bytes())
+            .sum::<usize>()
+            + 4096;
+        runtime
+            .shared
+            .math()
+            .job(
+                1,
+                bytes,
+                pse_columnar::flight::FlightCancellation::default(),
+                move |flag| {
+                    let scope = pse_kernels::ExecutionScope::new(
+                        flag.clone(),
+                        Some(std::time::Instant::now() + factory.configuration.time_limit()),
+                    );
+                    let evaluate = |body: &pse_math::guarded::CompiledBody, formals: &[f64]| {
+                        let mut worker = body.worker_scoped(scope.clone());
+                        let compact = worker
+                            .input_formals()
+                            .iter()
+                            .map(|&formal| formals[formal])
+                            .collect::<Vec<_>>();
+                        let mut providers =
+                            crate::math::attempt_providers(&factory.providers, &scope)
+                                .map_err(MathError::Scope)?;
+                        worker
+                            .evaluate(
+                                &compact,
+                                pse_kernels::DerivativeOrder::Value,
+                                &mut providers,
+                                &flag,
+                            )
+                            .map(|evaluation| evaluation.values)
+                    };
+                    let options = match &factory.configuration {
+                        Configuration::Fixed(_, options) => options.clone(),
+                        Configuration::Hints(resolver) => {
+                            let formals = std::iter::repeat_n(0., factory.unknowns.len())
+                                .chain(inputs.iter().copied())
+                                .collect::<Vec<_>>();
+                            let hints = if let Some(body) = &factory.hints {
+                                assert!(
+                                    body.input_formals()
+                                        .iter()
+                                        .all(|&formal| formal >= factory.unknowns.len())
+                                );
+                                evaluate(body, &formals)?
+                            } else {
+                                Vec::new()
+                            };
+                            let (_, initial) = resolver.resolve(&hints, None, None)?;
+                            if let Some(body) = &factory.terms {
+                                let nominal = initial
+                                    .variable_nominals
+                                    .iter()
+                                    .copied()
+                                    .chain(inputs.iter().copied())
+                                    .collect::<Vec<_>>();
+                                let terms = evaluate(body, &nominal)?;
+                                resolver.resolve(&hints, Some(&terms), None)?.1
+                            } else {
+                                initial
+                            }
+                        }
+                    };
+                    Ok(options)
+                },
+            )
+            .await
+            .unwrap()
+    }
     /// Exercise the nested provider representation with one bound direct operation.
     fn bind_direct_provider_solve(prepared: &mut ModelingSolvePreparation) {
         let mut declaration = prepared.solve.numerical_strategy();
@@ -726,11 +898,10 @@ mod tests {
         };
         let (_, options) = resolver.resolve(&[3.], Some(&[9., -4., 0.]), None).unwrap();
         assert_eq!(options.variable_nominals, vec![3.]);
-        assert!(
-            (options.residual_tolerance[0]
-                - 13. * pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY)
-                .abs()
-                < 1e-16
+        // inverseSum controls conditioning; it does not establish a physical scale.
+        assert_eq!(
+            options.residual_tolerance[0],
+            pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY
         );
         resolver.declarations.push(cases::requirement(
             solved(source).stage(Some(InstanceId::from_id(source))),
@@ -742,11 +913,9 @@ mod tests {
             None,
         ));
         let (_, options) = resolver.resolve(&[3.], Some(&[9., -4., 0.]), None).unwrap();
-        assert!(
-            (options.residual_tolerance[0]
-                - 7. * pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY)
-                .abs()
-                < 1e-16
+        assert_eq!(
+            options.residual_tolerance[0],
+            pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY
         );
         assert!(
             resolver
@@ -897,7 +1066,21 @@ mod tests {
             let mut prepared = result.unwrap();
             bind_direct_provider_solve(&mut prepared);
             let x = prepared.model.model.compiled().admitted.inputs[0];
-            assert!((prepared.model.values.scalars[&x] - 3.).abs() < 1e-8);
+            assert_eq!(
+                prepared.model.model.compiled().model.symbols[&x]
+                    .lineage
+                    .path,
+                "Root.x"
+            );
+            // The authored start x=b.z is exact; its value includes b's native
+            // response, so the resulting outer coordinate uses its admitted budget.
+            let allowance = super::super::super::tests::engineering_target(
+                prepared.solve.numerics(),
+                NumericalTarget::Variable,
+                x,
+            )
+            .budget;
+            assert!((prepared.model.values.scalars[&x] - 3.).abs() <= allowance);
             let result = package
                 .solve_case(prepared, compiler, &cancel)
                 .await
@@ -1009,14 +1192,106 @@ mod tests {
                 .derivatives,
             Value
         );
+        let x = product
+            .model
+            .symbols
+            .values()
+            .find(|symbol| symbol.lineage.path == "Root.x")
+            .unwrap()
+            .id;
         let point = CaseValues {
-            scalars: BTreeMap::from([(product.admitted.inputs[0], 4.)]),
+            scalars: BTreeMap::from([(x, 4.)]),
         };
+        let parent_y = parent.unknowns[0];
+        assert_eq!(
+            product.model.symbols[&parent_y].lineage.path,
+            "Root.outer.y"
+        );
+        assert_eq!(
+            product
+                .model
+                .equations
+                .iter()
+                .find(|row| row.id == pin)
+                .unwrap()
+                .lineage
+                .path,
+            "Root.pin"
+        );
+        let source = providers[&parent.descriptor.spec().key()]
+            .source::<pse_math::implicit::reconstruction::ReconstructionFactory>()
+            .unwrap();
+        let pse_math::implicit::ImplicitFactory::Root(factory) = source.factory() else {
+            panic!("single outer residual expected")
+        };
+        assert_eq!(factory.unknowns[0].id, parent_y);
+        let factory = factory.clone();
+        let w = numerical.unknowns[0];
+        assert_eq!(product.model.symbols[&w].lineage.path, "Root.numerical.w");
+        assert_eq!(
+            factory
+                .spec
+                .inputs
+                .iter()
+                .map(|port| port.id)
+                .collect::<BTreeSet<_>>(),
+            BTreeSet::from([x, w])
+        );
+        let captured = Arc::new(Mutex::new(None));
+        let key = parent.descriptor.spec().key();
+        let original = providers[&key].clone();
+        assert!(
+            original.envelope().is_none(),
+            "unbounded input-capture fixture"
+        );
+        let wrapped = pse_kernels::Registration::bind(
+            original.descriptor(),
+            Arc::new(ObservedInputsFactory {
+                original: original.clone(),
+                inputs: captured.clone(),
+            }),
+        )
+        .unwrap();
+        assert_eq!(wrapped.spec(), original.spec());
+        assert_eq!(wrapped.configuration_key(), original.configuration_key());
+        let mut observed_providers = providers;
+        observed_providers.insert(key, wrapped);
         let observed = package
-            .observe_registered(model, selected, point, compiler, providers, &cancel)
+            .observe_registered(
+                model,
+                selected,
+                point,
+                compiler,
+                observed_providers,
+                &cancel,
+            )
             .await
             .unwrap();
-        assert!(observed[&pin].abs() < 1e-7, "{:?}", observed[&pin]);
+        // The outer compiled body evaluates sibling numerical.w before invoking
+        // the parent. Its actual provider arguments are the configuration context;
+        // the external case point contains only x.
+        let inputs = captured
+            .lock()
+            .unwrap()
+            .clone()
+            .expect("parent provider was evaluated");
+        assert_eq!(inputs.len(), factory.spec.inputs.len());
+        let x_position = factory
+            .spec
+            .inputs
+            .iter()
+            .position(|port| port.id == x)
+            .unwrap();
+        assert_eq!(inputs[x_position], 4.);
+        let options = actual_factory_options(&rt, factory, inputs).await;
+        assert_eq!(options.variable_tolerance.len(), 1);
+        // At x=4 the authored child start is exactly z=2. The observed pin
+        // is outer.y-2 with unit gain, so use the parent y's physical allowance.
+        assert!(
+            observed[&pin].abs() <= options.variable_tolerance[0],
+            "{:?}",
+            observed[&pin]
+        );
     }
     #[tokio::test]
     async fn kernel_regime_selection_executes_branch_hints_and_refuses_ties() {
@@ -1044,7 +1319,13 @@ mod tests {
             .await
             .unwrap();
         let product = model.compiled();
-        let target = product.admitted.inputs[0];
+        let target = product
+            .model
+            .symbols
+            .values()
+            .find(|symbol| symbol.lineage.path == "Root.target")
+            .unwrap()
+            .id;
         let y = product.admitted.implicit_systems().next().unwrap().unknowns[0];
         let row = ModelingOutput::Member(y).row_id();
         let inner = product.admitted.implicit_systems().next().unwrap();
@@ -1054,30 +1335,85 @@ mod tests {
             pse_kernels::DerivativeOrder::Second
         );
         assert!(inner.residuals.iter().all(|r| r.assessment.is_some()));
-        for (point, expected) in [(-2., -1.), (2., 1.)] {
+        let selected = BTreeSet::from([row]);
+        let providers = package
+            .inner_registrations(
+                model.clone(),
+                &ModelingCaseBindings::default(),
+                &NumericalInputs::default(),
+                &NumericalPolicy::default(),
+                &pse_backend_native::solve::Controls::default(),
+                pse_kernels::DerivativeOrder::Value,
+                compiler,
+                &cancel,
+                ProviderDemand::Observations(Some(&selected)),
+            )
+            .await
+            .unwrap();
+        let source = providers[&inner.descriptor.spec().key()]
+            .source::<pse_math::implicit::reconstruction::ReconstructionFactory>()
+            .unwrap();
+        let pse_math::implicit::ImplicitFactory::Regimes(factory) = source.factory() else {
+            panic!("authored alternative selector expected")
+        };
+        let declarations = package.declarations().await.unwrap();
+        for (point, expected, branch_name) in [(-2., -1., "negative"), (2., 1., "positive")] {
             let values = CaseValues {
                 scalars: BTreeMap::from([(target, point)]),
             };
+            let authored_branch = declarations
+                .iter()
+                .find(|declaration| declaration.name == branch_name)
+                .unwrap()
+                .declaration_id;
+            let branch_rows = product
+                .model
+                .regimes
+                .values()
+                .flat_map(|regimes| &regimes.alternatives)
+                .find(|regime| regime.declaration == authored_branch)
+                .unwrap()
+                .equations
+                .iter()
+                .map(|equation| equation.id)
+                .collect::<Vec<_>>();
+            let branch = factory
+                .alternatives
+                .iter()
+                .find(|branch| branch.residual.rows == branch_rows)
+                .unwrap();
+            assert_eq!(branch.residual.unknowns[0].id, y);
+            let inputs = branch
+                .residual
+                .spec
+                .inputs
+                .iter()
+                .map(|port| values.scalars[&port.id])
+                .collect();
+            let options = actual_factory_options(&rt, branch.residual.clone(), inputs).await;
+            assert_eq!(options.variable_tolerance.len(), 1);
             let result = package
-                .observe(
+                .observe_registered(
                     model.clone(),
-                    BTreeSet::from([row]),
+                    selected.clone(),
                     values,
                     compiler,
+                    providers.clone(),
                     &cancel,
                 )
                 .await
                 .unwrap();
-            assert!((result[&row] - expected).abs() < 1e-8);
+            assert!((result[&row] - expected).abs() <= options.variable_tolerance[0]);
         }
         let error = package
-            .observe(
+            .observe_registered(
                 model.clone(),
-                BTreeSet::from([row]),
+                selected,
                 CaseValues {
                     scalars: BTreeMap::from([(target, 0.)]),
                 },
                 compiler,
+                providers.clone(),
                 &cancel,
             )
             .await
@@ -1181,7 +1517,7 @@ mod tests {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
         let rows=pse_authoring::language::parse(
-            "package p { def Root { var x: Scalar; implicit outer { var y: Scalar; implicit child select branch(z>=0) { var z: Scalar; eq residual: z*z == x; annotation start z(sqrt(x)); annotation bounds z(sqrt(x)-0.01,sqrt(x)+0.01); annotation nominal z(sqrt(x)); annotation scale residual(inverseSum); } realize c on child using nested; eq residual: y+child.z == x; annotation start y(1); annotation bounds y(0.1,100); } realize p on outer using nested; eq pin: outer.y == 2; annotation start x(3); annotation report outer.child.z(\"child\"); } }",
+            "package p { def Root { var x: Scalar; implicit outer { var y: Scalar; implicit child select branch(z>=0) { var z: Scalar; eq residual: z*z == x; annotation start z(sqrt(x)); annotation bounds z(sqrt(x)-0.01,sqrt(x)+0.01); annotation nominal z(sqrt(x)); annotation scale residual(inverseSum); } realize c on child using nested; eq residual: y+child.z == x; annotation start y(1); annotation bounds y(0.1,100); } realize p on outer using nested; eq pin: outer.y == 2; annotation start x(3); annotation report outer.y(\"outer\"); annotation report outer.child.z(\"child\"); } }",
             SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
         let root = rows
             .iter()
@@ -1252,6 +1588,8 @@ mod tests {
             .unwrap();
         assert_eq!(jacobian.len(), 1);
         assert_eq!(hessian.len(), 1);
+        // At the manufactured x=4 point the child start sqrt(x) is exact. These
+        // derivative composition identities demand no extra native solve accuracy.
         assert!((jacobian[0] - 0.75).abs() < 1e-6, "{jacobian:?}");
         assert!((hessian[0] - 0.03125).abs() < 1e-6, "{hessian:?}");
         let result = package
@@ -1259,18 +1597,47 @@ mod tests {
             .await
             .unwrap();
         assert!(result.accepted, "{:?}", result.validation_error);
-        assert!((result.values.scalars[&x] - 4.).abs() < 1e-6);
-        assert!(
-            (result
-                .reports
-                .iter()
-                .find(|r| r.label == "child")
-                .unwrap()
-                .value
-                - 2.)
-                .abs()
-                < 1e-6
-        );
+        let model = &result.prepared.model.model.compiled().model;
+        let child_id = ordered[0].unknowns[0];
+        let outer_id = ordered[1].unknowns[0];
+        assert_eq!(model.symbols[&child_id].lineage.path, "Root.outer.child.z");
+        assert_eq!(model.symbols[&outer_id].lineage.path, "Root.outer.y");
+        let child = result
+            .reports
+            .iter()
+            .find(|r| r.label == "child")
+            .unwrap()
+            .value;
+        let outer = result
+            .reports
+            .iter()
+            .find(|r| r.label == "outer")
+            .unwrap()
+            .value;
+        let actual_x = result.values.scalars[&x];
+        let child_options =
+            actual_inner_options(&rt, &result.prepared, child_id, &result.values).await;
+        let outer_options =
+            actual_inner_options(&rt, &result.prepared, outer_id, &result.values).await;
+        assert_eq!(child_options.residual_tolerance.len(), 1);
+        assert_eq!(outer_options.residual_tolerance.len(), 1);
+        // Check each authored physical equation independently. Composed residual
+        // budgets do not establish a separate forward error bound on x or child z.
+        assert!((child * child - actual_x).abs() <= child_options.residual_tolerance[0]);
+        assert!((outer + child - actual_x).abs() <= outer_options.residual_tolerance[0]);
+        let pin = model
+            .equations
+            .iter()
+            .find(|row| row.lineage.path == "Root.pin")
+            .unwrap()
+            .id;
+        let row_allowance = super::super::super::tests::engineering_target(
+            result.prepared.solve.numerics(),
+            NumericalTarget::Row,
+            pin,
+        )
+        .budget;
+        assert!((outer - 2.).abs() <= row_allowance);
     }
     #[tokio::test]
     async fn kernel_nested_stage_runs_on_outer_worker_and_uses_authored_hints() {
@@ -1336,18 +1703,38 @@ mod tests {
             .await
             .unwrap();
         assert!(result.accepted, "{result:?}");
-        assert!((result.values.scalars[&x] - 4.).abs() < 1e-6);
+        let model = &result.prepared.model.model.compiled().model;
+        let y = model
+            .symbols
+            .values()
+            .find(|symbol| symbol.lineage.path == "Root.root.y")
+            .unwrap()
+            .id;
+        let observed_y = result
+            .reports
+            .iter()
+            .find(|r| r.label == "root")
+            .unwrap()
+            .value;
+        let options = actual_inner_options(&rt, &result.prepared, y, &result.values).await;
+        assert_eq!(options.residual_tolerance.len(), 1);
         assert!(
-            (result
-                .reports
-                .iter()
-                .find(|r| r.label == "root")
-                .unwrap()
-                .value
-                - 2.)
-                .abs()
-                < 1e-7
+            (observed_y * observed_y - result.values.scalars[&x]).abs()
+                <= options.residual_tolerance[0]
         );
+        let pin = model
+            .equations
+            .iter()
+            .find(|row| row.lineage.path == "Root.pin")
+            .unwrap()
+            .id;
+        let row_allowance = super::super::super::tests::engineering_target(
+            result.prepared.solve.numerics(),
+            NumericalTarget::Row,
+            pin,
+        )
+        .budget;
+        assert!((observed_y - 2.).abs() <= row_allowance);
         // A case start cannot fix an inner coordinate while leaving its equation hidden.
         let case = ModelingCaseBindings {
             members: BTreeMap::new(),

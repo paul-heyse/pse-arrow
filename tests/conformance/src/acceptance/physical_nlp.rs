@@ -3,7 +3,28 @@
 //! Scientific equations and oracle expectations are owned by the authored seed.
 use super::fixtures::*;
 use pse_backend_native::solve::{Assurance, Backend, Termination};
+use pse_runtime::workflow::{RunReport, RunResult};
 use pse_runtime::{CancelSource, math::solves::Outcome};
+
+fn native_failure_context(
+    result: &RunResult,
+    case: pse_ids::SemanticId,
+    backend: Backend,
+    presolve: &pse_backend_native::presolve::Policy,
+) {
+    let report = match result.report() {
+        Ok(RunReport::Modeling(reports)) => reports.first().expect("one authored physical case"),
+        other => panic!("case={case} backend={backend:?} presolve={presolve:?}; report={other:?}"),
+    };
+    assert!(
+        report.accepted && result.usable(),
+        "case={case} backend={backend:?} presolve={presolve:?}; diagnostic={:?}; native/outcome={:?}; assessments={:?}",
+        report.diagnostic(),
+        report.outcome,
+        result.assessments(),
+    );
+}
+
 #[tokio::test]
 async fn authored_physical_nlp_preserves_native_routes_and_original_qualification() {
     let owner = WorkflowRuntime::new().unwrap();
@@ -22,6 +43,7 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
         .await
         .unwrap();
         let result = prepared.start().unwrap().wait().await.unwrap();
+        native_failure_context(&result, heater, backend, &Default::default());
         let report = authored_success(&result);
         assert!(
             report
@@ -31,14 +53,8 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
                 .count()
                 >= 2
         );
-        assert!(
-            result
-                .table("authored.modeling_declarations")
-                .unwrap()
-                .batch()
-                .num_rows()
-                > 0
-        );
+        assert!(!package.declarations().await.unwrap().is_empty());
+        assert!(result.table("authored.modeling_declarations").is_err());
         assert!(result.table("authored.computation_models").is_err());
     }
     for (backend, presolve, assurance) in [
@@ -64,7 +80,7 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
         ),
     ] {
         let mut settings = profile(backend, true);
-        settings.presolve = presolve;
+        settings.presolve = presolve.clone();
         let result = seed_prepare(&package, optimization, settings, &CancelSource::new())
             .await
             .unwrap()
@@ -73,6 +89,7 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
             .wait()
             .await
             .unwrap();
+        native_failure_context(&result, optimization, backend, &presolve);
         let report = authored_success(&result);
         let Outcome::Native(native) = &report.outcome else {
             panic!("expected native optimization")
@@ -110,6 +127,7 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
         .wait()
         .await
         .unwrap();
+        native_failure_context(&result, flash, backend, &Default::default());
         authored_success(&result);
     }
     for case in [
@@ -131,6 +149,7 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
         .wait()
         .await
         .unwrap();
+        native_failure_context(&result, id(case), Backend::Ipopt, &Default::default());
         authored_success(&result);
     }
     // Root-only strategies must retain objective and inequality admission refusals.

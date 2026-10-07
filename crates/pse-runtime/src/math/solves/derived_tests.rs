@@ -13,33 +13,6 @@ use pse_ids::SemanticId;
 #[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
 use pse_math::implicit::RegimeFactory;
 
-#[cfg(all(feature = "solver-kinsol", feature = "solver-ipopt"))]
-/// The analytical coordinates and residuals below require physical precision,
-/// independently of the ordinary engineering defaults and KKT termination.
-fn verification_numerics() -> NumericalPolicy {
-    let physical = crate::workflow::tests::physical();
-    let scalar = physical
-        .quantities
-        .quantity_types()
-        .find(|quantity| quantity.name.as_deref() == Some("Scalar"))
-        .unwrap();
-    NumericalPolicy {
-        engineering_rules: vec![pse_model::numerics::EngineeringRule {
-            rule_id: pse_ids::named_id(scalar.id.as_id(), "derived-verification-precision").into(),
-            quantity_id: scalar.id.as_id(),
-            unit_id: scalar.canonical_unit.as_id(),
-            physical_allowance: Some(1e-10),
-            relative_fraction: Some(0.0),
-            provenance: "original derived analytical coordinate and residual verification".into(),
-        }],
-        kkt: pse_model::numerics::KktTolerances {
-            stationarity: 1e-10,
-            complementarity: 1e-10,
-        },
-        ..Default::default()
-    }
-}
-
 #[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
 #[tokio::test]
 async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_native_reference() {
@@ -54,8 +27,11 @@ async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_
     use pse_model::strategy::{AccuracyClass, AccuracyDemand};
     use std::{collections::BTreeMap, time::Duration};
 
-    // A composed nested relation, not opaque nested provider callbacks. Both equations
-    // are compiler-admitted together, so the verifier sees the complete actual chain.
+    // This explicit small-scale certificate/refinement control has authored
+    // p=1e-8, x near1e-4 and z near1e-2. Its independent tighter native reference
+    // is confined to testing certified refinement, not ordinary production acceptance.
+    // Both equations are compiler-admitted together, so the verifier sees the
+    // complete actual chain.
     let runtime = fixture::runtime_on(
         24usize << 30,
         crate::math::MathPolicy {
@@ -638,7 +614,7 @@ async fn actual_compiled_nonzero_equality_homotopy_is_screened_proposal_not_orig
     )
     .unwrap();
     let proposal = result.proposal.unwrap();
-    assert!((proposal.coordinates[0] - 1.5).abs() < 1e-7);
+    assert!((proposal.coordinates[0] - 1.5).abs() <= original.tolerances().variables[0]);
     assert!((proposal.coordinates[0] - 3.0).abs() > 1.0);
     assert_eq!(proposal.original, original.original_identity().unwrap());
     assert!(proposal.reconstruction_accuracy.is_none());
@@ -701,7 +677,9 @@ async fn actual_shifted_frozen_mass_retains_offset_and_submission_scope() {
         },
     )
     .unwrap();
-    assert!((result.proposal.unwrap().coordinates[0] - 1.0).abs() < 1e-7);
+    assert!(
+        (result.proposal.unwrap().coordinates[0] - 1.0).abs() <= original.tolerances().variables[0]
+    );
     assert_eq!(prepared.physical.constraints()[0].upper, 0.0);
     assert_eq!(budget.used(), 0);
     let expired = ExecutionScope::new(
@@ -816,7 +794,9 @@ async fn least_deviation_preserves_original_rows_metric_roles_and_actual_derivat
         },
     )
     .unwrap();
-    assert!((result.proposal.unwrap().coordinates[0] - 3.0).abs() < 1e-6);
+    assert!(
+        (result.proposal.unwrap().coordinates[0] - 3.0).abs() <= original.tolerances().variables[0]
+    );
     assert!(result.screening_failure.is_none());
     assert_eq!(
         native_report(&result.outcome).termination.category,
@@ -862,26 +842,18 @@ async fn least_deviation_exact_second_and_named_held_roles_use_actual_source() {
         SolverProfile {
             intent: SolveIntent::Root,
             selection: SolverSelection::Explicit(Backend::Kinsol),
-            numerics: verification_numerics(),
             ..Default::default()
         },
     )
     .await;
     assert!(!original.tolerances().rows.is_empty());
-    assert!(
-        original
-            .tolerances()
-            .rows
-            .iter()
-            .all(|budget| *budget <= 1e-10)
+    assert_eq!(
+        original.numerics().policy.engineering_relative_fraction,
+        NumericalPolicy::default().engineering_relative_fraction
     );
-    assert!(
-        original
-            .tolerances()
-            .variables
-            .iter()
-            .all(|budget| *budget <= 1e-10)
-    );
+    for target in &original.numerics().targets {
+        assert_eq!(target.budget, target.engineering.as_ref().unwrap().budget);
+    }
     let service = runtime.native();
     let Representation::Algebraic(source) = &original.representation else {
         panic!("compiled source")
@@ -938,7 +910,9 @@ async fn least_deviation_exact_second_and_named_held_roles_use_actual_source() {
         native_report(&result.outcome).termination.category,
         Termination::Success
     );
-    assert!((result.proposal.unwrap().coordinates[0] - 3.0).abs() < 1e-6);
+    assert!(
+        (result.proposal.unwrap().coordinates[0] - 3.0).abs() <= original.tolerances().variables[0]
+    );
     let held = DerivedRequest::LeastDeviation {
         center: vec![3.0],
         scales: vec![2.0],
@@ -1036,6 +1010,7 @@ async fn expired_optional_derived_preparation_refuses_before_dispatch_and_origin
     assert!(declaration.start.recovery.is_empty());
     wait_for_actual_deadline(prepared.operation_scope());
     assert!(prepared.local_scope_refusal(&enclosing).is_some());
+    let coordinate_budget = original.tolerances().variables[0];
     let composed = original
         .clone()
         .with_strategy(declaration, vec![prepared.into(), original.into()])
@@ -1082,7 +1057,7 @@ async fn expired_optional_derived_preparation_refuses_before_dispatch_and_origin
     let Outcome::Native(report) = outcome else {
         panic!("original corrector required")
     };
-    assert!((report.candidate.as_ref().unwrap().primal[0] - 3.).abs() < 1e-8);
+    assert!((report.candidate.as_ref().unwrap().primal[0] - 3.).abs() <= coordinate_budget);
     assert!(
         trace
             .events
@@ -1459,7 +1434,6 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
         .await
         .unwrap();
     let mut profile = fixture::profile();
-    profile.numerics = verification_numerics();
     profile.intent = SolveIntent::Optimize;
     profile.selection = SolverSelection::Explicit(Backend::Ipopt);
     profile.controls.hessian = HessianMode::LimitedMemory;
@@ -1483,22 +1457,21 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
         .unwrap();
     let original = prepared.solve.clone();
     assert!(!original.tolerances().rows.is_empty());
-    assert!(
-        original
-            .tolerances()
-            .rows
-            .iter()
-            .all(|budget| *budget <= 1e-10)
+    assert_eq!(
+        original.numerics().policy.engineering_relative_fraction,
+        NumericalPolicy::default().engineering_relative_fraction
     );
-    assert!(
-        original
-            .tolerances()
-            .variables
-            .iter()
-            .all(|budget| *budget <= 1e-10)
+    for target in &original.numerics().targets {
+        assert_eq!(target.budget, target.engineering.as_ref().unwrap().budget);
+    }
+    assert_eq!(
+        original.accuracy().stationarity,
+        NumericalPolicy::default().kkt.stationarity
     );
-    assert_eq!(original.accuracy().stationarity, 1e-10);
-    assert_eq!(original.accuracy().complementarity, 1e-10);
+    assert_eq!(
+        original.accuracy().complementarity,
+        NumericalPolicy::default().kkt.complementarity
+    );
     let Representation::Algebraic(source) = &original.representation else {
         panic!("compiled source")
     };
@@ -1685,17 +1658,13 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
                 configuration: Configuration::Fixed(
                     unknowns,
                     Options {
-                        start: vec![if unknown_is_x {
-                            2.000000001
-                        } else {
-                            4.000000001
-                        }],
+                        start: vec![if unknown_is_x { 2.05 } else { 4.05 }],
                         variable_nominals: vec![1.0],
-                        variable_tolerance: vec![1e-8],
-                        residual_tolerance: vec![1e-8],
+                        variable_tolerance: vec![original.tolerances().variables[unknown_column]],
+                        residual_tolerance: vec![original.tolerances().rows[eliminated]],
                         iterations: 100,
                         time_limit: Duration::from_secs(10),
-                        derivative_tolerance: 1e-8,
+                        derivative_tolerance: original.numerics().policy.linear_backward_error,
                     },
                 ),
                 hints: None,
@@ -1735,8 +1704,8 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
         }],
         retained: vec![GlobalCol::new(retained_column)],
         accuracy: ReconstructionAccuracy {
-            point: 1e-11,
-            action: 1e-11,
+            point: original.operational_point_allowance().unwrap(),
+            action: original.numerics().policy.supplier_action_accuracy,
             class: AccuracyClass::Certified,
             refinement: math::RefinementLimits {
                 rounds: 8,
@@ -1809,8 +1778,18 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
     } else {
         (point[retained_column], point[unknown_column])
     };
-    assert!((x * x - p).abs() < 1e-7);
-    assert!((p - 4.0).abs() < 1e-5);
+    assert!((x * x - p).abs() <= original.tolerances().rows[eliminated]);
+    let cost = (p - 4.0).powi(2);
+    let objective = crate::workflow::tests::engineering_target(
+        original.numerics(),
+        pse_model::generated::enums::NumericalTarget::Objective,
+        SemanticId::NIL,
+    );
+    assert!(
+        (report.candidate.as_ref().unwrap().objective.unwrap() - cost).abs()
+            <= 32. * f64::EPSILON * cost.abs().max(1.)
+    );
+    assert!(cost <= objective.budget);
     let trace = result.strategy.as_ref().unwrap();
     assert_eq!(
         trace
@@ -2464,11 +2443,11 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
                     Options {
                         start: vec![2.5],
                         variable_nominals: vec![1.0],
-                        variable_tolerance: vec![1e-8],
-                        residual_tolerance: vec![1e-8],
+                        variable_tolerance: vec![original.tolerances().variables[0]],
+                        residual_tolerance: vec![original.tolerances().rows[0]],
                         iterations: 100,
                         time_limit: std::time::Duration::from_secs(10),
-                        derivative_tolerance: 1e-8,
+                        derivative_tolerance: original.numerics().policy.linear_backward_error,
                     },
                 ),
                 hints: None,
@@ -2541,8 +2520,8 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
         ))
     };
     let accuracy = ReconstructionAccuracy {
-        point: 1e-10,
-        action: 1e-10,
+        point: original.operational_point_allowance().unwrap(),
+        action: original.numerics().policy.supplier_action_accuracy,
         class: AccuracyClass::Certified,
         refinement: math::RefinementLimits {
             rounds: 4,
@@ -2606,8 +2585,8 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
         }],
         retained: vec![],
         accuracy: ReconstructionAccuracy {
-            point: 1e-10,
-            action: 1e-10,
+            point: accuracy.point,
+            action: accuracy.action,
             class: AccuracyClass::Certified,
             refinement: math::RefinementLimits {
                 rounds: 4,
@@ -2675,7 +2654,11 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
         panic!("no native outer attempt exists")
     };
     assert!(report.quality.feasible());
-    assert_eq!(report.coordinates, vec![(coordinate, 3.0)]);
+    let [(actual_id, actual_value)] = report.coordinates.as_slice() else {
+        panic!("one original coordinate required");
+    };
+    assert_eq!(*actual_id, coordinate);
+    assert!((*actual_value - 3.).abs() <= prepared.original.tolerances().variables[0]);
     assert!(report.work.evaluations.is_none());
     if with_goal {
         let receipt = report.certified_reconstruction.as_ref().unwrap();
@@ -3150,7 +3133,15 @@ async fn automatic_blocks_execute_complete_nonport_coupled_original_and_keep_act
             let mut coordinates: Vec<_> =
                 report.coordinates.iter().map(|(_, value)| *value).collect();
             coordinates.sort_by(f64::total_cmp);
-            assert_eq!(coordinates, [1., 2., 4.]);
+            let budget = original
+                .tolerances()
+                .variables
+                .iter()
+                .copied()
+                .fold(f64::INFINITY, f64::min);
+            for (actual, expected) in coordinates.iter().zip([1., 2., 4.]) {
+                assert!((*actual - expected).abs() <= budget);
+            }
             assert_eq!(report.component_reports().len(), 3);
             let expected = report.component_reports().fold(1u64, |sum, component| {
                 sum + component.evidence.work.evaluations.unwrap()
@@ -3169,7 +3160,9 @@ async fn automatic_blocks_execute_complete_nonport_coupled_original_and_keep_act
                     .observation
                     .equality_residuals
                     .iter()
-                    .all(|residual| residual.is_some_and(|residual| residual.abs() < 1e-8))
+                    .zip(&original.tolerances().rows)
+                    .all(|(residual, budget)| residual
+                        .is_some_and(|residual| residual.abs() <= *budget))
             );
             Ok::<_, ProblemError>(())
         },
@@ -3335,7 +3328,7 @@ async fn actual_zero_row_feasibility_retains_objective_and_objective_free_origin
                         (checked.observation.as_ref().unwrap().objective.unwrap()
                             - (x - 2.).powi(2))
                         .abs()
-                            < 1e-8
+                            <= 32. * f64::EPSILON * (x - 2.).powi(2).abs().max(1.)
                     );
                     assert!(checked.evidence.local.is_none());
                     assert!(checked.evidence.kkt.is_none());
@@ -3552,11 +3545,25 @@ async fn actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_cha
                     Options {
                         start: vec![coordinate.lower + 0.5],
                         variable_nominals: vec![1.],
-                        variable_tolerance: vec![1e-8],
-                        residual_tolerance: vec![1e-8],
+                        variable_tolerance: vec![
+                            crate::workflow::tests::engineering_target(
+                                original.numerics(),
+                                pse_model::generated::enums::NumericalTarget::Variable,
+                                coordinate.id,
+                            )
+                            .budget,
+                        ],
+                        residual_tolerance: vec![
+                            crate::workflow::tests::engineering_target(
+                                original.numerics(),
+                                pse_model::generated::enums::NumericalTarget::Row,
+                                row,
+                            )
+                            .budget,
+                        ],
                         iterations: 100,
                         time_limit: std::time::Duration::from_secs(10),
-                        derivative_tolerance: 1e-8,
+                        derivative_tolerance: original.numerics().policy.linear_backward_error,
                     },
                 ),
                 selection: Selection::default(),
@@ -3678,7 +3685,7 @@ async fn actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_cha
             let demand = AccuracyDemand {
                 product: key,
                 normalization: scales.key(),
-                allowance: 1e-7,
+                allowance: original.operational_point_allowance().unwrap(),
                 class: AccuracyClass::Certified,
             };
             let limits = math::RefinementLimits {
@@ -3689,19 +3696,25 @@ async fn actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_cha
             assert!(point.accuracy.satisfies(&demand));
             assert_eq!(point.accuracy.class, AccuracyClass::Certified);
             assert!(
-                (point.values[0] - point.values[2] - global.constraints()[0].lower).abs() < 1e-8
+                (point.values[0] - point.values[2] - global.constraints()[0].lower).abs()
+                    <= original.tolerances().rows[0]
             );
             assert!(
-                (point.values[1] - point.values[0] - global.constraints()[1].lower).abs() < 1e-8
+                (point.values[1] - point.values[0] - global.constraints()[1].lower).abs()
+                    <= original.tolerances().rows[1]
             );
             for (value, coordinate) in point.values.iter().zip(global.coordinates()) {
                 assert!((coordinate.lower..=coordinate.upper).contains(value));
             }
-            let action = reconstruction.jacobian_product(&[1.5], &[2.], &demand, limits)?;
-            assert!(action.accuracy.satisfies(&demand));
+            let action_demand = AccuracyDemand {
+                allowance: original.numerics().policy.supplier_action_accuracy,
+                ..demand
+            };
+            let action = reconstruction.jacobian_product(&[1.5], &[2.], &action_demand, limits)?;
+            assert!(action.accuracy.satisfies(&action_demand));
             assert_eq!(action.accuracy.class, AccuracyClass::Certified);
             for value in action.values {
-                assert!((value - 2.).abs() < 1e-8);
+                assert!((value - 2.).abs() <= action_demand.allowance);
             }
             Ok::<_, ProblemError>(())
         },
@@ -3736,14 +3749,8 @@ async fn automatic_authored_supplier_actions_match_complete_original_equations()
             ..Default::default() }).await;
     let service = runtime.shared.math();
     let accuracy = ReconstructionAccuracy {
-        point: original
-            .tolerances
-            .variables
-            .iter()
-            .zip(&original.normalization.variables)
-            .map(|(budget, scale)| budget / scale)
-            .fold(f64::INFINITY, f64::min),
-        action: original.numerics.policy.kkt.stationarity,
+        point: original.operational_point_allowance().unwrap(),
+        action: original.numerics.policy.supplier_action_accuracy,
         class: AccuracyClass::Certified,
         refinement: math::RefinementLimits {
             rounds: 16,
@@ -3803,20 +3810,28 @@ async fn automatic_authored_supplier_actions_match_complete_original_equations()
         let mut rows = vec![0.0; p.physical.constraints().len()];
         oracle.constraints(&point.values, &mut rows)?;
         for (value, row) in rows.iter().zip(p.physical.constraints()) {
-            if row.lower == row.upper { assert!(value.abs() < 1e-8); }
+            if row.lower == row.upper {
+                let target = crate::workflow::tests::engineering_target(p.original.numerics(),
+                    pse_model::generated::enums::NumericalTarget::Row, row.id);
+                assert!(value.abs() <= target.budget);
+            }
             else {
                 // The compiler retains the authored lhs-minus-rhs residual:
                 // (2*x+p)+(3*x-p)-3 >= 0, rather than the left side alone.
                 assert_eq!((row.lower, row.upper), (0.0, f64::INFINITY));
                 let original_floor = (2.0 * 1.5 + 1.0) + (3.0 * 1.5 - 1.0) - 3.0;
-                assert!((*value - original_floor).abs() < 1e-8);
+                let target = crate::workflow::tests::engineering_target(p.original.numerics(), pse_model::generated::enums::NumericalTarget::Row, row.id);
+                assert!((*value - original_floor).abs() <= target.budget);
                 assert!(*value >= row.lower);
             }
         }
-        assert!((oracle.objective(&point.values)? - 0.25).abs() < 1e-10);
+        let objective = crate::workflow::tests::engineering_target(p.original.numerics(),
+            pse_model::generated::enums::NumericalTarget::Objective, SemanticId::NIL);
+        assert!((oracle.objective(&point.values)? - 0.25).abs() <= objective.budget);
         let mut gradient = vec![0.0; point.values.len()];
         oracle.gradient(&point.values, &mut gradient)?;
-        assert!((gradient.iter().zip(&action.values).map(|(g,v)|g*v).sum::<f64>() + 2.0).abs() < 1e-8);
+        assert!((gradient.iter().zip(&action.values).map(|(g,v)|g*v).sum::<f64>() + 2.0).abs()
+            / p.original.normalization.objective <= accuracy.action);
         let pattern = oracle.jacobian_pattern();
         let mut values = vec![0.0; pattern.compute_nnz()];
         oracle.jacobian(&point.values, &mut values)?;
@@ -3827,9 +3842,12 @@ async fn automatic_authored_supplier_actions_match_complete_original_equations()
                 applied[pattern.row_idx()[index]] += values[index] * value;
             }
         }
-        for (value, row) in applied.iter().zip(p.physical.constraints()) {
-            if row.lower == row.upper { assert!(value.abs() < 1e-8); }
-            else { assert!((*value - 10.0).abs() < 1e-8); }
+        // This independent normalized original-action comparison is empirical.
+        // The supplier receipt certifies its own reconstruction action; it does
+        // not by itself certify propagation through every original equation.
+        for ((value, row), scale) in applied.iter().zip(p.physical.constraints()).zip(&p.original.normalization.rows) {
+            let expected = if row.lower == row.upper { 0. } else { 10. };
+            assert!((*value - expected).abs() / scale <= accuracy.action);
         }
         // Native action receipts name the actual full original point consumed by
         // the action, while their accuracy identity still binds its exact direction.

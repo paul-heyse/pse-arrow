@@ -90,7 +90,7 @@ async fn reports(
     package: &ModelingPackage,
     prepared: ModelingSolvePreparation,
     labels: &[&str],
-) -> (Backend, Vec<f64>) {
+) -> (ModelingResult, Vec<f64>) {
     let result = package
         .solve_case(
             prepared,
@@ -122,7 +122,7 @@ async fn reports(
                 .value
         })
         .collect();
-    (native.backend, values)
+    (result, values)
 }
 
 /// An ideal Gibbs-energy minimization: `Σ nᵢ μᵢ + Σ nᵢ log(nᵢ/N)` over a mole balance, with
@@ -159,17 +159,53 @@ async fn recognized_exp_cone_routes_to_clarabel() {
     };
     assert_eq!(summary.exponential, 2, "{summary:?}");
     assert_eq!(prepared.solve.route(), Route::Native(Backend::Clarabel));
-    let (backend, values) = reports(&package, prepared, &["a", "b", "g"]).await;
-    assert_eq!(backend, Backend::Clarabel);
-    // The minimum is flat: the objective meets the resolved gap budget, and the argument
-    // is within its square root.
+    let (result, values) = reports(&package, prepared, &["a", "b", "g"]).await;
+    let Outcome::Native(native) = &result.outcome else {
+        unreachable!()
+    };
+    assert_eq!(native.backend, Backend::Clarabel);
+    let numerics = result.prepared.solve.numerics();
+    let balance = result
+        .prepared
+        .model
+        .model
+        .compiled()
+        .model
+        .equations
+        .iter()
+        .find(|row| row.lineage.path.ends_with(".balance"))
+        .unwrap()
+        .id;
+    let balance_budget = fixture::engineering_target(
+        numerics,
+        pse_model::generated::enums::NumericalTarget::Row,
+        balance,
+    )
+    .budget;
+    let objective_budget = fixture::engineering_target(
+        numerics,
+        pse_model::generated::enums::NumericalTarget::Objective,
+        SemanticId::NIL,
+    )
+    .budget;
     let a = 1.0 / (1.0 + (-1.5_f64).exp());
     let b = 1.0 - a;
     let g = -a + 0.5 * b + a * a.ln() + b * b.ln();
-    assert!((values[2] - g).abs() < 1e-7, "{values:?} vs {g}");
-    assert!((values[0] - a).abs() < 1e-4, "{values:?} vs {a}");
-    assert!((values[1] - b).abs() < 1e-4, "{values:?} vs {b}");
-    assert!((values[0] + values[1] - 1.0).abs() < 1e-8, "{values:?}");
+    let total = values[0] + values[1];
+    let actual_g = -values[0]
+        + 0.5 * values[1]
+        + values[0] * (values[0] / total).ln()
+        + values[1] * (values[1] / total).ln();
+    assert!(
+        (actual_g - g).abs() <= objective_budget,
+        "{values:?} vs {g}"
+    );
+    assert!((values[2] - actual_g).abs() <= objective_budget);
+    assert_eq!(
+        values[2],
+        native.candidate.as_ref().unwrap().objective.unwrap()
+    );
+    assert!((total - 1.0).abs() <= balance_budget, "{values:?}");
 }
 
 /// Maximizing the same Gibbs energy is not a convex program: preparation records the

@@ -7,7 +7,7 @@
 use crate::{
     canonical::{
         CanonicalError, CanonicalStore, ObjectEdit, PROTECTED_BEGIN, ProtectedSelection,
-        bounded_query, protected_query, request,
+        REQUEST_TIMEOUT, bounded_query, protected_query, request,
     },
     canonical_codec,
     generated::surreal as wire,
@@ -105,6 +105,15 @@ struct EditPlan {
     changes: Vec<ChangeDescription>,
     request: Vec<u8>,
     request_digest: String,
+}
+
+#[derive(Clone, Copy)]
+enum StagePurpose {
+    SourceEdit,
+    Product,
+    // Explicit interrupted-writer recovery remains separate from API edit replay.
+    #[cfg(all(test, feature = "canonical-tests"))]
+    SourceResume,
 }
 
 /// Only a store-closed manifest may activate memberships. Its generation fences
@@ -485,30 +494,85 @@ impl CanonicalStore {
             ));
         }
         let plan = plan(problem, expected, edits)?;
-        if let Some(revision) = self.revision(operation).await? {
-            return if revision.request.as_slice() == plan.request.as_slice() {
-                Ok(StageOutcome::Acknowledged(revision))
-            } else {
-                Err(CanonicalError::OperationReused)
-            };
-        }
         let token = match self
-            .begin_stage(problem, expected, operation, &plan, STAGE_LIFETIME)
-            .await
+            .acquire_source_stage(problem, expected, operation, &plan)
+            .await?
         {
-            Ok(token) => token,
-            Err(error) => {
-                if let Ok(Some(revision)) = self.revision(operation).await {
-                    if revision.request.as_slice() == plan.request.as_slice() {
-                        return Ok(StageOutcome::Acknowledged(revision));
-                    }
-                    return Err(CanonicalError::OperationReused);
-                }
-                return Err(error);
+            StageOutcome::Acknowledged(revision) => {
+                return Ok(StageOutcome::Acknowledged(revision));
             }
+            StageOutcome::Closed(token) => token,
         };
         self.stage_plan(&token, &plan, edits).await?;
         Ok(StageOutcome::Closed(token))
+    }
+
+    async fn source_edit_receipt(
+        &self,
+        operation: &str,
+        plan: &EditPlan,
+    ) -> Result<Option<Revision>, CanonicalError> {
+        let revision = self.revision(operation).await?;
+        if revision
+            .as_ref()
+            .is_some_and(|revision| revision.request.as_slice() != plan.request.as_slice())
+        {
+            return Err(CanonicalError::OperationReused);
+        }
+        Ok(revision)
+    }
+
+    async fn acquire_source_stage(
+        &self,
+        problem: &str,
+        expected: Option<&str>,
+        operation: &str,
+        plan: &EditPlan,
+    ) -> Result<StageOutcome, CanonicalError> {
+        // Waiting never adopts or renews the active writer's generation. A dropped
+        // waiter has no authority to mutate that stage. The request deadline also
+        // bounds receipt reads and acquisition RPCs, rather than each poll alone.
+        tokio::time::timeout(REQUEST_TIMEOUT, async {
+            loop {
+                self.ensure_writes()?;
+                if let Some(revision) = self.source_edit_receipt(operation, plan).await? {
+                    return Ok(StageOutcome::Acknowledged(revision));
+                }
+                match self
+                    .begin_stage_inner(
+                        problem,
+                        expected,
+                        operation,
+                        plan,
+                        STAGE_LIFETIME,
+                        StagePurpose::SourceEdit,
+                    )
+                    .await
+                {
+                    Ok(Some(token)) => return Ok(StageOutcome::Closed(token)),
+                    Ok(None) => {
+                        if let Some(revision) = self.source_edit_receipt(operation, plan).await? {
+                            return Ok(StageOutcome::Acknowledged(revision));
+                        }
+                    }
+                    Err(error) => {
+                        // Activation may have committed between the first receipt
+                        // read and a stale-head/activated-stage acquisition refusal.
+                        match self.source_edit_receipt(operation, plan).await {
+                            Ok(Some(revision)) => return Ok(StageOutcome::Acknowledged(revision)),
+                            Err(CanonicalError::OperationReused) => {
+                                return Err(CanonicalError::OperationReused);
+                            }
+                            _ => return Err(error),
+                        }
+                    }
+                }
+                self.ensure_writes()?;
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .map_err(|_| CanonicalError::Timeout)?
     }
 
     pub(crate) async fn stage_product_blob(
@@ -516,14 +580,24 @@ impl CanonicalStore {
         problem: &str,
         operation: &str,
         edit: ObjectEdit,
-    ) -> Result<ClosedStage, CanonicalError> {
+    ) -> Result<Option<ClosedStage>, CanonicalError> {
         let edits = [edit];
         let plan = plan(problem, None, &edits)?;
-        let token = self
-            .begin_stage_inner(problem, None, operation, &plan, STAGE_LIFETIME, true)
-            .await?;
+        let Some(token) = self
+            .begin_stage_inner(
+                problem,
+                None,
+                operation,
+                &plan,
+                STAGE_LIFETIME,
+                StagePurpose::Product,
+            )
+            .await?
+        else {
+            return Ok(None);
+        };
         self.stage_plan(&token, &plan, &edits).await?;
-        Ok(token)
+        Ok(Some(token))
     }
 
     async fn stage_plan(
@@ -555,10 +629,11 @@ impl CanonicalStore {
         if !batch.is_empty() {
             self.stage_small_edits(token, batch).await?;
         }
-        self.stage_query(token, CLOSE_STAGE, Vec::new()).await?;
+        self.close_stage(token).await?;
         Ok(())
     }
 
+    #[cfg(all(test, feature = "canonical-tests"))]
     async fn begin_stage(
         &self,
         problem: &str,
@@ -567,8 +642,16 @@ impl CanonicalStore {
         plan: &EditPlan,
         lifetime: Duration,
     ) -> Result<ClosedStage, CanonicalError> {
-        self.begin_stage_inner(problem, expected, operation, plan, lifetime, false)
-            .await
+        self.begin_stage_inner(
+            problem,
+            expected,
+            operation,
+            plan,
+            lifetime,
+            StagePurpose::SourceResume,
+        )
+        .await?
+        .ok_or_else(|| CanonicalError::Configuration("source stage acquisition unavailable".into()))
     }
 
     async fn begin_stage_inner(
@@ -578,8 +661,8 @@ impl CanonicalStore {
         operation: &str,
         plan: &EditPlan,
         lifetime: Duration,
-        product: bool,
-    ) -> Result<ClosedStage, CanonicalError> {
+        purpose: StagePurpose,
+    ) -> Result<Option<ClosedStage>, CanonicalError> {
         let lifetime_micros =
             i64::try_from(lifetime.as_micros()).map_err(|_| CanonicalError::PayloadLimit)?;
         if lifetime_micros <= 0 || problem.is_empty() || operation.is_empty() {
@@ -595,7 +678,11 @@ impl CanonicalStore {
             let result = bounded_query(
                 self.db
                     .query(BEGIN_STAGE)
-                    .bind(("product_stage", product))
+                    .bind(("product_stage", matches!(purpose, StagePurpose::Product)))
+                    .bind((
+                        "exclusive_stage",
+                        matches!(purpose, StagePurpose::SourceEdit | StagePurpose::Product),
+                    ))
                     .bind(("problem", problem.to_owned()))
                     .bind(("expected", expected.map(str::to_owned)))
                     .bind(("operation", operation.to_owned()))
@@ -617,8 +704,21 @@ impl CanonicalStore {
                                 "staging lease missing after acquisition".into(),
                             )
                         })?;
-                    let row = wire::decode_canonical_stages(row)?;
-                    return Ok(ClosedStage {
+                    let mut row = row;
+                    let acquired = canonical_codec::decode_boolean(canonical_codec::required(
+                        &mut row, "acquired",
+                    )?)?;
+                    if !acquired {
+                        return Ok(None);
+                    }
+                    let Value::Object(stage) = canonical_codec::required(&mut row, "stage")? else {
+                        return Err(canonical_codec::CodecError::Domain(
+                            "staging acquisition object",
+                        )
+                        .into());
+                    };
+                    let row = wire::decode_canonical_stages(stage)?;
+                    return Ok(Some(ClosedStage {
                         problem: problem.into(),
                         expected: expected.map(str::to_owned),
                         operation: operation.into(),
@@ -626,7 +726,7 @@ impl CanonicalStore {
                         request: plan.request.clone(),
                         request_digest: plan.request_digest.clone(),
                         lifetime_micros,
-                    });
+                    }));
                 }
             }
         }
@@ -641,16 +741,43 @@ impl CanonicalStore {
         body: &str,
         bindings: Vec<(&str, Value)>,
     ) -> Result<surrealdb::IndexedResults, CanonicalError> {
+        self.stage_mutation(token, body, bindings, STAGE_BEGIN, STAGE_END)
+            .await
+    }
+
+    /// Settle a committed close whose acknowledgement was lost, without reopening
+    /// mutation authority or renewing an already closed lease.
+    async fn close_stage(
+        &self,
+        token: &ClosedStage,
+    ) -> Result<surrealdb::IndexedResults, CanonicalError> {
+        self.stage_mutation(
+            token,
+            CLOSE_STAGE,
+            Vec::new(),
+            CLOSE_STAGE_BEGIN,
+            CLOSE_STAGE_END,
+        )
+        .await
+    }
+
+    async fn stage_mutation(
+        &self,
+        token: &ClosedStage,
+        body: &str,
+        bindings: Vec<(&str, Value)>,
+        begin: &str,
+        end: &str,
+    ) -> Result<surrealdb::IndexedResults, CanonicalError> {
         for attempt in 0..RETRIES {
             self.ensure_writes()?;
             let mut query = self
                 .db
-                .query(format!(
-                    "{STAGE_BEGIN}\n{}\n{STAGE_END}",
-                    bounded_edit_sql(body)
-                ))
+                .query(format!("{begin}\n{}\n{end}", bounded_edit_sql(body)))
                 .bind(("problem", token.problem.clone()))
                 .bind(("operation", token.operation.clone()))
+                .bind(("expected", token.expected.clone()))
+                .bind(("request_digest", token.request_digest.clone()))
                 .bind((
                     "generation",
                     canonical_codec::encode_uint(token.generation)?,
@@ -1277,15 +1404,20 @@ LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
 SELECT * FROM $stage_guard FOR UPDATE;
 LET $old = SELECT * FROM ONLY type::record('canonical_stages', $operation);
 IF $old != NONE AND ($old.problem != $problem OR ($old.expected_head ?? NONE) != $expected OR $old.request_digest != $request_digest) { THROW 'staged operation identity reused'; };
-IF $old.activated ?? false { THROW 'staged operation already activated; settle immutable acknowledgement'; };
+IF $product_stage = false AND ($old.activated ?? false) { THROW 'staged operation already activated; settle immutable acknowledgement'; };
+// Production publishers never acquire or refresh another live writer's
+// generation, including a closed source manifest awaiting activation.
+LET $busy = $exclusive_stage AND $old != NONE AND (($product_stage AND ($old.activated ?? false)) OR (($old.abandoned ?? false) = false AND $old.expires_at > time::micros()));
 LET $head = SELECT * FROM ONLY type::record('canonical_problems', $problem);
 IF $product_stage = false AND ($head.head ?? NONE) != $expected { THROW 'head compare-and-set conflict before staging'; };
+IF $busy = false {
 UPSERT type::record('canonical_stages', $operation) SET key = $operation, problem = $problem, expected_head = $expected, request_digest = $request_digest,
     expires_at = time::micros() + $lifetime, closed = false, activated = false, edit_count = $edit_count,
     generation = ($old.generation ?? 0dec) + 1dec, abandoned = false, cleanup_complete = false;
 UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
 UPSERT $retention_guard SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
-SELECT * FROM ONLY type::record('canonical_stages', $operation);
+};
+RETURN IF $busy { RETURN {acquired:false}; } ELSE { RETURN {acquired:true, stage:(SELECT * FROM ONLY type::record('canonical_stages', $operation))}; };
 COMMIT;"#;
 
 const STAGE_BEGIN: &str = r#"BEGIN;
@@ -1294,11 +1426,26 @@ SELECT * FROM $retention_guard FOR UPDATE;
 LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
 SELECT * FROM $stage_guard FOR UPDATE;
 LET $lease = SELECT * FROM ONLY type::record('canonical_stages', $operation);
-IF $lease = NONE OR $lease.problem != $problem OR $lease.generation != $generation OR $lease.activated OR $lease.abandoned OR $lease.closed OR $lease.expires_at <= time::micros() { THROW 'staging lease fenced or expired'; };"#;
+IF $lease = NONE OR $lease.problem != $problem OR $lease.generation != $generation OR ($lease.expected_head ?? NONE) != $expected OR $lease.request_digest != $request_digest OR $lease.activated OR $lease.abandoned OR $lease.closed OR $lease.expires_at <= time::micros() { THROW 'staging lease fenced or expired'; };"#;
 
 const STAGE_END: &str = r#"UPDATE type::record('canonical_stages', $operation) SET expires_at = time::micros() + $lifetime;
 UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
 UPSERT $retention_guard SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
+COMMIT;"#;
+
+const CLOSE_STAGE_BEGIN: &str = r#"BEGIN;
+LET $retention_guard = type::record('canonical_guards', 'retention:' + $problem);
+SELECT * FROM $retention_guard FOR UPDATE;
+LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
+SELECT * FROM $stage_guard FOR UPDATE;
+LET $lease = SELECT * FROM ONLY type::record('canonical_stages', $operation);
+IF $lease = NONE OR $lease.problem != $problem OR $lease.generation != $generation OR ($lease.expected_head ?? NONE) != $expected OR $lease.request_digest != $request_digest OR $lease.activated OR $lease.abandoned OR ($lease.closed = false AND $lease.expires_at <= time::micros()) { THROW 'staging close fenced or expired'; };"#;
+
+const CLOSE_STAGE_END: &str = r#"IF $lease.closed = false {
+    UPDATE type::record('canonical_stages', $operation) SET expires_at = time::micros() + $lifetime;
+    UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
+    UPSERT $retention_guard SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
+};
 COMMIT;"#;
 
 const STAGE_METADATA_VERSION: &str = r#"LET $version_guard = type::record('canonical_guards', 'version:' + $manifest.key);
@@ -1361,7 +1508,7 @@ FOR $edit IN $edits {
         IF $header = NONE OR $header.closed = false { THROW 'staged source manifest incomplete'; };
     };
 };
-UPDATE type::record('canonical_stages', $operation) SET closed = true;"#;
+IF $lease.closed = false { UPDATE type::record('canonical_stages', $operation) SET closed = true; };"#;
 
 /// Shared physical deletion decision. Caller supplies its enclosing retention
 /// transaction and $version/$excluded_membership/$excluded_stage bindings. A named
@@ -1625,6 +1772,238 @@ mod canonical_server_unit {
             .unwrap();
     }
 
+    async fn stage_lease(store: &CanonicalStore, operation: &str) -> (u64, i64, bool) {
+        let row: Option<Object> = store
+            .db
+            .select(("canonical_stages", operation))
+            .await
+            .unwrap();
+        let row = wire::decode_canonical_stages(row.unwrap()).unwrap();
+        (row.generation, row.expires_at, row.closed)
+    }
+
+    #[tokio::test]
+    async fn identical_source_edit_waits_for_live_and_closed_writer_receipt() {
+        let (store, database) = fixture().await;
+        let edits = [edit("held-version", "x", 128)];
+        let planned = plan("problem", None, &edits).unwrap();
+        let held = store
+            .begin_stage("problem", None, "held-operation", &planned, STAGE_LIFETIME)
+            .await
+            .unwrap();
+        let open_lease = stage_lease(&store, "held-operation").await;
+        assert!(
+            store
+                .edit(
+                    "problem",
+                    None,
+                    "held-operation",
+                    &[edit("live-mismatched-version", "x", 128)]
+                )
+                .await
+                .is_err()
+        );
+        assert_eq!(stage_lease(&store, "held-operation").await, open_lease);
+        assert!(
+            store
+                .begin_stage_inner(
+                    "problem",
+                    None,
+                    "held-operation",
+                    &planned,
+                    STAGE_LIFETIME,
+                    StagePurpose::SourceEdit
+                )
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let pending = store.edit("problem", None, "held-operation", &edits);
+        tokio::pin!(pending);
+        assert!(
+            tokio::time::timeout(Duration::from_millis(100), &mut pending)
+                .await
+                .is_err()
+        );
+        assert_eq!(stage_lease(&store, "held-operation").await, open_lease);
+        store.stage_plan(&held, &planned, &edits).await.unwrap();
+        let closed_lease = stage_lease(&store, "held-operation").await;
+        assert!(closed_lease.2);
+        assert!(
+            store
+                .begin_stage_inner(
+                    "problem",
+                    None,
+                    "held-operation",
+                    &planned,
+                    STAGE_LIFETIME,
+                    StagePurpose::SourceEdit
+                )
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            tokio::time::timeout(Duration::from_millis(100), &mut pending)
+                .await
+                .is_err()
+        );
+        assert_eq!(stage_lease(&store, "held-operation").await, closed_lease);
+        let winner = store.activate_source_stage(&held).await.unwrap();
+        assert_eq!(pending.await.unwrap(), winner);
+        assert_eq!(winner.request.as_slice(), planned.request.as_slice());
+        assert_eq!(
+            store
+                .edit("problem", None, "held-operation", &edits)
+                .await
+                .unwrap(),
+            winner
+        );
+        assert!(matches!(
+            store
+                .edit(
+                    "problem",
+                    None,
+                    "held-operation",
+                    &[edit("different-version", "x", 128)]
+                )
+                .await,
+            Err(CanonicalError::OperationReused)
+        ));
+        remove(&store, &database).await;
+    }
+
+    #[tokio::test]
+    async fn dropping_source_edit_waiter_preserves_writer_generation_and_lease() {
+        let (store, database) = fixture().await;
+        let edits = [edit("cancelled-wait-version", "x", 128)];
+        let planned = plan("problem", None, &edits).unwrap();
+        let held = store
+            .begin_stage("problem", None, "cancelled-wait", &planned, STAGE_LIFETIME)
+            .await
+            .unwrap();
+        let lease = stage_lease(&store, "cancelled-wait").await;
+        {
+            let pending = store.edit("problem", None, "cancelled-wait", &edits);
+            tokio::pin!(pending);
+            assert!(
+                tokio::time::timeout(Duration::from_millis(100), &mut pending)
+                    .await
+                    .is_err()
+            );
+        }
+        assert_eq!(stage_lease(&store, "cancelled-wait").await, lease);
+        store.stage_plan(&held, &planned, &edits).await.unwrap();
+        let revision = store.activate_source_stage(&held).await.unwrap();
+        assert_eq!(
+            store
+                .edit("problem", None, "cancelled-wait", &edits)
+                .await
+                .unwrap(),
+            revision
+        );
+        remove(&store, &database).await;
+    }
+
+    #[tokio::test]
+    async fn concurrent_identical_source_api_edits_return_one_exact_revision() {
+        let (store, database) = fixture().await;
+        let edits = [edit("concurrent-version", "x", SOURCE_BLOCK_BYTES + 17)];
+        let planned = plan("problem", None, &edits).unwrap();
+        let (first, second) = tokio::join!(
+            store.edit("problem", None, "concurrent-operation", &edits),
+            store.edit("problem", None, "concurrent-operation", &edits),
+        );
+        let first = first.unwrap();
+        assert_eq!(second.unwrap(), first);
+        assert_eq!(first.request.as_slice(), planned.request.as_slice());
+        assert_eq!(first.sequence, 1);
+        assert_eq!(
+            store.revision("concurrent-operation").await.unwrap(),
+            Some(first)
+        );
+        remove(&store, &database).await;
+    }
+
+    #[tokio::test]
+    async fn source_edit_reacquires_expired_or_abandoned_stage_with_head_fence() {
+        let (store, database) = fixture().await;
+        for (problem, mutation) in [
+            ("expired", "SET expires_at = 0"),
+            ("abandoned", "SET abandoned = true"),
+        ] {
+            let operation = format!("{problem}-operation");
+            let edits = [edit(&format!("{problem}-version"), "x", 128)];
+            let planned = plan(problem, None, &edits).unwrap();
+            let old = store
+                .begin_stage(problem, None, &operation, &planned, STAGE_LIFETIME)
+                .await
+                .unwrap();
+            store
+                .db
+                .query(format!(
+                    "UPDATE type::record('canonical_stages', $operation) {mutation};"
+                ))
+                .bind(("operation", operation.clone()))
+                .await
+                .and_then(checked)
+                .unwrap();
+            let fresh = store
+                .begin_stage_inner(
+                    problem,
+                    None,
+                    &operation,
+                    &planned,
+                    STAGE_LIFETIME,
+                    StagePurpose::SourceEdit,
+                )
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(fresh.generation > old.generation);
+            assert!(
+                store
+                    .stage_metadata(&old, 0, &planned.changes[0])
+                    .await
+                    .is_err()
+            );
+            store.stage_plan(&fresh, &planned, &edits).await.unwrap();
+            let revision = store.activate_source_stage(&fresh).await.unwrap();
+            assert_eq!(revision.request.as_slice(), planned.request.as_slice());
+        }
+        let stale_edits = [edit("expired-stale-version", "x", 128)];
+        let stale_plan = plan("stale", None, &stale_edits).unwrap();
+        store
+            .begin_stage("stale", None, "expired-stale", &stale_plan, STAGE_LIFETIME)
+            .await
+            .unwrap();
+        store
+            .db
+            .query("UPDATE type::record('canonical_stages', $operation) SET expires_at = 0;")
+            .bind(("operation", "expired-stale".to_owned()))
+            .await
+            .and_then(checked)
+            .unwrap();
+        let winner = store
+            .edit(
+                "stale",
+                None,
+                "stale-winner",
+                &[edit("stale-winner-version", "x", 128)],
+            )
+            .await
+            .unwrap();
+        assert!(
+            store
+                .edit("stale", None, "expired-stale", &stale_edits)
+                .await
+                .is_err()
+        );
+        assert!(store.revision("expired-stale").await.unwrap().is_none());
+        assert_eq!(store.revision("stale-winner").await.unwrap(), Some(winner));
+        remove(&store, &database).await;
+    }
+
     #[tokio::test]
     async fn declaration_inventory_above_old_edit_count_activates_atomically() {
         let (store, database) = fixture().await;
@@ -1696,6 +2075,53 @@ mod canonical_server_unit {
     }
 
     #[tokio::test]
+    async fn committed_stage_close_acknowledgement_replays_without_reviving_authority() {
+        let (store, database) = fixture().await;
+        let edits = [edit("close-replay-version", "x", 128)];
+        let planned = plan("problem", None, &edits).unwrap();
+        let token = store
+            .begin_stage("problem", None, "close-replay", &planned, STAGE_LIFETIME)
+            .await
+            .unwrap();
+        store.stage_plan(&token, &planned, &edits).await.unwrap();
+        // The close committed; emulate losing that acknowledgement and replaying it.
+        store.close_stage(&token).await.unwrap();
+        assert!(
+            store
+                .stage_metadata(&token, 0, &planned.changes[0])
+                .await
+                .is_err()
+        );
+        let mut wrong_request = token.clone();
+        wrong_request.request_digest.push('0');
+        assert!(store.close_stage(&wrong_request).await.is_err());
+        let mut wrong_head = token.clone();
+        wrong_head.expected = Some("different-head".into());
+        assert!(store.close_stage(&wrong_head).await.is_err());
+        let mut stale_generation = token.clone();
+        stale_generation.generation += 1;
+        assert!(store.close_stage(&stale_generation).await.is_err());
+        store
+            .db
+            .query("UPDATE type::record('canonical_stages', $operation) SET expires_at = 0;")
+            .bind(("operation", token.operation.clone()))
+            .await
+            .and_then(checked)
+            .unwrap();
+        store.close_stage(&token).await.unwrap();
+        let mut replay = store.db.query("LET $stage = SELECT * FROM ONLY type::record('canonical_stages', $operation); RETURN $stage.closed AND $stage.expires_at = 0;")
+            .bind(("operation", token.operation.clone())).await.and_then(checked).unwrap();
+        assert_eq!(replay.take::<Option<bool>>(1).unwrap(), Some(true));
+        assert!(
+            store
+                .stage_metadata(&token, 0, &planned.changes[0])
+                .await
+                .is_err()
+        );
+        remove(&store, &database).await;
+    }
+
+    #[tokio::test]
     async fn atomic_revision_exceeds_old_whole_payload_cap_and_has_native_graph_endpoints() {
         let (store, database) = fixture().await;
         let edits = [
@@ -1727,14 +2153,8 @@ mod canonical_server_unit {
                 .unwrap();
             assert!(rows.take::<Vec<Object>>(0).unwrap().is_empty());
         }
-        store
-            .stage_query(&token, CLOSE_STAGE, Vec::new())
-            .await
-            .unwrap();
-        let revision = store
-            .edit("problem", None, "large-operation", &edits)
-            .await
-            .unwrap();
+        store.close_stage(&token).await.unwrap();
+        let revision = store.activate_source_stage(&token).await.unwrap();
         let pin = store
             .protect(revision.clone(), Duration::from_secs(60))
             .await
@@ -1979,9 +2399,21 @@ mod canonical_server_unit {
                 .is_err()
         );
         store.release(&pin).await.unwrap();
-        let pin = store.protect(revision, Duration::from_secs(60)).await.unwrap();
-        let batch = store.selected_object_batch(&pin, &["grouped-0".into()]).await.unwrap();
-        store.db.query("UPDATE type::record('canonical_payload_blocks', $key) SET digest = 'wrong';").bind(("key", block_key("grouped-0", 0))).await.and_then(checked).unwrap();
+        let pin = store
+            .protect(revision, Duration::from_secs(60))
+            .await
+            .unwrap();
+        let batch = store
+            .selected_object_batch(&pin, &["grouped-0".into()])
+            .await
+            .unwrap();
+        store
+            .db
+            .query("UPDATE type::record('canonical_payload_blocks', $key) SET digest = 'wrong';")
+            .bind(("key", block_key("grouped-0", 0)))
+            .await
+            .and_then(checked)
+            .unwrap();
         assert!(store.selected_object_blocks(&batch, 0, 0).await.is_err());
         store.release(&pin).await.unwrap();
         remove(&store, &database).await;
@@ -2025,12 +2457,7 @@ mod canonical_server_unit {
             )
             .await
             .unwrap();
-        assert!(
-            store
-                .stage_query(&old, CLOSE_STAGE, Vec::new())
-                .await
-                .is_err()
-        );
+        assert!(store.close_stage(&old).await.is_err());
         let resumed = store
             .begin_stage(
                 "problem",
@@ -2052,10 +2479,8 @@ mod canonical_server_unit {
                 .await
                 .is_err()
         );
-        let revision = store
-            .edit("problem", None, "resume-operation", &edits)
-            .await
-            .unwrap();
+        store.stage_plan(&resumed, &planned, &edits).await.unwrap();
+        let revision = store.activate_source_stage(&resumed).await.unwrap();
         let pin = store
             .protect(revision.clone(), Duration::from_secs(60))
             .await
@@ -2094,10 +2519,7 @@ mod canonical_server_unit {
             )
             .await
             .unwrap();
-        store
-            .stage_query(&token, CLOSE_STAGE, Vec::new())
-            .await
-            .unwrap();
+        store.close_stage(&token).await.unwrap();
         let latest = store
             .edit(
                 "problem",
@@ -2188,12 +2610,7 @@ mod canonical_server_unit {
         assert_eq!(page.blocks, 64);
         assert_eq!(page.edits, 0);
         assert_eq!(page.versions, 0);
-        assert!(
-            store
-                .stage_query(&token, CLOSE_STAGE, Vec::new())
-                .await
-                .is_err()
-        );
+        assert!(store.close_stage(&token).await.is_err());
         let final_page = store
             .reclaim_staging_page("problem", page.after.as_deref().unwrap())
             .await

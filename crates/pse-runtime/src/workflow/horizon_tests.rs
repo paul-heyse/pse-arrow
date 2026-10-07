@@ -108,13 +108,14 @@ async fn plant(
     steps: usize,
 ) -> (ModelingSimulation, SemanticId, SemanticId) {
     let end = steps as f64 * PERIOD;
+    let allowance = pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction;
     let profile = pse_backend_native::dynamics::Profile {
         method: pse_backend_native::dynamics::Method::Diffsol,
         end,
         samples: vec![0., end],
-        rtol: 1e-10,
-        atol: vec![1e-12],
-        initial_step: 1e-6,
+        rtol: allowance,
+        atol: vec![allowance],
+        initial_step: 1e-4,
         // The contract parameters: r, u and x0.
         parameter_scales: vec![1.; 3],
         ..Default::default()
@@ -177,15 +178,24 @@ fn controller(
     x: SemanticId,
     setpoints: Vec<f64>,
 ) -> HorizonController {
+    let mut specification = analysis(
+        root,
+        fixed(
+            &[("x0", 0.), ("r", setpoints[0]), ("u[0{s}]", 0.)],
+            &["u[0{s}]"],
+        ),
+    );
+    // Resolve every coordinate used by the independent tracking oracle through
+    // the compiler's authored path and index binding.
+    specification.bindings.demand = ["x0".into(), "r".into(), "x[0{s}]".into(), "u[0{s}]".into()]
+        .into_iter()
+        .chain((1..=8).flat_map(|index| {
+            ["x", "u"].map(move |name| format!("{name}[{}{{s}}]", index as f64 * PERIOD))
+        }))
+        .collect();
     HorizonController {
         package: package.clone(),
-        analysis: analysis(
-            root,
-            fixed(
-                &[("x0", 0.), ("r", setpoints[0]), ("u[0{s}]", 0.)],
-                &["u[0{s}]"],
-            ),
-        ),
+        analysis: specification,
         bindings: vec![
             ("x0".into(), HorizonSignal::Measured(x)),
             ("r".into(), HorizonSignal::Trajectory(setpoints)),
@@ -211,11 +221,165 @@ fn modeling(result: &RunResult) -> &[crate::workflow::ModelingResult] {
     }
 }
 
-/// NMPC closes the antiwindup loop: the actuator is saturated at its upper limit while the
-/// output rises and at its lower limit after the setpoint drops, every applied move
-/// respects the limits (declared tolerance 1e-7), and the plant output settles on each
-/// setpoint within the declared tolerance of 1e-3, the controller's backward-Euler model
-/// against the plant's exact integration notwithstanding.
+/// Independent optimum of the backward-Euler tracking model. With independent
+/// bounded moves and a constant setpoint, reaching it as quickly as possible and
+/// then holding it minimizes every remaining squared tracking error.
+fn tracking_cost(mut x: f64, r: f64, first: Option<f64>) -> f64 {
+    let mut cost = 0.;
+    for index in 0..8 {
+        let u = if index == 0 {
+            first.unwrap_or_else(|| ((r - 0.8 * x) / 0.4).clamp(0., 1.))
+        } else {
+            ((r - 0.8 * x) / 0.4).clamp(0., 1.)
+        };
+        x = 0.8 * x + 0.4 * u;
+        cost += PERIOD * (x - r).powi(2);
+    }
+    cost
+}
+fn controller_objective(step: &crate::workflow::ModelingResult) {
+    use pse_model::generated::enums::NumericalTarget;
+    let paths = &step.prepared.model.model.compiled().model.paths;
+    let at = |name: &str| step.values.scalars[&paths[name]];
+    let r = at("r");
+    let original = (1..=8)
+        .map(|index| PERIOD * (at(&format!("x[{}{{s}}]", index as f64 * PERIOD)) - r).powi(2))
+        .sum::<f64>();
+    let numerics = step.prepared.solve.numerics();
+    let target = crate::workflow::tests::engineering_target(
+        numerics,
+        NumericalTarget::Objective,
+        SemanticId::NIL,
+    );
+    let Outcome::Native(native) = &step.outcome else {
+        panic!("{:?}", step.outcome)
+    };
+    let candidate = native.candidate.as_ref().unwrap();
+    assert!((candidate.objective.unwrap() - original).abs() <= target.budget);
+    assert!(native.quality.as_ref().unwrap().feasible());
+    assert_eq!(
+        numerics.policy.kkt,
+        pse_model::numerics::NumericalPolicy::default().kkt
+    );
+    assert_eq!(
+        native.qualification,
+        pse_backend_native::solve::Qualification::Stationary
+    );
+    assert_eq!(
+        native.termination.assurance,
+        pse_backend_native::solve::Assurance::LocalStationary
+    );
+
+    // Independently construct an exact feasible optimum of the authored convex QP.
+    let mut optimum = std::collections::BTreeMap::from([
+        (paths["x[0{s}]"], at("x0")),
+        (paths["u[0{s}]"], at("u[0{s}]")),
+    ]);
+    let mut x = at("x0");
+    for index in 1..=8 {
+        let u = ((r - 0.8 * x) / 0.4).clamp(0., 1.);
+        x = 0.8 * x + 0.4 * u;
+        optimum.insert(paths[&format!("x[{}{{s}}]", index as f64 * PERIOD)], x);
+        optimum.insert(paths[&format!("u[{}{{s}}]", index as f64 * PERIOD)], u);
+    }
+    let plan = &step.prepared.model.case.compiled().plan;
+    let columns = plan.columns();
+    let rows = plan.structure().rows();
+    let row_ids = rows.iter().map(|row| row.id).collect::<Vec<_>>();
+    let normalization =
+        pse_math::normalization::Normalization::from_policy(numerics, columns, &row_ids).unwrap();
+    let observation = native.observation.as_ref().unwrap();
+    let stationarity = observation.stationarity.as_ref().unwrap();
+    let multipliers = candidate.row_dual.as_ref().unwrap();
+    let (lower_dual, upper_dual) = candidate.bound_dual.as_ref().unwrap();
+    assert_eq!(candidate.primal.len(), columns.len());
+    assert_eq!(stationarity.len(), columns.len());
+    assert_eq!(lower_dual.len(), columns.len());
+    assert_eq!(upper_dual.len(), columns.len());
+    assert_eq!(multipliers.len(), rows.len());
+    assert_eq!(observation.equality_residuals.len(), rows.len());
+    let accuracy = step.prepared.solve.accuracy();
+    let mut gap_bound = 0.;
+    let mut bound_sides = 0;
+    for (index, id) in columns.iter().enumerate() {
+        let primal = candidate.primal[index];
+        assert_eq!(primal, step.values.scalars[id]);
+        let reference = optimum[id];
+        let variable = plan
+            .structure()
+            .variables()
+            .iter()
+            .find(|v| v.port.id == *id)
+            .unwrap();
+        assert!(!variable.fixed);
+        assert!(
+            variable
+                .lower
+                .zip(variable.upper)
+                .is_none_or(|(lower, upper)| lower != upper)
+        );
+        let budget =
+            crate::workflow::tests::engineering_target(numerics, NumericalTarget::Variable, *id)
+                .budget;
+        assert!(stationarity[index].is_finite());
+        assert!(
+            stationarity[index].abs() * normalization.variables[index] / normalization.objective
+                <= accuracy.stationarity
+        );
+        gap_bound += accuracy.stationarity * normalization.objective
+            / normalization.variables[index]
+            * (primal - reference).abs();
+        for (bound, dual, lower) in [
+            (variable.lower, lower_dual[index], true),
+            (variable.upper, upper_dual[index], false),
+        ] {
+            assert!(dual.is_finite() && dual >= 0.);
+            if let Some(bound) = bound {
+                assert!(if lower {
+                    reference >= bound && primal >= bound - budget
+                } else {
+                    reference <= bound && primal <= bound + budget
+                });
+                assert!(
+                    (dual * (primal - bound)).abs() / normalization.objective
+                        <= accuracy.complementarity
+                );
+                gap_bound += accuracy.complementarity * normalization.objective;
+                bound_sides += 1;
+            } else {
+                assert_eq!(dual, 0.);
+            }
+        }
+    }
+    for (index, row) in rows.iter().enumerate() {
+        assert!(row.lower.is_finite());
+        assert_eq!(row.lower, row.upper);
+        assert_eq!(observation.bounds[index], (row.lower, row.upper));
+        let budget =
+            crate::workflow::tests::engineering_target(numerics, NumericalTarget::Row, row.id)
+                .budget;
+        assert!(observation.equality_residuals[index].unwrap().abs() <= budget);
+        assert!(multipliers[index].is_finite());
+        gap_bound += multipliers[index].abs() * budget;
+    }
+    assert_eq!(
+        observation.complementarity.as_ref().unwrap().len(),
+        bound_sides
+    );
+    // Convex first-order inequality: the gap is bounded by stationarity times
+    // displacement, equality multipliers times admitted row errors, and bound
+    // complementarity. The Objective target alone promises no optimum-gap bound.
+    let reference = tracking_cost(at("x0"), r, None);
+    assert!(
+        original - reference <= gap_bound,
+        "cost={original}, reference={reference}, admitted KKT/row consequence={gap_bound}"
+    );
+}
+
+/// NMPC closes the antiwindup loop under the production numerical policy. Each
+/// controller satisfies the original physical and KKT conditions and their independently
+/// derived convex tracking consequence, applies its actual first move, and respects
+/// the physical input limits.
 #[tokio::test]
 async fn nmpc_closed_loop_on_antiwindup() {
     const STEPS: usize = 20;
@@ -258,28 +422,59 @@ async fn nmpc_closed_loop_on_antiwindup() {
         assert_eq!(step.controller, Some(k));
         assert!((step.time - k as f64 * PERIOD).abs() < 1e-12);
         let u = step.applied[0];
-        assert!((-1e-7..=1. + 1e-7).contains(&u), "{k}: {u}");
+        let solved = &modeling(&result)[k];
+        controller_objective(solved);
+        let paths = &solved.prepared.model.model.compiled().model.paths;
+        let target = crate::workflow::tests::engineering_target(
+            solved.prepared.solve.numerics(),
+            pse_model::generated::enums::NumericalTarget::Variable,
+            paths["u[0.25{s}]"],
+        );
+        assert!(
+            (-target.budget..=1. + target.budget).contains(&u),
+            "{k}: {u}"
+        );
+        assert_eq!(u, solved.values.scalars[&paths["u[0.25{s}]"]]);
         if k > 0 {
             assert_eq!(step.measured, report.steps[k - 1].reached);
         }
     }
     let applied = |k: usize| report.steps[k].applied[0];
     let reached = |k: usize| report.steps[k].reached[0];
-    // Saturated while rising from rest and after the setpoint drop.
-    assert!(
-        applied(0) > 1. - 1e-6 && applied(1) > 1. - 1e-6,
-        "{report:?}"
-    );
-    assert!(applied(12) < 1e-6, "{report:?}");
     // Settled on each setpoint.
-    assert!((reached(11) - 1.).abs() < 1e-3, "{}", reached(11));
+    let state_budget = |k: usize| {
+        let step = &modeling(&result)[k];
+        crate::workflow::tests::engineering_target(
+            step.prepared.solve.numerics(),
+            pse_model::generated::enums::NumericalTarget::Variable,
+            step.prepared.model.model.compiled().model.paths["x[0.25{s}]"],
+        )
+        .budget
+    };
     assert!(
-        (reached(STEPS - 1) - 0.6).abs() < 1e-3,
+        (reached(11) - 1.).abs() <= state_budget(11),
+        "{}",
+        reached(11)
+    );
+    assert!(
+        (reached(STEPS - 1) - 0.6).abs() <= state_budget(STEPS - 1),
         "{}",
         reached(STEPS - 1)
     );
     assert!(
-        (applied(STEPS - 1) - 0.3).abs() < 1e-3,
+        (applied(STEPS - 1) - 0.3).abs()
+            <= crate::workflow::tests::engineering_target(
+                modeling(&result)[STEPS - 1].prepared.solve.numerics(),
+                pse_model::generated::enums::NumericalTarget::Variable,
+                modeling(&result)[STEPS - 1]
+                    .prepared
+                    .model
+                    .model
+                    .compiled()
+                    .model
+                    .paths["u[0.25{s}]"]
+            )
+            .budget,
         "{}",
         applied(STEPS - 1)
     );
@@ -401,7 +596,7 @@ fn estimation(package: &ModelingPackage, root: DeclarationId, x: SemanticId) -> 
             &measured.iter().map(String::as_str).collect::<Vec<_>>(),
         ),
     );
-    specification.bindings.demand = vec!["x[0{s}]".into(), "x[1{s}]".into()];
+    specification.bindings.demand = vec!["x[0{s}]".into(), "x[1{s}]".into(), "arrival".into()];
     HorizonEstimator {
         package: package.clone(),
         analysis: specification,
@@ -418,15 +613,21 @@ fn estimation(package: &ModelingPackage, root: DeclarationId, x: SemanticId) -> 
 
 /// MHE recovers the initial state: with measurements of the open-loop plant from
 /// `x(0) = 0.8` and a first prior of 0, the first window's free initial state lands within
-/// the arrival cost's bias of the truth (declared tolerance 1e-3); from then on each prior
-/// is the previous estimate one period on, and every window's initial and current states
-/// match the plant within 1e-5.
+/// the arrival cost's bias of the truth under the production policy; from then on
+/// each prior is the previous estimate one period on. Physical states and the
+/// independent least-squares decision quantity use the frozen engineering budgets.
 #[tokio::test]
 async fn mhe_recovers_initial_state() {
     const STEPS: usize = 8;
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
     let (package, [_, whole, estimator]) = package(runtime.clone()).await;
     let (plant, actuator, x) = plant(&package, whole, 0.8, STEPS).await;
+    let plant_budget = crate::workflow::tests::engineering_target(
+        plant.numerics(),
+        pse_model::generated::enums::NumericalTarget::Variable,
+        plant.contract().states[0],
+    )
+    .budget;
     let result = run(
         &runtime,
         Horizon {
@@ -455,7 +656,7 @@ async fn mhe_recovers_initial_state() {
         assert_eq!(sample.decision, HorizonDecision::OpenLoop);
         assert_eq!(sample.applied, vec![0.5]);
         assert!(
-            (sample.measured[0] - truth(sample.time)).abs() < 1e-8,
+            (sample.measured[0] - truth(sample.time)).abs() <= plant_budget,
             "{k}"
         );
         let Some(index) = sample.estimator else {
@@ -468,23 +669,63 @@ async fn mhe_recovers_initial_state() {
         let paths = &step.prepared.model.model.compiled().model.paths;
         let at = |path: &str| step.values.scalars[&paths[path]];
         let (start, now) = (truth(sample.time - 1.), truth(sample.time));
-        let tolerance = if index == 0 { 1e-3 } else { 1e-5 };
+        let budget = |path: &str| {
+            crate::workflow::tests::engineering_target(
+                step.prepared.solve.numerics(),
+                pse_model::generated::enums::NumericalTarget::Variable,
+                paths[path],
+            )
+            .budget
+        };
         assert!(
-            (at("x[0{s}]") - start).abs() < tolerance,
+            (at("x[0{s}]") - start).abs() <= budget("x[0{s}]"),
             "{k}: {} vs {start}",
             at("x[0{s}]")
         );
         assert!(
-            (at("x[1{s}]") - now).abs() < tolerance,
+            (at("x[1{s}]") - now).abs() <= budget("x[1{s}]"),
             "{k}: {} vs {now}",
             at("x[1{s}]")
         );
     }
-    // The first window's estimate is biased towards its prior of 0, never onto it.
+    // Independently minimize the first window's continuous-model least squares
+    // at its actual measurements and arrival prior. No tiny bias must be resolved.
     let first = &steps[0];
     let paths = &first.prepared.model.model.compiled().model.paths;
     let start = first.values.scalars[&paths["x[0{s}]"]];
-    assert!(start < 0.8 && start > 0.799, "{start}");
+    let prior = first.values.scalars[&paths["prior"]];
+    let arrival = first.values.scalars[&paths["arrival"]];
+    assert_eq!(prior, 0.);
+    let measurements = WINDOW
+        .iter()
+        .map(|time| {
+            let t = time.parse::<f64>().unwrap();
+            (
+                (-t).exp(),
+                first.values.scalars[&paths[&format!("y[{time}{{s}}]")]],
+            )
+        })
+        .collect::<Vec<_>>();
+    let optimum = (measurements
+        .iter()
+        .map(|(e, y)| e * (y - 1. + e))
+        .sum::<f64>()
+        + arrival * prior)
+        / (measurements.iter().map(|(e, _)| e * e).sum::<f64>() + arrival);
+    let cost = |initial: f64| {
+        measurements
+            .iter()
+            .map(|(e, y)| (1. + (initial - 1.) * e - y).powi(2))
+            .sum::<f64>()
+            + arrival * (initial - prior).powi(2)
+    };
+    let allowance = crate::workflow::tests::engineering_target(
+        first.prepared.solve.numerics(),
+        pse_model::generated::enums::NumericalTarget::Objective,
+        SemanticId::NIL,
+    )
+    .budget;
+    assert!((cost(start) - cost(optimum)).abs() <= allowance);
 }
 
 /// One native horizon retains every completed step and reopens recorded progress.
@@ -616,8 +857,7 @@ async fn horizon_refuses_inconsistent_loops() {
 
 /// The antiwindup loop over `STEPS` samples, from rest, whose setpoint drops from 1 to 0.6
 /// at sample 12, under a controller that decides samples by advanced step when `advanced`.
-/// Its KKT budgets are tightened to 1e-12, so a prediction and a full solve at one state
-/// agree to far better than the comparison's tolerance of 1e-8.
+/// Both prediction and full solves use the production KKT and physical budgets.
 async fn antiwindup(advanced: Option<AdvancedStep>) -> Arc<RunResult> {
     antiwindup_with_activity(advanced, false).await
 }
@@ -650,10 +890,6 @@ async fn antiwindup_with_start_policy(
             .recovery
             .push(pse_model::strategy::StartOrigin::Predicted);
     }
-    controller.analysis.solver.numerics.kkt = pse_model::numerics::KktTolerances {
-        stationarity: 1e-12,
-        complementarity: 1e-12,
-    };
     let result = run(
         &runtime,
         Horizon {
@@ -677,35 +913,69 @@ async fn antiwindup_with_start_policy(
     );
     result
 }
-/// The advanced loop's applied moves and plant outputs against the fully re-solving loop's,
-/// within `tolerance`; returns the advanced loop's decisions.
-fn matches_full_resolve(
-    advanced: &RunResult,
-    full: &RunResult,
-    tolerance: f64,
-) -> Vec<HorizonDecision> {
-    let (advanced, full) = (advanced.horizon().unwrap(), full.horizon().unwrap());
-    assert_eq!(advanced.steps.len(), full.steps.len());
-    for (k, (a, f)) in advanced.steps.iter().zip(&full.steps).enumerate() {
+/// Independently assess the first move's tracking regret at each loop's actual
+/// measured state, using the production objective allowance as an empirical
+/// decision criterion. KKT acceptance does not certify this regret bound. A prediction
+/// references its background solve, whose primal is at a different state, so it
+/// cannot be compared as if that background primal were the applied prediction.
+fn matches_full_resolve(advanced: &RunResult, full: &RunResult) -> Vec<HorizonDecision> {
+    let (advanced_report, full_report) = (advanced.horizon().unwrap(), full.horizon().unwrap());
+    assert_eq!(advanced_report.steps.len(), full_report.steps.len());
+    for (k, f) in full_report.steps.iter().enumerate() {
         assert_eq!(f.decision, HorizonDecision::Solved, "{k}");
-        let (u, v) = (a.applied[0], f.applied[0]);
-        assert!(
-            (u - v).abs() < tolerance,
-            "{k}: applied {u} vs {v} ({:?})",
-            a.decision
-        );
-        let (x, y) = (a.reached[0], f.reached[0]);
-        assert!((x - y).abs() < tolerance, "{k}: reached {x} vs {y}");
     }
-    advanced.steps.iter().map(|s| s.decision).collect()
+    for run in [advanced, full] {
+        for result in modeling(run) {
+            controller_objective(result);
+        }
+        for (k, sample) in run.horizon().unwrap().steps.iter().enumerate() {
+            let source = &modeling(run)[sample.controller.unwrap()];
+            let paths = &source.prepared.model.model.compiled().model.paths;
+            let objective_budget = crate::workflow::tests::engineering_target(
+                source.prepared.solve.numerics(),
+                pse_model::generated::enums::NumericalTarget::Objective,
+                SemanticId::NIL,
+            )
+            .budget;
+            let r = if k < 12 { 1. } else { 0.6 };
+            let regret = tracking_cost(sample.measured[0], r, Some(sample.applied[0]))
+                - tracking_cost(sample.measured[0], r, None);
+            assert!(
+                regret.abs() <= objective_budget,
+                "{k}: empirical first-move regret {regret}, allowance={objective_budget} ({:?})",
+                sample.decision
+            );
+            let input_budget = crate::workflow::tests::engineering_target(
+                source.prepared.solve.numerics(),
+                pse_model::generated::enums::NumericalTarget::Variable,
+                paths["u[0.25{s}]"],
+            )
+            .budget;
+            assert!((-input_budget..=1. + input_budget).contains(&sample.applied[0]));
+            let state_budget = crate::workflow::tests::engineering_target(
+                source.prepared.solve.numerics(),
+                pse_model::generated::enums::NumericalTarget::Variable,
+                paths["x[0.25{s}]"],
+            )
+            .budget;
+            let expected = 2. * sample.applied[0]
+                + (sample.measured[0] - 2. * sample.applied[0]) * (-PERIOD).exp();
+            assert!(
+                (sample.reached[0] - expected).abs() <= state_budget,
+                "{k}: plant {} vs {expected}",
+                sample.reached[0]
+            );
+        }
+    }
+    advanced_report.steps.iter().map(|s| s.decision).collect()
 }
 
 /// Advanced-step NMPC (Plan 22 Y5c2): after applying its moves, the controller solves at
 /// the state its own solution predicts one period ahead and keeps that solve's parametric
 /// factor; at the next sample one backsolve corrects the prediction to the measured state.
 /// The loop's KKT conditions are linear in the state while the active set holds, so every
-/// predicted sample applies the moves of the full re-solve at the measured state (declared
-/// tolerance 1e-8), the backward-Euler model's mismatch with the plant notwithstanding.
+/// predicted sample is assessed against the same empirical first-move decision
+/// criterion as a full solve, at its actual measured state.
 /// Where that mismatch moves an actuator off its limit (sample 1) the controller falls
 /// back to a full solve.
 /// Each background solve keeps a factor of positive size, charged to the job's allowance.
@@ -716,7 +986,7 @@ async fn advanced_step_matches_full_resolve() {
         predictions: vec![("x0".into(), "x[0.25{s}]".into())],
     }))
     .await;
-    let decisions = matches_full_resolve(&advanced, &full, 1e-8);
+    let decisions = matches_full_resolve(&advanced, &full);
     assert_eq!(decisions[0], HorizonDecision::Solved);
     let predicted = decisions
         .iter()
@@ -754,7 +1024,7 @@ async fn advanced_step_matches_full_resolve() {
 async fn advanced_step_falls_back_on_active_set_change() {
     let full = antiwindup(None).await;
     let advanced = antiwindup(Some(AdvancedStep::default())).await;
-    let decisions = matches_full_resolve(&advanced, &full, 1e-8);
+    let decisions = matches_full_resolve(&advanced, &full);
     let report = advanced.horizon().unwrap();
     let fallbacks = report
         .steps
@@ -779,7 +1049,7 @@ async fn advanced_step_falls_back_on_active_set_change() {
 async fn advanced_step_activity_start_is_corrected_before_move_authorization() {
     let full = antiwindup(None).await;
     let advanced = antiwindup_with_activity(Some(AdvancedStep::default()), true).await;
-    matches_full_resolve(&advanced, &full, 1e-8);
+    matches_full_resolve(&advanced, &full);
     let report = advanced.horizon().unwrap();
     let corrected = report
         .steps

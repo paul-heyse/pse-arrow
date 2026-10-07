@@ -22,6 +22,8 @@ mod k4_support;
 mod observations;
 #[path = "native_process/phases.rs"]
 mod phases;
+#[path = "native_process/results_analysis.rs"]
+mod results_analysis;
 use criterion::{Criterion, criterion_group, criterion_main};
 use fixture::*;
 use pse_backend_native::solve::{Backend, Metric, Termination};
@@ -45,13 +47,16 @@ async fn heater_blocks(
     package: &ModelingPackage,
     blocks: usize,
 ) -> (ModelingPackage, DeclarationId) {
+    let engineering = pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY;
+    let temperature_tolerance = engineering * 350.0;
+    let flow_tolerance = engineering * 5.0;
     let mut fixture = String::new();
     let mut children = String::from(
         "permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;",
     );
     for i in 0..blocks {
         fixture.push_str(&format!("fix block{i}.duty=16204.445642740735{{W}};"));
-        children.push_str(&format!("child block{i}:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction); expect block{i}.phase.T==350{{K}} tolerance 0.00001{{K}}; expect block{i}.recycle==5{{mol/s}} tolerance 0.000001{{mol/s}};"));
+        children.push_str(&format!("child block{i}:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction); expect block{i}.phase.T==350{{K}} tolerance {temperature_tolerance}{{K}}; expect block{i}.recycle==5{{mol/s}} tolerance {flow_tolerance}{{mol/s}};"));
     }
     let source = format!(
         "@id(\"b70ab2554b57594e8d2b75288e80da8e\") package homogeneous_fixtures {{test workload fixture {{dof 0; route steady; procedure solve; {fixture}}} {{{children}}} }}"
@@ -90,6 +95,10 @@ fn process(c: &mut Criterion) {
     let blocks = spec["blocks"].as_u64().unwrap() as usize;
     let threads = spec["threads"].as_u64().unwrap() as usize;
     let output = PathBuf::from(std::env::var("PSE_PROCESS_COST_OUTPUT").unwrap());
+    if operation == "result_analysis" {
+        results_analysis::measure(c, &spec, &output, &compiler_phases);
+        return;
+    }
     if operation == "k4-study" {
         k4_studies::measure(c, &spec, &output, &compiler_phases);
         return;
@@ -102,6 +111,10 @@ fn process(c: &mut Criterion) {
         extended::measure(c, &spec, &output, &compiler_phases);
         return;
     }
+    assert!(
+        matches!(operation, "heater" | "flash" | "cancellation" | "results"),
+        "unsupported process benchmark operation: {operation}"
+    );
     let executor = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(threads)
         .enable_all()
@@ -232,7 +245,7 @@ fn process(c: &mut Criterion) {
                 let run=result.canonical_run_key().unwrap();
                 let attempt=result.canonical_attempt_key().unwrap();
                 for _ in 0..spec["result_reads"].as_u64().unwrap_or(1) {
-                    let mut reader=executor.block_on(target.results(&run,&attempt,"runtime.solve_variables",0,u64::MAX,pse_columnar::CancellationToken::new())).unwrap();
+                    let mut reader=executor.block_on(target.results(run,attempt,"runtime.solve_variables",0,u64::MAX,pse_columnar::CancellationToken::new())).unwrap();
                     let mut count=0;
                     while let Some(batch)=executor.block_on(reader.next_batch()).unwrap(){count+=batch.num_rows();}
                     assert_eq!(count,result.table("runtime.solve_variables").unwrap().batch().num_rows());

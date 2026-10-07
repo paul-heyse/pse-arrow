@@ -68,8 +68,9 @@ where
     }
 }
 
-/// A completed native resource stop remains an observable failed result. This does
-/// not turn an independent task cutoff or an earlier scientific result into output.
+/// A completed native resource stop remains an observable failed result. An expired
+/// driver scope can retain its current assessed native time stop, but never revive an
+/// earlier scientific result or grant candidate permission.
 fn retains_stopped_native_report(
     current_assessment: bool,
     last: Option<&super::strategy::AutoObservation>,
@@ -81,23 +82,33 @@ fn retains_stopped_native_report(
         generated::enums::{CandidateUse, NumericalEventKind},
         strategy::Phase,
     };
+    let driver_deadline = matches!(
+        cause.as_ref(),
+        ProblemError::Provider(pse_kernels::ProviderError::Deadline)
+    ) && report.termination.category
+        == pse_backend_native::solve::Termination::TimeLimit;
     if !current_assessment
-        || report.termination.category != pse_backend_native::solve::Termination::ResourceExhausted
+        || (!driver_deadline
+            && report.termination.category
+                != pse_backend_native::solve::Termination::ResourceExhausted)
     {
         return false;
     }
     let Some(last) = last else {
         return false;
     };
+    let Some(original_cause) = last
+        .original
+        .as_ref()
+        .and_then(super::strategy::OriginalConclusion::cause)
+    else {
+        return false;
+    };
     if !matches!(
         last.permission,
         Some(CandidateUse::Unusable | CandidateUse::SeedOnly)
     ) || last.native != super::strategy::observe_native(report)
-        || !last
-            .original
-            .as_ref()
-            .and_then(super::strategy::OriginalConclusion::cause)
-            .is_some_and(|original| Arc::ptr_eq(&original, cause))
+        || (!driver_deadline && !Arc::ptr_eq(&original_cause, cause))
     {
         return false;
     }
@@ -112,10 +123,40 @@ fn retains_stopped_native_report(
             .original
             .as_ref()
             .and_then(super::strategy::OriginalConclusion::cause)
-            .is_some_and(|original| Arc::ptr_eq(&original, cause))
+            .is_some_and(|original| Arc::ptr_eq(&original, &original_cause))
         && events.iter().any(|event| {
             event.mechanism == assessed.mechanism && event.kind == NumericalEventKind::Started
         })
+}
+
+/// Finalize a stopped automatic driver from already observed evidence only.
+fn finish_automatic_stop<T>(
+    cause: Arc<ProblemError>,
+    current_assessment: bool,
+    last: Option<&super::strategy::AutoObservation>,
+    last_result: Option<(super::solves::Outcome, T, super::solves::StrategyTrace)>,
+    trace: super::solves::StrategyTrace,
+) -> Result<(super::solves::Outcome, T, super::solves::StrategyTrace), MathRuntimeError> {
+    let preserve = last_result.as_ref().is_some_and(|(outcome, _, actual)| {
+        matches!(outcome, super::solves::Outcome::Native(report)
+            if retains_stopped_native_report(current_assessment, last, &cause, report, &actual.events))
+    });
+    if preserve {
+        let (outcome, product, _) = last_result.ok_or_else(|| {
+            ProblemError::Internal("assessed native stop result disappeared".into())
+        })?;
+        return Ok((outcome, product, trace));
+    }
+    Err(MathRuntimeError::Strategy {
+        cause: Arc::new(
+            ProblemError::Math(pse_math::MathError::Typed {
+                retained: cause.retained_bytes(),
+                cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
+            })
+            .into(),
+        ),
+        trace,
+    })
 }
 
 /// Admission of one escaping native session, separate from scientific candidate use.
@@ -937,7 +978,12 @@ impl NativeSession {
         };
         collected.declaration.mechanisms.clear();
         loop {
-            scope.check().map_err(ProblemError::Provider)?;
+            if let Err(error) = scope.check() {
+                // No new preparation, dispatch or assessment may follow task expiry.
+                // Finalization still owns the actual preceding result and its trace.
+                terminal = Some(Arc::new(ProblemError::Provider(error)));
+                break;
+            }
             let candidates = operations
                 .iter()
                 .map(|operation| operation.candidate.clone())
@@ -1235,7 +1281,8 @@ impl NativeSession {
                         super::solves::Outcome::Native(report) => Some(report.as_ref()),
                         _ => None,
                     };
-                    if report.is_some()
+                    if scope.check().is_ok()
+                        && report.is_some()
                         && last_observation.as_ref().is_some_and(|last| {
                             !last
                                 .original
@@ -1291,26 +1338,13 @@ impl NativeSession {
             ),
         );
         if let Some(cause) = terminal {
-            let preserve = last_result.as_ref().is_some_and(|(outcome, _, actual)| {
-                matches!(outcome, super::solves::Outcome::Native(report)
-                    if retains_stopped_native_report(current_assessment,last_observation.as_ref(),&cause,report,&actual.events))
-            });
-            if preserve {
-                let (outcome, product, _) = last_result.ok_or_else(|| {
-                    ProblemError::Internal("assessed native stop result disappeared".into())
-                })?;
-                return Ok((outcome, product, trace));
-            }
-            return Err(MathRuntimeError::Strategy {
-                cause: Arc::new(
-                    ProblemError::Math(pse_math::MathError::Typed {
-                        retained: cause.retained_bytes(),
-                        cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
-                    })
-                    .into(),
-                ),
+            return finish_automatic_stop(
+                cause,
+                current_assessment,
+                last_observation.as_ref(),
+                last_result,
                 trace,
-            });
+            );
         }
         match last_result {
             Some((outcome, product, _)) => Ok((outcome, product, trace)),
@@ -2051,6 +2085,269 @@ impl Drop for NativeSession {
 mod admission_tests {
     use super::*;
     use std::sync::{Condvar, Mutex};
+
+    #[test]
+    fn expired_driver_retains_actual_assessed_native_time_stop_and_trace() {
+        use super::super::strategy::{self, AutoObservation, OriginalConclusion};
+        use pse_backend_native::solve::{
+            Assurance, Controls, Execution, NativeTermination, SolveReport, Termination,
+        };
+        use pse_model::{
+            generated::enums::{CandidateUse, NumericalEventKind},
+            strategy::{Phase, Scope, StartOrigin, WorkCharge, WorkObservation},
+        };
+        let controls = Controls::default();
+        let scope = pse_kernels::ExecutionScope::new(Arc::default(), None);
+        let declaration = strategy::direct(&controls);
+        let cause = Arc::new(ProblemError::stopped(
+            Termination::TimeLimit,
+            "scripted native time stop",
+        ));
+        let contract = pse_backend_native::OracleContract {
+            identity: pse_ids::ContentHash::from_bytes([2; 32]),
+            derivatives: pse_kernels::DerivativeOrder::First,
+            smoothness: pse_kernels::DerivativeOrder::First,
+            variables: Vec::new(),
+            rows: Vec::new(),
+        };
+        let report = SolveReport::new(
+            Backend::Ipopt,
+            &contract,
+            NativeTermination {
+                code: 0,
+                name: "scripted.time.stop".into(),
+                message: None,
+                category: Termination::TimeLimit,
+                assurance: Assurance::None,
+            },
+            &Execution::new(scope.cancellation().clone(), &controls),
+        );
+        let work = WorkObservation {
+            attempts: 1,
+            evaluations: Some(0),
+            iterations: Some(0),
+            factorizations: Some(0),
+            proof_steps: Some(0),
+        };
+        let attempts = std::cell::Cell::new(0);
+        let assessments = std::cell::Cell::new(0);
+        let result = strategy::run(
+            &declaration,
+            &scope,
+            |_| strategy::Facts {
+                support: Default::default(),
+                accuracy: Vec::new(),
+                consumption: Vec::new(),
+                reservation: Some(work),
+                work_admitted: false,
+                start: StartOrigin::Specification,
+                inherited: false,
+                connected: false,
+                refusal: None,
+            },
+            |_, _| {
+                attempts.set(attempts.get() + 1);
+                Ok(strategy::Attempt {
+                    evidence: Vec::new(),
+                    observation: strategy::observe_native(&report),
+                    value: report.clone(),
+                    work: WorkCharge {
+                        phase: Phase::Native,
+                        scope: Scope::Task,
+                        charging_owner: contract.identity,
+                        observed: work,
+                    },
+                })
+            },
+            |report, observation| {
+                assessments.set(assessments.get() + 1);
+                strategy::Assessment {
+                    auxiliary: false,
+                    original: OriginalConclusion::Unavailable {
+                        cause: cause.clone(),
+                    },
+                    work: Vec::new(),
+                    retention: StepRetention {
+                        candidate: crate::workflow::numerics::native_use(
+                            report,
+                            &pse_model::numerics::NumericalPolicy::default(),
+                        ),
+                        session: SessionDisposition::Discard,
+                    },
+                    observation,
+                    cause: None,
+                }
+            },
+        );
+        let assessment = result.assessment.as_ref().unwrap();
+        let mut last = AutoObservation {
+            awaiting_assessment: false,
+            native: assessment.observation,
+            original: Some(assessment.original.clone()),
+            permission: Some(assessment.retention.candidate.usability),
+        };
+        assert_eq!(last.permission, Some(CandidateUse::Unusable));
+        let report = result.value.as_ref().unwrap();
+        let trace_with_events = |events| {
+            Arc::new(strategy::Trace {
+                owner: None,
+                publication_request: None,
+                declaration: declaration.clone(),
+                original: contract.identity,
+                backend: Some(Backend::Ipopt),
+                profile: contract.identity,
+                start: StartOrigin::Specification,
+                starts: vec![StartOrigin::Specification],
+                products: vec![Default::default()],
+                events,
+            })
+        };
+        let trace = trace_with_events(result.events.clone());
+        assert_eq!(
+            trace
+                .events
+                .iter()
+                .filter(|event| event.kind == NumericalEventKind::Started)
+                .count(),
+            1
+        );
+        assert_eq!(
+            trace
+                .events
+                .iter()
+                .filter(|event| event.kind == NumericalEventKind::Finished
+                    && event.phase == Phase::Assessment)
+                .count(),
+            1
+        );
+        // Deterministically observe the boundary after the actual engine assessment;
+        // neither sleeping nor a second numerical attempt is needed to expire it.
+        let expired = pse_kernels::ExecutionScope::new(
+            scope.cancellation().clone(),
+            Some(std::time::Instant::now()),
+        );
+        let deadline = Arc::new(ProblemError::Provider(expired.check().unwrap_err()));
+        assert!(matches!(
+            deadline.as_ref(),
+            ProblemError::Provider(pse_kernels::ProviderError::Deadline)
+        ));
+        let actual = || {
+            Some((
+                super::super::solves::Outcome::Native(Box::new(report.clone())),
+                (),
+                trace.clone(),
+            ))
+        };
+        let (outcome, (), retained) =
+            finish_automatic_stop(deadline.clone(), true, Some(&last), actual(), trace.clone())
+                .unwrap();
+        assert!(Arc::ptr_eq(&retained, &trace));
+        let super::super::solves::Outcome::Native(stopped) = outcome else {
+            panic!("expected actual native time stop")
+        };
+        assert_eq!(stopped.termination.category, Termination::TimeLimit);
+        assert!(stopped.candidate.is_none() && stopped.quality.is_none());
+        assert!(
+            !crate::workflow::numerics::native_use(&stopped, &Default::default()).permits_use()
+        );
+        assert_eq!((attempts.get(), assessments.get()), (1, 1));
+        for result in [
+            finish_automatic_stop(
+                deadline.clone(),
+                false,
+                Some(&last),
+                actual(),
+                trace.clone(),
+            ),
+            finish_automatic_stop::<()>(deadline.clone(), true, Some(&last), None, trace.clone()),
+        ] {
+            let error = result.unwrap_err();
+            assert_eq!(
+                strategy::runtime_failure(&error),
+                pse_model::generated::enums::NumericalAttemptObservation::ResourceExhausted
+            );
+            let MathRuntimeError::Strategy { trace: failed, .. } = error else {
+                panic!("expected retained stop trace")
+            };
+            assert!(Arc::ptr_eq(&failed, &trace));
+        }
+        last.permission = Some(CandidateUse::Usable);
+        assert!(
+            finish_automatic_stop(deadline.clone(), true, Some(&last), actual(), trace.clone())
+                .is_err()
+        );
+        last.permission = Some(CandidateUse::Unusable);
+        let mut earlier = report.clone();
+        earlier.termination.category = Termination::Success;
+        assert!(
+            finish_automatic_stop(
+                deadline.clone(),
+                true,
+                Some(&last),
+                Some((
+                    super::super::solves::Outcome::Native(Box::new(earlier)),
+                    (),
+                    trace.clone()
+                )),
+                trace.clone()
+            )
+            .is_err()
+        );
+        let mut incomplete = trace.events.clone();
+        incomplete.retain(|event| event.kind != NumericalEventKind::Started);
+        assert!(
+            finish_automatic_stop(
+                deadline.clone(),
+                true,
+                Some(&last),
+                Some((
+                    super::super::solves::Outcome::Native(Box::new(report.clone())),
+                    (),
+                    trace_with_events(incomplete)
+                )),
+                trace.clone()
+            )
+            .is_err()
+        );
+        let mut disagreement = trace.events.clone();
+        disagreement.last_mut().unwrap().original = Some(OriginalConclusion::Unavailable {
+            cause: Arc::new(ProblemError::stopped(
+                Termination::TimeLimit,
+                "another assessment",
+            )),
+        });
+        assert!(
+            finish_automatic_stop(
+                deadline,
+                true,
+                Some(&last),
+                Some((
+                    super::super::solves::Outcome::Native(Box::new(report.clone())),
+                    (),
+                    trace_with_events(disagreement)
+                )),
+                trace.clone()
+            )
+            .is_err()
+        );
+        expired.cancellation().store(true, Ordering::Release);
+        let cancelled = Arc::new(ProblemError::Provider(expired.check().unwrap_err()));
+        assert!(matches!(
+            cancelled.as_ref(),
+            ProblemError::Provider(pse_kernels::ProviderError::Cancelled)
+        ));
+        let error = finish_automatic_stop(cancelled, true, Some(&last), actual(), trace.clone())
+            .unwrap_err();
+        assert_eq!(
+            strategy::runtime_failure(&error),
+            pse_model::generated::enums::NumericalAttemptObservation::Cancelled
+        );
+        let MathRuntimeError::Strategy { trace: failed, .. } = error else {
+            panic!("expected cancellation trace")
+        };
+        assert!(Arc::ptr_eq(&failed, &trace));
+        assert_eq!((attempts.get(), assessments.get()), (1, 1));
+    }
 
     #[test]
     fn actual_resource_stop_retains_current_report_but_never_a_stale_or_usable_result() {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("881a0e9fb03144108d64f181a79d1e9f") package phase_stability_fixtures {
+@id("e2e43cb8c33941e7bdd560e5572e5452") use numerical_policy @"1.0.0";
 @id("01a0f12be01970a7bc46738390189410") use bt_ideal @"1.0.0";
 @id("01a0ef604fe0732189b9372ffbb8d433") use provenance @"1.0.0";
 @id("01a0ef604fe0732189b937305e9d40dd") use references @"1.0.0";
@@ -17,6 +18,6 @@
 @id("2ed407471d154508a8e6db87779f4b90") fn bt_feed(j:chemistry.species)->Scalar=feeds[j];
 @id("f622163224f64cecaa98b10d0952aa16") test tpd_ideal oracle references.analytic_ideal_tangent_plane fixture {dof 2; route steady; procedure solve; intent certify;} {
 @id("4fdb92718b0840589294cd7b11f68fc0") child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=vessel_fixtures.alkanes,law=helmholtz.ideal,feed=vessel_fixtures.fraction);
-@id("42c7c868378e407f97d1fa652302d315") expect root.tpd==0{1} tolerance 0.000001{1};
+@id("42c7c868378e407f97d1fa652302d315") expect root.tpd==0{1} tolerance numerical_policy.reduced_gibbs_energy;
 }
 }

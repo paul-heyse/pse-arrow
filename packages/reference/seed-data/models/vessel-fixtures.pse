@@ -47,7 +47,7 @@
 @id("5b0254a0883946e993c3577186c61b9f") expect root.cell[1{s}].amount==3.456556634933607{mol} tolerance numerical_policy.total_amount;
 @id("488692986f484bffb79d9b833c89b207") expect root.cell[1{s}].energy==1212.3168203660216{J} tolerance numerical_policy.energy;
 }
-@id("77bda7a1c3914dc28d4df32a5814d4c3") test valve_forward oracle references.analytic_vessel_balance fixture {dof 0; route integrated; procedure integrate; policy { derivatives step(1e-9); } value root.downstream=99000{Pa}; value root.pressure_width=100{Pa}; value root.reference_flow=0.001{mol/s}; value root.heat=0{W}; integrate samples(0{s},1{s},10{s},100{s},1000{s},2000{s}) relative(global) normalized_absolute(global) step(1e-5{s}) quadrature_relative(global) quadrature_absolute(root.accumulated_amount=numerical_policy.total_amount,root.accumulated_energy=numerical_policy.energy);} {
+@id("77bda7a1c3914dc28d4df32a5814d4c3") test valve_forward oracle references.analytic_vessel_balance fixture {dof 0; route integrated; procedure integrate; value root.downstream=99000{Pa}; value root.pressure_width=100{Pa}; value root.reference_flow=0.001{mol/s}; value root.heat=0{W}; integrate samples(0{s},1{s},10{s},100{s},1000{s},2000{s}) relative(global) normalized_absolute(global) step(1e-5{s}) quadrature_relative(global) quadrature_absolute(root.accumulated_amount=numerical_policy.total_amount,root.accumulated_energy=numerical_policy.energy);} {
 @id("82307b7a804c47f0bf36d955d5bc59d5") permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("1c7a773d9496400199296bde8f28e74f") child root:vessels.Vessel=vessels.Vessel(selected=alkanes,law=pcsaft_data.potential,ideal_h=ideal_enthalpy,composition=fraction,horizon=2000{s},valve=true);
 @id("4ccf152d940c44f9aef6a98cb176fe84") annotation check root.outflow(root.outflow[i]>=0{mol/s} and root.cell[i].pressure>=root.downstream-numerical_policy.pressure and (i!=2000{s} or abs(root.cell[i].pressure-99000{Pa})<=numerical_policy.pressure));
@@ -57,15 +57,15 @@
 @id("398e818742744d7aa34b45a573bc231a") child root:vessels.Vessel=vessels.Vessel(selected=alkanes,law=pcsaft_data.potential,ideal_h=ideal_enthalpy,composition=fraction,horizon=2000{s},valve=true);
 @id("df817872a38d4c8b8bdce7647b65f588") annotation check root.outflow(abs(root.outflow[i])<=numerical_policy.molar_flow and abs(root.cell[i].amount-root.initial_amount)<=numerical_policy.total_amount and abs(root.cell[i].energy-root.initial_energy)<=numerical_policy.energy);
 }
-// Direct typed-transfer identity at a supplied 10 W: its tight arithmetic
-// verification checks no adaptive trajectory and sets no design convergence.
+// The same typed meter participates in ordinary shared-parameter fitting;
+// its physical checks use the shared engineering power allowance.
 @id("f1b94720fef75b3bab2e29090ef0c315") test heat_meter oracle references.synthetic_heat_meter fixture {dof 0; route steady; procedure solve;} {
 @id("dba1af88e4b2546785b44967429aeeb4") param heat:EnergyTransferRate=10{W};
 @id("7591c5a1535f43ba98ffbb6612542b28") boundary heat_boundary;
-@id("8a830bf9c42043debdf9e7d34d429973") accumulate heat_rate:Power boundary heat_boundary accounting tolerance 1e-5{W};
+@id("8a830bf9c42043debdf9e7d34d429973") accumulate heat_rate:Power boundary heat_boundary accounting tolerance numerical_policy.power;
 @id("797813b063604cc780956325299e1b25") contribute heat_rate role directed=transfer(heat,heat_boundary,Into);
 @id("25eb3b5efbda5544b6c3486daec3e433") annotation check heat(heat>=0{W});
-@id("1e6857693c1b53a7a1717dbe2386f17c") expect heat_rate==10{W} tolerance 1e-5{W};
+@id("1e6857693c1b53a7a1717dbe2386f17c") expect heat_rate==10{W} tolerance numerical_policy.power;
 }
 @id("835f4127313f4b8bbd10772802b32e70") set binding_packages:Set<properties.property_package>={vessel_light_hydrocarbons};
 @id("03688bf32b79481dbbbceaa147506e27") entity properties.selection_context vessel_light_hydrocarbons_admitted {roots={correlations.dippr100[chem.methane,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.poling2000_caloric_fit],correlations.dippr100[chem.ethane,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.poling2000_caloric_fit],correlations.dippr100[chem.propane,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.poling2000_caloric_fit]},subjects={chem.methane,chem.ethane,chem.propane},models={properties.heat_capacity},rules={}}

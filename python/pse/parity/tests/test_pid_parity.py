@@ -51,7 +51,9 @@ LOOP = f"""package pid_parity {{
  }}
  test pi_loop fixture {{dof 0; route integrated; procedure integrate;
    integrate samples({",".join(f"{t}{{s}}" for t in SAMPLES)})
-   relative(1e-10) normalized_absolute(1e-12) step(1e-4{{s}});}} {{
+   relative({support.ENGINEERING_RELATIVE_FRACTION})
+   normalized_absolute({support.ENGINEERING_RELATIVE_FRACTION})
+   step(1e-4{{s}});}} {{
   child root:Loop=Loop();
  }}
 }}"""
@@ -125,6 +127,9 @@ def petsc_response() -> list[float]:
                 "--ts_type": "bdf",
                 "--ts_bdf_order": 3,
                 "--ts_adapt_type": "basic",
+                # This independent reference retains finer integration to keep
+                # saved-trajectory interpolation error below the production
+                # engineering allowance; production uses the shared policy.
                 "--ts_rtol": 1e-10,
                 "--ts_atol": 1e-12,
                 "--ts_dt": 1e-3,
@@ -164,20 +169,24 @@ def pse_response(runtime: pse.Runtime) -> list[float]:
         for values in series.values()
         if values[0.0] == START
     )
-    assert process == pytest.approx(measurement, abs=1e-12)
+    for process_value, measured in zip(process, measurement, strict=True):
+        assert process_value == pytest.approx(
+            measured, rel=0.0, abs=support.scalar_canonical_allowance()
+        )
     return process
 
 
 @pytest.mark.integration
 @pytest.mark.parity
 def test_pi_loop_agrees_with_petsc(runtime: pse.Runtime) -> None:
-    """The pse and PETSc responses are within 1e-6 of the exact one and each other."""
+    """Production and PETSc agree with the exact response at Scalar accuracy."""
     reference = exact()
     integrated = petsc_response()
     simulated = pse_response(runtime)
     for t, want, idaes, ours in zip(
         SAMPLES, reference, integrated, simulated, strict=True
     ):
-        assert idaes == pytest.approx(want, abs=1e-6), t
-        assert ours == pytest.approx(want, abs=1e-6), t
-        assert ours == pytest.approx(idaes, abs=1e-6), t
+        allowance = support.scalar_canonical_allowance()
+        assert idaes == pytest.approx(want, rel=0.0, abs=allowance), t
+        assert ours == pytest.approx(want, rel=0.0, abs=allowance), t
+        assert ours == pytest.approx(idaes, rel=0.0, abs=allowance), t

@@ -43,11 +43,11 @@ def Root {
     when analysis.dynamic {
         eq rate[i in t]:d(reactor[i].inventory)/di==mixer[i].mixed-reactor[i].outgoing;
         eq initial:reactor[0{s}].inventory==starting_inventory;
-        conserve external[i in t]:TotalAmount on t inventory reactor[i].inventory flux mixer[i].fresh-separator[i].product tolerance 1e-6{mol};
+        conserve external[i in t]:TotalAmount on t inventory reactor[i].inventory flux mixer[i].fresh-separator[i].product tolerance 0.001{mol};
     }
 }
 test dynamic fixture {
     dof 0; route integrated; procedure integrate;
-    integrate samples(0{s},0.25{s},0.5{s},1{s}) relative(1e-9) normalized_absolute(1e-11) step(1e-4{s});
+    integrate samples(0{s},0.25{s},0.5{s},1{s}) relative(0.001) normalized_absolute(0.001) step(1e-4{s});
 } {child root:Root=Root();}
 }

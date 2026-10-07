@@ -921,7 +921,10 @@ mod tests {
             !paths.contains(&vec!["j"]),
             "index binder is excluded while its Item set remains required"
         );
-        assert!(references.exact.iter().any(|path| path.segments.len() == 1 && path.segments[0].name == "Item"), "the authored index set remains an exact path requirement");
+        assert!(
+            paths.contains(&vec!["Item"]),
+            "the authored index set remains a required declared prefix"
+        );
         assert!(
             references
                 .prefixes

@@ -9,6 +9,26 @@ use crate::workflow::{
 };
 use std::collections::BTreeMap;
 
+/// Branch selection is observed at the original candidate under its production budgets.
+fn assert_root_branch(result: &crate::workflow::ModelingResult, expected: f64) {
+    use pse_model::generated::enums::NumericalTarget;
+    let Outcome::Native(native) = &result.outcome else {
+        panic!("{:?}", result.outcome)
+    };
+    let x = result.prepared.model.case.compiled().plan.columns()[0];
+    let target = crate::workflow::tests::engineering_target(
+        result.prepared.solve.numerics(),
+        NumericalTarget::Variable,
+        x,
+    );
+    let actual = native.candidate.as_ref().unwrap().primal[0];
+    assert!(
+        actual.is_finite() && (actual - expected).abs() <= target.budget,
+        "{actual} vs {expected}"
+    );
+    assert!((actual * actual - 4.).abs() <= result.prepared.solve.tolerances().rows[0]);
+}
+
 #[tokio::test]
 async fn authored_sequence_separates_seed_policy_reuse_and_original_acceptance() {
     let runtime = runtime();
@@ -66,7 +86,7 @@ async fn authored_sequence_separates_seed_policy_reuse_and_original_acceptance()
             } else {
                 -2.0
             };
-            assert!((second.candidate.as_ref().unwrap().primal[0] - expected).abs() < 1e-6);
+            assert_root_branch(&report[1], expected);
             assert_eq!(receipt.submitted, policy == StartPolicy::PreviousAccepted);
             assert_eq!(
                 receipt.previous_attempt,
@@ -116,7 +136,7 @@ async fn authored_sequence_separates_seed_policy_reuse_and_original_acceptance()
                 panic!()
             };
             assert!(!second.start_receipt.as_ref().unwrap().submitted);
-            assert!((second.candidate.as_ref().unwrap().primal[0] - 2.0).abs() < 1e-6);
+            assert_root_branch(&report[1], 2.0);
         }
         assert_eq!(
             result
@@ -139,9 +159,7 @@ async fn authored_sequence_separates_seed_policy_reuse_and_original_acceptance()
     let RunReport::Modeling(report) = result.report().unwrap() else {
         panic!()
     };
-    assert!(
-        matches!(&report[0].outcome,Outcome::Native(r) if (r.candidate.as_ref().unwrap().primal[0]-2.0).abs()<1e-6)
-    );
+    assert_root_branch(&report[0], 2.0);
 }
 
 /// One authored root `x*x == 4` with `annotation start x(1)`.
@@ -229,7 +247,7 @@ async fn native_option_change_keeps_seed_compatible() {
         "{:?}",
         receipt.transformations
     );
-    assert!((second.candidate.as_ref().unwrap().primal[0] - 2.0).abs() < 1e-6);
+    assert_root_branch(&report[1], 2.0);
     // The changed profile rebuilt the native session; only the seed carried over.
     assert!(!second.evidence.reused_native_state);
 }

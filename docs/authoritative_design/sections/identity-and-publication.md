@@ -9,10 +9,11 @@ This area decides what makes two things the same, what an immutable model, case,
 or publication names, and how results become durable without a reader ever observing a
 mixed state. `pse-ids` is the only hasher and owns identity framing; `pse-columnar`
 owns relation canonicalization; `pse-schema` owns semantic contract identity and
-compatibility; `pse-runtime::workflow` owns revisions, runs and publication requests;
-`pse-engine` owns the native provider hierarchy; `pse-catalog` owns Delta member I/O and
-maintenance; `pse-operations` owns the operational store and the publication catalog, which
-decides visibility, settlement and retention.
+compatibility; `pse-runtime::workflow` owns scientific admission, execution and completion;
+`pse-engine` owns the native provider hierarchy; `pse-operations` owns canonical source
+revisions, execution records, immutable products, result and analysis admission, protected
+selection and reclamation in one database. Registry declarations generate its typed wire
+contracts and native structural functions.
 
 ## 5. Identity, revisions and exact selection
 
@@ -27,13 +28,13 @@ versioned projections is [ADR-0089](../../adr/0089-semantic-identity-projections
 > Decision: [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md) — entity identities are declared on registry key columns, inherited by
 > foreign keys, and generated as typed ids; bytes and minting are unchanged (Plan 22 B1, B3,
 > B7, implemented). As built, modeling roots, definitions and members are declarations and
-> blocks are instances, so there is no separate root, definition, member or block identity,
-> and the source-bundle identity wraps a `ContentHash` rather than a `SemanticId` (refining
-> ADR-0115 Outcomes 1 and 2).
+> blocks are instances, so there is no separate root, definition, member or block identity.
+> Canonical lookup keys remain separate from these scientific identity domains under
+> [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed).
 
 | Form | Representation | Assigned by | Scope |
 |---|---|---|---|
-| Semantic ID | `pse.semantic_id`, 128-bit `pse_ids::SemanticId` | authoring (authored entities), keyed derivation (derived entities), UUIDv7 minted by the runtime (runs, attempts, jobs, studies, publications, settlements, reader leases) | survives revisions, reordering, re-batching, projection and publication |
+| Semantic ID | `pse.semantic_id`, 128-bit `pse_ids::SemanticId` | authoring (authored entities), keyed derivation (derived entities), runtime minting for scientific runs and direct attempts; keyed derivation for claimed worker attempts | survives revisions, reordering, re-batching, projection and publication |
 | Artifact-local position | integer ordinal or coordinate index | the preparation that built the artifact | only within that artifact |
 | Content hash | `pse.content_hash`, 256-bit BLAKE3 `pse_ids::ContentHash` | a named projection or canonical preimage ([§5.3](#section-5-3)) | identifies one immutable meaning under its projection version |
 
@@ -68,7 +69,7 @@ layout's identity; cross-artifact references always use semantic IDs.
 
 **Row tokens.** `pse-relations::identity` derives a versioned row token from relation
 identity, key-contract version and the ordered declared primary-key values. Mutable
-payload and Delta version do not enter it. A token names a row within an exact selection;
+payload and storage lookup keys do not enter it. A token names a row within an exact selection;
 it is not a membership proof, and actual key columns remain authoritative.
 
 **Typed identities.** A registry key column may declare an entity identity
@@ -76,21 +77,28 @@ it is not a membership proof, and actual key columns remain authoritative.
 identity of the column it references, and assembly refuses a conflicting declaration.
 Ownership is declared separately (`FieldContract::with_owned_identity`): an owner is its
 relation's single-column primary key, each identity has at most one, and a column that only
-carries an identity never owns it (the export manifest's key carries `publication`, which the
-catalog's intents own). `reference.schema_identities` describes the declarations. The
+carries an identity never owns it. Storage membership and scientific lineage remain separate
+from the declaration of an identity domain. `reference.schema_identities` describes the declarations. The
 generator emits one typed id per identity into `pse-model` through the single
 `semantic_id_newtype!` macro of `pse-ids`, which the `pse-quantity` physical-registry ids
 also use. A typed id is a transparent wrapper with `From` in both directions and
 `Display`; its serde form and framing are those of the wrapped value, so no identity byte
-moved. Generated rows, the operational store's identity domains
-([§20.6](#section-20-6)) and the Python `NewType`s of `pse.contracts.identities` follow. The
-operational and publication identities are run, attempt, job, study, solution, settlement,
-reader lease, workspace, publication and source bundle; the modeling identities include
-package, declaration, instance and fit. There is no separate model or case identity: a
-model is named by the root declaration it specializes and a case by its case declaration,
-both as `declaration` ([§20.3](#section-20-3)). Consumers take the typed ids, so passing one
-identity where another belongs fails to compile; `compile_fail` doctests pin
-representative swaps.
+moved. Generated rows and the Python `NewType`s of `pse.contracts.identities` follow.
+Modeling identities include package, declaration, instance and fit. There is no separate
+model or case identity: a model is named by the root declaration it specializes and a case
+by its case declaration, both as `declaration` ([§20.3](#section-20-3)). Consumers take typed
+ids, so passing one identity where another belongs fails to compile; `compile_fail`
+doctests pin representative swaps.
+
+**Canonical lookup keys.** Native record keys identify exact revisions, versions, runs,
+attempts, manifests and analysis receipts. They are distinct from scientific semantic IDs
+and content hashes. A canonical run key carries its scientific run identity; its attempt
+key is an opaque framed derivation of the run and claim-operation identity. The complete
+canonical key is used for lookup, never a truncated scientific ID, display name or request
+hash. Per-problem sequence and attempt generation are recorded ordering domains, not
+wall-clock estimates. The codec preserves the complete integer domain as checked decimal
+values. Finite scientific values retain authoritative bits and a verified numeric projection;
+signed zero remains distinct, and exceptional diagnostic bits have their separate domain.
 
 `pse-ids` is the sole direct `blake3` dependent (`tests/governance/tests/blake3_owner.rs`);
 other crates hash only through its framing APIs. Golden vectors in
@@ -128,32 +136,34 @@ hash. Diagnostic spans can refresh without changing mathematics
 | Instance / revision | bindings and topology | display names, source prose |
 | Case | roles, values, bounds, parameters, guesses | unselected stored cases |
 | Analysis / numerical policy | outputs, mode, derivatives, effective coordinates, budgets, source provenance | adapter defaults not selected by the resolved policy |
-| Prepared artifact | consumed specialization constants, profile, actual library environment, source and build identity | mutable native state |
+| Prepared artifact | consumed specialization constants, profile, actual library environment and qualified relevant producer inputs | mutable native state; unrelated executable inputs |
 | Native layout | coordinate order, sparsity, compatibility | coefficient values |
 | Used start | the submitted seed by content, predecessor attempt, partial start and reuse of retained native state, framed into the completed step's request identity ([§16.5](numerical-execution.md#section-16-5)) | the run and attempt that produced the seed |
 | Result, publication | separate scopes of their own | the request identity |
 
-**Run and attempt.** Starting a prepared case mints a fresh run ID (UUIDv7). The run is
-its own identity: an ephemeral run has no attempt, and a durable run's tries are its
-attempts, so a retried job's attempts share its run ID. Result rows name the run; the store
-and the publication name the attempt. The run ID is not part of request identity, so repeating the same request with
-the same start is a new run with the same request and preparation identities
-(`runtime.run_lineage`), while a different start is a different request identity
-([§20.3](#section-20-3)). A publication has its own publication ID; the attempt it names is
-the durable attempt of the run it publishes ([§20.2](#section-20-2)).
+**Run and attempt.** Starting a prepared case mints a fresh scientific run ID (UUIDv7).
+Ordinary execution registers its canonical run and obtains a fenced attempt before native
+effects. Explicit ephemeral execution has no durable attempt. An allowed retry retains the
+run and creates a new attempt generation; repeated compatible requests otherwise create
+separate run histories. Result rows retain scientific lineage while exact native handles
+select the canonical run and attempt. Neither identity is part of the mathematical request
+merely because it is a storage address. A changed submitted start changes the completed
+request identity ([§20.3](#section-20-3)). A closed result manifest identifies exact admitted
+observations; it does not constitute a separate publication or certify numerical usability.
 
 ### 5.3 Canonical framing and hashing
 
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Versioned relevant producer identities replace whole-tree build hashes in scientific product eligibility. Actual consumed source/generated/native inputs and Cargo units govern those identities; unknown inputs block persistent reuse. Complete executable attestation remains at the run boundary.
 
-Relevant producer capture uses the actual selected Cargo library units, resolved source/version,
+Relevant producer capture uses the actual selected Cargo production root and its units, resolved source/version,
 features/profile/target and emitted compiler dep-info, including consumed generated/native inputs.
 Uncompiled tests/examples are excluded; ambiguous associations and unreviewed executable I/O
 remain refusals. A source-bound completeness declaration can qualify reviewed build-script and
 procedural-macro owners. Consumed raw source is a conservative fallback when normalized source
 cannot preserve macro/location meaning; that fallback may invalidate on otherwise irrelevant
 inline text changes. No blanket closure claim follows from Cargo rerun hints or file discovery.
-Operator qualification must be bound to the linked executable's complete outer attestation;
+Operator qualification must be bound to the expected package, target and kind of the
+selected production root and the linked executable's complete outer attestation;
 incomplete deployment evidence permits normal admission and persistence but refuses cross-build
 scientific replay.
 
@@ -161,7 +171,9 @@ Product publication and scientific request have separate identities. A store-iss
 admission supplies a stable publication identity through transaction/acknowledgment retries.
 Already rooted exact descriptions are shared without changing their immutable origin. Explicit
 release fences that publication; fresh scientific admission can publish another. Generic retained
-root operations cannot create or relocate product roots.
+root operations mint or move deliberate history only; product, run, analysis and active-attempt
+roots are issued by their admission owners. Generic release cannot redirect or release
+execution or analysis lifecycle roots.
 
 
 > Decision: [ADR-0155](../../adr/0155-numerical-derived-families.md) and
@@ -170,8 +182,8 @@ root operations cannot create or relocate product roots.
 Current declared numerical strategy, derived-family structure/binding and retained products
 use separately versioned frames over their consumed dependencies. Semantic proposal transport
 and native payload compatibility are distinct. New current frames do not change historical
-bytes or grant current reuse from readable historical provenance. Generated strategy/result
-changes use the existing directional compatibility and explicit preserving migration owners.
+bytes or grant current reuse from readable historical provenance. Current decoding and admission check their recorded interpretation; unsupported historical
+execution refuses without inventing policy or scientific facts.
 
 
 > Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
@@ -216,18 +228,12 @@ Changed unrestricted-float/settings/warm-start/profile preimages take new named 
 versions; finite admitted domains whose preimages remain unchanged keep their frames.
 Historical frame spellings and recorded digests are immutable facts.
 
-Source revision, admitted closure, semantic body, prepared view, binding, profile, lineage
-request and operational job hashes are distinct types. `.as_id()` is the explicit lowering
-at a stored/raw transport boundary. `RecordedOperationalJobIdentity` retains a digest and
-its optional recorded frame; unknown/older proof cannot satisfy a current operational key.
-The preserving operations V7 migration renames `request_identity` to
-`operational_job_identity`, retains every historical byte and adds nullable
-`operational_job_frame`. New attempts record `DurableJobRequestV3`; history lacking frame
-proof stays unknown rather than receiving an invented version. Queued job identity includes its
-explicit idempotency scope; direct attempts include run and attempt identities; study jobs include
-their declared occurrence. V7 also normalizes only the six independently verified PostgreSQL 18
-NOT NULL constraint names suffixed by the immutable V5 table recreation. Historical SQL
-checksums remain unchanged, and current layouts require the canonical names.
+Source revision, admitted closure, semantic body, prepared view, binding, profile and lineage
+request hashes are distinct types. `.as_id()` is an explicit lowering at a stored/raw transport
+boundary, not a grant of admission or identity equivalence. Canonical immutable requests,
+payload digests and descriptor keys use versioned framing through `pse-ids`; operation
+acknowledgments compare exact supplied requests. Historical frame spellings and bytes retain
+their original meaning without retaining the retired operational job or storage APIs.
 
 > Supplement: [ADR-0150](../../adr/0150-checked-admission-and-owned-reuse.md)
 > (proposed; authorized implementation).
@@ -325,7 +331,7 @@ catalog boundary before publication or reuse.
 
 **Limits.** `pse.canon.v2` is implemented and tested, but no current production
 publication or reuse path consumes relation logical hashes: runtime identities use the
-named projections in [§5.2](#section-5-2), and publications name exact Delta versions
+named projections in [§5.2](#section-5-2), and canonical admissions name exact immutable versions and result manifests
 ([§20.2](#section-20-2)). The unkeyed frame reserves `pse.snapshot.v2` for an aggregate
 snapshot identity; no implementation computes it. Source documents are identified by
 the encoding checksum of their text.
@@ -333,557 +339,301 @@ the encoding checksum of their text.
 ### 5.4 Exact relation selection and the provider catalog
 
 `pse-engine::provider` binds relations into a native DataFusion catalog/schema/table
-hierarchy. Names resolve once per operation to exact relation versions, roles and
-provider owners; aliases do not float. Remote metadata is resolved explicitly into
-retained provider generations before cheap synchronous lookup; backend failure is an
-error, not absence. Each bound source carries a typed witness
-(`pse-engine::provider::witness`) recording the exact selection the provider owner
-supplied, so a completed plan can report the exact inputs it consumed, including empty
-ones (`pse-catalog::selection::selected_dependencies`).
+hierarchy for its actual relational and optimizer consumers. Names resolve once per
+operation to exact relation versions, roles and provider owners; aliases do not float.
+Backend failure is an error, not absence. Admission checks run at platform logical-plan
+boundaries, including subqueries. Pushdown claims preserve complete values and
+multiplicities; unknown statistics remain unknown. Plan encodings and `EXPLAIN` output
+remain diagnostic evidence, never relation identity
+([ADR-0044](../../adr/0044-noncanonical-plan-evidence.md)). This capability does not provide
+a second publication authority or a public SQL convenience over canonical results.
 
-Invariants:
+**Selected source reads.** A `SelectedRead` owns a store-issued protection on one immutable
+revision. It records the actual consumed premises: present or absent scoped names and logical
+objects, complete scope/kind/reference membership and compiler/provider interpretations.
+A store-issued paged membership cursor is bound to that same protection and selector.
+Only a completed inventory records its complete premise; interruption or cursor loss leaves
+publication and reuse refused. Grouped reads share a bounded protected acquisition while
+preserving each exact selector. Absence and complete inventory are meanings, separate from
+the conflict-guard generations used to recheck them atomically. An edit outside consumed
+meaning need not invalidate a product; changed consumed membership or interpretation does.
 
-- Admission checks run at every platform logical-plan boundary, including subqueries
-  (`pse-engine::session::admission`). Metadata lookup never executes a producer.
-- Pushdown claims (Exact, Inexact, Unsupported) preserve complete values and
-  multiplicities; `tests/engine/tests/pushdown_vs_unpruned.rs` compares each provider
-  with its unpruned equivalent. Statistics are published only when established for the
-  selected scan; unknown remains unknown.
-- Unpublished candidates are bound through checked candidate sessions
-  (`pse-runtime::session_factory`). They carry no publication identity and expose no
-  unproved key or uniqueness constraints. Only complete admitted results cross
-  publication.
-- Every registered relation declares one snapshot class (`model`, `case`, `derived` or
-  `sidecar`); registry admission refuses a missing class
-  (`schema.missing_snapshot_class`).
-- Plan encodings and `EXPLAIN` output are noncanonical diagnostic evidence, never relation
-  identity ([ADR-0044](../../adr/0044-noncanonical-plan-evidence.md)).
-
-A publication is opened from its catalog record, not assembled from independent
-latest-table reads: the catalog grants the complete record under a reader lease
-([§20.4](#section-20-4)), and `pse-catalog::delta::publication::Publication::open` binds
-exactly its member versions; payloads stay lazy. Delta and Arrow streams are the hot path;
-IPC remains an encoding and spill boundary. In a durable runtime's query sessions the
-operational store's relations join the same hierarchy as read-only providers under
-`pse_ops` ([§20.6](#section-20-6)).
+**Selected results.** A result read selects one admitted terminal attempt and its exact
+closed manifest, then resolves only the sets and contiguous batch ordinals admitted by that
+manifest. Batch identity, payload digest, row count, schema and range coverage are checked
+before returning scientific rows. Late, abandoned or unrelated staging never joins the
+selection. An explicitly selected historical terminal attempt remains readable while its
+history is retained, even after another attempt becomes current. Failed, partial and
+cancelled selections retain their own terminal class and observations. A latest-problem
+selector explicitly declares acceptable classes and orders by recorded run sequence; it
+never substitutes success for a requested failed result or orders by wall clock.
 
 ## 20. Persistence, publication and reproducibility
 
-> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). One canonical SurrealDB database replaces PG/Delta publication composition. Normal runs automatically retain scientific outcomes; ephemeral execution is explicit. Closed bounded staging followed by fenced atomic descriptor admission defines coherent visibility. Protected reads, retained roots and bounded collection share a retention guard. Offline backup drains work and copies a stopped coherent target database. Existing descriptions record the implemented predecessor during Plan 28 migration.
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed). The implemented canonical substrate replaces the PostgreSQL/Delta publication composition. The decision remains proposed; implementation and focused controls do not establish comprehensive qualification or decision acceptance.
 
-Durability is an explicit effect, and visibility is decided by one conditional commit.
-Execution stays in memory until a caller asks to publish; publication never re-runs
-science, and a scientifically failed attempt can still be published faithfully. PostgreSQL
-owns what changes and Delta owns what is published ([D10](architecture-overview.md#section-d10)):
-a durable attempt's immutable result tables are Delta member tables, and one transaction of
-the operational store's publication catalog makes a publication of them visible. The
-protocol was decided in ADR-0091 and then ADR-0112; [ADR-0114](../../adr/0114-typed-operational-store.md)
-restates it with the visibility boundary in the catalog. `pse-operations` owns the catalog
-statements, `pse-catalog` performs Delta member I/O and never sees PostgreSQL, and
-`pse-runtime::workflow::{publication, reading, retention}` composes the two. The
-operational store itself is [§20.6](#section-20-6).
+One authenticated loopback SurrealDB database holds canonical source revisions, compilation
+products, execution receipts, original scientific results and analysis lineage. RocksDB is the
+supported native backend. The registry declares their contracts; `pse-operations` supplies
+typed operations and generated native structural functions. Scientific computation and bulk
+payload staging stay outside short guarded admission transactions. Ordinary execution
+retains the actual scientific outcome automatically. Explicit ephemeral execution keeps its
+observations in process; a durable storage failure never falls back to ephemeral execution.
 
-### 20.1 Delta durable relations
+### 20.1 Canonical durable relations
 
-> Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) — the publication record
-> lives in the PostgreSQL catalog ([§20.2](#section-20-2)); Delta keeps immutable member data
-> and export manifests (Plan 22 O8, implemented).
+The former Delta durable-relation mechanism is retired. This section identity remains the
+persistence pointer: canonical source/result admission is owned by
+[§20.2](#section-20-2), lifetime and reclamation by [§20.4](#section-20-4), and execution by
+[§20.6](#section-20-6). There is no parallel publication catalog, member table journal,
+COPY client or compatibility backend.
 
-Delta tables persist authored sources and declarations, published results, provenance and
-export manifests. Native Delta and DataFusion operations own reads, writes, DML
-(`pse-catalog::delta::dml`), schema transformation, change data and maintenance. Arrow
-buffers and streams serve transient execution; no intermediate is forced to commit. There
-is no separate content-addressed store or publication journal: the catalog's publication
-record is the only publication record. A root that still holds the former Delta control
-relation (`runtime.publications`) is an unsupported historical format: registering it as a
-workspace root is refused as migration-required (`LegacyWorkspace`), naming regeneration by
-rerun into a new root, and an export reader refuses a former control table the same way.
+**Sources.** A problem head selects an immutable revision with an exact recorded sequence.
+Revision membership uses logical object identities and immutable versions over sequence
+intervals; names and structural reference edges are selected at that revision. Documents,
+typed physical input rows and other declared source kinds retain their exact payload
+receipts. Canonical physical-source objects have a separate 3 MiB input-object bound. Their declared
+source kind and interpretation checksum are checked independently of the canonical revision
+lookup key and compiler physical-context identity.
+Immutable revision receipts remain attributable after explicit source reclamation; range
+markers prevent those receipts from reopening removed content.
 
-Each relation's registry declaration is lowered to native Delta `CHECK` constraints and
-identity table properties (`pse-catalog::delta::contract`). Declared Arrow types that
-Delta cannot store directly use inspectable lossless layout projections
-(`pse-catalog::delta::layout`). Every Delta command receives the actual invocation
-`SessionState`; the validating write route preserves local constraints and commit
-properties, and raw provider mutation cannot bypass it. Candidate-wide key, reference,
-completeness and domain checks run against exact candidate versions
-(`pse-catalog::delta::admission`).
+**Results.** Registry-admitted Arrow rows are stored once in independent uncompressed IPC
+blocks of at most 512 KiB, including schema, one record batch and explicit end marker.
+Framing, schema and layout preflight precede decoder allocation; compression, dictionaries
+and unsupported layouts refuse. Row splitting preserves exact scientific values and schema
+but cannot make an indivisible oversized schema fit the transport purpose. These are
+per-operation bounds, not a claim that total trajectory size, process RSS or provider
+buffering fits one blob. Seed and completion owners use their own exact bounded chunk
+codecs under the same admitted result-set membership.
+
+Sparse scalar indexes and dense output descriptors reference the original IPC batch and
+row/field coordinates; they do not replace it with a second scientific payload. Finite
+numeric projections serve predicates and are verified against authoritative values.
+Missingness is not zero, and signed zero and exceptional diagnostic bits retain their
+declared meaning. Dense trajectory groups preserve symbol/sample identity and original
+coordinates; half-open relation row ranges select the recorded stored order. Output indexing currently
+covers solve variables/constraints, fit parameters/observations and simulation sample
+values. Unsupported scientific output fields refuse explicitly.
 
 ### 20.2 Exact coherent publication
 
-> Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) — one catalog transaction
-> with a compare-and-set on the workspace head is the visibility boundary; settlement
-> queries the catalog (Plan 22 O8, implemented). As built, the publication attempt is the
-> run's durable attempt, and a publication intent is registered before the first member
-> write, refining the pre-effect ticket of ADR-0114 Outcome 2.
+The visibility boundary is canonical admission of an exact closed descriptor. Neither
+staging bytes nor observing a prefix establishes coherent membership or scientific success.
+A source edit, compilation product, result or analysis uses its own owning admission while
+sharing immutable payload, protection and conflict-guard mechanisms.
 
-Publication happens in a registered **workspace**: a named history with one head and the
-root URI its members are written under (`Runtime::register_workspace`;
-`pse_ops.workspaces`, `publication_heads`). Only a durable runtime publishes
-([§20.6](#section-20-6)); an ephemeral run is refused with `EphemeralPublication`. A caller
-publishes a completed `RunResult` in two steps (`pse-runtime::workflow::publication`):
+**Staging and activation.** Bounded batches create immutable objects/blocks and exact
+structural references with digest-and-byte comparison; an identical retry can share them,
+and conflicting content refuses rather than overwriting. A finite staging lease and its
+generation fence every write. Closing freezes the exact manifest. Structural validation
+and complete coverage reconciliation precede activation; the short activation transaction
+checks the expected parent, frozen descriptor and actual guards before moving a source head
+or exposing the product. Large payloads do not enter that visibility transaction.
 
-1. `RunResult::prepare_publication` names the workspace, the exact expected parent (never
-   rebased) and a publication ID, minted when none is given. The attempt it publishes is
-   the run's durable attempt. It plans every member under the intent's prefix
-   `{root}members/{attempt}/{publication}/<schema>/<table>/` and mints a serializable
-   `PublicationTicket`. It performs no write.
-2. `PublicationAttempt::commit` registers the **publication intent** (`publication_intents`:
-   the publication, workspace, durable attempt and member prefix) before the first member
-   write, then executes the candidate: members are written to isolated immutable Delta
-   tables, and `pse-catalog` admits the complete record exactly as a reader will open it and
-   returns it with every member's actual version (`runtime.publication_manifests`). One
-   catalog transaction then inserts the publication, its members, inputs and change
-   windows and advances the head, conditional on the head still being the expected parent.
+Immutable operation requests and acknowledgments settle uncertain outcomes by exact
+identity and request comparison. A lost response is not success, absence or permission to
+rerun an effect. Typed transaction conflicts retry the whole guarded decision. Other errors
+remain errors or invoke the operation's exact acknowledgment settlement. Two callers
+publishing the same in-flight product do not take over its live stage: one owns the writer
+fence and the other waits within the request deadline for the immutable acknowledgment.
+An exact completed replay preserves the original generation, expiry and origin.
 
-The commit takes the shared catalog protection fence, then the workspace maintenance fence, before its row locks (the attempt, the intent, every live publication a
-retained member or input selects, then the head), and it refuses a retained member or input
-that no live publication still protects. The record names every member's relation,
-contract fingerprint, table URI and exact Delta version, and the exact inputs consumed;
-each is one registry `MemberDescriptor`, a named structure emitted once for every relation
-that carries it. Readers resolve a publication ID or a workspace head through the catalog;
-there is no latest alias. An artifact descriptor (`pse-model::artifact`) records the
-publication profile's semantic contract, requested relations, release members,
-source/build and algorithm/target identities and value assumptions; required relations
-appear even when empty (`reference.artifact_profiles`).
+**Scientific products.** Protected selected reads record consumed premises before product
+admission. Product lookup and publication recheck those premises, current interpretation,
+protection and relevant producer eligibility. Only the controlled scientific producer can
+issue a description eligible for mathematical replay; generic bytes and matching hashes
+cannot acquire that authority. A product's stable publication identity is separate from
+its scientific request and is retained through acknowledgment settlement.
 
-Outcomes are typed (`pse_operations::OperationsError`, `WorkflowError`):
-
-| Outcome | Meaning |
-|---|---|
-| committed (`Published`) | the publication is the workspace head and names exactly this attempt's members |
-| `PublicationConflict` | the head moved; re-prepare against the new head with the same publication ID, which recovers the members already written without rewriting them |
-| `PublicationIdentityReused` | the publication or attempt identity is already committed with a different request, such as an attempt published as another publication |
-| `PublicationUnresolved` | the catalog could not confirm the commit (a lost acknowledgement, or an unreachable store); never treated as rollback |
-
-Settlement (`Runtime::settle_publication`) queries the catalog for the ticket's attempt and
-writes only its own `settlements` row. It returns `Committed`; `ProvedNoncommit` when no
-intent is registered, the intent is abandoned, or the head is still the parent while the
-intent is locked, so no commit is in flight; `Conflict`, with its reason and the head it
-met; or `Unresolved` while the catalog is unreachable. It never writes Delta, executes
-producers or calls a solver, and an uncertain outcome is never permission to
-rematerialize an attempt. Member receipts are keyed by the attempt
-(`pse.member_attempt.v4`; a v3 receipt is refused as migration-required), so a
-re-preparation recovers the members already written. Delta `SetTransaction` is recorded as
-a durable witness; at the pinned version it does not deduplicate replay, and an attempt
-label alone is never authority (`pse-catalog::delta::attempt`).
-
-Member writes can remain after a failed or conflicting attempt without becoming visible;
-an intent that can never commit is reclaimable ([§20.4](#section-20-4)). A failed attempt
-never poisons the logical base. Concurrent publishers in two processes, lost
-acknowledgements and repeated settlement are exercised by the `pse-runtime`
-`publication_catalog` journeys and the `pse-operations` catalog tests.
+**Results and analyses.** Result close freezes the append frontier. The scientific owner
+reconciles set descriptors bounded to 128 KiB outside the transaction, then seal atomically compares
+the manifest and current recovery authority. Failed, partial and cancelled completions may
+retain their truthful admitted observations. Analysis admission stages exact declared graph
+membership and input roots, then exposes only the activated complete graph. Original
+numeric evidence remains in admitted IPC row/field coordinates; an edge does not invent a
+derivative, rank, quantitative sensitivity or scientific usability.
 
 ### 20.3 What a run references
 
-A run records the exact identities it consumed, not names:
+A run records the exact identities it consumed, not names. Its canonical header retains the
+primary revision, every additional selected source revision including physical inputs,
+scientific demand/resolved configuration, source selection and complete deployment
+attestation. Scientific lineage remains in the original admitted result relations:
 
-- `runtime.run_lineage`: the model, case, instance and fit a step solved, its revision
-  identity, and the request, preparation, profile, numerical, physical and environment
-  identities of every step. The model ID is the root declaration the model specializes; the
-  case ID is that root when it is a case or a test (a case with an oracle); the instance ID
-  is what the root became (the experiment's instance for a fit experiment). A fit names its
-  fit ID, plus the model and case only when all its experiments share them. Every producer
-  derives these through `pse_model::lineage`, so one model has one ID everywhere, and
-  `runtime.solve_runs` and `runtime.numerical_requirements` carry the same columns.
-  An algebraic step's request identity (`pse.completed.request.v2`) also frames the start
-  it actually used and whether it reused retained native state
+- `runtime.run_lineage` names model, case, instance and fit, revision, request, preparation,
+  profile, numerical, physical and environment identities. The model is its root declaration;
+  the case is its case declaration; instances and fits retain their original identity roles.
+  Producers derive these through `pse_model::lineage`. An algebraic completed request also
+  frames the start actually used and retained native-state reuse
   ([§16.5](numerical-execution.md#section-16-5)).
-- `runtime.solve_metrics`: effective backend options, the submitted start and native
-  observations; unavailable metrics carry a typed reason, never a synthesized zero.
-- `runtime.computation_runs`: the joined job's kind, source and profile identities,
-  state, native termination, qualification and candidate facts.
-- The catalog's publication record, and an export manifest's copy of it: exact input and
-  member selections.
+- `runtime.solve_metrics` retains effective options, submitted starts and actual native
+  observations; unavailable metrics carry typed reasons rather than synthesized zero.
+- `runtime.computation_runs` retains the joined operation's kind, source/profile identities,
+  state, termination, candidate and qualification facts.
+- The exact attempt and closed manifest identify admitted result membership separately
+  from numerical permission or scientific usability.
 
-The start a step received is the JSON text metric `start`/`request` in
-`runtime.solve_metrics`; the seed a step offers for later use is `start`/`available`.
-Python's `start_json` returns the same document (`StartReceipt::snapshot`,
-[§17.6](numerical-execution.md#section-17-6)):
+The start receipt retains predecessor attempt and seed origin, layout/profile/data stamps,
+backend, typed payload, explicit partial seed, applied transformations and whether the
+native API received it ([§17.6](numerical-execution.md#section-17-6)). Selected solution
+identity and exact original bits remain attributable. A missing or incompatible explicitly
+requested seed is a typed refusal, not an invented empty start.
 
-| Field | Content |
-|---|---|
-| `previous_attempt` | The predecessor attempt whose accepted result seeded the step under `PreviousAccepted`, or null |
-| `seed` | The submitted seed, or null: `origin` (run and attempt, or null), the `layout`, `profile` and `data` stamps as hex, `backend` by its registry spelling, and a `payload` tagged by `kind` (`root`, `nlp`, `highs` or `pounce_sqp`) |
-| `sparse_seed` | An explicit partial MIP seed keyed by semantic ID, or null |
-| `transformations` | The typed path the seed took, externally tagged: `{"normalization": <hash>}`, then `{"presolve": {"transformation": <hash>, "passes": [...]}}` when the library applied a pass, with hashes in their `blake3:` form and passes by their snake-case names; empty when neither a seed nor a partial seed was supplied |
-| `submitted` | Whether the native API received the seed |
+An immutable analysis records method, configuration, interpretation and all selected source
+revisions. Result-input edges name the exact run, attempt and manifest. Dependency analysis
+separates original numerical incidence from conservative execution support; retained-result
+analysis preserves existing sensitivity evidence. Different method or input identity yields
+a different analysis while older retained headers keep their recorded attribution.
 
-Provider parameter data are retained with the immutable revision. Provenance and
-diagnostics are typed relations queryable through the same provider hierarchy. Names,
-metadata and hashes alone never certify validity, execution or equivalence. Result
-meaning is owned by [§19](workflows-and-results.md#section-19).
+Names, metadata, hashes and graph reachability alone do not certify validity, execution or
+equivalence. Scientific completion and result meaning remain owned by
+[§19](workflows-and-results.md#section-19).
 
 ### 20.4 Reproduction, reuse and retention
 
-> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Reachability includes heads, explicitly retained history/products/runs/analyses, active attempts and protected reads/preparations. Protection expiry fences continuation and admission before reclamation. Scientific history is intentionally retained; no in-memory eviction policy implies historical deletion.
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed). Semantic reuse, allocation ownership and durable retention are independent lifetimes.
 
-> Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) — catalog reader leases,
-> change windows and two-phase deletion replace the local lock files (Plan 22 O8,
-> implemented; findings T02 and T16 of the Plan 22 target review). The protocol is
-> exercised locally; remote object stores are deferred to register R-37.
+| Lifetime | Owner | Governs |
+|---|---|---|
+| Semantic reuse | compiler and scientific preparation owners | complete consumed meaning and qualified relevant producer compatibility |
+| In-process retention | shared native cache service, pool and immutable value owners | bounded retained references and buffers; attempt-private mutable native state |
+| Durable history | canonical roots, protections and owning retirement operations | exact source/result/analysis selections that remain reopenable |
 
-Three lifetimes are independent. Invalidating one never silently changes another.
+Cache eviction never deletes scientific history or establishes invalidity. Explicit clear
+fences late insertion; existing active owners remain valid through completion. The Runtime
+privately retains at most one exact physical document admission and one physical IPC receipt
+set within the shared allocation budget. Keys include exact canonical revision/checksum,
+store/registry/session owners, package metadata, quantity/precondition owners and original
+checked batch owners as applicable. The compiler physical identity alone cannot authorize a
+hit when support rows changed. Hits freshly protect the exact source. Protections survive
+through new run/analysis root admission, and a generation captured before the first await
+prevents an old in-flight load from republishing after clear. Mutable solver workspaces and
+attempt authority are never cached in these immutable products.
 
-| Lifetime | Owner | Governs | Never |
-|---|---|---|---|
-| Semantic reuse | `pse-compiler::workspace` (Salsa) | whether prepared mathematics can be reused; keys include complete inputs, absence states, math environment, source and build identity | persisted; evicted by storage maintenance |
-| Retained runtime artifacts | `pse-runtime` prepared products and native sessions | memory held by immutable programs and native workspaces; shared immutable products, attempt-private mutable state | treated as program validity; retained past the last owner |
-| Storage snapshots | the publication catalog (`pse-operations::catalog`), executed by `pse-catalog::delta::collect` | which Delta versions remain reopenable | removed while a live publication selects them, a live intent may still commit them, or a live reader lease protects them |
+**Roots and reads.** Reachability includes problem heads, deliberate history, admitted
+products/runs/analyses, active attempts and protected selections. Generic retention can mint
+or move deliberate history only. Product and lifecycle roots are issued atomically by their
+owners; generic release cannot release run, analysis or active-attempt roots. Selected root
+identity, problem, revision and owner are checked against server receipts rather than
+caller-supplied sequence claims. Explicit forgetting of default history does not release
+independent roots.
 
-Semantic reuse compares complete inputs; conservative recomputation is always valid. An
-explicit program clear fences late insertion; a retiring in-flight preparation remains
-owned until completion and is distinct from a new caller's cancellation. Salsa rotation
-follows retained entries and bytes. Salsa databases and handles are never persisted.
-Fixed symbol registration is a determinism control, not a claim of bitwise
-reproducibility across environments.
+Read acquisition, renewal, admission and reclamation share the retention guard. Every
+continued database read requires a live exact protection; expiration or reclamation refuses
+rather than recovering bytes from an old cache. Result reads additionally protect the exact
+run/attempt/manifest. Final-drop release uses the captured executor, with finite server
+expiry bounding shutdown bookkeeping. Decoded copied Arrow arrays retain their allocation
+owner and can remain usable after reader drop and database reclamation; their final drop
+releases the memory charge. Buffer ownership is not a database lease.
 
-**Reproduction.** Reopen exact versions through the catalog (`Runtime::open`, `open_head`);
-derived layouts are regenerated as needed. Bounded change data over an exact selection
-(`pse-catalog::delta::changes`) supports change impact; a missing log entry or changed
-declaration refuses the window rather than returning an empty change set. Change data is
-neither permanent audit history nor automatic compiler incrementality.
+**Explicit retirement.** Source collection rechecks reachability and removes unreachable
+intervals, versions, reference edges and blocks in bounded pages. Retired ranges retain
+receipts and fence reopening. Result retirement requires settled attempts, no live result
+reads and no retained study/analysis obligation. Its tombstone fences claims, reads,
+operation-replay fallback and new admissions before payload removal. Bounded resumable
+cleanup removes scientific blobs and derived indexes while preserving lifecycle and lineage
+receipts. Study and analysis result retention is withdrawn through their own operations;
+there is no implicit elapsed-age deletion of deliberate scientific history.
 
-**Readers.** A reader takes a `reader_leases` row in one short transaction, which returns
-the complete publication record and the workspace's maintenance epoch; it then reads Delta
-files holding no database session. A `ReaderLeaseGuard` renews the lease in short
-transactions at a third of its lifetime while any owner holds it (the publication's
-session, or a stream of it), releases it when the last owner drops, and cancels the reader
-when a renewal finds the lease lapsed. Acquisition and renewal compute expiry with the actual clock after obtaining the protection fence; a queued transaction cannot renew an already lapsed lease using its earlier transaction start time. The pair (workspace, maintenance epoch) is the
-session's `ReadScope` (`pse-catalog::delta::scope`), the lookup input of every shared
-snapshot, resident and file-metadata cache; a session without one bypasses those caches.
-An **export** is a lease held by `export:<destination>` for a stated time:
-`export_publication` writes the record, the lease, its expiry, the epoch and the store
-fingerprint as a one-row `runtime.publication_manifests` Delta table, which `open_export`
-reads without the store, refusing an expired export or a former control table.
-
-**Reader caches.** A Delta scan's Parquet predicate-cache allowance (an active and a
-prefetched file per native reader, sized by `max_predicate_cache_size`) is admitted against
-the native cache service's aggregate allowance and the memory pool once per execution, for
-the actual reader partitions: the output partitions of the scan's leaf sources, however
-many output partitions the operators above them fan out to. The first executed partition
-admits it, the others share it until the last stream drops, and another execution admits
-its own. The resident cache reuses a decoded exact selection while its input is the one it
-was planned with, or an equivalent rebuild of it: the same native leaves and, above them,
-the same operators by name, one-line rendering and schema, as when the physical optimizer
-replaces a round-robin repartition with an identical one. A rebound source or an altered
-operator forfeits reuse. *Tested* by
-`reader_lease_admits_actual_reader_partitions_once_per_execution` (engine units) and
-`resident_reuse_survives_an_equivalent_rebuild_only` (catalog units).
-
-**Retention.** The catalog computes what stays reachable, in SQL, for three reasons
-(`RetentionReason`): the exact versions a live publication selects (`publication`), the
-member prefixes of live intents (`attempt`), and the change windows a live publication read
-(`changes`, recorded in `publication_windows`). A publication is live until it is marked
-(`retention_marks`), and an expiring one stays protected while a live lease reads it.
-Maintainers of a workspace serialize on a transaction-scoped advisory lock and advance the
-workspace's `maintenance_epoch` before any effect. Maintenance is an explicit request
-(`Runtime::retire_publications`, `collect`, `reclaim_unpublished`; the `pse-publication`
-binary), and every step is idempotent, so an interrupted run completes on rerun:
-
-- **Retire**: mark a publication `expiring` (never the head), wait until its leases are
-  released or expired, remove the tables only it selects (its outputs, and inputs whose
-  writer is already deleted), then mark it `deleted`.
-- **Collect**: fix every protected range, then verify that each protected version opens,
-  commit a fence, checkpoint and vacuum each selected table keeping those versions. A
-  protected version whose history is gone refuses collection of that table.
-- **Reclaim**: abandon every unpublished intent that can never commit (abandoned, its
-  attempt stale or superseded, or published as another publication), remove its member
-  prefix, then mark it reclaimed.
-
-**Retirement and orphan inventory.** Explicit schema reset first exports a completed
-versioned manifest outside member roots under the exclusive namespace lease, retaining
-prior unresolved records, original publications/members/inputs/windows/intents/retention,
-and reader/export expiry. Drop, recreate, inventory import, reset identity/digest and
-readiness commit in one PostgreSQL transaction. A lost acknowledgement settles that
-identity before another reset; rollback retains the source namespace.
-
-`Runtime::discover_orphans` records bounded candidate/protection/disposition pages under
-an established workspace root. A retained native unordered stream spans runtime slices;
-a new process starts a new enumeration generation from the root and keeps deduplicated
-candidates. The report has a durable keyset cursor; the provider listing has no fabricated
-restart cursor. Only a successful complete generation establishes enumeration completion,
-not an atomic storage snapshot. Local confinement rejects symlinks and escaped prefixes.
-Application observations and work per slice are bounded and accounted; provider buffering,
-I/O, latency and total RSS are not claimed bounded by that slice budget.
-
-Discovery never grants deletion. `Runtime::reclaim_orphan` takes one explicitly selected
-recorded attributable prefix and freshly checks ownership, live publications/intents,
-reader/export and retention protection, including overlapping prefixes in other workspaces. An exclusive catalog protection fence precedes the workspace maintenance fence and spans physical removal and disposition commit; protection writers take the shared fence in the same order. Unattributable or unresolved retirement obligations remain
-visible and protected. `pse-publication discover`, `orphans` and `reclaim-orphan` expose these
-separate operations. External actors modifying local filesystem paths outside this protocol
-are not serialized by PostgreSQL locks.
-
-The catalog's marks, epochs and leases are the only coordination; there are no lock files.
-There is no automatic retention policy: publications are retired on request only (register
-R-36). There is no blanket archival requirement. The protocol is exercised on local file
-tables and the in-memory object store; remote object stores are not qualified (register
-R-37).
+**Local export.** Exact checked reads finish, the IPC stream finishes and the file is
+synchronized before final publication. Interrupted staging remains `.incomplete`; the final
+destination refuses an existing file. Metadata records exact source/run/attempt, terminal
+class, manifest, interpretation, row range and output predicate. The file owns its copied
+bytes and is not an exported database lease or another publication catalog.
 
 ### 20.5 Current contracts and schema evolution
 
-> Proposed amendment: [ADR-0155](../../adr/0155-numerical-derived-families.md), Plan 25n N10.
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed). Creation and validation-only opening are separate operations; unsupported stores refuse rather than silently migrating or resetting.
 
-Changed automatic interpretation receives new settings/strategy/study/job versions and request,
-preparation and durable frames. Version checks precede current-body decoding. Historical bytes and
-result readability stay intact; execution requires explicit current readmission or typed refusal.
-Native source/build identity names the immutable revision without invalidating unrelated evaluators.
+The registry generates canonical tables, indexes, row codecs, interpretation and schema
+digest. A fresh store creates the complete declarations and current marker in one atomic
+transaction. Initialization requires a completed acknowledged response and subsequent
+verification of the installed interpretation and schema digest. A zero/missing response,
+statement error or marker mismatch cannot establish readiness. Full schema installation
+uses the existing bounded structural-activation client role; ordinary inventory/read/open
+deadlines remain separate. Uncertainty may be followed by explicit opening; initialization
+does not retry DDL or claim success merely because a marker later becomes visible.
 
-The current operation-specific contract uses SolveSettings v3, NumericalStrategyDocument v3,
-StudyOperation/StudyRequest v4, StudyDefinition v6 and JobPayload v8. Strategy, preparation and
-request frames use their v3 forms; NumericalDecisionV2 and durable request frames V5/V3/V4
-record the corresponding changed interpretation. Historical frames retain their original bytes.
-The strategy's individual operations declare exact input demands and finite output obligations;
-there is no task-global accuracy list or preparation-time output certificate.
+`open` performs no DDL. An unmarked partial canonical database or unsupported interpretation
+requires explicit operator action. The retired PostgreSQL/Delta descriptor, COPY, migration
+and publication APIs have no production compatibility path. There is no automatic importer,
+reset or inferred migration from unsupported historical storage.
 
-> Supplement: [ADR-0146](../../adr/0146-preserve-versioned-operational-transitions.md) (proposed; authorized implementation) replaces normal reset recovery from ADR-0114. Fresh stores are created from generated declarations. Existing stores open read-only after exact support/readiness validation; `just db-migrate` explicitly transitions the supported predecessor while retaining records. Unknown source, conflicting immutable history, incompatible layout or active generations refuse before mutation. Namespace ownership spans separately recorded catalog/control and operations histories. Readiness precedes changed schema, each transition commits with its checksum history, and matching committed progress can resume. Runtime generations hold schema admission until their connections close; current statements are unavailable without verified readiness. Destructive reset is separate maintenance. Historical records retain their recorded contract and never infer new qualification facts from absent fields. Plan 25g implements the directional recorded-contract and retirement protocols below; their focused evidence is owned by that plan and integrated recovery qualification remains Plan 25k.
+**Recorded meaning.** The portable semantic-contract witness records consumed fields,
+keys, enum domains, extension contracts, checks, invariants and storage policy. Verification
+checks its canonical form, digest, support closure and observed encoding rather than
+inferring historical meaning from today's registry. `VerifiedRecordedContract`, directional
+`ConsumerProjection`, `ExactWriteAdmission` and `MigrationAdmission` are distinct products.
+A readable old subset does not admit new writes; an exhaustive consumer refuses unknown
+consumed members. Changes to physical meaning, constraints or references require an explicit
+transformation. These schema-level distinctions do not supply a retired storage importer or
+an automatic native-store migration.
 
-**Recorded meaning and capabilities.** The portable `pse.semantic-contract.v2` witness
-records complete consumed support: fields, keys, enum domains, extension contracts, checks,
-invariants, snapshot class and storage policy. Recorded interpretation first verifies its
-canonical form, digest, support closure and observed field encoding independently of today's
-registry. `VerifiedRecordedContract`, directional `ConsumerProjection`, `ExactWriteAdmission`
-and `MigrationAdmission` are distinct products. An understood historical enum domain remains
-closed after registry growth. A new consumer may understand an old subset; an exhaustive
-consumer refuses unknown consumed members. Changes to constraints, references or physical
-meaning require explicit transformation. Unrelated declarations and deprecation alone do not
-change consumed meaning. Projection never grants write authority or mutates stored content.
-
-**Portable checks.** Current declarations and verified recorded domains feed one predicate
-compiler. Delta checks are reconstructed from that meaning and checked against recorded SQL
-and layout. Executable protobuf bytes and codec labels have no compatibility authority and
-new writes omit them. Sufficient historical witnesses use the same interpreter; missing,
-contradictory or unsupported proof returns a typed refusal without an older execution engine.
-
-**Descriptors.** Version 3 records canonical profile required roots as well as requested
-relations and release selections. Version 2 is readable only when an established root
-inventory reproduces its recorded profile digest. Only this verified versioned descriptor
-rule projects the newly declared inventory column as null. Historical descriptor identity
-preimages remain unchanged; new identity roles use the frame catalog (§5.1).
-
-**Explicit artifact transformation.** Portable ordered structural edits, finite domain
-recoding and composite reference-key mappings bind exact recorded sources and current target
-declarations. Missing mappings refuse unless an explicit identity policy applies. Checked
-native lowering validates values, nullability, map uniqueness, keys and reference closure.
-Transient migration reads remain read-only; stored migrations use `ArtifactPlan` and the
-existing atomic publication boundary, publish new immutable members and include
-`runtime.artifact_migration_lineage`. Failure leaves source selections unchanged. Ordinary
-output admission retains its semantic guard. Each column requires one composed mapping policy; overlapping rewrites, nonprimitive Identity lowering and nested correlated reference paths return explicit unsupported/refusal results.
-
-**Store lifecycle.** Creation, validation-only opening, read-only migration planning and
-expected-plan execution are separate operations. Refinery runs immutable declared transitions
-on the existing PostgreSQL driver; it does not decide compatibility. A dedicated namespace
-session lease spans both owned histories. Execution rechecks its expected plan, complete
-history parsing, exact source and intermediate layout before mutation and reports applied
-steps and final readiness. Frozen historical transitions remain unchanged; new persisted
-obligations append a preserving transition. No unknown source is reset implicitly.
-
-Entity IDs, publication IDs, Delta versions and table locations are distinct and never
-substitute for one another. Supported historical data does not retain historical production
-APIs. Generated relation contracts remain the declarations, not inferred storage layouts.
+Versioned scientific documents and recorded contracts retain their meaning independently
+of database lookup keys. Version checks precede decoding current nested policy or numerical
+configuration. Changed preimages receive new frames; readable provenance does not grant
+current execution, write admission or cross-build reuse. Unsupported historical execution
+must receive explicit current readmission or a typed refusal without invented fields,
+qualification or policy. Generated contracts remain declarations, never inferred layouts.
 
 ### 20.6 Operational store and durable execution
 
-> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). `pse-operations` owns the thin gRPC client and typed operations against authenticated loopback RocksDB with synchronous acknowledgment. Immutable operation identities settle uncertain acknowledgments; short guarded transactions fence claims, cancellation and terminal admission. Native work stays outside them. `pse-operations-queries` and `pse-catalog` retire with their last consumers.
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed). `pse-operations` owns the thin authenticated gRPC client and typed guarded operations. Native science stays outside database transactions.
 
-> Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) — the registry generates
-> the store's schema, and statements are SQL files compiled by Cornucopia into
-> `pse-operations-queries` on tokio-postgres (Plan 22 B1, B2, implemented); the lifecycle,
-> queue, cancellation, streams, solutions and durability classes it restates from ADR-0112
-> (Plan 22 O3–O6, G8, implemented); studies across workers (O7) and read-only query
-> providers (O9), implemented; solution origins, pruned captures and published incumbents
-> (G8f), implemented. [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md)
-> — identity domains and typed ids. As built, attempt legality has two pure tables and a
-> termination is a class with typed per-class columns, refining ADR-0114 Outcomes 12 and 22
-> (below).
+**Authority and client.** Short native transactions establish source roots, immutable
+operation identity and current cancellation/generation premises under named conflict guards,
+including absent-name and set premises. No predicate lock or `FOR UPDATE` assumption grants
+that authority. Full-domain decimal sequence/generation and actual expiry checks prevent
+wall-clock ordering or an earlier transaction timestamp from renewing stale authority.
+Immutable operation acknowledgments settle uncertain effects without rerunning science.
 
-**Authority.** PostgreSQL 18 holds what changes: attempts, jobs, leases, cancellation
-requests, live progress and incumbents, reusable solutions, studies and the publication
-catalog. Its records include scientific evidence and publication protections that explicit upgrades and retirement must preserve. The registry owns the meaning and the shape of
-every table: relation `runtime.operational_<t>` (`pse-schema::catalog::operations`) is
-table `pse_ops.<t>`. Published `runtime.computation_runs`, `runtime.run_lineage` and
-`runtime.solve_metrics` are derived snapshots of a published attempt. `pse-operations` owns
-the store contract, the repositories, the catalog and reader leases; `pse-runtime` depends
-on it, and no semantic, native or columnar crate does.
+**Run lifecycle.** Registration and fenced claim precede native effects. Renewal and
+append require the current unexpired generation and open ingestion gate. Closing freezes
+membership; controlled scientific terminal admission compares the frozen manifest and
+current authority atomically. Success, partial, failure and cancellation reflect actual
+completion, assessment and storage admission. Arbitrary staged rows cannot be promoted
+through a general safe success API, and failed storage remains observable when a native
+solve returned usable values. A succeeded run cannot acquire another native attempt;
+scientific retry after failure/partial requires explicit policy and effect knowledge. A
+cancelled run stays cancelled; new semantic execution has a new run.
 
-**Generated schema.** The `pse-codegen` target `postgres` renders
-`crates/pse-operations/src/generated/`:
+Recovery obtains current authority, preserves closed observations and attempt history, and
+records truthful interruption/worker-loss completion or settles an already committed
+operation. A revoked or expired worker cannot append late science. Recovery never infers
+success or repeats numerical work merely to repair storage. Study cancellation participates
+through indexed point/header association in renewal and append fences.
 
-- `schema.sql`: one ENUM type per registry enumeration a store column uses; one domain per
-  entity identity, over `uuid`, or over the 32-byte `content_hash` domain for the source
-  bundle; and every table with NOT NULL, named primary, unique and composite foreign keys
-  and the registry's named row checks;
-- `copy.rs`: the binary `COPY` statement of every table, with a `WHERE false` probe that
-  types the stream;
-- the Cornucopia type mapping and the schema fingerprint (frame `pse.ops.schema.v1` over
-  `schema.sql` and `physical.sql`).
+**Progress and seeds.** Retained progress is appended in bounded typed chunks under the
+same ingestion gate; exact counters and event order do not depend on floating projections.
+An isolated synchronous native producer may wait for bounded queue admission while the
+writer runs, limited by the existing heartbeat timeout or earlier receiver closure. A
+callback entered into an async runtime refuses overflow rather than blocking that executor.
+Failure cancels the scientific run and remains observable; queue liveness alone cannot
+cause indefinite waiting. Original accepted seeds retain layout/profile/data compatibility,
+permission and lineage, with bounded chunk coverage and accounted decoding. Reuse selects
+the exact compatible scientific occurrence rather than a stage prefix or newest timestamp.
 
-A registry `Float64` is finite, so every `double precision` column carries a named
-finiteness check and every array column one over its elements; an absent bound is NULL.
-There is no separate `finite` facet, because finiteness already belongs to the registry's
-float contract. Store CHECK constraints come from named row checks, never from relational
-invariants ([§4.1](schema-and-relations.md#section-4-1)). Deletes are explicit: there
-is no `ON DELETE CASCADE` and no identity-minting default. The hand-written `physical.sql`
-adds indexes, partial indexes, defaults and the append-only revoke on
-`attempt_transitions`; its enum literals are checked when it is applied. `Store::create` explicitly creates an absent schema in one transaction and records its
-fingerprint. `Store::open` validates only and refuses absent, unsupported or unready
-schemas; explicit planning and migration follow [§20.5](#section-20-5).
+**Studies and workers.** Immutable occurrence descriptors retain authored point policy,
+source bindings and starts. Discovery reads bounded truthful summaries. The shared Rust
+study policy consumes the candidate and actual immediate predecessor facts; only ready
+occurrences prepare their numerical workspace. A guarded claim compares all consumed point
+revisions and study cancellation. Selected starts preserve exact predecessor attempt lineage.
+Portable qualified evidence supports the shared secant proposal and original corrector;
+native factors are reconstructed only for an actual prediction consumer and stay process
+local. Finite worker allocations and bounded action discovery are separate from scientific
+retry permission; there is no queued-priority or independent global retry-policy owner.
 
-**Statements.** Every statement is SQL in `crates/pse-operations/queries/*.sql`, one file
-per repository, with named parameters and hand-annotated nullability. `cargo xtask codegen`
-runs Cornucopia 1.0.1 as a library under the workspace lockfile: it loads the freshly
-rendered DDL and `physical.sql` into a temporary database on the local server, prepares
-every statement there, and writes the generated crate `crates/pse-operations-queries/`
-with a manifest normalized to the workspace. A misspelled column, a misspelled ENUM literal
-or a mistyped parameter fails generation. Whole-row statements return registry rows
-through a generated composite `FromSql`; identity parameters are cast to their domains, so
-the generated functions take typed ids. No SQL is assembled at run time. Progress events
-and values, incumbents, source documents, publication members and change windows are
-inserted by binary `COPY`, and a re-sent batch is idempotent.
+Study summary finalization is effect-free. Its controlled owner atomically admits the parent
+result and concludes the study under all-settled and cancellation premises. Competing live
+writers are observed; an expired summary writer may be replaced without rerunning settled
+points. Generic run recovery leaves an unfinished study header recoverable and does not
+invent the summary conclusion.
 
-**Value mapping.** The optional `postgres` features of `pse-ids`, `pse-model`,
-`pse-diagnostics` and `pse-vocabulary` carry the postgres-types mappings: registry
-enumerations to their ENUM types, typed ids to their domains, `ContentHash` to
-`content_hash`. They depend on the value protocol, never on a driver, and only the store's
-query crate enables them.
-
-**Client.** `pse_operations::Store` is a deadpool pool of tokio-postgres connections. A
-pooled connection is verified before reuse, because a cancelled call may leave its
-statement running; rustls with the ring provider serves remote servers, and a local socket
-uses peer authentication. One listener task per store holds `LISTEN` on the cancellation
-and progress channels on a dedicated connection, reconnects with backoff and broadcasts a
-resynchronization after every `LISTEN`; a watcher re-reads its authority on a
-notification, on a resynchronization and when it falls behind, because a notification only
-shortens latency. Store failures are classified by `SqlState` constant
-([§23.2](operations-and-validation.md#section-23-2)).
-
-**Durability classes.** A runtime is `Ephemeral` (no store; in-memory progress; it cannot
-publish) or `Durable`: every run is then an attempt registered in the store before any
-effect, and publication, queued jobs and studies require it. The class is an explicit
-policy of the runtime, never a fallback: a durable run whose store is unreachable fails with
-the infrastructure class, and ephemeral work never needs the store.
-
-**Attempt lifecycle.** planned → queued → running → {completed, partial, failed,
-cancelled}; running → stale on lease expiry; stale → superseded when a new attempt replaces
-it; planned or queued work may be cancelled. Pure Rust tables in
-`pse-operations::lifecycle` are the only authority for legality; repository functions apply
-them in a transaction under a row lock and write every change to the append-only
-`attempt_transitions`. There are two tables, selected by the attempt's kind: `TRANSITIONS`
-for attempts that execute, and `COORDINATING` for a study's own attempt, which holds no
-lease, stays queued while its points run and ends from queued, so it never goes stale and
-its publication can always commit. This refines ADR-0114 Outcome 12's single table: one
-owner and a pure, testable authority remain, while a coordinating attempt run under a lease
-would go stale if its finalization crashed, leaving its intent reclaimable and its points'
-members deletable. The runtime mints every identity (run, attempt, job, study, publication,
-settlement, reader lease) on the UUIDv7 path before any effect.
-
-**Terminations.** An attempt records one typed termination. `termination_class`
-(`TerminationClass`: native, run_state, trajectory, runtime, rule) selects exactly one typed
-column, enforced by the named `one_termination` check: `NativeTermination`,
-`NativeRunState`, `TrajectoryTermination`, `RuntimeTermination` (cancelled, infrastructure,
-unattempted, constant evaluation, unassessed) or the `DiagnosticCode` of a violated rule,
-whose named rule is recorded in the versioned `TerminationDetail` document. This refines
-ADR-0114 Outcome 22's single `TerminationCode` enumeration; `TerminationCode` survives as
-the Rust type over those columns (`pse-operations::attempts`).
-
-**Queue and workers.** A job names its current try's attempt and a typed, versioned
-payload (`JobPayload` version 8): a `ModelingJob` (content-addressed source bundles keyed
-by the §6.1 package content hash, the case, route, typed `SolveSettings` and a `JobStart`
-policy), a `StudyOperationJob` (source bundles and the immutable `StudyPointBinding`,
-including its admitted operation and occurrence policy), or a study's finalization. An
-unknown version is refused (`UnknownPayloadVersion`). Current study operation descriptors and public study requests use version 4;
-stored study definitions use version 6. Decode the version boundary before nested current
-preparation and library profiles. Unsupported historical readmission refuses explicitly
-without changing stored bytes or inventing missing policy. Operational readiness fingerprints
-cover SQL declarations; opaque JSON values require their own version boundaries. `Operations::enqueue` takes the typed
-job and frames its request identity from it; an idempotency key is unique. Workers claim
-queued jobs with `FOR UPDATE SKIP LOCKED` by priority and availability. Each try is a new
-attempt run under the worker's lease, renewed by a heartbeat that also returns the
-cancellation flag. An expired lease makes the attempt stale and requeues its job as a new
-attempt under the job's retry policy (maximum tries, capped exponential backoff); every
-durable connection runs this sweep at start-up, and a worker repeats it. `pse-worker`, a
-binary of `pse-runtime`, is the claim loop; it sets the process-level OpenMP environment
-SPRAL needs before any thread starts ([ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md)).
-`Runtime::work` serves the queue in-process. The CLI's default deployment memory is
-8 GiB. Its existing one-sixteenth numeric-worker allocation admits the compiler's
-default scratch allowance; explicitly smaller deployments retain their declared capacity
-and may refuse compilation before solver execution. Compilation reservations remain
-subject to the deployment pool and the same typed resource-admission checks.
-
-**Cancellation.** `cancel_requested` is the authority. Planned and queued attempts cancel
-at once; a running try sees the flag through its heartbeat or a listener notification, and
-the owning worker maps it onto cooperative native cancellation, across processes.
-
-**Streams.** A durable attempt's progress events are written in batches without an event
-cap, their values as typed columns in the `runtime.solve_metrics` value vocabulary, and
-publication snapshots them into `runtime.solve_metrics` (namespace `event.<seq>.<phase>`).
-A branch-and-bound search's incumbents stream beside them. SCIP reports each new best
-solution, and HiGHS each improving MIP solution (callback kind 4), as a typed
-`IncumbentEvent`: the objective in post-solve convention with the export offset applied,
-the dual bound, gap, node count, native seconds and a throttled primal in original
-coordinates (the first at once, then at most one per second, the last always kept;
-nonfinite values are absent). Each captured primal is stored as a seed of its step in the
-transaction that stores its incumbent row, which keeps the step, phase and elapsed time of
-the event that reported it. Streams of attempts that finished longer ago than the retention
-policy (seven days by default) are removed by the start-up recovery, except the attempt
-chain above an unfinished retry, and the captured solutions go with them: a capture is
-deleted unless an incumbent row, the start of an unfinished job or a waiting study point's
-predecessor still names it. Output seeds are never pruned; automatic retention of anything
-else remains register R-36. A durable run publishes its incumbent stream as the store holds
-it when the attempt ends, in `runtime.incumbents` (one row per incumbent with its step,
-phase, elapsed time, objective, bound, gap, nodes and the captured solution's identity, which
-the published row outlives); an ephemeral run keeps its incumbents in
-`runtime.solve_metrics`. *Tested* by `captured_solutions_pruned_with_streams` (store units)
-and `published_incumbents_equal_stream_snapshot` (runtime units).
-
-**Solutions and resumption.** Reusable seeds (`solutions`) are stored in original
-coordinates, keyed by the coordinate-compatibility stamp and the preparation identity, with
-the vectors their kind allows. Each records its origin (`StoredSolutionOrigin`): `output`
-for a step's accepted output seed, and `incumbent` for a point captured from an attempt's
-incumbent stream, which must name that attempt (row check `capture_has_attempt`).
-`with_stored_start` starts a step from the newest compatible output seed, never from an
-incumbent capture, or from a named seed (`StartSource::Stored`,
-[§17.4](numerical-execution.md#section-17-4)); the seed's content identity enters lineage
-(`latest_start_skips_incumbent_captures`). A job's `JobStart::ResumeFromParent` starts
-from the latest incumbent in its parent attempt chain, injected into SCIP or given to HiGHS
-as a start, so a killed worker's successor resumes the search; `StoredSolution` names one
-seed. Studies across workers are [§19.3](workflows-and-results.md#section-19-3).
-
-**Study member recovery.** ADR-0148 records the exact pre-effect native publication ticket
-under the fenced occurrence before member writes. A stale native-started attempt has an unknown
-effect. Under the study/job locks and expected revision, an absent ticket proves no write was
-authorized only after excluding a running worker and checking the current receipt state. A
-persisted ticket instead requires inspection by the existing member-attempt owner. Absent,
-provisioned or partially written native members remain unresolved; actual partial members stay
-inspectable. Only every exact ticket member committed establishes idempotent effect knowledge.
-
-Written members retain actual versions. Repeated attachment accepts an identical descriptor;
-a conflicting descriptor refuses. A newer attempt can replace the point member inventory only
-when the previous effect is known absent or idempotent, retaining its attempt history. Receipt
-knowledge establishes effects and available members, never scientific usability or an independent
-catalog publication commit. Recovery preserves attempt history and the live-lease/revision fences;
-retry consumes the known effect under the shared occurrence policy.
-
-**Query surface.** A durable runtime's query sessions see thirteen operational relations
-as read-only DataFusion tables under `pse_ops` (attempts, attempt transitions, jobs,
-progress events and values, incumbents, solutions, studies, study points, workspaces,
-publications, publication members and settlements), provided by
-`pse-runtime::workflow::operational_tables`. A scan runs a generated statement, pages in
-primary-key order at READ COMMITTED without holding a connection between pages, and builds
-batches with the registry-generated `pse-relations` builders, so values are checked against
-their field contracts. Equality and `IN` on identities and states, and comparisons on the
-time column, push down as `Inexact`; everything else is evaluated by DataFusion. The
-providers declare no constraints, so a query that reads one is never served from a cache.
-`Runtime::query_session` joins them with a run's results or an open publication, and
-`Runtime::progress` merges an attempt's progress events and incumbents in time order,
-following the listener until the attempt ends. The ADBC PostgreSQL driver is not adopted:
-it would add a C driver manager and a second client for tables the generated builders
-already serve ([operational-store guide](../../dev/operational-store.md)).
-
-**Limits.** A scan's pages are not one snapshot. Study point transitions serialize on the
-study row, and the 10 000-point scale of scenario S15 and statement performance at volume
-are unmeasured. Native receipt reconciliation is required before a crashed study point can replay;
-real restart/publication qualification remains Plan 25k scope. A finalization that exhausts its retries leaves its study concluded without automatic
-recovery. A direct cancel of a waiting point can deadlock with its predecessor's
-completion; the transaction retries (register R-42). Remote servers and remote object stores are not qualified (register R-37).
-Operating the store (bootstrap, reset, generation order, backup, doctor) is covered by the
-[operational-store guide](../../dev/operational-store.md).
+**Operational limits.** The supported deployment is authenticated local gRPC with native
+RocksDB and finite server/native-worker allocations. Backup drains managed work and copies
+a stopped coherent database; it is an operator lifecycle, not an online export lease.
+These implemented contracts do not claim power-loss durability, remote deployment support,
+assembled worker/reopen/backup qualification, capacity measurements or comprehensive scientific
+qualification. Current acceptance and remaining work belong to the
+[current packet](../../plans/28-surrealdb-unified-substrate.md), not this architecture page.

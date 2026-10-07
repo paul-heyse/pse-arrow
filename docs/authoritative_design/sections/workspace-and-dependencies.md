@@ -97,9 +97,6 @@ are cited by the decision that owns them rather than by this page:
 - Ipopt is built from pinned sources in a digest-pinned solver image, and the committed
   bindgen output follows its C ABI
   ([ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md), superseding ADR-0028).
-- The vendored Delta source (`vendor/delta-rs`) and its kernel branch are recorded as
-  exact revisions in workspace metadata. `just delta-source` verifies or regenerates that
-  override, and the governance test `delta_revisions` checks the pair.
 - The Python platform targets CPython 3.11 or later. The `parity` dependency group is
   limited to the interpreters that IDAES classifies.
 
@@ -112,25 +109,9 @@ evidence.
 
 > Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md) — empty structural test package retired; production structural analysis remains.
 
-> Decision: [ADR-0122](../../adr/0122-nightly-toolchain-and-feature-unification.md) — the crate
-> `pse-workspace-hack` has no code. cargo-hakari generates its dependencies from
-> `.config/hakari.toml`, and every member except `pse-ids`, `pse-diagnostics` and the
-> generated `pse-operations-queries` depends on it, for feature unification only.
-> Implemented.
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed; maintainer-authorized implementation). The canonical SurrealDB client and registry-generated schema replace the PostgreSQL/Delta publication composition. The workspace hack attaches to actual Arrow/DataFusion/storage consumers; pure semantic and numerical roots do not acquire those dependencies solely for feature unification. Cargo's workspace feature unification and the single resolved type universe remain in force.
 >
-> Decision: [ADR-0082](../../adr/0082-library-owned-process-mathematics.md),
-> [ADR-0083](../../adr/0083-class-specific-native-execution.md),
-> [ADR-0098](../../adr/0098-modeling-knowledge-ownership.md) (proposed; implementation authorized).
->
-> Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) — the crate
-> `pse-operations` owns the operational store and publication catalog, and `pse-runtime`
-> depends on it and carries the `pse-worker` binary (Plan 22 O2–O4); the generated crate
-> `pse-operations-queries` sits beneath it, and optional `postgres` features carry the
-> generated value mapping (Plan 22 B1, B2). All implemented.
-> [ADR-0117](../../adr/0117-platform-vocabulary-crate.md) — the crate `pse-vocabulary` holds
-> the registry's platform vocabularies beneath `pse-schema` and `pse-model` (Plan 22 B4,
-> implemented). As built it depends on `pse-diagnostics` for its typed parse error, beyond
-> ADR-0117 Outcome 1's "serde and thiserror/miette only".
+> [ADR-0117](../../adr/0117-platform-vocabulary-crate.md) retains the shared vocabulary owner beneath the registry and generated model.
 
 Cargo metadata owns workspace membership: `members` in the root manifest are `crates/*`,
 the `tests/*` packages, `xtask` and `benches`. The table explains roles; it does not
@@ -138,12 +119,12 @@ register crates.
 
 | Crate | Responsibility |
 |---|---|
-| `pse-diagnostics` | Shared diagnostic vocabulary and lossless native causes; depends only on `thiserror`/`miette`, plus postgres-types behind its optional `postgres` feature |
+| `pse-diagnostics` | Shared diagnostic vocabulary and lossless native causes |
 | `pse-ids` | Semantic IDs, content hashes, typed framing under the `Frame` catalog, the typed-id macro; the sole BLAKE3 owner ([§5](identity-and-publication.md#section-5)) |
 | `pse-vocabulary` | The ten platform vocabularies the registry is written in (namespace, authority, snapshot class, column role and the rest), re-exported by the generator; depends on `pse-diagnostics` and serde ([ADR-0117](../../adr/0117-platform-vocabulary-crate.md)) |
 | `pse-quantity` | Dimensions, units, quantity kinds/types, bases, reference states, conversions, physical operation and function vocabulary ([§8](physical-semantics.md#section-8)) |
 | `pse-modeling` | Pure checking and specialization of generic declarations, interfaces, sets, functions, contributions and annotations |
-| `pse-model` | Registry-generated plain semantic values, enums and typed ids, without Arrow; validated scalar settings; the store value mapping behind its `postgres` feature |
+| `pse-model` | Registry-generated plain semantic values, enums and typed ids, without Arrow; validated scalar settings and generated canonical protocol rows |
 | `pse-authoring` | Modeling language and shared expression grammar, spans and parse budgets, identity assignment, exact package resolution |
 | `pse-kernels` | Generic external-function contracts, typed shapes, derivative/smoothness declarations and attempt-local workers ([§9](physical-semantics.md#section-9)) |
 | `pse-structural` | Selected incidence, matching/DM/BTF, flowsheet and initialization analysis ([§15](numerical-execution.md#section-15)) |
@@ -152,16 +133,14 @@ register crates.
 | `pse-backend-native` | Class-specific native adapters: Ipopt, POUNCE, POUNCE-convex, KINSOL, HiGHS, Clarabel, SCIP, Diffsol and IDAS, plus tears, presolve and quality ([§18](numerical-execution.md#section-18)) |
 | `pse-ipopt-sys` | Generated raw Ipopt C bindings; the build script emits link directives only |
 | `pse-columnar` | Arrow canonicalization, owned buffers, reservations, cancellation and native error adapters |
-| `pse-schema` | The semantic registry, native field contracts, resolved contracts, compatibility and Delta layouts ([§4](schema-and-relations.md#section-4)) |
+| `pse-schema` | The semantic registry, native field contracts, resolved contracts, compatibility and canonical storage declarations ([§4](schema-and-relations.md#section-4)) |
 | `pse-codegen` | Pure registry generators; returns the generated tree without writing files |
 | `pse-relations` | Generated Arrow views, builders, extension types and validators over checked batches |
 | `pse-engine` | DataFusion session assembly, bound preparation and execution, validation, providers and resources |
 | `pse-rules` | Registry-declared invariants as one native diagnostic query; its consumers are inspection and fixture validation |
-| `pse-catalog` | Catalog providers, Delta member writes and candidate admission, exact reopening, export manifests, inspection and catalog-instructed collection; never sees PostgreSQL ([§20](identity-and-publication.md#section-20)) |
-| `pse-operations` | The operational store and publication catalog on PostgreSQL 18: the embedded generated schema, create-or-refuse, the attempt lifecycle tables, typed repositories, the listener and the catalog with its reader leases; the `pse-ops` binary ([§20.6](identity-and-publication.md#section-20-6)) |
-| `pse-operations-queries` | Generated by Cornucopia from `crates/pse-operations/queries/*.sql`: typed tokio-postgres statements over the registry rows; never edited by hand |
-| `pse-runtime` | Composition root: document ingestion, physical inventory, the public workflow, jobs, budget and cancellation, durable execution, publication and the operational query providers; the `pse-worker` and `pse-publication` binaries ([§19](workflows-and-results.md#section-19), [§20](identity-and-publication.md#section-20)) |
-| `pse-buildinfo` | Build provenance: toolchain, profile, Git revision and embedded lockfile identity |
+| `pse-operations` | Authenticated remote SurrealDB client, generated native schema/codecs and bounded canonical revision, product, execution, result, analysis and retention operations ([§20.6](identity-and-publication.md#section-20-6)) |
+| `pse-runtime` | Composition root: canonical source admission, selected compilation, bounded physical reuse, class-specific native attempts, durable workflows and connected exact results ([§19](workflows-and-results.md#section-19)) |
+| `pse-buildinfo` | Complete executable source/build attestation and controlled selected-production-unit qualification; relevant producer identity remains separate from outer run attestation |
 | `pse-py` | The PyO3 extension `pse._native`, which is the whole Rust/Python boundary ([§21](workflows-and-results.md#section-21)) |
 | `pse-testkit` | Development-only fixtures that use production engine factories; never a production dependency |
 | `pse-workspace-hack` | No code: cargo-hakari generates its dependencies so every package selection resolves one feature set per dependency ([ADR-0122](../../adr/0122-nightly-toolchain-and-feature-unification.md)) |
@@ -171,8 +150,8 @@ register crates.
 | `pse-tests-governance` | Workspace invariants: pins, MSRV, unsafe allowlist, error taxonomy, BLAKE3 ownership, shadow structs |
 | `pse-tests-engine` | Engine and catalog inspection, pushdown truthfulness and unified sources |
 | `pse-tests-conformance` | Canonical encoding properties and scientific/native boundary journeys; independent integrity mechanisms live with their production owners |
-| `pse-tests-lifecycle` | Publication object races and memory-budget behavior |
-| `xtask` | Code generation and regeneration checks, family and ceiling checks, governance and inspection fixtures; the justfile is its surface |
+| `pse-tests-lifecycle` | Canonical lifecycle and memory-budget behavior |
+| `xtask` | Code generation, governance and tooling; worker and recovery executable composition roots, controlled producer capture and inspection fixtures |
 | `pse-benches` | Criterion groups for canonicalization, native cache, consolidation, process cases and modeling preparation |
 
 Dependencies point one way. The semantic foundations (`pse-diagnostics`, `pse-ids`,
@@ -180,24 +159,25 @@ Dependencies point one way. The semantic foundations (`pse-diagnostics`, `pse-id
 `pse-structural`, `pse-math`, `pse-compiler` and `pse-backend-native`. None of these
 reaches Arrow, DataFusion, Delta or Tokio. The columnar crates (`pse-columnar`,
 `pse-schema`, `pse-relations`) sit beside them and use Arrow plus the DataFusion leaf
-expression APIs. `pse-engine` adds sessions. `pse-rules` and `pse-catalog` build on the
+expression APIs. `pse-engine` adds sessions. `pse-rules` builds on the
 engine. `pse-vocabulary` sits beneath `pse-schema` and `pse-model`, so the registry and the
 generated model share one type per platform vocabulary without either ceiling giving way.
-`pse-operations` depends only on `pse-model`, `pse-ids`, `pse-diagnostics` and its
-generated query crate; no semantic, native or columnar crate depends on it.
+`pse-operations` uses the remote SDK and generated plain-value contracts, without an embedded database engine or a columnar payload decoder. Semantic and numerical roots remain independent of it.
 `pse-runtime` is the only crate that joins the semantic/native side with the
-columnar/storage side and the operational store, and it owns every effect: document I/O,
-compilation, native attempts, durable execution and publication. `pse-py` depends on the
+columnar/storage side and the canonical substrate. It owns document I/O,
+compilation, native attempts, durable execution and exact result admission. `pse-py` depends on the
 runtime and the inspection crates.
 `pse-codegen` runs outside the product's normal dependency graph and never depends on
 generated values. Generated code is placed in its consumers: see
 [§4.2](schema-and-relations.md#section-4-2).
 
-The unsafe-code allowlist in workspace metadata names `pse-ipopt-sys`,
-`pse-backend-native` and `pse-py`, which are FFI boundaries. It also names `pse-math`,
-whose only unsafe use reads the GMP/MPFR version strings
-([ADR-0088](../../adr/0088-selected-model-and-physical-contracts.md)). Every profile keeps
-`panic = "unwind"` because the Python and native callback boundaries contain unwinds.
+Workspace metadata owns the unsafe-code allowlist. It admits the named native/CPython
+FFI boundaries, immutable GMP/MPFR version reads, and the explicit sealed scientific
+reconstruction, publication and deployment assertions introduced by
+[ADR-0164](../../adr/0164-unify-simulation-substrate.md). An assertion is made only by
+its designated admission owner; it does not grant a general reconstruction API.
+Every profile keeps `panic = "unwind"` because the Python and native callback
+boundaries contain unwinds.
 
 ### 3.3 Supporting libraries and their boundaries
 
@@ -210,10 +190,7 @@ whose only unsafe use reads the GMP/MPFR version strings
 > certification (Plan 22 G1–G7, implemented, with G4 and G6 partial);
 > [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) — SPRAL SSIDS, oneMKL
 > and METIS for Ipopt (Plan 22 N1, implemented);
-> [ADR-0114](../../adr/0114-typed-operational-store.md) — PostgreSQL 18
-> through `pse-operations`: tokio-postgres, deadpool-postgres, postgres-types and
-> tokio-postgres-rustls, with statements compiled by Cornucopia; sqlx is removed (Plan 22 B2,
-> implemented); [ADR-0116](../../adr/0116-typed-boundary-documents.md) — schemars and
+> [ADR-0164](../../adr/0164-unify-simulation-substrate.md) — the remote SurrealDB substrate; [ADR-0116](../../adr/0116-typed-boundary-documents.md) — schemars and
 > nutype for Rust-owned documents and validated settings (Plan 22 B5, implemented);
 > typed-index-collections and enum-map at coordinate boundaries (Plan 22 B6, implemented);
 > [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — FERAL and `pounce-sens-core` for
@@ -227,11 +204,9 @@ units, identity, schemas or canonical encoding merely because it is present.
 
 | Library | Owner crate | Role | Boundary |
 |---|---|---|---|
-| Arrow, Parquet | columnar crates, engine, catalog | Checked columnar data, extension types, IPC and FFI transport | Physical layout safety is not semantic validity ([§4.6](schema-and-relations.md#section-4-6)) |
-| DataFusion | `pse-engine`, `pse-rules`, `pse-catalog`, `pse-runtime` | Relational admission, invariant queries, inspection, DML and storage plans | Not a mathematical evaluator ([§3.3.1](#section-3-3-1)) |
-| Delta Lake (`deltalake-core`), `object_store` | `pse-catalog` | Durable authored/result member tables, export manifests, and the checkpoint, vacuum and removal the catalog instructs | Visibility, settlement and retention are the catalog's ([§20](identity-and-publication.md#section-20)); remote object stores unqualified (register R-37) |
-| PostgreSQL 18: tokio-postgres, deadpool-postgres, postgres-types/postgres-protocol, tokio-postgres-rustls (ring) | `pse-operations`, `pse-operations-queries`; value mapping in `pse-ids`, `pse-model`, `pse-diagnostics`, `pse-vocabulary` | Operational store and publication catalog: pooled connections, typed `SqlState`, binary `COPY`, one listener connection | The registry owns the schema; no SQL is assembled at run time; semantic crates carry only the value protocol ([§20.6](identity-and-publication.md#section-20-6)) |
-| Cornucopia | `xtask` | Compiles the store's SQL statements into the generated query crate against a temporary database | Generation only: no runtime dependency; regeneration needs the local server |
+| Arrow, Parquet | columnar crates, engine, runtime | Checked columnar data, extension types, IPC and FFI transport | Physical layout safety is not semantic validity ([§4.6](schema-and-relations.md#section-4-6)) |
+| DataFusion | `pse-engine`, `pse-rules`, `pse-relations`, actual runtime boundary consumers | Relational admission, expression/optimizer APIs, invariant queries and inspection | Not a mathematical evaluator ([§3.3.1](#section-3-3-1)) |
+| SurrealDB, SurrealQL, RocksDB | `pse-operations`, supervised server tooling | Canonical graph/relational records, indexed bounded queries and guarded structural transactions; persistent local server | Registry and Rust scientific owners retain meaning. Server-side functions do not decide numerical eligibility; ISO GQL, live subscriptions and edge inlining need a concrete qualified consumer. |
 | schemars, nutype | owners of Rust-owned documents; `pse-model` | JSON Schemas of boundary documents; validated single-value settings | The serde type is the document's authority ([§21.5](workflows-and-results.md#section-21-5)) |
 | typed-index-collections, enum-map | `pse-math`, `pse-backend-native`, `pse-kernels` | One index type per coordinate space; enum-indexed storage | FFI and faer interiors keep `usize`/`i32`, converted at the adapter |
 | Symbolica/Numerica | `pse-math` | Algebra, normalization, differentiation, multi-output evaluators and jets | Starts after physical typing and domain obligations; derived artifacts only |
@@ -262,9 +237,8 @@ needs an admitted operation, profile and test before a workflow advertises it
 not admitted. Mixed-integer nonlinear solving and global certification through SCIP
 (ADR-0102, ADR-0105) are implemented for factorable problems over finite boxes, with the
 Plan 22 G4–G7 extensions ([§18.10.1](numerical-execution.md#section-18-10-1)) and durable
-incumbents, G8 ([§20.6](identity-and-publication.md#section-20-6)). A library that has no
-current consumer is not admitted either. That is a limit of the present scope, not a
-prohibition
+incumbents, G8 ([§20.6](identity-and-publication.md#section-20-6)). Unused capabilities remain eligible. Advertising a supported workflow requires an
+actual consumer and qualification under its admitted profile
 ([§25](scope-and-open-design.md#section-25)).
 
 #### 3.3.1 Arrow and DataFusion roles and capability eligibility
@@ -275,9 +249,9 @@ boundaries:
 - checked construction and transport of relation batches;
 - set-oriented admission and invariant queries;
 - catalog and provider inspection;
-- editable-table DML;
+- private editable-table DML;
 - plan transport for diagnostics;
-- Delta-backed durable reads and writes.
+- protected canonical native reads and exact scientific Arrow boundaries.
 
 They do not evaluate process mathematics. No expression, derivative or solver iteration
 runs as SQL, as a user-defined function or through a DataFusion plan
@@ -297,8 +271,9 @@ and consumer. Placement rules still apply:
 - External or asynchronous sources resolve to explicitly versioned inputs before
   reproducible execution. Volatile and effectful functions declare their effects and
   cancellation.
-- DML may change private authoring or attempt state. Validated publication remains the
-  commit boundary ([§20](identity-and-publication.md#section-20)).
+- DataFusion DML may change private relation batches. Canonical source revisions and
+  attempt state change only through their owning substrate operations; a private batch
+  mutation cannot publish durable state ([§20](identity-and-publication.md#section-20)).
 - Transport encodings and compression may differ from the canonical frame. Canonical
   identity encoding stays fixed ([§5.3](identity-and-publication.md#section-5-3)).
 - Native hashes, joins and aggregates are available. Hash equality, extension metadata,
@@ -352,8 +327,7 @@ everything.
 | Structural analysis | pounce-presolve, rustworkx-core, petgraph | `pse-structural` |
 | Numerical solution and integration | The class-specific native library | `pse-backend-native` |
 | Sparse numerical linear algebra outside solvers | faer | `pse-math`, `pse-runtime` |
-| Operational state, publication visibility and retention decisions | PostgreSQL through generated statements | `pse-operations` |
-| Member data, export manifests and maintenance | Delta through DataFusion | `pse-catalog` |
+| Canonical graph/relational state and retention | SurrealDB through generated codecs and bounded guarded native statements | `pse-operations` |
 | Durable jobs, workers and studies | The operational store's queue, composed with the workflow | `pse-runtime` |
 | Effects: I/O, native compilation, attempts, cancellation, joins | Explicit runtime ownership | `pse-runtime` |
 

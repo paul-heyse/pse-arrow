@@ -35,16 +35,21 @@ SOURCE = """package algebraic { def Root {
 } }"""
 
 
-def _package(runtime: pse.Runtime) -> tuple[pse.ModelingPackage, DeclarationId]:
+def _physical(runtime: pse.Runtime) -> pse.PhysicalContext:
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
-    physical = runtime.physical_from_documents(
+    return runtime.physical_from_documents(
         {
             str(p.relative_to(primitives)): p.read_text()
             for p in primitives.rglob("*")
             if p.is_file()
         }
     )
+
+
+def _package(runtime: pse.Runtime) -> tuple[pse.ModelingPackage, DeclarationId]:
+    root = Path(__file__).resolve().parents[3]
+    physical = _physical(runtime)
     manifest = (
         (root / "tests/fixtures/packages/minimal_explicit/package.toml")
         .read_text()
@@ -183,15 +188,24 @@ def test_canonical_eligible_deployment_receipt_reopens_original_scalar(
     )
     package, case = _package(runtime)
     revision = package.canonical_revision
-    prepared = package.prepare_solve(case, _settings())
+    settings = _settings()
+    prepared = package.prepare_solve(case, settings)
     first = prepared.start().wait()
     assert first.usable
     run, attempt = first.canonical_run_key, first.canonical_attempt_key
     assert run is not None
     assert attempt is not None
     original = pa.table(first.table("runtime.solve_variables"))
-    (variable,) = original.to_pylist()
-    assert variable["value"] == pytest.approx(2.0, abs=1e-7)
+    variables = original.to_pylist()
+    (variable,) = [row for row in variables if not row["parameter"]]
+    (binding,) = [row for row in variables if row["parameter"]]
+    assert binding["fixed"] is True
+    assert binding["value"] == 4.0
+    # Use the actual production-resolved physical allowance for this variable.
+    # Exact equality below checks retention of original result bytes.
+    allowance = variable["tolerance"]
+    assert allowance > 0.0
+    assert abs(variable["value"] - 2.0) <= allowance
     checks = pa.table(first.table("runtime.modeling_checks")).to_pylist()
     assert checks
     assert all(row["satisfied"] for row in checks)
@@ -202,6 +216,14 @@ def test_canonical_eligible_deployment_receipt_reopens_original_scalar(
         msgspec.json.decode(header["attestation"], type=tuple[str, str])
         == expected_attestation
     )
+    if observed_path := os.environ.get("PSE_PYTHON_DEPLOYMENT_ATTESTATION"):
+        # The native cross-role control consumes this independently observed
+        # loaded-extension header, rather than a receipt's self-reported pair.
+        observed = Path(observed_path)
+        if observed.exists():
+            assert observed.read_bytes() == header["attestation"]
+        else:
+            observed.write_bytes(header["attestation"])
     assert header["revision"] == revision
     del first, prepared, package
     runtime.clear_program_cache()
@@ -210,13 +232,12 @@ def test_canonical_eligible_deployment_receipt_reopens_original_scalar(
     reopened = pse.Runtime(
         inspection_settings, substrate=canonical_substrate, producer=receipt_path
     )
-    recreated, recreated_case = _package(reopened)
+    recreated = reopened.modeling_revision(revision, _physical(reopened))
     assert recreated.canonical_revision == revision
-    assert recreated_case == case
     assert pa.table(reopened.results(run, attempt, "runtime.solve_variables")).equals(
         original
     )
-    following = recreated.prepare_solve(recreated_case, _settings()).start().wait()
+    following = recreated.prepare_solve(case, _settings()).start().wait()
     assert following.usable
     repeated = pa.table(following.table("runtime.solve_variables"))
     assert repeated.drop(["run_id"]).equals(original.drop(["run_id"]))

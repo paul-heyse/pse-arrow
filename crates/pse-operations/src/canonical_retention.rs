@@ -416,10 +416,7 @@ mod canonical_server_unit {
             );
         }
         let mut response = bounded_query(store.db.query("SELECT * FROM canonical_roots WHERE owner_kind IN ['run','active_attempt'] ORDER BY key;")).await.unwrap();
-        assert_eq!(
-            response.take::<Vec<Object>>(0).unwrap(),
-            before
-        );
+        assert_eq!(response.take::<Vec<Object>>(0).unwrap(), before);
         store.forget_history(&first).await.unwrap();
         let (retired, reclaimed) = tokio::join!(
             store.forget_run_results("real-run"),
@@ -431,10 +428,7 @@ mod canonical_server_unit {
         );
         assert_eq!(reclaimed.unwrap().memberships, 0);
         let mut response = bounded_query(store.db.query("SELECT * FROM canonical_roots WHERE owner_kind IN ['run','active_attempt'] ORDER BY key;")).await.unwrap();
-        assert_eq!(
-            response.take::<Vec<Object>>(0).unwrap(),
-            before
-        );
+        assert_eq!(response.take::<Vec<Object>>(0).unwrap(), before);
         let pin = store
             .protect(first.clone(), Duration::from_secs(30))
             .await

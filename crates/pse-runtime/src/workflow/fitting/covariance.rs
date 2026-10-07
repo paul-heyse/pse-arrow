@@ -224,14 +224,37 @@ impl FitProblem {
             .candidate
             .as_ref()
             .ok_or(FitWithheld::Local(Withheld::NoCandidate))?;
+        let (lower_dual, upper_dual) = report
+            .solve
+            .as_ref()
+            .and_then(|solve| solve.candidate.as_ref())
+            .and_then(|candidate| candidate.bound_dual.as_ref())
+            .ok_or(FitWithheld::Local(Withheld::Multipliers))?;
+        if lower_dual.len() != candidate.len() || upper_dual.len() != candidate.len() {
+            return Err(FitWithheld::Local(Withheld::Multipliers));
+        }
         let held: Vec<_> = self
             .free()
             .filter(|(k, col)| {
                 let parameter = &self.declaration.parameters[*k];
-                let tolerance = self.tolerances.variables[col.get()];
-                let value = candidate[col.get()];
-                parameter.lower.is_some_and(|b| value - b <= tolerance)
-                    || parameter.upper.is_some_and(|b| b - value <= tolerance)
+                let column = col.get();
+                // The same original-coordinate activity used by native KKT
+                // analysis includes interior-point active bounds with finite slack.
+                native::kkt::bound_activity(
+                    candidate[column],
+                    (
+                        parameter.lower.unwrap_or(f64::NEG_INFINITY),
+                        parameter.upper.unwrap_or(f64::INFINITY),
+                    ),
+                    self.tolerances.variables[column],
+                    (lower_dual[column], upper_dual[column]),
+                    (
+                        self.normalization.variables[column],
+                        self.normalization.objective,
+                    ),
+                    self.accuracy.stationarity,
+                )
+                .is_active()
             })
             .map(|(k, _)| self.declaration.parameters[k].symbol_id)
             .collect();

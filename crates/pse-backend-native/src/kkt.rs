@@ -945,6 +945,70 @@ fn dominant(
     }
 }
 
+/// Classify one original variable bound using the same physical slack and
+/// normalized multiplier rule as the KKT analysis. `scales` holds the validated
+/// positive variable and objective scales; `dual` is the resolved normalized
+/// stationarity budget. Interior-point active bounds may have slack beyond the
+/// physical feasibility allowance when their normalized multiplier dominates it.
+pub fn bound_activity(
+    value: f64,
+    limits: (f64, f64),
+    tolerance: f64,
+    multipliers: (f64, f64),
+    scales: (f64, f64),
+    dual: f64,
+) -> Activity {
+    let (zl, zu) = multipliers;
+    let (sx, sf) = scales;
+    let selected = side(value, limits, tolerance, zu > zl).or_else(|| {
+        dominant(
+            value / sx,
+            (limits.0 / sx, limits.1 / sx),
+            (zl * sx / sf, zu * sx / sf),
+            dual,
+        )
+    });
+    let multiplier = match selected {
+        Some(Side::Upper) => zu,
+        Some(Side::Lower) => zl,
+        Some(Side::Equal) | None => zl - zu,
+    };
+    activity(selected, multiplier * sx / sf, dual)
+}
+
+#[cfg(test)]
+mod bound_activity_tests {
+    use super::{Activity, Side, bound_activity};
+
+    #[test]
+    fn original_bound_activity_uses_physical_slack_and_normalized_dual() {
+        assert_eq!(
+            bound_activity(1., (1., 10.), 0.001, (0., 0.), (10., 100.), 0.001),
+            Activity::Weak(Side::Lower)
+        );
+        assert_eq!(
+            bound_activity(1.02, (1., 10.), 0.001, (0.2, 0.), (10., 100.), 0.001),
+            Activity::Strong(Side::Lower)
+        );
+        assert_eq!(
+            bound_activity(9.98, (1., 10.), 0.001, (0., 0.2), (10., 100.), 0.001),
+            Activity::Strong(Side::Upper)
+        );
+        assert_eq!(
+            bound_activity(5., (1., 10.), 0.001, (0.2, 0.), (10., 100.), 0.001),
+            Activity::Inactive
+        );
+        assert_eq!(
+            bound_activity(1.02, (1., 10.), 0.001, (0.01, 0.), (10., 100.), 0.001),
+            Activity::Inactive
+        );
+        assert_eq!(
+            bound_activity(1., (1., 1.), 0.001, (0., 0.), (10., 100.), 0.001),
+            Activity::Strong(Side::Equal)
+        );
+    }
+}
+
 /// Lower-triangle triplets of a symmetric matrix of order `order`.
 #[derive(Clone, Debug, Default)]
 struct Triplets {
@@ -1030,26 +1094,14 @@ pub(crate) fn analyse(
         .iter()
         .enumerate()
         .map(|(j, v)| {
-            let side = side(
+            bound_activity(
                 x[j],
                 (v.lower, v.upper),
                 tolerances.variables[j],
-                zu[j] > zl[j],
+                (zl[j], zu[j]),
+                (sx[j], sf),
+                budget.dual,
             )
-            .or_else(|| {
-                dominant(
-                    x[j] / sx[j],
-                    (v.lower / sx[j], v.upper / sx[j]),
-                    (zl[j] * sx[j] / sf, zu[j] * sx[j] / sf),
-                    budget.dual,
-                )
-            });
-            let multiplier = match side {
-                Some(Side::Upper) => zu[j],
-                Some(Side::Lower) => zl[j],
-                Some(Side::Equal) | None => zl[j] - zu[j],
-            };
-            activity(side, multiplier * sx[j] / sf, budget.dual)
         })
         .collect();
     let layout = Layout {

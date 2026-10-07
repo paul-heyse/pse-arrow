@@ -6,6 +6,7 @@ use super::fixtures::*;
 use pse_backend_native::solve::{Assurance, Backend, Qualification, SolveIntent, SolverSelection};
 use pse_ids::SemanticId;
 use pse_relations::generated::enums::ModelingCheckBasis;
+use pse_relations::generated::enums::NumericalTarget;
 use pse_runtime::{
     CancelSource,
     math::solves::{Outcome, SolverProfile},
@@ -60,6 +61,50 @@ async fn unstable_case(package: &ModelingPackage, header: &str) -> (ModelingPack
 }
 /// The authored stability check `tpd > -tolerance` of the phase-stability model.
 const TPD_CHECK: &str = "cf7deebc57f244f8a52ec8e924140225";
+
+/// Demand inspected coordinates through the compiler's existing path resolution.
+async fn prepare_tpd(
+    package: &ModelingPackage,
+    case: SemanticId,
+    solver: SolverProfile,
+    paths: &[&str],
+) -> pse_runtime::workflow::ModelingSolvePreparation {
+    let cancel = CancelSource::new();
+    let mut analysis = package
+        .declared_execution(
+            case.into(),
+            compiler(),
+            solver,
+            Default::default(),
+            seed_limits(),
+            &cancel,
+        )
+        .await
+        .unwrap()
+        .analysis;
+    analysis
+        .bindings
+        .demand
+        .extend(paths.iter().map(|path| (*path).to_owned()));
+    package.prepare_analysis(&analysis, &cancel).await.unwrap()
+}
+
+fn stability_tolerance(report: &pse_runtime::workflow::ModelingResult) -> f64 {
+    let model = &report.prepared.model.model.compiled().model;
+    let id = model.paths["root.tolerance"];
+    let symbol = &model.symbols[&id];
+    assert_eq!(
+        symbol.lineage.declaration.as_id(),
+        SemanticId::parse_hex("bf19d72e857b487b9c6511e09e60910f").unwrap()
+    );
+    assert_eq!(
+        symbol.role,
+        pse_relations::generated::enums::ModelingDeclarationKind::Parameter
+    );
+    let tolerance = report.values.scalars[&id];
+    assert!(tolerance.is_finite() && tolerance > 0.);
+    tolerance
+}
 /// The solved tangent-plane distance and the authored stability check.
 fn tpd(result: &pse_runtime::workflow::RunResult) -> (f64, &pse_runtime::workflow::ModelingCheck) {
     let RunReport::Modeling(reports) = result.report().unwrap() else {
@@ -87,9 +132,8 @@ async fn tpd_certifies_stable_feed() {
     let owner = WorkflowRuntime::new().unwrap();
     let package = seed_package(&owner).await;
     let case = SemanticId::parse_hex(TPD_IDEAL).unwrap();
-    let result = seed_prepare(&package, case, certify(5), &CancelSource::new())
+    let result = prepare_tpd(&package, case, certify(5), &["root.tolerance"])
         .await
-        .unwrap()
         .start()
         .unwrap()
         .wait()
@@ -111,9 +155,16 @@ async fn tpd_certifies_stable_feed() {
     // The global lower bound certifies stability within the recorded tolerances, and the
     // authored stability check reads it rather than the point.
     let g = native.evidence.global.unwrap();
-    assert!(g.dual_bound.unwrap() > -1e-6, "{g:?}");
+    let report = &reports[0];
+    let tolerance = stability_tolerance(report);
+    assert!(g.readback && g.dual_bound.unwrap() > -tolerance, "{g:?}");
     let (value, check) = tpd(&result);
-    assert!(value.abs() < 1e-6, "{value}");
+    let allowance = resolved_allowance(
+        report.prepared.solve.numerics(),
+        NumericalTarget::Objective,
+        SemanticId::NIL,
+    );
+    assert!(value.abs() <= allowance, "{value}, allowance={allowance}");
     assert!(check.satisfied, "{check:?}");
     assert_eq!(check.basis, ModelingCheckBasis::GlobalBound, "{check:?}");
     authored_success(&result);
@@ -143,14 +194,13 @@ async fn tpd_detects_known_instability() {
     let owner = WorkflowRuntime::new().unwrap();
     let source = seed_package(&owner).await;
     let (package, case) = unstable_case(&source, "").await;
-    let result = seed_prepare(
+    let result = prepare_tpd(
         &package,
         case,
         profile(Backend::Ipopt, true),
-        &CancelSource::new(),
+        &["root.tolerance", "root.trial.amount[chem.benzene]"],
     )
     .await
-    .unwrap()
     .start()
     .unwrap()
     .wait()
@@ -173,12 +223,38 @@ async fn tpd_detects_known_instability() {
     );
     // ... it is the reference's stationary liquid trial phase ...
     let (value, check) = tpd(&result);
-    assert!((value - expected).abs() < 1e-8, "{value} vs {expected}");
-    let benzene = authored["trial"][0].as_f64().unwrap();
-    let primal = &native.candidate.as_ref().unwrap().primal;
+    let report = &reports[0];
+    let allowance = resolved_allowance(
+        report.prepared.solve.numerics(),
+        NumericalTarget::Objective,
+        SemanticId::NIL,
+    );
     assert!(
-        primal.iter().any(|x| (x - benzene).abs() < 1e-7),
-        "{primal:?} lacks {benzene}"
+        (value - expected).abs() <= allowance,
+        "{value} vs {expected}"
+    );
+    let benzene = authored["trial"][0].as_f64().unwrap();
+    let model = &report.prepared.model.model.compiled().model;
+    let trial = *model.paths.get("root.trial.amount[chem.benzene]").unwrap();
+    let trial_symbol = &model.symbols[&trial];
+    assert_eq!(
+        trial_symbol.lineage.declaration.as_id(),
+        SemanticId::parse_hex("01a0e169482c760bbd985b902107e9b7").unwrap()
+    );
+    assert_eq!(
+        trial_symbol.role,
+        pse_relations::generated::enums::ModelingDeclarationKind::Variable
+    );
+    let trial_allowance = resolved_allowance(
+        report.prepared.solve.numerics(),
+        NumericalTarget::Variable,
+        trial,
+    );
+    assert!((report.values.scalars[&trial] - benzene).abs() <= trial_allowance);
+    let tolerance = stability_tolerance(report);
+    assert!(
+        value < -tolerance,
+        "{value}, stability tolerance={tolerance}"
     );
     // ... and its distance is negative, so the authored stability check fails there.
     assert!(!check.satisfied, "{check:?}");
@@ -200,11 +276,9 @@ async fn fixture_intent_selects_certify() {
     solver.selection = SolverSelection::Auto;
     solver.controls.time_limit = Duration::from_secs(300);
     assert_eq!(solver.intent, SolveIntent::Optimize);
-    let conform = |rows: Vec<_>| {
-        let source = &source;
+    let conform = |package: ModelingPackage| {
         let solver = solver.clone();
         async move {
-            let package = source.with_declarations(rows).await.unwrap();
             package
                 .conform(
                     pse_runtime::workflow::ModelingConformancePolicy {
@@ -230,7 +304,7 @@ async fn fixture_intent_selects_certify() {
                 .unwrap()
         }
     };
-    let report = conform(rows.clone()).await;
+    let report = conform(source.clone()).await;
     assert_eq!(report.fixtures(), [fixture].into());
     // The fixture's solve, its expectation and its checks pass (derivative sampling is
     // reported separately).
@@ -273,7 +347,8 @@ async fn fixture_intent_selects_certify() {
             authored.intent = None;
         }
     }
-    let report = conform(open).await;
+    let updated = source.with_declarations(open).await.unwrap();
+    let report = conform(updated).await;
     let result = &report.results[&fixture];
     let Outcome::Native(native) = &result.outcome else {
         panic!("expected a native solve");
@@ -375,7 +450,15 @@ async fn small_regression_certified() {
     let g = native.evidence.global.unwrap();
     let bound = g.dual_bound.unwrap();
     let objective = native.observation.as_ref().unwrap().objective.unwrap();
-    assert!((objective - 0.001_262_75).abs() < 1e-7, "{objective}");
+    let allowance = resolved_allowance(
+        report.prepared.solve.numerics(),
+        NumericalTarget::Objective,
+        SemanticId::NIL,
+    );
+    assert!(
+        (objective - 0.001_262_75).abs() <= allowance,
+        "{objective}, allowance={allowance}"
+    );
     assert!(
         (objective - bound).abs() <= g.gap_absolute + g.gap_relative * bound.abs(),
         "{objective} {bound}"
@@ -383,11 +466,13 @@ async fn small_regression_certified() {
 }
 
 /// The PC-SAFT tangent-plane case of the vessel mixture, added to the authored phase-stability
-/// fixtures at run time, prepared under `limits`.
-async fn pcsaft_tpd(
+/// fixtures at run time. Publish once so both resource controls use the same revision.
+async fn pcsaft_tpd_fixture(
     package: &ModelingPackage,
-    limits: pse_modeling::Limits,
-) -> Result<pse_runtime::workflow::ModelingSolvePreparation, pse_runtime::workflow::WorkflowError> {
+) -> (
+    ModelingPackage,
+    pse_model::generated::identities::DeclarationId,
+) {
     let name = "tpd_pcsaft";
     let source = format!(
         "@id(\"{PHASE_STABILITY_FIXTURES}\") package phase_stability_fixtures {{ use pcsaft_data @\"1.0.0\"; use pcsaft_parameters @\"1.0.0\"; use properties @\"1.0.0\"; test {name} fixture {{dof 2; route steady; procedure solve;}} {{ permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false; child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential,feed=vessel_fixtures.fraction); }} }}"
@@ -411,6 +496,13 @@ async fn pcsaft_tpd(
             .filter(|r| r.value.kind.as_str() != "package"),
     );
     let package = package.with_declarations(rows).await.unwrap();
+    (package, case)
+}
+async fn pcsaft_tpd(
+    package: &ModelingPackage,
+    case: pse_model::generated::identities::DeclarationId,
+    limits: pse_modeling::Limits,
+) -> Result<pse_runtime::workflow::ModelingSolvePreparation, pse_runtime::workflow::WorkflowError> {
     let cancel = CancelSource::new();
     let analysis = package
         .declared_execution(
@@ -440,17 +532,26 @@ async fn pcsaft_tpd_fits_the_formal_pool() {
         },
     )
     .unwrap();
-    let package = seed_package(&owner).await;
+    let source = seed_package(&owner).await;
+    let (package, case) = pcsaft_tpd_fixture(&source).await;
     let former = pse_modeling::Limits {
         body_slots: Some(4096),
         ..seed_limits()
     };
-    let refused = pcsaft_tpd(&package, former).await.unwrap_err();
+    let refused = pcsaft_tpd(&package, case, former).await.unwrap_err();
     assert!(refused.to_string().contains("body slots"), "{refused}");
-    let prepared = pcsaft_tpd(&package, seed_limits()).await.unwrap();
+    let prepared = pcsaft_tpd(&package, case, seed_limits()).await.unwrap();
     let result = prepared.start().unwrap().wait().await.unwrap();
     // The feed is its own stationary trial phase: the distance is zero there.
     let (value, check) = tpd(&result);
-    assert!(value.abs() < 1e-6, "{value}");
+    let RunReport::Modeling(reports) = result.report().unwrap() else {
+        panic!("expected modeling report")
+    };
+    let allowance = resolved_allowance(
+        reports[0].prepared.solve.numerics(),
+        NumericalTarget::Objective,
+        SemanticId::NIL,
+    );
+    assert!(value.abs() <= allowance, "{value}, allowance={allowance}");
     assert!(check.satisfied, "{check:?}");
 }

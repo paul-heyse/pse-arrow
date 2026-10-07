@@ -345,6 +345,149 @@ pub enum PreparedStudyOperation {
     /// Existing closed-loop specification reconstructed from pinned cases.
     Horizon(Box<Horizon>),
 }
+
+/// One operation's structural admission retained only while adjacent study points
+/// use exactly the same descriptor and path demand. Point values are never retained.
+pub(in crate::workflow) struct DeclaredStudyAdmission {
+    operation: ContentHash,
+    paths: Vec<String>,
+    case: DeclarationId,
+    route: ModelingAnalysisRoute,
+    pub(in crate::workflow) execution: super::DeclaredExecution,
+    overlay_model: Option<crate::math::modeling::ModelingPreparation>,
+    seed_need: Option<SeedNeed>,
+}
+impl DeclaredStudyAdmission {
+    pub(in crate::workflow) fn key(
+        operation: &StudyOperation,
+        overlay: &super::PointOverlay,
+    ) -> Result<(ContentHash, Vec<String>), WorkflowError> {
+        let descriptor = pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, operation)
+            .map_err(|error| super::contract(error.to_string()))?;
+        let mut paths = overlay
+            .assignments
+            .iter()
+            .filter_map(|assignment| match &assignment.target {
+                super::BindingTarget::Path(path) => Some(path.clone()),
+                super::BindingTarget::Member(_) => None,
+            })
+            .collect::<Vec<_>>();
+        paths.sort();
+        paths.dedup();
+        Ok((descriptor, paths))
+    }
+    pub(in crate::workflow) fn matches(&self, key: &(ContentHash, Vec<String>)) -> bool {
+        self.operation == key.0 && self.paths == key.1
+    }
+    pub(in crate::workflow) async fn prepare(
+        package: &ModelingPackage,
+        operation: &StudyOperation,
+        key: (ContentHash, Vec<String>),
+        cancel: &CancelSource,
+    ) -> Result<Self, WorkflowError> {
+        let OperationRequest::DeclaredCase(case) = &operation.operation else {
+            return Err(super::contract(
+                "declared admission requires a declared case",
+            ));
+        };
+        operation.source.check(package)?;
+        let execution = package
+            .declared_execution(
+                case.case,
+                operation.preparation.compiler,
+                case.settings.clone().profile()?,
+                Default::default(),
+                operation.preparation.limits,
+                cancel,
+            )
+            .await?;
+        let mut bindings = execution.analysis.bindings.clone();
+        bindings.demand.extend(key.1.iter().cloned());
+        bindings.demand.sort();
+        bindings.demand.dedup();
+        let overlay_model = if bindings.demand == execution.analysis.bindings.demand {
+            None
+        } else {
+            Some(
+                package
+                    .prepare(
+                        execution.analysis.root,
+                        execution.analysis.instance,
+                        bindings,
+                        execution.analysis.limits,
+                        cancel,
+                    )
+                    .await?,
+            )
+        };
+        Ok(Self {
+            operation: key.0,
+            paths: key.1,
+            case: case.case,
+            route: case.route,
+            execution,
+            overlay_model,
+            seed_need: None,
+        })
+    }
+    pub(in crate::workflow) fn overlay_model(&self) -> &pse_compiler::workspace::PreparedModeling {
+        self.overlay_model
+            .as_ref()
+            .unwrap_or(&self.execution.model)
+            .compiled()
+    }
+    pub(in crate::workflow) fn admit_binding_seed_need(
+        &mut self,
+        package: &ModelingPackage,
+        binding: &super::AdmittedBinding,
+    ) -> Result<SeedNeed, WorkflowError> {
+        validate_declared(self.case, self.route, &self.execution)?;
+        package.validate_binding(self.execution.model.compiled(), binding)?;
+        if let Some(seed_need) = self.seed_need {
+            return Ok(seed_need);
+        }
+        let seed_need = declared_seed_need(&self.execution)?;
+        self.seed_need = Some(seed_need);
+        Ok(seed_need)
+    }
+}
+
+fn declared_seed_need(execution: &super::DeclaredExecution) -> Result<SeedNeed, WorkflowError> {
+    let states = execution
+        .analysis
+        .case
+        .variables
+        .iter()
+        .map(|(path, state)| {
+            execution
+                .model
+                .compiled()
+                .model
+                .paths
+                .get(path)
+                .copied()
+                .map(|id| (id, state.clone()))
+                .ok_or_else(|| super::contract(format!("missing study variable {path}")))
+        })
+        .collect::<Result<BTreeMap<_, _>, _>>()?;
+    let structure = execution
+        .model
+        .compiled()
+        .bound_structure(&states)
+        .map_err(crate::math::MathRuntimeError::from)?;
+    Ok(
+        if structure
+            .structure
+            .variables()
+            .iter()
+            .any(|variable| !variable.fixed)
+        {
+            SeedNeed::Required
+        } else {
+            SeedNeed::NotNeeded
+        },
+    )
+}
 impl StudyOperation {
     /// Admit seed consumption from the compiler's bound variable structure without
     /// constructing evaluators, numerical sessions or solver preparation for every
@@ -356,55 +499,15 @@ impl StudyOperation {
         cancel: &CancelSource,
     ) -> Result<SeedNeed, WorkflowError> {
         self.source.check(package)?;
-        let OperationRequest::DeclaredCase(case) = &self.operation else {
+        let OperationRequest::DeclaredCase(_) = &self.operation else {
             if let OperationRequest::Fit(fit) = &self.operation {
                 fit.settings.profile()?;
             }
             return Ok(SeedNeed::NotNeeded);
         };
-        let execution = declared(
-            package,
-            case,
-            self.preparation.compiler,
-            self.preparation.limits,
-            cancel,
-        )
-        .await?;
-        package.validate_binding(execution.model.compiled(), binding)?;
-        let states = execution
-            .analysis
-            .case
-            .variables
-            .iter()
-            .map(|(path, state)| {
-                execution
-                    .model
-                    .compiled()
-                    .model
-                    .paths
-                    .get(path)
-                    .copied()
-                    .map(|id| (id, state.clone()))
-                    .ok_or_else(|| super::contract(format!("missing study variable {path}")))
-            })
-            .collect::<Result<BTreeMap<_, _>, _>>()?;
-        let structure = execution
-            .model
-            .compiled()
-            .bound_structure(&states)
-            .map_err(crate::math::MathRuntimeError::from)?;
-        Ok(
-            if structure
-                .structure
-                .variables()
-                .iter()
-                .any(|variable| !variable.fixed)
-            {
-                SeedNeed::Required
-            } else {
-                SeedNeed::NotNeeded
-            },
-        )
+        let key = DeclaredStudyAdmission::key(self, &super::PointOverlay::default())?;
+        let mut admission = DeclaredStudyAdmission::prepare(package, self, key, cancel).await?;
+        admission.admit_binding_seed_need(package, binding)
     }
     /// Admit raw horizon quantities once; replay validates these canonical entries only.
     pub(crate) async fn admit_horizon_values(
@@ -943,15 +1046,23 @@ async fn declared(
             cancel,
         )
         .await?;
-    if execution.route != case.route || !matches!(execution.procedure, DeclaredProcedure::Solve) {
+    validate_declared(case.case, case.route, &execution)?;
+    Ok(execution)
+}
+fn validate_declared(
+    case: DeclarationId,
+    route: ModelingAnalysisRoute,
+    execution: &super::DeclaredExecution,
+) -> Result<(), WorkflowError> {
+    if execution.route != route || !matches!(execution.procedure, DeclaredProcedure::Solve) {
         return Err(refusal(
             DiagnosticRule::StudyOperationUnsupported,
             BoundaryClass::Unsupported,
-            [case.case.as_id()],
+            [case.as_id()],
             "study operation requires its admitted authored solve route/procedure",
         ));
     }
-    Ok(execution)
+    Ok(())
 }
 async fn declared_paths(
     package: &ModelingPackage,

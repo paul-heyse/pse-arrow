@@ -38,7 +38,7 @@ async fn reference_recycle_initialization(
                 ..Default::default()
             },
             Default::default(),
-            Default::default(),
+            preparation.limits,
             &cancel,
         )
         .await?;
@@ -102,7 +102,7 @@ async fn reference_cstr_steady_precision() -> Result<(), Box<dyn std::error::Err
                 ..Default::default()
             },
             Default::default(),
-            Default::default(),
+            preparation.limits,
             &cancel,
         )
         .await?;

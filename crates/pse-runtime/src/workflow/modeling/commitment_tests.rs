@@ -22,7 +22,10 @@ use pse_relations::{
     columnar::RelationRow,
     generated::{
         enums::{DerivedQuantity, NativeBackend, NativeQualification, NumericalTarget},
-        runtime::{local_validity, parametric_sensitivities, solve_constraints, solve_runs},
+        runtime::{
+            local_validity, parametric_sensitivities, resolved_numerics, solve_constraints,
+            solve_runs, solve_variables,
+        },
     },
 };
 use std::sync::Arc;
@@ -238,11 +241,50 @@ async fn duals_conditional_on_assignment() {
     assert_eq!(backend(&continuous), NativeBackend::Ipopt);
     assert_eq!(commitment(&continuous), None);
     let reference = dual(&continuous, ids[0]).unwrap();
-    assert!((reference.abs() - 2.0 / 3.0).abs() < 1e-6, "{reference}");
-    assert!(
-        (conditional - reference).abs() < 1e-6,
-        "{conditional} {reference}"
-    );
+    // Multipliers belong to the actual primal point. Check the authored KKT
+    // equations in its frozen coordinate scales, rather than comparing them to a
+    // coefficient of the exact optimum with an unrelated precision demand.
+    for (result, lambda) in [(&result, conditional), (&continuous, reference)] {
+        let crate::workflow::RunReport::Modeling(steps) = result.report().unwrap() else {
+            panic!("modeling report")
+        };
+        let step = &steps[0];
+        let model = &step.prepared.model.model.compiled().model;
+        let symbol = |name: &str| {
+            model
+                .symbols
+                .values()
+                .find(|symbol| symbol.lineage.path.ends_with(&format!(".{name}")))
+                .unwrap()
+                .id
+        };
+        let at = |name| step.values.scalars[&symbol(name)];
+        let numerics = step.prepared.solve.numerics();
+        let objective_scale =
+            fixture::engineering_target(numerics, NumericalTarget::Objective, SemanticId::NIL)
+                .coordinate_scale;
+        let variables: Vec<solve_variables::Row> = rows(result, "runtime.solve_variables");
+        for (name, gradient) in [
+            ("x", at("unit") * (at("x") - at("b"))),
+            ("y", 2.0 * at("unit") * at("y")),
+        ] {
+            let id = symbol(name);
+            let variable = variables
+                .iter()
+                .find(|variable| variable.symbol_id == id)
+                .unwrap();
+            let scale = fixture::engineering_target(numerics, NumericalTarget::Variable, id)
+                .coordinate_scale;
+            let residual = (gradient + lambda - variable.lower_dual.unwrap()
+                + variable.upper_dual.unwrap())
+                * scale
+                / objective_scale;
+            assert!(
+                residual.abs() <= step.prepared.solve.accuracy().stationarity,
+                "{name}: residual={residual}"
+            );
+        }
+    }
 }
 
 /// Sensitivities read at the SCIP re-solve's candidate equal those of the continuous
@@ -296,6 +338,7 @@ async fn sensitivity_conditional_on_assignment() {
         assert!(row.validity.conditional, "{quantity:?}");
     }
     let (continuous, unconditional, reference) = sensitivities(false).await;
+    assert!(result.usable() && continuous.usable());
     assert_eq!(backend(&continuous), NativeBackend::Ipopt);
     assert_eq!(commitment(&continuous), None);
     let validity: Vec<local_validity::Row> = rows(&continuous, "runtime.local_validity");
@@ -315,14 +358,47 @@ async fn sensitivity_conditional_on_assignment() {
             .and_then(|r| r.primal)
             .unwrap()
     };
-    for (k, expected) in [(0, 2.0 / 3.0), (1, 1.0 / 3.0)] {
-        let (a, b) = (
-            find(&conditional, &ids, k),
-            find(&reference, &unconditional, k),
+    for (result, ids, sensitivities) in [
+        (&result, &ids, &conditional),
+        (&continuous, &unconditional, &reference),
+    ] {
+        let numerics: Vec<resolved_numerics::Row> = rows(result, "runtime.resolved_numerics");
+        let target = |id| {
+            numerics
+                .iter()
+                .find(|row| row.target_kind == NumericalTarget::Variable && row.target_id == id)
+                .unwrap()
+        };
+        let x = target(ids[2]);
+        assert_eq!(
+            x.engineering.as_ref().unwrap().relative_fraction,
+            pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction
         );
-        assert!(
-            (a - expected).abs() < 1e-6 && (a - b).abs() < 1e-6,
-            "{a} {b}"
-        );
+        for (k, expected) in [(0, 2.0 / 3.0), (1, 1.0 / 3.0)] {
+            let parameter = target(ids[k]);
+            assert_eq!(
+                parameter.engineering.as_ref().unwrap().relative_fraction,
+                pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction
+            );
+            let actual = find(sensitivities, ids, k);
+            let response_error =
+                (actual - expected).abs() * parameter.coordinate_scale / x.coordinate_scale;
+            assert!(
+                actual.is_finite()
+                    && response_error
+                        <= x.engineering.as_ref().unwrap().budget / x.coordinate_scale,
+                "actual={actual}, expected={expected}"
+            );
+            let row = sensitivities
+                .iter()
+                .find(|row| {
+                    row.parameter_id == ids[k]
+                        && row.target_kind == NumericalTarget::Variable
+                        && row.target_id == ids[2]
+                })
+                .unwrap();
+            assert_eq!(row.parameter_unit_id, parameter.unit_id);
+            assert_eq!(row.target_unit_id, x.unit_id);
+        }
     }
 }

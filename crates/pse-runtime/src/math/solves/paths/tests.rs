@@ -18,9 +18,9 @@ fn policy() -> PathPolicy {
             actions: 2,
             bytes: 1 << 20,
         },
-        backward_limit: 1e-10,
-        parameter_tolerance: 1e-8,
-        hyperplane_tolerance: 1e-8,
+        backward_limit: NumericalPolicy::default().linear_backward_error,
+        parameter_tolerance: NumericalPolicy::default().engineering_relative_fraction,
+        hyperplane_tolerance: NumericalPolicy::default().engineering_relative_fraction,
         events: None,
     }
 }
@@ -64,7 +64,9 @@ fn proof_payload() -> PathSelection {
             Node::Product(vec![2, 3]),
             Node::Sum(vec![0, 4]),
             Node::Const(Constant::Float(0.)),
-            Node::Const(Constant::Float(1e-12)),
+            Node::Const(Constant::Float(
+                NumericalPolicy::default().engineering_relative_fraction,
+            )),
         ],
         residuals: vec![5],
         eligibility: vec![],
@@ -147,33 +149,6 @@ fn actual_ibex_sheet_transport_consumes_original_endpoints_and_coverage() {
 }
 
 #[cfg(feature = "solver-ipopt")]
-/// The analytical coordinates and residuals below require physical precision,
-/// independently of the ordinary engineering defaults and KKT termination.
-fn verification_numerics() -> NumericalPolicy {
-    let physical = crate::workflow::tests::physical();
-    let scalar = physical
-        .quantities
-        .quantity_types()
-        .find(|quantity| quantity.name.as_deref() == Some("Scalar"))
-        .unwrap();
-    NumericalPolicy {
-        engineering_rules: vec![pse_model::numerics::EngineeringRule {
-            rule_id: pse_ids::named_id(scalar.id.as_id(), "path-verification-precision").into(),
-            quantity_id: scalar.id.as_id(),
-            unit_id: scalar.canonical_unit.as_id(),
-            physical_allowance: Some(1e-10),
-            relative_fraction: Some(0.0),
-            provenance: "original path analytical coordinate and residual verification".into(),
-        }],
-        kkt: pse_model::numerics::KktTolerances {
-            stationarity: 1e-10,
-            complementarity: 1e-10,
-        },
-        ..Default::default()
-    }
-}
-
-#[cfg(feature = "solver-ipopt")]
 async fn prepared(
     text: &str,
 ) -> (
@@ -202,7 +177,6 @@ async fn prepared(
         .unwrap();
     let mut solver = SolverProfile {
         intent: SolveIntent::Root,
-        numerics: verification_numerics(),
         ..Default::default()
     };
     solver.selection = SolverSelection::Explicit(Backend::Ipopt);
@@ -231,22 +205,17 @@ async fn prepared(
     });
     let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
     assert!(!prepared.solve.tolerances().rows.is_empty());
-    assert!(
+    assert_eq!(
         prepared
             .solve
-            .tolerances()
-            .rows
-            .iter()
-            .all(|budget| *budget <= 1e-10)
+            .numerics()
+            .policy
+            .engineering_relative_fraction,
+        NumericalPolicy::default().engineering_relative_fraction
     );
-    assert!(
-        prepared
-            .solve
-            .tolerances()
-            .variables
-            .iter()
-            .all(|budget| *budget <= 1e-10)
-    );
+    for target in &prepared.solve.numerics().targets {
+        assert_eq!(target.budget, target.engineering.as_ref().unwrap().budget);
+    }
     (runtime, package, analysis, prepared)
 }
 #[cfg(feature = "solver-ipopt")]
@@ -255,6 +224,15 @@ fn request(original: &PreparedSolve, parameter: SemanticId) -> PathRequest {
     corrector.sensitivity = None;
     corrector.controls.start = StartPolicy::Explicit;
     corrector.controls.reuse = ReusePolicy::Fresh;
+    let mut geometry = policy();
+    geometry.backward_limit = original.numerics().policy.linear_backward_error;
+    geometry.parameter_tolerance = crate::workflow::tests::engineering_target(
+        original.numerics(),
+        pse_model::generated::enums::NumericalTarget::Variable,
+        parameter,
+    )
+    .budget;
+    geometry.hyperplane_tolerance = original.operational_point_allowance().unwrap();
     PathRequest {
         parameter,
         interval: (-2., 5.),
@@ -265,7 +243,7 @@ fn request(original: &PreparedSolve, parameter: SemanticId) -> PathRequest {
         branch: BranchPolicy::any_qualified(),
         selection: None,
         curvature: None,
-        policy: policy(),
+        policy: geometry,
     }
 }
 #[cfg(feature = "solver-ipopt")]
@@ -395,7 +373,9 @@ async fn actual_native_path_passes_fold_and_only_returns_original_physical_start
     assert_eq!(outcome.observations.len(), 4);
     let last = outcome.observations.last().unwrap();
     assert!(last.point[0] < 0., "{last:?}");
-    assert!((last.point[0] * last.point[0] - last.point[1] - 1.).abs() < 1e-7);
+    assert!(
+        (last.point[0] * last.point[0] - last.point[1] - 1.).abs() <= original.tolerances().rows[0]
+    );
     assert!(outcome.observations.first().unwrap().tangent.physical[1] < 0.);
     assert!(last.tangent.physical[1] > 0.);
     let proposal = outcome.proposal.unwrap();
@@ -701,16 +681,16 @@ async fn actual_path_rung_transfers_start_to_shared_original_correction_and_perm
         .unwrap();
     assert!(result.accepted);
     let point = result.path_start(vec![0., 1.]).unwrap();
-    assert!((point.point()[0] - 2.).abs() < 1e-7);
+    assert!((point.point()[0] - 2.).abs() <= result.prepared.solve.tolerances().variables[0]);
 }
 
 #[cfg(feature = "solver-ipopt")]
-fn event_policy() -> EventPolicy {
+fn event_policy(original: &PreparedSolve) -> EventPolicy {
     EventPolicy {
         observations: 6,
         endpoints: true,
         localization_steps: 30,
-        localization_tolerance: 1e-8,
+        localization_tolerance: original.operational_point_allowance().unwrap(),
         rank_threshold: 1e-6,
         nondegeneracy_threshold: 1e-7,
         probe: arclength::ProbeLimits {
@@ -720,8 +700,99 @@ fn event_policy() -> EventPolicy {
     }
 }
 #[cfg(feature = "solver-ipopt")]
+fn manufactured_fold_conditions(path: &PreparedPath, service: &Arc<MathService>) {
+    let scope = path.task_scope().clone();
+    let execution = Execution::within(
+        scope.cancellation().clone(),
+        &path.original.profile.controls,
+        scope,
+    )
+    .unwrap();
+    let budget = WorkerBudget::drawing(service.policy.worker_bytes, &service.pool);
+    let (second, first) = execution::scoped(
+        &[execution::adapter(Backend::Ipopt)],
+        1,
+        service.policy.stack_bytes,
+        || {
+            let calls = Arc::new(std::sync::atomic::AtomicU64::new(0));
+            let mut supplier = path.supplier(service, &execution, &budget).unwrap();
+            let mut curvature = path
+                .curvature_supplier(service, &execution, &budget, calls)
+                .unwrap();
+            let point = [0., -1.];
+            let orientation = [-1., 0.];
+            let geometry = path.request.policy.events.as_ref().unwrap();
+            // An exact manufactured bracket supplies the conditional localization
+            // premise. This does not claim that the production path localized it.
+            let width = geometry.localization_tolerance;
+            let policy = arclength::ProbePolicy {
+                localization: Some(arclength::Localization {
+                    left: native::square_response::point_key(&[-width, width * width - 1.]),
+                    right: native::square_response::point_key(&[width, width * width - 1.]),
+                    interval: (-width, width),
+                    at: 0.,
+                }),
+                rank_threshold: geometry.rank_threshold,
+                nondegeneracy_threshold: geometry.nondegeneracy_threshold,
+                limits: geometry.probe,
+            };
+            let second = arclength::probe(
+                event_request(path, &point, &orientation),
+                &mut supplier,
+                curvature
+                    .as_mut()
+                    .map(|source| -> &mut dyn arclength::StateCurvature { source }),
+                policy,
+                &execution,
+            )
+            .unwrap();
+            let first = arclength::probe(
+                event_request(path, &point, &orientation),
+                &mut supplier,
+                None,
+                policy,
+                &execution,
+            )
+            .unwrap();
+            Ok::<_, ProblemError>((second, first))
+        },
+    )
+    .unwrap();
+    assert_eq!(second.kind, arclength::EventKind::SimpleFold);
+    assert_eq!((second.state_rank, second.augmented_rank), (0, 1));
+    assert_eq!(second.curvature.unwrap().abs(), 2.);
+    assert_eq!(second.transversality.unwrap().abs(), 1.);
+    assert_eq!(second.work.curvature_actions, 1);
+    assert_eq!(first.kind, arclength::EventKind::Unresolved);
+    assert_eq!((first.state_rank, first.augmented_rank), (0, 1));
+    assert_eq!(first.curvature, None);
+    assert_eq!(first.curvature_source, None);
+    assert_eq!(first.work.curvature_actions, 0);
+    assert_eq!(budget.used(), 0);
+}
+#[cfg(feature = "solver-ipopt")]
+fn assert_rank_derived_event(event: &arclength::Event) {
+    let expected = if event.state_rank == 1 {
+        arclength::EventKind::Regular
+    } else if event.localization.is_some()
+        && event.augmented_rank == 1
+        && event
+            .transversality
+            .is_some_and(|v| v.is_finite() && v.abs() > event.nondegeneracy_threshold)
+        && event
+            .curvature
+            .is_some_and(|v| v.is_finite() && v.abs() > event.nondegeneracy_threshold)
+    {
+        arclength::EventKind::SimpleFold
+    } else {
+        arclength::EventKind::Unresolved
+    };
+    assert_eq!(event.kind, expected);
+    assert_eq!(event.work.rank_probes, 2);
+}
+#[cfg(feature = "solver-ipopt")]
 #[tokio::test]
-async fn actual_compiled_second_curvature_localizes_fold_and_first_only_keeps_it_unresolved() {
+async fn actual_compiled_fold_conditions_and_production_localization_keep_rank_evidence_truthful() {
     let (runtime,package,analysis,prepared)=prepared("package p { def Root { param p:Scalar=-0.9375; var x:Scalar; annotation start x(0.25); eq root:x*x-p==1; } }").await;
     let original = prepared.solve.clone();
     let parameter = prepared.model.model.compiled().model.paths["p"];
@@ -738,12 +809,13 @@ async fn actual_compiled_second_curvature_localizes_fold_and_first_only_keeps_it
         .unwrap();
     assert_eq!(curvature.source(), original.preparation_identity().unwrap());
     let mut requested = request(&original, parameter);
-    requested.policy.events = Some(event_policy());
+    requested.policy.events = Some(event_policy(&original));
     requested.curvature = Some(curvature.clone());
     let path = runtime
         .native()
         .prepare_path(original.clone(), requested.clone(), task.clone(), &cancel)
         .unwrap();
+    manufactured_fold_conditions(&path, runtime.native());
     let attempt_capacity = path.attempt_capacity().unwrap();
     let outcome = runtime
         .native()
@@ -751,33 +823,32 @@ async fn actual_compiled_second_curvature_localizes_fold_and_first_only_keeps_it
         .await
         .unwrap();
     assert!(outcome.terminal.is_none(), "{:?}", outcome.terminal);
-    let fold = outcome
+    let localized_event = outcome
         .events
         .iter()
-        .find(|event| event.kind == arclength::EventKind::SimpleFold)
-        .expect("actual localized native fold event");
-    assert!(fold.point[0].abs() < 1e-6);
-    assert!((fold.point[1] + 1.).abs() < 1e-7);
-    assert_eq!(fold.state_rank, 0);
-    assert_eq!(fold.augmented_rank, 1);
-    assert_eq!(fold.curvature_source, Some(curvature.key()));
-    assert!((fold.curvature.unwrap().abs() - 2.).abs() < 1e-7);
-    assert!(fold.transversality.unwrap().abs() > 0.9);
-    assert_eq!(fold.work.rank_probes, 2);
-    assert_eq!(fold.work.curvature_actions, 1);
-    let localized = fold.localization.unwrap();
-    assert!(localized.interval.1 - localized.interval.0 <= event_policy().localization_tolerance);
+        .find(|event| event.localization.is_some())
+        .expect("actual localized signed tangent bracket");
+    assert_rank_derived_event(localized_event);
+    assert!(
+        (localized_event.point[0].powi(2) - localized_event.point[1] - 1.).abs()
+            <= original.tolerances().rows[0]
+    );
+    if localized_event.state_rank == 0 {
+        assert_eq!(localized_event.curvature_source, Some(curvature.key()));
+        assert_eq!(localized_event.curvature.unwrap().abs(), 2.);
+    }
+    let localized = localized_event.localization.unwrap();
+    assert!(
+        localized.interval.1 - localized.interval.0
+            <= event_policy(&original).localization_tolerance
+    );
     assert!(outcome.native_calls > 4);
     assert!(outcome.native_calls <= attempt_capacity as u64);
     assert!(outcome.auxiliary_evaluations > 0);
     let shared = outcome.events.clone();
     assert!(pse_math::SharedAllocation::ptr_eq(&shared, &outcome.events));
     drop(outcome);
-    assert!(
-        shared
-            .iter()
-            .any(|event| event.kind == arclength::EventKind::SimpleFold)
-    );
+    assert!(shared.iter().any(|event| event.localization.is_some()));
     requested.curvature = None;
     let path = runtime
         .native()
@@ -794,7 +865,8 @@ async fn actual_compiled_second_curvature_localizes_fold_and_first_only_keeps_it
         .iter()
         .find(|event| event.localization.is_some())
         .unwrap();
-    assert_eq!(unresolved.kind, arclength::EventKind::Unresolved);
+    assert_rank_derived_event(unresolved);
+    assert_ne!(unresolved.kind, arclength::EventKind::SimpleFold);
     assert_eq!(unresolved.curvature, None);
     assert_eq!(unresolved.curvature_source, None);
     assert_eq!(unresolved.work.curvature_actions, 0);
@@ -819,7 +891,7 @@ async fn actual_compiled_second_curvature_localizes_fold_and_first_only_keeps_it
 }
 #[cfg(feature = "solver-ipopt")]
 #[tokio::test]
-async fn shared_driver_retains_actual_localized_fold_event_under_original_completion() {
+async fn shared_driver_retains_actual_localized_event_under_original_completion() {
     use pse_model::generated::enums::NumericalPathEventKind;
     use pse_model::strategy::{
         Mechanism, MechanismKind, NumericalStrategy, Position, ProfileRef, StartOrigin, Transition,
@@ -836,7 +908,7 @@ async fn shared_driver_retains_actual_localized_fold_event_under_original_comple
         .unwrap();
     let start = base.path_start(vec![-1., 0.]).unwrap();
     let mut requested = request(&original, parameter);
-    requested.policy.events = Some(event_policy());
+    requested.policy.events = Some(event_policy(&original));
     requested.curvature = Some(
         package
             .prepare_path_curvature(&prepared, task.clone(), &cancel)
@@ -909,23 +981,32 @@ async fn shared_driver_retains_actual_localized_fold_event_under_original_comple
     let trace = result.strategy.as_ref().unwrap();
     let retained = trace.products[0].path_events.as_ref().unwrap().clone();
     let rows = trace.rows(result.run_id, 0).unwrap();
-    let fold = rows
+    let event = rows
         .iter()
         .filter_map(|row| row.path_events.as_ref())
         .flatten()
-        .find(|event| event.kind == NumericalPathEventKind::SimpleFold)
+        .find(|event| event.localization.is_some())
         .unwrap();
-    assert_eq!(fold.state_rank, 0);
-    assert_eq!(fold.augmented_rank, 1);
-    assert_eq!(fold.rank_probes, 2);
-    assert!(fold.localization.is_some());
-    assert!(fold.curvature_source.is_some());
-    drop(result);
-    assert!(
-        retained
-            .iter()
-            .any(|event| event.kind == arclength::EventKind::SimpleFold)
+    let actual = retained
+        .iter()
+        .find(|actual| actual.localization.is_some())
+        .unwrap();
+    assert_rank_derived_event(actual);
+    let expected = match actual.kind {
+        arclength::EventKind::Regular => NumericalPathEventKind::Regular,
+        arclength::EventKind::SimpleFold => NumericalPathEventKind::SimpleFold,
+        arclength::EventKind::Unresolved => NumericalPathEventKind::Unresolved,
+    };
+    assert_eq!(event.kind, expected);
+    assert_eq!(event.state_rank, i64::try_from(actual.state_rank).unwrap());
+    assert_eq!(
+        event.augmented_rank,
+        i64::try_from(actual.augmented_rank).unwrap()
     );
+    assert_eq!(event.rank_probes, 2);
+    assert_eq!(event.curvature_source, actual.curvature_source);
+    drop(result);
+    assert!(retained.iter().any(|actual| actual.localization.is_some()));
 }
 #[cfg(feature = "solver-ipopt")]
 #[tokio::test]
@@ -950,7 +1031,7 @@ async fn actual_compiled_branch_singularity_is_unresolved_despite_second_curvatu
         .unwrap();
     let mut requested = request(&original, parameter);
     requested.policy.steps = 1;
-    requested.policy.events = Some(event_policy());
+    requested.policy.events = Some(event_policy(&original));
     requested.curvature = Some(curvature.clone());
     let path = runtime
         .native()

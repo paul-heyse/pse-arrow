@@ -27,7 +27,7 @@ pub(super) async fn open(
         // SAFETY: the operator explicitly selects a reviewed deployment-tool
         // capture; linked build information supplies this executable's attestation.
         #[allow(unsafe_code, reason = "ADR-0164 controlled worker deployment qualification; no unsafe memory operation")]
-        unsafe { pse_runtime::math::portable::QualifiedProducer::from_deployment_receipt(&bytes, attestation.source, attestation.build) }
+        unsafe { pse_runtime::math::portable::QualifiedProducer::from_deployment_receipt(&bytes, attestation.source, attestation.build, pse_runtime::math::portable::ExpectedProducerTarget::WORKER) }
             .map_err(|e| e.to_string())
     }).transpose()?.flatten();
     Ok(pse_runtime::workflow::CanonicalDeployment::new(

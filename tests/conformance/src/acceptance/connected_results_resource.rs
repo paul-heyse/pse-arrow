@@ -36,8 +36,8 @@ async fn authored_connected_results_resource() {
     let attempt = a.canonical_attempt_key().unwrap();
     let mut reader = rt
         .results(
-            &run,
-            &attempt,
+            run,
+            attempt,
             "runtime.solve_variables",
             0,
             u64::MAX,
@@ -55,8 +55,8 @@ async fn authored_connected_results_resource() {
     cancelled.cancel();
     assert!(
         rt.results(
-            &run,
-            &attempt,
+            run,
+            attempt,
             "runtime.solve_variables",
             0,
             u64::MAX,
@@ -68,7 +68,7 @@ async fn authored_connected_results_resource() {
     assert!(
         rt.results(
             "run:absent",
-            &attempt,
+            attempt,
             "runtime.solve_variables",
             0,
             u64::MAX,

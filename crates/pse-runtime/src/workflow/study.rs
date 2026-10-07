@@ -1387,6 +1387,7 @@ impl super::ModelingPackage {
             return Err(diagnostic.into());
         }
         let mut admitted = Vec::with_capacity(points.len());
+        let mut admission = None;
         for point in points {
             let mut operation = StudyOperation {
                 version: Version,
@@ -1395,12 +1396,14 @@ impl super::ModelingPackage {
                 operation: point.operation.clone(),
                 admitted_horizon: None,
             };
+            // Release the previous declared product before another operation
+            // admits its plant, controller, estimator or other owned preparations.
+            if !matches!(&operation.operation, OperationRequest::DeclaredCase(_)) {
+                admission = None;
+            }
             operation.admit_horizon_values(self, cancel).await?;
-            let binding = self
-                .admit_operation_overlay(&operation, &point.overlay, cancel)
-                .await?;
-            let seed_need = operation
-                .admit_binding_seed_need(self, &binding, cancel)
+            let (binding, seed_need) = self
+                .admit_operation_overlay(&operation, &point.overlay, &mut admission, cancel)
                 .await?;
             let policy = PointPolicy {
                 key: point.policy.key,
@@ -1416,6 +1419,7 @@ impl super::ModelingPackage {
                 policy,
             });
         }
+        drop(admission);
         let definition = StudyDefinition {
             version: Version,
             physical,

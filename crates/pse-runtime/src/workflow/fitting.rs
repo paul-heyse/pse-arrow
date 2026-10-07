@@ -433,6 +433,12 @@ impl FitReport {
     }
 }
 impl PreparedFit {
+    /// Actual physical budgets, coordinate scales and numerical controls frozen
+    /// when this fit was admitted; inspection does not resolve a second policy.
+    pub fn numerics(&self) -> &ResolvedNumericalPolicy {
+        &self.problem.numerics
+    }
+
     /// Requested composition constraints retained independently from native fit settings.
     pub fn composition_request(&self) -> &pse_model::strategy::CompositionRequest {
         &self.problem.profile.solver.composition

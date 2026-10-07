@@ -14,7 +14,35 @@ from pathlib import Path
 from scripts import surreal_server as server
 
 
-def journey(binary: Path) -> None:
+def journey(binary: Path, profile_state: Path | None = None) -> None:
+    profile_args = [
+        "--memory-mib",
+        "1536",
+        "--server-memory-mib",
+        "1024",
+        "--native-workers",
+        "1",
+        "--native-worker-memory-mib",
+        "512",
+    ]
+    if profile_state is not None:
+        selected = server.config_for(profile_state.resolve())
+        allocation = selected["resources"]
+        release = selected["server"]
+        if not isinstance(allocation, dict) or not isinstance(release, dict):
+            raise server.SupervisorError("Invalid selected recovery profile")
+        profile_args = [
+            "--memory-mib",
+            str(server.integer(allocation["total_memory_bytes"]) // server.MIB),
+            "--server-memory-mib",
+            str(server.integer(allocation["server_memory_bytes"]) // server.MIB),
+            "--native-workers",
+            str(server.integer(allocation["native_workers"])),
+            "--native-worker-memory-mib",
+            str(server.integer(allocation["native_worker_memory_bytes"]) // server.MIB),
+            "--version",
+            f"v{release['version']}",
+        ]
     root = (
         Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state")))
         / "pse-arrow/fixtures"
@@ -36,14 +64,7 @@ def journey(binary: Path) -> None:
                     str(port),
                     "--interpretation",
                     "pse.substrate.v1",
-                    "--memory-mib",
-                    "1536",
-                    "--server-memory-mib",
-                    "1024",
-                    "--native-workers",
-                    "1",
-                    "--native-worker-memory-mib",
-                    "512",
+                    *profile_args,
                 ]
             )
         )
@@ -81,8 +102,13 @@ def journey(binary: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", type=Path)
+    parser.add_argument(
+        "--profile-state",
+        type=Path,
+        help="Copy the selected deployment's released-server and resource profile into the isolated recovery fixture",
+    )
     args = parser.parse_args()
-    journey(args.binary)
+    journey(args.binary, args.profile_state)
 
 
 if __name__ == "__main__":

@@ -749,6 +749,33 @@ mod tests {
     use super::*;
     use pse_compiler::workspace::ModelingVariableState;
     #[cfg(feature = "solver-kinsol")]
+    fn original_scalar(
+        prepared: &ModelingSolvePreparation,
+        analysis: &ModelingAnalysis,
+        name: &str,
+    ) -> SemanticId {
+        let model = &prepared.model.model.compiled().model;
+        let instance = &model.instances[&analysis.instance];
+        assert_eq!(instance.definition, analysis.root);
+        let declaration = instance.members[name];
+        let mut symbols = model.symbols.values().filter(|symbol| {
+            symbol.lineage.instance == instance.id && symbol.lineage.declaration == declaration
+        });
+        let symbol = symbols.next().unwrap();
+        assert!(symbols.next().is_none());
+        assert_eq!(symbol.lineage.path, format!("{}.{name}", instance.path));
+        assert!(
+            prepared
+                .model
+                .case
+                .compiled()
+                .plan
+                .columns()
+                .contains(&symbol.id)
+        );
+        symbol.id
+    }
+    #[cfg(feature = "solver-kinsol")]
     fn initialization_summary(report: &ModelingInitializationReport) -> String {
         format!(
             "failure={:?}; attempts={:?}",
@@ -840,14 +867,22 @@ mod tests {
             "{}",
             initialization_summary(&report)
         );
-        assert!(
-            report
-                .committed
-                .as_ref()
-                .unwrap()
-                .values()
-                .any(|v| (v - 2.).abs() < 1e-6)
+        let original = report.attempts.last().unwrap().result.as_ref().unwrap();
+        let x = original_scalar(&original.prepared, &analysis, "x");
+        let allowance = super::super::super::tests::engineering_target(
+            original.prepared.solve.numerics(),
+            pse_relations::generated::enums::NumericalTarget::Variable,
+            x,
+        )
+        .engineering
+        .as_ref()
+        .unwrap()
+        .budget;
+        assert_eq!(
+            report.committed.as_ref().unwrap()[&x],
+            original.values.scalars[&x]
         );
+        assert!((original.values.scalars[&x] - 2.).abs() <= allowance);
         assert_eq!(
             report.attempts.last().unwrap().step,
             ModelingInitializationStep::Original
@@ -874,7 +909,7 @@ mod tests {
     async fn initialization_iteration_limit_does_not_invent_stagnation_or_subdivision() {
         let (package, analysis, policy) = continuation_fixture(
             "package p { def Root { param t: Scalar = 100; var x: Scalar; eq residual: x*x == t; annotation start x(1); continue ramp on t from 1 to 100; } }",
-            12,
+            1,
         ).await;
         let report = package
             .initialize_model(&analysis, policy, &crate::CancelSource::new())
@@ -932,14 +967,22 @@ mod tests {
             diagnostic.rule.as_str(),
             "math.domain" | "math.provider"
         ));
-        assert!(
-            report
-                .committed
-                .as_ref()
-                .unwrap()
-                .values()
-                .any(|v| (v - 2.).abs() < 1e-6)
+        let original = report.attempts.last().unwrap().result.as_ref().unwrap();
+        let x = original_scalar(&original.prepared, &analysis, "x");
+        let allowance = super::super::super::tests::engineering_target(
+            original.prepared.solve.numerics(),
+            pse_relations::generated::enums::NumericalTarget::Variable,
+            x,
+        )
+        .engineering
+        .as_ref()
+        .unwrap()
+        .budget;
+        assert_eq!(
+            report.committed.as_ref().unwrap()[&x],
+            original.values.scalars[&x]
         );
+        assert!((original.values.scalars[&x] - 2.).abs() <= allowance);
     }
     #[tokio::test]
     async fn initialization_restores_original_specification() {

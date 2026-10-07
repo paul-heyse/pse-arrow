@@ -344,16 +344,20 @@ def compose_terminal(
         compose_selection(check)
 
 
-def native_report_config(root: Path, output: Path, name: str) -> Path:
+def native_report_config(
+    root: Path, output: Path, name: str, profile: str = "local"
+) -> Path:
     """Preserve every test setting while isolating this invocation's report."""
     config = (root / ".config/nextest.toml").read_text()
     config, count = re.subn(
-        r"(?m)(^\[profile\.ci\.junit\]\n)path\s*=\s*[^\n]+",
+        rf"(?m)(^\[profile\.{re.escape(profile)}\.junit\]\n)path\s*=\s*[^\n]+",
         lambda match: match[1] + "path = " + json.dumps(str(output / f"{name}.xml")),
         config,
     )
     if count != 1:
-        raise ValueError("expected one declared ci JUnit path in nextest configuration")
+        raise ValueError(
+            f"expected one declared {profile} JUnit path in nextest configuration"
+        )
     path = output / f"{name}-nextest.toml"
     path.write_text(config)
     return path
@@ -508,6 +512,8 @@ def run_gates(
     checkpoint(output, receipt)
     env = command_env()
     env["PSE_ACCEPTANCE_OUTPUT"] = str(output)
+    if "producer-fixture" in selected:
+        env["PSE_PRODUCER_FIXTURE_RECEIPT"] = str(output / "producer-fixture.json")
     # Nested just aggregates use their own evidence folder; never overwrite ours.
     env.pop("PSE_VALIDATION_OUTPUT", None)
     # Selection belongs to this exact gate, never an enclosing pytest/assessment.
@@ -530,6 +536,12 @@ def run_gates(
         command = ["just", recipe, *(arg.format_map(context) for arg in gate.args)]
         report = Path(gate.report.format_map(context)) if gate.report else None
         gate_env = dict(env)
+        receipt_variable = {
+            "native-test": "PSE_WORKER_PRODUCER_RECEIPT",
+            "native-python": "PSE_PYTHON_PRODUCER_RECEIPT",
+        }.get(recipe)
+        if receipt_variable and gate_env.get(receipt_variable):
+            gate_env["PSE_PRODUCER_RECEIPT"] = gate_env[receipt_variable]
         if recipe in {"native-test", "native-python", "feature-absence"}:
             gate_env["PSE_NATIVE_PROVENANCE"] = str(output / f"{gate.name}-native.json")
             if recipe == "native-test":
@@ -542,8 +554,8 @@ def run_gates(
                 gate_env.update(
                     OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1"
                 )
-        if gate.report and "nextest/ci/junit.xml" in gate.report:
-            config = native_report_config(root, output, gate.name)
+        if gate.report and f"nextest/{gate.profile}/junit.xml" in gate.report:
+            config = native_report_config(root, output, gate.name, gate.profile)
             command.extend(("--config-file", str(config)))
             report = output / f"{gate.name}.xml"
         record: dict = {
@@ -679,6 +691,17 @@ def run_gates(
                 record["artifacts"][str(artifact.relative_to(output))] = (
                     validation_receipts.digest(artifact)
                 )
+        if gate.name == "producer-fixture" and record["status"] == "passed":
+            artifact = output / "producer-fixture.json"
+            if artifact.is_file():
+                record["artifacts"][artifact.name] = validation_receipts.digest(
+                    artifact
+                )
+            else:
+                record["status"] = "failed"
+                record["report_errors"].append(
+                    "producer fixture completed without receipt"
+                )
         if recipe == "native-test":
             raw_selection = output / f"{gate.name}-selected.json"
             try:
@@ -768,6 +791,12 @@ def main() -> int:
     parser.add_argument("--reuse", action="append", default=[])
     parser.add_argument("--transfer", action="append", default=[])
     parser.add_argument("--change-reason")
+    parser.add_argument(
+        "--python-profile",
+        default="dev",
+        choices=("dev", "producer"),
+        help="Cargo profile installed for the linked Python assessment",
+    )
     args = parser.parse_args()
     if (
         args.functional_scope
@@ -782,7 +811,7 @@ def main() -> int:
         if args.functional_scope
         else expand((args.group,))
         if args.group
-        else comprehensive()
+        else comprehensive(args.python_profile)
     )
     if args.list:
         print(

@@ -254,8 +254,6 @@ pub(crate) async fn heat_fit(
         };
         let mut integration = simulation.profile().clone();
         integration.method = pse_backend_native::dynamics::Method::Idas;
-        integration.rtol = 1e-8;
-        integration.atol.fill(1e-10);
         simulations.insert(
             InstanceId::from(SemanticId::parse_hex(experiment).unwrap()),
             integration,
@@ -293,6 +291,20 @@ pub(crate) async fn seed_prepare(
         .await?
         .analysis;
     package.prepare_analysis(&analysis, cancel).await
+}
+/// Use the actual admitted physical allowance for the named original coordinate.
+pub(crate) fn resolved_allowance(
+    numerics: &pse_model::numerics::ResolvedNumericalPolicy,
+    kind: pse_relations::generated::enums::NumericalTarget,
+    id: SemanticId,
+) -> f64 {
+    let target = numerics
+        .targets
+        .iter()
+        .find(|target| target.kind == kind && target.id == id)
+        .expect("production-resolved target allowance");
+    assert!(target.budget.is_finite() && target.budget > 0.);
+    target.budget
 }
 /// Both original physical checks and native feasibility are required.
 pub(crate) fn authored_success(result: &RunResult) -> &pse_runtime::workflow::ModelingResult {

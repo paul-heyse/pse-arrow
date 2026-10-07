@@ -68,6 +68,31 @@ impl pse_diagnostics::TypedDiagnostic for PortableError {
         Some(Box::new(std::iter::once(child)))
     }
 }
+/// The executable boundary that owns a producer capture. Dependency units cannot
+/// qualify a different executable, even when their outer attestations coincide.
+#[derive(Clone, Copy, Debug)]
+pub struct ExpectedProducerTarget {
+    /// Cargo package selected by the capture.
+    pub package: &'static str,
+    /// Cargo target selected as the production graph root.
+    pub target: &'static str,
+    /// Cargo target kind (`lib`, `bin`, or `cdylib`).
+    pub kind: &'static str,
+}
+impl ExpectedProducerTarget {
+    /// The native extension imported by Python.
+    pub const PYTHON: Self = Self {
+        package: "pse-py",
+        target: "_native",
+        kind: "cdylib",
+    };
+    /// The supervised native worker executable.
+    pub const WORKER: Self = Self {
+        package: "xtask",
+        target: "pse-worker",
+        kind: "bin",
+    };
+}
 /// Relevant producer identity from an operator-owned, verified deployment receipt.
 /// It is separate from a whole-build attestation and has no deserializer.
 #[derive(Clone, Debug)]
@@ -88,7 +113,7 @@ impl QualifiedProducer {
     /// ```compile_fail
     /// use pse_runtime::math::portable::QualifiedProducer;
     /// let id=pse_ids::ContentHash::from_bytes([0;32]);
-    /// let _=QualifiedProducer::from_deployment_receipt(b"{}",id,id);
+    /// let _=QualifiedProducer::from_deployment_receipt(b"{}",id,id,pse_runtime::math::portable::ExpectedProducerTarget::WORKER);
     /// ```
     /// # Errors
     /// Wrong interpretation, malformed identity or contradictory eligibility evidence.
@@ -100,6 +125,7 @@ impl QualifiedProducer {
         bytes: &[u8],
         expected_source: ContentHash,
         expected_build: ContentHash,
+        expected_target: ExpectedProducerTarget,
     ) -> Result<Option<Self>, PortableError> {
         #[derive(Deserialize)]
         struct Receipt {
@@ -108,6 +134,19 @@ impl QualifiedProducer {
             persistent_reuse_eligible: bool,
             reasons: Vec<String>,
             outer_attestation: Option<Attestation>,
+            #[serde(default)]
+            package: Option<String>,
+            #[serde(default)]
+            selected_root: Option<String>,
+            #[serde(default)]
+            units: Vec<Unit>,
+        }
+        #[derive(Deserialize)]
+        struct Unit {
+            key: String,
+            target_name: String,
+            target_kind: Vec<String>,
+            mode: String,
         }
         #[derive(Deserialize)]
         struct Attestation {
@@ -133,6 +172,32 @@ impl QualifiedProducer {
             return Ok(None);
         };
         if attestation.source != expected_source || attestation.build != expected_build {
+            return Ok(None);
+        }
+        let Some(selected_root) = receipt.selected_root else {
+            return Ok(None);
+        };
+        let mut roots = receipt
+            .units
+            .iter()
+            .filter(|unit| unit.key == selected_root);
+        let Some(root) = roots.next() else {
+            return Err(PortableError::Qualification(
+                "selected producer root is absent from captured units".into(),
+            ));
+        };
+        if roots.next().is_some() || root.mode != "build" {
+            return Err(PortableError::Qualification(
+                "contradictory selected producer root".into(),
+            ));
+        }
+        if receipt.package.as_deref() != Some(expected_target.package)
+            || root.target_name != expected_target.target
+            || !root
+                .target_kind
+                .iter()
+                .any(|kind| kind == expected_target.kind)
+        {
             return Ok(None);
         }
         let identity = ContentHash::parse_hex(&receipt.identity)
@@ -541,6 +606,62 @@ mod portable_frame_tests {
 }
 
 #[cfg(all(test, feature = "canonical-tests"))]
+mod canonical_deployment_tests {
+    use super::*;
+
+    #[test]
+    #[allow(
+        unsafe_code,
+        reason = "actual controlled deployment captures qualified against an independently observed Python run header"
+    )]
+    fn canonical_deployment_actual_receipts_enforce_selected_role() {
+        let observed = std::env::var_os("PSE_PYTHON_DEPLOYMENT_ATTESTATION")
+            .expect("qualification supplies the actual imported Python run header attestation");
+        let (source, build): (ContentHash, ContentHash) =
+            serde_json::from_slice(&std::fs::read(observed).unwrap()).unwrap();
+        for (path, target, other) in [
+            (
+                "PSE_PYTHON_PRODUCER_RECEIPT",
+                ExpectedProducerTarget::PYTHON,
+                ExpectedProducerTarget::WORKER,
+            ),
+            (
+                "PSE_WORKER_PRODUCER_RECEIPT",
+                ExpectedProducerTarget::WORKER,
+                ExpectedProducerTarget::PYTHON,
+            ),
+        ] {
+            let bytes =
+                std::fs::read(std::env::var_os(path).expect("actual producer capture")).unwrap();
+            let receipt: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(receipt["persistent_reuse_eligible"], true);
+            assert!(receipt["reasons"].as_array().unwrap().is_empty());
+            // Matching the independently observed loaded-extension attestation is
+            // required for BOTH roles: a mismatched outer hash is not this oracle.
+            assert_eq!(receipt["outer_attestation"]["source"], source.to_prefixed());
+            assert_eq!(receipt["outer_attestation"]["build"], build.to_prefixed());
+            // SAFETY: the qualification runner supplies current actual controlled
+            // captures and independently records the installed/imported Python
+            // deployment's real run header, with binary association checked before
+            // this control. No receipt chooses its own expected attestation.
+            let qualified = unsafe {
+                QualifiedProducer::from_deployment_receipt(&bytes, source, build, target)
+            }
+            .unwrap()
+            .expect("actual capture qualifies for its selected deployment role");
+            assert_eq!(qualified.identity().to_hex(), receipt["identity"]);
+            // SAFETY: identical actual deployment premises; only the receiving
+            // executable role changes, so refusal exercises target association.
+            assert!(
+                unsafe { QualifiedProducer::from_deployment_receipt(&bytes, source, build, other) }
+                    .unwrap()
+                    .is_none()
+            );
+        }
+    }
+}
+
+#[cfg(all(test, feature = "canonical-tests"))]
 mod canonical_portable_body_tests {
     use super::*;
     use pse_compiler::workspace::{CompilerWorkspace, ModelingBodyRetention, WorkspaceLimits};
@@ -558,7 +679,18 @@ mod canonical_portable_body_tests {
     ) -> Result<Option<QualifiedProducer>, PortableError> {
         // SAFETY: isolated fixture supplies a complete controlled receipt and exact
         // fixture attestations; no production completeness is asserted by these tests.
-        unsafe { QualifiedProducer::from_deployment_receipt(bytes, source, build) }
+        unsafe {
+            QualifiedProducer::from_deployment_receipt(
+                bytes,
+                source,
+                build,
+                ExpectedProducerTarget {
+                    package: "producer-fixture",
+                    target: "producer_fixture",
+                    kind: "lib",
+                },
+            )
+        }
     }
     #[test]
     fn canonical_portable_body_errors_preserve_typed_identity() {
@@ -1359,7 +1491,7 @@ mod canonical_portable_body_tests {
         let source = ContentHash::from_bytes([2; 32]);
         let build = ContentHash::from_bytes([3; 32]);
         let identity = ContentHash::from_bytes([4; 32]);
-        let receipt=serde_json::to_vec(&serde_json::json!({"frame":Frame::ProducerV1.as_str(),"identity":identity.to_hex(),"persistent_reuse_eligible":true,"reasons":[],"outer_attestation":{"source":source,"build":build}})).unwrap();
+        let receipt=serde_json::to_vec(&serde_json::json!({"frame":Frame::ProducerV1.as_str(),"identity":identity.to_hex(),"persistent_reuse_eligible":true,"reasons":[],"package":"producer-fixture","selected_root":"fixture-root","units":[{"key":"fixture-root","target_name":"producer_fixture","target_kind":["lib"],"mode":"build"}],"outer_attestation":{"source":source,"build":build}})).unwrap();
         assert_eq!(
             deployment_fixture(&receipt, source, build)
                 .unwrap()
@@ -1378,7 +1510,7 @@ mod canonical_portable_body_tests {
                 .is_none()
         );
         let refreshed_source = ContentHash::from_bytes([7; 32]);
-        let refreshed=serde_json::to_vec(&serde_json::json!({"frame":Frame::ProducerV1.as_str(),"identity":identity.to_hex(),"persistent_reuse_eligible":true,"reasons":[],"outer_attestation":{"source":refreshed_source,"build":build}})).unwrap();
+        let refreshed=serde_json::to_vec(&serde_json::json!({"frame":Frame::ProducerV1.as_str(),"identity":identity.to_hex(),"persistent_reuse_eligible":true,"reasons":[],"package":"producer-fixture","selected_root":"fixture-root","units":[{"key":"fixture-root","target_name":"producer_fixture","target_kind":["lib"],"mode":"build"}],"outer_attestation":{"source":refreshed_source,"build":build}})).unwrap();
         assert_eq!(
             deployment_fixture(&refreshed, refreshed_source, build)
                 .unwrap()
@@ -1386,6 +1518,37 @@ mod canonical_portable_body_tests {
                 .identity(),
             identity
         );
+    }
+
+    #[test]
+    fn canonical_portable_body_producer_requires_selected_root_not_dependency() {
+        let source = ContentHash::from_bytes([2; 32]);
+        let build = ContentHash::from_bytes([3; 32]);
+        let mut receipt = serde_json::json!({
+            "frame": Frame::ProducerV1.as_str(), "identity": ContentHash::from_bytes([4; 32]).to_hex(),
+            "persistent_reuse_eligible": true, "reasons": [], "package": "producer-fixture",
+            "outer_attestation": {"source": source, "build": build}, "selected_root": "worker",
+            "units": [
+                {"key": "worker", "target_name": "worker", "target_kind": ["bin"], "mode": "build"},
+                {"key": "library", "target_name": "producer_fixture", "target_kind": ["lib"], "mode": "build"}
+            ]
+        });
+        let check = |receipt: &serde_json::Value| {
+            deployment_fixture(&serde_json::to_vec(receipt).unwrap(), source, build)
+        };
+        assert!(check(&receipt).unwrap().is_none());
+        receipt["selected_root"] = "library".into();
+        assert!(check(&receipt).unwrap().is_some());
+        receipt["selected_root"] = "absent".into();
+        assert!(matches!(
+            check(&receipt),
+            Err(PortableError::Qualification(_))
+        ));
+        receipt.as_object_mut().unwrap().remove("selected_root");
+        assert!(check(&receipt).unwrap().is_none());
+        receipt["selected_root"] = "library".into();
+        receipt["package"] = "another-package".into();
+        assert!(check(&receipt).unwrap().is_none());
     }
 
     #[test]

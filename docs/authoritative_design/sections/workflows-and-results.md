@@ -8,7 +8,7 @@ status: current
 This page owns the public operations that turn an immutable model revision into native
 work and the meaning of what comes back: dynamic simulation, parameter fitting, cases,
 result qualification and the Python boundary. The Rust owner is
-`crates/pse-runtime/src/workflow/` (revisions, preparation, jobs, dynamics, fitting,
+`crates/pse-runtime/src/workflow/` (revisions, preparation, canonical execution, dynamics, fitting,
 completion and result encoding) over the native adapters in `crates/pse-backend-native`.
 Python projects the same objects through `crates/pse-py` and `python/pse`. The callable
 sequence, settings and examples are in the [native workflow guide](../../dev/native-workflow.md);
@@ -344,14 +344,20 @@ qualification basis for the admitted profiles is
 > [ADR-0083](../../adr/0083-class-specific-native-execution.md),
 > [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md)
 
+> Amendment: [ADR-0164](../../adr/0164-unify-simulation-substrate.md)
+> (proposed; authorized implementation). The current implementation uses the canonical
+> substrate; assembled acceptance and measurements remain with the owning Plan 28 packets.
+
 Public execution begins with an immutable `ModelingPackage` admitted from an explicit
 package closure and physical context. Selected definitions/cases produce immutable prepared
 solves, simulations, fits or strategies. Starting work returns a supervised `RunHandle`;
-waiters share the joined result and cancellation joins native destruction. Preparation does
-not publish or own a mutable solver. Publication remains explicit
-([§20](identity-and-publication.md#section-20)). In a durable runtime every run is also an
-attempt registered in the operational store, and jobs and studies run across worker
-processes ([§20.6](identity-and-publication.md#section-20-6)). Owners are `workflow/modeling`,
+waiters share the joined result and cancellation joins native destruction. Preparation owns
+no mutable solver and does not itself constitute execution. Ordinary execution durably
+retains its actual scientific outcome in the canonical substrate
+([§20](identity-and-publication.md#section-20)). Explicit ephemeral execution keeps result
+observations local to the process; it still admits canonical sources and is not a fallback
+when durable retention fails. Native study workers use the same scientific operation owners
+([§20.6](identity-and-publication.md#section-20-6)). Owners are `workflow/modeling`,
 `workflow/staged`, `workflow/run`, `workflow/completion`, `workflow/modeling_results` and
 fitting preparation.
 
@@ -386,7 +392,7 @@ mutates package declarations.
 > Decision: ADR-0163 (proposed; authorized implementation).
 
 Completion retains immutable physical goal assessments, method, validity, strength and
-unavailable reasons. Publication and Python/durable consumers report that assessment without
+unavailable reasons. Retained tables and Python/durable consumers report that assessment without
 refining or reinterpreting usability. A selected output and the optimum objective are distinct
 subjects: objective-gap evidence cannot certify arbitrary variables. For an asymmetric optimum
 interval, value resolution is assessed about the reported representative, not silently about
@@ -408,8 +414,11 @@ and a `Completion` computed once at join: candidate assessments, source-attribut
 diagnostics, algebraic step records, the dynamic or fitting outcome and full lineage.
 Lineage records model revision, case, request, preparation, profile, numerical policy,
 physical context and actual environment identities, separately from the unique run ID.
-Arrow tables, Python objects and publication copy this product; reading it never
-evaluates or reclassifies the model.
+Arrow tables, retained IPC and Python consumers preserve this product; reading it never
+evaluates or reclassifies the model. Durable consumers select compact canonical handles
+rather than hydrating every joined native report. A failed or partial attempt can retain
+inspectable observations without a usable result. A preclaim refusal keeps its original
+diagnostic and cannot manufacture an attempt header.
 
 `ModelingTrajectory` is a clone-shared immutable completion snapshot. Read-only accessors
 expose the native outcome and retained checks; `accepted()` derives the composed permission.
@@ -491,18 +500,76 @@ handle and revision are dropped. Identity framing and reuse equality use canonic
 bits that preserve signed zero ([§5.3](identity-and-publication.md#section-5-3),
 [ADR-0089](../../adr/0089-semantic-identity-projections.md)).
 
+**Retained scientific rows.** Registry-admitted batches are retained once as independent,
+uncompressed, self-contained Arrow IPC streams, each bounded to 512 KiB including schema,
+one record batch and an explicit end marker. Bounded framing, schema, count and layout
+preflight checks advertised lengths before decoder allocation. Compression and shared
+dictionary state refuse. Canonical physical-source IPC objects serve a different input
+purpose under the existing 3 MiB canonical object bound; their allowance does not enlarge
+result blocks.
+
+Derived scalar cells and dense output descriptors reference these original batches and
+row/field coordinates. They are selection indexes, not another scientific representation.
+Readers verify indexes against decoded rows and return the original columns, preserving
+units, basis, quality and missingness. Scalar cells retain exact IEEE bits, including signed
+zero and exceptional observations; finite projections serve predicates and cannot replace
+scientific values or turn a missing value into zero. Scalar indexing currently covers
+supported fields in solve variables/constraints and fit parameters/observations. Dense
+indexing covers simulation sample values. Unsupported fields refuse explicitly.
+
+Dense trajectories are stored by declared `(symbol_id, sample)` keys. Relation ranges use
+this stored order; original sample/time coordinates and every scientific column remain
+unchanged. Output selection uses the declared owner, field and partition; dense coordinate
+predicates use time, while scalar predicates use the finite projection or explicit
+missingness. Neither selects another result's values.
+
+A read admits one terminal attempt and its closed manifest, then resolves only that
+manifest's exact sets and contiguous batch ordinals. Identity, digest, schema, count and
+coverage are checked. Late or unrelated staging cannot join this selection. Active readers
+hold finite renewable protection under the retention guard for subsequent storage reads.
+Fully decoded copied arrays own their accounted allocations independently of the reader,
+runtime facade and database; they require no further storage access or indefinite database
+pin. Closing a stream stops unread work without invalidating returned arrays.
+
+Local IPC export creates its final destination only after every checked database read
+completes, the IPC stream finishes and the file is synchronized. Interrupted staging remains
+`.incomplete`; an existing destination refuses instead of being overwritten. Schema metadata
+records exact problem/revision/run/attempt, terminal class, manifest, interpretation, stored
+range and output predicates. The completed file owns its copied bytes.
+
 Diagnostics are `BoundaryDiagnostic` values classified by the shared taxonomy (invalid
 model, unsupported, resource limit, trial rejected, nonfinite, infrastructure, cancelled,
 conflict, incompatible, internal) with source identities, stage and observations
 ([§23.2](operations-and-validation.md#section-23-2)). Diagnostic capture is bounded and
-optional; it reads the executed plan and cannot change a scientific or publication
-outcome. Progress is a bounded event stream with an actual dropped-event count; a
-durable attempt's progress events and incumbents are also stored without a cap and read
-back in order by `Runtime::progress` ([§20.6](identity-and-publication.md#section-20-6)).
+optional; it reads the executed plan and cannot change a scientific outcome. The joined
+native event snapshot is bounded and reports its actual dropped-event count. Durable typed
+progress is retained in bounded chunks in the closed `__progress` result set and read in
+order by `Runtime::progress(run, attempt)`, under exact manifest admission and read protection
+([§20.6](identity-and-publication.md#section-20-6)). Retention failure is an operational
+failure; it does not silently authorize an ephemeral success.
 Authored report annotations project selected scalar/indexed observations into
 `runtime.modeling_reports`; structured findings, original checks and conformance fixture
 dispositions have their own generated relations. Reading a result never reruns a model.
 Clones and exported Arrow buffers share allocation ownership through the last reader.
+
+**Persisted analyses.** Prepared-operation dependency analysis records original numerical
+incidence separately from conservative execution dependencies. Retained-result analysis
+records existing parametric and response sensitivity evidence with exact source/result
+provenance. An immutable header identifies method, configuration, interpretation, input
+digest and selected revisions/manifests. Quantitative evidence points to the original IPC
+row/field; graph reachability establishes neither a derivative value, numerical rank,
+scientific usability nor an unrecorded sensitivity.
+
+Only an activated graph with complete declared node/edge membership is readable. Staged
+root/input admission protects every selected primary and physical source and exact result
+attempt before activation. Header/node/edge readers use native graph relations and ordered
+pages of at most 64 rows. Current methods are
+`original-incidence-execution-reachability:v1` and
+`result-sensitivity-provenance-reachability:v1`, bounded to 4,096 nodes, 8,192 edges and
+64 selected roots. Result analysis refuses an evidence relation above 4,096 rows instead
+of accepting its prefix. These are bounded methods, not a general graph scaling claim.
+Explicit analysis retirement withdraws its input retention obligations while preserving
+immutable lineage receipts ([§20.4](identity-and-publication.md#section-20-4)).
 
 ### 19.3 Studies and reuse
 
@@ -512,7 +579,7 @@ Modeling, studies, fitting, shooting, horizons and applicable dynamic initializa
 mathematical target and original assessor to one numerical binder. Sampling, statistical stopping,
 control application, scientific time/events and durable occurrence policy retain their owners.
 Preparation inspection may be conditional; execution traces contain actual decisions and products.
-Automatic trace publication uses the already admitted request identity, including empty and
+Automatic trace retention uses the already admitted request identity, including empty and
 preparation-only refusal prefixes. Such a prefix is an observation, not a new execution declaration;
 explicit execution declarations retain their admission checks.
 `runtime.solve_strategy_products` retains every actual point/action receipt with consumed source,
@@ -566,13 +633,16 @@ The transition returns an action per occurrence with its expected state revision
 Refuse, Cancel or Reconcile. Its conclusion keeps scientific availability and operational
 lifecycle separate. Every requested occurrence remains observable, including unstarted
 cancellation, preparation failure and dependency refusal. Attempt outcomes retain source-owned
-diagnostics, scientific decisions, chosen start and publication-effect knowledge independently
+diagnostics, scientific decisions, chosen start and retention-effect knowledge independently
 of available result members. A partial multi-result run remains governed by E's final decision;
 counting tables or selecting the first result cannot promote it.
 
 **Execution and preparation.** `ModelingPackage::study` consumes the admitted definition within
-the caller's bound and the shared maximum. `StudyReport` retains outcomes and original joined
-`RunResult` objects; its table and findings use the same row projectors as durable finalization.
+the caller's bound and the shared maximum. Ordinary `StudyReport` retains compact outcomes
+and `StudyOccurrenceResult::Retained` selections containing the scientific run ID and exact
+canonical run/attempt keys. Explicit ephemeral execution can retain local joined `RunResult`
+objects. Table and findings projections use the scientific outcome owner; opening a retained
+point selects its exact stored rows without loading every native report.
 A solve uses the existing staged mathematical session; simulations, fits and horizons invoke
 their existing operation owners. Unsupported operation/dependency combinations refuse before
 scheduling. Independent fresh case preparations can share the existing `Staged::batch` operation.
@@ -591,22 +661,29 @@ original scope; the owning [Plan 25f](https://github.com/paul-heyse/pse-arrow/bl
 records replacement-control evidence and [25k](../../plans/25k-integrated-qualification-and-closure.md)
 owns assembled qualification.
 
-**Durable adapter.** `Runtime::start_study` admits a raw request; `start_defined_study` consumes
-the same immutable definition as the in-process executor and verifies its exact stored source
-bundles. Creation owns one coordinating study attempt, publication intent, job per occurrence
-and finalization job. A claim permits input/seed acquisition. Under the existing locks, live
-lease and revision fence, native dispatch rereads facts and applies the shared policy's chosen
-start. Retry keeps the occurrence key and adds an attempt. Only declared transient failure with
-known absent or proven idempotent effect permits replay; unknown effects reconcile first through
-the existing native member-receipt owner ([§20.6](identity-and-publication.md#section-20-6)).
+**Durable adapter.** `Runtime::start_study(physical_sources, request)` admits a raw request;
+`start_defined_study(physical_sources, definition)` consumes the immutable definition and
+verifies its exact stored source bundles. The canonical study owns ordered occurrences,
+point state/version and fenced attempt history. `StudyHandle` exposes status, cancellation
+and exact results; `work_once` selects a bounded native frontier, and `work(maximum_actions)`
+limits worker actions. The authored `PointPolicy.attempt_limit` owns retry permission;
+there is no independent submission retry/priority policy.
 
-Finalization publishes one structured `runtime.study_outcomes` row per requested occurrence
-and every actually recorded member, including members available after partial failure or
-cancellation. Member availability is not inferred from operational completion. Cancellation
-prevents new native dispatch while completed work remains inspectable. Source-backed durable
-packages retain exact authored documents; an in-memory package without that closure cannot be
-submitted for durable reconstruction. The preserving schema transition retains historical
-identities and payloads, marking absent historical policy/scientific facts explicitly unavailable.
+A claim permits source/seed acquisition. Under the live lease and authority fence, dispatch
+rereads facts and applies the shared occurrence policy's chosen start. Retry preserves the
+occurrence key and adds an attempt. Unknown acknowledgments reconcile immutable operation
+receipts before another effect; a recorded scientific attempt is not blindly rerun. Exact
+closed membership precedes terminal admission. A coordinating summary retains one structured
+`runtime.study_outcomes` row per requested occurrence and actual member availability,
+including observations after partial failure or cancellation. Cancellation prevents new
+native dispatch and fences successful finalization while completed work remains inspectable.
+Operational completion does not grant scientific permission.
+
+Source-backed durable packages retain exact authored documents; an in-memory package without
+that closure cannot be submitted for durable reconstruction. Source versions are checked
+before current nested decoding. Unsupported historical readmission refuses explicitly;
+missing historical policy or scientific facts are not invented. Native execution and recovery
+ownership remain in [§20.6](identity-and-publication.md#section-20-6).
 
 ### 19.4 Parameter estimation
 
@@ -932,7 +1009,7 @@ scientific reference comparisons; it does not establish
 full numerical equivalence
 ([relationship to IDAES](../../relationship-to-idaes.md)).
 
-### 21.1 Extension module, jobs and Arrow streams
+### 21.1 Extension module, canonical operations and Arrow streams
 
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Native typed problem/revision/run/output selectors and bounded Arrow streams replace Runtime, modeling-knowledge and TableReader SQL convenience. Streams protect their exact immutable selection and treat rows as provisional until successful statement completion. Ordinary runtime construction is durable; ephemeral execution is explicitly requested.
 
@@ -940,19 +1017,33 @@ full numerical equivalence
 > shared vocabulary (restating ADR-0090);
 > [ADR-0116](../../adr/0116-typed-boundary-documents.md) (superseding ADR-0113) — typed backend settings, registry names and typed
 > eligibility across the boundary (Plan 22 A5, implemented), with published JSON Schemas and
-> generated Python document types (Plan 22 B5, implemented);
-> [ADR-0114](../../adr/0114-typed-operational-store.md) — durable runtimes, the publication
-> catalog, studies and the operational query surface (Plan 22 O3–O9, implemented).
+> generated Python document types (Plan 22 B5, implemented).
+> ADR-0114 records the historical operational-store predecessor; its publication/job
+> surfaces are replaced by the authorized ADR-0164 implementation.
 
-`pse.Runtime(EngineSettings, store=None)` binds the shared runtime and memory budget.
-The process-owned resource service retains one configured budget, spill directory and executor;
-conflicting settings refuse. Escaped Arrow buffers retain their accounted owners. Test sessions
-share this immutable deployment configuration; runtime facades, admitted packages, databases and
-mutable journey effects remain owned by their individual test. With `store=pse.OperationalStore()` the runtime is durable
-([§20.6](identity-and-publication.md#section-20-6)): every run is an attempt in the store
-and may be published, and `runs()`, `jobs()`, `studies()`, `study()`, `work()`,
-`query(sql, result=, publication=)` and `progress(attempt_id, follow=True)` read and serve
-the store. `physical_from_documents` admits physical data;
+`pse.Runtime(settings, *, substrate, producer=None, ephemeral=False)` attaches to the
+canonical deployment and its shared memory budget. `settings` is an `EngineSettings` value
+and `substrate` explicitly selects the supervisor state directory. Ordinary construction
+is durable. `ephemeral=True` selects process-local result retention while preserving
+canonical source admission. An optional reviewed producer receipt is checked against the
+actual loaded source/build attestation; it is not a caller-provided scientific qualification.
+The process-owned resource service retains one configured budget, spill directory and
+executor; conflicting settings refuse. Escaped Arrow buffers retain their accounted owners.
+Runtime facades, packages and mutable journey effects remain individually owned.
+
+`run_record`, `attempt_record` and `result_manifest` return exact registry-generated Arrow
+rows. Scientific `RunId` remains distinct from opaque canonical lookup keys. `results`
+selects an exact run/attempt/relation and stored row range; `output_results` adds typed
+owner/field/partition and finite or missingness predicates. `latest_results` uses an explicit
+set of terminal classes and native run sequence, never wall-clock ordering or success
+substitution. `progress(run, attempt)` reads the selected closed progress history.
+`analysis(key)` opens an exact active analysis; `result_analysis` records retained sensitivity
+provenance, and prepared solves expose dependency analysis. The analysis handle reads its
+header and bounded node/edge pages. Local `export_results` writes a complete provenance-bearing
+IPC file under the completion rule in [§19.2](#section-19-2). Public SQL, operational-store,
+workspace and publication APIs have no compatibility facade.
+
+`physical_from_documents` admits physical data;
 `modeling_from_documents` admits the explicit package closure. `ModelingPackage` exposes
 immutable declarations/limits/fit-data views, selected solve/simulation/fitting preparation,
 initialization, flow/recycle and block strategies, studies, diagnostics and conformance.
@@ -966,7 +1057,8 @@ travels in the typed `SolveSettings` document (`SensitivityRequest`, with an opt
 derivative source (`FitDerivatives`) and the uncertainty request (`FitUncertainty`)
 ([§19.4](#section-19-4)); their results are ordinary result tables. `SimulationSettings`
 takes the dynamic sensitivity (`DynamicSensitivity`) and the adjoint checkpoint settings
-(`AdjointSettings`); scheduled inputs and shooting are Rust-only today
+(`AdjointSettings`); authored schedules, modes and events are admitted with the case,
+while direct shooting remains Rust-only
 ([§13.6](#section-13-6)). Owners are `crates/pse-py/src/workflow/`,
 `python/pse/_modeling.py`, `_runs.py` and `_strategies.py`.
 The removed model builders have no compatibility facade.
@@ -989,39 +1081,30 @@ terminal result. Repeated waits never rerun a solver. A run handle supervises on
 sequence ([§19.2](#section-19-2)); a single solve is a one-step sequence on its own native
 session.
 
-`Runtime.register_workspace`, `workspace` and `head`, `RunResult.prepare_publication`,
-`PublicationAttempt.commit` and `settle_publication` publish through the catalog
-([§20.2](identity-and-publication.md#section-20-2)). `Runtime.open(publication_id)` and
-`open_head(workspace_id)` select one exact publication under a reader lease that is
-renewed while the publication or a stream of it is open; `export_publication` writes an
-export manifest, and `pse.open_export(location, settings=...)` opens it without the store
-([§20.4](identity-and-publication.md#section-20-4)). Later writes cannot change a selection.
-The former `pse.open(location, version)` over a Delta control table is removed, with no
-compatibility facade.
-Result and publication tables cross as one-consumption `TableStream` objects exposing
-`__arrow_c_stream__`, never as row objects and never materialized on both sides. The
-capsule protocol, not `pyarrow`, is the contract
-([ADR-0024](../../adr/0024-pyo3-arrow-over-arrow-pyarrow.md)). Streams own their final
-buffer reservations independently of parent handles; closing a parent leaves streams
-valid; `close` releases unread work while live arrays stay valid; `cancel` makes further
-consumption fail with a cancellation diagnostic; requested-schema casts are refused.
+Scientific and metadata tables cross as one-consumption `TableStream` objects exposing
+`__arrow_c_stream__`, never as parallel row objects or materialized on both sides. The capsule
+protocol, not `pyarrow`, is the contract
+([ADR-0024](../../adr/0024-pyo3-arrow-over-arrow-pyarrow.md)). Active readers renew finite
+protection for subsequent database reads. Fully decoded copied arrays retain their accounted
+allocation owners after reader or parent-wrapper drop. `close` releases unread work while
+live arrays remain valid; `cancel` makes further consumption fail with a cancellation
+diagnostic. An expired selection refuses further protected reads. Requested-schema casts
+are refused.
 `TableStream.extension_report` compares a consumer's schema field by field as retained,
 storage-only, metadata-lost or mismatched (`python/pse/_transfer.py`); capsule export
 does not prove the consumer registered the extension types.
 
 ### 21.5 Python contracts
 
-> Decision: [ADR-0116](../../adr/0116-typed-boundary-documents.md) — every Rust-owned boundary document (settings, job payload,
-> termination detail, source manifest) is typed and versioned, with a schemars JSON Schema and
-> generated msgspec types; validated scalar settings (Plan 22 B5, implemented). As built, the
-> job payload carries the typed `SolveSettings` document and a `JobStart` policy; the
-> `JobProfile` that ADR-0116 Outcome 6 names was deleted with payload version 1, and the
-> current payload is at version 8 (`JobPayload`, including admitted study operations and finalization).
-> Complete nested preparation contracts use study operation/request version 4 and stored
-> study definition version 6, with SolveSettings v3 (ADR-0155's authorized automatic cutover). Durable readers check envelope versions before nested decoding;
-> unsupported historical readmission preserves the recorded bytes and refuses explicitly.
-> [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md) — every enumeration crossing the boundary is a registry enum with one Rust type
-> (Plan 22 B4, implemented).
+> Decision: [ADR-0116](../../adr/0116-typed-boundary-documents.md) — Rust owns typed,
+> versioned boundary documents, schemars JSON Schemas and generated msgspec types.
+> Durable study readers check envelope versions before current nested decoding;
+> unsupported historical readmission preserves recorded bytes and refuses explicitly.
+> [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md) — every enumeration
+> crossing the boundary has one registry-generated Rust type.
+> Amendment: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed;
+> authorized implementation) replaces predecessor job/publication documents with native
+> canonical execution, result selection, analysis and reclamation contracts.
 
 Python contracts are generated from the registry into `python/pse/contracts/`
 ([§4.2](schema-and-relations.md#section-4-2),
@@ -1038,10 +1121,10 @@ source revision; the existing resource report projects pool and process high-wat
 separately.
 
 **Boundary documents.** The Rust serde type owns each Rust-owned document: the backend,
-solve, Diffsol and IDAS settings, the job payload, the termination detail, the source
-manifest, workspace/publication/export/settlement, completion, fitting declarations and
+solve, Diffsol and IDAS settings, termination detail, completion, fitting declarations and
 preparation, knowledge/inspection, flow/tear/recycle, initialization, simulation profiles,
-study request/definition/outcomes/status/cancellation and complete boundary diagnostics. schemars derives its JSON
+study request/definition/outcomes/status/cancellation/results, analysis controls, result
+reclamation and complete boundary diagnostics. schemars derives its JSON
 Schema (draft 2020-12) into `docs/generated/schema/`, and a closed emitter
 (`pse-codegen::codegen::documents`) turns the schemas into frozen msgspec `Struct` types in
 `python/pse/contracts/documents/`: every

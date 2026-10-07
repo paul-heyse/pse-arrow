@@ -174,8 +174,9 @@ async fn causal_reconstruction_case(
     crate::workflow::ModelingSolvePreparation,
     SolverProfile,
 ) {
+    let allowance = pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction;
     let declarations = pse_authoring::language::parse(
-        "package causal {def Root {var x:Scalar; var y:Scalar; var hidden:Scalar; eq local:y==x/2+1; eq internal:hidden==y+3; state incoming supplied(true) {coordinate value=x; transport value=x tolerance 1e-7{1};} state outgoing supplied(false) {coordinate value=y; transport value=y tolerance 1e-7{1};} state_port inlet=incoming; state_port outlet=outgoing; annotation connectivity inlet(1,0); annotation connectivity outlet(0,1); connect outlet -> inlet; annotation start x(4); annotation start y(LOCAL_START); annotation start hidden(LOCAL_START);}}".replace("LOCAL_START", if nonzero {"1"} else {"0"}).as_str(),
+        "package causal {def Root {var x:Scalar; var y:Scalar; var hidden:Scalar; eq local:y==x/2+1; eq internal:hidden==y+3; state incoming supplied(true) {coordinate value=x; transport value=x tolerance ALLOWANCE{1};} state outgoing supplied(false) {coordinate value=y; transport value=y tolerance ALLOWANCE{1};} state_port inlet=incoming; state_port outlet=outgoing; annotation connectivity inlet(1,0); annotation connectivity outlet(0,1); connect outlet -> inlet; annotation start x(4); annotation start y(LOCAL_START); annotation start hidden(LOCAL_START);}}".replace("LOCAL_START", if nonzero {"1"} else {"0"}).replace("ALLOWANCE", &allowance.to_string()).as_str(),
         id(93), pse_authoring::language::IdentityPolicy::Named, Default::default(),
     ).unwrap();
     let root = declarations
@@ -237,7 +238,12 @@ async fn automatic_workflow_causal_native_failure_does_not_commit_partial_state(
         result.completion
     );
     assert_eq!(prepared.model.values.identity(), frozen);
-    assert!((result.values.scalars[&hidden] - 5.0).abs() < 1e-6);
+    let target = crate::workflow::tests::engineering_target(
+        result.prepared.solve.numerics(),
+        pse_model::generated::enums::NumericalTarget::Variable,
+        hidden,
+    );
+    assert!((result.values.scalars[&hidden] - 5.0).abs() <= target.budget);
     let trace = result.strategy.as_ref().unwrap();
     let map = trace
         .declaration
@@ -358,7 +364,12 @@ async fn automatic_workflow_causal_dispatch_reconstructs_nonport_original_state(
             .1
             - 5.0)
             .abs()
-            < 1e-6
+            <= crate::workflow::tests::engineering_target(
+                result.prepared.solve.numerics(),
+                pse_model::generated::enums::NumericalTarget::Variable,
+                hidden
+            )
+            .budget
     );
     let trace = result.strategy.as_ref().unwrap();
     assert!(
@@ -1066,9 +1077,13 @@ fn conditional_unit_request_has_one_declared_realization_and_canonical_settings_
     let CausalUnitRealization::Conditional { solver, .. } = decoded.realization else {
         panic!("changed realization")
     };
-    let full = solver.profile().unwrap();
-    let omitted: crate::math::settings::SolveSettings =
-        serde_json::from_value(serde_json::json!({"version":3,"intent":"root"})).unwrap();
+    let full = solver.as_ref().clone().profile().unwrap();
+    let mut omitted = serde_json::to_value(solver.as_ref()).unwrap();
+    omitted
+        .as_object_mut()
+        .unwrap()
+        .retain(|field, _| matches!(field.as_str(), "version" | "intent"));
+    let omitted: crate::math::settings::SolveSettings = serde_json::from_value(omitted).unwrap();
     assert_eq!(
         crate::math::solves::profile_key(&full).unwrap(),
         crate::math::solves::profile_key(&omitted.profile().unwrap()).unwrap()

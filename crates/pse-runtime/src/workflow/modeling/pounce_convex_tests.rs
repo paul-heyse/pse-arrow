@@ -6,9 +6,14 @@
 use super::sensitivity_tests::{QUADRATIC, analysis, package, rows, solve};
 use super::*;
 use crate::math::solves::Outcome;
+use crate::workflow::tests as fixture;
 use pse_backend_native::solve::{Backend, Metric, SolverSelection};
-use pse_model::generated::enums::{NativeAssurance, NativeBackend};
-use pse_relations::generated::runtime::{parametric_sensitivities, solve_runs};
+use pse_model::generated::enums::{
+    DerivedQuantity, NativeAssurance, NativeBackend, NumericalTarget,
+};
+use pse_relations::generated::runtime::{
+    local_validity, parametric_sensitivities, resolved_numerics, solve_runs,
+};
 
 /// `min (x − a)² + (y − b)²  s.t.  x + y ≤ 1`, x, y ∈ [0, 5]: the projection of (a, b) onto
 /// the simplex, a convex quadratic program the coefficient route solves. With b = 0.4 no
@@ -29,7 +34,7 @@ async fn study(selection: SolverSelection, threads: usize) -> Vec<(f64, f64, Mod
     let (package, root) = package(PROJECTION).await;
     let mut base = analysis(root, selection);
     base.solver.controls.threads = threads;
-    base.bindings.demand = vec!["x".into(), "y".into()];
+    base.bindings.demand = vec!["x".into(), "y".into(), "a".into(), "b".into()];
     let values = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
     let cancel = crate::CancelSource::new();
     let mut preparations = Vec::new();
@@ -56,12 +61,14 @@ async fn study(selection: SolverSelection, threads: usize) -> Vec<(f64, f64, Mod
 
 /// A study whose points select POUNCE-convex runs as one parallel batch on two admitted
 /// threads (Plan 22 N5): every point is accepted on its own, records the batch it ran in,
-/// and equals the same point solved by HiGHS (declared tolerance 1e-6).
+/// and both adapters reach the independent projection objective within their own
+/// production-resolved allowance.
 #[tokio::test]
 async fn pounce_convex_batched_study() {
     let batched = study(SolverSelection::Explicit(Backend::PounceConvex), 2).await;
     let reference = study(SolverSelection::Auto, 1).await;
     assert_eq!(batched.len(), 8);
+    assert_eq!(reference.len(), 8);
     for (k, ((x, y, result), (rx, ry, reference))) in batched.iter().zip(&reference).enumerate() {
         assert!(result.accepted, "{k}: {:?}", result.diagnostic());
         assert!(reference.accepted, "{k}: {:?}", reference.diagnostic());
@@ -74,10 +81,58 @@ async fn pounce_convex_batched_study() {
             panic!("{:?}", reference.outcome)
         };
         assert_eq!(highs.backend, Backend::Highs, "{k}");
-        assert!(
-            (x - rx).abs() < 1e-6 && (y - ry).abs() < 1e-6,
-            "{k}: ({x}, {y}) vs ({rx}, {ry})"
-        );
+        assert_eq!(result.prepared.profile.controls.threads, 2);
+        assert_eq!(reference.prepared.profile.controls.threads, 1);
+        for (x, y, result, native) in [(*x, *y, result, native), (*rx, *ry, reference, highs)] {
+            let model = &result.prepared.model.model.compiled().model;
+            let at = |name: &str| result.values.scalars[&model.paths[name]];
+            let a = at("a");
+            let b = at("b");
+            assert_eq!(a, [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0][k]);
+            assert_eq!(b, 0.4);
+            let (opt_x, opt_y) = if a <= 0.6 {
+                (a, 0.4)
+            } else if a < 1.4 {
+                ((a + 0.6) / 2.0, (1.4 - a) / 2.0)
+            } else {
+                (1.0, 0.0)
+            };
+            let optimum = (opt_x - a).powi(2) + (opt_y - b).powi(2);
+            let actual = (x - a).powi(2) + (y - b).powi(2);
+            let numerics = result.prepared.solve.numerics();
+            let objective_budget =
+                fixture::engineering_target(numerics, NumericalTarget::Objective, SemanticId::NIL)
+                    .budget;
+            assert!(
+                (actual - optimum).abs() <= objective_budget,
+                "point {k}: actual={actual}, optimum={optimum}"
+            );
+            assert!(
+                (native.candidate.as_ref().unwrap().objective.unwrap() - actual).abs()
+                    <= objective_budget
+            );
+            let row = model
+                .equations
+                .iter()
+                .find(|row| row.lineage.path.ends_with(".budget"))
+                .unwrap()
+                .id;
+            assert!(
+                x + y
+                    <= 1.0
+                        + fixture::engineering_target(numerics, NumericalTarget::Row, row).budget
+            );
+            for (name, value) in [("x", x), ("y", y)] {
+                let allowance = fixture::engineering_target(
+                    numerics,
+                    NumericalTarget::Variable,
+                    model.paths[name],
+                )
+                .budget;
+                assert!(value >= -allowance && value <= 5.0 + allowance);
+            }
+            assert!(native.quality.as_ref().unwrap().feasible());
+        }
     }
 }
 
@@ -98,6 +153,7 @@ async fn qp_sensitivity_through_kkt_analysis() {
         .unwrap();
     assert_eq!(plain.solve.backend(), Some(Backend::Highs));
     let (result, [a, b, x]) = solve(QUADRATIC, SolverSelection::Auto).await;
+    assert!(result.usable());
     let runs: Vec<solve_runs::Row> = rows(&result, "runtime.solve_runs");
     let backend = runs[0].backend.unwrap();
     assert!(
@@ -113,14 +169,55 @@ async fn qp_sensitivity_through_kkt_analysis() {
             .and_then(|r| r.primal)
             .unwrap()
     };
-    assert!((primal(a) - 2.0 / 3.0).abs() < 1e-6);
-    assert!((primal(b) - 1.0 / 3.0).abs() < 1e-6);
+    let numerics: Vec<resolved_numerics::Row> = rows(&result, "runtime.resolved_numerics");
+    let target = |id| {
+        numerics
+            .iter()
+            .find(|row| row.target_kind == NumericalTarget::Variable && row.target_id == id)
+            .unwrap()
+    };
+    let output = target(x);
+    assert_eq!(
+        output.engineering.as_ref().unwrap().relative_fraction,
+        pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction
+    );
+    for (parameter, expected) in [(a, 2.0 / 3.0), (b, 1.0 / 3.0)] {
+        let input = target(parameter);
+        assert_eq!(
+            input.engineering.as_ref().unwrap().relative_fraction,
+            pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction
+        );
+        let actual = primal(parameter);
+        let response_error =
+            (actual - expected).abs() * input.coordinate_scale / output.coordinate_scale;
+        assert!(
+            actual.is_finite()
+                && response_error
+                    <= output.engineering.as_ref().unwrap().budget / output.coordinate_scale
+        );
+        let row = sensitivities
+            .iter()
+            .find(|row| {
+                row.parameter_id == parameter
+                    && row.target_kind == NumericalTarget::Variable
+                    && row.target_id == x
+            })
+            .unwrap();
+        assert_eq!(row.parameter_unit_id, input.unit_id);
+        assert_eq!(row.target_unit_id, output.unit_id);
+    }
+    let validity: Vec<local_validity::Row> = rows(&result, "runtime.local_validity");
+    let sensitivity = validity
+        .iter()
+        .find(|row| row.quantity == DerivedQuantity::ParametricSensitivity)
+        .unwrap();
+    assert!(sensitivity.validity.certified && !sensitivity.validity.conditional);
 }
 
 /// `min x⁴ − 3x² + x` over x ∈ [−2, 2], whose global minimum is ≈ −3.51391 at x ≈ −1.30:
-/// the moment relaxation's bound lies below it and within 1e-4 of it, and is labelled
-/// `sos_bound_nonrigorous`, never a certified bound. The maximization of the negation
-/// bounds from above. A program that is not polynomial is refused.
+/// the moment relaxation's empirical value agrees within its resolved objective
+/// allowance and is labelled `sos_bound_nonrigorous`. The check makes no rigorous
+/// direction claim, in either optimization sense. Non-polynomial programs are refused.
 #[tokio::test]
 async fn sos_bound_labelled_nonrigorous() {
     let quartic = |sense: &str, sign: &str| {
@@ -141,23 +238,23 @@ async fn sos_bound_labelled_nonrigorous() {
     let cancel = crate::CancelSource::new();
     for (sense, sign, expected) in [("minimize", "", minimum), ("maximize", "-", -minimum)] {
         let (package, root) = package(&quartic(sense, sign)).await;
-        let bound = package
-            .sos_bound(&analysis(root, SolverSelection::Auto), None, &cancel)
-            .await
-            .unwrap();
+        let request = analysis(root, SolverSelection::Auto);
+        let prepared = package.prepare_analysis(&request, &cancel).await.unwrap();
+        let objective_budget = fixture::engineering_target(
+            prepared.solve.numerics(),
+            NumericalTarget::Objective,
+            SemanticId::NIL,
+        )
+        .budget;
+        let bound = package.sos_bound(&request, None, &cancel).await.unwrap();
         assert_eq!(
             bound.assurance,
             NativeAssurance::SosBoundNonrigorous,
             "{bound:?}"
         );
         assert_eq!(bound.order, 2);
-        let gap = if sense == "minimize" {
-            expected - bound.bound
-        } else {
-            bound.bound - expected
-        };
         assert!(
-            (-1e-7..1e-4).contains(&gap),
+            (bound.bound - expected).abs() <= objective_budget,
             "{sense}: {bound:?} against {expected}"
         );
     }
