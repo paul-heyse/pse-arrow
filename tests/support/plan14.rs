@@ -306,6 +306,162 @@ pub(crate) fn resolved_allowance(
     assert!(target.budget.is_finite() && target.budget > 0.);
     target.budget
 }
+/// Read the shared physical floor already resolved for an empirical output comparison.
+/// This is not a feasibility budget or a certification of forward output error.
+pub(crate) fn resolved_physical_allowance(
+    numerics: &pse_model::numerics::ResolvedNumericalPolicy,
+    registry: &pse_quantity::QuantityRegistry,
+    output: &pse_runtime::workflow::ModelingReport,
+    expected_rule: SemanticId,
+) -> f64 {
+    use pse_relations::generated::enums::NumericalTarget;
+    let mut targets = numerics
+        .targets
+        .iter()
+        .filter(|target| target.kind == NumericalTarget::Variable && target.id == output.target_id);
+    let target = targets
+        .next()
+        .expect("reported variable has a resolved numerical target");
+    assert!(
+        targets.next().is_none(),
+        "reported variable has duplicate numerical targets"
+    );
+    let quantity = registry.quantity_type(target.quantity.into()).unwrap();
+    assert_eq!(
+        target.unit,
+        quantity.canonical_unit.as_id(),
+        "target uses canonical output units"
+    );
+    pse_quantity::admission::require_same_contract(
+        target.quantity.into(),
+        output.quantity_id.into(),
+        registry,
+    )
+    .expect("reported output retains the resolved target's complete quantity contract");
+    assert_eq!(
+        output.unit_id, target.unit,
+        "output and resolved target use the same canonical unit"
+    );
+
+    let engineering = target.engineering.as_ref()
+        .expect("empirical comparison requires a resolved engineering context, not an explicit numeric budget");
+    assert!(
+        !engineering.canonical_fallback,
+        "shared physical resolution cannot use canonical fallback"
+    );
+    assert_eq!(
+        engineering.rule_id,
+        Some(expected_rule.into()),
+        "expected shared constant owns the resolved floor"
+    );
+    let mut rules = numerics
+        .policy
+        .engineering_rules
+        .iter()
+        .filter(|rule| rule.rule_id.as_id() == expected_rule);
+    let rule = rules
+        .next()
+        .expect("resolved shared rule is present in the admitted policy");
+    assert!(
+        rules.next().is_none(),
+        "shared engineering rule identity is unique"
+    );
+    // A temperature point's error is its legal difference quantity, preserving
+    // basis, reference state and all other physical meaning through subtraction.
+    let error_quantity = if quantity.key.scale_kind == pse_quantity::ScaleKind::Point {
+        let physical = pse_quantity::ResolvedPhysicalContract::named(
+            target.quantity.into(),
+            pse_quantity::IndexSet::default(),
+            registry,
+        )
+        .unwrap();
+        pse_quantity::resolved::infer_operation(
+            &pse_quantity::infer::OpRequest::Sub,
+            &[physical.clone(), physical],
+            None,
+            registry,
+            &pse_quantity::infer::NoInvariantFacts,
+        )
+        .unwrap()
+        .result
+        .require_named()
+        .unwrap()
+    } else {
+        target.quantity.into()
+    };
+    pse_quantity::admission::require_same_contract(
+        error_quantity,
+        rule.quantity_id.into(),
+        registry,
+    )
+    .expect("shared rule matches the complete output error quantity contract");
+    let source_floor = rule
+        .physical_allowance
+        .expect("shared rule has a physical floor");
+    assert!(source_floor.is_finite() && source_floor > 0.);
+    let converted = source_floor
+        * pse_quantity::convert_spec_for_type(
+            registry.unit(rule.unit_id.into()).unwrap(),
+            registry.unit(target.unit.into()).unwrap(),
+            &registry.quantity_type(error_quantity).unwrap().key,
+        )
+        .unwrap()
+        .scale
+        .abs();
+    let allowance = engineering
+        .physical_allowance
+        .expect("resolved engineering context retains the physical floor");
+    assert!(allowance.is_finite() && allowance > 0.);
+    assert_eq!(
+        pse_ids::canonical_f64_bits(allowance),
+        pse_ids::canonical_f64_bits(converted),
+        "resolved physical allowance is the shared rule converted to canonical output units"
+    );
+    allowance
+}
+/// Read a shared authored resolution for an empirical output comparison.
+/// A variable/bound feasibility budget does not establish forward output accuracy.
+pub(crate) async fn authored_resolution(
+    package: &pse_runtime::workflow::ModelingPackage,
+    declaration: SemanticId,
+    registry: &pse_quantity::QuantityRegistry,
+    quantity: pse_quantity::QuantityTypeId,
+    unit: pse_quantity::UnitId,
+) -> f64 {
+    use pse_relations::columnar::RelationRow;
+    let owner = declaration.into();
+    let knowledge = package
+        .knowledge(
+            Some(owner),
+            1,
+            compiler().evaluation.scratch_bytes,
+            &pse_columnar::CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    let rows = pse_relations::generated::runtime::modeling_knowledge::Row::rows(knowledge.table())
+        .unwrap();
+    assert_eq!(rows.len(), 1);
+    let row = &rows[0];
+    assert_eq!(row.owner_id, owner);
+    assert_eq!(row.slot, "value");
+    assert_eq!(row.value.len(), 1);
+    let value = &row.value[0];
+    assert_eq!(
+        value.kind,
+        pse_model::generated::enums::ModelingKnowledgeValueKind::Quantity
+    );
+    pse_quantity::admission::require_same_contract(
+        quantity,
+        value.quantity_type_id.unwrap().into(),
+        registry,
+    )
+    .unwrap();
+    assert_eq!(value.canonical_unit_id, Some(unit.as_id()));
+    let resolution = value.magnitude.unwrap();
+    assert!(resolution.is_finite() && resolution > 0.);
+    resolution
+}
 /// Both original physical checks and native feasibility are required.
 pub(crate) fn authored_success(result: &RunResult) -> &pse_runtime::workflow::ModelingResult {
     let RunReport::Modeling(report) = result.report().unwrap() else {

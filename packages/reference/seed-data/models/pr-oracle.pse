@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e17fb4307404bb456179a6be3f89") package pr_oracle {
+@id("09ce002cf2f642e2a218447e8037d6ab") use numerical_policy @"1.0.0";
 @id("eeadb183040d4db7b8b217bf7104f67e") use properties @"1.0.0";
 @id("b124fa807ecb467ab0690e636ea88d4d") use interactions @"1.0.0";
 @id("2e38937a364443029e08a1d916c34a99") use cubic @"1.0.0";
@@ -22,18 +23,18 @@
 @id("01a0e17fb4307404bb456182e91fdc67") test liquid oracle references.idaes_test_ceos_pr fixture {dof 0; route steady; procedure check; fix root.T=300{K}; fix root.rho=41.15650806416406{mol/m^3}; fix root.amount[a]=0.6{mol}; fix root.amount[b]=0.3{mol}; fix root.amount[c]=0.1{mol}; } {
 @id("bb8fcc58dda24bcdb21c310e0e51914b") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0e17fb4307404bb456183c9c3b286") child root:peng_robinson.IdaesDeltaPhase=peng_robinson.IdaesHomogeneousPhase(selected=members,pkg=oracle_parameters,law=potential);
-@id("01a0e17fb4307404bb456184e62d85c0") expect exp(root.ln_phi[a])==1.01213{1} tolerance 1e-6{1} relative 1e-5;
-@id("01a0e17fb4307404bb456185a528275c") expect exp(root.ln_phi[b])==0.95919{1} tolerance 1e-6{1} relative 1e-5;
-@id("01a0e17fb4307404bb4561864b3bc122") expect exp(root.ln_phi[c])==0.91356{1} tolerance 1e-6{1} relative 1e-5;
-@id("01a0e17fb4307404bb4561872d335b0d") expect root.pressure==101325{Pa} tolerance 0.02{Pa} relative 1e-6;
+@id("01a0e17fb4307404bb456184e62d85c0") expect exp(root.ln_phi[a])==1.01213{1} tolerance 1e-6{1} relative numerical_policy.dimensionless;
+@id("01a0e17fb4307404bb456185a528275c") expect exp(root.ln_phi[b])==0.95919{1} tolerance 1e-6{1} relative numerical_policy.dimensionless;
+@id("01a0e17fb4307404bb4561864b3bc122") expect exp(root.ln_phi[c])==0.91356{1} tolerance 1e-6{1} relative numerical_policy.dimensionless;
+@id("01a0e17fb4307404bb4561872d335b0d") expect root.pressure==101325{Pa} tolerance numerical_policy.pressure relative numerical_policy.dimensionless;
 }
 @id("01a0e17fb4307404bb456188b73032ca") test vapor oracle references.idaes_test_ceos_pr fixture {dof 0; route steady; procedure check; fix root.T=300{K}; fix root.rho=44.80008901754609{mol/m^3}; fix root.amount[a]=0.1{mol}; fix root.amount[b]=0.2{mol}; fix root.amount[c]=0.7{mol}; } {
 @id("0ef19f8c50034f819ef5a2f96a27474b") permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0e17fb4307404bb45618912287bb4") child root:peng_robinson.IdaesDeltaPhase=peng_robinson.IdaesHomogeneousPhase(selected=members,pkg=oracle_parameters,law=potential);
-@id("01a0e17fb4307404bb45618a7a1df81a") expect exp(root.ln_phi[a])==1.05952{1} tolerance 1e-6{1} relative 1e-5;
-@id("01a0e17fb4307404bb45618bd486c46a") expect exp(root.ln_phi[b])==0.9607{1} tolerance 1e-6{1} relative 1e-5;
-@id("01a0e17fb4307404bb45618ce93a73cd") expect exp(root.ln_phi[c])==0.87903{1} tolerance 1e-6{1} relative 1e-5;
-@id("01a0e17fb4307404bb45618d79f4fa47") expect root.pressure==101325{Pa} tolerance 0.02{Pa} relative 1e-6;
+@id("01a0e17fb4307404bb45618a7a1df81a") expect exp(root.ln_phi[a])==1.05952{1} tolerance 1e-6{1} relative numerical_policy.dimensionless;
+@id("01a0e17fb4307404bb45618bd486c46a") expect exp(root.ln_phi[b])==0.9607{1} tolerance 1e-6{1} relative numerical_policy.dimensionless;
+@id("01a0e17fb4307404bb45618ce93a73cd") expect exp(root.ln_phi[c])==0.87903{1} tolerance 1e-6{1} relative numerical_policy.dimensionless;
+@id("01a0e17fb4307404bb45618d79f4fa47") expect root.pressure==101325{Pa} tolerance numerical_policy.pressure relative numerical_policy.dimensionless;
 }
 @id("01a0e1c189be77f58aa2fc8fbfffec1d") use helmholtz @"1.0.0";
 @id("01a0e1c189bf70b9a2a6f0aa14b05fc1") entity chemistry.species asym_a {}

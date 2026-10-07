@@ -835,7 +835,13 @@ fn kernel_compiled_original_terms_feed_independent_closure() {
             *value = 0.;
         }
     }
-    let checks = prepared.assess_closure(&values).unwrap();
+    let budgets = prepared
+        .model
+        .closures
+        .keys()
+        .map(|id| (*id, 1e-6))
+        .collect();
+    let checks = prepared.assess_closure(&values, &budgets).unwrap();
     assert_eq!(checks[0].net, 1.);
     assert_eq!(checks[0].satisfied, Some(false));
 }
@@ -3319,6 +3325,87 @@ fn kernel_validity_obligations_survive_cancellation_and_cover_derived_members() 
                 .is_err()
         );
     }
+}
+
+#[test]
+fn affine_row_demand_keeps_opaque_rows_and_original_domain_execution() {
+    let (mut workspace, _, _, root) = setup(
+        "package p { fn curved(x:Scalar)->Scalar piecewise 2 = if x < 0 then 0 else x*x*x; def Root { param p:Scalar=1; var x:Scalar; var y:Scalar; eq affine:p*x+y==2; eq opaque:curved(x)+y==2; annotation valid x(0,2); annotation start x(1); annotation start y(1); } }",
+    );
+    let cancel = Arc::new(AtomicBool::new(false));
+    // Compiler case binding resolves independent values, while authored Start
+    // annotations are consumed by runtime initialization rather than case_values.
+    let case = ModelingCaseBindings {
+        values: BTreeMap::from([("x".into(), 1.0), ("y".into(), 1.0)]),
+        ..Default::default()
+    };
+    let (model, base, values, _) = workspace
+        .prepare_modeling_case_cancellable(
+            root,
+            root_instance(root),
+            Bindings {
+                demand: vec!["p".into(), "x".into(), "y".into()],
+                ..Default::default()
+            },
+            Limits::default(),
+            &case,
+            DerivativeOrder::First,
+            Profile::default(),
+            cancel.clone(),
+        )
+        .unwrap();
+    assert!(base.presolve.affine.iter().all(Option::is_none));
+    let classified = base.prepare_class(&values, &cancel).unwrap();
+    assert!(matches!(
+        classified.presolve.class_status,
+        pse_math::presolve::ClassStatus::Pending(_)
+    ));
+    let rows = classified.prepare_affine_rows(&values, &cancel).unwrap();
+    assert_eq!(
+        rows.presolve
+            .affine
+            .iter()
+            .filter(|row| row.is_some())
+            .count(),
+        1
+    );
+    assert_eq!(rows.presolve.class_status, classified.presolve.class_status);
+    assert!(rows.coefficients.is_none());
+    assert!(!rows.facts.coefficients);
+    assert_eq!(rows.presolve.obligations, classified.presolve.obligations);
+    assert_eq!(rows.presolve.row_sources, classified.presolve.row_sources);
+    assert!(rows.presolve.has_guards);
+    assert_ne!(rows.presolve.key, classified.presolve.key);
+    assert!(rows.presolve.proof_remaining < classified.presolve.proof_remaining);
+    assert!(classified.presolve.proof_remaining < base.presolve.proof_remaining);
+    let mut capped = classified.clone();
+    capped.class_proof_work = 0;
+    assert!(capped.prepare_affine_rows(&values, &cancel).is_err());
+    assert_eq!(
+        capped.presolve.proof_remaining,
+        classified.presolve.proof_remaining
+    );
+    let mut changed = values.clone();
+    changed.scalars.insert(model.model.paths["p"], 2.0);
+    assert!(rows.prepare_affine_rows(&changed, &cancel).is_err());
+    let assembly = rows
+        .plan
+        .compile(
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap();
+    let mut worker = Arc::new(assembly).worker(BTreeMap::new(), cancel.clone());
+    worker
+        .constraints(&values)
+        .expect("the explicitly bound original point must satisfy its validity guards");
+    let mut invalid = values.clone();
+    invalid.scalars.insert(model.model.paths["x"], 3.0);
+    worker
+        .constraints(&invalid)
+        .expect_err("affine row proof must not erase original validity");
+    assert!(base.presolve.affine.iter().all(Option::is_none));
 }
 
 #[test]

@@ -69,6 +69,23 @@ fn report(result: &ModelingResult, label: &str) -> f64 {
         .unwrap()
         .value
 }
+/// The retained global gap is in original objective units; its relative branch
+/// uses the smaller same-sign magnitude, as production global qualification does.
+fn objective_allowance(result: &ModelingResult, expected: f64) -> f64 {
+    let Outcome::Native(native) = &result.outcome else {
+        panic!("expected global native evidence")
+    };
+    let gap = native.evidence.global.unwrap();
+    let actual = native.observation.as_ref().unwrap().objective.unwrap();
+    let relative = if actual.signum() == expected.signum() {
+        gap.gap_relative * actual.abs().min(expected.abs())
+    } else {
+        0.
+    };
+    let allowance = gap.gap_absolute.max(relative);
+    assert!(allowance.is_finite() && allowance > 0.);
+    allowance
+}
 
 /// The price-taker with a quadratic operating cost: an MIQP. Enumerating the eight
 /// commitments, only h3 is worth running: its interior optimum x = 1.2/0.01 = 120 W earns
@@ -226,12 +243,7 @@ async fn price_taker_quadratic_cost_miqp() {
         margin += price * output - 50.0 * load * load - 50.0 * on;
     }
     assert!(energy <= 150.0 + row_budget(".energy"));
-    let objective_budget = fixture::engineering_target(
-        numerics,
-        pse_model::generated::enums::NumericalTarget::Objective,
-        SemanticId::NIL,
-    )
-    .budget;
+    let objective_budget = objective_allowance(&result, 22.);
     assert!(
         (margin - 22.0).abs() <= objective_budget,
         "actual original margin={margin}"
@@ -317,7 +329,7 @@ async fn limited_native_incumbent_is_original_feasible_and_explicitly_nonoptimal
     assert!(result.checks.iter().all(|check| check.satisfied));
     assert_ne!(native.termination.assurance, Assurance::GlobalBound);
     assert!(
-        report(&result, "margin") < 22. - 1e-5,
+        report(&result, "margin") < 22. - objective_allowance(&result, 22.),
         "the limit incumbent unexpectedly proves the independently known optimum"
     );
 
@@ -392,7 +404,7 @@ async fn certify_exports_implicit_residuals_exactly() {
     assert!(result.accepted, "{:?}", result.validation_error);
     let global = implicit_oracle(0.5, 3.0);
     assert!(
-        (report(&result, "f") - global).abs() < 1e-5,
+        (report(&result, "f") - global).abs() <= objective_allowance(&result, global),
         "{} vs {global}",
         report(&result, "f")
     );
@@ -413,7 +425,7 @@ async fn certify_exports_implicit_residuals_exactly() {
     let restricted = implicit_oracle(1.5, 3.0);
     assert!(restricted > global + 0.1);
     assert!(
-        (report(&result, "f") - restricted).abs() < 1e-5,
+        (report(&result, "f") - restricted).abs() <= objective_allowance(&result, restricted),
         "{} vs {restricted}",
         report(&result, "f")
     );
@@ -520,7 +532,17 @@ async fn solution_pool_published() {
         assert!(solution.iter().all(|r| r.feasible == Some(true)));
     }
     let best = rows.iter().find(|r| r.rank == 0).unwrap();
-    assert!((best.objective.unwrap() - 22.0).abs() < 1e-5);
+    let crate::workflow::RunReport::Modeling(reports) = result.report().unwrap() else {
+        panic!("expected modeling report")
+    };
+    assert_eq!(reports.len(), 1);
+    let report = &reports[0];
+    assert!(report.accepted, "{:?}", report.validation_error);
+    let Outcome::Native(native) = &report.outcome else {
+        panic!("{:?}", report.outcome)
+    };
+    assert_eq!(native.qualification, Qualification::GapQualified);
+    assert!((best.objective.unwrap() - 22.0).abs() <= objective_allowance(report, 22.));
     for pair in ranks.iter().collect::<Vec<_>>().windows(2) {
         let objective = |rank: i64| {
             rows.iter()
@@ -529,6 +551,6 @@ async fn solution_pool_published() {
                 .objective
                 .unwrap()
         };
-        assert!(objective(*pair[0]) >= objective(*pair[1]) - 1e-9);
+        assert!(objective(*pair[0]) >= objective(*pair[1]));
     }
 }

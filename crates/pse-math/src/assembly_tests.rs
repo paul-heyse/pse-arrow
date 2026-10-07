@@ -1195,6 +1195,13 @@ fn domain_projection_is_unassessed_until_bounded_class_evidence_is_requested() {
     assert_eq!(facts.objective_degree, Some(2));
     assert!(facts.proof_remaining < base.proof_remaining);
     assert_eq!(coefficients.hessian.val(), &[2.0]);
+    let reused_rows = assembly
+        .affine_row_facts(&values, &facts, 10_000, &cancel)
+        .unwrap();
+    assert_eq!(reused_rows.key, facts.key);
+    assert_eq!(reused_rows.affine, facts.affine);
+    assert_eq!(reused_rows.class_status, facts.class_status);
+    assert!(reused_rows.proof_remaining <= facts.proof_remaining);
     let consumed = base.proof_remaining - facts.proof_remaining;
     assert!(matches!(
         assembly.class_evidence(
@@ -1288,6 +1295,106 @@ fn class_proof_aggregates_nonlinear_row_contributions_before_ruling_out_coeffici
     assert_eq!(coefficients.objective, [2.0, 0.0]);
     assert!(coefficients.constraints.val().is_empty());
     assert!(coefficients.hessian.val().is_empty());
+}
+
+#[test]
+fn affine_row_demand_is_independent_of_nonlinear_rows_and_whole_class_admission() {
+    use crate::presolve::{ClassStatus, ObligationStatus};
+    let (original, values) = fixture(true, false);
+    let mut instances = original.structure().instances().to_vec();
+    instances[0].contributions.push(Contribution {
+        output: 0,
+        target: Target::Row(id(11)),
+        scale: 1.0,
+    });
+    let structure = CaseStructure::new(
+        original.structure().variables().to_vec(),
+        original.structure().parameters().to_vec(),
+        instances,
+        original.structure().rows().to_vec(),
+        original.structure().objective().cloned(),
+        CaseLimits::default(),
+    )
+    .unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let plan = CasePlan::prepare(
+        Arc::new(structure),
+        original.bodies().clone(),
+        &standard_registry().unwrap(),
+        DerivativeOrder::Value,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    let mut base = plan
+        .presolve_domain_facts(&values, 10_000, &cancel)
+        .unwrap();
+    // Whole-case domain uncertainty remains an obligation; it does not make an
+    // independent row's algebra nonlinear or grant the unknown domain admission.
+    base.obligations
+        .insert(id(9), ObligationStatus::Unestablished);
+    let facts = plan
+        .affine_row_facts(&values, &base, 10_000, &cancel)
+        .unwrap();
+    let row = |id| {
+        plan.structure()
+            .rows()
+            .iter()
+            .position(|row| row.id == id)
+            .unwrap()
+    };
+    assert_eq!(
+        facts.affine[row(id(10))].as_ref().unwrap().entries,
+        BTreeMap::from([(0, 10.0)])
+    );
+    assert!(facts.affine[row(id(11))].is_none());
+    assert_eq!(facts.class_status, ClassStatus::Unassessed);
+    assert_eq!(facts.objective_degree, None);
+    assert_eq!(facts.objective_linear, base.objective_linear);
+    assert_eq!(facts.obligations, base.obligations);
+    assert_eq!(facts.row_sources, base.row_sources);
+    assert_eq!(facts.complete, base.complete);
+    assert_eq!(facts.signs, base.signs);
+    assert_eq!(facts.has_guards, base.has_guards);
+    assert_ne!(facts.key, base.key);
+    assert!(facts.proof_remaining < base.proof_remaining);
+    assert!(base.affine.iter().all(Option::is_none));
+    let mut incomplete = base.clone();
+    incomplete.affine.pop();
+    assert!(matches!(
+        plan.affine_row_facts(&values, &incomplete, 10_000, &cancel),
+        Err(crate::MathError::Contract(_))
+    ));
+    let consumed = base.proof_remaining - facts.proof_remaining;
+    assert!(matches!(
+        plan.affine_row_facts(&values, &base, consumed - 1, &cancel),
+        Err(crate::MathError::WorkLimit { .. })
+    ));
+    assert!(
+        plan.affine_row_facts(&values, &base, consumed, &cancel)
+            .is_ok()
+    );
+    cancel.store(true, std::sync::atomic::Ordering::Release);
+    assert!(matches!(
+        plan.affine_row_facts(&values, &base, 10_000, &cancel),
+        Err(crate::MathError::Cancelled)
+    ));
+}
+
+#[test]
+fn affine_row_demand_refuses_changed_original_assumptions() {
+    let (plan, values) = fixture(false, true);
+    let cancel = Arc::new(AtomicBool::new(false));
+    let base = plan
+        .presolve_domain_facts(&values, 10_000, &cancel)
+        .unwrap();
+    let mut changed = values.clone();
+    changed.scalars.insert(id(1), 4.0);
+    assert!(matches!(
+        plan.affine_row_facts(&changed, &base, 10_000, &cancel),
+        Err(crate::MathError::Contract(_))
+    ));
+    assert!(base.affine.iter().all(Option::is_none));
 }
 
 #[test]

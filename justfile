@@ -154,6 +154,14 @@ producer-identity-test:
     bash scripts/native_exec.sh cargo nextest run -p xtask --bin xtask --no-default-features --locked {{ validate }} -E 'test(producer_)'
 
 [group('local')]
+[doc('Capture reviewed runtime, worker and Python deployment targets after producer-profile installation')]
+[positional-arguments]
+producer-deployment output:
+    # Each producer-identity invocation owns its native setup. The orchestrator
+    # must not prepend loader paths again before that selected invocation.
+    "{{ py }}" -m scripts.producer_deployment "$1"
+
+[group('local')]
 [doc('Generator identity, unchanged-output and physical fixture controls')]
 codegen-unit-test:
     bash scripts/native_exec.sh cargo nextest run -p xtask --bin xtask --locked --features package-fixtures {{ validate }} -E 'test(codegen::tests::) | test(codegen::physical::tests::)'
@@ -161,7 +169,7 @@ codegen-unit-test:
 [group('local')]
 [doc('Focused explicit Python target selection controls without solver discovery')]
 python-runner-unit-test:
-    cargo nextest run -p xtask --bin xtask --no-default-features --locked {{ validate }} -E 'test(python_selection_preserves_explicit_targets)'
+    cargo nextest run -p xtask --bin xtask --no-default-features --locked {{ validate }} -E 'test(python_selection_)'
 
 [group('local')]
 [doc('Worker CLI admission budgets against the configured managed process allocation')]
@@ -295,7 +303,7 @@ codegen-rust-contracts-check:
 
 [group('local')]
 codegen-python-check:
-    bash scripts/native_exec.sh cargo run -p xtask --no-default-features --locked -- codegen --only python --check
+    cargo run -p xtask --no-default-features --locked -- codegen --only python --check
 
 [group('local')]
 codegen-docs-check:
@@ -404,6 +412,11 @@ check-test pkg target:
 [doc('Compile one linked native test target without executing its journeys')]
 check-native-test pkg target features:
     bash scripts/native_exec.sh cargo check -p {{ pkg }} --test {{ target }} --locked --features {{ features }},pse-relations/force-validate
+
+[group('local')]
+[doc('Compile selected native package targets without replacing running test executables')]
+check-native-package pkg features:
+    bash scripts/native_exec.sh cargo check -p {{ pkg }} -p pse-relations --all-targets --locked --features {{ features }},pse-relations/force-validate
 
 [group('local')]
 [doc('Run selected functional controls in one Rust test target with explicit Arrow validation')]
@@ -1353,7 +1366,6 @@ native-test *args:
 native-python output *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    export PSE_INSPECTION_PUBLICATION="${PSE_INSPECTION_PUBLICATION:-$1/inspection}"
     native_output="$1"
     shift
     exec bash scripts/native_exec.sh "{{ py }}" -m scripts.native_tests python --junitxml="$native_output/native-python.xml" "$@"

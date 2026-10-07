@@ -320,16 +320,32 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
         return public_status(args.state.absolute(), config)
     # Download first so network failure leaves no half-initialized application state.
     allocation = resources(
-        args.memory_mib * MIB,
-        args.server_memory_mib * MIB,
-        args.native_workers,
-        args.native_worker_memory_mib * MIB,
+        (4096 if args.memory_mib is None else args.memory_mib) * MIB,
+        (2048 if args.server_memory_mib is None else args.server_memory_mib) * MIB,
+        2 if args.native_workers is None else args.native_workers,
+        (
+            1024
+            if args.native_worker_memory_mib is None
+            else args.native_worker_memory_mib
+        )
+        * MIB,
     )
-    if not 1 <= args.port <= 65535 or not args.interpretation.strip():
+    port = 18080 if args.port is None else args.port
+    if (
+        not 1 <= port <= 65535
+        or not args.interpretation
+        or not args.interpretation.strip()
+    ):
         raise SupervisorError(
             "Require a valid loopback port and an explicit interpretation identity"
         )
-    server = install(args.version, args.tool_root)
+    tool_root = args.tool_root
+    if tool_root is None:
+        tool_root = (
+            Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share")))
+            / "pse-arrow/tools/surreal"
+        )
+    server = install(args.version, tool_root)
     state = checked_directory(args.state, empty=True)
     with state_lock(state):
         if any(path.name != ".supervisor.lock" for path in state.iterdir()):
@@ -341,10 +357,10 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
             "profile_version": 1,
             "instance_id": str(uuid.uuid4()),
             "server": server,
-            "port": args.port,
+            "port": port,
             "namespace": "pse",
             "database": "canonical",
-            "endpoint": f"grpc://127.0.0.1:{args.port}",
+            "endpoint": f"grpc://127.0.0.1:{port}",
             "credentials_file": str(state / "credentials.json"),
             "schema_interpretation": args.interpretation,
             "accepting_writes": True,
@@ -363,6 +379,66 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
         write_json(state / "config.json", config)
         (state / "tmp").mkdir(mode=0o700)
     return public_status(state, config)
+
+
+def reconfigure(
+    state: Path, config: dict[str, object], args: argparse.Namespace
+) -> None:
+    """Replace only the allocation after proving the owned lifecycle is offline."""
+    if any(
+        value is not None
+        for value in (
+            args.native_workers,
+            args.port,
+            args.version,
+            args.interpretation,
+            args.tool_root,
+        )
+    ):
+        raise SupervisorError(
+            "reconfigure accepts memory options only; worker count and state identity are fixed"
+        )
+    if config["admission"] != "quiesced" or config["accepting_writes"]:
+        raise SupervisorError(
+            "Quiesce admission and stop the server before reconfigure"
+        )
+    prior = config["resources"]
+    if not isinstance(prior, dict):
+        raise SupervisorError("Invalid resource configuration")
+    allocation = resources(
+        integer(prior["total_memory_bytes"])
+        if args.memory_mib is None
+        else args.memory_mib * MIB,
+        integer(prior["server_memory_bytes"])
+        if args.server_memory_mib is None
+        else args.server_memory_mib * MIB,
+        integer(prior["native_workers"]),
+        integer(prior["native_worker_memory_bytes"])
+        if args.native_worker_memory_mib is None
+        else args.native_worker_memory_mib * MIB,
+    )
+    observed = systemctl(
+        "show",
+        "--property=ActiveState",
+        "--property=ControlGroup",
+        unit_name(state),
+        check=False,
+    )
+    fields = dict(
+        line.split("=", 1) for line in observed.stdout.splitlines() if "=" in line
+    )
+    if (
+        observed.returncode
+        or fields.get("ActiveState") not in {"inactive", "failed"}
+        or "ControlGroup" not in fields
+        or group_populated(fields["ControlGroup"])
+    ):
+        raise SupervisorError("Server must be verified stopped before reconfigure")
+    workers_drained(state, config)
+    updated = dict(config)
+    updated["resources"] = allocation
+    write_json(state / "config.json", updated)
+    config.update(updated)
 
 
 def systemd_environment() -> dict[str, str]:
@@ -1075,6 +1151,7 @@ def parser() -> argparse.ArgumentParser:
         "command",
         choices=[
             "setup",
+            "reconfigure",
             "start",
             "status",
             "quiesce",
@@ -1107,18 +1184,16 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument(
         "--tool-root",
         type=Path,
-        default=Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share")))
-        / "pse-arrow/tools/surreal",
     )
     result.add_argument(
         "--version", help="Official release vX.Y.Z; omitted selects current stable"
     )
-    result.add_argument("--port", type=int, default=18080)
-    result.add_argument("--memory-mib", type=int, default=4096)
-    result.add_argument("--server-memory-mib", type=int, default=2048)
-    result.add_argument("--native-workers", type=int, default=2)
-    result.add_argument("--native-worker-memory-mib", type=int, default=1024)
-    result.add_argument("--interpretation", default="")
+    result.add_argument("--port", type=int)
+    result.add_argument("--memory-mib", type=int)
+    result.add_argument("--server-memory-mib", type=int)
+    result.add_argument("--native-workers", type=int)
+    result.add_argument("--native-worker-memory-mib", type=int)
+    result.add_argument("--interpretation")
     result.add_argument(
         "--drained",
         action="store_true",
@@ -1138,7 +1213,7 @@ def dispatch(args: argparse.Namespace) -> int:
         if args.source is None:
             raise SupervisorError("restore requires --source")
         output = restore(
-            args.source.absolute(), args.state.absolute(), args.interpretation
+            args.source.absolute(), args.state.absolute(), args.interpretation or ""
         )
     elif args.command == "worker":
         return worker(args.state.absolute(), args.worker_command or [])
@@ -1154,6 +1229,8 @@ def dispatch(args: argparse.Namespace) -> int:
             config = config_for(state)
             if args.command == "start":
                 start(state, config)
+            elif args.command == "reconfigure":
+                reconfigure(state, config, args)
             elif args.command == "quiesce":
                 config["accepting_writes"] = False
                 if config["admission"] != "validation_required":
@@ -1173,7 +1250,7 @@ def dispatch(args: argparse.Namespace) -> int:
                 stop(state, config, abrupt=args.command == "kill")
             elif args.command == "validate":
                 output = validate(
-                    state, config, args.interpretation, args.check_command or []
+                    state, config, args.interpretation or "", args.check_command or []
                 )
                 print(json.dumps(output, sort_keys=True))
                 return 0

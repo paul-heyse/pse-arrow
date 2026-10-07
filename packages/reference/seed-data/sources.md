@@ -14,6 +14,18 @@ and synthetic inputs. `oracle_input` and `synthetic` data are test-only: a root 
 test fixture that reads them is refused. The notes below state what the citations do
 not.
 
+Historical property observations and solved or initialized fixture outputs use the
+shared physical allowances in [`numerical_policy`](../domain/models/numerical-policy.pse).
+Those same typed constants are marked as package engineering rules and supply
+production engineering floors through full semantic quantity matching. The
+production contextual relative fraction remains the default alongside those floors.
+Where that policy has no absolute allowance for the semantic quantity, the fixture
+retains its typed absolute floor and uses the shared dimensionless fraction for
+relative comparison. The NRTL aggregate error uses that fraction of the reference
+observations' aggregate magnitude. Expected values and model specifications are
+unchanged. Exact source-bank retrieval, fixed-input aliases and mathematical
+identities retain their independent precision.
+
 `models/chemistry.pse` declares the seed's neutral chemical formula units and their
 atom counts. The saponification reaction uses ethyl acetate and sodium hydroxide,
 producing sodium acetate and ethanol; water is the solvent. Elemental closure is
@@ -27,8 +39,9 @@ use the published reduced coordinate T/(1000 K); heat capacity is J/(mol K). The
 primitive functions produce enthalpy and entropy differences at the stock ideal-gas
 datum. Reference subtraction removes arbitrary integration constants. No formation
 enthalpy or entropy reference is inferred from those primitives. Tests use the rounded
-published heat capacities and enthalpy increment, with tolerances matching the printed
-resolution, and check the enthalpy derivative separately.
+published heat capacities and enthalpy increment, retaining absolute floors from the
+printed resolution alongside the shared relative allowance. They check the enthalpy
+derivative separately.
 
 The reusable equations and row contracts live in `pse.methods`, in
 `models/caloric.pse` and `models/pure-properties.pse`. Fit identities distinguish
@@ -40,17 +53,18 @@ chain-rule comparison. The caloric interface consumes those primitive evaluation
 and owns reference subtraction. Reference values are supplied, never inferred.
 
 Perry liquid heat capacity and density keep their natural units, J/(kmol K) and
-kmol/m³. Benzene heat-capacity tests use the printed endpoint values and their
-resolution. The density form excludes its critical endpoint. Each declared interval
-belongs to that fit.
+kmol/m³. Benzene heat-capacity tests use the printed endpoint values with the retained
+absolute floors and shared relative allowance. The density form excludes its critical
+endpoint. Each declared interval belongs to that fit.
 
 The IDAES oracle inputs (`rpp4_oracle`, `rpp4_pressure_oracles`,
 `water_density_oracle`, `liquid_idaes_oracle` and the BT and saponification
 configurations) are comparison inputs, not independently certified production
 datasets. Their bounds identify the selected comparison interval, not a claim about the
 publication's full empirical validity. The water checks use the original oracle
-temperatures and tolerances: Perry density at 273.16 and 333.15 K; RPP4 saturation
-pressure at 298.15 and 373.15 K. Equations are expressed from the polynomial,
+temperatures with shared concentration and pressure allowances: Perry density at
+273.16 and 333.15 K; RPP4 saturation pressure at 298.15 and 373.15 K. Equations are
+expressed from the polynomial,
 definite-integral and reduced-temperature Wagner forms. No upstream implementation,
 comments or docstrings are copied. The IDAES liquid oracle coefficients retain the
 source's J/(kmol K) scale and are distinct from the published Perry coefficients.
@@ -85,10 +99,10 @@ Mixture conversion to that reference includes component formation values and the
 ideal-gas pressure entropy shift from the stock 100 kPa datum. The homogeneous
 potential supplies residual properties; separate phase instances prevent a smoothed
 equilibrium temperature from being used as the caloric temperature. The printed oracle
-rounding is reflected in explicit physical tolerances. The steady fixture passes its
-selected oracle, derivative and envelope checks. The separate ideal-K initialization
-fixture passes both the warm-up and original-specification solves in a focused native
-check.
+rounding supplies the retained typed absolute floors alongside shared relative
+allowances. Earlier focused native checks exercised the steady fixture's selected
+oracle, derivative and envelope checks and the separate ideal-K initialization
+fixture's warm-up and original-specification solves.
 
 `saponification.pse` binds the IDAES dilute-water and reaction inputs: 55388 mol/m³,
 75.327 J/(mol K), a 298.15 K sensible reference, an Arrhenius factor 3.132e6 m³/(mol s),
@@ -103,8 +117,9 @@ records the scope of native checks actually exercised; these source notes make n
 broader qualification claim.
 
 The PR heater and cocurrent heat-exchanger fixtures retain their IDAES physical
-specifications, 0.0001 K equilibrium smoothing widths and original oracle tolerances.
-The heat exchanger's cold-side degrees Rankine are converted to kelvin. Their hot inlet
+specifications and 0.0001 K equilibrium smoothing widths. Their output comparisons
+use the shared physical allowances. The heat exchanger's cold-side degrees Rankine
+are converted to kelvin. Their hot inlet
 bubble-point initial estimate is 364 K, separated from the fixed 365 K inlet
 temperature. This is a starting iterate, not a supplied solution or a changed physical
 specification. It avoids centering the forward derivative sample on the narrow

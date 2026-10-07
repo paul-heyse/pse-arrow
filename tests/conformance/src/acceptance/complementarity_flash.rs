@@ -8,11 +8,10 @@ use super::fixtures::*;
 use pse_backend_native::solve::Backend;
 use pse_ids::SemanticId;
 use pse_model::generated::enums::ModelingStructuralRequirement as Requirement;
-use pse_model::generated::enums::NumericalTarget;
 use pse_runtime::{
     CancelSource,
     math::solves::SolverProfile,
-    workflow::{ModelingPackage, RunReport},
+    workflow::{ModelingPackage, ModelingSolvePreparation, RunReport},
 };
 use std::collections::BTreeMap;
 use std::time::Duration;
@@ -43,27 +42,42 @@ async fn solve(
     case: SemanticId,
     solver: SolverProfile,
 ) -> (f64, f64, f64, f64) {
-    let result = seed_prepare(package, case, solver, &CancelSource::new())
-        .await
-        .unwrap()
-        .start()
-        .unwrap()
-        .wait()
+    let prepared = seed_prepare(package, case, solver, &CancelSource::new())
         .await
         .unwrap();
+    solve_prepared(&prepared).await
+}
+/// Execute the same admitted preparation whose route and closure were inspected.
+async fn solve_prepared(prepared: &ModelingSolvePreparation) -> (f64, f64, f64, f64) {
+    let result = prepared.start().unwrap().wait().await.unwrap();
     let report = authored_success(&result);
-    let observation = |label: &str| {
-        let value = report.reports.iter().find(|r| r.label == label).unwrap();
-        let allowance = resolved_allowance(
-            report.prepared.solve.numerics(),
-            NumericalTarget::Variable,
-            value.target_id,
-        );
-        (value.value, allowance)
-    };
     assert!(matches!(result.report(), Ok(RunReport::Modeling(_))));
-    let (vapor, vapor_allowance) = observation("vapor fraction");
-    let (temperature, temperature_allowance) = observation("equilibrium temperature");
+    let vapor = report
+        .reports
+        .iter()
+        .find(|r| r.label == "vapor fraction")
+        .unwrap();
+    let registry = &report.prepared.model.case.compiled().quantities;
+    let numerics = report.prepared.solve.numerics();
+    let vapor_allowance = resolved_physical_allowance(
+        numerics,
+        registry,
+        vapor,
+        SemanticId::parse_hex("8a097841b11d4824b0d5041250553949").unwrap(),
+    );
+    let vapor = vapor.value;
+    let temperature = report
+        .reports
+        .iter()
+        .find(|r| r.label == "equilibrium temperature")
+        .unwrap();
+    let temperature_allowance = resolved_physical_allowance(
+        numerics,
+        registry,
+        temperature,
+        SemanticId::parse_hex("13874d4b57684720bb42a48164325812").unwrap(),
+    );
+    let temperature = temperature.value;
     (vapor, temperature, vapor_allowance, temperature_allowance)
 }
 
@@ -96,10 +110,10 @@ async fn flash_phase_disappearance_agrees_across_realizations() {
             );
             assert!(temperature.is_finite(), "{feed} {name}");
         }
-        // Compare the physical temperature decisions using both admitted allowances.
-        // Coarse production solves do not establish an asymptotic smoothing order.
+        // Empirical agreement uses the resolved shared temperature floor.
+        // Bound feasibility budgets do not guarantee forward output accuracy.
         assert!(
-            (smooth.1 - disjunctive.1).abs() <= smooth.3 + disjunctive.3,
+            (smooth.1 - disjunctive.1).abs() <= smooth.3.min(disjunctive.3),
             "{feed}: smooth {} K, disjunctive {} K",
             smooth.1,
             disjunctive.1
@@ -126,15 +140,15 @@ async fn flash_phase_disappearance_agrees_across_realizations() {
                 .requirements(),
             [Requirement::L1ExactPenalty]
         );
-        let penalty = solve(&package, penalty_case, feasible(Backend::Pounce)).await;
+        let penalty = solve_prepared(&prepared).await;
         assert!(
             (penalty.0 - beta).abs() <= penalty.2,
             "{feed} penalty: vapor fraction {}",
             penalty.0
         );
-        // The realizations agree at their admitted physical accuracy.
+        // The realizations agree within the shared physical output resolution.
         assert!(
-            (penalty.1 - disjunctive.1).abs() <= penalty.3 + disjunctive.3,
+            (penalty.1 - disjunctive.1).abs() <= penalty.3.min(disjunctive.3),
             "{feed}: penalty {} K, disjunctive {} K",
             penalty.1,
             disjunctive.1

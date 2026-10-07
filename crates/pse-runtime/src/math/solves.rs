@@ -2352,20 +2352,21 @@ fn compatibility(
     })
 }
 impl MathService {
-    /// Obtain intent-relevant class evidence through the original math owner.
+    /// Obtain independently demanded class and presolve-row evidence through the
+    /// original math owner, continuing one finite construction allowance.
     pub(crate) async fn discover_class(
         self: &Arc<Self>,
         prepared: Preparation,
         values: CaseValues,
         profile: &SolverProfile,
     ) -> Result<Preparation, MathRuntimeError> {
-        let result = if routing::class_evidence_required(
+        let mut result = if routing::class_evidence_required(
             &prepared.prepared.facts,
             profile.intent,
             profile.selection,
         ) {
             let source = prepared.prepared.clone();
-            let bound_values = values;
+            let bound_values = values.clone();
             let product = self
                 .job_retained(
                     1,
@@ -2382,6 +2383,48 @@ impl MathService {
         } else {
             prepared
         };
+        let affine_requested = match &profile.presolve {
+            native::presolve::Policy::Off => false,
+            native::presolve::Policy::Auto => true,
+            native::presolve::Policy::Explicit { options, .. } => {
+                options.enabled
+                    && (options.linear_eq_reduction || options.redundant_constraint_removal)
+            }
+        };
+        let nlp_possible = match profile.selection {
+            SolverSelection::Auto => execution::LINKED.adapters().any(|adapter| {
+                adapter.linked()
+                    && adapter.representation() == execution::Representation::Nlp
+                    && profile
+                        .backend
+                        .backend()
+                        .is_none_or(|backend| backend == adapter.backend())
+            }),
+            SolverSelection::Explicit(backend) => {
+                execution::adapter(backend).linked()
+                    && execution::adapter(backend).representation()
+                        == execution::Representation::Nlp
+            }
+        };
+        if affine_requested
+            && nlp_possible
+            && result.prepared.presolve.affine.iter().any(Option::is_none)
+        {
+            let source = result.prepared.clone();
+            let product = self
+                .job_retained(
+                    1,
+                    self.policy.workspace_bytes,
+                    FlightCancellation::default(),
+                    move |flag| {
+                        let product = source.prepare_affine_rows(&values, &flag)?;
+                        let bytes = product.retained_bytes();
+                        Ok((product, bytes))
+                    },
+                )
+                .await?;
+            result = self.own_preparation(product)?;
+        }
         Ok(result)
     }
 

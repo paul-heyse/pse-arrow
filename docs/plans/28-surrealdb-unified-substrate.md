@@ -278,6 +278,15 @@ series do not establish those product claims.
 
 ## Current checkpoint
 
+The latest committed correction baseline is `219338742`, with the subsequent uncommitted
+continuation preserved. At the maintainer's request, the current qualification runner was
+stopped to conduct the [production execution efficiency review](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md).
+[28e's current handoff](28e-rebuild-retirement-and-qualification.md#efficiency-review-handoff-2026-10-07)
+owns the interrupted campaign, retained evidence and resumption boundary. Review publication
+does not implement its proposed corrections or establish E3/E4/E5 acceptance. The current
+review's dispositions belong here; detailed corrective scope and its rule changes require
+the subsequent plan-creation decision. D3 retains regular indexed edges.
+
 Remaining-scope execution on 2026-10-06 has completed grouped exact namespace,
 supplier, record, document and physical acquisitions, including complete-inventory
 premises and precharged hydration. Deployment qualification now checks the actual

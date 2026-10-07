@@ -33,6 +33,345 @@ fn run(text: &str) -> Result<SpecializedModel, ModelingError> {
         Limits::default(),
     )
 }
+// These pure arithmetic controls author explicit values. Production consumers
+// instead resolve contextual engineering requirements through their policy owner.
+fn explicit_allowances(
+    model: &SpecializedModel,
+) -> std::collections::BTreeMap<pse_ids::SemanticId, f64> {
+    model
+        .closures
+        .values()
+        .map(|closure| {
+            let tolerance = closure
+                .requirements
+                .iter()
+                .map(|requirement| {
+                    let specialize::ClosureTolerance::Explicit(value) = &requirement.tolerance
+                    else {
+                        panic!("arithmetic fixture requires explicit physical allowances")
+                    };
+                    value.scalar(closure.lineage.declaration).unwrap()
+                })
+                .reduce(f64::min)
+                .unwrap();
+            (closure.id, tolerance)
+        })
+        .collect()
+}
+
+fn contextual_closure_fixture(receiver_tolerance: &str, receiver_expression: &str) -> String {
+    format!(
+        r#"package p {{
+     constant energy:EnergyTransferRate=1{{W}} provenance(s, role.given);
+     constant unmarked:EnergyTransferRate=1{{W}} provenance(s, role.given);
+     constant power:Power=1{{W}} provenance(s, role.given);
+     annotation engineering_rule p.energy;
+     annotation engineering_rule p.power;
+     def Source {{param H:EnergyTransferRate=2{{W}};var x:Scalar;
+      annotation engineering_scale H(kind=magnitude, value=100{{W}});
+      state state supplied(true) {{coordinate value=x;transport energy=H tolerance p.energy;}}
+      material port port=state;annotation connectivity port(0,1);
+     }}
+     def Receiver {{param H:EnergyTransferRate=3{{W}};var x:Scalar;
+      annotation engineering_scale H(kind=magnitude, value=200{{W}});
+      state state supplied(false) {{coordinate value=x;transport energy={receiver_expression} tolerance {receiver_tolerance};}}
+      material port port=state;annotation connectivity port(1,0);
+     }}
+     def Root {{child source:Source=Source();child receiver:Receiver=Receiver();
+      connect stream:source.port->receiver.port;
+     }}
+    }}"#
+    )
+}
+
+#[test]
+fn process_contract_indexed_computed_scale_retains_named_member() {
+    let model = run(r#"package p {
+      entity kind item {} entity item a {} entity item b {}
+      set ports:Set<item>={a,b};
+      def Root {
+        var H:Power;
+        let output[i in ports]:Power=H+1{W};
+        annotation engineering_scale output[b](kind=reference_difference,value=100{W});
+      }
+    }"#)
+    .unwrap();
+    let scale = model
+        .annotations
+        .iter()
+        .find(|annotation| {
+            matches!(
+                annotation.value,
+                crate::annotation::AnnotationValue::EngineeringScale(_)
+            )
+        })
+        .unwrap();
+    let symbol = &model.symbols[&scale.target];
+    assert_eq!(
+        symbol.role,
+        pse_model::generated::enums::ModelingDeclarationKind::Let
+    );
+    assert!(symbol.lineage.path.ends_with(".output"));
+    assert!(symbol.expression.is_some());
+    assert_eq!(
+        model
+            .annotations
+            .iter()
+            .filter(|annotation| {
+                matches!(
+                    annotation.value,
+                    crate::annotation::AnnotationValue::EngineeringScale(_)
+                )
+            })
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn process_contract_contextual_closure_preserves_rule_identity_and_both_named_endpoints() {
+    use specialize::ClosureTolerance;
+    let model = run(&contextual_closure_fixture("p.energy", "H")).unwrap();
+    let closure = model.closures.values().next().unwrap();
+    assert_eq!(closure.requirements.len(), 2);
+    assert_eq!(closure.terms.len(), 1);
+    assert!(closure.observation_only);
+    let connection = model.connections.values().next().unwrap();
+    let rule = model.engineering_rules.iter().find(|rule| {
+        model.closures.values().any(|closure| closure.requirements.iter().any(|requirement|
+            matches!(requirement.tolerance, ClosureTolerance::EngineeringRule { rule_id, .. } if rule_id == rule.id)))
+    }).unwrap();
+    let (registry, _) = kernel_types::physical();
+    let quantity = rule
+        .quantity
+        .quantity_scheme()
+        .unwrap()
+        .resolve(&registry, &Default::default())
+        .unwrap();
+    let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+    for (requirement, endpoint) in closure
+        .requirements
+        .iter()
+        .zip([connection.from, connection.to])
+    {
+        assert_eq!(
+            requirement.tolerance,
+            ClosureTolerance::EngineeringRule {
+                rule_id: rule.id,
+                marker: rule.marker
+            }
+        );
+        assert_eq!(requirement.endpoint, Some(endpoint));
+        let target = requirement.context.unwrap();
+        let symbol = &model.symbols[&target];
+        assert_eq!(
+            symbol.role,
+            pse_model::generated::enums::ModelingDeclarationKind::Parameter
+        );
+        assert!(symbol.lineage.path.ends_with(".H"));
+        assert_eq!(
+            symbol.lineage.instance,
+            model.material_ports[&endpoint].lineage.instance
+        );
+        assert_eq!(symbol.ty, rule.quantity);
+        let target_quantity = symbol
+            .ty
+            .quantity_scheme()
+            .unwrap()
+            .resolve(&registry, &Default::default())
+            .unwrap();
+        assert_eq!(
+            registry
+                .quantity_type(target_quantity)
+                .unwrap()
+                .canonical_unit,
+            unit
+        );
+        assert!(
+            model
+                .annotations
+                .iter()
+                .any(|annotation| annotation.target == target
+                    && matches!(
+                        annotation.value,
+                        crate::annotation::AnnotationValue::EngineeringScale(_)
+                    ))
+        );
+    }
+    assert_ne!(
+        closure.requirements[0].context,
+        closure.requirements[1].context
+    );
+    // Folding the fixed inputs leaves the independent physical observation intact.
+    assert!(matches!(
+        closure.terms[0].expression.kind,
+        pse_authoring::dsl::ExprKind::Binary { .. }
+    ));
+}
+
+#[test]
+fn process_contract_contextual_closure_same_value_literals_and_distinct_expressions_stay_explicit()
+{
+    use specialize::ClosureTolerance;
+    for tolerance in ["1{W}", "p.energy*1", "p.unmarked"] {
+        let model = run(&contextual_closure_fixture(tolerance, "H")).unwrap();
+        let closure = model.closures.values().next().unwrap();
+        assert_eq!(closure.requirements.len(), 2);
+        assert!(matches!(
+            closure.requirements[0].tolerance,
+            ClosureTolerance::EngineeringRule { .. }
+        ));
+        let ClosureTolerance::Explicit(value) = &closure.requirements[1].tolerance else {
+            panic!("only a direct marked constant reference inherits engineering policy")
+        };
+        assert_eq!(value.scalar(closure.lineage.declaration).unwrap(), 1.0);
+        assert!(closure.requirements[1].context.is_some());
+    }
+    assert!(
+        checked(&contextual_closure_fixture("p.power", "H")).is_err(),
+        "same canonical unit does not erase the transported quantity meaning"
+    );
+}
+
+#[test]
+fn process_contract_contextual_closure_arbitrary_expression_does_not_guess_named_context() {
+    let model = run(&contextual_closure_fixture("p.energy", "H+0{W}")).unwrap();
+    let closure = model.closures.values().next().unwrap();
+    assert!(closure.requirements[0].context.is_some());
+    assert_eq!(closure.requirements[1].context, None);
+    assert!(closure.requirements[1].endpoint.is_some());
+    assert!(matches!(
+        closure.requirements[1].tolerance,
+        specialize::ClosureTolerance::EngineeringRule { .. }
+    ));
+}
+
+#[test]
+fn process_contract_contextual_closure_accumulator_and_reconstruction_keep_shared_intent_and_guards()
+ {
+    let source = r#"package p {
+     constant energy:EnergyTransferRate=1{W} provenance(s, role.given);
+     annotation engineering_rule p.energy;
+     def Root {param mode:Integer=MODE;var H:EnergyTransferRate;var reconstructed:EnergyTransferRate;
+      when mode==0 {accumulate total:EnergyTransferRate conservation tolerance p.energy;
+       contribute total role positive=H;
+       state state supplied(false) {coordinate energy=H;
+       reconstruct energy:reconstructed==H tolerance p.energy;
+       transport energy=H tolerance p.energy;
+       }
+      }
+     }
+    }"#;
+    let model = run(&source.replace("MODE", "0")).unwrap();
+    assert_eq!(model.closures.len(), 2);
+    let rule = &model.engineering_rules[0];
+    for closure in model.closures.values() {
+        assert_eq!(closure.requirements.len(), 1);
+        let requirement = &closure.requirements[0];
+        assert_eq!(
+            requirement.tolerance,
+            specialize::ClosureTolerance::EngineeringRule {
+                rule_id: rule.id,
+                marker: rule.marker
+            }
+        );
+        assert!(requirement.endpoint.is_none());
+        let context = requirement.context.unwrap();
+        if closure.observation_only {
+            assert!(
+                model.symbols[&context]
+                    .lineage
+                    .path
+                    .ends_with(".reconstructed")
+            );
+        } else {
+            assert_eq!(context, closure.id);
+        }
+        let (registry, _) = kernel_types::physical();
+        assert_eq!(
+            closure
+                .ty
+                .quantity_scheme()
+                .unwrap()
+                .resolve(&registry, &Default::default())
+                .unwrap(),
+            rule.quantity
+                .quantity_scheme()
+                .unwrap()
+                .resolve(&registry, &Default::default())
+                .unwrap()
+        );
+    }
+    assert_eq!(model.equations.len(), 2);
+    let inactive = run(&source.replace("MODE", "1")).unwrap();
+    assert!(inactive.closures.is_empty());
+    assert!(inactive.equations.is_empty());
+}
+
+#[test]
+fn process_contract_contextual_closure_assessment_requires_resolved_finite_positive_allowances() {
+    let model = run(&contextual_closure_fixture("p.energy", "H")).unwrap();
+    let closure = model.closures.values().next().unwrap();
+    let magnitudes = std::collections::BTreeMap::from([(closure.terms[0].id, 1.5)]);
+    assert!(
+        model
+            .assess_closure(&magnitudes, &Default::default())
+            .is_err()
+    );
+    for invalid in [0.0, -1.0, f64::INFINITY, f64::NAN] {
+        assert!(
+            model
+                .assess_closure(
+                    &magnitudes,
+                    &std::collections::BTreeMap::from([(closure.id, invalid)])
+                )
+                .is_err()
+        );
+    }
+    for (allowance, satisfied) in [(1.0, false), (2.0, true)] {
+        let assessment = model
+            .assess_closure(
+                &magnitudes,
+                &std::collections::BTreeMap::from([(closure.id, allowance)]),
+            )
+            .unwrap();
+        assert_eq!(assessment[0].net, 1.5);
+        assert_eq!(assessment[0].tolerance, allowance);
+        assert_eq!(assessment[0].satisfied, Some(satisfied));
+    }
+}
+
+#[test]
+fn process_contract_contextual_closure_inventory_preserves_marked_rule_and_original_named_stock() {
+    let text = r#"package p {
+     constant time_allowance:Time=1{s} provenance(s, role.given);
+     annotation engineering_rule p.time_allowance;
+     def Root {domain t:Time from 0{s} to 1{s};
+      discretize grid on t using integrated(elements=1,order=1);
+      param rate:Scalar=0.5;var stock[i in t]:Time;
+      conserve inventory[i in t]:Time on t inventory stock[i] flux rate tolerance p.time_allowance;
+      eq initial:stock[0{s}]==1{s};
+     }
+    }"#;
+    let model = run(text).unwrap();
+    assert!(!model.inventory_balances.is_empty());
+    let rule = &model.engineering_rules[0];
+    for balance in model.inventory_balances.values() {
+        assert_eq!(
+            balance.requirement.tolerance,
+            specialize::ClosureTolerance::EngineeringRule {
+                rule_id: rule.id,
+                marker: rule.marker,
+            }
+        );
+        let context = balance.requirement.context.unwrap();
+        assert_eq!(
+            model.symbols[&context].lineage.declaration,
+            model.symbols[&balance.state.unwrap()].lineage.declaration
+        );
+        assert!(balance.requirement.endpoint.is_none());
+    }
+}
 
 #[test]
 fn process_contract_unannotated_children_retain_nominal_connection_contracts() {
@@ -532,7 +871,11 @@ fn process_contract_observation_assesses_evaluated_original_delta_terms() {
             })
             .collect();
         let assessment = model
-            .assess_closures(&magnitudes, &std::collections::BTreeSet::from([closure.id]))
+            .assess_closures(
+                &magnitudes,
+                &std::collections::BTreeSet::from([closure.id]),
+                &explicit_allowances(&model),
+            )
             .unwrap();
         assert_eq!(assessment[0].satisfied, Some(expected));
         assert!((assessment[0].net - (2.0 - outgoing)).abs() < 1e-12);
@@ -540,7 +883,11 @@ fn process_contract_observation_assesses_evaluated_original_delta_terms() {
         incomplete.remove(&closure.terms[0].id);
         assert!(
             model
-                .assess_closures(&incomplete, &std::collections::BTreeSet::from([closure.id]))
+                .assess_closures(
+                    &incomplete,
+                    &std::collections::BTreeSet::from([closure.id]),
+                    &explicit_allowances(&model)
+                )
                 .is_err()
         );
     }
@@ -658,7 +1005,11 @@ fn process_contract_fixed_parameter_coordinates_keep_identity_while_original_ene
             })
             .collect();
         let assessment = model
-            .assess_closures(&magnitudes, &std::collections::BTreeSet::from([closure.id]))
+            .assess_closures(
+                &magnitudes,
+                &std::collections::BTreeSet::from([closure.id]),
+                &explicit_allowances(&model),
+            )
             .unwrap();
         assert_eq!(assessment[0].satisfied, Some(expected));
         assert!((assessment[0].net - (2.0 - received)).abs() < 1e-12);
@@ -792,7 +1143,9 @@ fn process_contract_inherited_guarded_balance_members_share_only_their_source_ph
             .values()
             .flat_map(|closure| closure.terms.iter().map(|term| (term.id, 1.0)))
             .collect();
-        let assessed = model.assess_closure(&magnitudes).unwrap();
+        let assessed = model
+            .assess_closure(&magnitudes, &explicit_allowances(&model))
+            .unwrap();
         assert_eq!(assessed.len(), 1);
         assert_eq!(assessed[0].net, 1.0);
         assert_eq!(assessed[0].satisfied, (required == 1).then_some(false));

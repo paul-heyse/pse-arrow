@@ -179,6 +179,33 @@ def comprehensive(python_profile: str = "dev") -> list[Gate]:
         for gate in static
         if gate.name != "governance-tests"
     ]
+    deployment = python_profile == "producer"
+    deployment_gates = (
+        [
+            Gate(
+                "producer-deployment",
+                ("{output}/deployment",),
+                dependencies=("py-sync-native",),
+                mode="source-bound-production-capture",
+                profile="producer",
+                input_scope="deployment-capture",
+            ),
+            Gate(
+                "python-deployment-association",
+                (
+                    "{output}/deployment-association",
+                    "python/pse/tests/test_canonical_results.py::test_canonical_eligible_deployment_receipt_reopens_original_scalar",
+                ),
+                report="{output}/deployment-association/native-python.xml",
+                dependencies=("producer-deployment",),
+                recipe="native-python",
+                mode="python-native",
+                input_scope="python-product",
+            ),
+        ]
+        if deployment
+        else []
+    )
     return [
         Gate(
             "py-sync-native",
@@ -198,6 +225,7 @@ def comprehensive(python_profile: str = "dev") -> list[Gate]:
             ("{output}/producer-fixture.json",),
             input_scope="tooling",
         ),
+        *deployment_gates,
         Gate(
             "feature-absence",
             (
@@ -219,12 +247,19 @@ def comprehensive(python_profile: str = "dev") -> list[Gate]:
             dependencies=("producer-fixture",),
         ),
         Gate("doctest", input_scope="rust-product"),
-        replace(native_gate(), dependencies=("producer-fixture",)),
+        replace(
+            native_gate(),
+            dependencies=("producer-fixture", "python-deployment-association")
+            if deployment
+            else ("producer-fixture",),
+        ),
         Gate(
             "native-python",
             ("{output}",),
             "{output}/native-python.xml",
-            dependencies=("py-sync-native",),
+            dependencies=("py-sync-native", "python-deployment-association")
+            if deployment
+            else ("py-sync-native",),
             mode="python-native",
             input_scope="python-product",
         ),
@@ -277,6 +312,13 @@ INPUT_SCOPES = {
         "uv.lock",
         "conftest.py",
         "scripts/python",
+    ),
+    "deployment-capture": (
+        *RUST_INPUTS,
+        "python",
+        "pyproject.toml",
+        "uv.lock",
+        "scripts",
     ),
     # Tool policies and data are deliberately included: many governance tools read them.
     "tooling": (
@@ -370,12 +412,20 @@ PRODUCT_ENVIRONMENT = (
     "SYMBOLICA_LICENSE",
     "LOCAL_NATIVE_ENVIRONMENT",
 )
+PRODUCER_REVIEW_INPUTS = (
+    "PSE_RUNTIME_PRODUCER_DECLARATIONS",
+    "PSE_WORKER_PRODUCER_DECLARATIONS",
+    "PSE_PYTHON_PRODUCER_DECLARATIONS",
+    "PSE_NATIVE_PRODUCER_INPUTS",
+    "PSE_PYTHON_PRODUCER_INPUTS",
+)
 INPUT_ENVIRONMENT = (
     *PRODUCT_ENVIRONMENT,
     "UV_PROJECT_ENVIRONMENT",
     "PSE_TEST_WORKERS",
     "PYTHONPATH",
     "PYTHONHASHSEED",
+    *PRODUCER_REVIEW_INPUTS,
 )
 
 

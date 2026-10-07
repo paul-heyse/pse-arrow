@@ -24,7 +24,7 @@ impl FixtureLifetime {
 impl Drop for FixtureLifetime {
     #[expect(
         clippy::panic,
-        reason = "normal test fixture teardown failures must fail the test"
+        reason = "fallback teardown reports failure on the thread owning the final fixture borrower"
     )]
     fn drop(&mut self) {
         if *self.removed.get_mut() {
@@ -32,6 +32,8 @@ impl Drop for FixtureLifetime {
         }
         // Nextest may exit immediately after the test: cleanup must complete,
         // rather than merely queue a task. The detached store has no owner.
+        // A final borrower may itself live in a detached task, so qualification
+        // consumers must await explicit removal to surface failure in their body.
         let result = std::thread::scope(|scope| {
             scope
                 .spawn(|| self.executor.block_on(self.store.remove_isolated_fixture()))
@@ -59,6 +61,8 @@ impl Drop for FixtureLifetime {
 /// Explicit isolated canonical fixture on the recipe-selected supervised server.
 /// The retained fixture executor keeps the remote connection alive even when a
 /// synchronous test helper is called from a different asynchronous executor.
+/// Await `remove_isolated_fixture` after readers and workers finish when cleanup
+/// failure must reach the caller; last-borrower Drop is a fallback.
 pub fn canonical_fixture_store()
 -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
     use std::sync::OnceLock;

@@ -16,6 +16,8 @@ use pse_math::{
     sparse::AssemblyMatrix,
 };
 
+mod fixed_reactions;
+
 /// The budgets of a recovery that requests no local analysis; nothing reads them.
 const UNUSED: Budget = Budget {
     dual: 0.0,

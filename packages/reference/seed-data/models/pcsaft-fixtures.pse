@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e178d29871ca9ccbc72323006155") package pcsaft_fixtures {
+@id("90be8e4da90f40d1878cae93e22e32e2") use numerical_policy @"1.0.0";
 @id("0ec2abaa0b354b3790f7c5b7445882aa") use properties @"1.0.0";
 @id("9767cd4861984c8ca42ea0d0f10fc826") use pcsaft_parameters @"1.0.0";
 @id("4417c2abed9c4047975a7e28562b2277") use constants @"1.0.0";
@@ -15,101 +16,101 @@
 @id("01a0e178d29871ca9ccbc727545ef6f6") test homogeneous_0 oracle references.plan14_thermo_reference fixture {dof 0; route steady; procedure check; fix root.T=300.0{K}; fix root.rho=10.0{mol/m^3}; fix root.amount[chem.methane]=0.2{mol}; fix root.amount[chem.ethane]=0.3{mol}; fix root.amount[chem.propane]=0.5{mol};} {
 @id("f901618aa4f64e82bb8c87f0c94b59ca") permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0e178d29871ca9ccbc7287898c604") child root:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential);
-@id("01a0e178d29871ca9ccbc729394eed86") expect root.pressure==teqp_oracle.states[0].pressure tolerance 0.001{Pa} relative 2e-8;
-@id("01a0e178d29871ca9ccbc72a232fe7e0") expect root.h_residual==teqp_oracle.states[0].h_residual tolerance 1e-5{J/mol} relative 2e-8;
-@id("01a0e178d29871ca9ccbc72bef99106a") expect root.ln_phi[chem.methane]==teqp_oracle.components[0,chem.methane].ln_phi tolerance 1e-7{1} relative 2e-8;
-@id("01a0e178d29871ca9ccbc72c892dab04") expect root.ln_phi[chem.ethane]==teqp_oracle.components[0,chem.ethane].ln_phi tolerance 1e-7{1} relative 2e-8;
-@id("01a0e178d29871ca9ccbc72d60604ce0") expect root.ln_phi[chem.propane]==teqp_oracle.components[0,chem.propane].ln_phi tolerance 1e-7{1} relative 2e-8;
+@id("01a0e178d29871ca9ccbc729394eed86") expect root.pressure==teqp_oracle.states[0].pressure tolerance numerical_policy.pressure relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc72a232fe7e0") expect root.h_residual==teqp_oracle.states[0].h_residual tolerance 1e-5{J/mol} relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc72bef99106a") expect root.ln_phi[chem.methane]==teqp_oracle.components[0,chem.methane].ln_phi tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc72c892dab04") expect root.ln_phi[chem.ethane]==teqp_oracle.components[0,chem.ethane].ln_phi tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc72d60604ce0") expect root.ln_phi[chem.propane]==teqp_oracle.components[0,chem.propane].ln_phi tolerance 1e-7{1} relative numerical_policy.dimensionless;
 }
 @id("01a0e178d29871ca9ccbc72e4ccb0216") test homogeneous_1 oracle references.plan14_thermo_reference fixture {dof 0; route steady; procedure check; fix root.T=350.0{K}; fix root.rho=34.565566349336066{mol/m^3}; fix root.amount[chem.methane]=0.2{mol}; fix root.amount[chem.ethane]=0.3{mol}; fix root.amount[chem.propane]=0.5{mol};} {
 @id("95dcbe205f93440792daa42cabec306a") permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0e178d29871ca9ccbc72f2e852251") child root:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential);
-@id("01a0e178d29871ca9ccbc7307f217ab6") expect root.pressure==teqp_oracle.states[1].pressure tolerance 0.001{Pa} relative 2e-8;
-@id("01a0e178d29871ca9ccbc731f2ddbb84") expect root.h_residual==teqp_oracle.states[1].h_residual tolerance 1e-5{J/mol} relative 2e-8;
-@id("01a0e178d29871ca9ccbc732c42e01da") expect root.ln_phi[chem.methane]==teqp_oracle.components[1,chem.methane].ln_phi tolerance 1e-7{1} relative 2e-8;
-@id("01a0e178d29871ca9ccbc7330242440d") expect root.ln_phi[chem.ethane]==teqp_oracle.components[1,chem.ethane].ln_phi tolerance 1e-7{1} relative 2e-8;
-@id("01a0e178d29871ca9ccbc7346ffce7db") expect root.ln_phi[chem.propane]==teqp_oracle.components[1,chem.propane].ln_phi tolerance 1e-7{1} relative 2e-8;
+@id("01a0e178d29871ca9ccbc7307f217ab6") expect root.pressure==teqp_oracle.states[1].pressure tolerance numerical_policy.pressure relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc731f2ddbb84") expect root.h_residual==teqp_oracle.states[1].h_residual tolerance 1e-5{J/mol} relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc732c42e01da") expect root.ln_phi[chem.methane]==teqp_oracle.components[1,chem.methane].ln_phi tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc7330242440d") expect root.ln_phi[chem.ethane]==teqp_oracle.components[1,chem.ethane].ln_phi tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc7346ffce7db") expect root.ln_phi[chem.propane]==teqp_oracle.components[1,chem.propane].ln_phi tolerance 1e-7{1} relative numerical_policy.dimensionless;
 }
 @id("01a0e178d29871ca9ccbc735641fc245") test homogeneous_2 oracle references.plan14_thermo_reference fixture {dof 0; route steady; procedure check; fix root.T=400.0{K}; fix root.rho=1000.0{mol/m^3}; fix root.amount[chem.methane]=0.6{mol}; fix root.amount[chem.ethane]=0.25{mol}; fix root.amount[chem.propane]=0.15000000000000002{mol};} {
 @id("f212d4b979d4490b8d00ab9afbcf1960") permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0e178d29871ca9ccbc736b9b20548") child root:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential);
-@id("01a0e178d29871ca9ccbc737f77a30c9") expect root.pressure==teqp_oracle.states[2].pressure tolerance 0.001{Pa} relative 2e-8;
-@id("01a0e178d29871ca9ccbc7385b7b7eee") expect root.h_residual==teqp_oracle.states[2].h_residual tolerance 1e-5{J/mol} relative 2e-8;
-@id("01a0e178d29871ca9ccbc7390ac0ca7f") expect root.ln_phi[chem.methane]==teqp_oracle.components[2,chem.methane].ln_phi tolerance 1e-7{1} relative 2e-8;
-@id("01a0e178d29871ca9ccbc73ab2f013ed") expect root.ln_phi[chem.ethane]==teqp_oracle.components[2,chem.ethane].ln_phi tolerance 1e-7{1} relative 2e-8;
-@id("01a0e178d29871ca9ccbc73b82d20532") expect root.ln_phi[chem.propane]==teqp_oracle.components[2,chem.propane].ln_phi tolerance 1e-7{1} relative 2e-8;
+@id("01a0e178d29871ca9ccbc737f77a30c9") expect root.pressure==teqp_oracle.states[2].pressure tolerance numerical_policy.pressure relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc7385b7b7eee") expect root.h_residual==teqp_oracle.states[2].h_residual tolerance 1e-5{J/mol} relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc7390ac0ca7f") expect root.ln_phi[chem.methane]==teqp_oracle.components[2,chem.methane].ln_phi tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc73ab2f013ed") expect root.ln_phi[chem.ethane]==teqp_oracle.components[2,chem.ethane].ln_phi tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc73b82d20532") expect root.ln_phi[chem.propane]==teqp_oracle.components[2,chem.propane].ln_phi tolerance 1e-7{1} relative numerical_policy.dimensionless;
 }
 @id("01a0e178d29871ca9ccbc73c86ef7b4f") test homogeneous_3 oracle references.plan14_thermo_reference fixture {dof 0; route steady; procedure check; fix root.T=300.0{K}; fix root.rho=14000.0{mol/m^3}; fix root.amount[chem.methane]=0.1{mol}; fix root.amount[chem.ethane]=0.2{mol}; fix root.amount[chem.propane]=0.7{mol};} {
 @id("e231303b3ab941d1b1461ad8a1a62da6") permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0e178d29871ca9ccbc73d5bb20307") child root:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential);
-@id("01a0e178d29871ca9ccbc73e2d390acb") expect root.pressure==teqp_oracle.states[3].pressure tolerance 0.001{Pa} relative 2e-8;
-@id("01a0e178d29871ca9ccbc73fab1b1b3a") expect root.h_residual==teqp_oracle.states[3].h_residual tolerance 1e-5{J/mol} relative 2e-8;
-@id("01a0e178d29871ca9ccbc7404da88341") expect root.ln_phi[chem.methane]==teqp_oracle.components[3,chem.methane].ln_phi tolerance 1e-7{1} relative 2e-8;
-@id("01a0e178d29871ca9ccbc7410b2fbe6f") expect root.ln_phi[chem.ethane]==teqp_oracle.components[3,chem.ethane].ln_phi tolerance 1e-7{1} relative 2e-8;
-@id("01a0e178d29871ca9ccbc742546141e1") expect root.ln_phi[chem.propane]==teqp_oracle.components[3,chem.propane].ln_phi tolerance 1e-7{1} relative 2e-8;
+@id("01a0e178d29871ca9ccbc73e2d390acb") expect root.pressure==teqp_oracle.states[3].pressure tolerance numerical_policy.pressure relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc73fab1b1b3a") expect root.h_residual==teqp_oracle.states[3].h_residual tolerance 1e-5{J/mol} relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc7404da88341") expect root.ln_phi[chem.methane]==teqp_oracle.components[3,chem.methane].ln_phi tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc7410b2fbe6f") expect root.ln_phi[chem.ethane]==teqp_oracle.components[3,chem.ethane].ln_phi tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc742546141e1") expect root.ln_phi[chem.propane]==teqp_oracle.components[3,chem.propane].ln_phi tolerance 1e-7{1} relative numerical_policy.dimensionless;
 }
 @id("01a0e178d29871ca9ccbc743cbfe25e3") test homogeneous_4 oracle references.plan14_thermo_reference fixture {dof 0; route steady; procedure check; fix root.T=298.15{K}; fix root.rho=10.0{mol/m^3}; fix root.amount[chem.methane]=0.2{mol}; fix root.amount[chem.ethane]=0.3{mol}; fix root.amount[chem.propane]=0.5{mol};} {
 @id("1452c02d1bef4b0184c92c9648c8909b") permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0e178d29871ca9ccbc7446e84b2a2") child root:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=vessel_fixtures.alkanes,law=pcsaft_data.potential);
-@id("01a0e178d29871ca9ccbc745253391a1") expect root.pressure==teqp_oracle.states[4].pressure tolerance 0.001{Pa} relative 2e-8;
-@id("01a0e178d29871ca9ccbc74659e641c6") expect root.h_residual==teqp_oracle.states[4].h_residual tolerance 1e-5{J/mol} relative 2e-8;
-@id("01a0e178d29871ca9ccbc7477fdd2967") expect root.ln_phi[chem.methane]==teqp_oracle.components[4,chem.methane].ln_phi tolerance 1e-7{1} relative 2e-8;
-@id("01a0e178d29871ca9ccbc7486dd6c9b3") expect root.ln_phi[chem.ethane]==teqp_oracle.components[4,chem.ethane].ln_phi tolerance 1e-7{1} relative 2e-8;
-@id("01a0e178d29871ca9ccbc7498de15ef5") expect root.ln_phi[chem.propane]==teqp_oracle.components[4,chem.propane].ln_phi tolerance 1e-7{1} relative 2e-8;
+@id("01a0e178d29871ca9ccbc745253391a1") expect root.pressure==teqp_oracle.states[4].pressure tolerance numerical_policy.pressure relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc74659e641c6") expect root.h_residual==teqp_oracle.states[4].h_residual tolerance 1e-5{J/mol} relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc7477fdd2967") expect root.ln_phi[chem.methane]==teqp_oracle.components[4,chem.methane].ln_phi tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc7486dd6c9b3") expect root.ln_phi[chem.ethane]==teqp_oracle.components[4,chem.ethane].ln_phi tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0e178d29871ca9ccbc7498de15ef5") expect root.ln_phi[chem.propane]==teqp_oracle.components[4,chem.propane].ln_phi tolerance 1e-7{1} relative numerical_policy.dimensionless;
 }
 @id("01a0f19e1d7d74efbbf1a16acd10b61a") test pcsaft_properties_from_defaults_match_feos oracle feos_oracle.pcsaft_departures fixture {dof 0; route steady; procedure check;fix state_0.T=feos_oracle.states[0].T; fix state_0.rho=feos_oracle.states[0].rho;fix state_0.amount[chem.methane]=constants.amount_unit*(if present(feos_oracle.components[0,chem.methane]) then feos_oracle.components[0,chem.methane].fraction else 0);fix state_0.amount[chem.ethane]=constants.amount_unit*(if present(feos_oracle.components[0,chem.ethane]) then feos_oracle.components[0,chem.ethane].fraction else 0);fix state_0.amount[chem.propane]=constants.amount_unit*(if present(feos_oracle.components[0,chem.propane]) then feos_oracle.components[0,chem.propane].fraction else 0);fix state_1.T=feos_oracle.states[1].T; fix state_1.rho=feos_oracle.states[1].rho;fix state_1.amount[chem.methane]=constants.amount_unit*(if present(feos_oracle.components[1,chem.methane]) then feos_oracle.components[1,chem.methane].fraction else 0);fix state_1.amount[chem.ethane]=constants.amount_unit*(if present(feos_oracle.components[1,chem.ethane]) then feos_oracle.components[1,chem.ethane].fraction else 0);fix state_1.amount[chem.propane]=constants.amount_unit*(if present(feos_oracle.components[1,chem.propane]) then feos_oracle.components[1,chem.propane].fraction else 0);fix state_2.T=feos_oracle.states[2].T; fix state_2.rho=feos_oracle.states[2].rho;fix state_2.amount[chem.methane]=constants.amount_unit*(if present(feos_oracle.components[2,chem.methane]) then feos_oracle.components[2,chem.methane].fraction else 0);fix state_2.amount[chem.ethane]=constants.amount_unit*(if present(feos_oracle.components[2,chem.ethane]) then feos_oracle.components[2,chem.ethane].fraction else 0);fix state_2.amount[chem.propane]=constants.amount_unit*(if present(feos_oracle.components[2,chem.propane]) then feos_oracle.components[2,chem.propane].fraction else 0);fix state_3.T=feos_oracle.states[3].T; fix state_3.rho=feos_oracle.states[3].rho;fix state_3.amount[chem.methane]=constants.amount_unit*(if present(feos_oracle.components[3,chem.methane]) then feos_oracle.components[3,chem.methane].fraction else 0);fix state_3.amount[chem.ethane]=constants.amount_unit*(if present(feos_oracle.components[3,chem.ethane]) then feos_oracle.components[3,chem.ethane].fraction else 0);fix state_3.amount[chem.propane]=constants.amount_unit*(if present(feos_oracle.components[3,chem.propane]) then feos_oracle.components[3,chem.propane].fraction else 0);fix state_4.T=feos_oracle.states[4].T; fix state_4.rho=feos_oracle.states[4].rho;fix state_4.amount[chem.methane]=constants.amount_unit*(if present(feos_oracle.components[4,chem.methane]) then feos_oracle.components[4,chem.methane].fraction else 0);fix state_4.amount[chem.ethane]=constants.amount_unit*(if present(feos_oracle.components[4,chem.ethane]) then feos_oracle.components[4,chem.ethane].fraction else 0);fix state_4.amount[chem.propane]=constants.amount_unit*(if present(feos_oracle.components[4,chem.propane]) then feos_oracle.components[4,chem.propane].fraction else 0);fix state_5.T=feos_oracle.states[5].T; fix state_5.rho=feos_oracle.states[5].rho;fix state_5.amount[chem.butane]=constants.amount_unit*(if present(feos_oracle.components[5,chem.butane]) then feos_oracle.components[5,chem.butane].fraction else 0);fix state_6.T=feos_oracle.states[6].T; fix state_6.rho=feos_oracle.states[6].rho;fix state_6.amount[chem.hexane]=constants.amount_unit*(if present(feos_oracle.components[6,chem.hexane]) then feos_oracle.components[6,chem.hexane].fraction else 0);} {
 @id("7d3b6390b38f464ea1fbf0435e2ee308") permission selected_unknown_fit families(pcsaft_parameters.nonassociating,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 @id("01a0f19e1d7d74efbbf1a16bb155111d") child state_0:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected={chem.methane,chem.ethane,chem.propane},law=pcsaft_data.potential);
-@id("01a0f19e1d7d74efbbf1a16c9f5d81b2") expect state_0.pressure==feos_oracle.states[0].pressure tolerance 0.001{Pa} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a16dbad5e286") expect state_0.h_residual==feos_oracle.states[0].h_residual tolerance 1e-5{J/mol} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a16eb46f581f") expect state_0.s_residual==feos_oracle.states[0].s_residual tolerance 1e-7{J/(mol*K)} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a16fa67203b9") expect state_0.cp_residual==feos_oracle.states[0].cp_residual tolerance 1e-7{J/(mol*K)} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a1703840b993") expect state_0.ln_phi[chem.methane]==feos_oracle.ln_phi_value(0,chem.methane) tolerance 1e-7{1} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a171135245ec") expect state_0.ln_phi[chem.ethane]==feos_oracle.ln_phi_value(0,chem.ethane) tolerance 1e-7{1} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a172066a1883") expect state_0.ln_phi[chem.propane]==feos_oracle.ln_phi_value(0,chem.propane) tolerance 1e-7{1} relative 2e-8;
+@id("01a0f19e1d7d74efbbf1a16c9f5d81b2") expect state_0.pressure==feos_oracle.states[0].pressure tolerance numerical_policy.pressure relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a16dbad5e286") expect state_0.h_residual==feos_oracle.states[0].h_residual tolerance 1e-5{J/mol} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a16eb46f581f") expect state_0.s_residual==feos_oracle.states[0].s_residual tolerance 1e-7{J/(mol*K)} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a16fa67203b9") expect state_0.cp_residual==feos_oracle.states[0].cp_residual tolerance 1e-7{J/(mol*K)} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a1703840b993") expect state_0.ln_phi[chem.methane]==feos_oracle.ln_phi_value(0,chem.methane) tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a171135245ec") expect state_0.ln_phi[chem.ethane]==feos_oracle.ln_phi_value(0,chem.ethane) tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a172066a1883") expect state_0.ln_phi[chem.propane]==feos_oracle.ln_phi_value(0,chem.propane) tolerance 1e-7{1} relative numerical_policy.dimensionless;
 @id("01a0f19e1d7d74efbbf1a17325ab989c") child state_1:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected={chem.methane,chem.ethane,chem.propane},law=pcsaft_data.potential);
-@id("01a0f19e1d7d74efbbf1a174b5bd17cb") expect state_1.pressure==feos_oracle.states[1].pressure tolerance 0.001{Pa} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a175135b50d5") expect state_1.h_residual==feos_oracle.states[1].h_residual tolerance 1e-5{J/mol} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a176d2dd883e") expect state_1.s_residual==feos_oracle.states[1].s_residual tolerance 1e-7{J/(mol*K)} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a1771ac44362") expect state_1.cp_residual==feos_oracle.states[1].cp_residual tolerance 1e-7{J/(mol*K)} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a178908e522b") expect state_1.ln_phi[chem.methane]==feos_oracle.ln_phi_value(1,chem.methane) tolerance 1e-7{1} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a179e608fa18") expect state_1.ln_phi[chem.ethane]==feos_oracle.ln_phi_value(1,chem.ethane) tolerance 1e-7{1} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a17a8997c191") expect state_1.ln_phi[chem.propane]==feos_oracle.ln_phi_value(1,chem.propane) tolerance 1e-7{1} relative 2e-8;
+@id("01a0f19e1d7d74efbbf1a174b5bd17cb") expect state_1.pressure==feos_oracle.states[1].pressure tolerance numerical_policy.pressure relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a175135b50d5") expect state_1.h_residual==feos_oracle.states[1].h_residual tolerance 1e-5{J/mol} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a176d2dd883e") expect state_1.s_residual==feos_oracle.states[1].s_residual tolerance 1e-7{J/(mol*K)} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a1771ac44362") expect state_1.cp_residual==feos_oracle.states[1].cp_residual tolerance 1e-7{J/(mol*K)} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a178908e522b") expect state_1.ln_phi[chem.methane]==feos_oracle.ln_phi_value(1,chem.methane) tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a179e608fa18") expect state_1.ln_phi[chem.ethane]==feos_oracle.ln_phi_value(1,chem.ethane) tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a17a8997c191") expect state_1.ln_phi[chem.propane]==feos_oracle.ln_phi_value(1,chem.propane) tolerance 1e-7{1} relative numerical_policy.dimensionless;
 @id("01a0f19e1d7d74efbbf1a17bf066a63d") child state_2:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected={chem.methane,chem.ethane,chem.propane},law=pcsaft_data.potential);
-@id("01a0f19e1d7d74efbbf1a17c631cf743") expect state_2.pressure==feos_oracle.states[2].pressure tolerance 0.001{Pa} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a17d4062ae99") expect state_2.h_residual==feos_oracle.states[2].h_residual tolerance 1e-5{J/mol} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a17e48a20db1") expect state_2.s_residual==feos_oracle.states[2].s_residual tolerance 1e-7{J/(mol*K)} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a17f6176a3d9") expect state_2.cp_residual==feos_oracle.states[2].cp_residual tolerance 1e-7{J/(mol*K)} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a1807f4248b9") expect state_2.ln_phi[chem.methane]==feos_oracle.ln_phi_value(2,chem.methane) tolerance 1e-7{1} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a181b63c0e94") expect state_2.ln_phi[chem.ethane]==feos_oracle.ln_phi_value(2,chem.ethane) tolerance 1e-7{1} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a1820d8d5fb3") expect state_2.ln_phi[chem.propane]==feos_oracle.ln_phi_value(2,chem.propane) tolerance 1e-7{1} relative 2e-8;
+@id("01a0f19e1d7d74efbbf1a17c631cf743") expect state_2.pressure==feos_oracle.states[2].pressure tolerance numerical_policy.pressure relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a17d4062ae99") expect state_2.h_residual==feos_oracle.states[2].h_residual tolerance 1e-5{J/mol} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a17e48a20db1") expect state_2.s_residual==feos_oracle.states[2].s_residual tolerance 1e-7{J/(mol*K)} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a17f6176a3d9") expect state_2.cp_residual==feos_oracle.states[2].cp_residual tolerance 1e-7{J/(mol*K)} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a1807f4248b9") expect state_2.ln_phi[chem.methane]==feos_oracle.ln_phi_value(2,chem.methane) tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a181b63c0e94") expect state_2.ln_phi[chem.ethane]==feos_oracle.ln_phi_value(2,chem.ethane) tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a1820d8d5fb3") expect state_2.ln_phi[chem.propane]==feos_oracle.ln_phi_value(2,chem.propane) tolerance 1e-7{1} relative numerical_policy.dimensionless;
 @id("01a0f19e1d7d74efbbf1a183ca7b6632") child state_3:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected={chem.methane,chem.ethane,chem.propane},law=pcsaft_data.potential);
-@id("01a0f19e1d7d74efbbf1a1845ac501ea") expect state_3.pressure==feos_oracle.states[3].pressure tolerance 0.001{Pa} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a185d128b608") expect state_3.h_residual==feos_oracle.states[3].h_residual tolerance 1e-5{J/mol} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a1865ebe7111") expect state_3.s_residual==feos_oracle.states[3].s_residual tolerance 1e-7{J/(mol*K)} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a18745345b96") expect state_3.cp_residual==feos_oracle.states[3].cp_residual tolerance 1e-7{J/(mol*K)} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a188f758e433") expect state_3.ln_phi[chem.methane]==feos_oracle.ln_phi_value(3,chem.methane) tolerance 1e-7{1} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a1892388d659") expect state_3.ln_phi[chem.ethane]==feos_oracle.ln_phi_value(3,chem.ethane) tolerance 1e-7{1} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a18adf57f256") expect state_3.ln_phi[chem.propane]==feos_oracle.ln_phi_value(3,chem.propane) tolerance 1e-7{1} relative 2e-8;
+@id("01a0f19e1d7d74efbbf1a1845ac501ea") expect state_3.pressure==feos_oracle.states[3].pressure tolerance numerical_policy.pressure relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a185d128b608") expect state_3.h_residual==feos_oracle.states[3].h_residual tolerance 1e-5{J/mol} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a1865ebe7111") expect state_3.s_residual==feos_oracle.states[3].s_residual tolerance 1e-7{J/(mol*K)} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a18745345b96") expect state_3.cp_residual==feos_oracle.states[3].cp_residual tolerance 1e-7{J/(mol*K)} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a188f758e433") expect state_3.ln_phi[chem.methane]==feos_oracle.ln_phi_value(3,chem.methane) tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a1892388d659") expect state_3.ln_phi[chem.ethane]==feos_oracle.ln_phi_value(3,chem.ethane) tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a18adf57f256") expect state_3.ln_phi[chem.propane]==feos_oracle.ln_phi_value(3,chem.propane) tolerance 1e-7{1} relative numerical_policy.dimensionless;
 @id("01a0f19e1d7d74efbbf1a18b287dbe62") child state_4:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected={chem.methane,chem.ethane,chem.propane},law=pcsaft_data.potential);
-@id("01a0f19e1d7d74efbbf1a18c14d9ed58") expect state_4.pressure==feos_oracle.states[4].pressure tolerance 0.001{Pa} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a18d833003b9") expect state_4.h_residual==feos_oracle.states[4].h_residual tolerance 1e-5{J/mol} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a18ed3af9245") expect state_4.s_residual==feos_oracle.states[4].s_residual tolerance 1e-7{J/(mol*K)} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a18fb5953459") expect state_4.cp_residual==feos_oracle.states[4].cp_residual tolerance 1e-7{J/(mol*K)} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a190525289ad") expect state_4.ln_phi[chem.methane]==feos_oracle.ln_phi_value(4,chem.methane) tolerance 1e-7{1} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a19174a9ffb9") expect state_4.ln_phi[chem.ethane]==feos_oracle.ln_phi_value(4,chem.ethane) tolerance 1e-7{1} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a192c2dbf740") expect state_4.ln_phi[chem.propane]==feos_oracle.ln_phi_value(4,chem.propane) tolerance 1e-7{1} relative 2e-8;
+@id("01a0f19e1d7d74efbbf1a18c14d9ed58") expect state_4.pressure==feos_oracle.states[4].pressure tolerance numerical_policy.pressure relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a18d833003b9") expect state_4.h_residual==feos_oracle.states[4].h_residual tolerance 1e-5{J/mol} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a18ed3af9245") expect state_4.s_residual==feos_oracle.states[4].s_residual tolerance 1e-7{J/(mol*K)} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a18fb5953459") expect state_4.cp_residual==feos_oracle.states[4].cp_residual tolerance 1e-7{J/(mol*K)} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a190525289ad") expect state_4.ln_phi[chem.methane]==feos_oracle.ln_phi_value(4,chem.methane) tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a19174a9ffb9") expect state_4.ln_phi[chem.ethane]==feos_oracle.ln_phi_value(4,chem.ethane) tolerance 1e-7{1} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a192c2dbf740") expect state_4.ln_phi[chem.propane]==feos_oracle.ln_phi_value(4,chem.propane) tolerance 1e-7{1} relative numerical_policy.dimensionless;
 @id("01a0f19e1d7d74efbbf1a1933f935d96") child state_5:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected={chem.butane},law=pcsaft_data.potential);
-@id("01a0f19e1d7d74efbbf1a194dd0c27a1") expect state_5.pressure==feos_oracle.states[5].pressure tolerance 0.001{Pa} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a19502561a82") expect state_5.h_residual==feos_oracle.states[5].h_residual tolerance 1e-5{J/mol} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a196b9df7f53") expect state_5.s_residual==feos_oracle.states[5].s_residual tolerance 1e-7{J/(mol*K)} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a197231f010b") expect state_5.cp_residual==feos_oracle.states[5].cp_residual tolerance 1e-7{J/(mol*K)} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a198dc306f9b") expect state_5.ln_phi[chem.butane]==feos_oracle.ln_phi_value(5,chem.butane) tolerance 1e-7{1} relative 2e-8;
+@id("01a0f19e1d7d74efbbf1a194dd0c27a1") expect state_5.pressure==feos_oracle.states[5].pressure tolerance numerical_policy.pressure relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a19502561a82") expect state_5.h_residual==feos_oracle.states[5].h_residual tolerance 1e-5{J/mol} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a196b9df7f53") expect state_5.s_residual==feos_oracle.states[5].s_residual tolerance 1e-7{J/(mol*K)} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a197231f010b") expect state_5.cp_residual==feos_oracle.states[5].cp_residual tolerance 1e-7{J/(mol*K)} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a198dc306f9b") expect state_5.ln_phi[chem.butane]==feos_oracle.ln_phi_value(5,chem.butane) tolerance 1e-7{1} relative numerical_policy.dimensionless;
 @id("01a0f19e1d7d74efbbf1a199fa94d3cf") child state_6:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected={chem.hexane},law=pcsaft_data.potential);
-@id("01a0f19e1d7d74efbbf1a19ae3ebc49a") expect state_6.pressure==feos_oracle.states[6].pressure tolerance 0.001{Pa} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a19bd23f72dd") expect state_6.h_residual==feos_oracle.states[6].h_residual tolerance 1e-5{J/mol} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a19c709e51ed") expect state_6.s_residual==feos_oracle.states[6].s_residual tolerance 1e-7{J/(mol*K)} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a19d450325c8") expect state_6.cp_residual==feos_oracle.states[6].cp_residual tolerance 1e-7{J/(mol*K)} relative 2e-8;
-@id("01a0f19e1d7d74efbbf1a19eb8e8f75f") expect state_6.ln_phi[chem.hexane]==feos_oracle.ln_phi_value(6,chem.hexane) tolerance 1e-7{1} relative 2e-8;
+@id("01a0f19e1d7d74efbbf1a19ae3ebc49a") expect state_6.pressure==feos_oracle.states[6].pressure tolerance numerical_policy.pressure relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a19bd23f72dd") expect state_6.h_residual==feos_oracle.states[6].h_residual tolerance 1e-5{J/mol} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a19c709e51ed") expect state_6.s_residual==feos_oracle.states[6].s_residual tolerance 1e-7{J/(mol*K)} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a19d450325c8") expect state_6.cp_residual==feos_oracle.states[6].cp_residual tolerance 1e-7{J/(mol*K)} relative numerical_policy.dimensionless;
+@id("01a0f19e1d7d74efbbf1a19eb8e8f75f") expect state_6.ln_phi[chem.hexane]==feos_oracle.ln_phi_value(6,chem.hexane) tolerance 1e-7{1} relative numerical_policy.dimensionless;
 }
 }

@@ -58,13 +58,38 @@ impl AssessedPoint {
         {
             OriginalConclusion::Satisfied
         } else {
+            // Recovery may replace this candidate. Keep bounded original-check
+            // evidence in the retained strategy cause, rather than preserving
+            // only a generic closure refusal beside the final fallback point.
+            let failed = self.checks.iter().filter(|check| !check.satisfied);
+            let failed_count = failed.clone().count();
+            let details = failed
+                .take(8)
+                .map(|check| {
+                    format!(
+                        "kind={:?}, source={}, target={}, value={}, tolerance={:?}",
+                        check.kind, check.source_id, check.target_id, check.value, check.tolerance
+                    )
+                })
+                .collect::<Vec<_>>();
+            let reason = self
+                .original
+                .as_ref()
+                .unwrap_or(&completion.decision)
+                .reason();
+            let closures = self.checks.iter().filter(|check| {
+                check.kind == pse_relations::generated::enums::ModelingCheckKind::Closure
+            });
+            let closure_count = closures.clone().count();
+            let closed_count = closures.filter(|check| check.satisfied).count();
+            let reason = format!(
+                "{reason}; original_closure_checks={closed_count}/{closure_count}, required={}; failed_original_checks={}/{failed_count}: {}",
+                self.required_closure,
+                details.len(),
+                details.join("; ")
+            );
             OriginalConclusion::Refused {
-                cause: Arc::new(pse_backend_native::ProblemError::numerical(
-                    self.original
-                        .as_ref()
-                        .unwrap_or(&completion.decision)
-                        .reason(),
-                )),
+                cause: Arc::new(pse_backend_native::ProblemError::numerical(reason)),
             }
         }
     }

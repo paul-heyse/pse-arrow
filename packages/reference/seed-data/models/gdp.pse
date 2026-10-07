@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("ec68c07f664b447ab2401a63fcbde86b") package gdp_selection {
+@id("3e756e8d858747e2bbd4a1d89cebdbd9") use numerical_policy @"1.0.0";
 @id("01a0ef604fdf73c68b36e131a07824b7") use references @"1.0.0";
 @id("55eaa883d47144939dda4bbe411bb518") def Supply {
 @id("0ac63ce0b706454385425e2f7a9ea70c") param demand:Power=60{W};
@@ -30,7 +31,7 @@
 }
 @id("5dab1e9702954b9182f023a5a55c8b9c") test gdp_selection oracle references.synthetic_unit_selection fixture {dof 5; route steady; procedure solve; intent optimize;} {
 @id("3b2f96864d9e414fa25dc4730f1afccc") child root:Supply=Supply();
-@id("c4a1f2e8d7b64a1e9f3c2b5d8e7a6f10") expect root.cost==36{W} tolerance 0.000001{W};
-@id("a9b8c7d6e5f44321b0a9c8d7e6f5a4b3") expect root.output==60{W} tolerance 0.000001{W};
+@id("c4a1f2e8d7b64a1e9f3c2b5d8e7a6f10") expect root.cost==36{W} tolerance numerical_policy.power;
+@id("a9b8c7d6e5f44321b0a9c8d7e6f5a4b3") expect root.output==60{W} tolerance numerical_policy.power;
 }
 }

@@ -847,13 +847,19 @@ impl<'a> Emitter<'a> {
                 return Err(error(format!("an inline tagged choice {schema}; name it")));
             }
             let mut members = Vec::new();
+            let mut literals = Vec::new();
             let mut nullable = false;
             for alternative in alternatives {
                 if types(alternative) == (vec![], true) {
                     nullable = true;
+                } else if let Some(constant) = alternative.get("const") {
+                    literals.push(py_literal(constant));
                 } else {
                     members.push(self.annotation(alternative)?);
                 }
+            }
+            if !literals.is_empty() {
+                members.push(format!("Literal[{}]", literals.join(", ")));
             }
             if nullable {
                 members.push("None".into());
@@ -1117,18 +1123,23 @@ mod tests {
             "title": "Probe",
             "type": "object",
             "additionalProperties": false,
-            "required": ["version", "choice"],
+            "required": ["version", "choice", "direction"],
             "properties": {
                 "version": {"type": "integer", "const": 1, "default": 1},
                 "hessian": {"$ref": "#/$defs/HessianMode", "default": "limited_memory"},
                 "choice": {"$ref": "#/$defs/Choice"},
                 "budget": {"$ref": "#/$defs/Budget", "default": 0.5},
+                "direction": {"$ref": "#/$defs/Direction"},
                 "items": {"type": "array", "items": {"type": "string"}, "default": []},
                 "pair": {"type": ["array", "null"], "items": {"type": "number"}, "minItems": 2, "maxItems": 2, "default": null},
             },
             "$defs": {
                 "HessianMode": {"type": "string", "enum": hessian_modes},
                 "Budget": {"type": "number", "exclusiveMinimum": 0.0},
+                "Direction": {"oneOf": [
+                    {"type": "string", "const": "upstream"},
+                    {"type": "string", "const": "downstream"},
+                ]},
                 "Choice": {"oneOf": [
                     {"type": "object", "additionalProperties": false, "required": ["kind"],
                      "properties": {"kind": {"type": "string", "const": "plain"}}},
@@ -1142,6 +1153,7 @@ mod tests {
         for expected in [
             "from typing import Annotated, ClassVar, Literal",
             "Budget = Annotated[float, msgspec.Meta(gt=0.0)]",
+            "Direction = Literal[\"upstream\", \"downstream\"]",
             "class ChoicePlain(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field=\"kind\", tag=\"plain\"):",
             "    size: Annotated[int, msgspec.Meta(ge=1)]",
             "Choice = ChoicePlain | ChoiceSized",

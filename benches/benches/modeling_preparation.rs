@@ -92,12 +92,14 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
         }
         load_bundles_owned(&bundles, &owner.registry, &pool, &owner.cancel, &validation).unwrap()
     };
+    let store = pse_operations::testing::canonical_fixture_store().unwrap();
+    owner.register_fixture(store.clone()).unwrap();
     let runtime = Runtime::from_shared(
         owner.runtime.clone(),
         owner.registry.clone(),
         owner.sessions.clone(),
         pse_runtime::workflow::CanonicalDeployment::new(
-            pse_operations::testing::canonical_fixture_store().unwrap(),
+            store,
             pse_runtime::workflow::OuterAttestation {
                 source: pse_ids::ContentHash::from_bytes([0; 32]),
                 build: pse_ids::ContentHash::from_bytes([1; 32]),
@@ -523,6 +525,9 @@ fn preparation(c: &mut Criterion) {
                     records.push(
                         json!({"experiment":"modeling_preparation", "id":id, "stages":stages}),
                     );
+                    drop(package);
+                    // Teardown is outside every recorded preparation duration.
+                    executor.block_on(owner.cleanup_fixtures()).unwrap();
                 }
                 timed
             });

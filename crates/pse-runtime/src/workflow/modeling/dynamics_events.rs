@@ -60,6 +60,40 @@ impl ModelingPackage {
         exact_parameters: &BTreeSet<SemanticId>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        self.prepare_simulation_with_controls(
+            root,
+            instance,
+            bindings,
+            limits,
+            case,
+            compiler,
+            profile,
+            derivatives,
+            exact_parameters,
+            &BTreeSet::new(),
+            cancel,
+        )
+        .await
+    }
+    /// Only the authored profile factory supplies provisional quadrature slots.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "dynamic preparation retains exact consumers and the authored control origin"
+    )]
+    pub(in crate::workflow) async fn prepare_simulation_with_controls(
+        &self,
+        root: DeclarationId,
+        instance: InstanceId,
+        bindings: Bindings,
+        limits: Limits,
+        case: ModelingCaseBindings,
+        compiler: Profile,
+        profile: native::Profile,
+        derivatives: DerivativeOrder,
+        exact_parameters: &BTreeSet<SemanticId>,
+        provisional_quadratures: &BTreeSet<SemanticId>,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingSimulation, WorkflowError> {
         if bindings
             .facts
             .keys()
@@ -111,6 +145,7 @@ impl ModelingPackage {
             derivatives,
             &modes,
             exact_parameters,
+            provisional_quadratures,
             &snapshot,
             cancel,
         )
@@ -133,6 +168,7 @@ impl ModelingPackage {
         derivatives: DerivativeOrder,
         modes: &[FixtureMode],
         exact_parameters: &BTreeSet<SemanticId>,
+        provisional_quadratures: &BTreeSet<SemanticId>,
         snapshot: &pse_backend_native::execution::Snapshot,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
@@ -170,6 +206,7 @@ impl ModelingPackage {
                     index,
                     &names,
                     exact_parameters,
+                    provisional_quadratures,
                     snapshot,
                     cancel,
                 )

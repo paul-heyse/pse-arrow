@@ -165,11 +165,14 @@ def require_functional(
         # The assembled invocation adds its setup dependency without changing
         # nextest's selection. Accept its exact declared form as well as the
         # standalone gate; arbitrary dependency/selection edits still refuse.
-        assembled = next(gate for gate in comprehensive() if gate.name == "native-test")
+        assembled = [
+            next(gate for gate in comprehensive(selected) if gate.name == "native-test")
+            for selected in ("dev", "producer")
+        ]
         gate = next(
             (
                 candidate
-                for candidate in (exact, native_gate(), assembled)
+                for candidate in (exact, native_gate(), *assembled)
                 if declarations.get(candidate.name)
                 == json.loads(json.dumps(validation.asdict(candidate)))
             ),

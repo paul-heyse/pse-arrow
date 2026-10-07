@@ -3788,6 +3788,7 @@ mod tests {
             include_str!("../../../../../packages/reference/seed-data/models/price-taker.pse"),
             include_str!("../../../../../packages/reference/data/references/models/references.pse"),
             include_str!("../../../../../packages/reference/domain/models/provenance.pse"),
+            include_str!("../../../../../packages/reference/domain/models/numerical-policy.pse"),
             include_str!("../../../../../packages/reference/domain/models/properties.pse"),
             include_str!("../../../../../packages/reference/domain/models/constants.pse"),
             include_str!("../../../../../packages/reference/physical/models/chemistry.pse"),

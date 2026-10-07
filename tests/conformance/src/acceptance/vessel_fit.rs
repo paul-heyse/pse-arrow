@@ -18,8 +18,8 @@ async fn authored_vessel_fitting_preserves_shared_parameters_checks_and_identifi
     let owner = WorkflowRuntime::new().unwrap();
     let package = seed_package(&owner).await;
     // Read the actual admitted Power accounting requirement. Its authored
-    // tolerance consumes numerical_policy.power; that constant is not marked as
-    // an engineering-default rule. The fitted parameter is EnergyTransferRate;
+    // tolerance consumes numerical_policy.power, also declared as its shared
+    // engineering-default rule. The fitted parameter is EnergyTransferRate;
     // a matching unit alone would not make its allowance authoritative here.
     let meter = seed_prepare(
         &package,
@@ -46,16 +46,38 @@ async fn authored_vessel_fitting_preserves_shared_parameters_checks_and_identifi
         pse_model::generated::enums::ModelingAccumulatorMode::Accounting
     );
     assert!(!power.observation_only);
-    let pse_modeling::specialize::Value::Number { bits, quantity } = &power.tolerance else {
-        panic!("typed engineering Power allowance")
-    };
-    let registry = &meter.model.case.compiled().quantities;
-    let power_difference =
-        pse_quantity::scheme::Scheme::Delta(Box::new(power.ty.quantity_scheme().unwrap().clone()))
-            .resolve(registry, &Default::default())
-            .unwrap();
-    pse_quantity::admission::require_same_contract(power_difference, *quantity, registry).unwrap();
-    let power_allowance = f64::from_bits(*bits);
+    let registry = meter.model.case.compiled().quantities.clone();
+    let power_quantity = power
+        .ty
+        .quantity_scheme()
+        .unwrap()
+        .resolve(&registry, &Default::default())
+        .unwrap();
+    let resolved_power = meter
+        .solve
+        .numerics()
+        .targets
+        .iter()
+        .find(|target| target.id == power.id && target.kind == NumericalTarget::Closure)
+        .expect("production accounting closure policy");
+    pse_quantity::admission::require_same_contract(
+        power_quantity,
+        resolved_power.quantity.into(),
+        &registry,
+    )
+    .unwrap();
+    let engineering = resolved_power
+        .engineering
+        .as_ref()
+        .expect("inherited shared Power rule");
+    assert_eq!(
+        engineering.rule_id.map(|rule| rule.as_id()),
+        Some(SemanticId::parse_hex("395ce3cb36004439af06430d7aea3000").unwrap())
+    );
+    assert!(!engineering.canonical_fallback);
+    let power_allowance = engineering
+        .physical_allowance
+        .expect("shared physical Power floor");
     assert!(power_allowance.is_finite() && power_allowance > 0.);
     drop(meter);
     for kind in ["steady", "transient", "mixed", "unidentifiable"] {
@@ -74,6 +96,24 @@ async fn authored_vessel_fitting_preserves_shared_parameters_checks_and_identifi
             .find(|target| target.kind == NumericalTarget::Variable && target.id == heat)
             .unwrap();
         assert!(heat_policy.engineering.is_some());
+        // Parameter feasibility does not establish forward estimate accuracy. Read
+        // the shared resolution in the actual parameter's difference contract.
+        let heat_difference = pse_quantity::scheme::Scheme::Delta(Box::new(
+            pse_quantity::scheme::Scheme::Concrete(heat_policy.quantity.into()),
+        ))
+        .resolve(&registry, &Default::default())
+        .unwrap();
+        let heat_allowance = authored_resolution(
+            &package,
+            SemanticId::parse_hex("4b8c1108211445f180f66c602f10b982").unwrap(),
+            &registry,
+            heat_difference,
+            registry
+                .quantity_type(heat_difference)
+                .unwrap()
+                .canonical_unit,
+        )
+        .await;
         let objective_policy = numerics
             .targets
             .iter()
@@ -95,7 +135,7 @@ async fn authored_vessel_fitting_preserves_shared_parameters_checks_and_identifi
             "{kind}: {report:?}"
         );
         let candidate = report.candidate.as_ref().unwrap()[0];
-        near(candidate, 10., heat_policy.budget);
+        near(candidate, 10., heat_allowance);
         assert!(
             report.objective.unwrap() <= objective_policy.budget,
             "{kind}: {report:?}"

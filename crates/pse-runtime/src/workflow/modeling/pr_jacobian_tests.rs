@@ -305,7 +305,10 @@ struct RootEvidence {
     physical_row_allowances: Vec<f64>,
     residuals: Vec<f64>,
     first_backward_errors: Vec<f64>,
+    /// Canonical assembled linear systems, one per symmetric input pair.
     second_backward_errors: Vec<f64>,
+    /// Independently expanded defining equations, including curvature term scale.
+    second_condition_backward_errors: Vec<f64>,
     jacobian: Vec<f64>,
     hessians: Vec<f64>,
 }
@@ -327,6 +330,8 @@ struct RootLink {
 }
 #[derive(Serialize)]
 struct Sample {
+    #[serde(skip)]
+    _allocation: Arc<pse_columnar::AllocationLease>,
     fixture: DeclarationId,
     /// Original admitted case start, not a completed outer steady-state solve.
     rows: Vec<Coordinate>,
@@ -437,7 +442,8 @@ fn production_options(
 fn primitive(
     root: &RootCase,
     scope: &ExecutionScope,
-    allowance: usize,
+    optimization: pse_math::library::Optimization,
+    limits: pse_math::jets::EvaluationLimits,
 ) -> Result<(CompiledBody, CompiledBody), pse_math::MathError> {
     assert!(
         root.residual.providers().is_empty(),
@@ -448,15 +454,11 @@ fn primitive(
         "explicit PR guard required"
     );
     let width = root.unknowns.len() + root.spec.inputs.len();
-    let limits = pse_math::jets::EvaluationLimits {
-        scratch_bytes: allowance,
-        ..Default::default()
-    };
     let residual = root.residual.compile(
         &(0..root.rows.len()).collect::<Vec<_>>(),
         &(0..width).collect::<Vec<_>>(),
         DerivativeOrder::Second,
-        Default::default(),
+        optimization,
         limits,
         scope.cancellation(),
     )?;
@@ -465,7 +467,7 @@ fn primitive(
         &[0],
         &[],
         DerivativeOrder::Value,
-        Default::default(),
+        optimization,
         limits,
         scope.cancellation(),
     )?;
@@ -535,7 +537,8 @@ fn root_conditions(
     assert_eq!(primitive.jacobian.len(), m * width);
     assert_eq!(primitive.hessians.len(), m * width * width);
     let mut first = Vec::with_capacity(m * n);
-    let mut second = Vec::with_capacity(m * n * n);
+    let mut second = Vec::with_capacity(m * n * (n + 1) / 2);
+    let mut second_conditions = Vec::with_capacity(m * n * n);
     for row in 0..m {
         for a in 0..n {
             let terms = (0..m)
@@ -546,8 +549,11 @@ fn root_conditions(
                 -primitive.jacobian[row * width + m + a],
                 terms.iter().map(|t| t.abs()).sum(),
             ));
-            for b in 0..n {
-                let mut curvature = 0.;
+            // The production owner assembles only a <= b, then mirrors the
+            // solved jet. Re-summing the reversed pair invents a different
+            // cancellation-sensitive RHS which the owner never solved.
+            for b in a..n {
+                let mut rhs = 0.;
                 for i in 0..width {
                     let va = if i < m {
                         jet.values.jacobian[i * n + a]
@@ -560,8 +566,7 @@ fn root_conditions(
                         } else {
                             if j == m + b { 1. } else { 0. }
                         };
-                        curvature +=
-                            va * primitive.hessians[row * width * width + i * width + j] * vb;
+                        rhs -= primitive.hessians[row * width * width + i * width + j] * va * vb;
                     }
                 }
                 let terms = (0..m)
@@ -570,11 +575,71 @@ fn root_conditions(
                             * jet.values.hessians[y * n * n + a * n + b]
                     })
                     .collect::<Vec<_>>();
-                second.push(backward_error(
-                    terms.iter().sum(),
-                    -curvature,
-                    terms.iter().map(|t| t.abs()).sum(),
-                ));
+                for y in 0..m {
+                    assert_eq!(
+                        jet.values.hessians[y * n * n + a * n + b].to_bits(),
+                        jet.values.hessians[y * n * n + b * n + a].to_bits(),
+                        "production Second jet must retain its mirrored canonical solve"
+                    );
+                }
+                let error =
+                    backward_error(terms.iter().sum(), rhs, terms.iter().map(|t| t.abs()).sum());
+                assert!(
+                    error <= tolerance,
+                    "PR canonical Second provider={} row={} inputs=({}, {}) error={error} budget={tolerance}",
+                    root.spec.id,
+                    root.rows[row],
+                    root.spec.inputs[a].id,
+                    root.spec.inputs[b].id
+                );
+                second.push(error);
+            }
+            for b in 0..n {
+                let mut curvature = 0.;
+                let mut magnitude = 0.;
+                for i in 0..width {
+                    let va = if i < m {
+                        jet.values.jacobian[i * n + a]
+                    } else {
+                        f64::from(i == m + a)
+                    };
+                    for j in 0..width {
+                        let vb = if j < m {
+                            jet.values.jacobian[j * n + b]
+                        } else {
+                            f64::from(j == m + b)
+                        };
+                        let term =
+                            va * primitive.hessians[row * width * width + i * width + j] * vb;
+                        curvature += term;
+                        magnitude += term.abs();
+                    }
+                }
+                let mut linear = 0.;
+                for y in 0..m {
+                    let term = primitive.jacobian[row * width + y]
+                        * jet.values.hessians[y * n * n + a * n + b];
+                    linear += term;
+                    magnitude += term.abs();
+                }
+                // This expanded equation has no fixed assembled RHS. Include
+                // all contraction terms before cancellation in its denominator.
+                assert!(linear.is_finite() && curvature.is_finite() && magnitude.is_finite());
+                let error = if magnitude == 0. {
+                    assert_eq!(linear + curvature, 0., "structural Second condition zero");
+                    0.
+                } else {
+                    (linear + curvature).abs() / magnitude
+                };
+                assert!(
+                    error <= tolerance,
+                    "PR expanded Second provider={} row={} inputs=({}, {}) error={error} budget={tolerance}",
+                    root.spec.id,
+                    root.rows[row],
+                    root.spec.inputs[a].id,
+                    root.spec.inputs[b].id
+                );
+                second_conditions.push(error);
             }
         }
     }
@@ -596,6 +661,7 @@ fn root_conditions(
         residuals: primitive.values.clone(),
         first_backward_errors: first,
         second_backward_errors: second,
+        second_condition_backward_errors: second_conditions,
         jacobian: jet.values.jacobian.clone(),
         hessians: jet.values.hessians.clone(),
     }
@@ -963,16 +1029,22 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
     let service = package.runtime.shared.math();
     let executable = service.assemble(resolved.model.case.clone()).await?;
     let worker_allowance = package.runtime.shared.budget().math.worker_bytes;
+    let compiler = manifest.settings.preparation.compiler;
     // One ordinary assembly worker, two observed root jets, primitive programs and
     // three raw 120x120 matrices are bounded by the deployment's numeric allowance.
     // This is no longer a 43,200-cell finite-difference qualification campaign.
-    let diagnostic_bytes = 8 << 20;
-    let _diagnostic_owner =
+    let diagnostic_bytes = compiler.evaluation.scratch_bytes;
+    let diagnostic_owner =
         service.reserve("math:pr-production-basis-diagnostic", diagnostic_bytes)?;
+    let job_diagnostic_owner = diagnostic_owner.clone();
     let budget = WorkerBudget::new(worker_allowance);
     let job_service = service.clone();
     let original_providers = resolved.providers;
     let sample = service.job(1, worker_allowance, FlightCancellation::default(), move |flag| {
+        // Cancelling the async waiter does not join the native worker. Its clone
+        // keeps the pre-admitted diagnostic storage owned until worker teardown;
+        // the waiter's original owner also covers the returned Sample buffers.
+        let diagnostic_owner = job_diagnostic_owner;
         let execution = Execution::new(flag.clone(), &controls);
         let scope = execution.scope()?;
         let checkpoint = || scope.check().map_err(pse_backend_native::ProblemError::Provider);
@@ -993,7 +1065,7 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
         let mut owned = job_service.worker(executable, &providers, scope.clone(), &budget)?;
         let worker = owned.worker();
         let worker_bytes = worker.assembly().numeric_worker_bytes();
-        let matrix = worker.jacobian(&base)?;
+        let matrix = worker.jacobian(&base).inspect_err(|error| eprintln!("original PR Jacobian: {error}"))?;
         let mut analytic = vec![0.; DIMENSION*DIMENSION];
         for column in 0..DIMENSION {
             for (row,value) in matrix.row_idx_of_col(column).zip(matrix.val_of_col(column)) {
@@ -1016,7 +1088,7 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
         let mut hessians = Vec::new();
         for weights in [&all_weights, &root_weights] {
             checkpoint()?;
-            let matrix = worker.hessian(&base, 0., weights)?;
+            let matrix = worker.hessian(&base, 0., weights).inspect_err(|error| eprintln!("original PR Hessian: {error}"))?;
             let mut full = vec![0.; DIMENSION*DIMENSION];
             for column in 0..DIMENSION {
                 for (row,value) in matrix.row_idx_of_col(column).zip(matrix.val_of_col(column)) {
@@ -1036,11 +1108,13 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
             checkpoint()?;
             let jet = &jets[&root.key];
             assert_eq!(jet.inputs, root.spec.inputs.iter().map(|p|base.scalars[&p.id]).collect::<Vec<_>>());
-            let (residual, eligibility) = primitive(root, &scope, diagnostic_bytes)?;
+            let (residual, eligibility) = primitive(root, &scope, compiler.optimization, compiler.evaluation)
+                .inspect_err(|error| eprintln!("independent PR primitive {:?}: {error}", root.key))?;
             let bytes = residual.retained_bytes()+residual.worker_bytes()+eligibility.retained_bytes()+eligibility.worker_bytes();
             compiled_bytes += bytes;
-            assert!(compiled_bytes <= diagnostic_bytes, "bounded primitive diagnostic storage");
-            let _primitive_owner = job_service.reserve("math:pr-primitive-conditions", bytes)?;
+            let raw_matrices = 3 * DIMENSION * DIMENSION * size_of::<f64>();
+            assert!(compiled_bytes + raw_matrices <= diagnostic_bytes,
+                "primitive storage and raw matrices retain their single admitted owner");
             let options = production_options(root, &jet.inputs, &scope)?;
             let actual = qualified_point(root, &residual, &eligibility, &jet.inputs,
                 &jet.values.values, &options, DerivativeOrder::Second, &scope)?;
@@ -1127,6 +1201,7 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
         }
         checkpoint()?;
         Ok(Sample {
+            _allocation: diagnostic_owner,
             fixture,
             rows: row_members.into_iter().enumerate().map(|(i,member)| Coordinate {
                 member, initial: initial[i], nominal: normalization.rows[i] }).collect(),
@@ -1152,7 +1227,8 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
     assert_eq!(sample.roots.len(), 2);
     for root in &sample.roots {
         assert_eq!(root.first_backward_errors.len(), 7 * 4);
-        assert_eq!(root.second_backward_errors.len(), 7 * 4 * 4);
+        assert_eq!(root.second_backward_errors.len(), 7 * 4 * 5 / 2);
+        assert_eq!(root.second_condition_backward_errors.len(), 7 * 4 * 4);
     }
     Ok(())
 }

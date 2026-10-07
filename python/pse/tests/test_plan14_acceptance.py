@@ -4,6 +4,7 @@
 
 import asyncio
 import gc
+import math
 import subprocess
 import sys
 from pathlib import Path
@@ -94,24 +95,29 @@ def test_public_native_process_and_exact_results(
         result.table("runtime.solve_variables")
     ).read_all()
     rows = table.to_pylist()
-    for path, expected in [
-        ("root.phase.T", 350.0),
-        ("root.phase.rho", 34.565566349336066),
-        ("root.recycle", 5.0),
-    ]:
+    for path in ("root.phase.T", "root.phase.rho", "root.recycle"):
         (coordinate,) = (
             row
             for row in rows
             if SemanticId(row["symbol_id"]) == coordinates[f"heater_recycle.{path}"]
         )
         assert coordinate["tolerance"] > 0.0
-        assert coordinate["value"] == pytest.approx(
-            expected, rel=0.0, abs=coordinate["tolerance"]
-        )
+        assert math.isfinite(coordinate["value"])
     assert result.usable
     checks = pa.table(result.table("runtime.modeling_checks")).to_pylist()
     assert checks
     assert all(row["satisfied"] for row in checks)
+    # The authored expectations own the historical values and shared physical
+    # resolutions. Variable-bound tolerances do not bound forward output error.
+    expectations = {
+        SemanticId.from_hex(identity)
+        for identity in (
+            "964b1c0ea202559c8488c703872008f2",
+            "73792f4040a15d0caf4a3bab8f0e6541",
+            "23f779ec23815d84b4611b52f9b3d5f0",
+        )
+    }
+    assert expectations <= {SemanticId(row["source_id"]) for row in checks}
     sources = package.source_tables()
     source = pa.table(sources[SemanticId.from_hex("8023798ccdf06c39d0badbf7250f144b")])
     assert any(SemanticId(row["declaration_id"]) == case for row in source.to_pylist())

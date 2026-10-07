@@ -1045,10 +1045,21 @@ fn projection(
                 *kind,
                 ModelingHint::AccuracyGoalResolution | ModelingHint::EngineeringScaleValue
             ) {
-                let symbol = model.symbols.get(target).ok_or_else(|| {
-                    CompileError::Missing("goal/scale target is not a scalar member".into())
-                })?;
-                let scheme = symbol.ty.quantity_scheme().ok_or_else(|| {
+                let ty = model
+                    .symbols
+                    .get(target)
+                    .map(|symbol| &symbol.ty)
+                    .or_else(|| model.closures.get(target).map(|closure| &closure.ty))
+                    .or_else(|| {
+                        model
+                            .inventory_balances
+                            .get(target)
+                            .map(|balance| &balance.ty)
+                    })
+                    .ok_or_else(|| {
+                        CompileError::Missing("goal/scale target has no physical owner".into())
+                    })?;
+                let scheme = ty.quantity_scheme().ok_or_else(|| {
                     CompileError::Missing("goal/scale target has no physical type".into())
                 })?;
                 Some(Type::Quantity(pse_quantity::scheme::Scheme::Concrete(
@@ -1794,10 +1805,12 @@ pub(super) fn configure(db: &mut CompilerDatabase, n: usize) {
 impl PreparedModeling {
     /// Assess independently evaluated original contributions. Equation residuals are not closure evidence.
     /// # Errors
-    /// Wrong output extent, missing original terms, or nonfinite physical observations.
+    /// Wrong output extent, missing original terms, nonfinite physical observations,
+    /// or missing/invalid caller-resolved physical closure budgets.
     pub fn assess_closure(
         &self,
         outputs: &[f64],
+        budgets: &BTreeMap<SemanticId, f64>,
     ) -> Result<Vec<pse_modeling::specialize::ClosureAssessment>> {
         if outputs.len() != self.admitted.outputs.len() {
             return Err(CompileError::Missing("modeling output extent".into()));
@@ -1812,6 +1825,6 @@ impl PreparedModeling {
                 _ => None,
             })
             .collect();
-        Ok(self.model.assess_closure(&magnitudes)?)
+        Ok(self.model.assess_closure(&magnitudes, budgets)?)
     }
 }

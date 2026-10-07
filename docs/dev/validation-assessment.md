@@ -77,8 +77,11 @@ The comprehensive scope runs these gates in order:
    Governance tests are covered by the linked workspace invocation.
 4. `check`, `docs-rust`, `docs` and `python-stubs --check`.
 5. Focused `feature-absence --profile local` in the default graph, `doctest`, and
-   the actual `producer-fixture` capture and `native-test --profile local` as the
-   single common Rust execution graph.
+   the actual `producer-fixture` capture. With `--python-profile producer`, capture
+   the actual runtime, worker and Python deployment targets through
+   `producer-deployment`, then run the installed Python solve/reopen association
+   control. `native-test --profile local` retains the single common Rust execution
+   graph and waits for that association in the producer campaign.
 6. `native-python` against the installed extension. The selected Python profile
    does not change the Rust test graph.
 
@@ -107,15 +110,32 @@ Native Python resolves the imported package and extension in pytest's interprete
 environment, refuses origins outside this checkout, and checks the same loaded extension
 inside pytest before collection. On-disk candidates are not execution identity.
 
-For assembled persisted-reuse qualification, supply current actual captures through
-`PSE_WORKER_PRODUCER_RECEIPT` and `PSE_PYTHON_PRODUCER_RECEIPT`. Before the assembled
-Rust campaign, run the eligible Python solve/reopen control with
-`PSE_PYTHON_DEPLOYMENT_ATTESTATION` naming its output file. That control writes the
+For assembled persisted-reuse qualification, use `--python-profile producer` and
+supply the reviewed host inputs through `PSE_RUNTIME_PRODUCER_DECLARATIONS`,
+`PSE_WORKER_PRODUCER_DECLARATIONS`, `PSE_PYTHON_PRODUCER_DECLARATIONS` and
+`PSE_NATIVE_PRODUCER_INPUTS`. The declaration variables name current source-bound
+actual-build review contexts; the native-input variable names a JSON list of files.
+`PSE_PYTHON_PRODUCER_INPUTS` can select a distinct native-input list for Python.
+The capture command consumes these reviews; it does not create completeness or
+source-review assertions. Missing or ineligible inputs fail qualification.
+Python capture replays [Maturin's extension linking selection](https://github.com/PyO3/maturin/blob/v1.15.0/src/compile.rs#L834)
+with `PYO3_BUILD_EXTENSION_MODULE=1`; runtime and worker builds omit that switch.
+
+The runner installs the producer-profile extension first, captures the three actual
+deployment targets, then runs the eligible Python solve/reopen control with
+`PSE_PYTHON_DEPLOYMENT_OBSERVATION_OUTPUT` naming a fresh output file. The wrapper
+passes that output to the control only after recording the imported binary and its
+input captures. That control writes the
 actual imported extension's run-header attestation after checking it against its
 capture. The native cross-role control requires both eligible captures to match
 that independently observed pair and refuses each receipt for the other receiving
 role. Provenance hashes both captures and the observed header bytes; a receipt's
 self-reported attestation cannot supply this control's expected pair.
+For a standalone capture, `just producer-deployment <fresh-output>` consumes the
+same reviewed inputs. Subsequent native commands use
+`PSE_WORKER_PRODUCER_RECEIPT`, `PSE_PYTHON_PRODUCER_RECEIPT` and
+`PSE_PYTHON_DEPLOYMENT_ATTESTATION` for their actual input receipts and observed
+header; the association control must have produced that header first.
 
 One before/after contextual inventory captures source hashes, additions, deletions, modes,
 symlink targets and Git provenance. Each gate projects that map into a versioned declared
@@ -147,6 +167,11 @@ a current version-5 report, and each retained gate takes one of two repeatable f
 
 Retained records keep their origin and are labelled `unchanged-input-reuse` or
 `reviewed-transfer`, never fresh execution.
+The production deployment capture and imported Python association always execute
+fresh; `--reuse` and `--transfer` refuse those two gates. Their host review contexts
+and native-input lists can select external inputs, so ordinary source-only reuse
+cannot establish a current deployment. Other eligible gates retain the continuation
+behavior above.
 
 **Aggregates and advisory checks.** `quality`, `governance`, `ci-fast`, `ci-pr`, `clippy`,
 `fmt-check`, `codegen-check`, `adr-lint`, `deps-report` and `policy` call the same runner

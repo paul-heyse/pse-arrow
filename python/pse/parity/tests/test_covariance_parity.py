@@ -6,9 +6,11 @@ Both sides fit a weighted linear regression ``y = a + b x`` at five points with 
 declared standard deviation of 0.5 on every observation. parmest estimates with the
 ``SSE_weighted`` objective and takes the covariance from its finite-difference Fisher
 information; pse fits the same observations and publishes the covariance of its
-estimate. For a model linear in its parameters both equal the weighted least-squares
-covariance ``(JᵀWJ)⁻¹``, so the estimates and every covariance entry agree to solver
-accuracy.
+estimate. For a model linear in its parameters both covariances equal the weighted
+least-squares covariance ``(JᵀWJ)⁻¹``. Native parameter estimates use their frozen
+contextual engineering allowances. The linear model's information operator is
+independent of the fitted candidate, so covariance retains its separate mathematical
+comparison precision.
 """
 
 import pyomo.contrib.parmest.parmest as parmest
@@ -19,7 +21,11 @@ from pyomo.contrib.parmest.experiment import Experiment
 import pse
 from pse import modeling as w
 from pse.contracts import authored as a
-from pse.contracts.enums import ModelingAnalysisRoute, NativeSolveIntent
+from pse.contracts.enums import (
+    ModelingAnalysisRoute,
+    NativeSolveIntent,
+    NumericalTarget,
+)
 from pse.contracts.identities import DeclarationId, FitId, InstanceId
 from pse.contracts.values import SemanticId
 
@@ -88,8 +94,8 @@ def identity(n: int) -> SemanticId:
 
 def pse_estimate(
     runtime: pse.Runtime,
-) -> tuple[dict[str, float], dict[tuple[str, str], float]]:
-    """The pse fitted parameters and published covariance."""
+) -> tuple[dict[str, float], dict[tuple[str, str], float], dict[str, float]]:
+    """The fitted parameters, covariance and frozen parameter allowances."""
     authored, declarations = support.package(runtime, LINE)
     case = declarations["Line"]
     parameters = {"a": identity(151), "b": identity(152)}
@@ -152,6 +158,22 @@ def pse_estimate(
         support.identity(row["parameter_id"]): support.real(row["value"])
         for row in support.rows(result.table("runtime.fit_parameters"))
     }
+    allowances: dict[SemanticId, float] = {}
+    for row in support.rows(result.table("runtime.resolved_numerics")):
+        if row["target_kind"] != NumericalTarget.VARIABLE:
+            continue
+        target = support.identity(row["target_id"])
+        if target not in parameters.values():
+            continue
+        assert target not in allowances
+        engineering = support.record(row["engineering"])
+        assert engineering["relative_fraction"] == support.ENGINEERING_RELATIVE_FRACTION
+        allowance = support.real(engineering["budget"])
+        assert allowance > 0.0
+        # The fit declares parameter nominals but no explicit tighter tolerance.
+        assert engineering["budget"] == row["budget"]
+        allowances[target] = allowance
+    assert set(allowances) == set(parameters.values())
     (published,) = support.rows(result.table("runtime.parameter_covariances"))
     parameter_ids, values = published["parameters"], published["values"]
     assert isinstance(parameter_ids, list)
@@ -166,16 +188,21 @@ def pse_estimate(
             for i in range(n)
             for j in range(n)
         },
+        {names[p]: allowances[p] for p in order},
     )
 
 
 @pytest.mark.integration
 @pytest.mark.parity
 def test_fit_covariance_agrees_with_parmest(runtime: pse.Runtime) -> None:
-    """The estimate within 1e-6 and every covariance entry within 1e-6 relative."""
+    """Contextual estimate accuracy and independent inverse-information precision."""
     theta, covariance = parmest_estimate()
-    estimate, published = pse_estimate(runtime)
+    estimate, published, allowances = pse_estimate(runtime)
     for name in ("a", "b"):
-        assert estimate[name] == pytest.approx(theta[name], abs=1e-6), name
+        assert estimate[name] == pytest.approx(
+            theta[name], rel=0.0, abs=allowances[name]
+        ), name
+    # X and declared sigma fix this covariance independently of the native
+    # candidate. Parameter allowances are not covariance error budgets.
     for key, value in covariance.items():
         assert published[key] == pytest.approx(value, rel=1e-6), key

@@ -24,9 +24,9 @@
 @id("01a0e18b78db742e8fd36e48fdb7529e") fn psat(T:Temperature,j:chemistry.species)->Pressure=properties.psat(bt_ideal_idaes,chemistry.liquid,j,T);
 @id("01a0e18b78db742e8fd36e49b3320d06") test flash_368 oracle references.idaes_test_btideal fixture {dof 0; route steady; procedure solve; fix root.flow=1{mol/s}; value root.minimum_temperature=300{K}; value root.maximum_temperature=450{K}; value root.bubble_start=365{K}; value root.dew_start=370{K}; fix root.T=368{K}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
 @id("01a0e18b78db742e8fd36e4a7116bd44") child root:equilibrium.SmoothVLE=equilibrium.FTPx(selected=aromatics,vapor_pressure=psat);
-@id("01a0e18b78db742e8fd36e4b5faa0fa8") expect root.x[chem.benzene]==0.4121{1} tolerance 0.0001{1};
-@id("01a0e18b78db742e8fd36e4c682b54be") expect root.y[chem.benzene]==0.6339{1} tolerance 0.0001{1};
-@id("01a0e18b78db742e8fd36e4d7507b8d6") expect root.beta==0.3961 tolerance 0.0001;
+@id("01a0e18b78db742e8fd36e4b5faa0fa8") expect root.x[chem.benzene]==0.4121{1} tolerance numerical_policy.mole_fraction;
+@id("01a0e18b78db742e8fd36e4c682b54be") expect root.y[chem.benzene]==0.6339{1} tolerance numerical_policy.mole_fraction;
+@id("01a0e18b78db742e8fd36e4d7507b8d6") expect root.beta==0.3961 tolerance numerical_policy.dimensionless;
 @id("01a0e18b78db742e8fd36e4e09303570") expect root.component_flow[chem.benzene]==0.5{mol/s} tolerance 1e-10{mol/s};
 }
 @id("01a0e1971f9075519925981c914a70d4") use caloric_data @"1.0.0";
@@ -38,14 +38,27 @@
 @id("01a0e1971f9075519925981f0b0c0f89") fn liquid_h(T:Temperature,j:chemistry.species)->MolarEnthalpy=properties.component_enthalpy(bt_ideal_idaes,chemistry.liquid,j,T);
 @id("01a0e1971f90755199259820a9ad3ea5") fn vapor_h(T:Temperature,j:chemistry.species)->MolarEnthalpy=properties.component_enthalpy(bt_ideal_idaes,chemistry.vapor,j,T);
 @id("40f35b70edac42b583ad3cc6d4e71a79") fn component_enthalpy(T:Temperature,p:chemistry.phase,j:chemistry.species)->MolarEnthalpy=properties.component_enthalpy(bt_ideal_idaes,p,j,T);
+// Shared validity interval for the ideal equilibrium and separated-liquid states.
+@id("8614269536e24a808c8a2d2bd960f8fd") constant minimum_temperature:Temperature=300{K} provenance(references.idaes_bt_ideal,provenance.Role.oracle_input);
+@id("3323b6cf775d47b4bd980ffbcc30f4cb") constant maximum_temperature:Temperature=450{K} provenance(references.idaes_bt_ideal,provenance.Role.oracle_input);
+// Frozen, datum-independent characteristics of the admitted temperature interval.
+// Per-species differences retain each species reference convention; maxima over
+// the nonempty species set avoid assuming a solved phase composition.
+@id("3172222352c94d15bacbe06152e5ac79") fn largest_difference(a:Delta<MolarEnthalpy>,b:Delta<MolarEnthalpy>)->Delta<MolarEnthalpy> =if a>=b then a else b;
+@id("dbdfb52c56814c42bf9f1daa1bfc7b6f") fn liquid_enthalpy_span()->Delta<MolarEnthalpy> =fold(acc,value; j in aromatics | abs(liquid_h(maximum_temperature,j)-liquid_h(minimum_temperature,j));largest_difference(acc,value));
+@id("c2ead006197a48c989e0fb217379a86b") fn vapor_enthalpy_span()->Delta<MolarEnthalpy> =fold(acc,value; j in aromatics | abs(vapor_h(maximum_temperature,j)-vapor_h(minimum_temperature,j));largest_difference(acc,value));
+@id("8880146a022749ba9697d0bcefa73450") fn phase_enthalpy_span()->Delta<MolarEnthalpy> =fold(acc,value; j in aromatics | largest_difference(largest_difference(abs(liquid_h(maximum_temperature,j)-liquid_h(minimum_temperature,j)),abs(vapor_h(maximum_temperature,j)-vapor_h(minimum_temperature,j))),largest_difference(largest_difference(abs(vapor_h(minimum_temperature,j)-liquid_h(minimum_temperature,j)),abs(vapor_h(maximum_temperature,j)-liquid_h(maximum_temperature,j))),largest_difference(abs(vapor_h(maximum_temperature,j)-liquid_h(minimum_temperature,j)),abs(vapor_h(minimum_temperature,j)-liquid_h(maximum_temperature,j)))));largest_difference(acc,value));
+// Form a difference of two same-datum transport points: the physical
+// multiplication contract produces Power points even from a molar difference.
+@id("13da561553014a03b0c51a0093830844") fn power_span(capacity:Flow,span:Delta<MolarEnthalpy>)->Delta<Power> valid(capacity>=0{mol/s})=capacity*(constants.standard_enthalpy_datum+span)-capacity*constants.standard_enthalpy_datum;
 @id("01a0e1a936d074a8ae57c32cb3c24bb8") interface BTIdealBinding extends equilibrium.EquilibriumThermoPackage {
 
 @id("01a0e1971f90755199259822137a64c1") override param components:Set<chemistry.species>=aromatics;
 @id("01a0e1971f9075519925982384e3bfd0") override param psat:Fn(T:Temperature,j:chemistry.species)->Pressure=bt_ideal.psat;
 @id("01a0e1971f90755199259824636559bd") override param liquid_enthalpy:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy=liquid_h;
 @id("01a0e1971f9075519925982564351de3") override param vapor_enthalpy:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy=vapor_h;
-@id("01a0e1971f9075519925982680c79d22") override param minimum_temperature:Temperature=300{K};
-@id("01a0e1971f9075519925982726e14bf3") override param maximum_temperature:Temperature=450{K};
+@id("01a0e1971f9075519925982680c79d22") override param minimum_temperature:Temperature=bt_ideal.minimum_temperature;
+@id("01a0e1971f9075519925982726e14bf3") override param maximum_temperature:Temperature=bt_ideal.maximum_temperature;
 @id("01a0e1971f907551992598283e0d21a6") override param bubble_start:Temperature=365{K};
 @id("01a0e1971f90755199259829b0731f92") override param dew_start:Temperature=370{K};
 @id("01a0e1a32b1f76e89afdfd979fe12f6f") var oracle_h:BtOracleEnthalpy;
@@ -64,22 +77,22 @@
 @id("4bce291fa70e4e8596ef09f144308802") override param components:Set<chemistry.species>=aromatics;
 @id("c0b12ac7389549e6aef60263096dcc44") override param component_h:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy=liquid_h;
 @id("749ef68fdf9b4ddaa49a788869a97e1c") override param reference_pressure:Pressure=101325{Pa};
-@id("de8e6c0687a54cd1a51015358e02f67f") override param minimum_temperature:Temperature=300{K};
-@id("e4286a7963ea446f99f3966064b0b577") override param maximum_temperature:Temperature=450{K};
+@id("de8e6c0687a54cd1a51015358e02f67f") override param minimum_temperature:Temperature=bt_ideal.minimum_temperature;
+@id("e4286a7963ea446f99f3966064b0b577") override param maximum_temperature:Temperature=bt_ideal.maximum_temperature;
 }
 @id("01a0e1971f9075519925982ae2d21d11") test ftpx_oracle oracle references.idaes_test_btideal fixture {dof 0; route steady; procedure solve; fix root.flow=1{mol/s}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1}; fix root.T=368{K};} {
 @id("01a0e1971f9075519925982b3ee6b34a") child root:BTIdeal=BTIdeal;
-@id("01a0e1971f9075519925982cdc912da2") expect root.x[chem.benzene]==0.4121{1} tolerance 0.0001{1};
-@id("01a0e1971f9075519925982dd2dd356b") expect root.y[chem.benzene]==0.6339{1} tolerance 0.0001{1};
-@id("01a0e1971f9075519925982e2a891db3") expect root.beta==0.3961 tolerance 0.0001;
-@id("01a0e1971f9075519925982feb577f11") expect root.oracle_h==47297{J/mol} tolerance 1{J/mol};
+@id("01a0e1971f9075519925982cdc912da2") expect root.x[chem.benzene]==0.4121{1} tolerance numerical_policy.mole_fraction;
+@id("01a0e1971f9075519925982dd2dd356b") expect root.y[chem.benzene]==0.6339{1} tolerance numerical_policy.mole_fraction;
+@id("01a0e1971f9075519925982e2a891db3") expect root.beta==0.3961 tolerance numerical_policy.dimensionless;
+@id("01a0e1971f9075519925982feb577f11") expect root.oracle_h==47297{J/mol} tolerance 1{J/mol} relative numerical_policy.dimensionless;
 }
 @id("01a0e1971f90755199259830415352f7") test fphx_oracle oracle references.idaes_test_btideal_fphx fixture {dof 0; route steady; procedure solve; fix root.flow=1{mol/s}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1}; fix root.oracle_h=47297{J/mol};} {
 @id("01a0e1971f907551992598319a65b91a") child root:BTIdeal=BTIdeal;
-@id("01a0e1971f907551992598323e996afc") expect root.x[chem.benzene]==0.4121{1} tolerance 0.0001{1};
-@id("01a0e1971f90755199259833a5eab93e") expect root.y[chem.benzene]==0.6339{1} tolerance 0.0001{1};
-@id("01a0e1971f907551992598346b929bdd") expect root.beta==0.3961 tolerance 0.0001;
-@id("01a0e1971f907551992598357cfa4f12") expect root.T==368{K} tolerance 0.01{K};
+@id("01a0e1971f907551992598323e996afc") expect root.x[chem.benzene]==0.4121{1} tolerance numerical_policy.mole_fraction;
+@id("01a0e1971f90755199259833a5eab93e") expect root.y[chem.benzene]==0.6339{1} tolerance numerical_policy.mole_fraction;
+@id("01a0e1971f907551992598346b929bdd") expect root.beta==0.3961 tolerance numerical_policy.dimensionless;
+@id("01a0e1971f907551992598357cfa4f12") expect root.T==368{K} tolerance numerical_policy.temperature;
 }
 @id("01a0e1a936d074a8ae57c32d78320eaa") use nested_equilibrium @"1.0.0";
 @id("01a0e1a936d074a8ae57c32e93b9b7da") def BTIdealNested:BTIdealBinding {
@@ -99,28 +112,28 @@
 }
 @id("01a0e1a936d074a8ae57c33ac54cf83b") test nested_liquid oracle references.idaes_test_btideal fixture {dof 0; route steady; procedure solve; fix root.flow=1{mol/s}; fix root.T=358{K}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
 @id("01a0e1a936d074a8ae57c33bbc37b03c") child root:BTIdealNested=BTIdealNested;
-@id("01a0e1a936d074a8ae57c33cced342ba") expect root.beta==0 tolerance 0.0001;
-@id("01a0e1a936d074a8ae57c33d8e2f84e2") expect (1-root.beta)*root.x[chem.benzene]+root.beta*root.y[chem.benzene]==root.z[chem.benzene] tolerance 1e-8{1};
-@id("01a0e1a936d074a8ae57c33e4a905ad5") expect (1-root.beta)*root.x[chem.toluene]+root.beta*root.y[chem.toluene]==root.z[chem.toluene] tolerance 1e-8{1};
+@id("01a0e1a936d074a8ae57c33cced342ba") expect root.beta==0 tolerance numerical_policy.dimensionless;
+@id("01a0e1a936d074a8ae57c33d8e2f84e2") expect (1-root.beta)*root.x[chem.benzene]+root.beta*root.y[chem.benzene]==root.z[chem.benzene] tolerance numerical_policy.mole_fraction;
+@id("01a0e1a936d074a8ae57c33e4a905ad5") expect (1-root.beta)*root.x[chem.toluene]+root.beta*root.y[chem.toluene]==root.z[chem.toluene] tolerance numerical_policy.mole_fraction;
 }
 @id("01a0e1a936d074a8ae57c33fda26bf9b") test nested_two_phase oracle references.idaes_test_btideal fixture {dof 0; route steady; procedure solve; fix root.flow=1{mol/s}; fix root.T=368{K}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
 @id("01a0e1a936d074a8ae57c34054048f67") child root:BTIdealNested=BTIdealNested;
-@id("01a0e1a936d074a8ae57c34140012a33") expect root.beta==0.3961 tolerance 0.0001;
-@id("01a0e1a936d074a8ae57c3425dc9976b") expect (1-root.beta)*root.x[chem.benzene]+root.beta*root.y[chem.benzene]==root.z[chem.benzene] tolerance 1e-8{1};
-@id("01a0e1a936d074a8ae57c343b5057a10") expect (1-root.beta)*root.x[chem.toluene]+root.beta*root.y[chem.toluene]==root.z[chem.toluene] tolerance 1e-8{1};
-@id("01a0e1a936d074a8ae57c3448b7faf6b") expect root.x[chem.benzene]==0.4121{1} tolerance 0.0001{1};
-@id("01a0e1a936d074a8ae57c345def9cfab") expect root.y[chem.benzene]==0.6339{1} tolerance 0.0001{1};
+@id("01a0e1a936d074a8ae57c34140012a33") expect root.beta==0.3961 tolerance numerical_policy.dimensionless;
+@id("01a0e1a936d074a8ae57c3425dc9976b") expect (1-root.beta)*root.x[chem.benzene]+root.beta*root.y[chem.benzene]==root.z[chem.benzene] tolerance numerical_policy.mole_fraction;
+@id("01a0e1a936d074a8ae57c343b5057a10") expect (1-root.beta)*root.x[chem.toluene]+root.beta*root.y[chem.toluene]==root.z[chem.toluene] tolerance numerical_policy.mole_fraction;
+@id("01a0e1a936d074a8ae57c3448b7faf6b") expect root.x[chem.benzene]==0.4121{1} tolerance numerical_policy.mole_fraction;
+@id("01a0e1a936d074a8ae57c345def9cfab") expect root.y[chem.benzene]==0.6339{1} tolerance numerical_policy.mole_fraction;
 }
 @id("01a0e1a936d074a8ae57c346abdb25f7") test nested_vapor oracle references.idaes_test_btideal fixture {dof 0; route steady; procedure solve; fix root.flow=1{mol/s}; fix root.T=378{K}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
 @id("01a0e1a936d074a8ae57c34773d01485") child root:BTIdealNested=BTIdealNested;
-@id("01a0e1a936d074a8ae57c348692b9fad") expect root.beta==1 tolerance 0.0001;
-@id("01a0e1a936d074a8ae57c349b5e43726") expect (1-root.beta)*root.x[chem.benzene]+root.beta*root.y[chem.benzene]==root.z[chem.benzene] tolerance 1e-8{1};
-@id("01a0e1a936d074a8ae57c34a87a6907d") expect (1-root.beta)*root.x[chem.toluene]+root.beta*root.y[chem.toluene]==root.z[chem.toluene] tolerance 1e-8{1};
+@id("01a0e1a936d074a8ae57c348692b9fad") expect root.beta==1 tolerance numerical_policy.dimensionless;
+@id("01a0e1a936d074a8ae57c349b5e43726") expect (1-root.beta)*root.x[chem.benzene]+root.beta*root.y[chem.benzene]==root.z[chem.benzene] tolerance numerical_policy.mole_fraction;
+@id("01a0e1a936d074a8ae57c34a87a6907d") expect (1-root.beta)*root.x[chem.toluene]+root.beta*root.y[chem.toluene]==root.z[chem.toluene] tolerance numerical_policy.mole_fraction;
 }
 @id("01a0e1ad3a7f706c8439ef4b7b6a0584") test initialized_ftpx oracle references.idaes_test_btideal fixture {dof 0; route steady; procedure initialize; stages("ideal-K"); fix root.flow=1{mol/s}; fix root.T=368{K}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
 @id("01a0e1ad3a7f706c8439ef4c048d2e11") child root:BTIdeal=BTIdeal;
-@id("01a0e1ad3a7f706c8439ef4d0598eb99") expect root.beta==0.3961 tolerance 0.0001;
-@id("01a0e1ad3a7f706c8439ef4e251fbecb") expect root.oracle_h==47297{J/mol} tolerance 1{J/mol};
+@id("01a0e1ad3a7f706c8439ef4d0598eb99") expect root.beta==0.3961 tolerance numerical_policy.dimensionless;
+@id("01a0e1ad3a7f706c8439ef4e251fbecb") expect root.oracle_h==47297{J/mol} tolerance 1{J/mol} relative numerical_policy.dimensionless;
 }
 @id("ffe95f6c03b24a7c87244e9c91db2608") test complementarity_liquid_smooth oracle references.idaes_test_btideal fixture {dof 0; route steady; procedure solve; fix root.flow=1{mol/s}; value root.minimum_temperature=300{K}; value root.maximum_temperature=450{K}; value root.bubble_start=365{K}; value root.dew_start=370{K}; fix root.T=358{K}; fix root.pressure=101325{Pa}; fix root.z[chem.benzene]=0.5{1}; fix root.z[chem.toluene]=0.5{1};} {
 @id("cdf658317302408588d63707d0c7736a") child root:equilibrium.ComplementarityVLE=equilibrium.SmoothComplementarityFTPx(selected=aromatics,vapor_pressure=psat);

@@ -1444,6 +1444,57 @@ impl ModelingPackage {
             &mut targets,
             &authored_values,
         )?;
+        let mut producer_ids = product
+            .model
+            .closures
+            .values()
+            .flat_map(|closure| {
+                (0..closure.requirements.len())
+                    .map(|index| closure_requirement_id(closure.id, index))
+                    .chain([
+                        pse_ids::named_id(closure.id, "tighter-endpoint-budget"),
+                        conservation_requirement_id(closure),
+                    ])
+            })
+            .collect::<BTreeSet<_>>();
+        producer_ids.extend(
+            product
+                .model
+                .inventory_balances
+                .keys()
+                .map(|id| pse_ids::named_id(*id, "inventory-closure-requirement")),
+        );
+        producer_ids.extend(
+            product
+                .model
+                .state_specifications
+                .values()
+                .flat_map(|specification| specification.reconstructions.iter())
+                .map(|(row, _)| state_reconstruction_requirement_id(row)),
+        );
+        numerical
+            .declarations
+            .retain(|source| !producer_ids.contains(&source.declaration.requirement_id));
+        let closure_requirements = lower_closure_requirements(
+            product,
+            &mut targets,
+            model.solved().lineage(),
+            &physical,
+            &mut numerical.declarations,
+            &mut solver.numerics,
+        )?;
+        for target in targets
+            .iter()
+            .filter(|target| target.kind == NumericalTarget::Closure)
+        {
+            if !numerical
+                .targets
+                .iter()
+                .any(|existing| existing.id == target.id && existing.kind == target.kind)
+            {
+                numerical.targets.push(target.clone());
+            }
+        }
         let reconstruction_requirements = state_reconstruction_requirements(
             product,
             &targets,
@@ -1469,11 +1520,17 @@ impl ModelingPackage {
                 .values()
                 .map(conservation_requirement_id),
         );
+        declared_row_ids.extend(
+            closure_requirements
+                .iter()
+                .map(|source| source.declaration.requirement_id),
+        );
         numerical.declarations.retain(|requirement| {
             !declared_row_ids.contains(&requirement.declaration.requirement_id)
         });
         numerical.declarations.extend(reconstruction_requirements);
         numerical.declarations.extend(conservation_requirements);
+        numerical.declarations.extend(closure_requirements);
         let resolved = pse_math::numerics::resolve(
             &physical,
             &targets,
@@ -1481,20 +1538,25 @@ impl ModelingPackage {
             &solver.numerics,
         )
         .map_err(crate::math::MathRuntimeError::from)?;
-        // Free variables move to their nominal; fixed variables and the parameter
-        // coordinates of a sensitivity request keep their values.
+        // Free variables move to their nominal, except an equality-bound coordinate:
+        // its sole admissible value must also characterize the physical row scales.
+        // Fixed variables and sensitivity parameters keep their bound values.
         for t in &resolved.targets {
             if t.kind == NumericalTarget::Variable
-                && prepared
+                && let Some(variable) = prepared
                     .case
                     .compiled()
                     .plan
                     .structure()
                     .variables()
                     .iter()
-                    .any(|v| v.port.id == t.id && !v.fixed)
+                    .find(|v| v.port.id == t.id && !v.fixed)
             {
-                nominal_point.scalars.insert(t.id, t.nominal);
+                let value = match (variable.lower, variable.upper) {
+                    (Some(lower), Some(upper)) if lower.is_finite() && lower == upper => lower,
+                    _ => t.nominal,
+                };
+                nominal_point.scalars.insert(t.id, value);
             }
         }
         let schemes = product
@@ -1936,19 +1998,24 @@ fn authored_target_semantics(
     {
         return Ok((target.kind, target.quantity));
     }
-    let symbol = product
-        .model
-        .symbols
-        .get(&id)
-        .ok_or_else(|| contract("authored accuracy target is not a specialized scalar"))?;
-    let scheme = symbol
-        .ty
+    let (kind, ty) = if let Some(symbol) = product.model.symbols.get(&id) {
+        (NumericalTarget::Observable, &symbol.ty)
+    } else if let Some(closure) = product.model.closures.get(&id) {
+        (NumericalTarget::Closure, &closure.ty)
+    } else if let Some(balance) = product.model.inventory_balances.get(&id) {
+        (NumericalTarget::Closure, &balance.ty)
+    } else {
+        return Err(contract(
+            "authored accuracy target has no specialized physical owner",
+        ));
+    };
+    let scheme = ty
         .quantity_scheme()
         .ok_or_else(|| contract("authored accuracy target has no physical quantity"))?;
     let quantity = scheme
         .resolve(registry, &Default::default())
         .map_err(|error| contract(error.to_string()))?;
-    Ok((NumericalTarget::Observable, quantity))
+    Ok((kind, quantity))
 }
 
 /// Refuse accuracy supports that vary with the current nonlinear solve coordinates.
@@ -2013,55 +2080,449 @@ fn conservation_requirement_id(closure: &pse_modeling::specialize::Closure) -> S
 /// Lower an already specialized physical tolerance through the existing numerical owner.
 fn physical_row_requirement(
     target: &pse_math::numerics::TargetSpec,
-    tolerance: &pse_modeling::specialize::Value,
+    obligation: &pse_modeling::specialize::ClosureRequirement,
     lineage: pse_model::lineage::Lineage,
     declaration: DeclarationId,
     registry: &pse_quantity::QuantityRegistry,
 ) -> Result<pse_math::numerics::SourcedRequirement, WorkflowError> {
-    use pse_modeling::specialize::Value;
-    // Static numbers are already canonical; attach their canonical unit rather
-    // than applying the authored storage conversion a second time.
-    let (magnitude, quantity) = match tolerance {
-        Value::Number { bits, quantity } | Value::Coordinate { bits, quantity, .. } => {
-            (f64::from_bits(*bits), *quantity)
-        }
-        Value::Integer(value) => (
-            *value as f64,
-            registry
-                .neutral_dimensionless()
-                .ok_or_else(|| contract("integer row tolerance has no scalar contract"))?,
-        ),
-        _ => return Err(contract("declared row tolerance is not numeric")),
-    };
-    pse_quantity::admission::require_same_contract(target.quantity, quantity, registry)
-        .map_err(pse_math::MathError::from)
-        .map_err(crate::math::MathRuntimeError::from)?;
-    let unit = registry
-        .quantity_type(quantity)
-        .map_err(pse_math::MathError::from)
-        .map_err(crate::math::MathRuntimeError::from)?
-        .canonical_unit;
-    if !magnitude.is_finite() || magnitude <= 0.0 {
-        return Err(contract(
-            "declared row tolerance must be finite and positive",
-        ));
-    }
+    use pse_modeling::specialize::{ClosureTolerance, Value};
     let mut declared = requirement(
         lineage,
         target.id,
-        NumericalTarget::Row,
+        target.kind,
         declaration,
         NumericalSource::Model,
         None,
         None,
     );
-    declared.declaration.absolute_tolerance = Some(magnitude);
-    declared.declaration.unit_id = Some(unit.as_id());
+    match &obligation.tolerance {
+        ClosureTolerance::EngineeringRule { rule_id, marker } => {
+            declared.declaration.shared_engineering_allowance = Some(true);
+            declared.declaration.engineering_rule_id = Some((*rule_id).into());
+            declared.declaration.provenance = format!(
+                "physical obligation {} inherits rule {} marked by {}; context {:?}; endpoint {:?}",
+                declaration, rule_id, marker, obligation.context, obligation.endpoint,
+            );
+        }
+        ClosureTolerance::Explicit(tolerance) => {
+            // Static numbers are already canonical; attach their canonical unit rather
+            // than applying the authored storage conversion a second time.
+            let (magnitude, quantity) = match tolerance {
+                Value::Number { bits, quantity } | Value::Coordinate { bits, quantity, .. } => {
+                    (f64::from_bits(*bits), *quantity)
+                }
+                Value::Integer(value) => (
+                    *value as f64,
+                    registry
+                        .neutral_dimensionless()
+                        .ok_or_else(|| contract("integer row tolerance has no scalar contract"))?,
+                ),
+                _ => return Err(contract("declared physical tolerance is not numeric")),
+            };
+            pse_quantity::admission::require_same_contract(target.quantity, quantity, registry)
+                .map_err(pse_math::MathError::from)
+                .map_err(crate::math::MathRuntimeError::from)?;
+            let unit = registry
+                .quantity_type(quantity)
+                .map_err(pse_math::MathError::from)
+                .map_err(crate::math::MathRuntimeError::from)?
+                .canonical_unit;
+            if !magnitude.is_finite() || magnitude <= 0.0 {
+                return Err(contract(
+                    "declared physical tolerance must be finite and positive",
+                ));
+            }
+            declared.declaration.absolute_tolerance = Some(magnitude);
+            declared.declaration.unit_id = Some(unit.as_id());
+        }
+    }
     Ok(declared)
 }
+/// Reuse only an already admitted named engineering scale; trial values and conditioning
+/// nominals never become characteristic magnitudes. The original context remains retained.
+fn contextual_scales(
+    product: &pse_compiler::workspace::PreparedModeling,
+    target: &pse_math::numerics::TargetSpec,
+    obligation: &pse_modeling::specialize::ClosureRequirement,
+    registry: &pse_quantity::QuantityRegistry,
+    policy: &mut pse_model::numerics::NumericalPolicy,
+) -> Result<(), WorkflowError> {
+    if !matches!(
+        obligation.tolerance,
+        pse_modeling::specialize::ClosureTolerance::EngineeringRule { .. }
+    ) {
+        return Ok(());
+    }
+    let Some(context) = obligation.context else {
+        return Ok(());
+    };
+    let (_, quantity) =
+        authored_target_semantics(product, &NumericalInputs::default(), &[], registry, context)?;
+    let error_quantity = pse_quantity::scheme::Scheme::Delta(Box::new(
+        pse_quantity::scheme::Scheme::Concrete(quantity),
+    ))
+    .resolve(registry, &BTreeMap::new())
+    .map_err(|e| contract(e.to_string()))?;
+    pse_quantity::admission::require_same_contract(target.quantity, error_quantity, registry)
+        .map_err(pse_math::MathError::from)
+        .map_err(crate::math::MathRuntimeError::from)?;
+    let originals = policy
+        .engineering_scales
+        .iter()
+        .filter(|scale| {
+            scale.target_id == context && scale.target_kind != NumericalTarget::Objective
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    for mut scale in originals {
+        pse_quantity::admission::require_same_contract(
+            scale.quantity_id.into(),
+            quantity,
+            registry,
+        )
+        .map_err(pse_math::MathError::from)
+        .map_err(crate::math::MathRuntimeError::from)?;
+        if scale.target_id == target.id && scale.target_kind == target.kind {
+            continue;
+        }
+        scale.scale_id = pse_ids::named_id(
+            scale.scale_id.into(),
+            &format!("physical-obligation:{}:{}", target.id, target.kind.as_str()),
+        )
+        .into();
+        scale.target_id = target.id;
+        scale.target_kind = target.kind;
+        scale.quantity_id = target.quantity.as_id();
+        scale.provenance = format!(
+            "{}; original context {}; endpoint {:?}",
+            scale.provenance, context, obligation.endpoint
+        );
+        if let Some(previous) = policy
+            .engineering_scales
+            .iter()
+            .find(|previous| previous.scale_id == scale.scale_id)
+        {
+            if previous != &scale {
+                return Err(contract("conflicting contextual engineering scale"));
+            }
+        } else {
+            policy.engineering_scales.push(scale);
+        }
+    }
+    Ok(())
+}
+fn closure_requirement_id(id: SemanticId, index: usize) -> SemanticId {
+    pse_ids::named_id(id, &format!("physical-closure-requirement:{index}"))
+}
+fn physical_target(
+    id: SemanticId,
+    ty: &pse_modeling::Type,
+    registry: &pse_quantity::QuantityRegistry,
+) -> Result<pse_math::numerics::TargetSpec, WorkflowError> {
+    let scheme = ty
+        .quantity_scheme()
+        .ok_or_else(|| contract("closure has no full physical type"))?;
+    let quantity = scheme
+        .resolve(registry, &BTreeMap::new())
+        .map_err(|e| contract(e.to_string()))?;
+    let unit = registry
+        .quantity_type(quantity)
+        .map_err(|e| contract(e.to_string()))?
+        .canonical_unit;
+    Ok(pse_math::numerics::TargetSpec {
+        id,
+        kind: NumericalTarget::Closure,
+        quantity,
+        unit,
+        integer: false,
+        declared_tolerance: None,
+    })
+}
+/// Admit independent physical closures and their original endpoint obligations through
+/// the common resolver. Every resolved endpoint and its source survives in the final policy.
+pub(in crate::workflow) fn lower_closure_requirements(
+    product: &pse_compiler::workspace::PreparedModeling,
+    targets: &mut Vec<pse_math::numerics::TargetSpec>,
+    lineage: pse_model::lineage::Lineage,
+    registry: &pse_quantity::QuantityRegistry,
+    declarations: &mut [pse_math::numerics::SourcedRequirement],
+    policy: &mut pse_model::numerics::NumericalPolicy,
+) -> Result<Vec<pse_math::numerics::SourcedRequirement>, WorkflowError> {
+    let mut sources = Vec::new();
+    for closure in product.model.closures.values() {
+        let target = physical_target(closure.id, &closure.ty, registry)?;
+        if !targets
+            .iter()
+            .any(|t| t.id == target.id && t.kind == target.kind)
+        {
+            targets.push(target.clone());
+        }
+        let mut scope = lineage;
+        scope.instance_id = Some(closure.lineage.instance);
+        if closure.requirements.is_empty() {
+            return Err(contract("closure requirement absent"));
+        }
+        let mut endpoints = Vec::new();
+        let mut endpoint_sources = Vec::new();
+        for (index, obligation) in closure.requirements.iter().enumerate() {
+            let mut endpoint_target = target.clone();
+            if closure.requirements.len() > 1 {
+                endpoint_target.id =
+                    pse_ids::named_id(closure.id, &format!("physical-endpoint:{index}"));
+                if !targets
+                    .iter()
+                    .any(|t| t.id == endpoint_target.id && t.kind == endpoint_target.kind)
+                {
+                    targets.push(endpoint_target.clone());
+                }
+            }
+            contextual_scales(product, &endpoint_target, obligation, registry, policy)?;
+            let owner = obligation
+                .endpoint
+                .and_then(|endpoint| product.model.material_ports.get(&endpoint))
+                .and_then(|port| product.model.state_specifications.get(&port.specification))
+                .map(|specification| &specification.lineage)
+                .or_else(|| {
+                    obligation
+                        .context
+                        .and_then(|context| product.model.symbols.get(&context))
+                        .map(|symbol| &symbol.lineage)
+                })
+                .unwrap_or(&closure.lineage);
+            let mut endpoint_scope = scope;
+            endpoint_scope.instance_id = Some(owner.instance);
+            let mut source = physical_row_requirement(
+                &endpoint_target,
+                obligation,
+                endpoint_scope,
+                owner.declaration,
+                registry,
+            )?;
+            source.declaration.requirement_id = closure_requirement_id(closure.id, index);
+            source.declaration.provenance = format!(
+                "{}; closure {}; original owner {} declared by {}; original context {:?}; endpoint {:?}",
+                source.declaration.provenance,
+                closure.id,
+                owner.path,
+                owner.declaration,
+                obligation.context,
+                obligation.endpoint
+            );
+            endpoints.push(endpoint_target);
+            endpoint_sources.push(source);
+        }
+        if endpoints.len() > 1 {
+            // A direct request on the connected closure applies to each original endpoint;
+            // existing precedence decides whether that request overrides inherited context.
+            let mut endpoint_policy = policy.clone();
+            endpoint_policy.requirements.retain(|r| {
+                endpoints
+                    .iter()
+                    .any(|t| t.id == r.target_id && t.kind == r.target_kind)
+            });
+            endpoint_policy.engineering_scales.retain(|s| {
+                endpoints
+                    .iter()
+                    .any(|t| t.id == s.target_id && t.kind == s.target_kind)
+            });
+            for direct in policy
+                .requirements
+                .iter()
+                .filter(|r| r.target_id == target.id && r.target_kind == target.kind)
+            {
+                for endpoint in &endpoints {
+                    let mut projected = direct.clone();
+                    projected.requirement_id =
+                        pse_ids::named_id(direct.requirement_id, &endpoint.id.to_string());
+                    projected.target_id = endpoint.id;
+                    projected.provenance = format!(
+                        "{}; original request {} on closure {} projected to endpoint {}",
+                        direct.provenance, direct.requirement_id, closure.id, endpoint.id
+                    );
+                    if !endpoint_policy
+                        .requirements
+                        .iter()
+                        .any(|r| r.requirement_id == projected.requirement_id)
+                    {
+                        endpoint_policy.requirements.push(projected);
+                    }
+                }
+            }
+            let direct_sources = declarations
+                .iter()
+                .filter(|r| {
+                    r.declaration.target_id == target.id && r.declaration.target_kind == target.kind
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            for direct in direct_sources {
+                for endpoint in &endpoints {
+                    let projection_id = pse_ids::named_id(
+                        direct.declaration.requirement_id,
+                        &endpoint.id.to_string(),
+                    );
+                    let mut projected = declarations
+                        .iter()
+                        .find(|source| source.declaration.requirement_id == projection_id)
+                        .cloned()
+                        .unwrap_or_else(|| {
+                            let mut projected = direct.clone();
+                            projected.declaration.requirement_id = projection_id;
+                            projected.declaration.target_id = endpoint.id;
+                            projected.declaration.provenance = format!(
+                                "{}; original request {} on closure {} projected to endpoint {}",
+                                direct.declaration.provenance,
+                                direct.declaration.requirement_id,
+                                closure.id,
+                                endpoint.id
+                            );
+                            projected
+                        });
+                    projected.declaration.target_id = endpoint.id;
+                    endpoint_sources.push(projected);
+                }
+            }
+            for source in declarations.iter().filter(|source| {
+                endpoints.iter().any(|endpoint| {
+                    endpoint.id == source.declaration.target_id
+                        && endpoint.kind == source.declaration.target_kind
+                })
+            }) {
+                if !endpoint_sources.iter().any(|existing| {
+                    existing.declaration.requirement_id == source.declaration.requirement_id
+                }) {
+                    endpoint_sources.push(source.clone());
+                }
+            }
+            let resolved = pse_math::numerics::resolve(
+                registry,
+                &endpoints,
+                &endpoint_sources,
+                &endpoint_policy,
+            )
+            .map_err(crate::math::MathRuntimeError::from)?;
+            let budget = resolved
+                .targets
+                .iter()
+                .map(|t| t.budget)
+                .fold(f64::INFINITY, f64::min);
+            let mut combined = requirement(
+                scope,
+                closure.id,
+                NumericalTarget::Closure,
+                closure.lineage.declaration,
+                NumericalSource::Model,
+                None,
+                None,
+            );
+            combined.declaration.requirement_id =
+                pse_ids::named_id(closure.id, "tighter-endpoint-budget");
+            combined.declaration.absolute_tolerance = Some(budget);
+            combined.declaration.unit_id = Some(target.unit.as_id());
+            combined.declaration.provenance = format!(
+                "closure {} uses the tighter separately resolved original endpoint budgets",
+                closure.id
+            );
+            sources.push(combined);
+            // The complete allowance (including relative terms) is already resolved on
+            // each endpoint. Keep aggregate conditioning metadata, but do not apply its
+            // original accuracy fields a second time to the combined physical budget.
+            let retire_accuracy = |request: &mut pse_model::numerics::NumericalRequirement| {
+                request.absolute_tolerance = None;
+                request.relative_tolerance = None;
+                request.shared_engineering_allowance = None;
+                request.engineering_rule_id = None;
+            };
+            for request in policy
+                .requirements
+                .iter_mut()
+                .filter(|r| r.target_id == target.id && r.target_kind == target.kind)
+            {
+                retire_accuracy(request);
+            }
+            for request in declarations.iter_mut().filter(|r| {
+                r.declaration.target_id == target.id && r.declaration.target_kind == target.kind
+            }) {
+                retire_accuracy(&mut request.declaration);
+            }
+            // Keep projected direct declarations as part of the final immutable identity.
+            for projected in endpoint_policy.requirements {
+                if !policy
+                    .requirements
+                    .iter()
+                    .any(|r| r.requirement_id == projected.requirement_id)
+                {
+                    policy.requirements.push(projected);
+                }
+            }
+        }
+        sources.extend(endpoint_sources.into_iter().filter(|source| {
+            !declarations.iter().any(|existing| {
+                existing.declaration.requirement_id == source.declaration.requirement_id
+            })
+        }));
+    }
+    for balance in product.model.inventory_balances.values() {
+        let ty = pse_modeling::Type::Quantity(pse_quantity::scheme::Scheme::Delta(Box::new(
+            balance
+                .ty
+                .quantity_scheme()
+                .ok_or_else(|| contract("inventory physical type absent"))?
+                .clone(),
+        )));
+        let target = physical_target(balance.id, &ty, registry)?;
+        if !targets
+            .iter()
+            .any(|t| t.id == target.id && t.kind == target.kind)
+        {
+            targets.push(target.clone());
+        }
+        contextual_scales(product, &target, &balance.requirement, registry, policy)?;
+        let mut scope = lineage;
+        scope.instance_id = Some(balance.lineage.instance);
+        let mut source = physical_row_requirement(
+            &target,
+            &balance.requirement,
+            scope,
+            balance.lineage.declaration,
+            registry,
+        )?;
+        source.declaration.requirement_id =
+            pse_ids::named_id(balance.id, "inventory-closure-requirement");
+        sources.push(source);
+    }
+    for closure in product
+        .model
+        .closures
+        .values()
+        .filter(|c| !c.observation_only)
+    {
+        if let Some(target) = targets.iter().find(|t| {
+            t.kind == NumericalTarget::Row && t.id == pse_ids::named_id(closure.id, "conservation")
+        }) {
+            let obligation = closure
+                .requirements
+                .first()
+                .ok_or_else(|| contract("conservation requirement absent"))?;
+            contextual_scales(product, target, obligation, registry, policy)?;
+        }
+    }
+    for specification in product.model.state_specifications.values() {
+        for (row, obligation) in &specification.reconstructions {
+            if let Some(target) = targets
+                .iter()
+                .find(|t| t.kind == NumericalTarget::Row && t.id == row.id)
+            {
+                contextual_scales(product, target, obligation, registry, policy)?;
+            }
+        }
+    }
+    Ok(sources)
+}
+
 /// Only source conservation equalities retained in this numerical view own row budgets.
 /// Connection transport and supplied-state consistency closures remain independent checks.
-fn conservation_row_requirements(
+pub(in crate::workflow) fn conservation_row_requirements(
     product: &pse_compiler::workspace::PreparedModeling,
     targets: &[pse_math::numerics::TargetSpec],
     lineage: pse_model::lineage::Lineage,
@@ -2083,15 +2544,18 @@ fn conservation_row_requirements(
         source.instance_id = Some(closure.lineage.instance);
         let mut declared = physical_row_requirement(
             target,
-            &closure.tolerance,
+            closure
+                .requirements
+                .first()
+                .ok_or_else(|| contract("closure requirement absent"))?,
             source,
             closure.lineage.declaration,
             registry,
         )?;
         declared.declaration.requirement_id = conservation_requirement_id(closure);
         declared.declaration.provenance = format!(
-            "conservation row {} declared by {}",
-            row, closure.lineage.declaration,
+            "{}; conservation row {} declared by {}",
+            declared.declaration.provenance, row, closure.lineage.declaration,
         );
         requirements.push(declared);
     }
@@ -2100,7 +2564,7 @@ fn conservation_row_requirements(
 /// Only original reconstruction equations present in this solved view impose row budgets.
 /// Supplied states still keep their independent consistency checks; absent equations
 /// cannot introduce phantom numerical requirements into a projected or fixed view.
-fn state_reconstruction_requirements(
+pub(in crate::workflow) fn state_reconstruction_requirements(
     product: &pse_compiler::workspace::PreparedModeling,
     targets: &[pse_math::numerics::TargetSpec],
     lineage: pse_model::lineage::Lineage,
@@ -2127,13 +2591,17 @@ fn state_reconstruction_requirements(
             )?;
             requirement.declaration.requirement_id = state_reconstruction_requirement_id(row);
             requirement.declaration.provenance = format!(
-                "state reconstruction {} declared by {}",
-                row.id, row.lineage.declaration,
+                "{}; state reconstruction {} declared by {}",
+                requirement.declaration.provenance, row.id, row.lineage.declaration,
             );
             if let Some(existing) = requirements.get(&row.id) {
                 if existing.declaration.requirement_id != requirement.declaration.requirement_id
                     || existing.declaration.absolute_tolerance
                         != requirement.declaration.absolute_tolerance
+                    || existing.declaration.engineering_rule_id
+                        != requirement.declaration.engineering_rule_id
+                    || existing.declaration.shared_engineering_allowance
+                        != requirement.declaration.shared_engineering_allowance
                     || existing.declaration.unit_id != requirement.declaration.unit_id
                     || existing.declaration.instance_id != requirement.declaration.instance_id
                 {
@@ -2145,6 +2613,17 @@ fn state_reconstruction_requirements(
         }
     }
     Ok(requirements.into_values().collect())
+}
+/// Frozen physical budgets are the sole acceptance authority for original closures.
+pub(in crate::workflow) fn closure_budgets(
+    numerics: &pse_model::numerics::ResolvedNumericalPolicy,
+) -> BTreeMap<SemanticId, f64> {
+    numerics
+        .targets
+        .iter()
+        .filter(|target| target.kind == NumericalTarget::Closure)
+        .map(|target| (target.id, target.budget))
+        .collect()
 }
 /// Coordinates owned by nested implicit realizations; the outer case never binds them.
 struct Inner {
@@ -3674,7 +4153,7 @@ mod tests {
             .reconstructions
             .iter()
             .find(|(_, tolerance)| {
-                matches!(tolerance, pse_modeling::specialize::Value::Number { bits, .. }
+                matches!(&tolerance.tolerance, pse_modeling::specialize::ClosureTolerance::Explicit(pse_modeling::specialize::Value::Number { bits, .. })
                 if *bits == 1e-9_f64.to_bits())
             })
             .unwrap()
@@ -3947,6 +4426,75 @@ mod tests {
         assert!(unrelated.engineering.as_ref().unwrap().canonical_fallback);
         assert!(!unrelated.provenance.iter().any(|source| source.selected
             && source.declaration == Some(state_reconstruction_requirement_id(row))));
+    }
+    #[tokio::test]
+    async fn nominal_row_characterization_preserves_equality_bound_coordinates() {
+        use super::super::super::tests as fixture;
+        let rt = fixture::runtime();
+        let rows = pse_authoring::language::parse(
+            "package p { def Root { var x:Scalar; var y:Scalar; annotation start x(2); annotation start y(3); annotation bounds x(2,2); annotation nominal x(100); annotation nominal y(3); eq pinned:x==2; eq balance:x*y==6; annotation scale balance(inverseSum); } }",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        ).unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = rt
+            .modeling_package(rows, fixture::physical())
+            .await
+            .unwrap();
+        let prepared = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings {
+                    demand: vec!["x".into()],
+                    ..Default::default()
+                },
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::First,
+                fixture::compiler_profile(),
+                fixture::profile(),
+                NumericalInputs::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap_or_else(|error| panic!("nominal characterization preparation failed: {error}"));
+        let product = prepared.model.model.compiled();
+        let x = product.model.paths["x"];
+        let balance = product
+            .model
+            .equations
+            .iter()
+            .find(|row| row.lineage.path.ends_with(".balance"))
+            .unwrap()
+            .id;
+        let row = prepared
+            .solve
+            .numerics()
+            .targets
+            .iter()
+            .find(|target| target.kind == NumericalTarget::Row && target.id == balance)
+            .unwrap();
+        // inverseSum characterizes |2*3|+|6|, rather than the impossible x=100 point.
+        assert_eq!(row.nominal, 12.);
+        assert_eq!(prepared.model.values.scalars[&x], 2.);
+        assert_eq!(
+            prepared
+                .solve
+                .numerics()
+                .targets
+                .iter()
+                .find(|target| target.id == x && target.kind == NumericalTarget::Variable)
+                .unwrap()
+                .nominal,
+            100.
+        );
+        assert_eq!(prepared.model.case.compiled().facts.variables, 2);
     }
     #[tokio::test]
     async fn kernel_starts_numerics_and_constant_solver_share_the_existing_pipeline() {
@@ -4554,6 +5102,547 @@ mod root_unavailable_tests {
                     .await
                     .is_err()
             );
+        }
+    }
+    fn contextual_closure_source(receiver_tolerance: &str, receiver_expression: &str) -> String {
+        format!(
+            r#"package p {{
+            entity kind source provenance {{attribute title:Text;}}
+            enum role {{given}}
+            entity source s {{title="runtime closure control"}}
+            constant allowance:EnergyTransferRate=1{{W}} provenance(s,role.given);
+            annotation engineering_rule p.allowance;
+            def Source {{param H:EnergyTransferRate=2{{W}};var x:Scalar;
+                annotation engineering_scale H(kind=magnitude,value=100{{W}});
+                state state supplied(true) {{coordinate value=x;transport energy=H tolerance p.allowance;}}
+                material port port=state;annotation connectivity port(0,1);
+            }}
+            def Receiver {{param H:EnergyTransferRate=3{{W}};var x:Scalar;
+                annotation engineering_scale H(kind=magnitude,value=200{{W}});
+                state state supplied(false) {{coordinate value=x;transport energy={receiver_expression} tolerance {receiver_tolerance};}}
+                material port port=state;annotation connectivity port(1,0);
+            }}
+            def Root {{child source:Source=Source();child receiver:Receiver=Receiver();connect stream:source.port->receiver.port;}}
+        }}"#
+        )
+    }
+    async fn contextual_closure_model(
+        source: &str,
+    ) -> (ModelingPreparation, Arc<pse_quantity::QuantityRegistry>) {
+        use super::super::super::tests as fixture;
+        let physical = fixture::physical();
+        let quantities = physical.quantities.clone();
+        let declarations = pse_authoring::language::parse(
+            source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = fixture::runtime()
+            .modeling_package(declarations, physical)
+            .await
+            .unwrap();
+        let model = package
+            .prepare(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        (model, quantities)
+    }
+    fn contextual_closure_policy(
+        model: &ModelingPreparation,
+        registry: &pse_quantity::QuantityRegistry,
+        source_scale: f64,
+        receiver_scale: f64,
+        policy: pse_model::numerics::NumericalPolicy,
+    ) -> Result<pse_model::numerics::ResolvedNumericalPolicy, WorkflowError> {
+        contextual_closure_policy_with_inputs(
+            model,
+            registry,
+            source_scale,
+            receiver_scale,
+            policy,
+            NumericalInputs::default(),
+        )
+    }
+    fn contextual_closure_policy_with_inputs(
+        model: &ModelingPreparation,
+        registry: &pse_quantity::QuantityRegistry,
+        source_scale: f64,
+        receiver_scale: f64,
+        mut policy: pse_model::numerics::NumericalPolicy,
+        mut numerical: NumericalInputs,
+    ) -> Result<pse_model::numerics::ResolvedNumericalPolicy, WorkflowError> {
+        let product = model.compiled();
+        let mut targets = Vec::new();
+        let values = hints(product)
+            .into_iter()
+            .filter(|(_, _, kind, _)| *kind == ModelingHint::EngineeringScaleValue)
+            .map(|(target, _, _, row)| {
+                let path = &product.model.symbols[&target].lineage.path;
+                (
+                    row,
+                    if path.contains(".source.") {
+                        source_scale
+                    } else {
+                        receiver_scale
+                    },
+                )
+            })
+            .collect();
+        lower_authored_accuracy(
+            product,
+            model.solved().lineage(),
+            registry,
+            &mut numerical,
+            &mut policy,
+            &mut targets,
+            &values,
+        )?;
+        let sources = lower_closure_requirements(
+            product,
+            &mut targets,
+            model.solved().lineage(),
+            registry,
+            &mut numerical.declarations,
+            &mut policy,
+        )?;
+        numerical.declarations.extend(sources);
+        pse_math::numerics::resolve(registry, &targets, &numerical.declarations, &policy)
+            .map_err(crate::math::MathRuntimeError::from)
+            .map_err(WorkflowError::from)
+    }
+    #[tokio::test]
+    async fn contextual_closure_inherits_scale_and_preserves_endpoint_policy_identity() {
+        let (model, registry) =
+            contextual_closure_model(&contextual_closure_source("p.allowance", "H")).await;
+        let mut keys = BTreeSet::new();
+        for (left, right, expected) in [
+            (100.0, 200.0, 1.0),
+            (10_000.0, 20_000.0, 10.0),
+            (2_000_000.0, 3_000_000.0, 2_000.0),
+        ] {
+            let policy =
+                contextual_closure_policy(&model, &registry, left, right, Default::default())
+                    .unwrap();
+            let closure = model
+                .compiled()
+                .model
+                .closures
+                .values()
+                .find(|closure| closure.requirements.len() == 2)
+                .unwrap();
+            assert_eq!(closure_budgets(&policy)[&closure.id], expected);
+            let endpoints = policy
+                .targets
+                .iter()
+                .filter(|target| target.kind == NumericalTarget::Closure && target.id != closure.id)
+                .collect::<Vec<_>>();
+            assert_eq!(endpoints.len(), 2);
+            assert_eq!(
+                endpoints
+                    .iter()
+                    .filter_map(|target| target.engineering.as_ref())
+                    .map(|context| context.characteristic.unwrap().to_bits())
+                    .collect::<BTreeSet<_>>()
+                    .len(),
+                2
+            );
+            assert!(endpoints.iter().all(|target| {
+                target
+                    .provenance
+                    .iter()
+                    .any(|row| row.description.contains("endpoint Some"))
+            }));
+            assert!(keys.insert(policy.key.to_string()));
+            let magnitude = BTreeMap::from([(closure.terms[0].id, expected * 0.9)]);
+            assert_eq!(
+                model
+                    .compiled()
+                    .model
+                    .assess_closures(
+                        &magnitude,
+                        &BTreeSet::from([closure.id]),
+                        &closure_budgets(&policy)
+                    )
+                    .unwrap()[0]
+                    .satisfied,
+                Some(true)
+            );
+            let magnitude = BTreeMap::from([(closure.terms[0].id, expected * 1.1)]);
+            assert_eq!(
+                model
+                    .compiled()
+                    .model
+                    .assess_closures(
+                        &magnitude,
+                        &BTreeSet::from([closure.id]),
+                        &closure_budgets(&policy)
+                    )
+                    .unwrap()[0]
+                    .satisfied,
+                Some(false)
+            );
+            assert!(
+                model
+                    .compiled()
+                    .admitted
+                    .case()
+                    .rows()
+                    .iter()
+                    .all(|row| row.id != closure.id
+                        && row.id != pse_ids::named_id(closure.id, "conservation"))
+            );
+        }
+    }
+    #[tokio::test]
+    async fn contextual_closure_identical_literal_stays_exact_and_direct_request_keeps_precedence()
+    {
+        let (model, registry) =
+            contextual_closure_model(&contextual_closure_source("1{W}", "H")).await;
+        let closure = model
+            .compiled()
+            .model
+            .closures
+            .values()
+            .find(|closure| closure.requirements.len() == 2)
+            .unwrap();
+        let policy = contextual_closure_policy(
+            &model,
+            &registry,
+            2_000_000.0,
+            3_000_000.0,
+            Default::default(),
+        )
+        .unwrap();
+        assert_eq!(closure_budgets(&policy)[&closure.id], 1.0);
+        let mut requested = pse_model::numerics::NumericalPolicy::default();
+        let mut direct = requirement(
+            model.solved().lineage(),
+            closure.id,
+            NumericalTarget::Closure,
+            closure.lineage.declaration,
+            NumericalSource::Analysis,
+            None,
+            None,
+        )
+        .declaration;
+        direct.requirement_id = pse_ids::named_id(closure.id, "request-control");
+        direct.absolute_tolerance = Some(0.25);
+        requested.requirements.push(direct);
+        let policy =
+            contextual_closure_policy(&model, &registry, 2_000_000.0, 3_000_000.0, requested)
+                .unwrap();
+        assert_eq!(closure_budgets(&policy)[&closure.id], 0.25);
+    }
+    #[tokio::test]
+    async fn contextual_closure_arbitrary_expression_uses_floor_and_refuses_invalid_quantity_or_unit_scale()
+     {
+        let (model, registry) =
+            contextual_closure_model(&contextual_closure_source("p.allowance", "H+0{W}")).await;
+        let policy = contextual_closure_policy(
+            &model,
+            &registry,
+            2_000_000.0,
+            3_000_000.0,
+            Default::default(),
+        )
+        .unwrap();
+        let closure = model
+            .compiled()
+            .model
+            .closures
+            .values()
+            .find(|closure| closure.requirements.len() == 2)
+            .unwrap();
+        assert_eq!(closure_budgets(&policy)[&closure.id], 1.0);
+        // Same SI dimension and unit do not admit a Power scale as EnergyTransferRate.
+        let mut malformed = policy.policy.clone();
+        let source_context = closure.requirements[0].context.unwrap();
+        let wrong = model.compiled().model.symbols[&source_context]
+            .ty
+            .quantity_scheme()
+            .unwrap();
+        let energy = wrong.resolve(&registry, &Default::default()).unwrap();
+        let power = registry
+            .quantity_types()
+            .find(|quantity| quantity.name.as_deref() == Some("Power"))
+            .unwrap()
+            .id;
+        assert_ne!(energy, power);
+        malformed
+            .engineering_scales
+            .iter_mut()
+            .filter(|scale| scale.target_id == source_context)
+            .for_each(|scale| scale.quantity_id = power.as_id());
+        let mut targets = Vec::new();
+        assert!(
+            lower_closure_requirements(
+                model.compiled(),
+                &mut targets,
+                model.solved().lineage(),
+                &registry,
+                &mut Vec::new(),
+                &mut malformed
+            )
+            .is_err()
+        );
+        let mut malformed = policy.policy.clone();
+        let metre = registry.units().find(|unit| unit.symbol == "m").unwrap().id;
+        malformed
+            .engineering_scales
+            .iter_mut()
+            .filter(|scale| scale.target_id == source_context)
+            .for_each(|scale| scale.unit_id = metre.as_id());
+        let mut targets = Vec::new();
+        assert!(
+            lower_closure_requirements(
+                model.compiled(),
+                &mut targets,
+                model.solved().lineage(),
+                &registry,
+                &mut Vec::new(),
+                &mut malformed
+            )
+            .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn contextual_closure_strict_missing_context_and_mutable_scale_are_refused() {
+        let (model, registry) =
+            contextual_closure_model(&contextual_closure_source("p.allowance", "H+0{W}")).await;
+        let resolved =
+            contextual_closure_policy(&model, &registry, 100.0, 200.0, Default::default()).unwrap();
+        let mut strict = resolved.policy;
+        strict.strict_engineering_context = true;
+        strict
+            .engineering_rules
+            .iter_mut()
+            .for_each(|rule| rule.physical_allowance = None);
+        strict.engineering_scales.clear();
+        let mut targets = Vec::new();
+        assert!(
+            lower_closure_requirements(
+                model.compiled(),
+                &mut targets,
+                model.solved().lineage(),
+                &registry,
+                &mut Vec::new(),
+                &mut strict
+            )
+            .is_err()
+        );
+        let source = r#"package p {
+            entity kind source provenance {attribute title:Text;}
+            enum role {given}
+            entity source s {title="runtime closure control"}
+            constant allowance:EnergyTransferRate=1{W} provenance(s,role.given);
+            annotation engineering_rule p.allowance;
+            def Root {var H:EnergyTransferRate;
+                annotation engineering_scale H(kind=magnitude,value=H);
+                accumulate total:EnergyTransferRate conservation tolerance p.allowance;
+                contribute total role inflow=H;contribute total role outflow=2{W};
+            }
+        }"#;
+        let (model, _) = contextual_closure_model(source).await;
+        let annotation = model
+            .compiled()
+            .model
+            .annotations
+            .iter()
+            .find(|annotation| matches!(annotation.value, AnnotationValue::EngineeringScale(_)))
+            .unwrap();
+        let AnnotationValue::EngineeringScale(scale) = &annotation.value else {
+            unreachable!();
+        };
+        assert!(
+            require_frozen_expression(
+                &scale.value,
+                &model.compiled().model,
+                &BTreeSet::from([annotation.target])
+            )
+            .is_err()
+        );
+    }
+    #[tokio::test]
+    async fn contextual_closure_conservation_and_reconstruction_keep_inherited_row_requirements() {
+        let source = r#"package p {
+            entity kind source provenance {attribute title:Text;}
+            enum role {given}
+            entity source s {title="runtime closure control"}
+            constant allowance:EnergyTransferRate=1{W} provenance(s,role.given);
+            annotation engineering_rule p.allowance;
+            def Root {var H:EnergyTransferRate;var reconstructed:EnergyTransferRate;
+                accumulate total:EnergyTransferRate conservation tolerance p.allowance;
+                contribute total role inflow=H;contribute total role outflow=2{W};
+                state state supplied(false) {coordinate energy=H;reconstruct agreement:reconstructed==H tolerance p.allowance;transport energy=H tolerance p.allowance;}
+            }
+        }"#;
+        let (model, registry) = contextual_closure_model(source).await;
+        let product = model.compiled();
+        let mut targets = product
+            .admitted
+            .case()
+            .numerical_targets(&registry)
+            .unwrap();
+        let mut numerical = NumericalInputs::default();
+        let mut policy = pse_model::numerics::NumericalPolicy::default();
+        lower_authored_accuracy(
+            product,
+            model.solved().lineage(),
+            &registry,
+            &mut numerical,
+            &mut policy,
+            &mut targets,
+            &BTreeMap::new(),
+        )
+        .unwrap();
+        let closures = lower_closure_requirements(
+            product,
+            &mut targets,
+            model.solved().lineage(),
+            &registry,
+            &mut Vec::new(),
+            &mut policy,
+        )
+        .unwrap();
+        let conservation =
+            conservation_row_requirements(product, &targets, model.solved().lineage(), &registry)
+                .unwrap();
+        let reconstruction = state_reconstruction_requirements(
+            product,
+            &targets,
+            model.solved().lineage(),
+            &registry,
+        )
+        .unwrap();
+        assert_eq!(conservation.len(), 1);
+        assert_eq!(reconstruction.len(), 1);
+        for row in conservation.iter().chain(&reconstruction) {
+            assert_eq!(row.declaration.absolute_tolerance, None);
+            assert_eq!(row.declaration.shared_engineering_allowance, Some(true));
+            assert_eq!(
+                row.declaration.engineering_rule_id,
+                Some(product.model.engineering_rules[0].id.into())
+            );
+        }
+        let sources = closures
+            .into_iter()
+            .chain(conservation)
+            .chain(reconstruction)
+            .collect::<Vec<_>>();
+        let resolved = pse_math::numerics::resolve(&registry, &targets, &sources, &policy).unwrap();
+        assert!(
+            resolved
+                .targets
+                .iter()
+                .filter(|target| target.kind == NumericalTarget::Row)
+                .all(|target| target.budget == 1.0)
+        );
+    }
+
+    #[tokio::test]
+    async fn contextual_closure_relative_requests_are_counted_once_and_keep_conditioning_precedence()
+     {
+        let (model, registry) =
+            contextual_closure_model(&contextual_closure_source("p.allowance", "H")).await;
+        let closure = model
+            .compiled()
+            .model
+            .closures
+            .values()
+            .find(|closure| closure.requirements.len() == 2)
+            .unwrap();
+        for (absolute, nominal, scaling, expected_budget, expected_nominal) in [
+            (None, None, None, 2.0, 1.0),
+            (Some(0.5), None, None, 1.5, 1.0),
+            (None, Some(50.0), None, 6.0, 50.0),
+            (None, None, Some(0.05), 3.0, 20.0),
+        ] {
+            for analysis_source in [false, true] {
+                let mut inputs = NumericalInputs::default();
+                for (index, nominal) in [10.0, 20.0].into_iter().enumerate() {
+                    let id = pse_ids::named_id(closure.id, &format!("physical-endpoint:{index}"));
+                    let mut hint = requirement(
+                        model.solved().lineage(),
+                        id,
+                        NumericalTarget::Closure,
+                        closure.lineage.declaration,
+                        NumericalSource::ModelHint,
+                        Some(nominal),
+                        None,
+                    );
+                    hint.declaration.requirement_id =
+                        pse_ids::named_id(id, "endpoint-nominal-control");
+                    inputs.declarations.push(hint);
+                }
+                let mut direct = requirement(
+                    model.solved().lineage(),
+                    closure.id,
+                    NumericalTarget::Closure,
+                    closure.lineage.declaration,
+                    NumericalSource::Case,
+                    nominal,
+                    scaling,
+                );
+                direct.declaration.requirement_id =
+                    pse_ids::named_id(closure.id, "relative-request-control");
+                direct.declaration.absolute_tolerance = absolute;
+                direct.declaration.relative_tolerance = Some(0.1);
+                let mut policy = pse_model::numerics::NumericalPolicy::default();
+                if analysis_source {
+                    policy.requirements.push(direct.declaration.clone());
+                } else {
+                    inputs.declarations.push(direct.clone());
+                }
+                let resolved = contextual_closure_policy_with_inputs(
+                    &model, &registry, 100.0, 200.0, policy, inputs,
+                )
+                .unwrap();
+                let actual = resolved
+                    .targets
+                    .iter()
+                    .find(|target| {
+                        target.id == closure.id && target.kind == NumericalTarget::Closure
+                    })
+                    .unwrap();
+                assert_eq!(actual.budget, expected_budget);
+                assert_eq!(actual.relative, 0.0);
+                assert_eq!(actual.nominal, expected_nominal);
+                assert_eq!(actual.coordinate_scale, expected_nominal);
+                assert_eq!(
+                    actual.budget,
+                    resolved
+                        .targets
+                        .iter()
+                        .filter(|target| target.id != closure.id
+                            && target.kind == NumericalTarget::Closure)
+                        .map(|target| target.budget)
+                        .fold(f64::INFINITY, f64::min)
+                );
+                assert!(
+                    resolved
+                        .targets
+                        .iter()
+                        .filter(|target| target.id != closure.id
+                            && target.kind == NumericalTarget::Closure)
+                        .all(|target| target.provenance.iter().any(|row| row
+                            .description
+                            .contains(&direct.declaration.requirement_id.to_string())))
+                );
+            }
         }
     }
 }

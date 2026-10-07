@@ -137,6 +137,16 @@ async fn canonical_durable_constant_completion_reopens_exact_manifest() {
             payload.batch.payload.len() <= pse_operations::canonical_execution::RESULT_BATCH_BYTES
         );
     }
+    drop(selection);
+    drop(result);
+    drop(handle);
+    drop(package);
+    runtime
+        .canonical()
+        .store()
+        .remove_isolated_fixture()
+        .await
+        .unwrap();
 }
 
 #[cfg(feature = "canonical-tests")]
@@ -182,4 +192,14 @@ async fn canonical_registration_refusal_never_returns_success_or_fabricates_head
         "registration receipt must keep the original cause"
     );
     assert!(empty.canonical_run(&run).await.unwrap().is_none());
+    drop(result);
+    drop(handle);
+    drop(package);
+    empty.remove_isolated_fixture().await.unwrap();
+    runtime
+        .canonical()
+        .store()
+        .remove_isolated_fixture()
+        .await
+        .unwrap();
 }

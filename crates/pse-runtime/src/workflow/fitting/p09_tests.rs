@@ -787,6 +787,124 @@ async fn authored_integration_controls_bind_to_the_experiment_instance() {
 }
 
 #[tokio::test]
+async fn contextual_closure_fit_factory_controls_preserve_explicit_experiment_profiles() {
+    let source = r#"package p {
+        entity kind source provenance {attribute title:Text;}
+        enum role {given}
+        entity source s {title="fit inventory control"}
+        constant allowance:Time=1{s} provenance(s,role.given);
+        annotation engineering_rule p.allowance;
+        test Dynamic fixture {dof 0;route integrated;procedure integrate;
+            integrate samples(160{s},161{s}) relative(global) normalized_absolute(global) step(1e-5{s});
+        } {
+            domain t:Time from 160{s} to 161{s};
+            discretize grid on t using integrated(elements=1,order=1);
+            param rate:Scalar=2;var x[i in t]:Time;
+            annotation engineering_scale x[160{s}](kind=magnitude,value=10000{s});
+            conserve stock[i in t]:Time on t inventory x[i] flux rate tolerance p.allowance;
+            eq initial:x[160{s}]==10{s};
+            annotation report x("inventory");
+        }
+    }"#;
+    let mut rows = pse_authoring::language::parse(
+        source,
+        id(20),
+        pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    )
+    .unwrap();
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Dynamic")
+        .unwrap()
+        .declaration_id;
+    rows.extend(measured_rows(&[(id(71), "Time", Some(12.0), Some(1.0))]));
+    let mut data = FitDeclarations::default();
+    data.fits.push(serde_json::from_value(serde_json::json!({
+        "fit_id": id(73),
+        "parameters": [{"symbol_id": id(3), "fixed": false, "value": 2.0, "lower": 0.1, "upper": 10.0, "scale": 1.0}],
+        "experiments": [{"experiment_id": id(74), "case_id": root, "route": "integrated", "bindings": [{"parameter_id": id(3), "path": "rate"}]}],
+        "observations": [{"value_attribute": "value", "standard_deviation_attribute": "sigma", "observation_id": id(71), "experiment_id": id(74), "output_path": "x[160{s}]", "time": 161.0, "time_basis": "model_clock", "included": true, "importance": 1.0}]
+    })).unwrap());
+    let package = crate::workflow::tests::runtime_with_workspace(32 << 20)
+        .modeling_package(rows, crate::workflow::tests::physical())
+        .await
+        .unwrap()
+        .with_fit_declarations(data)
+        .await
+        .unwrap();
+    let mut profile = FitProfile {
+        solver: SolverProfile {
+            intent: SolveIntent::Optimize,
+            selection: native::solve::SolverSelection::Explicit(Backend::Ipopt),
+            controls: native::solve::Controls {
+                hessian: HessianMode::LimitedMemory,
+                ..Default::default()
+            },
+            presolve: native::presolve::Policy::Off,
+            numerics: Default::default(),
+            convexity: Default::default(),
+            backend: native::execution::BackendSettings::Default,
+            sensitivity: None,
+            composition: Default::default(),
+            reconstruction: None,
+        },
+        simulations: BTreeMap::new(),
+        rank_tolerance: 1e-8,
+        max_cells: 100000,
+        derivatives: FitDerivatives::Responses,
+        uncertainty: None,
+    };
+    let cancel = crate::CancelSource::new();
+    let (_, assessments) = package
+        .prepare_fit_problem(
+            FitId::from(id(73)),
+            profile.clone(),
+            compiler_profile(),
+            Default::default(),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let modeling::Assessment::Transient(automatic) = &assessments[0] else {
+        panic!("transient experiment required");
+    };
+    assert_eq!(automatic.profile().out_atol, vec![10.0]);
+    assert!(
+        automatic
+            .contract()
+            .balances
+            .iter()
+            .all(|balance| balance.tolerance == 10.0)
+    );
+    let mut explicit = automatic.profile().clone();
+    explicit.out_atol = vec![1.0];
+    profile
+        .simulations
+        .insert(InstanceId::from(id(74)), explicit);
+    let (_, assessments) = package
+        .prepare_fit_problem(
+            FitId::from(id(73)),
+            profile,
+            compiler_profile(),
+            Default::default(),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let modeling::Assessment::Transient(explicit) = &assessments[0] else {
+        panic!("transient experiment required");
+    };
+    assert_eq!(explicit.profile().out_atol, vec![1.0]);
+    assert!(
+        explicit
+            .contract()
+            .balances
+            .iter()
+            .all(|balance| balance.tolerance == 10.0)
+    );
+}
+#[tokio::test]
 async fn transient_fit_deadline_is_time_limit() {
     let (package, mut profile) = source(false, 74.).await;
     profile

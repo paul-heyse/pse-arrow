@@ -259,6 +259,14 @@ pub fn requires_members(row: &Declaration) -> bool {
         && row.value.kind != pse_model::generated::enums::ModelingDeclarationKind::Package
 }
 
+/// A typed package marker contributes an implicit shared numerical dependency.
+/// Both immutable acquisition and checked projection retain these markers.
+pub fn is_engineering_rule_marker(row: &Declaration) -> bool {
+    row.value.annotation.as_ref().is_some_and(|annotation| {
+        annotation.kind == pse_model::generated::enums::ModelingAnnotationKind::EngineeringRule
+    })
+}
+
 /// Namespace-bearing declarations in the authored grammar. Ordinary expression,
 /// binding and function leaves bind arguments but cannot declare nested members.
 pub fn owns_namespace(row: &Declaration) -> bool {

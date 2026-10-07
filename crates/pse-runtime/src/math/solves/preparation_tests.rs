@@ -593,6 +593,104 @@ async fn auto_boxed_square_upgrades_first_to_ready_nlp_second() {
 
 const LINEAR: &str = "package p { def Root { var x: Scalar; annotation bounds x(0, 2); annotation start x(1); let f: Scalar = x; annotation objective f(minimize); eq floor: x >= 0.5; } }";
 
+#[cfg(feature = "solver-ipopt")]
+#[tokio::test]
+async fn explicit_ipopt_auto_demands_independent_affine_rows_and_off_preserves_base() {
+    let (package, root, runtime) = package_and_runtime(
+        "package p { def Root { var x:Scalar; var y:Scalar; eq linear:x+y==2; eq nonlinear:log(x)+y==1; annotation bounds x(-2,2); annotation valid x(0.25,2); annotation start x(1); annotation start y(1); } }",
+    ).await;
+    let service = runtime.native();
+    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    for policy in [
+        native::presolve::Policy::Off,
+        native::presolve::Policy::Auto,
+    ] {
+        let requested = !matches!(policy, native::presolve::Policy::Off);
+        let prepared = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::First,
+                fixture::compiler_profile(),
+                SolverProfile {
+                    intent: SolveIntent::Root,
+                    selection: SolverSelection::Explicit(Backend::Ipopt),
+                    presolve: policy.clone(),
+                    ..Default::default()
+                },
+                NumericalInputs::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(prepared.solve.route(), Route::Native(Backend::Ipopt));
+        let base = prepared.model.case.compiled();
+        assert!(base.presolve.affine.iter().all(Option::is_none));
+        let case = ready(&prepared.solve);
+        let facts = &case.prepared.compiled().presolve;
+        assert_eq!(
+            facts.class_status,
+            pse_math::presolve::ClassStatus::Unassessed
+        );
+        assert!(case.prepared.compiled().coefficients.is_none());
+        assert_eq!(facts.obligations, base.presolve.obligations);
+        assert_eq!(
+            facts.affine.iter().filter(|row| row.is_some()).count(),
+            usize::from(requested)
+        );
+        assert_eq!(
+            facts.proof_remaining < base.presolve.proof_remaining,
+            requested
+        );
+        assert_eq!(facts.key != base.presolve.key, requested);
+        let scope = pse_kernels::ExecutionScope::new(flag.clone(), None);
+        let budget = WorkerBudget::drawing(service.policy.worker_bytes, &service.pool);
+        let ExecutionWorker {
+            worker,
+            _case,
+            _charge,
+        } = service
+            .case_worker(case.case.clone(), case.providers.clone(), &scope, &budget)
+            .unwrap();
+        let oracle = native::assembled::AlgebraicOracle::new(worker, case.values.clone())
+            .unwrap()
+            .with_presolve_facts(facts.clone())
+            .unwrap()
+            .with_normalization(prepared.solve.normalization.clone())
+            .unwrap();
+        let initial = case
+            .prepared
+            .compiled()
+            .plan
+            .columns()
+            .iter()
+            .map(|id| case.values.scalars[id])
+            .collect::<Vec<_>>();
+        let execution = Execution::within(flag.clone(), prepared.solve.controls(), scope).unwrap();
+        let pipeline = native::presolve::Pipeline::new(
+            Box::new(oracle),
+            &initial,
+            &policy,
+            prepared.solve.tolerances(),
+            prepared.solve.accuracy(),
+            execution,
+            None,
+            prepared.solve.compatibility().unwrap().clone(),
+            case.prepared.compiled().plan.limits().native_index,
+        )
+        .unwrap();
+        assert_eq!(
+            pipeline.report().passes[&native::presolve::Pass::AffineElimination].applied,
+            requested
+        );
+        assert!(facts.has_guards);
+        assert!(base.presolve.affine.iter().all(Option::is_none));
+    }
+}
+
 #[cfg(feature = "solver-highs")]
 #[tokio::test]
 async fn auto_linear_retains_established_coefficient_readiness() {

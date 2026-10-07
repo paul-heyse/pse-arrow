@@ -190,6 +190,30 @@ pub struct Contribution {
     /// Source attribution.
     pub lineage: Lineage,
 }
+/// Authored closure intent retained before static evaluation loses reference identity.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ClosureTolerance {
+    /// An explicitly authored physical value, including arbitrary static expressions.
+    Explicit(Value),
+    /// Inherit the existing marked constant's engineering policy and provenance.
+    EngineeringRule {
+        /// Identity of the already admitted shared constant.
+        rule_id: SemanticId,
+        /// Marker that admitted this constant as an engineering rule.
+        marker: DeclarationId,
+    },
+}
+/// One original physical obligation; connection endpoints remain independent.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ClosureRequirement {
+    /// Explicit physical resolution or inherited shared policy.
+    pub tolerance: ClosureTolerance,
+    /// Original named scalar member. Its model owner retains type, unit and lineage.
+    /// Accumulators refer to their existing Closure owner instead of a scalar symbol.
+    pub context: Option<SemanticId>,
+    /// Actual material port responsible for this transported observation, if connected.
+    pub endpoint: Option<SemanticId>,
+}
 /// Raw accounting inputs, separate from the compiled residual.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Closure {
@@ -203,8 +227,8 @@ pub struct Closure {
     pub ty: Type,
     /// Actual energy boundary consumed by directed transfer contributions.
     pub boundary: Option<crate::BoundaryRef>,
-    /// Positive declared tolerance in canonical units.
-    pub tolerance: Value,
+    /// Original physical obligations, resolved by the consumer's contextual policy.
+    pub requirements: Vec<ClosureRequirement>,
     /// Unoptimized terms.
     pub terms: Vec<Contribution>,
     /// Source attribution.
@@ -863,6 +887,25 @@ impl Engine<'_, '_> {
                 self.p.types.get(&member).cloned().unwrap_or(Type::Boolean),
                 env.clone(),
             )]);
+        }
+        // Indexed computed members retain the same declared owner as whole families.
+        // Rewriting a let first would inline its expression and erase that target.
+        if let ExprKind::Path(path) = &expression.kind
+            && let Some(last) = path.segments.last()
+            && !last.indices.is_empty()
+        {
+            let (owner, member, coordinates) = self.resolve_path(instance, at, path, env, true)?;
+            if matches!(
+                self.p.declarations[&member].value.kind,
+                Kind::Variable | Kind::Parameter | Kind::Let | Kind::Alias
+            ) {
+                let target = self.symbol(owner, member, &coordinates, &[at])?;
+                return Ok(vec![(
+                    target,
+                    self.model.symbols[&target].ty.clone(),
+                    coordinates_env(env, &coordinates),
+                )]);
+            }
         }
         let expression = self.rewrite(instance, &expression, env, &[at])?;
         let target = symbol_reference(&expression)
@@ -1569,16 +1612,14 @@ impl Engine<'_, '_> {
                     let key = member_id(id, *member, &coordinates);
                     self.reserve(1)?;
                     let ty = self.p.types[member].clone();
-                    let tolerance = self.eval_field(
+                    let requirement = self.closure_requirement(
                         *member,
-                        &coordinates_env(&env, &coordinates),
                         "accumulator.tolerance",
                         0,
-                        Some(&ty),
+                        &coordinates_env(&env, &coordinates),
+                        &ty,
+                        Some(key),
                     )?;
-                    if tolerance.scalar(*member)? <= 0.0 {
-                        return Err(invalid(*member, "positive closure tolerance required"));
-                    }
                     let boundary = a
                         .boundary
                         .as_ref()
@@ -1602,7 +1643,7 @@ impl Engine<'_, '_> {
                             observation_only: false,
                             ty,
                             boundary,
-                            tolerance,
+                            requirements: vec![requirement],
                             terms: Vec::new(),
                             lineage: self.lineage(id, &r, &[]),
                         },
@@ -2801,7 +2842,7 @@ pub struct ClosureAssessment {
     pub accumulator: SemanticId,
     /// Sum of original signed magnitudes, independently of the equation residual.
     pub net: f64,
-    /// Authored absolute tolerance in the accumulator's canonical unit.
+    /// Caller-resolved physical allowance in the accumulator's canonical unit.
     pub tolerance: f64,
     /// Conservation closure; accounting totals have no zero-closure obligation.
     pub satisfied: Option<bool>,
@@ -2950,18 +2991,25 @@ impl SpecializedModel {
     }
     /// Assess physical closure from evaluated original terms, never optimized residual values.
     /// # Errors
-    /// Missing or nonfinite original magnitudes, an invalid tolerance or a nonfinite sum.
+    /// Missing or nonfinite original magnitudes, a missing/invalid resolved physical
+    /// allowance, or a nonfinite sum. The caller owns contextual policy resolution.
     pub fn assess_closure(
         &self,
         magnitudes: &BTreeMap<SemanticId, f64>,
+        allowances: &BTreeMap<SemanticId, f64>,
     ) -> Result<Vec<ClosureAssessment>> {
-        self.assess_closures(magnitudes, &self.closures.keys().copied().collect())
+        self.assess_closures(
+            magnitudes,
+            &self.closures.keys().copied().collect(),
+            allowances,
+        )
     }
     /// Assess exactly the declared accounting subjects selected by a consumer.
     pub fn assess_closures(
         &self,
         magnitudes: &BTreeMap<SemanticId, f64>,
         selected: &BTreeSet<SemanticId>,
+        allowances: &BTreeMap<SemanticId, f64>,
     ) -> Result<Vec<ClosureAssessment>> {
         if selected.iter().any(|id| !self.closures.contains_key(id)) {
             return Err(invalid(SemanticId::NIL, "unknown selected closure"));
@@ -2990,13 +3038,16 @@ impl SpecializedModel {
                         "nonfinite closure total",
                     ));
                 }
-                let tolerance = closure.tolerance.scalar(closure.lineage.declaration)?;
-                if !tolerance.is_finite() || tolerance <= 0.0 {
-                    return Err(invalid(
-                        closure.lineage.declaration,
-                        "positive finite closure tolerance required",
-                    ));
-                }
+                let tolerance = allowances
+                    .get(&closure.id)
+                    .copied()
+                    .filter(|value| value.is_finite() && *value > 0.0)
+                    .ok_or_else(|| {
+                        invalid(
+                            closure.lineage.declaration,
+                            "positive finite caller-resolved physical closure allowance required",
+                        )
+                    })?;
                 Ok(ClosureAssessment {
                     accumulator: closure.id,
                     net,

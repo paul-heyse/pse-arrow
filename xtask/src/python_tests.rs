@@ -3,23 +3,13 @@
 //! Python selection uses operation-owned fixtures and the configured native substrate.
 #[cfg(feature = "package-fixtures")]
 use anyhow::{Context, Result, ensure};
-use std::path::Path;
 #[cfg(feature = "package-fixtures")]
-use std::process::Command;
-fn explicit_target(root: &Path, args: &[String]) -> bool {
-    args.iter().filter(|arg| !arg.starts_with('-')).any(|arg| {
-        let path = arg.split("::").next().unwrap_or(arg);
-        arg.contains("::") || path.ends_with(".py") || root.join(path).exists()
-    })
-}
-#[cfg(feature = "package-fixtures")]
-pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
-    let mut command = Command::new(root.join(if cfg!(windows) {
-        ".venv/Scripts/python.exe"
-    } else {
-        ".venv/bin/python"
-    }));
-    command.current_dir(root).args([
+use std::{path::Path, process::Command};
+
+fn arguments(extra: &[String]) -> Vec<String> {
+    // Pytest uses testpaths only when no positional file/directory/node is given.
+    // Its own parser handles option values and any installed plugin's options.
+    let mut args = [
         "-m",
         "pytest",
         "--maxfail=0",
@@ -28,38 +18,60 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
         "unit or component",
         "-n",
         "auto",
-    ]);
-    if !explicit_target(root, args) {
-        command.arg("python/pse/tests");
-    }
-    let status = command
-        .args(args)
-        .status()
-        .context("running selected Python tests")?;
+        "-o",
+        "testpaths=python/pse/tests",
+    ]
+    .map(str::to_owned)
+    .to_vec();
+    args.extend_from_slice(extra);
+    args
+}
+
+#[cfg(feature = "package-fixtures")]
+pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
+    let status = Command::new(root.join(if cfg!(windows) {
+        ".venv/Scripts/python.exe"
+    } else {
+        ".venv/bin/python"
+    }))
+    .current_dir(root)
+    .args(arguments(args))
+    .status()
+    .context("running selected Python tests")?;
     ensure!(status.success(), "Python tests: {status}");
     Ok(())
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
-    fn python_selection_preserves_explicit_targets() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-        for path in [
-            "python/pse/tests/test_canonical_results.py",
-            "python/pse/tests/test_canonical_results.py::test_reopen",
-            "python/pse/tests",
-            "absent_test.py",
-        ] {
-            assert!(explicit_target(
-                root,
-                &["-n".into(), "0".into(), path.into()]
-            ));
-        }
-        assert!(!explicit_target(root, &[]));
-        assert!(!explicit_target(
-            root,
-            &["-k".into(), "cache or binding".into()]
-        ));
+    fn python_selection_defaults_are_not_positional_targets() {
+        let args = arguments(&[]);
+        assert!(
+            args.windows(2)
+                .any(|pair| pair == ["-o", "testpaths=python/pse/tests"])
+        );
+        assert!(!args.iter().any(|arg| arg == "python/pse/tests"));
+    }
+
+    #[test]
+    fn python_selection_user_arguments_follow_defaults_unchanged() {
+        let extra = [
+            "--log-file",
+            "out.log",
+            "--assert",
+            "plain",
+            "--junitprefix",
+            "named",
+            "python/pse/tests/test_studies.py::test_selected",
+            "-o",
+            "testpaths=selected_directory",
+        ]
+        .map(str::to_owned);
+        let args = arguments(&extra);
+        assert_eq!(&args[args.len() - extra.len()..], extra.as_slice());
+        assert_eq!(args.len(), arguments(&[]).len() + extra.len());
     }
 }

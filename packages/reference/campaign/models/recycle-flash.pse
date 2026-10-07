@@ -74,7 +74,11 @@
 // mixer states no pressure relation, since a closed isobaric loop has no minimum to select:
 // the loop runs at the fresh feed's pressure. The streams are the flowsheet's equations, so
 // the recycle closure is one named material connection an initialization stage can tear.
+@id("3d49b293030e469893be56bdfd30ca60") fn maximum_circulating_flow(fresh:Flow,purge:Scalar)->Flow valid(fresh>=0{mol/s} and purge>0 and purge<=1)=fresh/purge;
 @id("01a0f053c2807589b9b24cdcf3747f60") interface RecycleLoop {
+@id("4eb1d4cf03784447a1bb52ee376364e4") param context_enabled:Boolean=false;
+@id("39c3bba46b0144338b6e8219e3dce856") param feed_capacity:Flow=0{mol/s};
+@id("8e0d3ed09c144d039e22eea5033da9cb") param tear_fraction:Scalar=0.01;
 @id("01a0f053c2807589b9b24cdda52461b5") let purge:Scalar=splitter.purge;
 @id("01a0f053c2807589b9b24cdea005f07d") let flash_temperature:Temperature=heater.target;
 @id("01a0f042b660738c8ffef7191e27e353") param components:Set<chemistry.species>=bt_ideal.aromatics;
@@ -88,10 +92,33 @@
 @id("13f0fa4ef0cb4d55bd7e762fe9b8856d") connect heated:heater.outlet_port -> flash.inlet_port;
 @id("d8a5f9228650494288916c171913ce7d") connect liquid:flash.liquid_port -> splitter.inlet_port;
 @id("86064b2612844614b40eb36cf6b085a5") connect recycle:splitter.outlet_ports[recycled] -> mixer.inlet_ports[recycled];
-@id("017a9b0ca6c1430e9470624599a5792f") let tear_component[j in components]:ComponentFlow=feed.state.component_flow[j]*0.01;
+@id("017a9b0ca6c1430e9470624599a5792f") let tear_component[j in components]:ComponentFlow=feed.state.component_flow[j]*tear_fraction;
 @id("c386789179564f778ead8ad0072a81d0") let tear_temperature:Temperature=heater.target;
 @id("0e80a2fb8a904cf0b86e6228f97903f6") let tear_pressure:Pressure=feed.state.pressure;
-@id("3721bbebec294b25806dc437157b1bd6") let tear_energy:Power=feed.state.flow*0.01*ideal_caloric_state.mixture_enthalpy(tear_temperature,feed.state.z,components,bt_ideal.liquid_h);
+@id("3721bbebec294b25806dc437157b1bd6") let tear_energy:Power=feed.state.flow*tear_fraction*ideal_caloric_state.mixture_enthalpy(tear_temperature,feed.state.z,components,bt_ideal.liquid_h);
+// Opt-in frozen context uses authored feed capacity and the existing purge,
+// never a solved stream value. These are operating-range characteristics,
+// not certified bounds on downstream analysis error.
+@id("7527dbf2ffb24aa195e8c2154d13a536") when context_enabled {
+@id("6cfaa845b25846659d9cda2521e26971") let circulation_capacity:Flow=maximum_circulating_flow(feed_capacity,purge);
+@id("361212ede7354d828d6de8e78f90abb0") let recycle_capacity:Flow=(1-purge)*circulation_capacity;
+@id("0ccdab4f51a44533810744ddbb322e03") let tear_capacity:Flow=tear_fraction*feed_capacity;
+@id("c03cf2cc93a24f3e9cb2cf0f37a1401d") annotation check feed_capacity(feed_capacity>=0{mol/s} and purge>0 and purge<=1 and tear_fraction>=0);
+@id("f50039d80b9146368688661c8f459b6a") annotation engineering_scale feed.state.energy_flow(kind=reference_difference,value=bt_ideal.power_span(feed_capacity,bt_ideal.phase_enthalpy_span()));
+@id("80e79154313b48e284284a21c3634156") annotation engineering_scale mixer.unit.inlet[fresh].energy_flow(kind=reference_difference,value=bt_ideal.power_span(feed_capacity,bt_ideal.phase_enthalpy_span()));
+@id("e8305be5c2a94e4d9e8a91e028dc503e") annotation engineering_scale mixer.unit.inlet[recycled].energy_flow(kind=reference_difference,value=bt_ideal.power_span(recycle_capacity,bt_ideal.liquid_enthalpy_span()));
+@id("60727dd7b87947918fb7500c00a5980a") annotation engineering_scale mixer.unit.outlet.energy_flow(kind=reference_difference,value=bt_ideal.power_span(circulation_capacity,bt_ideal.phase_enthalpy_span()));
+@id("7abd0ee182c74ce69ada37c241ed4060") annotation engineering_scale heater.unit.inlet.energy_flow(kind=reference_difference,value=bt_ideal.power_span(circulation_capacity,bt_ideal.phase_enthalpy_span()));
+@id("88bb3ce5ee8a437db8ffcd2e2a6cc03b") annotation engineering_scale heater.unit.outlet.energy_flow(kind=reference_difference,value=bt_ideal.power_span(circulation_capacity,bt_ideal.phase_enthalpy_span()));
+@id("c57b098975a44bad9b10a41e0edd6333") annotation engineering_scale flash.unit.inlet.energy_flow(kind=reference_difference,value=bt_ideal.power_span(circulation_capacity,bt_ideal.phase_enthalpy_span()));
+@id("bf16fe8cc47746b4962922a63bb1263a") annotation engineering_scale flash.unit.outlet.energy_flow(kind=reference_difference,value=bt_ideal.power_span(circulation_capacity,bt_ideal.phase_enthalpy_span()));
+@id("28f675d38d1d4a2a84d51362be04bdab") annotation engineering_scale flash.unit.outlet.phase_energy_flow[chemistry.liquid](kind=reference_difference,value=bt_ideal.power_span(circulation_capacity,bt_ideal.liquid_enthalpy_span()));
+@id("70b49b61318f45b9b05aea30c9db5858") annotation engineering_scale flash.unit.outlet.phase_energy_flow[chemistry.vapor](kind=reference_difference,value=bt_ideal.power_span(feed_capacity,bt_ideal.vapor_enthalpy_span()));
+@id("89d0e4b270ae418d9ba38babbb0a1eff") annotation engineering_scale splitter.unit.inlet.energy_flow(kind=reference_difference,value=bt_ideal.power_span(circulation_capacity,bt_ideal.liquid_enthalpy_span()));
+@id("6d9b84ee7a7b4174823b81fef9e72705") annotation engineering_scale splitter.unit.outlet_energy_flow[recycled](kind=reference_difference,value=bt_ideal.power_span(recycle_capacity,bt_ideal.liquid_enthalpy_span()));
+@id("00be6931d4ee4f378cc6685cc6e3c0ba") annotation engineering_scale splitter.unit.outlet_energy_flow[purged](kind=reference_difference,value=bt_ideal.power_span(feed_capacity,bt_ideal.liquid_enthalpy_span()));
+@id("54756c63692148cbbd29e70b70d706b3") annotation engineering_scale tear_energy(kind=reference_difference,value=bt_ideal.power_span(tear_capacity,bt_ideal.liquid_enthalpy_span()));
+}
 @id("76dc17d0b1d8478c9181cfe430939355") state tear_state supplied(true) {
 coordinate component[j in components]=tear_component[j];
 coordinate temperature=tear_temperature;
@@ -113,7 +140,10 @@ transport energy=tear_energy tolerance numerical_policy.power;
 // The tear stage holds a small positive liquid recycle at the heater temperature,
 // with feed pressure and composition and matching liquid enthalpy. The original
 // specification then closes the recycle from that start.
-@id("01a0f042b660738c8ffef718e014a1d0") def RecycleFlash(purge_fraction:Scalar=0.25,temperature:Temperature=368{K}):RecycleLoop {
+@id("01a0f042b660738c8ffef718e014a1d0") def RecycleFlash(purge_fraction:Scalar=0.25,temperature:Temperature=368{K},use_accuracy_context:Boolean=false,fresh_feed_capacity:Flow=0{mol/s}):RecycleLoop {
+@id("dc39f855d26842d6b5dcb3d46bb5835d") override param context_enabled:Boolean=use_accuracy_context;
+@id("d4a02bf78d574b72b4a5fc839a312da9") override param feed_capacity:Flow=fresh_feed_capacity;
+
 @id("e961fb6db2b2497ab1cc6223b1d3cc7c") override child heater:RecycleHeater=RecycleHeater(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false),target_value=temperature);
 @id("aee77b64111544c68411d1b564a873b1") override child splitter:RecycleSplitter=RecycleSplitter(pkg=bt_ideal.BTLiquid(defined_state=true),outlets=liquid_outlets,component_enthalpy=bt_ideal.component_enthalpy,purge_value=purge_fraction);
 @id("01a0f042b660738c8ffef738c8c09b09") stage "tear" {
@@ -129,7 +159,10 @@ transport energy=tear_energy tolerance numerical_policy.power;
 // A tear whose recycle temperature estimate, 500 K, lies above the 450 K upper bound of the
 // BTIdeal states: its stage cannot be solved, while the original specification is that of
 // RecycleFlash.
-@id("01a0f053c2807589b9b24ce8ecb9eca4") def OverheatedTear:RecycleLoop {
+@id("01a0f053c2807589b9b24ce8ecb9eca4") def OverheatedTear(use_accuracy_context:Boolean=false,fresh_feed_capacity:Flow=0{mol/s}):RecycleLoop {
+@id("b4fb1c21eb8140cfb4d0dfc7cb65b3c8") override param context_enabled:Boolean=use_accuracy_context;
+@id("aa125a7b551343f284d32e0238a62f67") override param feed_capacity:Flow=fresh_feed_capacity;
+
 @id("d3432b271c7a49eaaa9e8a5096060a45") override child heater:RecycleHeater=RecycleHeater(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false),target_value=368{K});
 @id("a1d5e8336cdf4a5cb79df1278297b815") override child splitter:RecycleSplitter=RecycleSplitter(pkg=bt_ideal.BTLiquid(defined_state=true),outlets=liquid_outlets,component_enthalpy=bt_ideal.component_enthalpy,purge_value=0.25);
 @id("2fa918deb9bc4303851fc00d659879a0") let overheated_temperature:Temperature=500{K};
@@ -160,7 +193,7 @@ transport energy=tear_energy tolerance numerical_policy.power;
 [vapor_rich]=[0.5{mol/s},400{K},0.6{1}];
 }
 @id("01a0f04cffc170d5aad0ed2013ba7b93") def RecycleFlashStudy {
-@id("01a0f04cffc170d5aad0ed213d877c6e") child point[s in feed_samples]:RecycleFlash=RecycleFlash(purge_fraction=0.1);
+@id("01a0f04cffc170d5aad0ed213d877c6e") child point[s in feed_samples]:RecycleFlash=RecycleFlash(purge_fraction=0.1,use_accuracy_context=true,fresh_feed_capacity=sampled_feed[s].flow);
 @id("01a0f04cffc170d5aad0ed2257f8648b") eq feed_flow[s in feed_samples]:point[s].feed.state.flow==sampled_feed[s].flow;
 @id("01a0f04cffc170d5aad0ed232ff419c6") eq feed_temperature[s in feed_samples]:point[s].feed.state.T==sampled_feed[s].temperature;
 @id("01a0f04cffc170d5aad0ed24e0dd02ad") eq feed_pressure[s in feed_samples]:point[s].feed.state.pressure==101325{Pa};

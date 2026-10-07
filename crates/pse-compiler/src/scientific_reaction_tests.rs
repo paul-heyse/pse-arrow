@@ -428,6 +428,7 @@ fn costing_point(name: &str) -> Result<(), String> {
             include_str!("../../../packages/reference/physical/models/chemistry.pse"),
             include_str!("../../../packages/reference/physical/models/compatibility.pse"),
             include_str!("../../../packages/reference/domain/models/provenance.pse"),
+            include_str!("../../../packages/reference/domain/models/numerical-policy.pse"),
             include_str!("../../../packages/reference/domain/models/constants.pse"),
             include_str!("../../../packages/reference/domain/models/properties.pse"),
             include_str!("../../../packages/reference/data/references/models/references.pse"),

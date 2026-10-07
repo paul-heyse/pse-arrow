@@ -637,6 +637,14 @@ async fn worker_runs_authored_case_end_to_end() {
     }
     assert!(count > 0, "worker native progress must be retained");
     stored_seed_reused_across_processes(&operations, &package, case, &point.run, attempt).await;
+    drop(progress);
+    drop(handle);
+    drop(package);
+    local
+        .canonical_store()
+        .remove_isolated_fixture()
+        .await
+        .unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -663,6 +671,13 @@ async fn durable_worker_round_trips_a_package_with_a_data_document() {
     let point = &status.points[0];
     assert!(point.outcome.as_ref().unwrap().scientific.usable);
     assert_value(&local, &point.run, point.attempt.as_deref().unwrap(), 3.).await;
+    drop(handle);
+    drop(package);
+    local
+        .canonical_store()
+        .remove_isolated_fixture()
+        .await
+        .unwrap();
 }
 
 async fn stored_seed_reused_across_processes(
@@ -877,6 +892,13 @@ async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authore
         .unwrap();
     assert!(replacement.terminal);
     assert!(replacement.generation > lost.generation);
+    drop(events);
+    drop(handle);
+    local
+        .canonical_store()
+        .remove_isolated_fixture()
+        .await
+        .unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -910,6 +932,12 @@ async fn cross_process_cancel_stops_scip() {
             .as_deref(),
         Some("cancelled")
     );
+    drop(handle);
+    local
+        .canonical_store()
+        .remove_isolated_fixture()
+        .await
+        .unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -1007,4 +1035,11 @@ async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
         summary.attempt
     );
     assert_eq!(summary.points.len(), POINTS);
+    drop(handle);
+    drop(package);
+    local
+        .canonical_store()
+        .remove_isolated_fixture()
+        .await
+        .unwrap();
 }

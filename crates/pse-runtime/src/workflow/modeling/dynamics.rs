@@ -29,6 +29,12 @@ use pse_model::generated::enums::{NumericalSource, NumericalTarget};
 use pse_model::generated::identities::RunId;
 use std::{collections::BTreeSet, sync::Arc};
 
+/// Authored integration controls retain the factory's provisional physical slots until
+/// bound engineering context is frozen. Explicit profiles never acquire these slots.
+pub(in crate::workflow) struct AuthoredIntegrationControls {
+    pub(in crate::workflow) profile: native::Profile,
+    pub(in crate::workflow) provisional_quadratures: BTreeSet<SemanticId>,
+}
 /// Immutable generated simulation. No authored state/RHS declaration is introduced.
 #[derive(Clone, Debug)]
 pub struct ModelingSimulation {
@@ -722,7 +728,7 @@ impl ModelingPackage {
         model: &ModelingPreparation,
         data: &pse_modeling::specialize::Fixture,
         numerics: &pse_model::numerics::NumericalPolicy,
-    ) -> Result<native::Profile, WorkflowError> {
+    ) -> Result<AuthoredIntegrationControls, WorkflowError> {
         let integration = data
             .integration
             .as_ref()
@@ -752,10 +758,30 @@ impl ModelingPackage {
         // checked cumulative closure remains the acceptance authority, not a proof claim.
         let mut conserved_tolerances = BTreeMap::<SemanticId, f64>::new();
         for balance in product.model.inventory_balances.values() {
-            let pse_modeling::specialize::Value::Number { bits, .. } = balance.tolerance else {
-                return Err(contract("conservation tolerance must be a physical number"));
+            // Factory controls precede bound context evaluation. This source floor is
+            // replaced by the frozen resolved inventory budget before native admission.
+            let value = match &balance.requirement.tolerance {
+                pse_modeling::specialize::ClosureTolerance::Explicit(value) => value,
+                pse_modeling::specialize::ClosureTolerance::EngineeringRule { rule_id, .. } => {
+                    &product
+                        .model
+                        .engineering_rules
+                        .iter()
+                        .find(|rule| rule.id == *rule_id)
+                        .ok_or_else(|| contract("inventory engineering rule unavailable"))?
+                        .value
+                }
             };
-            let tolerance = f64::from_bits(bits);
+            let tolerance = match value {
+                pse_modeling::specialize::Value::Number { bits, .. }
+                | pse_modeling::specialize::Value::Coordinate { bits, .. } => f64::from_bits(*bits),
+                pse_modeling::specialize::Value::Integer(value) => *value as f64,
+                _ => {
+                    return Err(contract(
+                        "inventory tolerance has no static physical magnitude",
+                    ));
+                }
+            };
             conserved_tolerances
                 .entry(balance.flux_id)
                 .and_modify(|current| *current = current.min(tolerance))
@@ -808,7 +834,23 @@ impl ModelingPackage {
             numerics: numerics.clone(),
             ..pse_backend_native::dynamics::Profile::default()
         };
-        Ok(profile)
+        let provisional_quadratures = product
+            .model
+            .inventory_balances
+            .values()
+            .filter(|balance| {
+                !integration.quadratures.contains_key(&balance.flux_id)
+                    && matches!(
+                        balance.requirement.tolerance,
+                        pse_modeling::specialize::ClosureTolerance::EngineeringRule { .. }
+                    )
+            })
+            .map(|balance| balance.flux_id)
+            .collect();
+        Ok(AuthoredIntegrationControls {
+            profile,
+            provisional_quadratures,
+        })
     }
 }
 /// The fixture's scheduled inputs on the integration layout (ADR-0119 Outcome 2): each
@@ -883,8 +925,8 @@ impl ModelingPackage {
             ));
         }
         let analysis = &execution.analysis;
-        let profile = if let Some(profile) = profile {
-            profile
+        let (profile, provisional_quadratures) = if let Some(profile) = profile {
+            (profile, BTreeSet::new())
         } else {
             let fixture = execution
                 .model
@@ -893,9 +935,11 @@ impl ModelingPackage {
                 .fixtures
                 .get(&analysis.instance)
                 .ok_or_else(|| contract("authored integration controls absent"))?;
-            self.integration_profile(&execution.model, fixture, &analysis.solver.numerics)?
+            let controls =
+                self.integration_profile(&execution.model, fixture, &analysis.solver.numerics)?;
+            (controls.profile, controls.provisional_quadratures)
         };
-        self.prepare_simulation(
+        self.prepare_simulation_with_controls(
             analysis.root,
             analysis.instance,
             analysis.bindings.clone(),
@@ -904,6 +948,8 @@ impl ModelingPackage {
             analysis.compiler,
             profile,
             DerivativeOrder::First,
+            &BTreeSet::new(),
+            &provisional_quadratures,
             cancel,
         )
         .await
@@ -927,6 +973,7 @@ impl ModelingPackage {
         mode: usize,
         mode_names: &[String],
         exact_parameters: &BTreeSet<SemanticId>,
+        provisional_quadratures: &BTreeSet<SemanticId>,
         snapshot: &pse_backend_native::execution::Snapshot,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
@@ -1358,7 +1405,13 @@ impl ModelingPackage {
                     if states.contains(&a.target) {
                         NumericalTarget::Variable
                     } else {
-                        NumericalTarget::Observable
+                        if product.model.closures.contains_key(&a.target)
+                            || product.model.inventory_balances.contains_key(&a.target)
+                        {
+                            NumericalTarget::Closure
+                        } else {
+                            NumericalTarget::Observable
+                        }
                     },
                 ))
             }))
@@ -1367,12 +1420,21 @@ impl ModelingPackage {
             if targets.iter().any(|t| t.id == id && t.kind == kind) {
                 continue;
             }
-            let symbol = product
+            let ty = product
                 .model
                 .symbols
                 .get(&id)
+                .map(|symbol| &symbol.ty)
+                .or_else(|| product.model.closures.get(&id).map(|closure| &closure.ty))
+                .or_else(|| {
+                    product
+                        .model
+                        .inventory_balances
+                        .get(&id)
+                        .map(|balance| &balance.ty)
+                })
                 .ok_or_else(|| contract("dynamic accuracy target absent"))?;
-            let pse_modeling::Type::Quantity(q) = &symbol.ty else {
+            let pse_modeling::Type::Quantity(q) = ty else {
                 return Err(contract("dynamic accuracy target physical type"));
             };
             let quantity = q
@@ -1490,6 +1552,27 @@ impl ModelingPackage {
             &accuracy_values,
         )?;
         declarations.extend(numerical_inputs.declarations);
+        let closure_requirements = cases::lower_closure_requirements(
+            product,
+            &mut targets,
+            model.solved().lineage(),
+            &self.quantities,
+            &mut declarations,
+            &mut profile.numerics,
+        )?;
+        declarations.extend(closure_requirements);
+        declarations.extend(cases::state_reconstruction_requirements(
+            product,
+            &targets,
+            model.solved().lineage(),
+            &self.quantities,
+        )?);
+        declarations.extend(cases::conservation_row_requirements(
+            product,
+            &targets,
+            model.solved().lineage(),
+            &self.quantities,
+        )?);
         let numerics = Arc::new(
             pse_math::numerics::resolve(
                 &self.quantities,
@@ -1499,6 +1582,34 @@ impl ModelingPackage {
             )
             .map_err(super::super::math)?,
         );
+        let closure_budgets = cases::closure_budgets(&numerics);
+        for (position, integral) in product.model.integrals.keys().enumerate() {
+            if !provisional_quadratures.contains(integral) {
+                continue;
+            }
+            let budgets = product
+                .model
+                .inventory_balances
+                .values()
+                .filter(|balance| balance.flux_id == *integral)
+                .map(|balance| {
+                    closure_budgets
+                        .get(&balance.id)
+                        .copied()
+                        .ok_or_else(|| contract("resolved inventory closure budget absent"))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            if budgets.is_empty() {
+                return Err(contract(
+                    "provisional quadrature has no physical inventory owner",
+                ));
+            }
+            *profile
+                .out_atol
+                .get_mut(position)
+                .ok_or_else(|| contract("integrated flux control absent"))? =
+                budgets.into_iter().fold(f64::INFINITY, f64::min);
+        }
         let scale = |id, kind| {
             numerics
                 .targets
@@ -1601,9 +1712,8 @@ impl ModelingPackage {
             .inventory_balances
             .values()
             .map(|balance| {
-                let pse_modeling::specialize::Value::Number { bits, .. } = balance.tolerance else {
-                    return Err(contract_error("physical inventory tolerance required"));
-                };
+                let tolerance = closure_budgets.get(&balance.id).copied()
+                    .ok_or_else(|| contract_error("resolved physical inventory closure budget absent"))?;
                 let mut transfers = BTreeSet::new();
                 for guard in balance.transfers.keys() {
                     let matching = fixture_events
@@ -1630,7 +1740,7 @@ impl ModelingPackage {
                     id: balance.id,
                     inventory: balance.inventory_id,
                     flux: balance.flux_id,
-                    tolerance: f64::from_bits(bits),
+                    tolerance,
                     transfers,
                 })
             })
@@ -2830,6 +2940,105 @@ mod tests {
         assert!(pool.reserved() > 0);
         drop(batch);
         assert_eq!(pool.reserved(), 0);
+    }
+
+    #[tokio::test]
+    async fn contextual_closure_inventory_controls_preserve_explicit_profile_origin() {
+        use super::super::super::tests as fixture;
+        let source = r#"package p {
+            entity kind source provenance {attribute title:Text;}
+            enum role {given}
+            entity source s {title="inventory control"}
+            constant allowance:Time=1{s} provenance(s,role.given);
+            annotation engineering_rule p.allowance;
+            def Root {domain t:Time from 0{s} to 1{s};
+                discretize grid on t using integrated(elements=1,order=1);
+                param rate:Scalar=0.5;var x[i in t]:Time;
+                annotation engineering_scale x[0{s}](kind=magnitude,value=10000{s});
+                conserve stock[i in t]:Time on t inventory x[i] flux rate tolerance p.allowance;
+                eq initial:x[0{s}]==1{s};
+            }
+            test dynamic fixture {dof 0;route integrated;procedure integrate;
+                integrate samples(0{s},0.5{s},1{s}) relative(global) normalized_absolute(global) step(1e-4{s});
+            } {child root:Root=Root();}
+        }"#;
+        let rows = pse_authoring::language::parse(
+            source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "dynamic")
+            .unwrap()
+            .declaration_id;
+        let package = fixture::runtime()
+            .modeling_package(rows, physical())
+            .await
+            .unwrap();
+        let cancel = crate::CancelSource::new();
+        let automatic = package
+            .declared_simulation(
+                root,
+                fixture::compiler_profile(),
+                None,
+                Limits::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        assert_eq!(automatic.profile().out_atol, vec![10.0]);
+        assert!(
+            automatic
+                .contract
+                .balances
+                .iter()
+                .all(|balance| balance.tolerance == 10.0)
+        );
+        let mut explicit = automatic.profile().clone();
+        explicit.out_atol = vec![1.0];
+        let declared = package
+            .declared_simulation(
+                root,
+                fixture::compiler_profile(),
+                Some(explicit.clone()),
+                Limits::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        assert_eq!(declared.profile().out_atol, vec![1.0]);
+        assert!(
+            declared
+                .contract
+                .balances
+                .iter()
+                .all(|balance| balance.tolerance == 10.0)
+        );
+        let direct = package
+            .prepare_simulation(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                fixture::compiler_profile(),
+                explicit,
+                DerivativeOrder::First,
+                &cancel,
+            )
+            .await
+            .unwrap();
+        assert_eq!(direct.profile().out_atol, vec![1.0]);
+        assert!(
+            direct
+                .contract
+                .balances
+                .iter()
+                .all(|balance| balance.tolerance == 10.0)
+        );
     }
     #[tokio::test]
     async fn authored_conservation_derives_only_its_generated_flux_quadrature_controls() {

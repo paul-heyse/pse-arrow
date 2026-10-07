@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("01a0e1db89d8722baac3991b501a0202") package saponification {
+@id("751ee728b4ff4f98ac0ad08340a87dd6") use numerical_policy @"1.0.0";
 @id("01a0f14ead4d7118a57e3665cb688b78") use constants @"1.0.0";
 @id("5382470311f3439a8f65ff35c4ef7ce8") use properties @"1.0.0";
 @id("611eb83ea597433883cac74598732ce9") use correlations @"1.0.0";
@@ -52,25 +53,25 @@
 }
 @id("01a0e1db89d8722baac3990c10d5ac0d") test reaction_values oracle references.idaes_saponification_reactions fixture {dof 0; route steady; procedure check;} {
 @id("e3cffb6bf4fc57e88347492d85053c02") permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
-@id("01a0e1db89d8722baac3990de9758ee8") expect reaction_forms.arrhenius(303.15{K},reaction_forms.arrhenius_second_order[references.saponification_kinetics_fit,reaction_forms.kinetic_parameters,hydrolysis])==0.1221230445517785{m^3/(mol*s)} tolerance 1e-12{m^3/(mol*s)};
-@id("01a0e1db89d8722baac3990e291f8ed9") expect reaction_forms.second_order(303.15{K},100{mol/m^3},100{mol/m^3},reaction_forms.arrhenius_second_order[references.saponification_kinetics_fit,reaction_forms.kinetic_parameters,hydrolysis])==1221.230445517785{mol/(m^3*s)} tolerance 1e-8{mol/(m^3*s)};
+@id("01a0e1db89d8722baac3990de9758ee8") expect reaction_forms.arrhenius(303.15{K},reaction_forms.arrhenius_second_order[references.saponification_kinetics_fit,reaction_forms.kinetic_parameters,hydrolysis])==0.1221230445517785{m^3/(mol*s)} tolerance 1e-12{m^3/(mol*s)} relative numerical_policy.dimensionless;
+@id("01a0e1db89d8722baac3990e291f8ed9") expect reaction_forms.second_order(303.15{K},100{mol/m^3},100{mol/m^3},reaction_forms.arrhenius_second_order[references.saponification_kinetics_fit,reaction_forms.kinetic_parameters,hydrolysis])==1221.230445517785{mol/(m^3*s)} tolerance 1e-8{mol/(m^3*s)} relative numerical_policy.dimensionless;
 }
 @id("01a0e1db89d8722baac39914571745c5") test liquid_state oracle references.idaes_saponification_thermo fixture {dof 0; route steady; procedure solve; fix root.T=303.15{K}; fix root.pressure=101325{Pa}; fix root.volume_flow=0.001{m^3/s}; fix root.concentration[chem.sodium_hydroxide]=100{mol/m^3}; fix root.concentration[chem.ethyl_acetate]=100{mol/m^3}; fix root.concentration[chem.sodium_acetate]=0{mol/m^3}; fix root.concentration[chem.ethanol]=0{mol/m^3};} {
 // These concrete analyses read the recorded water constants through parameter defaults.
 // Accept their missing form-axis evidence only for these two fits; extrapolation stays disallowed.
 @id("ab56fcd7ea3b41eb803b48e5d33423d3") permission solvent_parameter_use records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
 @id("01a0e1db89d8722baac399154a22bbd3") child root:Saponification=Saponification;
-@id("01a0e1db89d8722baac39916130018ae") expect root.concentration[chem.water]==55388{mol/m^3} tolerance 1e-5{mol/m^3};
-@id("01a0e1db89d8722baac39917df9dcea0") expect root.component_flow[chem.sodium_hydroxide]==0.1{mol/s} tolerance 1e-8{mol/s};
-@id("01a0e1db89d8722baac3991894ddfb02") expect root.flow==55.588{mol/s} tolerance 1e-6{mol/s};
-@id("01a0e1db89d8722baac39919d2f9e5ef") expect root.energy_flow==20861.05938{W} tolerance 0.002{W};
+@id("01a0e1db89d8722baac39916130018ae") expect root.concentration[chem.water]==55388{mol/m^3} tolerance numerical_policy.concentration;
+@id("01a0e1db89d8722baac39917df9dcea0") expect root.component_flow[chem.sodium_hydroxide]==0.1{mol/s} tolerance numerical_policy.component_flow;
+@id("01a0e1db89d8722baac3991894ddfb02") expect root.flow==55.588{mol/s} tolerance numerical_policy.molar_flow;
+@id("01a0e1db89d8722baac39919d2f9e5ef") expect root.energy_flow==20861.05938{W} tolerance numerical_policy.power;
 @id("01a0e1db89d8722baac3991a4354e257") expect sum(j in saponification_species | root.z[j]/equilibrium.fraction_unit())==1 tolerance 1e-8;
 }
 @id("dfa256484e8c4aa885ade4bfdae36927") test reaction_binding oracle references.idaes_saponification_reactions fixture {dof 0; route steady; procedure check; fix root.T=303.15{K}; fix root.concentration[chem.sodium_hydroxide]=100{mol/m^3}; fix root.concentration[chem.ethyl_acetate]=100{mol/m^3}; fix root.concentration[chem.sodium_acetate]=0{mol/m^3}; fix root.concentration[chem.ethanol]=0{mol/m^3}; fix root.concentration[chem.water]=55388{mol/m^3};} {
 @id("157f7e64fd34502cab85bc7d486572cd") permission kinetic_use families(reaction_forms.reaction_set) allow_unknown true allow_extrapolation false;
 @id("01a1068872ca7366a5228b93399f1c91") child law:SaponificationReactions=SaponificationReactions;
 @id("42714e7e77954abd973055ee40fbab5b") child root:reactions.Projection=reactions.Projection(material=SaponificationReactions.components,selected=SaponificationReactions.records,selection=SaponificationReactions.admitted);
-@id("3ba63ee235b04ab8a40593223c948073") expect root.rate[hydrolysis]==1221.230445517785{mol/(m^3*s)} tolerance 1e-8{mol/(m^3*s)};
+@id("3ba63ee235b04ab8a40593223c948073") expect root.rate[hydrolysis]==1221.230445517785{mol/(m^3*s)} tolerance 1e-8{mol/(m^3*s)} relative numerical_policy.dimensionless;
 @id("f3536f006edc4d9a8954938a50d6eb99") expect root.heat[hydrolysis]==-49000{J/mol} tolerance 1e-8{J/mol};
 }
 @id("2af8c7e9be425a77bbf733b0614dcbb4") entity properties.selection_context thermo_context {roots={correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]},subjects={chem.water},models={properties.heat_capacity,properties.liquid_molar_density},rules={}}

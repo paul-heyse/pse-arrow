@@ -1380,7 +1380,7 @@ pub(in crate::workflow) fn assess_observations(
         .collect();
     for closure in product
         .model
-        .assess_closures(&magnitudes, &closures)
+        .assess_closures(&magnitudes, &closures, &cases::closure_budgets(numerics))
         .map_err(|e| contract(e.to_string()))?
     {
         if let Some(satisfied) = closure.satisfied {

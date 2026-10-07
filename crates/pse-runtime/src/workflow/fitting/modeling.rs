@@ -412,13 +412,15 @@ impl ModelingPackage {
                 .collect::<Vec<_>>();
             let mut bound_times = BTreeMap::new();
             let experiment = if e.route == Route::Integrated {
-                let mut integration = if let Some(profile) =
+                let (mut integration, provisional_quadratures) = if let Some(profile) =
                     profile.simulations.get(&e.experiment_id)
                 {
-                    profile.clone()
+                    (profile.clone(), BTreeSet::new())
                 } else {
                     let data=model.compiled().model.fixtures.get(&e.experiment_id).ok_or_else(||contract("transient experiment needs explicit or authored integration controls"))?;
-                    self.integration_profile(&model, data, &profile.solver.numerics)?
+                    let controls =
+                        self.integration_profile(&model, data, &profile.solver.numerics)?;
+                    (controls.profile, controls.provisional_quadratures)
                 };
                 for o in &local_observations {
                     let raw = o
@@ -482,7 +484,7 @@ impl ModelingPackage {
                 };
                 // The experiment's authored case declares its modes and events.
                 let simulation = self
-                    .prepare_simulation_for(
+                    .prepare_simulation_with_controls(
                         e.case_id,
                         e.experiment_id,
                         bindings,
@@ -500,6 +502,7 @@ impl ModelingPackage {
                         } else {
                             BTreeSet::new()
                         },
+                        &provisional_quadratures,
                         cancel,
                     )
                     .await?;

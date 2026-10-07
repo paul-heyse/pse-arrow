@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("ae77f0a9ad144456be8a54c53a1bfb09") package nrtl_fixtures {
+@id("d8989d8771db442eb97a07733c9749cf") use numerical_policy @"1.0.0";
 @id("20c834ebbc904dcb9e95b1a4c61a26c3") use constants @"1.0.0";
 @id("061f597a3f4b4c87828b26e7d33d65be") use chemistry @"1.0.0";
 @id("332bb700dd744b27ba3b0152a56d6a1b") use chem @"1.0.0";
@@ -28,7 +29,7 @@
 @id("ef0b0e4f1a214085918a7857dbf27b8e") set compositions:Set<Scalar>={0.2,0.5,0.8};
 @id("d9ccffdaaf204644989be4739ac9a6b9") child point[x in compositions]:Binary=Binary(composition=x);
 @id("51fb362de8b043d19c02d3d9e53083e8") expect sum(x in compositions | abs(point[x].excess-nrtl.binary(x,1,1,0.3,0.3)))==0{1} tolerance 1e-12{1};
-@id("ce7e23846bac40868d47e84166e29e94") expect sum(x in compositions | sum(j in members | abs(point[x].gamma[j]-nrtl_reference.observations[x,j])))==0{1} tolerance 1e-12{1};
+@id("ce7e23846bac40868d47e84166e29e94") expect sum(x in compositions | sum(j in members | abs(point[x].gamma[j]-nrtl_reference.observations[x,j])))==0{1} tolerance numerical_policy.dimensionless*sum(x in compositions | sum(j in members | abs(nrtl_reference.observations[x,j])));
 @id("f927845fa2bf494d90b879250c999895") expect sum(x in compositions | sum(j in members | abs(point[x].gibbs_duhem[j])))==0{1} tolerance 1e-12{1};
 }
 @id("04ece38aec494e4da773690b00b809a9") test degree_one_excess_and_amount_invariant_activity oracle nrtl_reference.defaults fixture {dof 0;route steady; procedure check;} {

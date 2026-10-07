@@ -376,16 +376,18 @@ def test_modeling_expansion_limits_are_explicit_and_isolated(
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     ).replace("dependencies = []", PRIMITIVES)
+    settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT)
     package = runtime.modeling_from_documents(
         [
             {
                 "package.toml": manifest,
-                "models/limits.pse": """package limits {
-          test bounded fixture {dof 0; route steady; procedure solve;} {
+                "models/limits.pse": f"""package limits {{
+          test bounded fixture {{dof 0; route steady; procedure solve;}} {{
             var x:Scalar; annotation start x(1); eq solution:x==2;
-            expect x==2 tolerance 1e-8;
-          }
-        }""",
+            expect x==2 tolerance 0 relative
+                {settings.numerics.engineering_relative_fraction};
+          }}
+        }}""",
             }
         ],
         physical(runtime),
@@ -397,32 +399,24 @@ def test_modeling_expansion_limits_are_explicit_and_isolated(
     assert limits.members > 0
     limited = package.with_limits(limits)
     with pytest.raises(pse.InspectionError, match="specialized item count"):
-        limited.solve_case(case, pse.SolveSettings(intent=NativeSolveIntent.ROOT))
-    assert package.solve_case(
-        case, pse.SolveSettings(intent=NativeSolveIntent.ROOT)
-    ).accepted
-    assert (
-        package.with_limits(pse.ModelingLimits())
-        .solve_case(case, pse.SolveSettings(intent=NativeSolveIntent.ROOT))
-        .accepted
-    )
+        limited.solve_case(case, settings)
+    assert package.solve_case(case, settings).accepted
+    assert package.with_limits(pse.ModelingLimits()).solve_case(case, settings).accepted
     assert limits.body_occurrences is None
     with pytest.raises(pse.InspectionError, match="occurrences"):
         package.with_limits(pse.ModelingLimits(body_occurrences=1)).solve_case(
-            case, pse.SolveSettings(intent=NativeSolveIntent.ROOT)
+            case, settings
         )
     assert (
         package.with_limits(pse.ModelingLimits(body_occurrences=65536))
-        .solve_case(case, pse.SolveSettings(intent=NativeSolveIntent.ROOT))
+        .solve_case(case, settings)
         .accepted
     )
     with pytest.raises(pse.InspectionError, match="positive"):
         pse.ModelingLimits(body_occurrences=0)
     assert limits.body_slots is None
     with pytest.raises(pse.InspectionError, match="slots"):
-        package.with_limits(pse.ModelingLimits(body_slots=1)).solve_case(
-            case, pse.SolveSettings(intent=NativeSolveIntent.ROOT)
-        )
+        package.with_limits(pse.ModelingLimits(body_slots=1)).solve_case(case, settings)
     with pytest.raises(pse.InspectionError, match="positive"):
         pse.ModelingLimits(body_slots=0)
     with pytest.raises(pse.InspectionError, match="positive"):
@@ -440,16 +434,18 @@ def test_complete_preparation_policy_controls_public_preparation_and_execution(
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
+    settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT)
     package = runtime.modeling_from_documents(
         [
             {
                 "package.toml": manifest,
-                "models/preparation.pse": """package p {
-          test bounded fixture {dof 0; route steady; procedure solve;} {
+                "models/preparation.pse": f"""package p {{
+          test bounded fixture {{dof 0; route steady; procedure solve;}} {{
             var x:Scalar; annotation start x(1); eq solution:x==2;
-            expect x==2 tolerance 1e-8;
-          }
-        }""",
+            expect x==2 tolerance 0 relative
+                {settings.numerics.engineering_relative_fraction};
+          }}
+        }}""",
             }
         ],
         physical(runtime),
@@ -457,7 +453,6 @@ def test_complete_preparation_policy_controls_public_preparation_and_execution(
     case = next(
         row.declaration_id for row in package.declarations() if row.name == "bounded"
     )
-    settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT)
     assert package.solve_case(case, settings).accepted
     zero = preparation_policy(0)
     for operation in (package.prepare_solve, package.solve_case):
@@ -578,6 +573,8 @@ def test_modeling_simulation_events_checks_and_terminal_reports(
 ) -> None:
     runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
     root = Path(__file__).resolve().parents[3]
+    # This controlled event/reset journey deliberately selects high fidelity to
+    # distinguish localization, reset and terminal quadrature conditions.
     # Named identities are source-owned; the case selects the same dynamic definition.
     source = """package dynamic {
  def D {
@@ -934,7 +931,9 @@ def test_modeling_native_linear_diagnostics_preserve_scope_and_source_coordinate
     assert not row["iis"]["relaxation_only"]
     assert {r["source_id"] for r in row["iis"]["rows"]} == set(row["rows"])
     assert row["relaxation"]["operation_status"] == 0
-    assert row["relaxation"]["penalty"] == pytest.approx(1.0)
+    assert row["relaxation"]["penalty"] == pytest.approx(
+        1.0, rel=settings.numerics.engineering_relative_fraction, abs=0.0
+    )
     assert row["relaxation"]["restored_status"]["category"] == "inconclusive"
     assert row["relaxation"]["primal"][0]["source_id"] == row["columns"][0]
     assert row["attempt"]["termination"]["category"] == "infeasible"
@@ -1211,7 +1210,9 @@ def test_modeling_nonlinear_explanation_retains_local_evidence(
     assert len(attempts) == 4
     assert attempts[0].observation == "local_obstruction"
     assert attempts[0].failure() is not None
-    assert attempts[0].penalty == pytest.approx(3.0, abs=1e-5)
+    assert attempts[0].penalty == pytest.approx(
+        3.0, rel=settings.numerics.engineering_relative_fraction, abs=0.0
+    )
     assert sum(a.observation == "feasible_witness" for a in attempts) == 2
     result = attempts[0].result()
     assert result is not None

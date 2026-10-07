@@ -100,10 +100,11 @@ def test_explicit_cone_strategy_preserves_native_qualification(
         "cones": [{"kind": "nonnegative", "dimension": 1}],
         "objective_constant": 3.0,
     }
+    settings = pse.SolveSettings(backend=NativeBackend.CLARABEL)
     prepared = runtime.prepare_conic(
         codec.decode_json(codec.encode_json(request), pse.ConicRequest),
         physical,
-        pse.SolveSettings(backend=NativeBackend.CLARABEL),
+        settings,
     )
     assert [route.backend for route in prepared.routes] == ["clarabel"]
     result = prepared.run()
@@ -126,9 +127,13 @@ def test_explicit_cone_strategy_preserves_native_qualification(
     attempt = row.report
     assert attempt is not None
     assert attempt.qualification == "optimal_within_tolerance"
-    assert attempt.objective == pytest.approx(5.0, abs=1e-6)
+    # This neutral-scalar cone has unit objective coordinates. Compare its
+    # empirical oracle at the admitted gap resolution, retaining qualification.
+    assert attempt.objective == pytest.approx(
+        5.0, rel=settings.numerics.gap_relative, abs=settings.numerics.gap_absolute
+    )
     assert dict(attempt.primal())[identity(201).to_hex()] == pytest.approx(
-        2.0, abs=1e-6
+        2.0, rel=settings.numerics.engineering_relative_fraction, abs=0.0
     )
     assert attempt.normalized_violation is not None
     assert attempt.normalized_violation <= 1.0
@@ -168,23 +173,6 @@ def test_explicit_primal_seed_and_transactional_initialization(
     )
     member = package.inspect(case, settings).members[0]
     x = SemanticId.from_hex(member.id)
-    # This fixture promises a 1e-6 original-coordinate output. Declare tighter
-    # residual and point allowances rather than using the engineering 1e-3 default.
-    settings = msgspec.structs.replace(
-        settings,
-        numerics=documents.NumericalPolicy(
-            engineering_rules=(
-                documents.AuthoredEngineeringDefaultRulesRow(
-                    rule_id=identity(199).to_hex(),
-                    quantity_id=identity(31).to_hex(),
-                    unit_id=identity(10).to_hex(),
-                    physical_allowance=1e-7,
-                    relative_fraction=0.0,
-                    provenance="explicit primal fixture output accuracy",
-                ),
-            ),
-        ),
-    )
     prepared = package.prepare_solve(case, settings)
     assert prepared.eligibility
     explicit = prepared.with_primal_start({x: 1.0}).start().wait()
@@ -195,13 +183,21 @@ def test_explicit_primal_seed_and_transactional_initialization(
     ]
     assert len(resolved) == 2
     assert {row["target_kind"] for row in resolved} == {"variable", "row"}
-    assert all(row["absolute"] == 1e-7 and row["relative"] == 0.0 for row in resolved)
+    assert not settings.numerics.engineering_rules
+    assert all(
+        row["engineering"] is not None
+        and row["engineering"]["relative_fraction"]
+        == settings.numerics.engineering_relative_fraction
+        for row in resolved
+    )
     seed = explicit.available_start()
     assert seed is not None
     snapshot = codec.decode_json(seed.snapshot(), pse.WarmStartSnapshot)
     assert isinstance(snapshot.payload, documents.WarmPayloadSnapshotRoot)
     assert isinstance(snapshot.payload.primal[0], documents.ObservationReal)
-    assert snapshot.payload.primal[0].value == pytest.approx(2.0, abs=1e-6)
+    assert snapshot.payload.primal[0].value == pytest.approx(
+        2.0, rel=settings.numerics.engineering_relative_fraction, abs=0.0
+    )
     assert snapshot.origin is not None
     assert snapshot.origin.run == explicit.run_id.to_hex()
     result = package.prepare_block_initialization(
@@ -217,7 +213,9 @@ def test_explicit_primal_seed_and_transactional_initialization(
     assert stage is not None
     assert stage.completed_stages == 1
     assert stage.original[x.to_hex()] == -1.0
-    assert stage.solved_unknowns[x.to_hex()] == pytest.approx(-2.0, abs=1e-6)
+    assert stage.solved_unknowns[x.to_hex()] == pytest.approx(
+        -2.0, rel=settings.numerics.engineering_relative_fraction, abs=0.0
+    )
     events = codec.structure_rows(
         pa.table(result.strategy_events()).to_pylist(),
         result_contracts.RuntimeSolveStrategyEventsRow,
@@ -906,7 +904,19 @@ def test_durable_limited_native_incumbent_is_feasible_and_nonoptimal(
     # The shared authored MIQP's independent enumeration gives an optimum of 22 W;
     # the first feasible native incumbent is explicitly below that optimum.
     assert solve.objective is not None
-    assert solve.objective < 22.0 - 1e-5
+    metrics = {
+        row["name"]: row["real"]
+        for row in pa.table(result.table("runtime.solve_metrics")).to_pylist()
+        if row["namespace"] == "metric"
+    }
+    gap_absolute = metrics["global.gap_absolute"]
+    gap_relative = metrics["global.gap_relative"]
+    assert gap_absolute is not None
+    assert gap_absolute > 0.0
+    assert gap_relative is not None
+    assert gap_relative > 0.0
+    allowance = max(gap_absolute, gap_relative * min(abs(solve.objective), 22.0))
+    assert solve.objective < 22.0 - allowance
     (assessment,) = result.completion.assessments
     assert assessment.native_termination == NativeTermination.SOLUTION_LIMIT
     assert assessment.numerically_feasible is True

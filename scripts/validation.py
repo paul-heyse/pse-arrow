@@ -29,12 +29,13 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-from scripts import build_environment, validation_receipts
+from scripts import build_environment, producer_deployment, validation_receipts
 from scripts.validation_scope import (
     EXCLUSIONS,
     FUNCTIONAL_SCOPES,
     GROUPS,
     INPUT_ENVIRONMENT,
+    PRODUCER_REVIEW_INPUTS,
     Gate,
     comprehensive,
     expand,
@@ -74,6 +75,20 @@ def relevant_environment(source: Mapping[str, str] | None = None) -> dict[str, s
     environment["LOCAL_NATIVE_ENVIRONMENT"] = hashlib.sha256(
         local.read_bytes() if local.is_file() else b"absent"
     ).hexdigest()
+    for key in PRODUCER_REVIEW_INPUTS:
+        if key in source_environment:
+            path = Path(source_environment[key])
+            if not path.is_absolute():
+                path = Path(__file__).resolve().parents[1] / path
+            environment[key] = json.dumps(
+                {
+                    "path": str(path),
+                    "sha256": hashlib.sha256(path.read_bytes()).hexdigest()
+                    if path.is_file()
+                    else None,
+                },
+                sort_keys=True,
+            )
     return environment
 
 
@@ -454,6 +469,17 @@ def checkpoint(output: Path, receipt: dict) -> None:
     (output / "summary.md").write_text("\n".join(lines))
 
 
+def observed_deployment_attestation(path: Path) -> dict[str, str]:
+    observed = json.loads(path.read_text())
+    if (
+        not isinstance(observed, list)
+        or len(observed) != 2
+        or not all(isinstance(value, str) for value in observed)
+    ):
+        raise ValueError("invalid independently observed deployment header")
+    return {"source": observed[0], "build": observed[1]}
+
+
 def run_gates(
     root: Path,
     output: Path,
@@ -467,6 +493,15 @@ def run_gates(
 ) -> int:
     if (reuse or transfer) and reuse_from is None:
         raise ValueError("reuse and transfer require an origin report")
+    deployment_retained = set(reuse + transfer) & {
+        "producer-deployment",
+        "python-deployment-association",
+    }
+    if deployment_retained:
+        raise ValueError(
+            "Deployment capture and imported association require fresh execution: "
+            + ", ".join(sorted(deployment_retained))
+        )
     snapshot, target, errors = (
         provenance(root, output) if capture else ({}, root / "target", [])
     )
@@ -513,7 +548,23 @@ def run_gates(
     env = command_env()
     env["PSE_ACCEPTANCE_OUTPUT"] = str(output)
     if "producer-fixture" in selected:
-        env["PSE_PRODUCER_FIXTURE_RECEIPT"] = str(output / "producer-fixture.json")
+        fixture = next(
+            (
+                check
+                for check in receipt["checks"]
+                if check["gate"] == "producer-fixture"
+            ),
+            None,
+        )
+        fixture_origin = Path(fixture["origin"]) if fixture is not None else output
+        env["PSE_PRODUCER_FIXTURE_RECEIPT"] = str(
+            fixture_origin / "producer-fixture.json"
+        )
+    deployment_env = {}
+    if "producer-deployment" in selected:
+        deployment_env = producer_deployment.deployment_environment(
+            root, output / "deployment"
+        )
     # Nested just aggregates use their own evidence folder; never overwrite ours.
     env.pop("PSE_VALIDATION_OUTPUT", None)
     # Selection belongs to this exact gate, never an enclosing pytest/assessment.
@@ -536,12 +587,21 @@ def run_gates(
         command = ["just", recipe, *(arg.format_map(context) for arg in gate.args)]
         report = Path(gate.report.format_map(context)) if gate.report else None
         gate_env = dict(env)
+        if recipe in {"native-test", "native-python"}:
+            gate_env.update(deployment_env)
         receipt_variable = {
             "native-test": "PSE_WORKER_PRODUCER_RECEIPT",
             "native-python": "PSE_PYTHON_PRODUCER_RECEIPT",
         }.get(recipe)
         if receipt_variable and gate_env.get(receipt_variable):
             gate_env["PSE_PRODUCER_RECEIPT"] = gate_env[receipt_variable]
+        if gate.name == "python-deployment-association":
+            # The observed header is this gate's output, then an input to the
+            # native cross-role and ordinary Python gates. Do not hash it before
+            # the imported extension has produced it.
+            gate_env["PSE_PYTHON_DEPLOYMENT_OBSERVATION_OUTPUT"] = gate_env.pop(
+                "PSE_PYTHON_DEPLOYMENT_ATTESTATION"
+            )
         if recipe in {"native-test", "native-python", "feature-absence"}:
             gate_env["PSE_NATIVE_PROVENANCE"] = str(output / f"{gate.name}-native.json")
             if recipe == "native-test":
@@ -680,17 +740,40 @@ def run_gates(
                 )
             except (OSError, ValueError, TypeError) as error:
                 record["report_errors"].append(f"setup selection unavailable: {error}")
-        # Retained setup is reusable only with the exact produced fixture bytes.
-        if gate.name == "inspection-fixture":
-            fixture_root = output / "inspection"
-            files = sorted(path for path in fixture_root.rglob("*") if path.is_file())
-            if record["status"] == "passed" and not files:
-                record["status"] = "failed"
-                record["report_errors"].append("fixture completed without artifacts")
-            for artifact in files:
-                record["artifacts"][str(artifact.relative_to(output))] = (
-                    validation_receipts.digest(artifact)
-                )
+        if gate.name in {"producer-deployment", "python-deployment-association"}:
+            artifacts = (
+                [
+                    output / "deployment" / f"{role}.json"
+                    for role in ("runtime", "worker", "python")
+                ]
+                if gate.name == "producer-deployment"
+                else [Path(deployment_env["PSE_PYTHON_DEPLOYMENT_ATTESTATION"])]
+            )
+            for artifact in artifacts:
+                if artifact.is_file():
+                    record["artifacts"][str(artifact.relative_to(output))] = (
+                        validation_receipts.digest(artifact)
+                    )
+                elif record["status"] == "passed":
+                    record["status"] = "failed"
+                    record["report_errors"].append(
+                        f"deployment step completed without {artifact.name}"
+                    )
+            if (
+                gate.name == "python-deployment-association"
+                and record["status"] == "passed"
+            ):
+                try:
+                    producer_deployment.validate_receipts(
+                        root,
+                        output / "deployment",
+                        expected_outer=observed_deployment_attestation(artifacts[0]),
+                    )
+                except (OSError, ValueError, KeyError, TypeError) as error:
+                    record["status"] = "failed"
+                    record["report_errors"].append(
+                        f"deployment association refused: {error}"
+                    )
         if gate.name == "producer-fixture" and record["status"] == "passed":
             artifact = output / "producer-fixture.json"
             if artifact.is_file():

@@ -273,16 +273,16 @@ pub(crate) fn engineering_rules(package: &crate::CheckedPackage) -> Result<Vec<E
         let resolved = scheme
             .resolve(&package.quantities, &Default::default())
             .map_err(|error| invalid(*marker, error.to_string()))?;
-        let quantity = package
-            .quantities
-            .quantity_type(resolved)
+        // Delta is the admitted full-contract subtraction Q - Q. Additive
+        // quantities (such as component flow) retain their ordinary scale kind;
+        // origin-sensitive points instead resolve to a distinct difference type.
+        let difference = Scheme::Delta(Box::new(Scheme::Concrete(resolved)))
+            .resolve(&package.quantities, &Default::default())
             .map_err(|error| invalid(*marker, error.to_string()))?;
-        if quantity.key.scale_kind != pse_quantity::ScaleKind::Difference
-            && !quantity.is_neutral_scalar(&package.quantities)
-        {
+        if difference != resolved {
             return Err(invalid(
                 *marker,
-                "engineering rule constant declares a physical difference type or dimensionless scalar",
+                "engineering rule constant declares its legal physical self-difference type",
             ));
         }
         let typed = package
@@ -1008,4 +1008,106 @@ pub(crate) fn target_type(
         }
     }
     crate::expression::infer(source, env, p, c, at, None)
+}
+
+#[cfg(test)]
+mod engineering_rule_tests {
+    use super::*;
+
+    fn checked_rule(quantity: &str, value: &str) -> Result<crate::CheckedPackage> {
+        let (registry, _) = crate::kernel_types::physical();
+        let preconditions = pse_quantity::PhysicalPreconditions::new(
+            pse_quantity::generated::standard_preconditions(),
+        )
+        .unwrap();
+        let text = format!(
+            "package p {{ constant allowance:{quantity}={value} provenance(s, role.given); annotation engineering_rule p.allowance; def Root {{}} }}",
+        );
+        crate::check(
+            &crate::kernel_types::try_source(&text)?,
+            &crate::TypeContext {
+                admissions: None,
+                formula_authority: None,
+                quantities: &registry,
+                preconditions: &preconditions,
+                scope: &crate::PhysicalScope::default(),
+            },
+        )
+    }
+
+    #[test]
+    fn engineering_rule_self_difference_preserves_complete_additive_and_affine_contracts() {
+        let (registry, names) = crate::kernel_types::physical();
+        let component = registry.quantity_type(names["ComponentFlow"]).unwrap();
+        assert_eq!(component.key.scale_kind, pse_quantity::ScaleKind::Point);
+        assert_eq!(
+            registry.kind(component.key.kind).unwrap().addition_kind,
+            pse_quantity::QuantityAdditionKind::Additive
+        );
+        assert_ne!(names["ComponentFlow"], names["Flow"]);
+        assert!(component.key.subject_kind.is_some());
+        assert!(component.key.basis.is_some());
+        for (declared, value, expected) in [
+            ("Delta<ComponentFlow>", "1{mol/s}", "ComponentFlow"),
+            ("Delta<Flow>", "1{mol/s}", "Flow"),
+            ("DeltaTemperature", "0.1{K}", "DeltaTemperature"),
+            ("Scalar", "0.001", "Scalar"),
+        ] {
+            let package = checked_rule(declared, value).unwrap();
+            let rules = engineering_rules(&package).unwrap();
+            assert_eq!(rules.len(), 1);
+            let rule = &rules[0];
+            let constant = package.names["p.allowance"];
+            assert_eq!(rule.id, constant.as_id());
+            assert_ne!(rule.marker.as_id(), rule.id);
+            assert_eq!(rule.quantity, package.types[&constant]);
+            assert_eq!(rule.value, package.constants[&constant].value);
+            let crate::specialize::Value::Number { quantity, .. } = &rule.value else {
+                panic!("an engineering rule must retain its admitted quantity value");
+            };
+            assert_eq!(*quantity, names[expected]);
+            assert_eq!(
+                rule.quantity
+                    .quantity_scheme()
+                    .unwrap()
+                    .resolve(&package.quantities, &Default::default())
+                    .unwrap(),
+                *quantity
+            );
+        }
+    }
+
+    #[test]
+    fn engineering_rule_self_difference_refuses_origin_sensitive_points_and_invalid_values() {
+        for (quantity, value) in [("Temperature", "1{K}"), ("Pressure", "1{Pa}")] {
+            let package = checked_rule(quantity, value).unwrap();
+            let error = engineering_rules(&package).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("legal physical self-difference type"),
+                "{error}"
+            );
+        }
+        for value in ["0{mol/s}", "-1{mol/s}"] {
+            let package = checked_rule("Delta<ComponentFlow>", value).unwrap();
+            let error = engineering_rules(&package).unwrap_err();
+            assert!(error.to_string().contains("finite and positive"), "{error}");
+        }
+        let package = checked_rule("Delta<ComponentFlow>", "1{mol/s} ± standard(0.1)").unwrap();
+        let error = engineering_rules(&package).unwrap_err();
+        assert!(error.to_string().contains("no uncertainty"), "{error}");
+        let mut package = checked_rule("Delta<ComponentFlow>", "1{mol/s}").unwrap();
+        let (_, names) = crate::kernel_types::physical();
+        let constant = package.names["p.allowance"];
+        package.constants.get_mut(&constant).unwrap().value = crate::specialize::Value::Number {
+            bits: 1.0_f64.to_bits(),
+            quantity: names["Flow"],
+        };
+        let error = engineering_rules(&package).unwrap_err();
+        assert!(
+            error.to_string().contains("matches its declared type"),
+            "{error}"
+        );
+    }
 }

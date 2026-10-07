@@ -114,6 +114,9 @@ def python_native_binary(environment: Mapping[str, str]) -> Path:
     return binary
 
 
+PYTHON_DEFAULT_SELECTION = ("-o", "testpaths=python/pse/tests")
+
+
 def worker_binary(extra: list[str], environment: Mapping[str, str]) -> Path:
     """Supply the actual child-process executable in the selected Cargo profile."""
     supplied = environment.get("PSE_WORKER_BINARY")
@@ -214,6 +217,10 @@ def main() -> int:
             environment=env,
         )
         validation.write_json(provenance, native)
+        if observed := env.pop("PSE_PYTHON_DEPLOYMENT_OBSERVATION_OUTPUT", None):
+            if Path(observed).exists():
+                raise ValueError("deployment observation output already exists")
+            env["PSE_PYTHON_DEPLOYMENT_ATTESTATION"] = observed
         # The running pytest session must consume the same imported extension.
         env["PSE_NATIVE_EXPECTED_BINARY"] = str(binary)
         env["PSE_NATIVE_EXPECTED_SHA256"] = native["files"][str(binary)]
@@ -224,7 +231,7 @@ def main() -> int:
             sys.executable,
             "-m",
             "pytest",
-            "python/pse/tests",
+            *PYTHON_DEFAULT_SELECTION,
             "-m",
             "unit or component or integration",
             "--maxfail=0",

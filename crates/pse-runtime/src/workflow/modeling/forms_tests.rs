@@ -6,7 +6,7 @@ use crate::math::solves::{NumericalInputs, Outcome};
 use crate::workflow::tests as fixture;
 use pse_backend_native::{
     ProblemError,
-    solve::{Backend, SolveIntent, SolverSelection},
+    solve::{Backend, Qualification, SolveIntent, SolverSelection},
 };
 use pse_compiler::workspace::ModelingCaseBindings;
 use pse_kernels::DerivativeOrder;
@@ -70,15 +70,92 @@ async fn prepare(
         )
         .await
 }
+/// Empirical objective comparisons at the selected production gap resolution.
+/// Native optimality qualification does not establish forward optimizer accuracy.
+struct ObjectiveAccuracy {
+    value: f64,
+    absolute: f64,
+    relative: f64,
+    global: bool,
+    integrality: f64,
+}
+impl ObjectiveAccuracy {
+    fn allowance(&self, expected: f64) -> f64 {
+        let magnitude = if self.global {
+            if self.value.signum() == expected.signum() {
+                self.value.abs().min(expected.abs())
+            } else {
+                0.
+            }
+        } else {
+            self.value.abs()
+        };
+        let allowance = self.absolute.max(self.relative * magnitude);
+        assert!(allowance.is_finite() && allowance > 0.);
+        allowance
+    }
+}
+fn objective_accuracy(result: &ModelingResult) -> ObjectiveAccuracy {
+    let Outcome::Native(native) = &result.outcome else {
+        panic!("expected native objective evidence")
+    };
+    let preparation = &result.prepared.solve;
+    let value = native.observation.as_ref().unwrap().objective.unwrap();
+    let accuracy = preparation.accuracy();
+    let (absolute, relative, global) = if let Some(gap) = native.evidence.global {
+        (gap.gap_absolute, gap.gap_relative, true)
+    } else {
+        let coefficient = native.evidence.coefficient.unwrap();
+        let scale = preparation
+            .numerics()
+            .targets
+            .iter()
+            .find(|target| target.kind == pse_model::generated::enums::NumericalTarget::Objective)
+            .unwrap()
+            .coordinate_scale;
+        if coefficient.discrete {
+            (
+                accuracy.mip_absolute_gap * scale,
+                accuracy.mip_relative_gap,
+                false,
+            )
+        } else {
+            assert_eq!(native.qualification, Qualification::OptimalWithinTolerance);
+            // HiGHS reports e = |p-d| / (1+|p|+|d|) in normalized coordinates.
+            // Its dual objective d is not retained. With D=|p-d| and |d|<=|p|+D,
+            // e<=r implies D<=r*(1+2*|p|)/(1-r). Convert that admitted metric
+            // resolution to original units; it is not a forward solution bound.
+            let primal = coefficient.objective.unwrap();
+            let error = coefficient.primal_dual_objective_error.unwrap();
+            let relative = accuracy.gap_relative;
+            assert!(primal.is_finite());
+            assert!(error.is_finite() && error >= 0. && error <= relative);
+            assert!(relative.is_finite() && relative >= 0. && relative < 1.);
+            let metric_allowance = relative * (1. + 2. * primal.abs()) / (1. - relative) * scale;
+            (
+                preparation.objective_accuracy().max(metric_allowance),
+                0.,
+                false,
+            )
+        }
+    };
+    ObjectiveAccuracy {
+        value,
+        absolute,
+        relative,
+        global,
+        integrality: accuracy.integrality,
+    }
+}
 /// Solve with automatic routing, require HiGHS and an accepted candidate, and return a report.
 async fn optimum(
     package: &ModelingPackage,
     root: DeclarationId,
     case: ModelingCaseBindings,
     report: &str,
-) -> f64 {
-    let [value] = optimal(package, root, case, [report]).await;
-    value
+) -> (f64, ObjectiveAccuracy) {
+    let ([value], accuracy) = optimal(package, root, case, [report]).await;
+    (value, accuracy)
 }
 /// Solve as [`optimum`] and return several reports, in the order requested.
 async fn optimal<const N: usize>(
@@ -86,7 +163,7 @@ async fn optimal<const N: usize>(
     root: DeclarationId,
     case: ModelingCaseBindings,
     reports: [&str; N],
-) -> [f64; N] {
+) -> ([f64; N], ObjectiveAccuracy) {
     optimal_on(package, root, case, reports, Backend::Highs).await
 }
 /// Solve with automatic routing, require `backend` and an accepted candidate, and return
@@ -98,7 +175,7 @@ async fn optimal_on<const N: usize>(
     case: ModelingCaseBindings,
     reports: [&str; N],
     backend: Backend,
-) -> [f64; N] {
+) -> ([f64; N], ObjectiveAccuracy) {
     let prepared = prepare(package, root, case, SolverSelection::Auto)
         .await
         .unwrap();
@@ -114,6 +191,14 @@ async fn optimal_on<const N: usize>(
         panic!("expected a native outcome: {:?}", result.outcome);
     };
     assert_eq!(native.backend, backend);
+    assert!(
+        matches!(
+            native.qualification,
+            Qualification::OptimalWithinTolerance | Qualification::GapQualified
+        ),
+        "{:?}",
+        native.qualification
+    );
     if backend == Backend::Highs {
         assert!(
             native
@@ -137,14 +222,15 @@ async fn optimal_on<const N: usize>(
         native.quality,
         native.metrics
     );
-    reports.map(|label| {
+    let values = reports.map(|label| {
         result
             .reports
             .iter()
             .find(|r| r.label == label)
             .unwrap()
             .value
-    })
+    });
+    (values, objective_accuracy(&result))
 }
 /// The typed routing refusal of a native realization, with the forms it names.
 fn native_refusal(error: &WorkflowError) -> String {
@@ -214,9 +300,10 @@ async fn gdp_hull_and_bigm_same_optimum() {
     for realization in ["hull", "bigm(derived)", "bigm(500{W})", "hull(0.0001)"] {
         let (package, root) = package(&GDP.replace("REALIZATION", realization)).await;
         for demand in [40.0, 60.0, 0.0] {
-            let cost = optimum(&package, root, case(&[("demand", demand)]), "cost").await;
+            let (cost, accuracy) =
+                optimum(&package, root, case(&[("demand", demand)]), "cost").await;
             assert!(
-                (cost - gdp_oracle(demand)).abs() < 1e-6,
+                (cost - gdp_oracle(demand)).abs() <= accuracy.allowance(gdp_oracle(demand)),
                 "{realization} at {demand}: {cost}"
             );
         }
@@ -273,7 +360,7 @@ async fn gdp_indicator_matches_hull() {
     // the hull reformulation's optimum on HiGHS at every demand.
     let (hull, hull_root) = self::package(&GDP.replace("REALIZATION", "hull")).await;
     for demand in [40.0, 60.0, 0.0] {
-        let [cost] = optimal_on(
+        let ([cost], accuracy) = optimal_on(
             &package,
             root,
             case(&[("demand", demand)]),
@@ -281,12 +368,17 @@ async fn gdp_indicator_matches_hull() {
             Backend::Scip,
         )
         .await;
-        let reference = optimum(&hull, hull_root, case(&[("demand", demand)]), "cost").await;
+        let (reference, reference_accuracy) =
+            optimum(&hull, hull_root, case(&[("demand", demand)]), "cost").await;
         assert!(
-            (cost - reference).abs() < 1e-6,
+            (cost - reference).abs()
+                <= accuracy.allowance(reference) + reference_accuracy.allowance(cost),
             "{demand}: {cost} vs {reference}"
         );
-        assert!((cost - gdp_oracle(demand)).abs() < 1e-6, "{demand}: {cost}");
+        assert!(
+            (cost - gdp_oracle(demand)).abs() <= accuracy.allowance(gdp_oracle(demand)),
+            "{demand}: {cost}"
+        );
     }
 }
 
@@ -350,7 +442,7 @@ async fn derived_big_m_follows_value_only_bindings() {
         // The small unit serves 60 W only when its limit admits it.
         let expected = if limit >= 60.0 { 22.0 } else { 36.0 };
         assert!(
-            (cost.value - expected).abs() < 1e-6,
+            (cost.value - expected).abs() <= objective_accuracy(result).allowance(expected),
             "{limit}: {}",
             cost.value
         );
@@ -422,22 +514,29 @@ async fn indicator_linear_lowering_matches_native() {
                 .await
                 .unwrap();
             assert!(result.accepted, "{:?}", result.validation_error);
-            branches.push(
-                result
-                    .reports
-                    .iter()
-                    .find(|r| r.label == "net")
-                    .unwrap()
-                    .value,
-            );
+            let value = result
+                .reports
+                .iter()
+                .find(|r| r.label == "net")
+                .unwrap()
+                .value;
+            let expected = if on == 0. { 0. } else { 80. - charge };
+            assert!((value - expected).abs() <= objective_accuracy(&result).allowance(expected));
+            branches.push((value, objective_accuracy(&result)));
         }
         // Off forces x to zero; on admits x up to 80 W.
-        assert!(branches[0].abs() < 1e-6 && (branches[1] - (80.0 - charge)).abs() < 1e-6);
-        let [net, on] = optimal(&linear, root, case(&[("charge", charge)]), ["net", "on"]).await;
-        let best = branches.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-        assert!((net - best).abs() < 1e-6, "{charge}: {net} vs {best}");
+        let ([net, on], accuracy) =
+            optimal(&linear, root, case(&[("charge", charge)]), ["net", "on"]).await;
+        let (best, branch_accuracy) = branches.iter().max_by(|a, b| a.0.total_cmp(&b.0)).unwrap();
+        assert!(
+            (net - best).abs() <= accuracy.allowance(*best) + branch_accuracy.allowance(net),
+            "{charge}: {net} vs {best}"
+        );
         let running = if charge < 80.0 { 1.0 } else { 0.0 };
-        assert!((on - running).abs() < 1e-6, "{charge}: on = {on}");
+        assert!(
+            (on - running).abs() <= accuracy.integrality,
+            "{charge}: on = {on}"
+        );
     }
     // The native realization keeps the authored rows with their indicator metadata.
     let (native, root) = scip_package(&INDICATOR.replace(
@@ -489,7 +588,7 @@ async fn indicator_linear_lowering_matches_native() {
     .unwrap();
     assert!(native_refusal(&error).contains("indicator"), "{error}");
     for charge in [20.0, 50.0, 90.0] {
-        let [net, on] = optimal_on(
+        let ([net, on], accuracy) = optimal_on(
             &native,
             root,
             case(&[("charge", charge)]),
@@ -497,15 +596,21 @@ async fn indicator_linear_lowering_matches_native() {
             Backend::Scip,
         )
         .await;
-        let [lowered, lowered_on] = optimal(
+        let ([lowered, lowered_on], lowered_accuracy) = optimal(
             &linear,
             linear_root,
             case(&[("charge", charge)]),
             ["net", "on"],
         )
         .await;
-        assert!((net - lowered).abs() < 1e-6, "{charge}: {net} vs {lowered}");
-        assert!((on - lowered_on).abs() < 1e-6, "{charge}: on = {on}");
+        assert!(
+            (net - lowered).abs() <= accuracy.allowance(lowered) + lowered_accuracy.allowance(net),
+            "{charge}: {net} vs {lowered}"
+        );
+        assert!(
+            (on - lowered_on).abs() <= accuracy.integrality + lowered_accuracy.integrality,
+            "{charge}: on = {on}"
+        );
     }
 }
 
@@ -537,9 +642,9 @@ async fn piecewise_sos2_matches_incremental() {
     for realize in ["", "realize r on curve using incremental;"] {
         let (package, root) = package(&PIECEWISE.replace("REALIZE", realize)).await;
         for at in [20.0, 25.0, 7.5] {
-            let y = optimum(&package, root, case(&[("at", at)]), "y").await;
+            let (y, accuracy) = optimum(&package, root, case(&[("at", at)]), "y").await;
             assert!(
-                (y - interpolate(at)).abs() < 1e-6,
+                (y - interpolate(at)).abs() <= accuracy.allowance(interpolate(at)),
                 "{realize:?} at {at}: {y}"
             );
         }
@@ -563,8 +668,8 @@ const SOS: &str = "package p { entity kind source provenance { attribute title: 
 async fn native_only_realization_refused_on_highs() {
     // The linear SOS1 lowering admits one nonzero member: the best is 3 × 4 W.
     let (linear, root) = package(&SOS.replace("REALIZE", "")).await;
-    let value = optimum(&linear, root, case(&[]), "value").await;
-    assert!((value - 12.0).abs() < 1e-6, "{value}");
+    let (value, accuracy) = optimum(&linear, root, case(&[]), "value").await;
+    assert!((value - 12.0).abs() <= accuracy.allowance(12.), "{value}");
     let (native, root) =
         scip_package(&SOS.replace("REALIZE", "realize r on pick using native;")).await;
     let error = prepare(
@@ -581,8 +686,13 @@ async fn native_only_realization_refused_on_highs() {
         "{error}"
     );
     // Automatic routing selects SCIP's SOS1 handler, which agrees with the lowering.
-    let [native_value] = optimal_on(&native, root, case(&[]), ["value"], Backend::Scip).await;
-    assert!((native_value - value).abs() < 1e-6, "{native_value}");
+    let ([native_value], native_accuracy) =
+        optimal_on(&native, root, case(&[]), ["value"], Backend::Scip).await;
+    assert!(
+        (native_value - value).abs()
+            <= native_accuracy.allowance(value) + accuracy.allowance(native_value),
+        "{native_value}"
+    );
 }
 
 #[tokio::test]
@@ -618,6 +728,7 @@ async fn authored_gdp_fixture_selects_the_enumerated_alternative() {
         include_str!("../../../../../packages/reference/seed-data/models/gdp.pse"),
         include_str!("../../../../../packages/reference/data/references/models/references.pse"),
         include_str!("../../../../../packages/reference/domain/models/provenance.pse"),
+        include_str!("../../../../../packages/reference/domain/models/numerical-policy.pse"),
         include_str!("../../../../../packages/reference/domain/models/properties.pse"),
         include_str!("../../../../../packages/reference/domain/models/constants.pse"),
         include_str!("../../../../../packages/reference/physical/models/chemistry.pse"),
@@ -805,8 +916,11 @@ async fn disjunctive_complementarity_refused_on_highs() {
         "{error}"
     );
     // Automatic routing selects SCIP's SOS1 handler.
-    let [a, b] = optimal_on(&native, root, case(&[]), ["a", "b"], Backend::Scip).await;
-    assert!(a.abs() < 1e-6 && (b - 0.7).abs() < 1e-6, "a={a} b={b}");
+    let ([a, b], accuracy) = optimal_on(&native, root, case(&[]), ["a", "b"], Backend::Scip).await;
+    assert!(
+        a.abs() <= accuracy.allowance(0.7) && (b - 0.7).abs() <= accuracy.allowance(0.7),
+        "a={a} b={b}"
+    );
 }
 
 /// ADR-0104 §5, ADR-0109 and finding T14: an authored `penalty(l1)` realization is the

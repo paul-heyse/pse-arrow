@@ -144,4 +144,6 @@ def test_authored_recycle_uses_declared_ports_and_owned_results(
     assert attempt is not None
     assert row.failure is None
     assert attempt.qualification == "feasible"
-    assert dict(attempt.primal())[inlet.id] == pytest.approx(4.0, abs=1e-6)
+    assert dict(attempt.primal())[inlet.id] == pytest.approx(
+        4.0, rel=settings.numerics.engineering_relative_fraction, abs=0.0
+    )

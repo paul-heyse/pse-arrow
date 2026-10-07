@@ -557,11 +557,165 @@ class ValidationTests(unittest.TestCase):
         gates = {gate.name: gate for gate in comprehensive("producer")}
         self.assertEqual(gates["py-sync-native"].args, ("producer",))
         self.assertEqual(gates["py-sync-native"].profile, "producer")
-        self.assertEqual(gates["native-python"].dependencies, ("py-sync-native",))
         self.assertEqual(
-            gates["native-test"],
-            next(g for g in comprehensive() if g.name == "native-test"),
+            gates["native-python"].dependencies,
+            ("py-sync-native", "python-deployment-association"),
         )
+        self.assertEqual(
+            gates["native-test"].args,
+            next(g for g in comprehensive() if g.name == "native-test").args,
+        )
+        self.assertEqual(
+            gates["native-test"].profile,
+            next(g for g in comprehensive() if g.name == "native-test").profile,
+        )
+
+    def test_producer_deployment_is_ordered_after_install_before_consumers(
+        self,
+    ) -> None:
+        gates = comprehensive("producer")
+        positions = {gate.name: index for index, gate in enumerate(gates)}
+        for prerequisite, consumer in (
+            ("py-sync-native", "producer-deployment"),
+            ("producer-deployment", "python-deployment-association"),
+            ("python-deployment-association", "native-test"),
+            ("python-deployment-association", "native-python"),
+        ):
+            self.assertLess(positions[prerequisite], positions[consumer])
+            self.assertIn(prerequisite, gates[positions[consumer]].dependencies)
+        self.assertNotIn("producer-deployment", {gate.name for gate in comprehensive()})
+
+    def test_deployment_step_cannot_pass_without_current_artifacts(self) -> None:
+        real = validation.execute
+
+        def child(
+            root: Path, output: Path, name: str, command: list[str], env: dict[str, str]
+        ) -> dict:
+            del command
+            return real(root, output, name, [sys.executable, "-c", "pass"], env)
+
+        with patch.object(validation, "execute", side_effect=child):
+            self.assertEqual(
+                validation.run_gates(
+                    self.root,
+                    self.output,
+                    [
+                        Gate("producer-deployment"),
+                        Gate("consumer", dependencies=("producer-deployment",)),
+                    ],
+                    capture=False,
+                ),
+                1,
+            )
+        receipt = json.loads((self.output / "checks.json").read_text())
+        self.assertEqual(
+            [item["status"] for item in receipt["checks"]], ["failed", "blocked"]
+        )
+        self.assertIn("without runtime.json", receipt["checks"][0]["report_errors"][0])
+
+    def test_deployment_prerequisites_require_fresh_execution(self) -> None:
+        for name in ("producer-deployment", "python-deployment-association"):
+            for mode in ("reuse", "transfer"):
+                with (
+                    self.subTest(name=name, mode=mode),
+                    self.assertRaisesRegex(ValueError, "require fresh execution"),
+                ):
+                    validation.run_gates(
+                        self.root,
+                        self.output,
+                        [Gate(name)],
+                        capture=False,
+                        reuse_from=self.root / "prior",
+                        reuse=(name,) if mode == "reuse" else (),
+                        transfer=(name,) if mode == "transfer" else (),
+                    )
+
+    def test_review_context_contents_enter_deployment_input_identity(self) -> None:
+        context = self.root / "review.json"
+        key = "PSE_RUNTIME_PRODUCER_DECLARATIONS"
+        context.write_text('{"native_abi":"first"}')
+        before = validation.relevant_environment({key: str(context)})
+        context.write_text('{"native_abi":"changed"}')
+        after = validation.relevant_environment({key: str(context)})
+        self.assertNotEqual(
+            validation.input_identity("deployment-capture", {}, before),
+            validation.input_identity("deployment-capture", {}, after),
+        )
+        source = {"scripts/producer_deployment.py": "changed"}
+        self.assertEqual(
+            validation.input_identity("deployment-capture", source, {})["files"], source
+        )
+
+    def test_reused_fixture_consumer_uses_verified_origin(self) -> None:
+        origin = self.root / "prior"
+        observed = {}
+        real = validation.execute
+
+        def child(
+            root: Path, output: Path, name: str, command: list[str], env: dict[str, str]
+        ) -> dict:
+            del command
+            observed.update(env)
+            return real(root, output, name, [sys.executable, "-c", "pass"], env)
+
+        retained = {
+            "gate": "producer-fixture",
+            "origin": str(origin),
+            "status": "passed",
+            "exit_code": 0,
+            "elapsed_seconds": 0,
+            "log": "fixture.log",
+            "results": [],
+            "report_errors": [],
+        }
+        with (
+            patch.object(validation_receipts, "digest", return_value="hash"),
+            patch.object(validation_receipts, "reuse_checks", return_value=[retained]),
+            patch.object(validation, "execute", side_effect=child),
+        ):
+            validation.run_gates(
+                self.root,
+                self.output,
+                [
+                    Gate("producer-fixture"),
+                    Gate("consumer", dependencies=("producer-fixture",)),
+                ],
+                capture=False,
+                reuse_from=origin,
+                reuse=("producer-fixture",),
+            )
+        self.assertEqual(
+            observed["PSE_PRODUCER_FIXTURE_RECEIPT"],
+            str(origin / "producer-fixture.json"),
+        )
+
+    def test_association_observation_is_output_until_python_emits_header(self) -> None:
+        real = validation.execute
+        observed = {}
+
+        def child(
+            root: Path, output: Path, name: str, command: list[str], env: dict[str, str]
+        ) -> dict:
+            del command
+            observed.update(env)
+            return real(root, output, name, [sys.executable, "-c", "pass"], env)
+
+        gates = [
+            Gate("producer-deployment"),
+            Gate("python-deployment-association", recipe="native-python"),
+        ]
+        with patch.object(validation, "execute", side_effect=child):
+            self.assertEqual(
+                validation.run_gates(self.root, self.output, gates, capture=False), 1
+            )
+        self.assertNotIn("PSE_PYTHON_DEPLOYMENT_ATTESTATION", observed)
+        self.assertTrue(
+            observed["PSE_PYTHON_DEPLOYMENT_OBSERVATION_OUTPUT"].endswith(
+                "python-attestation.json"
+            )
+        )
+        receipt = json.loads((self.output / "checks.json").read_text())
+        self.assertEqual(receipt["checks"][1]["status"], "failed")
 
     def test_native_fixture_precedes_every_fixture_receipt_consumer(self) -> None:
         gates = comprehensive("producer")

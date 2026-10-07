@@ -159,7 +159,7 @@ hydrated the same case and overlay demands, requesting equivalent body publicati
 numerical assignments differed. Exact retained products already settle before redundant
 staging in the current source. The correction retains one scoped structural basis, validates every
 physical binding against the original operation closure and drops that basis on structural
-changes. The original 1,000-point journey must complete under the same capped profile;
+changes. The original 1,000-point journey must complete under the selected workstation profile below;
 source inspection does not identify the server allocator or establish a performance gain.
 Cancellation settlement, staging close replay and competing identical source publishers
 also exposed lifecycle defects requiring owning pipeline corrections. Source publishers
@@ -187,7 +187,7 @@ Refresh and associate actual runtime, worker and installed Python artifacts unde
 producer profile before persisted reuse acceptance. The installed extension and previous
 captures predate these repairs, so their refresh remains a real deployment prerequisite.
 Set up the selected initialized
-supervised state and eligible inspection publication through the owning recipes. A fixture
+supervised state and actual deployment captures through the owning recipes. A fixture
 receipt, old installed binary or current git HEAD is insufficient. Reconcile manifest runner
 prerequisites and obsolete recipe references at their owners; no new evidence wrapper is needed.
 
@@ -202,7 +202,7 @@ Old pre-pivot Plan 25/27 passes and three smoke cases do not replace this campai
 
 Use `just assessment-list` to confirm the current gate surface, then the selected assembled
 `just assessment <output> --python-profile producer` with its refreshed linked Python
-and inspection prerequisites, `just seed-conformance` for the current reference manifest, and
+and ordered deployment prerequisites, `just seed-conformance` for the current reference manifest, and
 `just parity` scope named in the verification section. A standalone
 `just native-python <output>` is for a deliberately separate selected Python campaign
 or an affected rerun; do not execute the same integrated scope twice.
@@ -331,6 +331,132 @@ generic search/MCP work needs a concrete new requirement; it is not hidden accep
 
 ## Checkpoint and next step
 
+### Efficiency review handoff, 2026-10-07
+
+The maintainer redirected execution to the [production execution efficiency review](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md)
+because of the long native run, then selected stopping and preserving the owned runner.
+The selected SurrealDB server, resource profile and dirty implementation remain preserved.
+E3 is interrupted and incomplete; E4 measurements and E5 assembled acceptance remain pending.
+The review is a separate design assessment, not the E5 completion review.
+
+**Tested, partial preserved campaign; baseline zero:**
+`build/assessment/plan28-qualified-resumed-20261007/checks.json` records 39 positive gates,
+one interrupted native gate and one not-run full Python gate. Thirty-seven positive gates
+were explicitly transferred from the reviewed prior evidence; current runtime/worker producer
+deployment and imported-Python association were executed against their actual captured artifacts.
+The native command `just native-test --profile local --config-file <run>/native-test-nextest.toml`
+selected 2,821 tests in native force-validation mode: 2,425 passed, one was aborted by the
+requested SIGTERM, and 395 did not run. That abort is not a discovered scientific failure.
+The report records unchanged source during execution. Its 1,793.689-second native-gate duration
+includes the logged 4 minute 11 second build; individual test times include fixture and teardown.
+The review's [preserved execution evidence](../design_review/evidence/production-execution-efficiency-2026-10-07/execution-baseline.md)
+states the attribution limits. These are incomplete campaign observations, not a full pass or
+new production performance qualification.
+
+Review findings and rule impacts first go through detailed corrective plan creation at the
+[coordinator](28-surrealdb-unified-substrate.md#finding-dispositions). Production remedies,
+accuracy changes and qualification resumption are not performed by this review. After that
+scope decision and its functional handoff, resume affected correctness/deployment journeys and
+E4/E5 under this existing owner. Keep valid earlier evidence at its original scope; a capture-only
+repair does not itself justify repeating the completed series. The earlier continuation notes
+below describe the work leading to this handoff.
+
+The maintainer committed and pushed the correction baseline as `219338742` before this
+continuation. Execution implements the bounded refinements agreed in the plan-execution
+discussion: explicit awaited fixture finalization, stopped/drained resource-only supervisor
+reconfiguration, and ordered producer capture and imported Python association after
+installation. Ordinary scientific controls retain production accuracy; original PR,
+recycle and conformance journeys precede the stable deployment handoff.
+The derived/multistart/PETSc and durable-runtime selection is now positive. The PR
+diagnostic dropped the admitted compiler policy in its independent primitive checks;
+the correction restores that policy and keeps diagnostic admission through native
+teardown and returned-buffer lifetime. The current original recycle now retains a feasible stationary native candidate without
+commit because original connection closures still refuse it. The refused checks are raw Power/W differences of transported `flow*h`; their
+folded 1 W allowances are not guaranteed by primitive-field native feasibility.
+Source diagnosis found that lowering erased the distinction between a marked shared rule
+and an explicit tolerance, and original closure assessment bypassed contextual resolution.
+The correction preserves both endpoint obligations, resolves their full physical quantities
+through the production policy, and retains the tighter endpoint budget. Meaningful frozen
+engineering context is authored separately from solved trial values; explicit literals remain
+explicit. Native success remains insufficient for original physical acceptance. Bounded runner review exposed option values being
+mistaken for Python test selectors and deployment prerequisites being retained without
+current artifact paths/input coverage. The wrappers now separate positional selectors;
+deployment capture and imported association require fresh execution, while retained
+fixture consumers use their verified origin. Pytest owns positional/default selection
+through its `testpaths` setting; both wrappers remove their bespoke option parsers.
+Reviewed declaration/list files enter
+the deployment input identity. Conformance qualification also explicitly checks requested
+native route identity and original-feasible stationary PC-SAFT outcomes rather than a
+scalar alone. Its pressure-consistent intermediate solve preserves the original final
+free composition; qualified negative local tangent-plane distance retains scientific
+model-check refusal, rather than a false zero/stability premise.
+The maintainer clarified that historical scientific output comparisons must tolerate
+analytically insignificant variation. Empirical comparisons now consume shared authored
+physical resolutions or their authored expectation checks; variable-bound feasibility
+allowances do not establish forward output accuracy. Discretized optimizers retain
+original physical checks and production optimality evidence, without asserting unrequested
+exact optimizer coordinates. The correction aligns 236 historical expectations across 14
+authored seed models with that basis, preserving their values and equations. Partial fixture
+loaders now include the policy package. Ordinary Python candidate comparisons and parity
+parameter estimates consume their execution policy; exact identity, storage, fixed-input
+and mathematical-mechanism checks keep their distinct obligations. Source diagnosis also
+found that the shared physical constants had no package-level engineering-rule markers:
+output expectations used the physical floors, while production admission could still fall
+back to 0.001 canonical units, including Pa. The 16 existing constants now declare those
+markers, with no value changes or second policy. The actual physical admission control
+then exposed a second defect: selected package acquisition omits anonymous engineering-rule
+annotations, so the markers failed to reach the solver. The bounded package frontier
+now acquires these semantic dependencies and their referenced constants,
+without hydrating unrelated package members. Physical admission controls require the actual
+temperature, density, pressure and power rules on the original solver targets.
+The acquired markers were also being dropped by the checked-package projection; both
+frontiers now retain the same typed package marker and its constant/provenance closure.
+Actual source admission now reaches the shared rules. The legal self-difference guard
+now admits additive `ComponentFlow` by its complete resolved quantity identity while
+refusing origin-sensitive temperature and pressure points. The canonical control distinguishes
+unchanged authoritative rows from parsed package edits: reparsing changes source provenance
+and correctly invalidates exact reuse, even when the selected extent stays bounded. Marker
+add/remove and unrelated typed-row extension preserve existing rows to isolate dependency-local
+reuse and absence evidence. Their actual runtime validation is positive.
+Canonical modeling context v2 explicitly refuses reopening revisions staged under the
+older marker metadata; restaging the authored source supplies the current interpretation.
+The store schema and retained result codec are unchanged. This clean-rebuild cutover has
+one reader and does not reinterpret old selected-source dependencies as current ones.
+The PR Second diagnostic now checks the canonical linear systems production assembles,
+exact mirrored output and separately expanded defining equations with all contraction
+terms in the backward-error denominator. It retains the production budget rather than
+treating a differently re-summed, nearly cancelled RHS as an actual solved linear system.
+The current production-basis PR execution is positive. Contextual closure preparation,
+including actual reference transport obligations, is now positive; the affected native
+recycle and conformance executions follow that handoff. The isolated selected-profile recovery journey is
+positive, including drained resource reconfiguration and observed kernel memory caps.
+The ongoing conformance selection passed all nine flash realizations, then exposed
+another invalid continuous-optimum comparison in the finite Radau QP. Its correction
+checks the actual submitted objective, original physical equations and retained
+optimality evidence; the independent continuous integration checks remain. Flash
+comparisons now read the resolved shared rule's physical floor with full quantity,
+unit and rule identity checks, avoiding repeated scalar preparation. The penalty
+route executes the same preparation whose structural requirement was inspected.
+Bounded original-check values and closure inventory are retained in each refused
+strategy cause before a later recovery candidate can replace it. The completed affected conformance selection passed both finite dynamic optimization
+controls. Physical NLP stopped during preparation because its Power rule had no admitted
+closure target; PC-SAFT reached native success in six iterations but original KKT refused
+missing reactions on two eliminated fixed-temperature coordinates. These source-grounded
+corrections precede another affected scientific execution and do not establish assembled
+qualification.
+The retained PC-SAFT restoration failure drives two further frontend corrections: nominal
+row characterization must preserve equality-bound coordinates (280 K must not become a
+fallback 1 K), and requested affine preprocessing needs independent row evidence even
+when an explicitly selected nonlinear adapter does not request whole-problem coefficient
+classification. Original feasibility, scientific checks and KKT remain required; the current PC-SAFT execution now provides native convergence evidence, while original
+KKT qualification remains under correction. The pinned affine wrapper omits reactions for
+eliminated fixed columns. Recovery now completes only those declared equality-bound
+reactions in original physical units, using the existing Lagrangian derivative owner and
+counted callbacks; it changes neither primal values nor surviving-coordinate multipliers.
+Earlier successful capture/import controls retain their original artifact scope and do not
+qualify the new binaries. E3 remains the sole assembled campaign, followed by all 22 E4
+selectors and E5 acceptance. No old-storage or distinct CI campaign is added.
+
 E1/E2 are active under the full-scope 2026-10-06 authorization. The native registry,
 scientific physical fixture, public contract documents, Python contracts and exact native
 schema have been regenerated through their owners. Pure contract generation avoids solver
@@ -434,9 +560,58 @@ production stationarity and complementarity conditions. Their independent convex
 comparison follows the bound composed from those admitted conditions; the raw Objective
 allowance is not treated as a certified optimum-gap promise. Shooting publication uses
 the compiler's typed member-output identities. These corrections preserve production
-tolerances; assembled qualification and the remaining scientific reruns are still pending.
+tolerances. The affected contextual preparation, native recycle, PC-SAFT and physical NLP
+controls are now positive, as are the current worker journeys and local parity. Remaining
+execution is fresh actual producer captures and installed Python association, then the stable assembled
+E3 campaign and current seed conformance. E4's 22 selectors and build measurements follow
+positive E3; final independent E5 acceptance, finding reconciliation and decision/design
+adoption remain afterward. The current scope-end checks are a repaired composite, recorded
+in the Outcome, and do not replace those remaining obligations.
 
 ## Outcome (recorded after implementation)
+
+**Tested (2026-10-07 current continuation, baseline zero):** the serial local
+`just unit-native-package pse-tests-conformance pse-tests-conformance/native-acceptance`
+selection for flash, finite dynamic optimization, PR/PC-SAFT instability, native recovery,
+physical NLP and vessel fitting completed 7/7: four passed and three failed. All nine flash
+realizations, PR instability, native recovery and vessel fitting passed. The failed dynamic
+assertion compared a finite Radau optimum to a continuous-control optimum; PC-SAFT retained
+an unqualified restoration failure; physical admission exposed the missing selected-source
+engineering rule. The current assertion and frontend repairs postdate that binary and need
+their own execution. This completed diagnostic run does not establish E3.
+
+**Tested (2026-10-07 frontend correction, baseline zero):** serial local
+`just unit-native-package` controls passed 4/4 in `pse-math` for independent affine rows,
+stale assumptions, cancellation, proof work and retained class evidence; 1/1 in
+`pse-compiler` for opaque neighbors and original guarded execution; and 2/2 in
+`pse-modeling` for selected engineering-rule constants and provenance. The native runtime
+controls for explicit Ipopt Auto-versus-Off affine elimination, old-context refusal and
+existing selected-growth bounds passed. The equality-bound nominal characterization
+control passed its corrected standalone selection. All used explicit relation
+force-validation and recipe-owned native environment; compiler free-value, constant
+provenance, square-system and requested-path fixture premises were corrected before
+the corresponding positive executions. A further `pse-modeling` selection passed 2/2
+legal self-difference controls, including full quantity identity, origin-sensitive refusal,
+positivity, uncertainty and value/type mismatch. The corrected canonical rule-reuse runtime
+control passed 1/1, including admitted typed rules, exact marker absence/presence, source-span
+invalidation and unrelated authoritative-row reuse. Affected scientific journeys remain
+in execution. These controls do not establish E3.
+
+**Interface-checked (2026-10-07 bounded independent source review):** the 14 changed
+historical fixture files, shared engineering-rule markers, legal self-difference admission
+and resolved physical-floor helper had no material findings. The review checked distinct
+flow/density/basis and point/difference contracts, exact rule/unit identity, and remaining
+fixed-value, synthetic and analytic-identity comparisons. It performed no scientific
+execution and does not establish E3 or E5.
+
+**Tested (2026-10-07 current scientific correction, baseline zero):** the serial local
+`just unit-native-package pse-runtime pse-runtime/native-solvers,pse-runtime/canonical-tests`
+selection completed 3/3 with explicit relation force-validation: MILP routing passed
+(18.803 s), original PR production-basis derivative conditions passed (377.234 s), and
+original recycle initialization failed (290.042 s). Recycle retained native Success,
+Stationary qualification and feasible physical quality, but six original connection
+closure checks refused its final candidate; no stage was committed. Closure-policy
+composition is under source diagnosis. This is focused evidence, not E3.
 
 ### What was built
 
@@ -445,6 +620,60 @@ and Python consumers, retirement of the PostgreSQL/Delta production mechanisms a
 scoped native capability setup, unchanged-output timestamp preservation and narrower
 workspace-hack attachment. Actual DataFusion planning/predicate/provider consumers and
 Arrow/Parquet scientific boundaries remain. Measurement fixtures drain their isolated owners.
+
+**Tested (2026-10-06 current continuation, baseline zero):**
+`just unit-native-package pse-operations
+'pse-operations/canonical-tests,pse-operations/test-support'
+'test(canonical_results_server_unit) | test(testing::canonical_server_unit)' --profile local`
+passed 8/8, including awaited fixture removal after cancelled, panicking and failed
+release. `just unit-native-package pse-runtime
+'pse-runtime/native-solvers,pse-runtime/canonical-tests'` with the derived, multistart,
+PETSc and two canonical durable-result selectors passed 37/37 in 376.665 seconds.
+Both used the selected 32 GiB supervised profile, serial Nextest scheduling and explicit
+relation force-validation. `.venv/bin/python -m unittest
+scripts.tests.test_surreal_server scripts.tests.test_validation
+scripts.tests.test_execution_contracts scripts.tests.test_producer_deployment
+scripts.tests.test_native_tests` passed 108/108, including two real installed-pytest
+collection controls in disposable directories. Supervisor and capture unit controls
+use mocked process/build observations; they do not qualify actual server reconfiguration
+or installed deployment association. The original PR/recycle selection failed 2/2:
+PR stopped at a scratch limit before derivative qualification, and recycle retained an
+infeasible tear candidate. PR's policy/resource-lifetime correction requires a rerun;
+recycle diagnosis remains open. These initial resource corrections did not change production
+accuracy. The later source correction activates the existing shared physical thresholds as
+engineering floors; their numerical values remain unchanged.
+
+**Tested (2026-10-06 current continuation, baseline zero):**
+`just unit-native-package pse-runtime
+'pse-runtime/native-solvers,pse-runtime/canonical-tests'
+'test(modeling::forms_tests::) | test(modeling::global_tests::) |
+test(pr_jacobian_tests::) | test(recycle_tests::)' --profile local`
+completed 21/21 selected controls in 1,331.193 seconds: 19 passed and two failed.
+The original PR case reached its Second derivative diagnostic, exposing the
+cancellation-sensitive reversed-pair assertion corrected in current source. The
+positive recycle failed original-stage qualification; the overheated refusal control
+passed. The retained initial numerical convergence and subsequent infeasible recovery
+are mechanisms within the same tear-stage attempt, not an accepted preceding stage.
+The changed PR assertion and recycle pipeline still require positive execution.
+`just unit-native-package pse-compiler pse-relations/force-validate
+'test(scientific_costing_)' --profile local` passed 2/2, exercising the corrected
+partial-package policy import. These runs used serial local scheduling and explicit
+force-validation; the ordinary compiler launcher had first failed to load the
+required licensed native environment and is not recorded as a pass.
+
+**Tested (2026-10-06 current continuation, baseline zero):**
+`just python-runner-unit-test` passed 2/2 under the default Nextest profile with
+explicit relation force-validation. `just canonical-recovery-test --profile-state
+<selected-state>` passed the isolated native journey using the selected 32 GiB joint
+allocation (16 GiB server, two 8 GiB worker slots). It exercised acknowledged-write
+SIGKILL/reopen, stopped/drained server-cap reconfiguration from 16 to 8 GiB and back,
+observed actual cgroup memory caps, unchanged identity/credentials, exact retained
+source/product bytes, large staging, and gated offline backup/restore. The selected
+deployment itself was only read as the fixture's profile source. The comparison repairs
+compile through `PSE_NEXTEST_ACTION=list just unit-native-package
+pse-tests-conformance pse-tests-conformance/native-acceptance` with the complementarity,
+dynamic-optimization and instability selectors; compilation is not a positive test result.
+Affected scientific reruns and assembled E3 qualification remain pending.
 
 **Tested (2026-10-06):** targeted engine cache-family controls passed 8/8 through
 `just unit-package pse-engine 'test(cache_service::tests::)'` with explicit force-validation;
@@ -506,6 +735,12 @@ dependency/selection edits. Full E3 and E4 remain pending.
 
 ### A mistake made and corrected
 
+Package-wide numerical meaning was missing from both bounded source acquisition and the
+subsequent checked-package projection. Seeing constants in historical output checks did
+not establish production rule admission. Both frontiers now use one typed marker classifier;
+actual rule identity, complete quantity, provenance and reuse invalidation are tested at
+the consumed boundary.
+
 Conventional library capture did not model Maturin's actual Cargo rustc selection or editable
 RPATH transformation. The tool now selects the observed manifest/lib route; installed-artifact
 association also accounts for the source-backed metadata transformation. Cargo's cleanup
@@ -518,3 +753,135 @@ Retain DataFusion only for its actual native relational consumers; persistence a
 queries use the canonical substrate. Producer capture uses its separate inheriting profile
 and direct owning launcher without moving the checkout target directory. No measured speedup
 or full-series acceptance follows from these structural and focused observations.
+
+
+**Tested (2026-10-07 fixed-bound recovery, baseline zero):**
+`NEXTEST_TEST_THREADS=1 just unit-native-package pse-backend-native pse-backend-native/native-solvers 'test(fixed_reactions)' --profile local`
+passed 4/4 controls (537 skipped), including actual native Ipopt original KKT qualification.
+Manufactured controls exercise signs, maximization, normalization, disabled preprocessing,
+missing/invalid duals, unchanged free-coordinate residuals and derivative refusal.
+This focused result does not establish the affected PC-SAFT regression or assembled E3.
+
+**Tested (2026-10-07 affected conformance selection, baseline zero):** the local native
+selection of physical NLP, PC-SAFT, finite dynamic QP and discrete dynamic MIQP completed
+4 tests: 2 passed and 2 failed (63 skipped). Both finite dynamic controls passed. Physical
+NLP failed its preparation policy-admission assertion; PC-SAFT reached native success but
+failed original stationarity because fixed-coordinate reactions were absent. These failures
+drive the closure-target and fixed-bound recovery corrections, respectively. E3 remains open.
+
+
+**Tested (2026-10-07 closure intent, baseline zero):**
+`NEXTEST_TEST_THREADS=1 just unit-native-package pse-modeling pse-relations/force-validate 'test(process_contract_contextual_closure_)' --profile local`
+passed 6/6 controls (261 skipped) after repairing two new fixture setup errors: provenance
+injection spelling and a material state missing its required transport observation. The
+controls retain both endpoints, distinguish marked rules from identical explicit literals,
+preserve accumulator/reconstruction/inventory intent and refuse missing or invalid resolved
+assessment budgets. No production admission was weakened for those fixture repairs.
+
+**Implemented:** the authored recycle study now supplies optional frozen transport
+characteristics from feed capacity, its existing purge and tear fraction, and per-species
+liquid/vapor enthalpy differences over the shared property validity interval. The largest
+within-species endpoint difference includes phase change without using a solved composition
+or a datum-dependent enthalpy magnitude. Actual transported symbols receive the existing
+reference-difference annotations; disabled context emits no scale. Actual contextual
+preparation is positive; native scientific execution remains pending.
+
+**Interface-checked:** bounded independent source reviews found no material defect in
+fixed-bound reaction recovery or the authored recycle characteristics. They performed no
+execution and establish neither the affected scientific regressions nor assembled E5.
+
+
+**Tested (2026-10-07 contextual runtime controls, baseline zero):** the corrected local
+native `contextual_closure_` selection passed 5/5 synthetic controls. A sixth actual
+reference-preparation control failed before solving: multiplying Flow by a molar difference
+produced a Power point under the authoritative physical multiplication contract, while the
+scale requires a Power difference. The authored supplier now forms the difference of two
+same-datum Power points through one reusable helper; no physical admission rule is relaxed.
+That receipt predates the additional acquisition and indexed-target corrections below.
+
+**Interface-checked:** bounded independent closure integration review identified two
+material defects. Direct relative requirements could be added again after endpoint-budget
+composition, and contextual inventory finalization could overwrite an explicit caller's
+quadrature controls. Automatic fitting also dropped the factory's provisional inventory
+identities. The corrected common-resolver composition and factory-origin tracking now pass
+their focused regressions, including automatic and explicit fitting profiles. No new
+assembled acceptance claim follows from these controls.
+
+**Tested (2026-10-07 repaired contextual integration, baseline zero):**
+`NEXTEST_TEST_THREADS=1 just unit-native-package pse-runtime pse-runtime/native-solvers,pse-runtime/canonical-tests 'test(contextual_closure_) | test(reference_recycle_context_reaches_original_transport_obligations)' --profile local`
+passed 9/9 (652 skipped) in 278.873 seconds. The full reference preparation resolves all
+20 original energy connection closures from separately admitted endpoint context, full
+quantity/unit identity, original scale provenance and the tighter endpoint budget.
+The preceding attempt passed seven synthetic controls but failed fitting acquisition and
+actual reference specialization. Their owners now load missing import-owner metadata before
+inspecting package rules and retain the named owner of an indexed computed annotation target
+before rewriting its expression. Bounded independent source review found no material defect
+in either repair. The modeling all-target compile check passed without warnings or errors.
+These are preparation and control-origin results, not native recycle or E3 acceptance.
+
+**Tested (2026-10-07 native recycle, baseline zero):**
+`NEXTEST_TEST_THREADS=1 just unit-native-package pse-runtime pse-runtime/native-solvers,pse-runtime/canonical-tests 'test(reference_recycle_initialization_)' --profile local`
+passed 2/2 (659 skipped) in 716.619 seconds: the original ordinary study satisfies its
+scientific obligations, and the overheated initialization refuses without committing.
+The earlier original closure refusal is corrected through typed shared policy and frozen
+context; neither original acceptance nor explicit physical tolerances were bypassed.
+This affected scientific pass remains distinct from the pending assembled E3.
+
+**Tested (2026-10-07 process contracts, baseline zero):**
+`NEXTEST_TEST_THREADS=1 just unit-native-package pse-modeling pse-relations/force-validate 'test(process_contract_)' --profile local`
+passed 33/33 (235 skipped), including the new indexed computed annotation-owner regression.
+Its first two fixture versions incorrectly used an Integer coordinate as a physical operand
+and a numerically untyped membership selector; the corrected fixture uses declared entity
+members and retains the computed Power expression. The existing 32 process contracts remained
+positive throughout those fixture corrections.
+
+**Interface-checked:** the bounded E1/E2 source assessment found no remaining displaced
+PostgreSQL/Delta production implementation or retired public SQL convenience consumer in its
+inspected scope. Remaining DataFusion/object-store consumers supply real relational and data
+boundary operations. One pure-generation check unnecessarily initialized native solvers;
+`codegen-python-check` now follows the existing plain-Cargo contract-generation route.
+Scope-end generation and assembled qualification remain separate execution obligations.
+
+**Tested (2026-10-07 scope-end tooling, baseline zero):** `just codegen` completed
+through its owners. A Python document generator emitted separate Literal alternatives
+that safe lint fixes merged, causing avoidable regenerated-output drift; the generator now
+emits the merged alternatives itself. `just unit-package pse-codegen 'test(python_documents_)'`
+passed 4/4 (69 skipped), and regeneration retained the unchanged workspace hack.
+`just hygiene` executed all 23 recipes: its first pass failed Python lint, Python typing
+and both Clippy modes. After owner fixes, `just lint-py`, `just typecheck`,
+`just clippy-default` and `just clippy-no-default` each passed. The repaired composite is
+not a clean initial hygiene pass. The selected pure tooling command
+`.venv/bin/python -m unittest scripts.tests.test_native_tests scripts.tests.test_producer_deployment scripts.tests.test_surreal_server scripts.tests.test_validation`
+passed 89/89, including producer refusal/association, invocation selection, supervisor
+resource policy and receipt reuse/transfer controls. The final `just turn-end` completed
+with no remaining Python lint findings or formatting changes. These checks do not qualify
+fresh installed artifacts or the assembled scientific campaign.
+
+**Tested (2026-10-07 affected native conformance, baseline zero):**
+`NEXTEST_TEST_THREADS=1 just unit-native-package pse-tests-conformance pse-tests-conformance/native-acceptance 'test(authored_physical_nlp_preserves_native_routes_and_original_qualification) | test(pcsaft_tpd_fits_the_formal_pool)' --profile local`
+passed 2/2 (65 skipped) in 1,443.403 seconds. The physical NLP control exercises the
+authored multi-model native routes and original qualification; PC-SAFT retains original
+qualification after eliminated fixed-variable reaction recovery. These repaired affected
+controls do not establish assembled E3. `just lint-native-contracts` and
+`just lint-native-data` also passed; local feature-combination execution remains pending.
+
+**Implemented:** the local Nextest whole-campaign bound is four hours. The retained
+assembled native run consumed 5,566 seconds while failed scientific cases terminated
+early; replacing those cases with current complete positive journeys projects beyond
+the previous two-hour bound under serialized server ownership. Four hours supplies
+finite orchestration headroom, without changing production job deadlines, retry policy
+or scientific admission. This scheduling estimate is not a measured current full-run
+duration or assembled qualification.
+
+**Tested (2026-10-07 worker journeys, baseline zero):**
+`NEXTEST_TEST_THREADS=1 just worker-test --profile local` passed 5/5 in 100.545
+seconds, against the selected managed substrate. Authored execution, package/data
+round-trip, killed-worker recovery, cross-process cancellation and durable parallel
+study dispatch retain their original obligations. This recipe builds the debug worker;
+actual producer deployment association remains a separate E3 prerequisite.
+
+**Tested (2026-10-07 local parity, baseline zero):** `just parity` passed 9/9 in
+134.10 seconds, including the linked preflight, covariance, degeneracy, PID and sensitivity
+comparisons against the pinned IDAES environment. The recipe installed a development
+extension; E3 reinstalls the producer-profile extension before actual capture and import
+association. This parity scope does not establish the assembled scientific campaign.

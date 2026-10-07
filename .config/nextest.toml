@@ -72,7 +72,10 @@ slow-timeout = { period = "300s", terminate-after = 6 }
 inherits = "default"
 retries = 0
 slow-timeout = "60s"
-global-timeout = "2h"
+# The full native campaign serializes canonical server owners. Complete positive
+# scientific journeys exceed the earlier two-hour allowance; this bounds the
+# assembled campaign, while production jobs retain their own deadlines.
+global-timeout = "4h"
 success-output = "never"
 failure-output = "immediate-final"
 status-level = "fail"

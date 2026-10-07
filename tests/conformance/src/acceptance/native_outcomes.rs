@@ -127,12 +127,18 @@ fn solve(backend: Backend, fault: Fault, controls: &Controls) -> (SolveReport, b
         data: ContentHash::from_bytes([8; 32]),
         backend,
     };
-    let accuracy = ResolvedAccuracy::from_policy(&Default::default(), 1e-8).unwrap();
+    let policy = pse_model::numerics::NumericalPolicy::default();
     let tolerances = Tolerances {
-        variables: vec![1e-6],
+        variables: vec![policy.engineering_relative_fraction],
         rows: vec![],
-        integrality: 1e-8,
+        integrality: policy.integrality,
     };
+    let accuracy = ResolvedAccuracy::resolve(
+        &policy,
+        &tolerances,
+        &pse_math::normalization::Normalization::identity(1, 0),
+    )
+    .unwrap();
     let mut report = match backend {
         Backend::Ipopt => ipopt::Session::new().solve(
             &mut oracle,
@@ -205,7 +211,14 @@ fn native_nlp_recovers_trial_and_proves_analytic_optimum() {
                     "{report:?}"
                 );
                 assert!(report.quality.as_ref().unwrap().feasible());
-                near(report.candidate.as_ref().unwrap().primal[0], 2., 1e-5);
+                // This is an empirical scalar reference comparison at the
+                // production engineering resolution, alongside native KKT
+                // qualification and the independent analytic gradient.
+                near(
+                    report.candidate.as_ref().unwrap().primal[0],
+                    2.,
+                    pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction,
+                );
                 if matches!(fault, Fault::Trial) {
                     assert!(fired);
                     assert!(

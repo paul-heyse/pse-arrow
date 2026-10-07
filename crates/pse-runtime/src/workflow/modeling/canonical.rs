@@ -33,9 +33,12 @@ fn checkpoint(cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
 }
 
 pub(super) const ROOT_SCOPE: &str = "modeling:root";
-const CONTEXT: &str = "modeling:context";
+// v2 source metadata classifies package engineering rules for bounded selection.
+// Older revisions must be restaged, rather than silently losing their rules.
+const CONTEXT: &str = "modeling:context:v2";
 const CONTEXT_LOGICAL: &str = "modeling:context";
 const PHYSICAL_SCOPE_LOGICAL: &str = "modeling:physical-scope";
+const ENGINEERING_RULE: &str = "modeling:engineering_rule";
 
 pub(super) fn logical(id: DeclarationId) -> String {
     format!("modeling:{}", id.as_id())
@@ -44,6 +47,9 @@ pub(super) fn scope(parent: Option<DeclarationId>) -> String {
     parent.map_or_else(|| ROOT_SCOPE.into(), logical)
 }
 pub(super) fn kind(row: &Declaration) -> String {
+    if selected_source::is_engineering_rule_marker(row) {
+        return ENGINEERING_RULE.into();
+    }
     format!("modeling:{}", row.value.kind.as_str())
 }
 
@@ -297,9 +303,10 @@ async fn context(
         .await?
         .ok_or_else(|| contract("canonical modeling context absent"))?;
     if context.kind != CONTEXT {
-        return Err(contract(
-            "canonical modeling context interpretation differs",
-        ));
+        return Err(contract(format!(
+            "canonical modeling context interpretation differs: expected {CONTEXT}, observed {}; restage the authored source under the current interpretation",
+            context.kind
+        )));
     }
     decode(context.payload.as_slice())
 }
@@ -1717,6 +1724,10 @@ impl ModelingPackage {
                     }
                     Request::Imports(owner)
                         if index.scopes.contains(&owner) || requested_scopes.contains(&owner) => {}
+                    Request::Imports(owner) if !index.rows.contains_key(&owner) => {
+                        logicals.push(owner);
+                        index.requests.insert(Request::Imports(owner));
+                    }
                     request => inventories.push(request),
                 }
             }
@@ -1735,6 +1746,25 @@ impl ModelingPackage {
                     .collect::<Result<Vec<_>, _>>()?;
                 self.insert_inventories(&mut index, read, &mut cursors, &mut leases, cancel)
                     .await?;
+                // Package rules are semantic defaults, not named expression members.
+                // Select their typed marker metadata beside imports; target traversal
+                // then acquires each constant without hydrating the whole package.
+                let mut rules = requests
+                    .iter()
+                    .filter_map(|request| match request {
+                        Request::Imports(owner)
+                            if index.rows[owner].value.kind == Kind::Package =>
+                        {
+                            Some(*owner)
+                        }
+                        _ => None,
+                    })
+                    .map(|owner| store.kind_pages(read, Some(&logical(owner)), ENGINEERING_RULE))
+                    .collect::<Result<Vec<_>, _>>()?;
+                if !rules.is_empty() {
+                    self.insert_inventories(&mut index, read, &mut rules, &mut leases, cancel)
+                        .await?;
+                }
                 for request in requests {
                     match request {
                         Request::Imports(owner) => {
@@ -2421,6 +2451,393 @@ mod tests {
             .release(selected.read.selection())
             .await
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn canonical_selected_source_acquires_package_engineering_rules_without_unrelated_growth()
+    {
+        async fn description(
+            runtime: &Runtime,
+            read: &SelectedRead,
+            request: &[u8],
+        ) -> pse_operations::canonical_selection::ProductCandidate {
+            let store = runtime.canonical.store();
+            let producer = "engineering-rule-frontier-fixture";
+            store
+                .publish_product(
+                    read,
+                    pse_model::generated::runtime::canonical_products::Row {
+                        key: "frontier-description".into(),
+                        problem: read.selection().revision().problem.clone(),
+                        revision: read.selection().revision().key.clone(),
+                        request: request.to_vec().into(),
+                        payload: b"dependency-reuse-control".to_vec().into(),
+                        dependencies: Vec::new().into(),
+                        producer: producer.into(),
+                        interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
+                    },
+                )
+                .await
+                .unwrap();
+            store
+                .product_candidate(read.selection(), request, producer, "")
+                .await
+                .unwrap()
+                .unwrap()
+        }
+        let runtime = crate::workflow::tests::runtime();
+        let source = "package p {use policy @\"1.0.0\"; def D {var T:Temperature; eq temperature:T==280{K};}} package policy {entity kind source provenance {attribute title:Text;} enum role {published} entity source maintainer {title=\"engineering policy\"} constant temperature:DeltaTemperature=0.1{K} provenance(maintainer,role.published); annotation engineering_rule policy.temperature;}";
+        let rows = parse(source);
+        let root = rows
+            .iter()
+            .find(|row| row.name == "D")
+            .unwrap()
+            .declaration_id;
+        let rule = rows
+            .iter()
+            .find(|row| row.value.constant.is_some())
+            .unwrap()
+            .declaration_id;
+        let marker = rows
+            .iter()
+            .find(|row| row.value.annotation.is_some())
+            .unwrap()
+            .declaration_id;
+        let policy = rows
+            .iter()
+            .find(|row| row.name == "policy" && row.value.kind == Kind::Package)
+            .unwrap()
+            .declaration_id;
+        assert_eq!(
+            kind(
+                rows.iter()
+                    .find(|row| row.declaration_id == marker)
+                    .unwrap()
+            ),
+            ENGINEERING_RULE
+        );
+        let cancel = crate::CancelSource::new();
+        // Edit the authoritative relation while keeping every other authored row
+        // (including source provenance) exact, so marker membership is the premise.
+        let unmarked_rows = rows
+            .iter()
+            .filter(|row| row.declaration_id != marker)
+            .cloned()
+            .collect::<Vec<_>>();
+        let unmarked = runtime
+            .modeling_package(unmarked_rows.clone(), crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let selected = unmarked.selected_source(root, &cancel).await.unwrap();
+        assert!(!selected.rows.iter().any(|row| row.declaration_id == marker));
+        let unmarked_candidate =
+            description(&runtime, &selected.read, b"frontier-without-rule").await;
+        let _unmarked_lease = runtime
+            .shared
+            .math()
+            .reserve(
+                "test:engineering-rule-unmarked-product",
+                unmarked_candidate.retained_bytes(),
+            )
+            .unwrap();
+        assert!(
+            runtime
+                .canonical
+                .store()
+                .qualify_product(&mut selected.read.clone(), &unmarked_candidate)
+                .await
+                .unwrap()
+                .is_some()
+        );
+        runtime
+            .canonical
+            .store()
+            .release(selected.read.selection())
+            .await
+            .unwrap();
+        drop(selected);
+        let package = unmarked.with_declarations(rows.clone()).await.unwrap();
+        let selected = package.selected_source(root, &cancel).await.unwrap();
+        assert!(
+            runtime
+                .canonical
+                .store()
+                .qualify_product(&mut selected.read.clone(), &unmarked_candidate)
+                .await
+                .unwrap()
+                .is_none(),
+            "adding a package rule invalidates the recorded empty marker inventory"
+        );
+        assert!(selected.rows.iter().any(|row| row.declaration_id == marker));
+        assert!(selected.rows.iter().any(|row| row.declaration_id == rule));
+        let extent = selected.rows.owned_bytes();
+        let count = selected.rows.len();
+        let dependency_bytes = selected.read.dependency_bytes().unwrap();
+        let prepared = package
+            .prepare(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Default::default(),
+                Default::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let rules = &prepared.compiled().model.engineering_rules;
+        assert_eq!(rules.len(), 1);
+        assert_eq!(rules[0].id, rule.as_id());
+        assert_eq!(rules[0].marker, marker);
+        let pse_modeling::specialize::Value::Number { bits, quantity } = &rules[0].value else {
+            panic!("shared rule retains its typed constant value")
+        };
+        assert_eq!(f64::from_bits(*bits), 0.1);
+        assert_eq!(
+            package
+                .physical
+                .quantities
+                .quantity_type(*quantity)
+                .unwrap()
+                .key
+                .scale_kind,
+            pse_quantity::ScaleKind::Difference
+        );
+        let marked_candidate = description(&runtime, &selected.read, b"frontier-with-rule").await;
+        let _marked_lease = runtime
+            .shared
+            .math()
+            .reserve(
+                "test:engineering-rule-marked-product",
+                marked_candidate.retained_bytes(),
+            )
+            .unwrap();
+        assert!(
+            runtime
+                .canonical
+                .store()
+                .qualify_product(&mut selected.read.clone(), &marked_candidate)
+                .await
+                .unwrap()
+                .is_some(),
+            "the marked product qualifies against its own protected source"
+        );
+        let marked_versions = selected.versions.clone();
+        runtime
+            .canonical
+            .store()
+            .release(selected.read.selection())
+            .await
+            .unwrap();
+        drop(selected);
+        // Unrelated parameters and ordinary package annotations stay outside the
+        // selected closure, even when they cannot pass scientific admission.
+        let extras = (0..64).map(|index| format!(
+            "param ignored{index}:NotPhysical=1; annotation check ignored{index}(ignored{index}>0);"
+        )).collect::<String>();
+        let grown = source.strip_suffix('}').unwrap().to_owned() + extras.as_str() + "}";
+        let grown_rows = parse(&grown);
+        let revised = package.with_declarations(grown_rows.clone()).await.unwrap();
+        let selected = revised.selected_source(root, &cancel).await.unwrap();
+        assert_eq!(selected.rows.owned_bytes(), extent);
+        assert_eq!(selected.rows.len(), count);
+        assert_eq!(
+            selected.read.dependency_bytes().unwrap(),
+            dependency_bytes,
+            "unrelated package members do not grow semantic marker/import premises"
+        );
+        assert!(
+            !selected
+                .rows
+                .iter()
+                .any(|row| row.name.starts_with("ignored"))
+        );
+        assert!(revised.admit_source(&selected).is_ok());
+        let changed = selected
+            .versions
+            .iter()
+            .filter(|(logical, version)| marked_versions.get(*logical) != Some(*version))
+            .map(|(logical, _)| logical.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            changed,
+            [logical(policy)],
+            "parsed package extension changes its closing source location, preserving other selected versions"
+        );
+        assert!(
+            runtime
+                .canonical
+                .store()
+                .qualify_product(&mut selected.read.clone(), &marked_candidate)
+                .await
+                .unwrap()
+                .is_none(),
+            "changed package source provenance invalidates exact reuse"
+        );
+        runtime
+            .canonical
+            .store()
+            .release(selected.read.selection())
+            .await
+            .unwrap();
+        drop(selected);
+        // A relation extension leaves all existing rows exact. Its unrelated members
+        // must neither grow selected acquisition nor invalidate marker/import meaning.
+        let existing = rows
+            .iter()
+            .map(|row| row.declaration_id)
+            .collect::<BTreeSet<_>>();
+        let additions = grown_rows
+            .into_iter()
+            .filter(|row| !existing.contains(&row.declaration_id))
+            .collect::<Vec<_>>();
+        let mut extended_rows = rows;
+        extended_rows.extend(additions.iter().cloned());
+        let extended = revised.with_declarations(extended_rows).await.unwrap();
+        let selected = extended.selected_source(root, &cancel).await.unwrap();
+        assert_eq!(selected.rows.owned_bytes(), extent);
+        assert_eq!(selected.rows.len(), count);
+        assert_eq!(selected.read.dependency_bytes().unwrap(), dependency_bytes);
+        assert_eq!(
+            selected.versions, marked_versions,
+            "independent relation additions preserve exact selected object versions"
+        );
+        assert!(
+            runtime
+                .canonical
+                .store()
+                .qualify_product(&mut selected.read.clone(), &marked_candidate)
+                .await
+                .unwrap()
+                .is_some(),
+            "unrelated relation growth preserves the actual reuse premises"
+        );
+        runtime
+            .canonical
+            .store()
+            .release(selected.read.selection())
+            .await
+            .unwrap();
+        drop(selected);
+        let mut removed_rows = unmarked_rows;
+        removed_rows.extend(additions);
+        let removed = extended.with_declarations(removed_rows).await.unwrap();
+        let selected = removed.selected_source(root, &cancel).await.unwrap();
+        assert!(
+            runtime
+                .canonical
+                .store()
+                .qualify_product(&mut selected.read.clone(), &marked_candidate)
+                .await
+                .unwrap()
+                .is_none(),
+            "removing the package rule invalidates its recorded marker inventory"
+        );
+        assert!(
+            runtime
+                .canonical
+                .store()
+                .qualify_product(&mut selected.read.clone(), &unmarked_candidate)
+                .await
+                .unwrap()
+                .is_some(),
+            "restoring the original unmarked meaning permits its original product"
+        );
+        let prepared = removed
+            .prepare(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Default::default(),
+                Default::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        assert!(prepared.compiled().model.engineering_rules.is_empty());
+        runtime
+            .canonical
+            .store()
+            .release(selected.read.selection())
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn canonical_source_revision_refuses_old_context_interpretation() {
+        let runtime = crate::workflow::tests::runtime();
+        let package = runtime
+            .modeling_package(
+                parse("package p {def D {var x:Scalar; eq e:x==2;}}"),
+                crate::workflow::tests::physical(),
+            )
+            .await
+            .unwrap();
+        let current = package.canonical_revision().clone();
+        assert_eq!(
+            SourceRevision::open(&runtime, current.clone())
+                .await
+                .unwrap()
+                .identity(),
+            package.revision.identity()
+        );
+        // Stage a genuine old-kind object with the same logical ID and payload.
+        // Only its source interpretation differs; no fixture bypass changes open.
+        let old_operation = pse_operations::mint_id::<SemanticId>().to_string();
+        let old = runtime
+            .canonical
+            .store()
+            .edit(
+                &current.problem,
+                Some(&current.key),
+                &old_operation,
+                &[edit(
+                    CONTEXT_LOGICAL.into(),
+                    "context".into(),
+                    "modeling:context".into(),
+                    "modeling:context".into(),
+                    payload(&package.revision.identity()).unwrap(),
+                    Vec::new(),
+                )],
+            )
+            .await
+            .unwrap();
+        let error = SourceRevision::open(&runtime, old.clone())
+            .await
+            .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("canonical modeling context interpretation differs"),
+            "{error}"
+        );
+        assert!(
+            error.to_string().contains("restage the authored source"),
+            "{error}"
+        );
+        let current_operation = pse_operations::mint_id::<SemanticId>().to_string();
+        let restaged = runtime
+            .canonical
+            .store()
+            .edit(
+                &current.problem,
+                Some(&old.key),
+                &current_operation,
+                &[edit(
+                    CONTEXT_LOGICAL.into(),
+                    "context".into(),
+                    CONTEXT.into(),
+                    CONTEXT.into(),
+                    payload(&package.revision.identity()).unwrap(),
+                    Vec::new(),
+                )],
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            SourceRevision::open(&runtime, restaged)
+                .await
+                .unwrap()
+                .identity(),
+            package.revision.identity()
+        );
     }
 
     #[tokio::test]

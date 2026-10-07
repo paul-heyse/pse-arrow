@@ -529,7 +529,15 @@ class ExecutionContracts(unittest.TestCase):
         self,
     ) -> None:
         assembled = next(gate for gate in comprehensive() if gate.name == "native-test")
-        for gate in (FUNCTIONAL_SCOPES["preparation"], native_gate(), assembled):
+        producer_assembled = next(
+            gate for gate in comprehensive("producer") if gate.name == "native-test"
+        )
+        for gate in (
+            FUNCTIONAL_SCOPES["preparation"],
+            native_gate(),
+            assembled,
+            producer_assembled,
+        ):
             consumed = self.require(self.claim(gate))
             self.assertEqual(
                 consumed["prerequisites"]["preparation"]["gate"], gate.name

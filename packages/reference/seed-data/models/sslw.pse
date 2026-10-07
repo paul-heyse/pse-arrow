@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("95b5255cbd9044769b411e7017a96a11") package sslw {
+@id("b0deb18feb9b41418d7abae5b1bdcaef") use numerical_policy @"1.0.0";
 @id("01a0ef604fe0732189b93739f8a12ea7") use provenance @"1.0.0";
 @id("01a0ef604fe0732189b9373ad00cd328") use references @"1.0.0";
 @id("4a4e39850e95401bad07ac4b47bf8b36") use costing @"1.0.0";
@@ -35,10 +36,10 @@
 @id("30c5e288ef605c9e8d5df960c044bba1") permission area_use families(costing.base_amount,costing.material_amount) allow_unknown true allow_extrapolation false;
 @id("0721f71c07ab4f76a298b5a94d3a1ab4") child root:costing.HeatExchangerCost=costing.HeatExchangerCost;
 @id("dc8261a0ac4a434c95368559f25918ad") expect costing.currency_unit()==1{USD_CE500} tolerance 1e-12{USD_CE500};
-@id("e25ce7df55d14f92bddf2f0b2de3c359") expect costing.base_amount(11840.3014583805,11.3852,0.9186,0.0979)==87704.5883652126 tolerance 1;
-@id("bafd8d1597734d2cb4ebbcfafdbb5fe9") expect root.base_cost_per_unit==87704.6{USD_CE500} tolerance 1{USD_CE500};
-@id("ad0eaa8edc16491590a658099a9b5277") expect root.material_factor==4.08752 tolerance 0.00005;
-@id("058fc4e4aff4448db2030fc057bc9a9b") expect root.pressure_factor==1.1128 tolerance 0.00001;
+@id("e25ce7df55d14f92bddf2f0b2de3c359") expect costing.base_amount(11840.3014583805,11.3852,0.9186,0.0979)==87704.5883652126 tolerance 1 relative numerical_policy.dimensionless;
+@id("bafd8d1597734d2cb4ebbcfafdbb5fe9") expect root.base_cost_per_unit==87704.6{USD_CE500} tolerance 1{USD_CE500} relative numerical_policy.dimensionless;
+@id("ad0eaa8edc16491590a658099a9b5277") expect root.material_factor==4.08752 tolerance 0.00005 relative numerical_policy.dimensionless;
+@id("058fc4e4aff4448db2030fc057bc9a9b") expect root.pressure_factor==1.1128 tolerance 0.00001 relative numerical_policy.dimensionless;
 @id("afffddd0e60842bab116e3e02b15a1fd") accumulate flowsheet_capital:CapitalCost accounting tolerance 0.01{USD_CE500};
 @id("cd18aa10e4864d8291fa01ea98252dc9") contribute flowsheet_capital role positive=root.capital_cost;
 @id("ace5a6c2e87c420e91a728fb2ab8ee15") expect flowsheet_capital==root.capital_cost tolerance 1e-8{USD_CE500};

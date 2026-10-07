@@ -905,19 +905,61 @@ impl Pipeline {
             match original.state.execution.stopped() {
                 None => {
                     let execution = original.state.execution.clone();
+                    // pounce-presolve 0.12 leaves declared fixed-column reactions
+                    // out of its affine recovery. Complete only columns actually
+                    // absent from that pass, after physical-unit dual transport.
+                    let eliminated = if self.report.passes[&super::Pass::AffineElimination].applied
+                    {
+                        let mut kept = vec![false; original.oracle.contract().variables.len()];
+                        for col in &self.report.columns {
+                            kept[col.get()] = true;
+                        }
+                        original
+                            .oracle
+                            .contract()
+                            .variables
+                            .iter()
+                            .enumerate()
+                            .filter_map(|(col, v)| {
+                                (!kept[col] && v.lower.is_finite() && v.lower == v.upper)
+                                    .then_some(col)
+                            })
+                            .collect::<Vec<_>>()
+                    } else {
+                        Vec::new()
+                    };
                     let mut counted = crate::callback::CountedNlp {
                         oracle: original.oracle.as_mut(),
                         execution: &execution,
                     };
-                    quality::attach_nlp(&mut report, &mut counted, tolerance, sense);
-                    factor = crate::kkt::attach(
-                        &mut report,
-                        &mut counted,
-                        &self.declared_normalization,
-                        tolerance,
-                        analysis,
-                        budget,
-                    );
+                    let recovered = quality::contained(|| {
+                        if let Some(candidate) = &mut report.candidate {
+                            quality::recover_fixed_bound_reactions(
+                                &mut counted,
+                                candidate,
+                                &eliminated,
+                            )?;
+                        }
+                        Ok(())
+                    });
+                    match recovered {
+                        Ok(()) => {
+                            quality::attach_nlp(&mut report, &mut counted, tolerance, sense);
+                            factor = crate::kkt::attach(
+                                &mut report,
+                                &mut counted,
+                                &self.declared_normalization,
+                                tolerance,
+                                analysis,
+                                budget,
+                            );
+                        }
+                        Err(error) => {
+                            report.quality = None;
+                            report.observation = None;
+                            report.record_validation_failure(error);
+                        }
+                    }
                 }
                 Some(stop) => {
                     report.quality = None;

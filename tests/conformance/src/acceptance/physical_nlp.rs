@@ -16,6 +16,27 @@ fn native_failure_context(
         Ok(RunReport::Modeling(reports)) => reports.first().expect("one authored physical case"),
         other => panic!("case={case} backend={backend:?} presolve={presolve:?}; report={other:?}"),
     };
+    if !report.accepted || !result.usable() {
+        use pse_relations::columnar::RelationRow;
+        if let Ok(events) = result.table("runtime.solve_strategy_events") {
+            let events =
+                pse_relations::generated::runtime::solve_strategy_events::Row::rows(&events)
+                    .expect("retained strategy observations");
+            for event in events.iter().rev().take(20) {
+                eprintln!(
+                    "physical strategy: mechanism={:?}, kind={:?}, phase={:?}, observation={:?}, original={:?}, permission={:?}, transition={:?}, failures={:?}",
+                    event.mechanism,
+                    event.kind,
+                    event.phase,
+                    event.observation,
+                    event.original_conclusion,
+                    event.permission,
+                    event.transition,
+                    event.failures
+                );
+            }
+        }
+    }
     assert!(
         report.accepted && result.usable(),
         "case={case} backend={backend:?} presolve={presolve:?}; diagnostic={:?}; native/outcome={:?}; assessments={:?}",
@@ -23,6 +44,12 @@ fn native_failure_context(
         report.outcome,
         result.assessments(),
     );
+    if let Outcome::Native(native) = &report.outcome {
+        assert_eq!(
+            native.backend, backend,
+            "case={case} presolve={presolve:?}; {native:?}"
+        );
+    }
 }
 
 #[tokio::test]
@@ -42,6 +69,40 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
         )
         .await
         .unwrap();
+        // These package declarations govern production admission as well as
+        // historical output comparisons. A missing engineering-rule marker
+        // must not silently replace the physical floor with a unit fallback.
+        for rule in [
+            "13874d4b57684720bb42a48164325812", // temperature
+            "cff3158e8b394cdcacb4e10c4ead6a39", // density
+            "8fa5f567f8c34ee5a144058621620751", // pressure
+            "4b8c1108211445f180f66c602f10b982", // bound duty carrier
+            "395ce3cb36004439af06430d7aea3000", // energy-balance power
+        ] {
+            let rule = id(rule);
+            let contexts = prepared
+                .solve
+                .numerics()
+                .targets
+                .iter()
+                .filter_map(|target| target.engineering.as_ref().map(|context| (target, context)))
+                .filter(|(_, context)| {
+                    context
+                        .rule_id
+                        .is_some_and(|selected| selected.as_id() == rule)
+                })
+                .collect::<Vec<_>>();
+            assert!(
+                !contexts.is_empty(),
+                "shared engineering rule {rule} was not admitted"
+            );
+            for (target, context) in contexts {
+                let floor = context.physical_allowance.expect("authored physical floor");
+                assert!(floor.is_finite() && floor > 0.);
+                assert!(!context.canonical_fallback, "{context:?}");
+                assert!(target.budget >= floor, "{target:?}");
+            }
+        }
         let result = prepared.start().unwrap().wait().await.unwrap();
         native_failure_context(&result, heater, backend, &Default::default());
         let report = authored_success(&result);

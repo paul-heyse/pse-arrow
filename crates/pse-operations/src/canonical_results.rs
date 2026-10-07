@@ -850,6 +850,86 @@ mod canonical_results_server_unit {
         let revision = store.edit("problem", None, "source-1", &[]).await.unwrap();
         (store, options.database, revision)
     }
+
+    enum ReleaseFault {
+        Cancelled,
+        Panicked,
+        Failed,
+    }
+
+    async fn removal_reports_release_fault(fault: ReleaseFault) {
+        let store = crate::testing::canonical_fixture_store().unwrap();
+        // Exercise the same completion guard transferred by ReadOwner::drop to
+        // its detached release RPC, while retaining the fixture in this task.
+        store.result_read_drain.retain();
+        let release = store.result_read_drain.release();
+        let removal = store.remove_isolated_fixture();
+        tokio::pin!(removal);
+        // Poll teardown while the release is pending, so the control also covers
+        // the notification that resumes its waiter after the task is destroyed.
+        tokio::select! {
+            biased;
+            result = &mut removal => panic!("pending release did not block teardown: {result:?}"),
+            () = tokio::task::yield_now() => {}
+        }
+        let message = match fault {
+            ReleaseFault::Cancelled => {
+                let task = tokio::spawn(async move {
+                    let _release = release;
+                    std::future::pending::<()>().await;
+                });
+                task.abort();
+                assert!(task.await.unwrap_err().is_cancelled());
+                "result protection release task ended before completion"
+            }
+            ReleaseFault::Panicked => {
+                let task = tokio::spawn(async move {
+                    let _release = release;
+                    panic!("injected result protection release panic");
+                });
+                assert!(task.await.unwrap_err().is_panic());
+                "result protection release task ended before completion"
+            }
+            ReleaseFault::Failed => {
+                tokio::spawn(async move {
+                    release.complete(Err(invalid("injected result protection release failure")));
+                })
+                .await
+                .unwrap();
+                "injected result protection release failure"
+            }
+        };
+        assert_eq!(
+            store
+                .result_read_drain
+                .pending
+                .load(std::sync::atomic::Ordering::SeqCst),
+            0,
+            "the failed release must drain instead of waiting for the RPC timeout"
+        );
+        let error = removal.await.unwrap_err();
+        assert!(error.to_string().contains(message), "{error}");
+        // Refusal precedes database removal. Once its recorded cause is observed,
+        // explicit teardown can be retried and disarms automatic fixture cleanup.
+        store.open().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn canonical_results_fixture_removal_reports_cancelled_release() {
+        removal_reports_release_fault(ReleaseFault::Cancelled).await;
+    }
+
+    #[tokio::test]
+    async fn canonical_results_fixture_removal_reports_panicking_release() {
+        removal_reports_release_fault(ReleaseFault::Panicked).await;
+    }
+
+    #[tokio::test]
+    async fn canonical_results_fixture_removal_reports_failed_release() {
+        removal_reports_release_fault(ReleaseFault::Failed).await;
+    }
     #[tokio::test]
     async fn canonical_results_scalar_exact_admission_and_historical_attempts() {
         let (store, _database, revision) = fixture().await;

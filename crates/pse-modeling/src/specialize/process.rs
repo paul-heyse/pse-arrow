@@ -31,8 +31,8 @@ pub struct TransportObservation {
     pub expression: Expr,
     /// Complete physical convention.
     pub ty: Type,
-    /// Physical agreement budget.
-    pub tolerance: Value,
+    /// Original physical agreement intent and named scalar context.
+    pub requirement: ClosureRequirement,
 }
 /// Admitted state at an actual indexed instance.
 #[derive(Clone, Debug, PartialEq)]
@@ -42,7 +42,7 @@ pub struct StateSpecification {
     /// Independent coordinate slots aliasing original members.
     pub coordinates: BTreeMap<StateKey, SemanticId>,
     /// Original dependent reconstruction rows and their physical tolerances.
-    pub reconstructions: Vec<(Row, Value)>,
+    pub reconstructions: Vec<(Row, ClosureRequirement)>,
     /// Full supplied boundary state retains consistency observations.
     pub supplied: bool,
     /// Original derived transports.
@@ -87,8 +87,8 @@ pub struct InventoryBalance {
     pub flux: Expr,
     /// Canonical physical inventory type.
     pub ty: Type,
-    /// Canonical physical closure tolerance.
-    pub tolerance: Value,
+    /// Original physical inventory closure intent and named scalar context.
+    pub requirement: ClosureRequirement,
     /// Actual guard member occurrence to original pre-event transfer expression.
     pub transfers: BTreeMap<SemanticId, Expr>,
     /// Conserved subject attribution.
@@ -96,6 +96,88 @@ pub struct InventoryBalance {
 }
 
 impl Engine<'_, '_> {
+    pub(super) fn closure_requirement(
+        &self,
+        at: DeclarationId,
+        role: &str,
+        position: usize,
+        env: &Environment,
+        expected: &Type,
+        context: Option<SemanticId>,
+    ) -> Result<ClosureRequirement> {
+        let expression = self.p.expression_at(at, role, position)?;
+        let value = self.process_value(at, role, position, env, Some(expected))?;
+        let magnitude = value.scalar(at)?;
+        if !magnitude.is_finite() || magnitude <= 0.0 {
+            return Err(invalid(
+                at,
+                "positive finite physical closure tolerance required",
+            ));
+        }
+        let rule = if let ExprKind::Path(path) = &expression.kind {
+            let name = dsl::render_path(path);
+            let unbound = !env.contains_key(&name)
+                && path
+                    .segments
+                    .first()
+                    .is_some_and(|first| !env.contains_key(&first.name));
+            if unbound
+                && path
+                    .segments
+                    .iter()
+                    .all(|segment| segment.indices.is_empty())
+            {
+                self.p
+                    .resolve_segments(at, &path.segments)
+                    .and_then(|constant| {
+                        self.model
+                            .engineering_rules
+                            .iter()
+                            .find(|rule| rule.id == constant.as_id())
+                    })
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        Ok(ClosureRequirement {
+            tolerance: rule.map_or(ClosureTolerance::Explicit(value), |rule| {
+                ClosureTolerance::EngineeringRule {
+                    rule_id: rule.id,
+                    marker: rule.marker,
+                }
+            }),
+            context,
+            endpoint: None,
+        })
+    }
+    // Keep a named member's owner even when its parameter value will be folded.
+    // An arbitrary expression does not acquire a guessed engineering context.
+    fn closure_context(
+        &mut self,
+        instance: InstanceId,
+        at: DeclarationId,
+        expression: &Expr,
+        env: &Environment,
+    ) -> Result<Option<SemanticId>> {
+        let ExprKind::Path(path) = &expression.kind else {
+            return Ok(None);
+        };
+        let Ok((owner, declaration, coordinates)) =
+            self.resolve_path(instance, at, path, env, true)
+        else {
+            return Ok(None);
+        };
+        if !matches!(
+            self.p.declarations[&declaration].value.kind,
+            Kind::Variable | Kind::Parameter | Kind::Let | Kind::Alias
+        ) {
+            return Ok(None);
+        }
+        self.symbol(owner, declaration, &coordinates, &[at])
+            .map(Some)
+    }
     fn process_value(
         &self,
         at: DeclarationId,
@@ -304,19 +386,17 @@ impl Engine<'_, '_> {
                     reconstruction.indices.iter().map(|i| i.name.as_str()),
                 )? {
                     let scope = coordinates_env(&local, &indices);
-                    let equation = self.rewrite_equation(
-                        instance,
-                        &self
-                            .p
-                            .equation_at(
-                                at,
-                                "state_specification.reconstructions.equation",
-                                position,
-                            )?
-                            .clone(),
-                        &scope,
-                        &[at],
-                    )?;
+                    let original = self
+                        .p
+                        .equation_at(at, "state_specification.reconstructions.equation", position)?
+                        .clone();
+                    let context = match &original.kind {
+                        EquationKind::Relation { lhs, .. } => {
+                            self.closure_context(instance, at, lhs, &scope)?
+                        }
+                        _ => None,
+                    };
+                    let equation = self.rewrite_equation(instance, &original, &scope, &[at])?;
                     let EquationKind::Relation {
                         lhs,
                         sense: EquationSense::Eq,
@@ -326,16 +406,14 @@ impl Engine<'_, '_> {
                         return Err(invalid(at, "state reconstruction must be an equality"));
                     };
                     let ty = self.process_type(lhs, at)?;
-                    let tolerance = self.process_value(
+                    let requirement = self.closure_requirement(
                         at,
                         "state_specification.reconstructions.tolerance",
                         position,
                         &scope,
-                        Some(&self.tolerance_type(&ty, at)?),
+                        &self.tolerance_type(&ty, at)?,
+                        context,
                     )?;
-                    if tolerance.scalar(at)? <= 0.0 {
-                        return Err(invalid(at, "positive reconstruction tolerance required"));
-                    }
                     let key = Self::state_key(&reconstruction.name, &indices);
                     specification.reconstructions.push((
                         Row {
@@ -343,7 +421,7 @@ impl Engine<'_, '_> {
                             equation,
                             lineage: specification.lineage.clone(),
                         },
-                        tolerance,
+                        requirement,
                     ));
                 }
             }
@@ -355,33 +433,21 @@ impl Engine<'_, '_> {
                     transport.indices.iter().map(|i| i.name.as_str()),
                 )? {
                     let scope = coordinates_env(&local, &indices);
-                    let expression = self.rewrite(
-                        instance,
-                        &self
-                            .p
-                            .expression_at(
-                                at,
-                                "state_specification.transports.expression",
-                                position,
-                            )?
-                            .clone(),
-                        &scope,
-                        &[at],
-                    )?;
+                    let original = self
+                        .p
+                        .expression_at(at, "state_specification.transports.expression", position)?
+                        .clone();
+                    let context = self.closure_context(instance, at, &original, &scope)?;
+                    let expression = self.rewrite(instance, &original, &scope, &[at])?;
                     let ty = self.process_type(&expression, at)?;
-                    let tolerance = self.process_value(
+                    let requirement = self.closure_requirement(
                         at,
                         "state_specification.transports.tolerance",
                         position,
                         &scope,
-                        Some(&self.tolerance_type(&ty, at)?),
+                        &self.tolerance_type(&ty, at)?,
+                        context,
                     )?;
-                    if tolerance.scalar(at)? <= 0.0 {
-                        return Err(invalid(
-                            at,
-                            "positive transport agreement tolerance required",
-                        ));
-                    }
                     let key = Self::state_key(&transport.name, &indices);
                     if specification
                         .transports
@@ -390,7 +456,7 @@ impl Engine<'_, '_> {
                             TransportObservation {
                                 expression,
                                 ty,
-                                tolerance,
+                                requirement,
                             },
                         )
                         .is_some()
@@ -673,17 +739,15 @@ impl Engine<'_, '_> {
                             "transport basis/reference conventions differ; explicit translator required",
                         ));
                     }
-                    let tolerance =
-                        if transport.tolerance.scalar(at)? <= other.tolerance.scalar(at)? {
-                            transport.tolerance.clone()
-                        } else {
-                            other.tolerance.clone()
-                        };
+                    let mut source_requirement = transport.requirement.clone();
+                    source_requirement.endpoint = Some(left.id);
+                    let mut target_requirement = other.requirement.clone();
+                    target_requirement.endpoint = Some(right.id);
                     let closure = pse_ids::named_id(key.id(id), "transport-agreement");
                     self.observation_closure(
                         closure,
                         transport.ty.clone(),
-                        tolerance,
+                        vec![source_requirement, target_requirement],
                         transport.expression.clone(),
                         other.expression.clone(),
                         lineage.clone(),
@@ -740,7 +804,7 @@ impl Engine<'_, '_> {
         &mut self,
         id: SemanticId,
         ty: Type,
-        tolerance: Value,
+        requirements: Vec<ClosureRequirement>,
         lhs: Expr,
         rhs: Expr,
         lineage: Lineage,
@@ -753,7 +817,7 @@ impl Engine<'_, '_> {
                 observation_only: true,
                 ty: Self::difference_type(&ty),
                 boundary: None,
-                tolerance,
+                requirements,
                 terms: vec![Contribution {
                     id: pse_ids::named_id(id, "difference"),
                     role: Role::Positive,
@@ -791,7 +855,7 @@ impl Engine<'_, '_> {
             .cloned()
             .collect::<Vec<_>>()
         {
-            for (row, tolerance) in specification.reconstructions {
+            for (row, requirement) in specification.reconstructions {
                 if (!specification.supplied || receiving.contains(&specification.id))
                     && generated.insert(row.id)
                 {
@@ -807,7 +871,7 @@ impl Engine<'_, '_> {
                 self.observation_closure(
                     pse_ids::named_id(row.id, "consistency"),
                     ty,
-                    tolerance,
+                    vec![requirement],
                     lhs,
                     rhs,
                     row.lineage,
@@ -904,19 +968,15 @@ impl Engine<'_, '_> {
             let inventory = self.rewrite(instance, &inventory_source, &local, &[at])?;
             let flux = self.rewrite(instance, &flux_source, &local, &[at])?;
             let ty = self.process_type(&inventory, at)?;
-            let tolerance = self.process_value(
+            let context = self.closure_context(instance, at, &inventory_source, &local)?;
+            let requirement = self.closure_requirement(
                 at,
                 "inventory_balance.tolerance",
                 0,
                 &local,
-                Some(&self.tolerance_type(&ty, at)?),
+                &self.tolerance_type(&ty, at)?,
+                context,
             )?;
-            if tolerance.scalar(at)? <= 0.0 {
-                return Err(invalid(
-                    at,
-                    "positive physical inventory tolerance required",
-                ));
-            }
             let lineage = self.lineage(instance, row, &[at]);
             let mut transfers = BTreeMap::new();
             for (position, _) in value.transfers.iter().enumerate() {
@@ -1169,7 +1229,7 @@ impl Engine<'_, '_> {
                     self.observation_closure(
                         pse_ids::named_id(id, "temporal-closure"),
                         ty.clone(),
-                        tolerance.clone(),
+                        vec![requirement.clone()],
                         inventory.clone(),
                         rhs,
                         lineage.clone(),
@@ -1185,7 +1245,7 @@ impl Engine<'_, '_> {
                         inventory,
                         flux,
                         ty,
-                        tolerance,
+                        requirement,
                         transfers,
                         lineage,
                     },

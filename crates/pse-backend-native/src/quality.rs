@@ -213,6 +213,90 @@ pub fn attach_nlp(
         }
     }
 }
+/// Original physical minimization Lagrangian, before bound reactions. Shared by
+/// original KKT observation and recovery of eliminated declared equality bounds.
+fn lagrangian_gradient(
+    oracle: &mut dyn NlpOracle,
+    c: &crate::solve::Candidate,
+) -> Result<Vec<f64>, ProblemError> {
+    let n = oracle.contract().variables.len();
+    let m = oracle.contract().rows.len();
+    let lambda = c
+        .row_dual
+        .as_ref()
+        .ok_or_else(|| ProblemError::unsupported("row multipliers unavailable"))?;
+    if c.primal.len() != n
+        || lambda.len() != m
+        || c.primal.iter().chain(lambda).any(|v| !v.is_finite())
+    {
+        return Err(ProblemError::numerical(
+            "original Lagrangian dimensions/values",
+        ));
+    }
+    let mut gradient = vec![0.0; n];
+    oracle.gradient(&c.primal, &mut gradient)?;
+    let mut jac = vec![0.0; oracle.jacobian_pattern().row_idx().len()];
+    oracle.jacobian(&c.primal, &mut jac)?;
+    let pattern = oracle.jacobian_pattern();
+    for (col, value) in gradient.iter_mut().enumerate() {
+        for k in pattern.col_ptr()[col]..pattern.col_ptr()[col + 1] {
+            *value += jac[k] * lambda[pattern.row_idx()[k]];
+        }
+    }
+    if gradient.iter().chain(&jac).any(|v| !v.is_finite()) {
+        return Err(ProblemError::numerical("nonfinite original Lagrangian"));
+    }
+    Ok(gradient)
+}
+
+/// Complete only the bound reactions of finite declared equality bounds removed
+/// by the affine wrapper. Their reactions are nonunique: this chooses one side
+/// using the original physical minimization Lagrangian. It changes no primal,
+/// row multiplier, surviving coordinate, or nonfixed bound multiplier.
+pub(crate) fn recover_fixed_bound_reactions(
+    oracle: &mut dyn NlpOracle,
+    c: &mut crate::solve::Candidate,
+    eliminated: &[usize],
+) -> Result<(), ProblemError> {
+    if eliminated.is_empty() || c.row_dual.is_none() || c.bound_dual.is_none() {
+        return Ok(());
+    }
+    let n = oracle.contract().variables.len();
+    let Some((zl, zu)) = &c.bound_dual else {
+        return Ok(());
+    };
+    let Some(lambda) = &c.row_dual else {
+        return Ok(());
+    };
+    if eliminated.iter().any(|col| *col >= n) {
+        return Err(ProblemError::internal(
+            "eliminated bound reaction inventory",
+        ));
+    }
+    if zl.len() != n
+        || zu.len() != n
+        || zl.iter().chain(zu).any(|v| !v.is_finite() || *v < 0.0)
+        || lambda.len() != oracle.contract().rows.len()
+        || lambda.iter().any(|v| !v.is_finite())
+    {
+        // Preserve unavailable/invalid duals for the original KKT owner's refusal;
+        // this completion must never make an invalid native payload admissible.
+        return Ok(());
+    }
+    let gradient = lagrangian_gradient(oracle, c)?;
+    // Derivatives and inventories are checked before any multiplier is changed.
+    if let Some((zl, zu)) = &mut c.bound_dual {
+        for &col in eliminated {
+            let v = &oracle.contract().variables[col];
+            if v.lower.is_finite() && v.lower == v.upper {
+                zl[col] = gradient[col].max(0.0);
+                zu[col] = (-gradient[col]).max(0.0);
+            }
+        }
+    }
+    Ok(())
+}
+
 fn kkt(
     oracle: &mut dyn NlpOracle,
     c: &crate::solve::Candidate,
@@ -236,16 +320,9 @@ fn kkt(
     {
         return Err(ProblemError::numerical("dual dimensions/values/sign"));
     }
-    let mut gradient = vec![0.0; n];
-    oracle.gradient(&c.primal, &mut gradient)?;
-    let mut jac = vec![0.0; oracle.jacobian_pattern().row_idx().len()];
-    oracle.jacobian(&c.primal, &mut jac)?;
-    let pattern = oracle.jacobian_pattern();
+    let mut gradient = lagrangian_gradient(oracle, c)?;
     let mut comp = Vec::with_capacity(2 * n + m);
     for col in 0..n {
-        for k in pattern.col_ptr()[col]..pattern.col_ptr()[col + 1] {
-            gradient[col] += jac[k] * lambda[pattern.row_idx()[k]];
-        }
         gradient[col] += -zl[col] + zu[col];
         let v = &oracle.contract().variables[col];
         if v.lower.is_finite() {

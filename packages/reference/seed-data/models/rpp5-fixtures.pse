@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 @id("7b9046cbf27a49998042c4d70cbde495") package rpp5_fixtures {
+@id("659950fe0fdf46e9bc9b2766846652d1") use numerical_policy @"1.0.0";
 @id("66e0b5edb3a94a3bb4c75d666214f38b") use chemistry @"1.0.0";
 @id("0e1b77cbb95d4efeb620adde5ae677a6") use chem @"1.0.0";
 @id("f69a7bf8be9c4b768168ca192ac5e98c") use correlations @"1.0.0";
@@ -19,15 +20,15 @@
 @id("9527a955593a4ce4a1b435dee5d35904") constant formation_increment:DeltaH=-241810{J/mol} provenance(references.idaes_test_rpp5,provenance.Role.oracle_input);
 @id("3fc31bff385d459bafa7184ac7b484a4") constant entropy_reference_increment:DeltaS=188.84{J/(mol*K)} provenance(references.idaes_test_rpp5,provenance.Role.oracle_input);
 @id("6a1e7e34308a442f9de6c8f0b9288665") test water_rpp5_and_antoine oracle references.idaes_test_rpp5 fixture {dof 0; route steady; procedure check;} {
-@id("0a5e5bc096d242b9886df9eab2aa8af5") expect properties.cp(water_rpp5_package,chemistry.vapor,chem.water,298.15{K})==33.518{J/(mol*K)} tolerance 0.001{J/(mol*K)};
-@id("bcd1b5228e58433ab2eaafba77674328") expect formation_increment+properties.enthalpy_increment(water_rpp5_package,chemistry.vapor,chem.water,reference_temperature,298.15{K})==-240973.683{J/mol} tolerance 0.001{J/mol};
-@id("5373402d1f5f4223b91b01208d995783") expect properties.enthalpy_increment(water_rpp5_package,chemistry.vapor,chem.water,reference_temperature,298.15{K})==836.317{J/mol} tolerance 0.001{J/mol};
-@id("2577e2521d644bf8baf9e1547e79e463") expect entropy_reference_increment+properties.entropy_increment(water_rpp5_package,chemistry.vapor,chem.water,reference_temperature,298.15{K})==191.769{J/(mol*K)} tolerance 0.001{J/(mol*K)};
-@id("42824eefccae4bef928cbd76a4de6b4e") expect properties.cp(water_rpp5_package,chemistry.vapor,chem.water,400{K})==34.334{J/(mol*K)} tolerance 0.001{J/(mol*K)};
-@id("420253c63f42441aa4ecfdc3a70076e9") expect formation_increment+properties.enthalpy_increment(water_rpp5_package,chemistry.vapor,chem.water,reference_temperature,400{K})==-237521.691{J/mol} tolerance 0.001{J/mol};
-@id("48eee3cf41b84690b70c7963b1049e1b") expect properties.enthalpy_increment(water_rpp5_package,chemistry.vapor,chem.water,reference_temperature,400{K})==4288.309{J/mol} tolerance 0.001{J/mol};
-@id("66fd47c5d2ef4b82afe51339ddce35a4") expect entropy_reference_increment+properties.entropy_increment(water_rpp5_package,chemistry.vapor,chem.water,reference_temperature,400{K})==201.723{J/(mol*K)} tolerance 0.001{J/(mol*K)};
-@id("83afbf45425149d08948b94f53de1874") expect properties.psat(water_rpp5_package,chemistry.liquid,chem.water,298.15{K})==3173.066{Pa} tolerance 0.001{Pa};
+@id("0a5e5bc096d242b9886df9eab2aa8af5") expect properties.cp(water_rpp5_package,chemistry.vapor,chem.water,298.15{K})==33.518{J/(mol*K)} tolerance 0.001{J/(mol*K)} relative numerical_policy.dimensionless;
+@id("bcd1b5228e58433ab2eaafba77674328") expect formation_increment+properties.enthalpy_increment(water_rpp5_package,chemistry.vapor,chem.water,reference_temperature,298.15{K})==-240973.683{J/mol} tolerance 0.001{J/mol} relative numerical_policy.dimensionless;
+@id("5373402d1f5f4223b91b01208d995783") expect properties.enthalpy_increment(water_rpp5_package,chemistry.vapor,chem.water,reference_temperature,298.15{K})==836.317{J/mol} tolerance 0.001{J/mol} relative numerical_policy.dimensionless;
+@id("2577e2521d644bf8baf9e1547e79e463") expect entropy_reference_increment+properties.entropy_increment(water_rpp5_package,chemistry.vapor,chem.water,reference_temperature,298.15{K})==191.769{J/(mol*K)} tolerance 0.001{J/(mol*K)} relative numerical_policy.dimensionless;
+@id("42824eefccae4bef928cbd76a4de6b4e") expect properties.cp(water_rpp5_package,chemistry.vapor,chem.water,400{K})==34.334{J/(mol*K)} tolerance 0.001{J/(mol*K)} relative numerical_policy.dimensionless;
+@id("420253c63f42441aa4ecfdc3a70076e9") expect formation_increment+properties.enthalpy_increment(water_rpp5_package,chemistry.vapor,chem.water,reference_temperature,400{K})==-237521.691{J/mol} tolerance 0.001{J/mol} relative numerical_policy.dimensionless;
+@id("48eee3cf41b84690b70c7963b1049e1b") expect properties.enthalpy_increment(water_rpp5_package,chemistry.vapor,chem.water,reference_temperature,400{K})==4288.309{J/mol} tolerance 0.001{J/mol} relative numerical_policy.dimensionless;
+@id("66fd47c5d2ef4b82afe51339ddce35a4") expect entropy_reference_increment+properties.entropy_increment(water_rpp5_package,chemistry.vapor,chem.water,reference_temperature,400{K})==201.723{J/(mol*K)} tolerance 0.001{J/(mol*K)} relative numerical_policy.dimensionless;
+@id("83afbf45425149d08948b94f53de1874") expect properties.psat(water_rpp5_package,chemistry.liquid,chem.water,298.15{K})==3173.066{Pa} tolerance numerical_policy.pressure;
 }
 @id("e18b4aa608bf4d01b4c4a2581ef81167") entity properties.selection_context water_rpp5_package_admitted {roots={correlations.rpp5_cp[chem.water,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.idaes_rpp5_caloric_fit],correlations.antoine[chem.water,properties.vapor_pressure,compatibility.PhaseType.liquidPhase,references.idaes_rpp5_pressure_fit]},subjects={chem.water},models={properties.heat_capacity,properties.vapor_pressure},rules={}}
 }

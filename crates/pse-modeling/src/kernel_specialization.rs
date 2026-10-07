@@ -444,18 +444,20 @@ fn lexical_locals_are_shared_and_shadow_without_capture() {
 fn raw_closure_detects_a_violation_independent_of_residual_values() {
     let m=run("package p { def D { var x: Scalar; var y: Scalar; accumulate total: Scalar conservation tolerance 0.01; contribute total role inflow = x; contribute total role outflow = y; } }","p.D",Bindings::default()).unwrap();
     let terms = &m.closures.values().next().unwrap().terms;
+    let allowances =
+        std::collections::BTreeMap::from([(m.closures.values().next().unwrap().id, 0.01)]);
     let mut magnitudes = std::collections::BTreeMap::from([(terms[0].id, 2.0), (terms[1].id, 2.0)]);
     assert_eq!(
-        m.assess_closure(&magnitudes).unwrap()[0].satisfied,
+        m.assess_closure(&magnitudes, &allowances).unwrap()[0].satisfied,
         Some(true)
     );
     magnitudes.insert(terms[1].id, 1.5);
     assert_eq!(
-        m.assess_closure(&magnitudes).unwrap()[0].satisfied,
+        m.assess_closure(&magnitudes, &allowances).unwrap()[0].satisfied,
         Some(false)
     );
     magnitudes.remove(&terms[0].id);
-    assert!(m.assess_closure(&magnitudes).is_err());
+    assert!(m.assess_closure(&magnitudes, &allowances).is_err());
 }
 
 #[test]
@@ -1133,6 +1135,82 @@ fn authored_accuracy_and_engineering_annotations_specialize_to_typed_meaning() {
     ] {
         assert!(run(&invalid, "p.Root", Bindings::default()).is_err(), "{invalid}");
     }
+}
+
+#[test]
+fn selected_package_engineering_rules_retain_constant_and_provenance_dependencies() {
+    let text = r#"package p {
+        use policy @"1.0.0";
+        def Root { var temperature:Temperature; eq e:temperature==280{K}; }
+    }
+    package policy {
+        entity kind source provenance { attribute title:Text; }
+        enum role { published }
+        entity source maintainer { title="engineering policy" }
+        constant allowance:DeltaTemperature=0.1{K} provenance(maintainer,role.published);
+        annotation engineering_rule policy.allowance;
+        param ignored:Scalar=1;
+        annotation check ignored(ignored>0);
+    }
+    package unrelated {
+        entity kind source provenance { attribute title:Text; }
+        enum role { published }
+        entity source maintainer { title="unselected policy" }
+        constant allowance:DeltaTemperature=0.5{K} provenance(maintainer,role.published);
+        annotation engineering_rule unrelated.allowance;
+    }"#;
+    let (registry, _) = physical();
+    let context = TypeContext {
+        admissions: None,
+        formula_authority: None,
+        preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
+        quantities: &registry,
+        scope: &PhysicalScope::default(),
+    };
+    let checked = check(&source(text), &context).unwrap();
+    let root = checked.names["p.Root"];
+    let constant = checked.names["policy.allowance"];
+    let marker = checked
+        .declarations()
+        .find(|row| {
+            selected_source::is_engineering_rule_marker(row)
+                && row.value.annotation.as_ref().unwrap().target == "policy.allowance"
+        })
+        .unwrap()
+        .declaration_id;
+    let selected = checked.select(root).unwrap();
+    assert!(selected.declaration(marker).is_some());
+    assert!(selected.declaration(constant).is_some());
+    assert!(selected.entry("policy.maintainer").is_some());
+    assert!(selected.entry("policy.role").is_some());
+    assert!(selected.entry("policy.ignored").is_none());
+    assert!(selected.entry("unrelated").is_none());
+    assert_eq!(
+        selected
+            .declarations()
+            .filter(|row| { selected_source::is_engineering_rule_marker(row) })
+            .count(),
+        1
+    );
+    let model = specialize(
+        &selected,
+        root,
+        InstanceId::from_bytes([7; 16]),
+        &Bindings::default(),
+        Limits::default(),
+    )
+    .unwrap();
+    assert_eq!(model.engineering_rules.len(), 1);
+    assert_eq!(model.engineering_rules[0].id, constant.as_id());
+    assert_eq!(model.engineering_rules[0].marker, marker);
+    let Value::Number { bits, quantity } = &model.engineering_rules[0].value else {
+        panic!("selected shared rule retains its typed constant")
+    };
+    assert_eq!(f64::from_bits(*bits), 0.1);
+    assert_eq!(
+        registry.quantity_type(*quantity).unwrap().key.scale_kind,
+        pse_quantity::ScaleKind::Difference
+    );
 }
 
 fn p_id(text: &str, path: &str) -> SemanticId {

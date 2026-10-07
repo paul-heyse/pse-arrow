@@ -22,6 +22,12 @@ fn state_key(value: &crate::specialize::StateKey) -> usize {
             .map(Value::retained_bytes)
             .sum::<usize>()
 }
+fn closure_requirement(value: &crate::specialize::ClosureRequirement) -> usize {
+    match &value.tolerance {
+        crate::specialize::ClosureTolerance::Explicit(value) => value.retained_bytes(),
+        crate::specialize::ClosureTolerance::EngineeringRule { .. } => 0,
+    }
+}
 fn selections(values: &crate::scientific_selection::Selections) -> usize {
     map(values, |occurrence, closure| {
         occurrence.expression.capacity()
@@ -523,7 +529,11 @@ impl SpecializedModel {
                 .sum::<usize>()
             + map(&self.closures, |_, v| {
                 ty(&v.ty)
-                    + v.tolerance.retained_bytes()
+                    + v.requirements.capacity() * size_of::<crate::specialize::ClosureRequirement>()
+                    + v.requirements
+                        .iter()
+                        .map(closure_requirement)
+                        .sum::<usize>()
                     + lineage(&v.lineage)
                     + v.terms.capacity() * size_of::<crate::specialize::Contribution>()
                     + v.terms
@@ -553,20 +563,24 @@ impl SpecializedModel {
             + map(&self.ports, |_, v| lineage(&v.lineage))
             + map(&self.state_specifications, |_, v| {
                 map(&v.coordinates, |key, _| state_key(key))
-                    + v.reconstructions.capacity() * size_of::<(crate::specialize::Row, Value)>()
+                    + v.reconstructions.capacity()
+                        * size_of::<(
+                            crate::specialize::Row,
+                            crate::specialize::ClosureRequirement,
+                        )>()
                     + v.reconstructions
                         .iter()
                         .map(|(row, tolerance)| {
                             equation(&row.equation)
                                 + lineage(&row.lineage)
-                                + tolerance.retained_bytes()
+                                + closure_requirement(tolerance)
                         })
                         .sum::<usize>()
                     + map(&v.transports, |key, observation| {
                         state_key(key)
                             + expression(&observation.expression)
                             + ty(&observation.ty)
-                            + observation.tolerance.retained_bytes()
+                            + closure_requirement(&observation.requirement)
                     })
                     + lineage(&v.lineage)
             })
@@ -577,7 +591,7 @@ impl SpecializedModel {
                 expression(&v.inventory)
                     + expression(&v.flux)
                     + ty(&v.ty)
-                    + v.tolerance.retained_bytes()
+                    + closure_requirement(&v.requirement)
                     + map(&v.transfers, |_, transfer| expression(transfer))
                     + lineage(&v.lineage)
             })

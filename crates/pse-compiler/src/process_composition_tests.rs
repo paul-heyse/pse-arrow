@@ -233,7 +233,22 @@ def Root {{child root:vessels.Vessel=vessels.Vessel(selected=bt_ideal.aromatics,
             .collect();
         let assessed = prepared
             .model
-            .assess_closures(&contributions, &subjects)
+            .assess_closures(
+                &contributions,
+                &subjects,
+                &subjects
+                    .iter()
+                    .map(|id| {
+                        let budget = if prepared.model.closures[id].lineage.path.contains("amount")
+                        {
+                            0.001
+                        } else {
+                            100.0
+                        };
+                        (*id, budget)
+                    })
+                    .collect(),
+            )
             .unwrap();
         assert_eq!(assessed.len(), 2);
         assert!(

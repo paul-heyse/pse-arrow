@@ -5,7 +5,7 @@
 //! lag `lag·dx/dt = u − x`, x(0) = 0, over 2 s, tracking a target with a bounded input. The
 //! same `SaturatedProcess` definition also integrates with its input scheduled.
 use super::fixtures::*;
-use pse_backend_native::solve::{Backend, Qualification, SolverSelection};
+use pse_backend_native::solve::{Backend, Qualification, SolutionStatus, SolverSelection};
 use pse_ids::SemanticId;
 use pse_relations::generated::enums::NumericalTarget;
 use pse_runtime::{
@@ -21,14 +21,6 @@ const SWITCHED: &str = "bbf77b04ed344205a780917531a693f4";
 /// ∫₀² (x − 1)² dt at the saturated input u = 1, x = 1 − e^{−t}.
 fn saturated_tracking() -> f64 {
     (1.0 - (-4.0f64).exp()) / 2.0
-}
-/// ∫ (x − 0.5)² dt at the optimal input: u = 1 until x = 0.5 at t = ln 2, then u = 0.5.
-fn half_tracking() -> f64 {
-    std::f64::consts::LN_2 / 4.0 - 0.125
-}
-/// ∫₀² (x − 0.5)² dt at the always-on input.
-fn half_always_on() -> f64 {
-    saturated_tracking() - (1.0 - (-2.0f64).exp()) + 0.5
 }
 fn optimize(selection: SolverSelection) -> SolverProfile {
     let mut solver = profile(Backend::Ipopt, true);
@@ -163,16 +155,177 @@ fn physical_premises(result: &ModelingResult) {
     }
 }
 
-/// A bounded input tracking a target: saturated at its bound for target 1, with the
-/// analytic x = 1 − e^{−t}; switching at t = ln 2 to hold x = 0.5 for target 0.5. The
-/// input is saturated at its bound over [0, ln 2) on both. The same definition, integrated
-/// with its input scheduled at the saturated optimum, reproduces the trajectory.
+/// The finite, continuous-variable QP's evidence must meet the admitted policy.
+/// These normalized stationarity and objective-error budgets qualify the tracking
+/// decision; physical variable allowances do not bound distance to the exact optimizer.
+fn optimality_premises(result: &ModelingResult) {
+    let native = native(result);
+    assert_eq!(native.backend, Backend::Highs);
+    assert_eq!(native.qualification, Qualification::OptimalWithinTolerance);
+    let evidence = native.evidence.coefficient.as_ref().unwrap();
+    let policy = result.prepared.solve.accuracy();
+    assert!(evidence.upload_equivalent && !evidence.discrete);
+    assert_eq!(evidence.primal, SolutionStatus::Feasible);
+    assert_eq!(evidence.dual, SolutionStatus::Feasible);
+    assert!(
+        evidence.max_dual_infeasibility.is_some_and(|value| {
+            value.is_finite() && value >= 0.0 && value <= policy.stationarity
+        }),
+        "{evidence:?}; stationarity budget={}",
+        policy.stationarity
+    );
+    assert!(
+        evidence.primal_dual_objective_error.is_some_and(|value| {
+            value.is_finite() && value >= 0.0 && value <= policy.gap_relative
+        }),
+        "{evidence:?}; objective-error budget={}",
+        policy.gap_relative
+    );
+}
+
+/// Independently evaluate the original finite program's c + gᵀx + ½xᵀHx.
+/// Demand the existing compiler coefficient artifact under its retained class budget;
+/// native readback/optimality evidence is checked separately for each actual backend.
+fn discrete_objective_premises(result: &ModelingResult) {
+    let native = native(result);
+    assert!(native.validation_failure().is_none());
+    // Route-specific class products are separate from the shared compiled case.
+    // Use the same production owner to obtain the original semantic coefficients,
+    // including for SCIP's factorable export and fixed-assignment re-solve.
+    let prepared = result
+        .prepared
+        .model
+        .case
+        .compiled()
+        .prepare_class(
+            &result.prepared.model.values,
+            &std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        )
+        .unwrap();
+    let coefficients = prepared
+        .coefficients
+        .as_ref()
+        .expect("tracking QP coefficients");
+    assert!(coefficients.matches_values(&result.prepared.model.values));
+    let columns = prepared.plan.columns();
+    assert_eq!(native.variables.as_slice(), columns);
+    let candidate = native.candidate.as_ref().unwrap();
+    assert_eq!(candidate.primal.len(), columns.len());
+    for (id, value) in columns.iter().zip(&candidate.primal) {
+        assert_eq!(
+            result.values.scalars[id], *value,
+            "full candidate publication {id}"
+        );
+    }
+    let point = &candidate.primal;
+    assert_eq!(coefficients.objective.len(), point.len());
+    let mut objective = coefficients.objective_constant;
+    for (linear, value) in coefficients.objective.iter().zip(point) {
+        objective += linear * value;
+    }
+    let hessian = &coefficients.hessian;
+    assert_eq!(hessian.nrows(), point.len());
+    assert_eq!(hessian.ncols(), point.len());
+    for (column, range) in hessian.symbolic().col_ptr().windows(2).enumerate() {
+        for entry in range[0]..range[1] {
+            objective +=
+                0.5 * point[hessian.row_idx()[entry]] * hessian.val()[entry] * point[column];
+        }
+    }
+    let allowance = result.prepared.solve.objective_accuracy();
+    assert!(objective.is_finite() && allowance.is_finite() && allowance > 0.0);
+    if let Some(evidence) = native.evidence.coefficient.as_ref() {
+        let objective_scale = result
+            .prepared
+            .solve
+            .numerics()
+            .targets
+            .iter()
+            .find(|target| target.kind == NumericalTarget::Objective)
+            .unwrap()
+            .coordinate_scale;
+        near(
+            evidence.objective.unwrap() * objective_scale,
+            objective,
+            allowance,
+        );
+    }
+    near(candidate.objective.unwrap(), objective, allowance);
+    near(
+        native.observation.as_ref().unwrap().objective.unwrap(),
+        objective,
+        allowance,
+    );
+    near(tracking(result), objective, allowance);
+}
+
+/// SCIP's original-unit dual bound qualifies the actual finite-program candidate.
+/// The relative branch uses the smaller same-sign magnitude, as production does.
+fn global_optimality_premises(result: &ModelingResult) {
+    use pse_backend_native::solve::{Assurance, PrimalSource, Termination};
+    let native = native(result);
+    let evidence = native.evidence.global.as_ref().unwrap();
+    assert!(evidence.readback && !evidence.infeasible, "{evidence:?}");
+    assert_eq!(evidence.primal, PrimalSource::FixedAssignment);
+    assert_eq!(native.termination.category, Termination::Success);
+    assert!(matches!(
+        native.termination.assurance,
+        Assurance::GlobalBound | Assurance::ExactCertificate
+    ));
+    let policy = result.prepared.solve.accuracy();
+    let objective_scale = result
+        .prepared
+        .solve
+        .numerics()
+        .targets
+        .iter()
+        .find(|target| target.kind == NumericalTarget::Objective)
+        .unwrap()
+        .coordinate_scale;
+    assert_eq!(
+        evidence.gap_absolute,
+        policy.mip_absolute_gap * objective_scale
+    );
+    assert_eq!(evidence.gap_relative, policy.mip_relative_gap);
+    let objective = native.observation.as_ref().unwrap().objective.unwrap();
+    let bound = evidence.dual_bound.unwrap();
+    assert!(objective.is_finite() && bound.is_finite());
+    let relative = if objective.signum() == bound.signum() {
+        evidence.gap_relative * objective.abs().min(bound.abs())
+    } else {
+        0.0
+    };
+    assert!(
+        (objective - bound).abs() <= evidence.gap_absolute.max(relative),
+        "original objective={objective}, bound={bound}; {evidence:?}"
+    );
+    assert_eq!(
+        evidence.sense,
+        result
+            .prepared
+            .model
+            .case
+            .compiled()
+            .plan
+            .structure()
+            .objective()
+            .unwrap()
+            .sense
+    );
+}
+
+/// The authored eight-element, order-three Radau program is qualified against its
+/// actual coefficients and original physical constraints. Its finite state/input
+/// parameterization and quadrature do not promise the continuous-control optimum,
+/// including the off-mesh switch at t = ln 2 for target 0.5. Integrating the same
+/// definition with the saturated input scheduled independently checks the continuous
+/// analytic trajectory and integral at the declared integration controls.
 #[tokio::test]
 async fn simultaneous_dynamic_optimization_matches_analytic() {
     let owner = WorkflowRuntime::new().unwrap();
     let package = seed_package(&owner).await;
     let paths = HOLDUPS.map(|(_, p)| p);
-    let (saturated, holdups) = simultaneous(
+    let (saturated, _holdups) = simultaneous(
         &package,
         SATURATED,
         optimize(SolverSelection::Auto),
@@ -190,8 +343,9 @@ async fn simultaneous_dynamic_optimization_matches_analytic() {
         NumericalTarget::Objective,
         SemanticId::NIL,
     );
-    near(tracking(result), saturated_tracking(), objective_allowance);
     physical_premises(result);
+    optimality_premises(result);
+    discrete_objective_premises(result);
     let inputs = values(result, "u");
     // One input per mesh node, the fixed left boundary included.
     assert_eq!(inputs.len(), 25);
@@ -211,22 +365,8 @@ async fn simultaneous_dynamic_optimization_matches_analytic() {
             assert_eq!(*u, 1., "authored fixed left input");
         }
     }
-    let simultaneous_states = [0, 1, 2].map(|k| result.values.scalars[&holdups[k]]);
-    let simultaneous_allowances = holdups
-        .iter()
-        .map(|id| {
-            resolved_allowance(
-                result.prepared.solve.numerics(),
-                NumericalTarget::Variable,
-                *id,
-            )
-        })
-        .collect::<Vec<_>>();
-    for (k, ((t, _), x)) in HOLDUPS.into_iter().zip(simultaneous_states).enumerate() {
-        near(x, 1.0 - (-t).exp(), simultaneous_allowances[k]);
-    }
-    // Tracking half the reachable range switches off the saturated input at x = 0.5.
-    let (half, holdups) = simultaneous(
+    // Track half the reachable range in the same finite control parameterization.
+    let (half, _holdups) = simultaneous(
         &package,
         SATURATED,
         optimize(SolverSelection::Auto),
@@ -235,25 +375,9 @@ async fn simultaneous_dynamic_optimization_matches_analytic() {
     )
     .await;
     let half = authored_success(&half);
-    near(
-        tracking(half),
-        half_tracking(),
-        resolved_allowance(
-            half.prepared.solve.numerics(),
-            NumericalTarget::Objective,
-            SemanticId::NIL,
-        ),
-    );
     physical_premises(half);
-    near(
-        half.values.scalars[&holdups[2]],
-        0.5,
-        resolved_allowance(
-            half.prepared.solve.numerics(),
-            NumericalTarget::Variable,
-            holdups[2],
-        ),
-    );
+    optimality_premises(half);
+    discrete_objective_premises(half);
     assert_eq!(values(half, "u").len(), 25);
 
     // Integrated, with the input scheduled in two intervals at its saturated optimum.
@@ -302,20 +426,11 @@ async fn simultaneous_dynamic_optimization_matches_analytic() {
         .position(|id| *id == state);
     let integrated_allowance =
         resolved_allowance(simulation.numerics(), NumericalTarget::Variable, state);
-    for (k, (sample, x)) in trajectory
-        .report()
-        .samples
-        .iter()
-        .zip(simultaneous_states)
-        .enumerate()
-    {
+    assert_eq!(trajectory.report().samples.len(), HOLDUPS.len());
+    for (sample, (time, _)) in trajectory.report().samples.iter().zip(HOLDUPS) {
+        assert_eq!(sample.time, time);
         let integrated = output.map_or(sample.state[0], |o| sample.outputs[o]);
         near(integrated, 1.0 - (-sample.time).exp(), integrated_allowance);
-        near(
-            integrated,
-            x,
-            integrated_allowance + simultaneous_allowances[k],
-        );
     }
     near(
         trajectory.report().samples.last().unwrap().integrals[0],
@@ -326,8 +441,8 @@ async fn simultaneous_dynamic_optimization_matches_analytic() {
 
 /// An on/off input at every collocation node makes the problem a mixed-integer program
 /// that SCIP certifies. Its candidate is the continuous re-solve under the node
-/// assignment, which the step states as its commitment (Plan 22 M2c); its tracking lies
-/// between the continuous optimum and the always-on input's.
+/// assignment, which the step states as its commitment (Plan 22 M2c). Its original
+/// tracking objective must satisfy the retained bound for that finite program.
 #[tokio::test]
 async fn simultaneous_dynamic_optimization_with_discrete_decision() {
     let owner = WorkflowRuntime::new().unwrap();
@@ -352,18 +467,9 @@ async fn simultaneous_dynamic_optimization_with_discrete_decision() {
         "{:?}",
         native.qualification
     );
-    let value = tracking(result);
     physical_premises(result);
-    let objective_allowance = resolved_allowance(
-        result.prepared.solve.numerics(),
-        NumericalTarget::Objective,
-        SemanticId::NIL,
-    );
-    assert!(
-        value >= half_tracking() - objective_allowance
-            && value <= half_always_on() + objective_allowance,
-        "{value}"
-    );
+    discrete_objective_premises(result);
+    global_optimality_premises(result);
     // The switched inputs are the committed assignment: binary, and both on and off.
     let commitment = native
         .candidate

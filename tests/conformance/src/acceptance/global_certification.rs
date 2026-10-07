@@ -10,7 +10,7 @@ use pse_relations::generated::enums::NumericalTarget;
 use pse_runtime::{
     CancelSource,
     math::solves::{Outcome, SolverProfile},
-    workflow::{ModelingPackage, RunReport},
+    workflow::{ModelingAnalysis, ModelingPackage, RunReport},
 };
 use std::time::Duration;
 
@@ -245,11 +245,28 @@ async fn tpd_detects_known_instability() {
         trial_symbol.role,
         pse_relations::generated::enums::ModelingDeclarationKind::Variable
     );
-    let trial_allowance = resolved_allowance(
-        report.prepared.solve.numerics(),
-        NumericalTarget::Variable,
-        trial,
-    );
+    let registry = &report.prepared.model.case.compiled().quantities;
+    let target = report
+        .prepared
+        .solve
+        .numerics()
+        .targets
+        .iter()
+        .find(|target| target.kind == NumericalTarget::Variable && target.id == trial)
+        .unwrap();
+    let difference = pse_quantity::scheme::Scheme::Delta(Box::new(
+        pse_quantity::scheme::Scheme::Concrete(target.quantity.into()),
+    ))
+    .resolve(registry, &Default::default())
+    .unwrap();
+    let trial_allowance = authored_resolution(
+        &package,
+        SemanticId::parse_hex("cb535c40e89f420aba9a06444306aca8").unwrap(),
+        registry,
+        difference,
+        target.unit.into(),
+    )
+    .await;
     assert!((report.values.scalars[&trial] - benzene).abs() <= trial_allowance);
     let tolerance = stability_tolerance(report);
     assert!(
@@ -498,13 +515,27 @@ async fn pcsaft_tpd_fixture(
     let package = package.with_declarations(rows).await.unwrap();
     (package, case)
 }
+const PCSAFT_TRIAL_PATHS: [&str; 3] = [
+    "root.trial.amount[chem.methane]",
+    "root.trial.amount[chem.ethane]",
+    "root.trial.amount[chem.propane]",
+];
 async fn pcsaft_tpd(
     package: &ModelingPackage,
     case: pse_model::generated::identities::DeclarationId,
     limits: pse_modeling::Limits,
 ) -> Result<pse_runtime::workflow::ModelingSolvePreparation, pse_runtime::workflow::WorkflowError> {
     let cancel = CancelSource::new();
-    let analysis = package
+    let analysis = pcsaft_tpd_analysis(package, case, limits).await?;
+    package.prepare_analysis(&analysis, &cancel).await
+}
+async fn pcsaft_tpd_analysis(
+    package: &ModelingPackage,
+    case: pse_model::generated::identities::DeclarationId,
+    limits: pse_modeling::Limits,
+) -> Result<ModelingAnalysis, pse_runtime::workflow::WorkflowError> {
+    let cancel = CancelSource::new();
+    let mut analysis = package
         .declared_execution(
             case,
             compiler(),
@@ -515,7 +546,12 @@ async fn pcsaft_tpd(
         )
         .await?
         .analysis;
-    package.prepare_analysis(&analysis, &cancel).await
+    analysis.bindings.demand.push("root.tolerance".into());
+    analysis
+        .bindings
+        .demand
+        .extend(PCSAFT_TRIAL_PATHS.into_iter().map(str::to_owned));
+    Ok(analysis)
 }
 
 #[tokio::test]
@@ -540,18 +576,211 @@ async fn pcsaft_tpd_fits_the_formal_pool() {
     };
     let refused = pcsaft_tpd(&package, case, former).await.unwrap_err();
     assert!(refused.to_string().contains("body slots"), "{refused}");
-    let prepared = pcsaft_tpd(&package, case, seed_limits()).await.unwrap();
-    let result = prepared.start().unwrap().wait().await.unwrap();
-    // The feed is its own stationary trial phase: the distance is zero there.
-    let (value, check) = tpd(&result);
-    let RunReport::Modeling(reports) = result.report().unwrap() else {
-        panic!("expected modeling report")
+    let cancel = CancelSource::new();
+    let analysis = pcsaft_tpd_analysis(&package, case, seed_limits())
+        .await
+        .unwrap();
+    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    // Resolve pressure at the authored feed before releasing its two independent
+    // trial composition coordinates. The third amount still obeys normalization;
+    // neither pressure equation nor the constitutive law is replaced.
+    let mut initialization = analysis.clone();
+    initialization.solver.intent = SolveIntent::FeasiblePoint;
+    initialization.solver.selection = SolverSelection::Auto;
+    let model = &prepared.model.model.compiled().model;
+    let trial_ids = PCSAFT_TRIAL_PATHS.map(|path| {
+        let id = model.paths[path];
+        let symbol = &model.symbols[&id];
+        assert_eq!(
+            symbol.lineage.declaration.as_id(),
+            SemanticId::parse_hex("01a0e169482c760bbd985b902107e9b7").unwrap()
+        );
+        assert_eq!(
+            symbol.role,
+            pse_relations::generated::enums::ModelingDeclarationKind::Variable
+        );
+        assert!(prepared.model.case.compiled().plan.columns().contains(&id));
+        id
+    });
+    assert_ne!(trial_ids[0], trial_ids[1]);
+    assert_ne!(trial_ids[0], trial_ids[2]);
+    assert_ne!(trial_ids[1], trial_ids[2]);
+    for (path, id) in PCSAFT_TRIAL_PATHS.into_iter().zip(trial_ids).take(2) {
+        initialization
+            .case
+            .values
+            .insert(path.into(), prepared.model.values.scalars[&id]);
+        initialization.case.variables.insert(
+            path.into(),
+            pse_compiler::workspace::ModelingVariableState {
+                fixed: Some(true),
+                ..Default::default()
+            },
+        );
+    }
+    let initialized = package
+        .prepare_analysis(&initialization, &cancel)
+        .await
+        .unwrap()
+        .start()
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
+    let RunReport::Modeling(initial_reports) = initialized.report().unwrap() else {
+        panic!("expected pressure initialization report")
     };
-    let allowance = resolved_allowance(
-        reports[0].prepared.solve.numerics(),
-        NumericalTarget::Objective,
-        SemanticId::NIL,
+    assert_eq!(initial_reports.len(), 1);
+    let initial = &initial_reports[0];
+    assert!(
+        initial.accepted && initialized.usable(),
+        "{:?}",
+        initial.diagnostic()
     );
-    assert!(value.abs() <= allowance, "{value}, allowance={allowance}");
-    assert!(check.satisfied, "{check:?}");
+    assert!(initial.checks.iter().all(|check| check.satisfied));
+    match &initial.outcome {
+        Outcome::Native(native) => {
+            assert!(native.quality.as_ref().unwrap().feasible(), "{native:?}");
+            assert!(native.validation_failure().is_none(), "{native:?}");
+        }
+        Outcome::Constant(report) => {
+            // Auto may reconstruct the complete original model from several
+            // routed root components, without inventing a single native attempt.
+            assert!(report.quality.feasible(), "{:?}", report.quality);
+            for native in report.component_reports() {
+                assert!(native.validation_failure().is_none(), "{native:?}");
+            }
+        }
+        Outcome::Rejected(cause) => panic!("pressure initialization rejected: {cause}"),
+    }
+    assert!(
+        !initial
+            .prepared
+            .model
+            .case
+            .compiled()
+            .plan
+            .columns()
+            .contains(&trial_ids[0])
+    );
+    assert!(
+        !initial
+            .prepared
+            .model
+            .case
+            .compiled()
+            .plan
+            .columns()
+            .contains(&trial_ids[1])
+    );
+    assert!(
+        initial
+            .prepared
+            .model
+            .case
+            .compiled()
+            .plan
+            .columns()
+            .contains(&trial_ids[2])
+    );
+    // The final optimizer keeps its original complete body and free composition.
+    let seed = prepared
+        .model
+        .case
+        .compiled()
+        .plan
+        .columns()
+        .iter()
+        .map(|id| (*id, initial.values.scalars[id]))
+        .collect();
+    let handle = prepared.with_primal_start(seed).unwrap().start().unwrap();
+    let result = handle.wait().await.unwrap();
+    if !result.usable() {
+        let (events, dropped) = handle.progress();
+        eprintln!(
+            "PC-SAFT retained progress: events={}, dropped={dropped}",
+            events.len()
+        );
+        for event in events
+            .iter()
+            .filter(|event| event.phase == "ipopt.iteration")
+            .rev()
+            .take(8)
+        {
+            eprintln!(
+                "PC-SAFT native iteration elapsed={:?}, values={:?}",
+                event.elapsed, event.values
+            );
+        }
+        if let Err(cause) = result.report() {
+            eprintln!("PC-SAFT execution failed: {cause}");
+        }
+    }
+    let RunReport::Modeling(reports) = result.report().unwrap() else {
+        panic!("expected PC-SAFT optimization report")
+    };
+    assert_eq!(reports.len(), 1);
+    let report = &reports[0];
+    let Outcome::Native(native) = &report.outcome else {
+        panic!("expected native PC-SAFT optimization");
+    };
+    assert_eq!(native.backend, Backend::Ipopt);
+    assert_eq!(
+        native.qualification,
+        Qualification::Stationary,
+        "{native:?}"
+    );
+    assert_eq!(native.termination.assurance, Assurance::LocalStationary);
+    assert!(native.quality.as_ref().unwrap().feasible(), "{native:?}");
+    assert!(native.validation_failure().is_none(), "{native:?}");
+    let kkt = native.evidence.kkt.unwrap();
+    assert_eq!(kkt.stationarity, Some(true), "{native:?}");
+    assert_eq!(kkt.complementarity, Some(true), "{native:?}");
+    assert!(native.evidence.global.is_none());
+    for id in trial_ids {
+        assert!(
+            report
+                .prepared
+                .model
+                .case
+                .compiled()
+                .plan
+                .columns()
+                .contains(&id)
+        );
+    }
+    // This feed lies in a two-phase region. A qualified negative local TPD may
+    // reject the stability check; a local nonnegative point proves no global claim.
+    let (value, check) = tpd(&result);
+    let tolerance = stability_tolerance(report);
+    assert!(value.is_finite(), "{value}");
+    assert_eq!(check.basis, ModelingCheckBasis::Point, "{check:?}");
+    assert_eq!(
+        check.satisfied,
+        value > -tolerance,
+        "{value}, tolerance={tolerance}, {check:?}"
+    );
+    assert!(
+        report
+            .checks
+            .iter()
+            .all(|other| other.source_id == check.source_id || other.satisfied)
+    );
+    assert_eq!(result.assessments().len(), 1);
+    let assessment = &result.assessments()[0];
+    assert_eq!(assessment.numerically_feasible, Some(true));
+    if check.satisfied {
+        assert!(
+            report.accepted && result.usable(),
+            "{:?}",
+            report.diagnostic()
+        );
+        assert!(assessment.refusals.is_empty(), "{assessment:?}");
+    } else {
+        assert!(!report.accepted && !result.usable());
+        assert_eq!(
+            assessment.refusals,
+            [pse_relations::generated::enums::CandidateRefusal::ModelChecks]
+        );
+    }
 }

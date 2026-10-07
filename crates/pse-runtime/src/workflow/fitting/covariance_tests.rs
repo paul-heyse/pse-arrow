@@ -94,13 +94,10 @@ async fn linear_regression_covariance_analytic() {
                 }
             }
         }
-        for i in 0..2 {
+        for (i, row) in information.iter().enumerate() {
             for j in 0..2 {
                 let rhs = f64::from(i == j);
-                let terms = [
-                    information[i][0] * values[j],
-                    information[i][1] * values[2 + j],
-                ];
+                let terms = [row[0] * values[j], row[1] * values[2 + j]];
                 let residual = (terms.iter().sum::<f64>() - rhs).abs();
                 let magnitude = rhs.abs() + terms.iter().map(|v| v.abs()).sum::<f64>();
                 assert!(
@@ -200,7 +197,7 @@ async fn covariance_withheld_for_missing_or_malformed_bound_multipliers() {
             2 => {
                 assert!(multipliers.as_mut().unwrap().1.pop().is_some());
             }
-            _ => unreachable!(),
+            _ => panic!("invalid malformed bound-dual fixture selector"),
         }
         problem.estimate_valid(&report).unwrap();
         assert_eq!(report.candidate.as_ref().unwrap(), &candidate);

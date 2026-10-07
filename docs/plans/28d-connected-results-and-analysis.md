@@ -207,6 +207,14 @@ sensitivity. A bounded contribution visitor replaces the pre-analysis temporary 
 dependency inventory. Its targeted control preserves the original projections and exercises
 early stopping and cancellation; the actual analysis consumer rerun also passed.
 
+The bounded representation decision retains regular metadata-bearing edges. The current
+native analysis reader selects one exact analysis with a key cursor, using the declared
+`(analysis, key)` index; source/target lookups have their own declared indexes. Returned
+edges consume their kind/evidence and recorded method/source lineage. This operation has
+no demonstrated endpoint-field hydration that an INLINE layout would eliminate. A storage
+change would therefore add a migration without a current consumer benefit. E4 measures
+the existing complete result/analysis operation; this source decision makes no timing claim.
+
 Focused linked Python controls now exercise canonical reopening and both analyses,
 registry/cache reflection, an unusable study predecessor and repeated retained study
 occurrences. The retained study boundary now propagates its original scientific `RunId`

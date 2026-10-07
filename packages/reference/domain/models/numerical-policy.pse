@@ -3,8 +3,9 @@
 @id("4845501c637d49c98cb5d53df299f35f") package numerical_policy {
 @id("9ec7f2f612ea404092bdc71f6e0aa52f") use provenance @"1.0.0";
 @id("982e0091d08c46c4a6b0f5378925aa9b") entity provenance.source engineering_resolution { title = "Maintainer-selected global engineering design resolution, 2026-10-05: physical acceptance allowances; explicit stricter analyses remain possible, with no claim of universal decision invariance" }
-// These are physical allowances, not scaled solver stopping controls. They own
-// the shared reference-model convergence and output-check defaults. Distinct
+// These typed constants own the shared physical output-check resolutions and
+// production engineering floors through their package engineering_rule markers.
+// Solver stopping controls derive from the resolved physical context. Distinct
 // molar bases and point/difference contracts retain distinct typed declarations.
 // Concentration 1 mol/m3 is 0.001 mol/L. Inventory energy 100 J corresponds to
 // about 0.016 K for the small 1.5 L reference water CSTR. Trace or laboratory
@@ -25,4 +26,20 @@
 @id("675c800c7ac3477fae54062ea0860ee4") constant mole_fraction:Delta<MoleFraction>=0.001{1} provenance(engineering_resolution,provenance.Role.published);
 @id("8a097841b11d4824b0d5041250553949") constant dimensionless:Scalar=0.001 provenance(engineering_resolution,provenance.Role.published);
 @id("acb37d90535b40e88854430bd95eedb2") constant reduced_gibbs_energy:Delta<ReducedGibbsEnergy>=0.001{1} provenance(engineering_resolution,provenance.Role.published);
+@id("e210844566244bec98568342b316ebd5") annotation engineering_rule numerical_policy.temperature;
+@id("2d6ba4138d9b43e4b6c1505d36f1342d") annotation engineering_rule numerical_policy.power;
+@id("da6127b623be48629f11269fe8e76000") annotation engineering_rule numerical_policy.energy_transfer_rate;
+@id("0cb282f91f80447f948265f8ab56e8bc") annotation engineering_rule numerical_policy.component_flow;
+@id("cf1b9e31f8f945b987018290139bc927") annotation engineering_rule numerical_policy.molar_flow;
+@id("0fb646c98a804d3f8c259204ba4c4ebc") annotation engineering_rule numerical_policy.volume_flow;
+@id("dd87f541aea446ed9c97055a14013b8c") annotation engineering_rule numerical_policy.element_flow;
+@id("a5be71e74f014becb3b62a302f3aba23") annotation engineering_rule numerical_policy.amount;
+@id("45b62dd015f04d138759ef187f901d2f") annotation engineering_rule numerical_policy.total_amount;
+@id("24192d23abac481ba8026ba47600e7d3") annotation engineering_rule numerical_policy.energy;
+@id("9ca06195541440739135049f1e4132b1") annotation engineering_rule numerical_policy.concentration;
+@id("90494460222c4a76b8bd1da37c09566e") annotation engineering_rule numerical_policy.density;
+@id("97cf469c842f4ac8a2a794e8ba57e0d8") annotation engineering_rule numerical_policy.pressure;
+@id("80b22efe482a423bb721a945f055a1db") annotation engineering_rule numerical_policy.mole_fraction;
+@id("870df2106e3b4a97aa3b8fba02c0f916") annotation engineering_rule numerical_policy.dimensionless;
+@id("fe1e1fd3ac17486cbe22cf4feb72c121") annotation engineering_rule numerical_policy.reduced_gibbs_energy;
 }

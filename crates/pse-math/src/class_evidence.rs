@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Demand-owned coefficient-class proof over original, aggregated case expressions.
+//! Demand-owned coefficient-class and affine-row proof over original aggregated expressions.
 use crate::{
     MathError,
     assembly::CasePlan,
@@ -9,9 +9,9 @@ use crate::{
     library,
     presolve::{AffineRow, Facts, ObligationStatus},
 };
-use pse_ids::SemanticId;
+use pse_ids::{FramedHasher, SemanticId};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -166,6 +166,73 @@ impl Allowance {
     }
 }
 impl CasePlan {
+    /// Prove original aggregate affine rows independently of whole-program class admission.
+    /// The proof describes residuals on their original valid domain: all guards, domain
+    /// obligations and tapes remain owned by the original callbacks and postsolve assessment.
+    /// Missing expressions, nonlinear rows and unrepresentable coefficients withhold only
+    /// their own row; stale assumptions, exhausted work and cancellation remain errors.
+    pub fn affine_row_facts(
+        &self,
+        values: &CaseValues,
+        base: &Facts,
+        limit: usize,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Facts, MathError> {
+        if !base.matches(self, values) {
+            return Err(MathError::Contract(
+                "affine row proof requires current domain facts".into(),
+            ));
+        }
+        if base.affine.len() != self.structure().rows().len() {
+            return Err(MathError::Contract(
+                "affine row proof requires the original row inventory".into(),
+            ));
+        }
+        if cancel.load(Ordering::Relaxed) {
+            return Err(MathError::Cancelled);
+        }
+        let mut allowance = Allowance {
+            remaining: base.proof_remaining.min(limit),
+        };
+        allowance.charge(base.bytes())?;
+        let mut facts = base.clone();
+        let selected = self
+            .structure()
+            .rows()
+            .iter()
+            .zip(&base.affine)
+            .filter_map(|(row, affine)| affine.is_none().then_some(row.id))
+            .collect::<BTreeSet<_>>();
+        allowance.charge(selected.len())?;
+        if !selected.is_empty() {
+            let (formals, expressions, missing) = aggregate_expressions(
+                self,
+                values,
+                Aggregation::Rows(&selected),
+                &mut allowance,
+                cancel,
+            )?;
+            for (index, row) in self.structure().rows().iter().enumerate() {
+                if !selected.contains(&row.id) || missing.contains(&Target::Row(row.id)) {
+                    continue;
+                }
+                let expression = expressions
+                    .get(&Target::Row(row.id))
+                    .cloned()
+                    .unwrap_or_else(|| Atom::num(0));
+                facts.affine[index] =
+                    match prove_affine(&expression, &formals, &mut allowance, cancel) {
+                        Ok(proof) => proof,
+                        Err(MathError::CoefficientRange) => None,
+                        Err(error) => return Err(error),
+                    };
+            }
+        }
+        refresh_affine_key(base, &mut facts);
+        facts.proof_remaining = allowance.remaining;
+        Ok(facts)
+    }
+
     /// Obtain only the requested mandatory class proof under the base projection's remainder.
     /// Resource and cancellation failures stop this request; they never become class negatives.
     pub fn class_evidence(
@@ -283,64 +350,32 @@ pub(crate) fn shape_facts(
         facts.class_status = ClassStatus::Pending(pending);
         return Ok(facts);
     }
-    let (formals, expressions) =
+    let (formals, expressions, _) =
         aggregate_expressions(plan, values, Aggregation::All, &mut allowance, cancel)?;
     allowance.charge(plan.structure().rows().len())?;
     facts.affine = vec![None; plan.structure().rows().len()];
     let mut row_witness = None;
     for (row, target) in plan.structure().rows().iter().enumerate() {
-        allowance.charge(
-            expressions
-                .get(&Target::Row(target.id))
-                .map_or(0, |atom| atom.as_view().get_byte_size().saturating_mul(2)),
-        )?;
         let expression = expressions
             .get(&Target::Row(target.id))
             .cloned()
             .unwrap_or_else(|| Atom::num(0));
-        let mut affine = AffineRow {
-            entries: BTreeMap::new(),
-            constant: 0.0,
-        };
-        let mut zero = expression.clone();
-        let mut affine_proved = true;
-        for (column, formal) in formals.iter().enumerate() {
-            let derivative = allowance.derivative(&expression, formal, cancel)?;
-            if !derivative.is_constant() {
+        match prove_affine(&expression, &formals, &mut allowance, cancel) {
+            Ok(Some(affine)) => facts.affine[row] = Some(affine),
+            Ok(None) => {
                 row_witness.get_or_insert(ClassWitness::NonAffineRow { row: target.id });
-                affine_proved = false;
-                break;
             }
-            let coefficient = match crate::coefficients::number(&derivative, cancel) {
-                Ok(number) => number,
-                Err(MathError::CoefficientRange) => {
-                    facts.proof_remaining = allowance.remaining;
-                    facts.class_status =
-                        ClassStatus::RepresentationLimited(ClassWitness::CoefficientRange);
-                    return Ok(facts);
-                }
-                Err(error) => return Err(error),
-            };
-            if coefficient != 0.0 {
-                allowance.charge(1)?;
-                affine.entries.insert(column, coefficient);
+            Err(MathError::CoefficientRange) => {
+                refresh_affine_key(base, &mut facts);
+                facts.proof_remaining = allowance.remaining;
+                facts.class_status =
+                    ClassStatus::RepresentationLimited(ClassWitness::CoefficientRange);
+                return Ok(facts);
             }
-            zero = zero.replace(formal.clone()).with(Atom::num(0));
-        }
-        if affine_proved {
-            affine.constant = match crate::coefficients::number(&zero, cancel) {
-                Ok(number) => number,
-                Err(MathError::CoefficientRange) => {
-                    facts.proof_remaining = allowance.remaining;
-                    facts.class_status =
-                        ClassStatus::RepresentationLimited(ClassWitness::CoefficientRange);
-                    return Ok(facts);
-                }
-                Err(error) => return Err(error),
-            };
-            facts.affine[row] = Some(affine);
+            Err(error) => return Err(error),
         }
     }
+    refresh_affine_key(base, &mut facts);
     if let Some(witness) = row_witness {
         facts.proof_remaining = allowance.remaining;
         facts.class_status = ClassStatus::RuledOut(witness);
@@ -415,7 +450,7 @@ pub(crate) fn aggregate_objectives(
     let mut allowance = Allowance { remaining: limit };
     // Original rows have already been proved and retained as affine coefficients.
     // Rebuilding them here would spend the shared allowance on discarded products.
-    let (formals, expressions) = aggregate_expressions(
+    let (formals, expressions, _) = aggregate_expressions(
         plan,
         values,
         Aggregation::Objectives,
@@ -441,17 +476,20 @@ pub(crate) fn aggregate_objectives(
     Ok((formals, objectives, allowance.remaining))
 }
 #[derive(Clone, Copy)]
-enum Aggregation {
+enum Aggregation<'a> {
     All,
     Objectives,
+    Rows(&'a BTreeSet<SemanticId>),
 }
+type AggregatedExpressions = (Vec<Atom>, BTreeMap<Target, Atom>, BTreeSet<Target>);
+
 fn aggregate_expressions(
     plan: &CasePlan,
     values: &CaseValues,
-    selected: Aggregation,
+    selected: Aggregation<'_>,
     allowance: &mut Allowance,
     cancel: &Arc<AtomicBool>,
-) -> Result<(Vec<Atom>, BTreeMap<Target, Atom>), MathError> {
+) -> Result<AggregatedExpressions, MathError> {
     // Combine original contributions before differentiating: individual nonlinear terms
     // may cancel across bodies, rows or objectives. Symbolica owns that normalization.
     allowance.charge(
@@ -470,19 +508,34 @@ fn aggregate_expressions(
         .map(|(i, &id)| (id, i))
         .collect();
     let mut expressions = BTreeMap::<Target, Atom>::new();
+    let mut missing = BTreeSet::new();
     for binding in plan.structure().instances() {
         for contribution in &binding.contributions {
             if cancel.load(Ordering::Relaxed) {
                 return Err(MathError::Cancelled);
             }
-            if matches!(selected, Aggregation::Objectives)
-                && !matches!(contribution.target, Target::Objective(_))
-            {
+            let requested = match selected {
+                Aggregation::All => true,
+                Aggregation::Objectives => matches!(contribution.target, Target::Objective(_)),
+                Aggregation::Rows(rows) => {
+                    matches!(contribution.target, Target::Row(row) if rows.contains(&row))
+                }
+            };
+            if !requested || missing.contains(&contribution.target) {
                 continue;
             }
-            let original = plan.bodies()[&binding.body]
-                .expression(contribution.output)
-                .ok_or_else(|| MathError::Contract("class symbolic dependency changed".into()))?;
+            let Some(original) = plan.bodies()[&binding.body].expression(contribution.output)
+            else {
+                if matches!(selected, Aggregation::Rows(_)) {
+                    allowance.charge(1)?;
+                    missing.insert(contribution.target);
+                    expressions.remove(&contribution.target);
+                    continue;
+                }
+                return Err(MathError::Contract(
+                    "class symbolic dependency changed".into(),
+                ));
+            };
             allowance.charge(original.as_view().get_byte_size())?;
             let mut expression = original.clone();
             // Simultaneous replacement prevents a global coordinate from being mistaken
@@ -546,5 +599,54 @@ fn aggregate_expressions(
             );
         }
     }
-    Ok((formals, expressions))
+    Ok((formals, expressions, missing))
+}
+
+fn prove_affine(
+    expression: &Atom,
+    formals: &[Atom],
+    allowance: &mut Allowance,
+    cancel: &Arc<AtomicBool>,
+) -> Result<Option<AffineRow>, MathError> {
+    allowance.charge(expression.as_view().get_byte_size().saturating_mul(2))?;
+    let mut affine = AffineRow {
+        entries: BTreeMap::new(),
+        constant: 0.0,
+    };
+    let mut zero = expression.clone();
+    for (column, formal) in formals.iter().enumerate() {
+        let derivative = allowance.derivative(expression, formal, cancel)?;
+        if !derivative.is_constant() {
+            return Ok(None);
+        }
+        let coefficient = crate::coefficients::number(&derivative, cancel)?;
+        if coefficient != 0.0 {
+            allowance.charge(1)?;
+            affine.entries.insert(column, coefficient);
+        }
+        zero = zero.replace(formal.clone()).with(Atom::num(0));
+    }
+    affine.constant = crate::coefficients::number(&zero, cancel)?;
+    Ok(Some(affine))
+}
+
+fn refresh_affine_key(base: &Facts, facts: &mut Facts) {
+    if facts.affine == base.affine {
+        return;
+    }
+    let mut hash = FramedHasher::new(pse_ids::Frame::MathBoundFactsV3);
+    hash.hash(&base.key)
+        .str("original-aggregate-affine-rows-v1")
+        .u64(facts.affine.len() as u64);
+    for row in &facts.affine {
+        hash.bool(row.is_some());
+        if let Some(row) = row {
+            hash.u64(row.constant.to_bits())
+                .u64(row.entries.len() as u64);
+            for (column, value) in &row.entries {
+                hash.u64(*column as u64).u64(value.to_bits());
+            }
+        }
+    }
+    facts.key = hash.finish_hash();
 }

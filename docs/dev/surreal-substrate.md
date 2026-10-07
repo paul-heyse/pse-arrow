@@ -90,6 +90,32 @@ workers and a server allocation below 512 MiB. Runtime composition consumes the 
 worker count and per-worker allocation. The helper launches native processes within those
 fixed capped slots and refuses excess admission.
 
+Change an existing owned allocation while admission is quiesced and the server is
+stopped:
+
+```bash
+just surreal quiesce
+# Drain runtime work before acknowledging it.
+just surreal stop --drained
+just surreal reconfigure --memory-mib 32768 --server-memory-mib 16384 \
+  --native-worker-memory-mib 8192
+just surreal start
+```
+
+`reconfigure` accepts the three memory options above. Omitted values preserve the
+saved allocation exactly; setup's defaults apply only to new state. The supervisor
+verifies the stopped server's cgroup and every existing worker group is empty under
+the lifecycle lock, validates the complete joint budget, then atomically replaces
+only the allocation and its derived cache, write-buffer and threshold fields.
+Invalid or partially specified budgets that exceed the saved joint envelope,
+active or unverifiable process groups, and admission that is not fully quiesced
+leave the configuration unchanged. Explicit `--native-workers`, `--port`,
+`--version`, `--interpretation` or `--tool-root` options are rejected; this command
+preserves worker count and unit names, endpoint, interpretation, release,
+credentials and database contents. It leaves the server stopped and admission
+closed. The next explicit `start` consumes the new server budget and derived
+settings; subsequent managed workers consume the new per-worker budget.
+
 The supervisor creates a transient systemd **user service** with `MemoryMax` equal to
 the server allocation, `MemorySwapMax=0`, `TasksMax=128`, `KillMode=control-group` and
 a 45-second stop deadline. The cap includes the wrapper and server child. A user manager
@@ -204,7 +230,10 @@ application admission contract and is not a supported normal writer.
 
 The unit controls cover private credentials, preservation of unrelated state, finite
 joint allocation, inherited authentication-bypass refusal, bounded log rotation, corrupted
-backup refusal, interpretation mismatch and the restore admission gate. The disposable
+backup refusal, interpretation mismatch and the restore admission gate.
+Resource-reconfiguration controls additionally cover unchanged rejection, saved
+allocation and identity preservation, lifecycle locking and budget use on explicit
+restart with mocked process supervision. The disposable
 released-server journey uses its own new state directory and a finite 1 GiB server cap.
 It authenticates an acknowledged fixed operation record, sends SIGKILL to the service
 group, reopens and compares the record, then performs offline backup/restore and gated

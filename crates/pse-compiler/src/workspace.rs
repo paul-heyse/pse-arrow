@@ -636,7 +636,7 @@ impl PreparedCase {
             values,
             &self.presolve,
             ClassRequest::Coefficients,
-            self.presolve.proof_remaining,
+            self.presolve.proof_remaining.min(self.class_proof_work),
             cancel,
         )?;
         let (facts, coefficients) = match evidence {
@@ -657,6 +657,30 @@ impl PreparedCase {
         )?;
         result.presolve = Arc::new(facts).into();
         result.coefficients = coefficients.map(Into::into);
+        Ok(result)
+    }
+    /// Resolve independently useful original affine rows for an NLP presolve demand.
+    /// This consumes the same remaining proof allowance and preserves the original
+    /// domain obligations, row provenance and whole-program class decision.
+    pub fn prepare_affine_rows(
+        &self,
+        values: &CaseValues,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Self> {
+        let facts = self.plan.affine_row_facts(
+            values,
+            &self.presolve,
+            self.presolve.proof_remaining.min(self.class_proof_work),
+            cancel,
+        )?;
+        let mut result = self.clone();
+        result.facts = pse_math::facts::ProblemFacts::from_plan(
+            &self.plan,
+            self.coefficients.as_deref(),
+            &facts,
+            cancel,
+        )?;
+        result.presolve = Arc::new(facts).into();
         Ok(result)
     }
     /// Prepare first directional actions only after the consuming route requests them.

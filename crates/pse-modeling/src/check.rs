@@ -1794,7 +1794,11 @@ impl CheckedPackage {
                     .get(&id)
                     .into_iter()
                     .flatten()
-                    .filter(|child| self.declarations[child].value.import.is_some())
+                    .filter(|child| {
+                        let dependency = &self.declarations[child];
+                        dependency.value.import.is_some()
+                            || crate::selected_source::is_engineering_rule_marker(dependency)
+                    })
                     .copied(),
             );
             if row.value.kind != pse_model::generated::enums::ModelingDeclarationKind::Package {

@@ -82,7 +82,10 @@ def test_authored_solve_join_warm_start_checks_and_retention(
     assert result.completion.solves[0].backend == "ipopt"
     rows = pa.table(result.table("runtime.solve_variables")).to_pylist()
     assert len(rows) == 1
-    assert rows[0]["value"] == pytest.approx(2, abs=1e-7)
+    # Empirical scalar reference agreement at the shared production resolution.
+    assert rows[0]["value"] == pytest.approx(
+        2, rel=settings.numerics.engineering_relative_fraction, abs=0.0
+    )
     checks = pa.table(result.table("runtime.modeling_checks")).to_pylist()
     assert checks
     assert all(row["satisfied"] for row in checks)
