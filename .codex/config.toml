@@ -6,6 +6,11 @@ model_reasoning_effort = "high"
 plan_mode_reasoning_effort = "high"
 # AGENTS.md is close to the 32 KiB default project-doc budget, past which Codex truncates silently.
 project_doc_max_bytes = 65536
+# Codex runs `bash -lc` without direnv; bare commands take the checkout environment
+# from `scripts/pse-env -- <command>`. Only static, non-secret values belong here.
+[shell_environment_policy.set]
+CARGO_TERM_COLOR = "never"
+
 [agents]
 enabled = true
 default_subagent_model = "gpt-6.1-sol"

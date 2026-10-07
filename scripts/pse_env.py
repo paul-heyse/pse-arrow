@@ -148,19 +148,38 @@ def deferred(root: Path, name: str) -> str:
     )
 
 
-def render(root: Path, caller: Mapping[str, str]) -> str:
-    """Shell text for ``eval``: ordinary exports only, local values deferred."""
+def required_path(root: Path, caller: Mapping[str, str]) -> list[str]:
+    """PATH entries composition puts first, independent of the caller's own PATH."""
+    bare = compose(root, {"HOME": caller.get("HOME", "/"), "PATH": ""}, {})
+    return [entry for entry in bare.get("PATH", "").split(os.pathsep) if entry]
+
+
+def render(root: Path, caller: Mapping[str, str], *, complete: bool = False) -> str:
+    """Shell text for ``eval``: ordinary exports only, local values deferred.
+
+    PATH is rendered as idempotent prepends, because the shell that evaluates the text
+    (direnv, or a Claude Bash command after its shell snapshot) may not share the
+    caller's PATH. ``complete`` also exports values equal to the caller's, for a consumer
+    whose environment is not the caller's (a SessionStart hook's env file).
+    """
     local = local_keys(root)
     env = compose(root, caller, local)
-    lines = []
+    touched = set(compose(root, {"HOME": caller.get("HOME", "/"), "PATH": ""}, {})) - {"HOME"}
+    lines = [
+        f'case ":$PATH:" in *:{shlex.quote(entry)}:*) ;; *) PATH={shlex.quote(entry)}"${{PATH:+:$PATH}}" ;; esac'
+        for entry in reversed(required_path(root, caller))
+    ]
+    lines.append("export PATH")
     for name in sorted(env):
-        if name in local or name.startswith("PSE_NATIVE_"):
+        if name in local or name == "PATH" or name.startswith("PSE_NATIVE_"):
             continue
-        if caller.get(name) != env[name]:
+        if caller.get(name) != env[name] or (complete and name in touched):
             lines.append(f"export {name}={shlex.quote(env[name])}")
-    lines.extend(f"unset {name}" for name in sorted(caller.keys() - env.keys()))
+    lines.extend(
+        f"unset {name}" for name in sorted(caller.keys() - env.keys()) if name != "PATH"
+    )
     lines.extend(deferred(root, name) for name in sorted(local) if name not in caller)
-    return "\n".join(lines) + ("\n" if lines else "")
+    return "\n".join(lines) + "\n"
 
 
 def parse_bytes(value: str) -> int | None:

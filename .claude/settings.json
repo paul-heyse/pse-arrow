@@ -73,6 +73,17 @@
         ],
         "matcher": "^(Edit|MultiEdit|NotebookEdit|Write)$"
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}/scripts/agent-hooks.py\" session-env",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

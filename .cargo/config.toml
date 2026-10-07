@@ -41,6 +41,12 @@ feature-unification = "workspace"
 
 [alias]
 xtask = "run --quiet --locked --package xtask --"
+# Bare-tool parity with the recipes: correctness checks and tests always carry Arrow
+# force-validation (plain `cargo check`/`cargo nextest run` read no feature config). The
+# feature needs pse-relations in the package selection; narrow `cargo t` with -E so its
+# own tests are not selected, e.g. `cargo t -p pse-math -E 'package(pse-math) & test(x)'`.
+c = "check --locked -p pse-relations --features pse-relations/force-validate"
+t = "nextest run --locked -p pse-relations --features pse-relations/force-validate"
 
 [target.x86_64-unknown-linux-gnu]
 linker = "clang"

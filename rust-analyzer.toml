@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# rust-analyzer checks with the same feature selection as the recipes and its own
+# target subdirectory, so editor and LSP checks never wait on (or invalidate) an agent's
+# build lock in target/.
+[cargo]
+features = ["pse-relations/force-validate"]
+targetDir = true

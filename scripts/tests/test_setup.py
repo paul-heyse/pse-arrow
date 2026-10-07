@@ -11,6 +11,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -262,6 +263,29 @@ class EditPolicyTests(unittest.TestCase):
         self.assertIsNotNone(
             hooks.protected(self.root, "docs/authoritative_design/blueprint.md")
         )
+
+    def test_visible_marker_authorizes_design_edits_until_removed(self) -> None:
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("PSE_DESIGN_EDIT", None)
+            self.assertFalse(hooks.design_edit_authorized(self.root))
+            marker = self.root / hooks.DESIGN_EDIT_MARKER
+            marker.write_text("why: blueprint revision for Plan 29\n")
+            self.assertTrue(hooks.design_edit_authorized(self.root))
+            marker.unlink()
+            self.assertFalse(hooks.design_edit_authorized(self.root))
+
+    def test_session_env_appends_exports_without_local_values(self) -> None:
+        (self.root / ".python-version").write_text("3.14.7\n")
+        (self.root / ".envrc.local").write_text("export PSE_TEST_SECRET='do not print'\n")
+        target = self.root / "claude-env"
+        with (
+            patch.dict(os.environ, {"CLAUDE_ENV_FILE": str(target)}),
+            patch("scripts.build_environment.configure", lambda _root, env: dict(env)),
+        ):
+            self.assertEqual(hooks.session_env(self.root), 0)
+        text = target.read_text()
+        self.assertNotIn("do not print", text)
+        self.assertIn('[ -n "${PSE_TEST_SECRET+x}" ]', text)
 
 
 class ConfigurationTests(unittest.TestCase):

@@ -412,8 +412,10 @@ packet checkpoint for the baseline and handoff. Existing plans own status and fi
   `executor`. `just agent-config-sync` only materializes skill aliases and never changes agents.
   The Codex coordinator defaults to Astra/high, with Sol/high as the generic worker fallback;
   explicit user runtime choices take precedence.
-- Both runtimes use `scripts/agent-hooks.py` (PreToolUse) for protected edit checks; it is the
-  only hook. Nothing formats files as you edit or when you stop (see *Execution rhythm*).
+- Both runtimes use `scripts/agent-hooks.py` (PreToolUse) for protected edit checks. Claude
+  also runs its `session-env` action at SessionStart, which gives later Bash commands the
+  checkout environment (`scripts/pse-env --print`); Codex commands use `scripts/pse-env --`.
+  Nothing formats files as you edit or when you stop (see *Execution rhythm*).
   `.codex/hooks.json` and `.claude/settings.json` contain the runtime wiring. Hooks guard supported file-edit tools; they are not a
   sandbox for arbitrary shell commands or tools. Follow the same protection policy
   for all other actions. Existing session authorization remains authoritative.
