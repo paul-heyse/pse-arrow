@@ -1,6 +1,6 @@
 ---
 title: Agent workspace effectiveness
-status: in-progress
+status: done
 date: 2026-10-07
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_agent-workspace-effectiveness_2026-10-07.md]
@@ -406,7 +406,7 @@ the proposed remedies.
 | AE-18, AE-19, AE-21, AE-22 | all | scheduled | P8 | Codex 0.160 source limits; instruction audit |
 | AE-20 | all | scheduled | P1 | Instruction and config audit |
 | AE-23 | S5, S7 | scheduled | P9 | Journal; cgroup placement; systemd 255 manuals |
-| AE-26 | S5 | open | Maintainer decision: 28e (fixture schema creation retry or serialization; server write-buffer profile) and/or a Plan 29 follow-up sharding database-only consumers across run-owned per-slot servers | P5 helper runs 2026-10-07; revisit when the shared wait point is identified |
+| AE-26 | S5 | deferred | Maintainer decision between 28e (fixture schema creation retry or serialization; server write-buffer profile) and a follow-up sharding database-only consumers across run-owned per-slot servers | Revisit when the shared server wait point is identified or 28e next qualifies the store subset |
 | AE-25 | S5, S7 | deferred | 28e (canonical fixture contract) | Revisit when 28e qualifies Python canonical consumers or a shared-database interference is observed |
 | Review F01 | S1, S4, S6 | scheduled | P2 (with P9) | Precedence, export and native-lifetime contract in D1 |
 | Review F02 | S7 | scheduled | P3 | Locking claims scoped to checks; observational `just activity` |
@@ -480,6 +480,103 @@ These are non-blocking; each packet proceeds on the stated default.
 
 ### What was built
 
+On 2026-10-07, in the main checkout, one commit per step (see the execution checkpoint):
+
+- **One environment and placement boundary (P2, P9).** `scripts/pse-env` (`scripts/pse_env.py`)
+  composes the caller's environment, `.envrc.local`, repository defaults and the
+  compiler/cache configuration under one precedence, with refusals reported. It runs each
+  command in its own capped `pse-cmd`/`pse-native` scope in `pse.slice`, and admits native
+  capabilities only under `native_operation`'s owner.
+  - Every recipe line, script recipe and backtick runs through it, as do `.envrc`, the manual
+    native helpers, the native builders and the canonical supervisor.
+  - A Claude SessionStart hook gives each Bash command the same environment.
+  - `memory-cap.sh`, `native_exec.sh`, `native-recipe-env.sh`, `build-shell.sh` and
+    `build-env.sh` are deleted.
+  - Native thread budgets default to `1` but honour caller values and `off`.
+- **Shared-checkout work (P3).** Fine-grain Cargo locking, `just activity` and `just worktree`.
+- **Defaults and state (P4).**
+  - A defaulted `PSE_SURREAL_STATE` and the `--store` readiness check.
+  - `py-unit` routes by the installed extension kind (`doctor.py --extension-kind`).
+  - The visible `.design-edit` escape.
+  - A 16-thread nextest default.
+- **Effect-based canonical scheduling (P5).** `.config/nextest.toml` sorts tests into
+  exclusive, engineering, solver and database-only classes.
+- **Selection (P6).** `scripts/select.py`, `just affected`, pass-through on check, clippy and
+  nextest recipes, a complete `codegen-check` and self-ordering `codegen`. Thirteen packet-era
+  recipes are retired.
+- **Feedback (P7).** Bundles run on the assessment runner, with unique run logs, concise
+  output and `--live`. A preflight runs before the long recipes, and a native-import diagnosis
+  explains collection failures.
+- **Instructions and runtime configuration (P8).**
+  - Codex project-doc headroom.
+  - Opt-in plugins, connectors and MCP servers.
+  - AGENTS.md compacted to 21,895 bytes.
+  - `docs/dev/agent-environment.md` holds the mechanics.
+  - A tooling rule, and corrected effort and route references.
+- **Stale cleanup (P1).** Plus two pre-existing breakages found on the way: parity tests broke
+  bare `pytest` collection, and clippy reported `items_after_test_module` in
+  `canonical_analyses.rs`.
+
+**Verification (2026-10-07, this host, baseline zero):**
+
+- *Tested.* Final runs at `f65c83049`:
+  - `just hygiene` 28/28 passed, including clippy (default and no-default) and the 10-gate
+    `codegen-check`;
+  - `just setup-test` 250, `just native-setup-unit` 41 and `just surreal-test` 32 passed;
+  - the script tests added with each packet: `test_pse_env`, `test_native_operation` (thread
+    precedence, `off` under nesting, signal status), `test_setup` (session-env, design-edit
+    escape), `test_validation` and `test_preflight`.
+- *Tested.* Revealing checks, run once each:
+  - from an `env -i` login shell, `just unit-package pse-math 'test(numerics)'` ran licensed
+    (18 passed);
+  - in a clean `claude -p` session the Bash tool had the licence, the venv `python` and the
+    sccache wrapper;
+  - a fresh `codex exec` loaded AGENTS.md whole and saw the project shell policy;
+  - a 256 MB allocation under `PSE_MEMORY_MAX=64M` exited 137 while a sibling scope survived;
+  - a nested `--native` reused its owner;
+  - `just worktree … --python` produced a checkout whose licence, venv and extension are its
+    own;
+  - `just codegen-check` covered every generated output.
+- *Measured.* Recipe overhead: a trivial recipe took 105 ms before the boundary and 144 ms
+  after (hyperfine, 20 runs, load 9–17).
+- *Measured.* Concurrency and build costs:
+  - two concurrent checks on independent crates did not wait for each other with fine-grain
+    locking, while artifact-producing test builds still contended;
+  - a cold worktree unit build took 3 min 4 s and `py-sync` 114 s;
+  - the P5 concurrency and throughput results are recorded as AE-26.
+- *Interface-checked.* Version-specific runtime behaviour:
+  - Codex 0.160 `project_doc_max_bytes`;
+  - role files cannot change MCP servers;
+  - project MCP opt-out layering;
+  - Claude Code project `enabledPlugins`/`deniedMcpServers` and `CLAUDE_ENV_FILE`.
+- *Not run.* Product test suites and integrated qualification are outside this harness scope.
+  Plan 28e's next qualification measures the store-tail effect.
+
 ### A mistake made and corrected
 
+- **Unbounded measurement brief.** The P5 helper was told to run "the store-related subset
+  once" without a size bound. It ran the full 699-test former store selection, including
+  long scientific journeys, so the maintainer asked what it was assessing. The run was
+  stopped and redirected to static classification, a moderate targeted set and estimates.
+  The design-phase acceptance rule now in *Verification* comes from this.
+- **Defects in the boundary's first implementation.** Native builders reused one scope name
+  across commands; `off` was lost under nesting; and the supervisor's new import failed when
+  it ran as a script, which broke `just surreal start`. The implementation review and the P5
+  helper found them, and all three were fixed with regression tests.
+
 ### Deviations from the plan, deliberate
+
+- `.claude/path-allowlist.txt` stays: `lint-agents` uses it.
+- Recipe groups stay cost tiers: `mutating` is safety-relevant. Discovery comes from the
+  justfile header, `--usage` and the JSON dump.
+- AGENTS.md ends at 21,895 bytes, not ≤ 20 KB; the remainder is routes, directives,
+  invariants and gotchas.
+- `just worktree` reports `doctor` rather than running `just ready`, because a fresh checkout
+  legitimately lacks a venv.
+- The slice is `pse.slice`, and ordinary commands get `pse-cmd` scopes; both follow from
+  systemd semantics.
+- `PSE_PREFLIGHT=off` overrides the preflight (rubric 8). `--advisory` retires, because
+  advisory findings already never fail a group.
+- Default `testpaths` omit the parity tree; `just parity` collects it explicitly.
+- Open dispositions: AE-26 (shared-server throughput and transaction conflicts) is deferred
+  to a maintainer decision; AE-25 to 28e; AE-05 to 28h; AE-17 stays deferred.

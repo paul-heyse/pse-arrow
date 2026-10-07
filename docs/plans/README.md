@@ -27,11 +27,7 @@ owns assembled target qualification and adoption of the applicable remaining sci
 campaign obligations from 25k/27. Earlier evidence and scientific finding dispositions keep
 their original owners; obsolete storage qualification is not a pivot prerequisite.
 
-[Plan 29: Agent workspace effectiveness](29-agent-workspace-effectiveness.md) (draft) records the
-2026-10-07 assessment of the agent environment, command surface, runtime configuration and test
-scheduling, and proposes packets P1–P9. It integrates the
-[design review](../design_review/reviews/design_review_agent-workspace-effectiveness_2026-10-07.md);
-its decisions and rule changes RC01–RC06 are confirmed. Implementation has not started.
+[Plan 29: Agent workspace effectiveness](29-agent-workspace-effectiveness.md) is done (2026-10-07): every command runs through `scripts/pse-env` (environment, capped scopes in `pse.slice`), with effect-based canonical test scheduling, composable selection (`just affected`), run logs and preflight, and compact agent instructions with mechanics in [the agent environment guide](../dev/agent-environment.md). Its Outcome records the evidence; AE-26 (shared-server throughput) awaits a maintainer decision and AE-25 routes to 28e.
 
 [Plan 25](25-design-remediation.md) coordinates remediation of the domain-alignment reviews
 and the later full-case compilation/solver-routing review. Its companion plans describe the target contracts,
