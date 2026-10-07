@@ -75,7 +75,7 @@ project invariants, checked when the corresponding command is run manually:
 The machinery is all still installed. It reports instead of gating.
 
 ```bash
-just deps-report   # advisory: licences, advisories, bans, unused deps. Always exits 0.
+just deps-report   # advisory: licences, advisories, bans, unused deps. Findings never fail it.
 just policy        # strict: the same checks, exiting non-zero on a finding.
 ```
 

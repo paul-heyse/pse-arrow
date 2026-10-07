@@ -42,7 +42,7 @@ manual qualification.
 | `just family-check` | when a pinned-family dependency moves | one resolved version per dependency family, equal to the pins | nothing about whether that version behaves as documented |
 | `just governance` | on demand | the workspace-level invariants hold (pins, crates registered, the dated nightly at or above the `rust-version` floor, unsafe allowlist, error taxonomy) | nothing about runtime behaviour, or whether the source still compiles on the stable floor |
 | `just quality` | on demand | Python format/lint/types/import boundaries and repo config are clean | that the code works |
-| `just deps-report` | on demand | what is in the dependency graph and under what licences; **advisory, always exits 0** | nothing — it refuses nothing and blocks nothing |
+| `just deps-report` | on demand | what is in the dependency graph and under what licences; **advisory: findings never fail it**, a tool that cannot run does | nothing — it refuses nothing and blocks nothing |
 | `just policy` | on demand | the same checks, strictly: no known advisory, no disallowed licence. Opt-in, not in `ci-pr` | nothing about code you wrote, and nothing you are obliged to act on yet (register R-31) |
 | `just parity` | on demand, when parity is in scope | the exercised parity checks pass against `idaes-pse==2.13.0` | nothing about cases not exercised, or other IDAES versions |
 | `just docs` | on demand | documentation HTML and scoped search build; manual CI can also check internal links | nothing about whether the prose is true |
@@ -76,7 +76,7 @@ manual qualification.
 | Command | What it does |
 |---|---|
 | `just assessment-list [--group <name>]` | Prints the declared gates as JSON (name, role, recipe, arguments, dependencies, mode, profile, input scope) and the explicit exclusions. Executes nothing. |
-| `just assessment [<output>] [flags]` | Runs every gate in `scripts/validation_scope.py::comprehensive` and continues after failures. The default output is `build/assessment/<UTC timestamp>/`; pass `""` for it when adding flags. |
+| `just assessment [<output>] [flags]` | Runs every gate in `scripts/validation_scope.py::comprehensive` and continues after failures. The default output is a new `build/assessment/<UTC time>-<selection>-<pid>-<random>/`; pass `""` for it when adding flags. It first checks the selection's prerequisites (`--preflight`: solver prefix, canonical store) and exits 125 with a `pse-env:` line before native setup when one is missing. |
 
 The comprehensive scope runs these gates in order:
 
@@ -190,11 +190,16 @@ cannot establish a current deployment. Other eligible gates retain the continuat
 behavior above.
 
 **Aggregates and advisory checks.** `quality`, `governance`, `ci-fast`, `ci-pr`, `clippy`,
-`fmt-check`, `codegen-check`, `adr-lint`, `deps-report` and `policy` call the same runner
-with `--group`. Each writes its own `build/assessment/<timestamp>/` directory without
-source provenance. The `audit-*` gates are advisory: findings do not fail `deps-report`,
-but a tool failure does. `policy` runs the same audits as required gates. The
-`--advisory` flag passed by `deps-report` has no further effect.
+`fmt-check`, `codegen-check`, `adr-lint`, `deps-report`, `policy` and the working bundles
+`turn-end`, `ready` and `hygiene` call the same runner with `--group`. Each writes its own
+run directory without source provenance and updates the convenience link
+`build/assessment/latest-<group>`; the printed path is the immutable one. The console shows
+each gate's command and log path as it starts and one result line as it ends, with the last
+20 log lines of an unqualified gate; `--live` (or `PSE_VALIDATION_LIVE=1`) also streams gate
+output (`ready` always does). A signal (SIGINT, SIGTERM, SIGHUP) terminates the running
+gate's process group, records it `interrupted` and the rest `not_run`, and exits 128+N.
+The `audit-*` gates are advisory: findings do not fail `deps-report`, but a tool failure
+does. `policy` runs the same audits as required gates.
 
 ## Individual commands
 

@@ -9,16 +9,20 @@ inspection, generation, acceptance and native operations remain in xtask.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import os
 import platform
 import re
+import secrets
+import shlex
 import shutil
 import signal
 import subprocess
 import sys
 import tarfile
+import threading
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import asdict
@@ -171,9 +175,15 @@ def write_json(path: Path, value: object) -> None:
     temporary.replace(path)
 
 
-def fresh_output(root: Path, path: Path | None) -> Path:
-    path = path or root / "build/assessment" / datetime.now(UTC).strftime(
-        "%Y%m%dT%H%M%S.%fZ"
+def fresh_output(root: Path, path: Path | None, label: str = "assessment") -> Path:
+    """A new evidence directory; the default name is unique per invocation.
+
+    The UTC time orders runs, the label names the selection, and the process ID plus a
+    random suffix keep concurrent invocations apart. An existing directory is refused.
+    """
+    path = path or root / "build/assessment" / (
+        datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+        + f"-{label}-{os.getpid()}-{secrets.token_hex(3)}"
     )
     path = path.resolve()
     path.relative_to(root)
@@ -185,6 +195,23 @@ def fresh_output(root: Path, path: Path | None) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.mkdir()  # Deliberately refuse overwrite, including a prior failed run.
     return path
+
+
+def mark_latest(output: Path, label: str) -> Path | None:
+    """Point ``latest-<label>`` beside the run at it: a convenience nothing reads.
+
+    The link is replaced atomically; the immutable run path is what runs print and
+    record, so a concurrent run moving the link never changes anyone's evidence.
+    """
+    link = output.parent / f"latest-{label}"
+    temporary = output.parent / f".latest-{label}.{os.getpid()}.{secrets.token_hex(3)}"
+    try:
+        temporary.symlink_to(output.name)
+        temporary.replace(link)
+    except OSError:
+        temporary.unlink(missing_ok=True)
+        return None
+    return link
 
 
 def provenance(root: Path, output: Path) -> tuple[dict[str, str], Path, list[str]]:
@@ -378,12 +405,57 @@ def native_report_config(
     return path
 
 
+#: Console mode for this process: stream each step's output while it is written to its
+#: log (``--live`` or ``PSE_VALIDATION_LIVE=1``). The log is written either way.
+LIVE = False
+#: Lines of a failed step's log shown on the console when output is not live.
+FAILURE_TAIL_LINES = 20
+
+
+class _Follower(threading.Thread):
+    """Copy a log to standard output as it grows; the child still writes only the file."""
+
+    def __init__(self, path: Path) -> None:
+        super().__init__(daemon=True)
+        self.path = path
+        self.finished = threading.Event()
+
+    def run(self) -> None:
+        with self.path.open("rb") as stream:
+            while True:
+                done = self.finished.is_set()
+                chunk = stream.read(1 << 16)
+                if chunk:
+                    sys.stdout.buffer.write(chunk)
+                    sys.stdout.buffer.flush()
+                elif done:
+                    return
+                else:
+                    self.finished.wait(0.2)
+
+
+def tail(path: Path, lines: int = FAILURE_TAIL_LINES) -> list[str]:
+    """The last lines of a log, decoded leniently; a missing log has none."""
+    try:
+        with path.open("rb") as stream:
+            stream.seek(0, os.SEEK_END)
+            stream.seek(max(0, stream.tell() - 64 * 1024))
+            data = stream.read()
+    except OSError:
+        return []
+    return data.decode(errors="replace").splitlines()[-lines:]
+
+
 def execute(
     root: Path, output: Path, name: str, command: list[str], env: dict[str, str]
 ) -> dict:
     started = time.time()
-    print(f"validation: {name}: {' '.join(command)}", flush=True)
-    with (output / f"{name}.log").open("wb") as log:
+    path = output / f"{name}.log"
+    print(f"validation: {name}: {shlex.join(command)}; log {path}", flush=True)
+    with path.open("wb") as log:
+        follower = _Follower(path) if LIVE else None
+        if follower is not None:
+            follower.start()
         try:
             process = subprocess.Popen(
                 command,
@@ -396,18 +468,27 @@ def execute(
             try:
                 code = process.wait()
             except KeyboardInterrupt:
+                # The child has its own session; terminate its whole group and wait,
+                # so no owned descendant outlives the retained "interrupted" record.
                 os.killpg(process.pid, signal.SIGTERM)
                 try:
                     process.wait(timeout=10)
                 except subprocess.TimeoutExpired:
                     os.killpg(process.pid, signal.SIGKILL)
                     process.wait()
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(process.pid, signal.SIGKILL)
                 code = -signal.SIGINT
             error = None
         except OSError as failure:
             code = None
             error = str(failure)
             log.write((error + "\n").encode())
+        finally:
+            if follower is not None:
+                log.flush()
+                follower.finished.set()
+                follower.join(timeout=5)
     return {
         "gate": name,
         "command": command,
@@ -478,6 +559,26 @@ def observed_deployment_attestation(path: Path) -> dict[str, str]:
     ):
         raise ValueError("invalid independently observed deployment header")
     return {"source": observed[0], "build": observed[1]}
+
+
+def report_gate(output: Path, record: dict) -> None:
+    """One console line per finished gate; an unqualified gate adds its log's tail."""
+    exit_code = record["exit_code"]
+    detail = f"exit {exit_code}, " if exit_code not in (0, None) else ""
+    log = output / record["log"]
+    print(
+        f"validation: {record['gate']}: {record['status']} ({detail}{record['elapsed_seconds']:.1f}s); {log}",
+        flush=True,
+    )
+    if validation_receipts.qualified(record):
+        return
+    for error in record["report_errors"][:5]:
+        print(f"    report: {error}", flush=True)
+    if len(record["report_errors"]) > 5:
+        print(f"    report: {len(record['report_errors']) - 5} more in checks.json", flush=True)
+    if not LIVE:
+        for line in tail(log):
+            print(f"    | {line}", flush=True)
 
 
 def run_gates(
@@ -650,6 +751,11 @@ def run_gates(
         receipt["checks"].append(record)
         checkpoint(output, receipt)
         if interrupted or dependencies:
+            print(
+                f"validation: {gate.name}: {record['status']}"
+                + (f" by {', '.join(dependencies)}" if dependencies and not interrupted else ""),
+                flush=True,
+            )
             continue
         if report and recipe == "native-python":
             gate_env["PSE_TEST_ENUMERATION"] = str(output / f"{gate.name}-selected.txt")
@@ -824,10 +930,7 @@ def run_gates(
             for status in ("passed", "failure", "error", "skipped", "not_run")
         }
         checkpoint(output, receipt)
-        print(
-            f"validation: {gate.name}: {record['status']} ({record['elapsed_seconds']:.1f}s); {output / record['log']}",
-            flush=True,
-        )
+        report_gate(output, record)
     if capture:
         try:
             current = sources(root)
@@ -866,8 +969,69 @@ def run_gates(
     return int(not receipt["required_checks_covered"])
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+#: Recipes whose gates need the native environment, and those that also need a serving
+#: canonical server; the assessment checks them before running anything.
+NATIVE_RECIPES = frozenset({"native-test", "native-python", "feature-absence"})
+STORE_RECIPES = frozenset({"native-test", "native-python"})
+
+EPILOG = """\
+output:
+  Each run writes a new build/assessment/<UTC time>-<selection>-<pid>-<random>/ (or
+  --output) holding <gate>.log per gate, checks.json, failures.json and summary.md, and
+  prints that immutable path. build/assessment/latest-<selection> points at the newest
+  default run, for convenience only. The console shows each gate's command and log path
+  when it starts (follow it with tail -f) and one result line when it ends; an unqualified
+  gate adds the last 20 lines of its log. --live (or PSE_VALIDATION_LIVE=1) streams each
+  gate's output to the console as well, still writing the logs.
+
+exit status:
+  0 when every selected gate qualified (passed, advisory findings, or deferred and
+  unsupported); 1 when any gate failed, was blocked or provenance failed (later gates still
+  run); 125 with a pse-env: line when a prerequisite of the selection is missing (nothing
+  runs); 128+N when signal N interrupted the run (SIGINT, SIGTERM or SIGHUP: the running
+  gate's process group is terminated and later gates are recorded not_run).
+"""
+
+
+def preflight_kinds(gates: list[Gate]) -> list[str]:
+    """Prerequisites the selected gates are known to need before they can mean anything."""
+    recipes = {gate.recipe or gate.name for gate in gates}
+    return [
+        kind
+        for kind, needed in (("native", NATIVE_RECIPES), ("store", STORE_RECIPES))
+        if recipes & needed
+    ]
+
+
+def selection_label(args: argparse.Namespace) -> str:
+    if args.group:
+        return args.group
+    if args.functional_scope:
+        return "functional-" + "-".join(dict.fromkeys(args.functional_scope))
+    return "assessment"
+
+
+#: The signal that interrupted this run; Ctrl-C unless a handler below recorded another.
+RECEIVED_SIGNAL = signal.SIGINT
+
+
+class Interrupted(KeyboardInterrupt):
+    """A termination signal delivered to the runner, handled like Ctrl-C."""
+
+
+def interrupt(signum: int, _frame: object) -> None:
+    global RECEIVED_SIGNAL  # noqa: PLW0603 -- one process-wide signal record
+    RECEIVED_SIGNAL = signum
+    raise Interrupted
+
+
+def main(argv: list[str] | None = None) -> int:
+    global LIVE  # noqa: PLW0603 -- process-wide console mode, chosen once here
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog=EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     selector = parser.add_mutually_exclusive_group()
     selector.add_argument("--group", choices=sorted(GROUPS))
     selector.add_argument(
@@ -875,7 +1039,17 @@ def main() -> int:
     )
     parser.add_argument("--output", type=Path)
     parser.add_argument("--list", action="store_true")
-    parser.add_argument("--advisory", action="store_true")
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        default=os.environ.get("PSE_VALIDATION_LIVE") == "1",
+        help="stream every gate's output to the console as well as its log",
+    )
+    parser.add_argument(
+        "--preflight",
+        action="store_true",
+        help="only check the selection's prerequisites (native solver, canonical store) and exit",
+    )
     parser.add_argument("--reuse-from", type=Path)
     parser.add_argument("--reuse", action="append", default=[])
     parser.add_argument("--transfer", action="append", default=[])
@@ -886,7 +1060,7 @@ def main() -> int:
         choices=("dev", "producer"),
         help="Cargo profile installed for the linked Python assessment",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if (
         args.functional_scope
         and "native" in args.functional_scope
@@ -914,23 +1088,56 @@ def main() -> int:
         )
         return 0
     root = Path(__file__).resolve().parents[1]
-    output = fresh_output(root, args.output)
+    kinds = preflight_kinds(gates)
+    if kinds:
+        # Deferred: preflight composes the checkout environment through pse_env.
+        from scripts import preflight  # noqa: PLC0415
+
+        if code := preflight.main(kinds):
+            return code
+    if args.preflight:
+        return 0
+    LIVE = args.live
+    label = selection_label(args)
+    output = fresh_output(root, args.output, label)
     print(f"validation evidence: {output}", flush=True)
-    code = run_gates(
-        root,
-        output,
-        gates,
-        capture=not args.group,
-        reuse_from=args.reuse_from,
-        reuse=tuple(args.reuse),
-        transfer=tuple(args.transfer),
-        change_reason=args.change_reason,
-    )
+    if args.output is None:
+        mark_latest(output, label)
+    for name in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(name, interrupt)
+    try:
+        code = run_gates(
+            root,
+            output,
+            gates,
+            capture=not args.group,
+            reuse_from=args.reuse_from,
+            reuse=tuple(args.reuse),
+            transfer=tuple(args.transfer),
+            change_reason=args.change_reason,
+        )
+    except KeyboardInterrupt:
+        # Outside a gate's process wait; checks.json keeps the last checkpoint.
+        print(f"validation interrupted; partial evidence: {output}", flush=True)
+        return 128 + RECEIVED_SIGNAL
+    checks = json.loads((output / "checks.json").read_text())["checks"]
+    unsuccessful = [
+        check["gate"]
+        for check in checks
+        if not validation_receipts.qualified(check)
+    ]
+    if any(check["status"] == "interrupted" for check in checks):
+        code = 128 + RECEIVED_SIGNAL
     print(
-        f"validation complete: exit {code}; baseline zero; {output / 'summary.md'}",
+        f"validation {label}: exit {code}; "
+        + (
+            f"{len(unsuccessful)} unsuccessful: {' '.join(unsuccessful)} (re-run one with just <gate>); "
+            if unsuccessful
+            else "all qualified; "
+        )
+        + f"baseline zero; {output / 'summary.md'}",
         flush=True,
     )
-    # Advisory findings are already classified; tool failures must remain failures.
     return code
 
 

@@ -111,6 +111,24 @@ other's artifacts — ADR-0122). Remove a worktree with `git worktree remove <pa
 - `just codegen-check` checks every generated output, including the native stub against the
   installed extension (rebuild it with `just py-sync` after a Rust API change).
 
+## Bundles, logs and preflight
+
+`just turn-end`, `just ready` and `just hygiene` are groups of the assessment runner
+(`scripts/validation_scope.py::GROUPS`, `python3 -m scripts.validation --help`). Every step
+runs, each logs to `build/assessment/<run>/<step>.log`, and the bundle ends with the steps
+that failed and a non-zero status. The console stays short: each step's command and log path
+(follow it with `tail -f`), one result line, and the last 20 log lines of a failed step;
+pass `--live` (`just hygiene --live`) to stream everything. `latest-<group>` beside the runs
+is a convenience; use the printed path.
+
+`seed-conformance`, `modeling-conformance` and `assessment` first run
+`scripts/preflight.py` for what they need (solver prefix, linked extension, manifest,
+canonical store), so a missing prerequisite exits 125 with its fix before native setup;
+`PSE_PREFLIGHT=off` proceeds without it (for example to collect partial evidence). A
+pass does not predict code, fixture or scientific failures. Python test collection exits
+125 with a `pse-env:` line when the installed native extension cannot load its libraries
+outside the native environment.
+
 ## Hooks and permissions
 
 `scripts/agent-hooks.py` is the only hook script. `guard` (PreToolUse, both runtimes) refuses

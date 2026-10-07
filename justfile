@@ -241,6 +241,8 @@ assessment output="" *args:
         assessment_output=(--output "$1")
     fi
     shift
+    # The selection's prerequisites (solver prefix, canonical store), before native setup.
+    "{{ py }}" -m scripts.validation --preflight "$@"
     # Assessment receipts record and require the single-thread native budget.
     OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 exec scripts/pse-env --native -- "{{ py }}" -m scripts.validation "${assessment_output[@]}" "$@"
 
@@ -669,53 +671,50 @@ py-unit *args:
       *) echo "pse-env: no installed pse extension; run just py-sync (or just py-sync-native)" >&2; exit 125 ;;
     esac
 
+# Long native recipes first check their known prerequisites (scripts/preflight.py): a
+# missing one exits 125 with a pse-env: line before native preparation. It cannot catch
+# late code, fixture or scientific failures.
+reference_manifest := "packages/reference/conformance.toml"
+
+[private]
+_preflight +kinds:
+    python3 scripts/preflight.py {{ kinds }}
+
 [group('local')]
 [doc('Run data-authored modeling fixtures and shared conformance checks; accepts Python module CLI arguments')]
 [script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
-modeling-conformance *args:
+modeling-conformance *args: (_preflight "native" "native-extension")
     "{{ py }}" -m pse.conformance {{ args }}
 
 [group('local')]
 [doc('Run every reference fixture once from packages/reference/conformance.toml; Arrow reports in build/seed-conformance')]
 [script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
-seed-conformance:
-    "{{ py }}" -m pse.conformance --manifest packages/reference/conformance.toml --report-dir build/seed-conformance
+seed-conformance: (_preflight "native" "native-extension" "conformance" "--manifest" reference_manifest)
+    "{{ py }}" -m pse.conformance --manifest {{ reference_manifest }} --report-dir build/seed-conformance
 
 [group('local')]
 [doc('Repository-config lint: taplo, typos, reuse, actionlint, zizmor, shellcheck, ast-grep')]
 lint-repo:
     python3 -m scripts.validation --group lint-repo
 
-turn_end_steps := "adr-index fmt"
-ready_steps := "skills-sync doctor"
-hygiene_checks := "lint-agents adr-frontmatter-check adr-index-check register-lint lint-typos lint-license lint-actions lint-shell lint-ast lint-py typecheck lint-imports engine-boundary-check solver-pin-check family-check codegen-check clippy-default clippy-no-default docs-rust"
+# The three bundles are groups in scripts/validation_scope.py::GROUPS, run by the assessment
+# runner: each step keeps going after a failure, logs to build/assessment/<run>/<step>.log,
+# and the bundle lists what failed. Pass --live to stream step output (ready always does).
 
 [group('mutating')]
 [doc('End of a turn that changed files (root agent): regenerate the ADR index and format')]
-turn-end: (_bundle "turn-end" turn_end_steps)
+turn-end *args:
+    python3 -m scripts.validation --group turn-end {{ args }}
 
 [group('env')]
 [doc('After a dependency, toolchain or skill-selection change, or an environment-shaped failure: sync library skills and run doctor')]
-ready: (_bundle "ready" ready_steps)
+ready *args:
+    python3 -m scripts.validation --group ready --live {{ args }}
 
 [group('manual')]
 [doc('Scope end: every non-functional check; keeps going and lists failures; fix them and re-run one with just <id>')]
-hygiene: (_bundle "hygiene" hygiene_checks)
-
-# Run each recipe, keep going after a failure, and list the failures.
-[private]
-[script("bash", "scripts/pse-env", "--", "bash", "-uo", "pipefail")]
-_bundle name steps:
-    failed=()
-    for step in {{ steps }}; do
-        echo "== just $step"
-        just "$step" || failed+=("$step")
-    done
-    if [ ${#failed[@]} -gt 0 ]; then
-        echo "{{ name }}: ${#failed[@]} failed: ${failed[*]} (re-run one with just <id>)"
-        exit 1
-    fi
-    echo "{{ name }}: all passed"
+hygiene *args:
+    python3 -m scripts.validation --group hygiene {{ args }}
 
 [group('local')]
 [doc('Agent configuration: symlinks resolve, every referenced doc path exists')]
@@ -730,9 +729,9 @@ quality:
 # ------------------------------------------------------------------- manual --
 
 [group('local')]
-[doc('Dependency and licence REPORT: advisory, always exits 0, nothing here blocks a merge')]
+[doc('Dependency and licence REPORT: findings are advisory and never fail it; a tool that cannot run does')]
 deps-report:
-    python3 -m scripts.validation --group deps-report --advisory
+    python3 -m scripts.validation --group deps-report
 
 [group('manual')]
 [doc('Opt-in strict audit: cargo deny (advisories, bans, licenses, sources) + cargo audit. Not in ci-pr')]

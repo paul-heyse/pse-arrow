@@ -42,6 +42,49 @@ PARITY_IDAES_VERSION = "2.13.0"
 PARITY_MAX_PYTHON = (3, 15)
 
 
+def _require_native_libraries() -> None:
+    """Stop with the fix when the installed extension cannot load its shared libraries.
+
+    The linked native build needs the solver libraries that only the native environment
+    puts on the library path. Importing ``pse`` happens before any test conftest can
+    report it, so the dynamic loader is asked here, without running package code; only
+    its missing-library failure is labelled. Exit 125 is the environment boundary's. Only
+    this checkout's own package is probed: a run elsewhere never imports it.
+    """
+    import ctypes  # noqa: PLC0415 -- only this probe needs it
+    import importlib.machinery  # noqa: PLC0415
+    import importlib.util  # noqa: PLC0415
+
+    try:
+        spec = importlib.util.find_spec("pse")
+    except (ImportError, ValueError):
+        return
+    found = spec.submodule_search_locations if spec is not None else None
+    own = Path(__file__).resolve().parent / "python" / "pse"
+    locations = [Path(p) for p in (found or []) if Path(p).resolve() == own]
+    for location in locations:
+        for suffix in importlib.machinery.EXTENSION_SUFFIXES:
+            library = location / f"_native{suffix}"
+            if not library.is_file():
+                continue
+            try:
+                ctypes.CDLL(str(library))
+            except OSError as error:
+                if "cannot open shared object file" not in str(error):
+                    return
+                sys.stderr.write(
+                    "pse-env: the installed pse extension needs the native "
+                    f"environment ({error}); run just py-unit (it routes) or "
+                    "scripts/pse-env --native -- pytest …, or rebuild with "
+                    "just py-sync\n"
+                )
+                raise SystemExit(125) from error
+            return
+
+
+_require_native_libraries()
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Register the two opt-in suite flags.
 

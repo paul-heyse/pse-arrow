@@ -5,12 +5,16 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import tomllib
 import unittest
@@ -315,6 +319,124 @@ class ValidationTests(unittest.TestCase):
         )
         self.assertIn("details", cases[1]["details"])
         self.assertEqual(report.read_bytes(), (self.output / "copied.xml").read_bytes())
+
+    def test_default_runs_are_unique_and_latest_is_only_a_link(self) -> None:
+        with patch.object(validation.subprocess, "run") as run:
+            run.return_value.returncode = 0
+            first = validation.fresh_output(self.root, None, "hygiene")
+            second = validation.fresh_output(self.root, None, "hygiene")
+        self.assertNotEqual(first, second)
+        self.assertEqual(first.parent, self.root / "build/assessment")
+        self.assertIn("-hygiene-", second.name)
+        validation.mark_latest(first, "hygiene")
+        link = validation.mark_latest(second, "hygiene")
+        self.assertIsNotNone(link)
+        if link is None:
+            raise AssertionError("latest link not created")
+        self.assertEqual(str(link.readlink()), second.name)
+        self.assertEqual(
+            sorted(p.name for p in second.parent.iterdir()),
+            sorted([first.name, second.name, "latest-hygiene"]),
+        )
+
+    def test_failing_step_reports_log_tail_and_keeps_later_steps(self) -> None:
+        real_execute = validation.execute
+
+        def execute(
+            root: Path, output: Path, name: str, command: list[str], env: dict[str, str]
+        ) -> dict:
+            del command
+            program = (
+                "print('\\n'.join(f'line {i}' for i in range(30))); raise SystemExit(3)"
+                if name == "broken"
+                else "print('fine')"
+            )
+            return real_execute(
+                root, output, name, [sys.executable, "-c", program], env
+            )
+
+        console = io.StringIO()
+        with (
+            patch.object(validation, "execute", side_effect=execute),
+            contextlib.redirect_stdout(console),
+        ):
+            code = validation.run_gates(
+                self.root, self.output, [Gate("broken"), Gate("after")], capture=False
+            )
+        text = console.getvalue()
+        self.assertEqual(code, 1)
+        log = self.output / "broken.log"
+        self.assertIn("validation: broken: failed (exit 3, ", text)
+        self.assertIn(str(log), text)
+        self.assertIn("    | line 29", text)
+        self.assertIn("    | line 10", text)
+        self.assertNotIn("    | line 9\n", text)
+        self.assertIn("validation: after: passed", text)
+        self.assertNotIn("| fine", text)
+
+    def test_live_mode_streams_output_and_still_logs(self) -> None:
+        console = io.TextIOWrapper(io.BytesIO(), write_through=True)
+        with (
+            patch.object(validation, "LIVE", new=True),
+            patch.object(validation.sys, "stdout", console),
+        ):
+            result = validation.execute(
+                self.root,
+                self.output,
+                "live",
+                [sys.executable, "-c", "print('streamed'); raise SystemExit(2)"],
+                {},
+            )
+        streamed = console.buffer.getvalue().decode()
+        self.assertEqual(result["exit_code"], 2)
+        self.assertIn("streamed", streamed)
+        self.assertIn("streamed", (self.output / "live.log").read_text())
+
+    def test_interrupt_drains_owned_descendants_and_retains_status(self) -> None:
+        marker = self.root / "grandchild.pid"
+        # The grandchild ignores SIGTERM and outlives the group leader's exit.
+        script = (
+            f"(trap '' TERM; echo $BASHPID > {marker}; exec sleep 60) & "
+            f"while [ ! -s {marker} ]; do sleep 0.05; done; wait"
+        )
+        timer = threading.Timer(1.0, os.kill, (os.getpid(), signal.SIGINT))
+        timer.start()
+        self.addCleanup(timer.cancel)
+        result = validation.execute(
+            self.root, self.output, "interrupted", ["bash", "-c", script], dict(os.environ)
+        )
+        self.assertEqual(result["status"], "interrupted")
+        pid = int(marker.read_text())
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            stat = Path(f"/proc/{pid}/stat")
+            if not stat.exists() or stat.read_text().split(")")[-1].split()[0] == "Z":
+                break
+            time.sleep(0.05)
+        else:
+            os.kill(pid, signal.SIGKILL)
+            self.fail("an owned descendant survived the interrupted gate")
+
+    def test_termination_signals_are_recorded_as_interrupts(self) -> None:
+        with patch.object(validation, "RECEIVED_SIGNAL", signal.SIGINT):
+            with self.assertRaises(KeyboardInterrupt):
+                validation.interrupt(signal.SIGTERM, None)
+            self.assertEqual(validation.RECEIVED_SIGNAL, signal.SIGTERM)
+
+    def test_bundles_are_runner_groups_and_only_native_selections_preflight(
+        self,
+    ) -> None:
+        hygiene = [g.name for g in expand(("hygiene",))]
+        self.assertEqual([g.name for g in expand(("turn-end",))], ["adr-index", "fmt"])
+        self.assertEqual([g.name for g in expand(("ready",))], ["skills-sync", "doctor"])
+        self.assertTrue(
+            {g.name for g in expand(("codegen-check",))}.issubset(hygiene)
+        )
+        self.assertNotIn("codegen-check", hygiene)
+        self.assertEqual(validation.preflight_kinds(expand(("hygiene",))), [])
+        self.assertEqual(
+            validation.preflight_kinds(comprehensive()), ["native", "store"]
+        )
 
     def test_output_refuses_overwrite(self) -> None:
         with patch.object(validation.subprocess, "run") as run:
