@@ -3,7 +3,7 @@ title: Bulk data operations and sufficient protected crossings
 status: in-progress
 date: 2026-10-07
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md]
+review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md]
 scenario_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#4-revealing-scenarios]
 ---
 
@@ -135,6 +135,50 @@ protected selection, late errors and allocation ownership. Otherwise improve exi
 selection/Arrow streaming. The [release-backed evidence](../design_review/evidence/production-execution-efficiency-2026-10-07/surreal/README.md)
 and library skills inform these choices; Context7 is used for additional API documentation.
 
+## Remaining native access-path decision
+
+The enhancement review's [storage investigation](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#library-fit-and-remaining-investigations)
+adds T6 to existing T0/T3/T5. A small result, bounded transfer or one RPC does not establish
+bounded examined work. Existing [SurrealDB 3.3.0 evidence](../design_review/evidence/production-execution-efficiency-2026-10-07/surreal/README.md)
+supplies hypotheses about optional predicates, compound indexes, ordered selection and correlated
+supplier reads, not measured current-query scaling. This is a bounded decision package, not a
+database/backend redesign or automatic adoption of every SDK feature.
+
+Select actual bound operation families: selected-source supplier/name/membership acquisition
+in `canonical_selection`, exact run/attempt/output/range and block acquisition in
+`canonical_results`, and selected node/edge/result acquisition in `canonical_analyses`.
+For each material choice, inspect predicates, projections, ordering, generated indexes and how
+exact IDs/revision protection reach the query. Compare selective, empty and skewed selections
+against representative retained extent; distinguish necessary closure work from a repeated or
+unrelated scan. Use version-scoped EXPLAIN where source cannot settle the access path; ANALYZE
+executes the query and belongs only in an admitted disposable/controlled case. No production
+mutation, plan-output golden, latency gate or broad query census is implied.
+
+Choose the simplest fitting access path: retain the bounded current operation when adequate;
+otherwise use exact bindings/explicit projection, a justified compound index or composed native
+selection at the existing owner. Include write/delete/retirement maintenance and index storage,
+not only read benefit. A changed declaration is generated at its existing schema owner with
+`just codegen`; no hand-edited SurrealQL or parallel migration authority. Preserve complete
+negative/membership premises, ordering, byte/resource admission and protected visibility.
+
+Streaming is conditional on an actual consumed benefit. `stream_items` rows are provisional;
+statement/transaction completion remains required and item-count channels are not byte bounds.
+A proposed long stream must account for reservation, snapshot/protection, cancellation, final
+failure and draining unread data/escaped Arrow buffers. Default to the current bounded indexed
+result path if it already supplies the required operation; no broad streaming migration or new
+retry wrapper is scheduled merely because the SDK exposes it. Scientific kernels and native
+iteration remain outside database transactions.
+
+| Package | Decision and delivered scope | Acceptance and subsequent work | Status |
+|---|---|---|---|
+| T6 — Selected access paths | Source-backed assessment of bound source/result/analysis families; resolve only consequential query/streaming questions with current release documentation or bounded plan observations. Record adopted correction versus retained design, supported selection/extent, consumer and reopen trigger. | Selective/empty/skewed exact selection, interpretation/order, protected retirement/expiry, byte admission and final completion. Implement confirmed repeated-work corrections with their actual callers and generated declarations; delete displaced paths. T5/D1/D2 consume that scope; E4 measures any gain. | Scheduled investigation; no current access-path defect or speedup is assumed. |
+
+T6 must record a reasoned outcome before T5 closure. A retained design needs an observable trigger
+such as a newly supported predicate/extent or measured disproportionate acquisition; it is not an
+unowned indefinite follow-up. New scientific meaning or a material rule change returns to its
+decision owner before dependent implementation. The other confirmed corrections need not wait
+for unrelated query questions.
+
 ## Work packages and dependencies
 
 | Package | Inputs and delivered behavior | Migration, deletion and focused acceptance | Status |
@@ -144,7 +188,7 @@ and library skills inform these choices; Context7 is used for additional API doc
 | T2 — Compact exact append acknowledgment | Working current append ownership and settled sufficient request/descriptor identity; independent of increasing block size. | Change generator and actual Rust callers together. Test successful first/repeated effects, mismatched descriptor, changed request and committed lost-ack recovery. Remove full payload success echo/readback comparisons only after the replacements establish their guarantees. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
 | T3 — Composed protected acquisition | A3 protection plus exact result descriptors and reservation planning; independent of T1/T2 except changed stored-bound compatibility. | Migrate connected and direct block readers, grouped physical source reopening, and applicable recovery metadata consumers. Test retirement/expiry/cancellation, selected ordering, missing/changed blocks and final statement failure. Delete replaced singleton metadata/payload chains. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
 | T4 — Source and analysis effect grouping | T0's source-stage and node/edge decisions; working shared admission/grouping slices. | Migrate source package publication, unchanged-byte authoring reuse and applicable analysis publication. Test interrupted stages, exact final revision visibility, changed replay, endpoint ordering and activation completeness. Delete redundant revisions/copies/loops only where no required consumer remains. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
-| T5 — Data consumer closure | T1–T4 and adopted access-path/provider work. Reconcile all data capability rows and actual callers. | All confirmed variants consume the shared target; justified distinct effects remain explicit. Compose complete source→solve→retained result→selected analysis/Arrow journeys in E3, then measure in E4. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
+| T5 — Data consumer closure | T1–T4, completed T6 decision and working adopted access-path/provider corrections. Reconcile all data capability rows and actual callers. | All confirmed variants consume the shared target; justified distinct effects remain explicit. Compose complete source→solve→retained result→selected analysis/Arrow journeys in E3, then measure in E4. | Earlier migrations implemented; expanded consumer closure and E3/E4 acceptance pending. |
 
 T1/T2/T3 can proceed independently once their own contracts are available. Acknowledgment
 correctness and read correctness remain separate obligations even if larger blocks reduce
@@ -173,6 +217,11 @@ no new telemetry framework or fixed RPC quota is required. Exact original transp
 do not impose bit-identical independently solved scientific outcomes.
 
 ## Checkpoint
+
+The enhancement review schedules T6 on the implemented byte-admission and compact operation
+foundations. T5's final consumer closure includes T6's adopted changes or reasoned retained design;
+earlier focused controls do not establish current query scaling. Follow source/contracts first,
+then only decision-changing plan observations. E3/E4 remain the composed behavior/measurement owners.
 
 T0–T4 functional source and focused actual-server controls are implemented. T5 reconciles
 confirmed consumers with the shared publication/acquisition owners; enclosing assembled

@@ -3,7 +3,7 @@ title: Selected compilation and durable reuse
 status: in-progress
 date: 2026-10-05
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -162,6 +162,46 @@ selected acquisition controls must compose with C/D consumers before E3. E4 owns
 complete-operation timings. The current next step supersedes historical continuation text
 below; prior receipts retain their original source and workload limits.
 
+## Ordinary deployment-local replay
+
+The maintainer accepted the enhancement review's [RC01](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#rc01)
+on **2026-10-07**. [The coordinator](28-surrealdb-unified-substrate.md#rule-changes-confirmed-by-the-maintainer)
+owns that decision; [28h L5](28h-native-setup-and-artifact-identity.md#deployment-local-replay-and-build-output-derivation)
+supplies the effective-deployment observations and decision/design route. This section owns
+the scientific receiving/reconstruction contract, not a second deployment observer.
+
+At the reviewed `dacc9c3` foundation, default worker/Python admission has no qualified producer;
+`CanonicalBodyRetention::get` consequently misses before durable lookup. Memory reuse and
+retained outcomes work, but neither proves ordinary prepared-body replay after restart.
+B5 adds that capability. Earlier B3 strict-capture requirements describe the stronger guarantee,
+not a prerequisite for this new default route or for ordinary execution.
+
+Use one optional opaque replay admission expressing either independently observed deployment-local
+compatibility or explicitly supplied strict producer qualification. `CanonicalDeployment` and
+the actual worker/Python composition roots consume it; callers cannot deserialize matching JSON
+or supply a hash to mint eligibility. Persist a versioned guarantee/identity interpretation through
+the existing owning declarations and portable product namespace. A local key scopes the actual
+receiving artifact/role, reconstruction interpretation and complete consumed runtime/native context
+under L5; existing scientific keys still own selected inputs, providers, profiles and positive/absent
+dependencies. Identical outer checkout hashes are neither needed nor sufficient.
+
+Publication and receiving share `CanonicalBodyRetention`, `portable::reuse_body`, the complete
+premise checker and strict scientific reconstruction. Preserve bounded hydration, current protected
+reads and compiler-issued publication authority. Do not add another decoder, cache or scientific
+validator; do not reinterpret historical unqualified records or keys as newly eligible. Complete
+context absence or changed premises produces a cache miss/refusal and fresh preparation, while
+historical outcomes remain available. Malformed/corrupt products retain their existing observable
+refusal semantics. No change forces rebuilding code or requalifying prior results.
+
+| Package | Prerequisite and delivered behavior | Migration, deletion and focused acceptance | Status |
+|---|---|---|---|
+| B5 — Ordinary restart reconstruction | Accepted enhancement RC01 and working L5 observation/interpretation slice after its decision route. Publish/reconstruct compatible local products through the existing protected checker. | Migrate default worker and Python import/runtime admission, portable publication and retention together. Replace strict-only replay gating; retain explicit strict admission under its own guarantee. Prove actual restart reconstruction rather than fresh admission, independent artifact/role association, changed native/configuration and missing-context refusal, corruption handling, protection expiry and original dependency invalidation. | Scheduled; not implemented by plan authoring. |
+
+B5's receiving contract can be designed while C5/N5/N6 proceed. Its implementation cannot claim
+safe local replay until L5 establishes the supported effective context and stable observation-to-use
+lifetime. Unknown dynamic/runtime inputs refuse reuse; ordinary execution need not wait for B5.
+Cross-role/cross-build eligibility remains a separately requested stronger scope.
+
 ## Shared numerical preparation extension
 
 [28f](28f-shared-numerical-preparation.md) develops PE01/PE04 and comparable numerical variants.
@@ -223,6 +263,12 @@ Do not claim a compile-time or solve-time gain from these structural controls. E
 quantitative comparison; B4 may conclude that some dense library input is necessary.
 
 ## Checkpoint and next step
+
+The enhancement review adds scheduled B5 after L5; no default local replay is implemented yet.
+Existing checked selection and portable reconstruction are reused foundations. Record and implement
+the accepted decision route before replacing strict-only gating, then exercise real default restart
+consumers in E3. Earlier capture notes below describe the implemented strict route at their original
+scope; they do not make a producer-profile rebuild a blanket development prerequisite.
 
 B1–B4 functional mechanisms are implemented. Checked batches and immutable typed rows
 retain the actual native validation owner. Same-owner readmission preserves existing

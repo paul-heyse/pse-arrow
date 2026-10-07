@@ -3,7 +3,7 @@ title: Shared numerical projections and preparation
 status: in-progress
 date: 2026-10-07
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md]
+review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md]
 scenario_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#4-revealing-scenarios]
 ---
 
@@ -130,6 +130,82 @@ Do not enable FBBT without original-bound dual recovery, add another stack optim
 or interpret ignored Ipopt callback hints as proof of repeated evaluation: existing exact-point
 and order caching must be considered.
 
+## Remaining dynamic and fitting preparation
+
+The [enhancement review](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md)
+adds confirmed F04/F05 and a demand-dependent fitting opportunity. Existing N1–N3 foundations
+remain; their focused passes do not exercise these remaining consumers. [28c C5](28c-durable-execution-and-studies.md#stored-study-admission-and-creation-cancellation)
+also closes stored-study use of N2's basis. Findings are dispositioned only at the coordinator.
+
+### N5 — Admitted dynamic layout with private workers
+
+`DynamicWorker::new` derives coordinate-scale chains, support pairs/refill correspondence and
+canonical sparse structure from admitted programs/coordinates. `IntegratedExperiment` retains
+the program but creates workers for integration, gradient, Hessian and shooting-window operations.
+These layouts do not depend on trial values. Retain checked immutable metadata at the admitted
+dynamic program and instantiate private matrix values, evaluators, providers, guards, point caches
+and execution scope. Use existing `AssemblyMatrix`/faer mechanics rather than another coordinate
+registry or global cache. A frozen template creating fresh storage is a sufficient local design.
+
+Preserve mode/function identity, constants, coordinate order/scales, derivative order, provider and
+structural premises, extent/index limits and complete allocation accounting. Charge shared retained
+metadata once and private worker storage separately. Changed layout rebuilds; changed values refill.
+Move dynamics, integrated fitting and shooting callers with the constructor and remove displaced
+layout derivation. Symbolica interpreter state cloning may remain necessary; this correction does
+not adopt compiled evaluators or share mutable instruction stacks/history.
+
+### N6 — Sample-local algebraic elimination factor
+
+IDAS `Session::jump` evaluates one RHS partial matrix and passes it to `eliminate` for the first
+adjoint jump and each Hessian direction. Factor the sample's algebraic transpose once through faer
+and solve distinct right-hand sides from that owner. Sequential solves are the default; multi-RHS
+batching is optional only where its extra live storage earns a consumed benefit. Preserve first-order
+multipliers used by curvature, differential/algebraic masks, zero enforcement and ordered axes.
+Changed sample/state/mode uses current numeric factors; symbolic/scratch reuse across samples requires
+compatible structural premises. Singular/nonfinite failure invalidates readiness before another solve.
+Retain original physical derivative/backward-error assessment and private attempt ownership.
+
+### N7 — Fitting demand and coherent point upgrade
+
+Source inspection establishes an existing complete operation: `IntegratedExperiment::gradient`
+returns both a forward report and converted gradient contributions. `FitOracle::cotangent` derives
+included weighted residuals directly from that report after its forward pass. A preceding prediction
+integration is unnecessary on a direct gradient-demand cache miss. Objective/gradient callbacks
+already identify demand; no new solver callback interface or checkpoint API is required.
+
+Make point construction consume value-versus-gradient demand. For a gradient-first point, populate
+gradient-bearing transient predictions, trajectory and adjoint contributions from one combined
+operation. Keep objective-only integration cheap, including experiments with no included observations
+or free parameter contribution; keep steady constraints/responses at existing owners. Retain exact-bit
+candidate keys and publish a cache entry only when its requested components have passed admission.
+Repeated same-point gradients reuse that entry; changed candidates or failures clear incompatible state.
+
+A value-only cache hit followed by gradient demand still needs the combined operation's checkpointed
+forward pass: sampled reports are not reusable checkpoint sessions. The combined report owns the
+upgraded point's predictions/residuals and derivative. An earlier returned objective remains its
+actual earlier observation; do not relabel it as the later report or require bit equality. Settle this
+upgrade contract before migrating cache consumers: independently computed predictions compare using
+the existing composed production physical allowances, and materially inconsistent/nonfinite output
+must follow the owning refusal policy. Preserve duplicate-observation weighting, physical conversions,
+events/endpoints, outer deadline/cancellation and admitted checkpoint/foreign memory until drain.
+
+N7 begins with bounded source confirmation of callback/cache consumers and records the resulting
+upgrade contract. The direct gradient-first correction is adopted; retaining checkpoint continuation
+across callbacks or trials is not. If continuation remains worth pursuing, retain an explicit owner
+and trigger at N0 rather than add a speculative native history owner now. This improves the actual
+combined-demand route without claiming every objective-then-gradient sequence has one forward pass.
+
+| Package | Prerequisite and consumer scope | Targeted acceptance and deletion | Status |
+|---|---|---|---|
+| N5 — Immutable dynamic layout | Admitted dynamic program, existing checked projections/sparse assembly and retained allocation owner; integration/gradient/Hessian/shooting workers. | Shared layout across repeated workers; independent concurrent scratch/values/providers; changed order/scales/constants/support, extent refusal and existing event/physical behavior. Delete per-worker stable layout reconstruction. | Scheduled. |
+| N6 — IDAS sample elimination | Existing current partials and faer numeric/factor owner; first/second-order sample jumps. | One factor per sample with direction/multiplier correspondence; changed samples and singular/nonfinite recovery; production-basis derivative checks. Delete repeated sample-local factor construction. | Scheduled. |
+| N7 — Demand-aware transient point | Existing combined gradient/report API and fitting-owned cotangent; settle value-first upgrade semantics before cache migration. | Gradient-first one forward/backward, objective-only no backward, repeated gradient cache reuse, value-first upgrade coherence, changed candidates and cancellation/memory refusal. Remove discarded-forward-report composition where replaced; preserve the justified objective-first recomputation route. | Scheduled; upgrade contract must be recorded before dependent implementation. |
+
+N5 and N6 can proceed independently of replay admission and each other, coordinating shared sparse
+owners if changed. N7 consumes N5 when using its migrated workers, but its demand contract can be
+settled earlier. N4 closes C5/N5–N7 and every confirmed comparable consumer before E3; no separate
+N-only full campaign is added. E4 distinguishes removed construction from whole-operation gain.
+
 ## Work packages and dependencies
 
 | Package | Inputs and delivered behavior | Migration, deletion and focused acceptance | Status |
@@ -138,7 +214,7 @@ and order caching must be considered.
 | N1 — Ordered projections | PE01 and N0's relevant correspondence decisions. Implement common checked projection mechanics and owner-specific prepared maps. | Migrate policy/quality/goals, preflight, trajectory and all confirmed related consumers together with their maps. Delete displaced repeated joins/helpers and tests specific to removed mechanisms. Check kind/ID collisions, duplicate/missing/refused entries, reordered inventories, fixed composite coordinates and sample alignment. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
 | N2 — Checked preparation reuse | B1/B2 and existing protection/retention; settle complete reusable selected-input identity. | Move durable ready occurrences and every confirmed ordinary/analysis consumer off repeated unchanged hydration/generic admission. Test fresh/reused equivalence, A/B/A, value/structural edits, absence/shadowing/provider changes, protection expiry, eviction and cancelled flights. Remove replaced hydration/admission caches only after callers move. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
 | N3 — Compatible numerical owners | Applicable N0 session/factor/Taylor decisions and working N1/N2 slices where consumed. | Extend actual existing library owners; migrate fitting/profile/shooting/implicit/dynamic consumers selected by N0. Delete superseded factor/workspace construction paths. Check current-point results, changed compatibility, singular/nonfinite recovery, owning-thread drain and released allocations. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
-| N4 — Numerical consumer closure | N1/N2 and adopted N3 work. Reconcile the coordinator's numerical capability rows and actual callers. | Every confirmed variant uses the shared target or has a reasoned distinct contract. Exercise a new analysis composition and changed provider/layout to show where customization belongs; hand functional scope to E3/E4. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
+| N4 — Numerical consumer closure | N1/N2, adopted N3, working C5/N5/N6 and N7's settled demand/cache contract and migration. Reconcile the coordinator's numerical capability rows and actual callers. | Every confirmed variant uses the shared target or has a reasoned distinct contract. Exercise a new analysis composition and changed provider/layout to show where customization belongs; hand functional scope to E3/E4. | Earlier migrations implemented; expanded consumer closure and E3/E4 acceptance pending. |
 
 N1 and N2 are independent after their own inputs are settled. Library investigations need
 not delay the established projection correction. A native owner can migrate incrementally,
@@ -172,6 +248,12 @@ production measurement mode with the same physical decision basis; label forced-
 overhead separately. No speedup, full conformance or completed implementation is claimed here.
 
 ## Checkpoint
+
+The enhancement review adds scheduled N5–N7 and C5's stored use of N2. Earlier N1–N3 evidence
+retains its original scope; N4 remains open until these consumer obligations are implemented and
+exercised. First settle N7's point-upgrade contract, then migrate complete consumers with retained
+layouts/sample factors. No numerical tolerance change, evaluator ABI pivot or history sharing is
+authorized by this document update.
 
 Execution is authorized and underway. N0's bounded source decisions adopt structural Taylor
 zeros and retained faer numeric/scratch storage at the existing attempt-local Diffsol,

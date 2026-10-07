@@ -3,7 +3,7 @@ title: SurrealDB unified simulation substrate
 status: in-progress
 date: 2026-10-05
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -144,6 +144,19 @@ at execution time must instead be superseded. Actual artifact association, compl
 inputs and outer provenance are preserved. Operator confirmation does not accept the ADR or
 implement the new capture contract.
 
+The maintainer explicitly confirmed **Accept, 2026-10-07** for the remaining-design
+enhancement review's [RC01](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#rc01):
+allow ordinary persisted preparation replay under independently established exact
+deployment-local compatibility, keeping broader producer qualification optional. This is
+distinct from both earlier RC01 decisions. [28h L5](28h-native-setup-and-artifact-identity.md#deployment-local-replay-and-build-output-derivation)
+supplies the compatibility premises and decision/design amendment; [28b B5](28b-selected-compilation-and-reuse.md#ordinary-deployment-local-replay)
+owns reconstruction. Amend proposed ADR-0164 and the governed deployment/replay explanation
+with a blueprint revision before dependent implementation; supersede the ADR if its status
+has become accepted. Operator acceptance is not ADR acceptance or implemented eligibility.
+Missing compatibility refuses preparation reuse, not historical results or ordinary execution.
+No strict source/compiler campaign, environment copy, forced rebuild or general change-impact
+classifier becomes an ordinary restart prerequisite.
+
 ## Completion-audit reconciliation and capability decisions
 
 The [completion audit](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md)
@@ -277,6 +290,42 @@ assembled supported target and resolves findings with evidence. Keep all current
 obligations transferred to E and their original disposition owners. This authoring work neither
 resumes the interrupted campaign nor claims a speedup or scientific acceptance.
 
+## Remaining-design enhancement integration
+
+The [2026-10-07 enhancement review](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md)
+assesses implemented supporting design and remaining target independently, then reconciles
+them. Its four supporting corrections and accepted replay target fit B/C/E/N/T/L; no new
+companion is needed. Its review-qualified F01–F05 are different from the completion audit's
+F01–F05. This coordinator owns their dispositions, including the opportunities below.
+
+The current foundation at `dacc9c33225990984ddbd1d356e797389f02fef3` has checked selected
+admission, bounded operations, retained native owners and immutable installations. Stored-study
+creation still rebuilds declared admission per point; dynamic workers rebuild program-fixed
+layouts; IDAS jump elimination repeats factorization of the same sample matrix; sealed receipt
+permissions leak into Cargo outputs. Default restart preparation replay still needs a qualified
+producer. Document adoption changes none of those implementation facts.
+
+Retain different valid lifetimes: C5's study-scoped declared basis, B5's protected deployment
+reconstruction, N5's program-fixed layout and N6's sample-local factor. Mutable values,
+providers, guards, candidate permission, seeds and attempt fences remain independently owned.
+These remedies must not grow a second cache, reconstruction checker or numerical algorithm.
+
+| Prerequisite slice | Delivered contract and dependent work |
+|---|---|
+| 28h L6 | Exact sealed receipt bytes become writable Cargo-owned output, including repeated/read-only destinations; restores the affected native validation route without a provider rebuild. |
+| 28c C5 with N2/N4 | Stored-definition admission shares a compatible basis but validates every binding/seed role; caller cancellation reaches creation and settles ambiguous activation. Actual default durable/Python study routes are required consumers. |
+| 28h L5 then 28b B5 | Record RC01's decision route, establish independently observed deployment compatibility and implement ordinary reconstruction through the existing protected scientific checker. Closure uncertainty blocks only B5, not ordinary fresh execution or other corrections. |
+| 28f N5/N6 | Retain immutable dynamic layouts and sample-local factors; instantiate/refactor current numerical state under existing limits. N4 reconciles dynamics, fitting and shooting consumers. |
+| 28f N7; 28g T6 | Settle fitting demand/cache upgrade and selected query access paths. Each ends in an adopted correction or reasoned retained design with owner, applicability and observable reopen trigger. Required corrections join N4/T5; speculative evaluator/history/streaming replacements do not. |
+| E1/E2 then E3/E4/E5 | Obtain affected failure diagnostics, complete functional corrections and migrated consumers, compose local correctness/recovery, measure applicable operations and assess closure. Previous positive evidence keeps its original scope. |
+
+Library conclusions from the review are reusable evidence, not transferred performance proof.
+Source establishes layout/factor repetition and a direct combined fitting capability; it does
+not establish the unfinished run's dominant phase. Symbolica interpreter cloning, compiled
+evaluator trust/ABI, native checkpoint continuation and storage streaming remain different
+questions. Additional Context7/exact-release research or bounded observations are needed only
+for an unsettled consequential contract, not a feature census or another full design review.
+
 ## Execution sequence and readiness
 
 **R0 — Record the approved target through the decision/design route.** Allocate proposal(s)
@@ -335,6 +384,7 @@ deletion; static hygiene and assembled integration wait for all functional scope
 
 This is the only current disposition table for the adopted unified-substrate and efficiency
 findings, the completion audit and the [2026-10-07 production efficiency review](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md).
+It also owns the [remaining-design enhancement review](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md).
 A scheduled package or accepted rule is not resolution. Links identify local evidence owners;
 resolve only when correction and relevant acceptance actually exist. US/EF/F scenario IDs
 refer to their originating reviews; PE scenario IDs refer to the new review. The PE entries
@@ -374,6 +424,21 @@ Its RC01 is explicitly confirmed above. Scheduling documents is not correction e
 production execution. Prior US/EF/F dispositions and historical scientific evidence remain
 at their existing owners; none is resolved by the extension or substituted for E3/E4/E5.
 
+### Enhancement-review dispositions
+
+The labels below qualify the originating review; they do not rename its finding IDs or the
+earlier completion audit. All corrections are scheduled, not resolved by document adoption.
+
+| Finding or obligation | Review scenario | Disposition | Work owner | Required evidence or settling decision |
+|---|---|---|---|---|
+| [Enhancement F01](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#f01) | S01/S06 | Scheduled | C5; N2/N4; E3 | Actual stored/default study basis reuse, every binding/seed role checked, distinct occurrences, changed premises and creation cancellation. |
+| [Enhancement F02](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#f02) | S02 | Scheduled | L5; B5; E3 | Accepted RC01 route, independently established effective deployment context and actual default worker/Python restart reconstruction; absent/changed premises refuse reuse only. |
+| [Enhancement F03](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#f03) | S03 | Scheduled | L6; E2 | Repeated exact receipt materialization, changed bytes and existing read-only destination; sealed generation stays unchanged; affected native route executes. |
+| [Enhancement F04](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#f04) | S04 | Scheduled | N6; N4; E3 | One current sample factor for distinct directions, current-value refactorization, first/second-order production-basis checks and failed-factor recovery. |
+| [Enhancement F05](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#f05) | S05 | Scheduled | N5; N4; E3 | Shared admitted layout, private concurrent scratch, changed coordinate/support premises and extent/refusal controls across actual consumers. |
+| [Transient fitting demand](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#library-fit-and-remaining-investigations) | S05 | Scheduled | N7; N4 | Gradient-first combined report/derivative, cheap objective-only route, coherent value-first cache upgrade; no assumed checkpoint continuation. |
+| [Selected storage access paths](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#library-fit-and-remaining-investigations) | S07 | Scheduled | T6; T5; D1/D2 | Current bound source/result/analysis queries under selective/empty/skewed inputs; adopted correction or supported retained design, preserving protected byte-bounded completion. |
+
 Other preparation work is included in B3/C3: ready-attempt preparation/product sharing,
 bounded Salsa diversity and native lifetimes. General SIMD/JIT/WASM, distributed deployment
 and optional generic tools are outside required scope unless a concrete consumer need changes
@@ -398,7 +463,16 @@ mechanism, and justified distinct contracts and conditional retained-design deci
 
 ## Current checkpoint
 
-The latest committed correction baseline is `5260a3e9a`, recording the continuation from
+The enhancement review is integrated on the `dacc9c33225990984ddbd1d356e797389f02fef3`
+foundation. RC01 is accepted; L5/B5's decision route and implementation remain pending.
+C5, N5–N7, T6 and L6 are new scheduled scope, not already qualified extensions of earlier
+package passes. E owns the interrupted stable assessment and affected diagnostic route.
+Next restore receipt derivation and obtain actual Python failures; perform C5/N5/N6 and
+decision-ready N7/T6 work; settle and implement L5/B5 before ordinary restart acceptance.
+The corresponding functional scope precedes E3, applicable E4 and E5. Earlier checkpoint
+notes below retain their original evidence and are superseded as current execution directions.
+
+The earlier correction baseline was `5260a3e9a`, recording the continuation from
 `219338742` without changing its reviewed product bytes. At the maintainer's request, the current qualification runner was
 stopped to conduct the [production execution efficiency review](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md).
 [28e's current handoff](28e-rebuild-retirement-and-qualification.md#efficiency-review-handoff-2026-10-07)

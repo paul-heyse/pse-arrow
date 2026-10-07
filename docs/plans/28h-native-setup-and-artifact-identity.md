@@ -3,7 +3,7 @@ title: Native setup lifetime and artifact identity
 status: in-progress
 date: 2026-10-07
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md]
+review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md]
 scenario_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#4-revealing-scenarios]
 ---
 
@@ -140,6 +140,60 @@ version before decoding current shape. Do not recompute historical keys or relab
 qualification. Remove all-tree build-script watches/embedding only after replacement artifact
 association and outer observation have working consumers.
 
+## Deployment-local replay and build-output derivation
+
+The enhancement review's [RC01](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#rc01)
+was explicitly accepted on **2026-10-07**, separately from the production-efficiency identity
+decision above. [The coordinator](28-surrealdb-unified-substrate.md#rule-changes-confirmed-by-the-maintainer)
+records it. L5 supplies narrow exact deployment-local compatibility to [28b B5](28b-selected-compilation-and-reuse.md#ordinary-deployment-local-replay);
+it does not broaden or relabel `QualifiedProducer`'s strict guarantee.
+
+`pse-buildinfo::identity` already observes actual files and verifies the loaded worker/Python
+module mapping. Native receipts and operation pins establish installation contents and admitted
+generation lifetimes. These are reusable foundations, but an installed receipt alone does not
+prove which shared libraries or runtime-loaded artifacts the process consumed. Default admission
+must independently associate those artifacts with the receiving code and their actual use.
+
+Start with the supported Linux worker and imported Python deployment. Frame the actual role/artifact,
+reconstruction interpretation, conservatively complete supported loaded native/runtime artifact set
+and effective configuration required by reconstruction. Existing scientific keys own providers,
+selected dependencies and compiler/kernel construction profiles. Observe actual consumed bytes and
+stable use through existing file/mapping and generation owners; paths, mtimes, shell markers and
+complete outer source hashes confer no eligibility. Identical deployed code need not reproduce
+its compiler/source capture to establish this narrower compatibility.
+
+L5 first settles the supported loader/runtime closure, late loading, observation-to-use stability
+and configuration boundary. Pin or otherwise establish unchanged actual use at the existing owner;
+do not falsely treat every receipt-listed library as mapped. Deleted/replaced or unidentified mappings,
+opaque plugins/provider code, unobserved JIT artifacts and undeclared runtime inputs refuse local
+cache reuse when their consumed premises cannot be established. Mutable/external prefixes need
+their actual stable-use guarantee or honest refusal. Scientific execution/history remain available
+under their independent safety contracts. No general relevance classifier or artifact framework is
+required; a conservative supported artifact set is acceptable.
+
+The initial API extends the existing deployment's optional replay admission to distinguish local
+and strict guarantees, minted at real worker startup/Python import rather than by receipt fields.
+B5 owns the single persisted/reconstruction implementation. Version the changed key/admission
+meaning at its current declarations; leave old product provenance intact. L5 includes amendment of
+proposed ADR-0164 and the governed explanation/revision before dependent implementation; if the
+record has become accepted, supersede it. This document schedules that route, not ADR acceptance.
+
+[Enhancement F03](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#f03)
+is independent: `seal_generation` makes receipts read-only, while backend-native `root_isolation`
+copies their permission bits into reusable Cargo `OUT_DIR`. L6 consumes verified exact bytes and
+materializes writable derived output. Preserve unchanged bytes/mtime where useful; replace changed
+or existing read-only destinations through owner-local writable sibling/atomic replacement. Never
+weaken the sealed generation, clean Cargo targets or rebuild providers to repair this boundary.
+
+| Package | Delivered contract and dependent consumers | Focused acceptance | Status |
+|---|---|---|---|
+| L5 — Local replay observation and decision route | Settle and document Linux actual runtime closure/stability; route accepted enhancement RC01; supply independently minted versioned local admission to B5 and actual worker/Python roots. Unknown consumed premises refuse reuse only. | Same effective deployment across restart, receiving role/artifact substitution, mapped-library/configuration changes, late/deleted mappings, missing checkout/context and explicit strict/local separation. The observation-to-use premise must be established, not a caller assertion. | Scheduled; closure/lifetime implementation decision precedes B5. |
+| L6 — Writable build derivation | Consume immutable root-isolation receipt into Cargo-owned exact output, with idempotent repeat/changed-byte replacement. E2 receives a repeatable native build route. | Disposable read-only source; repeat unchanged bytes/mtime, changed receipt, existing mode-444 output and untouched source; then affected native build/test recipe. | Scheduled ordinary adapter correction. |
+
+L6 can proceed independently of L5/B5. L5 is bounded source/contract investigation followed by
+its working observation slice; an unresolved context cannot mint a token merely to unblock tests.
+Unrelated code/environment changes never automatically trigger strict capture or invalidate history.
+
 ## Consumer scope and packages
 
 Inspect all recipe environment roots and their callers, native caches/build scripts, bootstrap/
@@ -156,7 +210,7 @@ remain when it supplies a different guarantee.
 | L1 — Scoped verified setup | L0's installation lifetime and capability request. Implement the common setup owner, immutable generation publication and operation-scoped reuse. | Migrate native scripts, build/test/Python/worker/measurement consumers. Add a bounded `native-setup-unit` recipe since current tooling recipes do not select these lifecycle units alone. Test unchanged nested use, input changes, corruption/missing files, explicit-prefix refusal/readmission, concurrent builders/readers, surviving children after parent exit and cancellation/drain. Delete repeated same-lifetime validation and obsolete broad setup paths. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
 | L2 — Provider discovery and build locality | Working L1 and relevant native/Cargo input association. Perform actual HiGHS/compiler/archive discovery only where the current selected closure needs it. | Migrate pipeline setup and remaining generator/build consumers; unchanged outputs keep bytes/mtimes and stale outputs disappear through the generator. Test cache hit/miss and changed provider/flags/target; never infer eligibility from existence alone. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
 | L3 — Artifact and outer observation | L0's recorded decision route and actual producer tooling; compatible L1/L2 input observations. Implement separated identities and actual role association. | Migrate `pse-buildinfo`, producer capture/deployment, runtime qualification, worker/Python admission and assessment reuse together. Test unrelated/relevant edits, dirty root/native changes, wrong roles, replaced artifacts and actual imported extension. Delete replaced all-tree compiled identity and equality assumptions. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
-| L4 — Tooling consumer closure | L1–L3 and all confirmed related variants. Reconcile coordinator coverage and refresh actual affected deployed artifacts. | No displaced environment/capture mechanism remains; E3 receives eligible real artifacts and E4 receives comparable setup/build cases. Full local qualification remains at E, not repeated here. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
+| L4 — Tooling consumer closure | L1–L3, working L5/B5 composition and L6, and all confirmed related variants. Reconcile coordinator coverage and execute current affected code through ordinary Cargo freshness. | No displaced environment/capture mechanism remains; E3 receives actual local replay observations and E4 receives setup/build cases. Strict deployment qualification remains separate optional scope at E, not repeated here. | Earlier migrations implemented; expanded consumer closure and E3/E4 acceptance pending. |
 
 L1/L2 can proceed independently of bulk result corrections. L3 cannot remove the old guarantee
 before actual replacement association works. Scope executor files narrowly; root owns manifest/
@@ -186,6 +240,12 @@ under comparable checkout/toolchain/cache conditions. Target-only observations c
 claim when no comparable historical baseline exists.
 
 ## Checkpoint
+
+The enhancement review schedules L5/L6 on the implemented installation/association foundations.
+Local replay admission is not implemented yet. Fix L6's derived-output boundary first for the
+affected native route; settle L5's complete runtime closure before B5 depends on it. L4 consumer
+reconciliation and E3/E4 now include these actual consumers; earlier positive controls retain
+their original scope. No strict artifact campaign is required by document adoption.
 
 L0 recorded confirmed RC01 in proposed ADR-0164 and architecture revision132 before dependent
 changes. Formal ADR acceptance remains separate. L1 implements an actual operation scope begun

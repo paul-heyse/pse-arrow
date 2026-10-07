@@ -3,7 +3,7 @@ title: Connected result queries and analysis
 status: in-progress
 date: 2026-10-05
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -195,6 +195,13 @@ indexed lookup/projection; do not claim generic graph or aggregation scaling. Pe
 measurements belong to E4 and do not substitute for selection correctness.
 
 ## Checkpoint and next step
+
+The enhancement review adds [28g T6](28g-bulk-data-operations.md#remaining-native-access-path-decision)
+as the single bounded access-path investigation owner. D1/D2 migrate actual exact-result/analysis
+consumers if T6 adopts a correction, preserving selection identity, physical interpretation, byte
+admission, current protection and successful final completion. Do not create a D-only query census
+or streaming replacement. A reasoned retained-design decision is sufficient when current bounded
+acquisition fits; measured scaling and assembled correctness remain separate E3/E4 obligations.
 
 D1/D2 have working exact protected native reads and local Arrow export. Dense trajectories
 retain original scientific IPC blocks with output-group indexes; sparse scalar indexes retain

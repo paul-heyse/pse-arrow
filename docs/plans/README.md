@@ -12,6 +12,10 @@ The [current checkpoint](28-surrealdb-unified-substrate.md#current-checkpoint) a
 2026-10-07 production efficiency review and the preserved interrupted qualification handoff;
 The [repository-wide efficiency extension](28-surrealdb-unified-substrate.md#repository-wide-efficiency-extension)
 now schedules PE01–PE06 and comparable defects across current functionality.
+The [remaining-design enhancement integration](28-surrealdb-unified-substrate.md#remaining-design-enhancement-integration)
+adds the latest review's separately qualified F01–F05, accepted deployment-local replay decision,
+stored-creation cancellation and bounded fitting/access-path investigations. Its owners remain the
+existing companions; document adoption supplies no implementation or qualification evidence.
 Its A–E companions develop canonical revisions, selected compilation/reuse, durable execution,
 connected native queries/Arrow, and rebuild/retirement/qualification. Added
 [28f](28f-shared-numerical-preparation.md), [28g](28g-bulk-data-operations.md) and
@@ -22,6 +26,12 @@ bulk data operations and native setup/artifact identity. The coordinator's
 owns assembled target qualification and adoption of the applicable remaining scientific
 campaign obligations from 25k/27. Earlier evidence and scientific finding dispositions keep
 their original owners; obsolete storage qualification is not a pivot prerequisite.
+
+[Plan 29: Agent workspace effectiveness](29-agent-workspace-effectiveness.md) (draft) records the
+2026-10-07 assessment of the agent environment, command surface, runtime configuration and test
+scheduling, and proposes packets P1–P9. It integrates the
+[design review](../design_review/reviews/design_review_agent-workspace-effectiveness_2026-10-07.md);
+its decisions and rule changes RC01–RC06 are confirmed. Implementation has not started.
 
 [Plan 25](25-design-remediation.md) coordinates remediation of the domain-alignment reviews
 and the later full-case compilation/solver-routing review. Its companion plans describe the target contracts,

@@ -3,7 +3,7 @@ title: Durable execution and dependency-scoped studies
 status: in-progress
 date: 2026-10-05
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -128,6 +128,46 @@ until their native work drains. Unmanaged external workers and distributed capac
 are outside the initial qualification profile. Cancellation drains prepared work and releases native state
 without deleting canonical scientific history.
 
+## Stored-study admission and creation cancellation
+
+The enhancement review's [F01](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#f01)
+and S06 add C5 to the existing study owner. At `dacc9c3`, `start_defined_study` loops over
+occurrences and calls `admit_binding_seed_need`, which freshly constructs `DeclaredStudyAdmission`.
+The authoring path already retains a compatible adjacent basis, but its thousand-point unit does
+not exercise stored-definition readmission. The default durable `ModelingPackage::study` and
+Python journey reach the repeated path; selected-admission retention alone does not remove it.
+
+Use the existing `DeclaredStudyAdmission` mechanism within stored creation. Reuse only its compatible
+declared structure and path-demand basis; independently validate every decoded binding identity,
+physical/source context, operation descriptor and bound seed need. Replace/release the basis when
+its structural premises change. Do not retain an expired protected read, attempt fence, mutable
+solver view or successful predecessor inside it. N2 supplies checked selected preparation; C5 owns
+study composition and per-occurrence policy. N4 reconciles all actual callers, including stored/default
+entry points rather than only initial authoring. Equal bindings still create distinct occurrences.
+
+Creation must consume the caller's cancellation scope through source acquisition, admission and
+canonical ingestion. Replace the detached fresh cancellation source at `start_defined_study`;
+migrate direct Rust callers and the default application/Python path together. Native attempt
+cancellation, claim fencing and drain remain at their current owners.
+
+The visibility boundary is canonical **activation**, not the first write. `create_study` creates an
+inactive study and ingests bounded occurrence batches before activating it. Check cancellation during
+preparation and between batches, and immediately before activation. Cancelled inactive ingestion
+follows existing recovery/reclamation; immutable physical-source publication need not be rolled back.
+Once activation has been issued, dropping its future cannot prove it did not commit. Settle the exact
+study identity under the existing operation owner, then durably cancel an activated study if required.
+After acknowledged activation, record cancellation before further dispatch. No ambiguously active
+study may be silently abandoned; lost acknowledgment is not permission to repeat scientific work.
+
+| Package | Delivered behavior and prerequisites | Migration, deletion and targeted acceptance | Status |
+|---|---|---|---|
+| C5 — Stored creation basis and cancellation | Working N2 selected admission and canonical inactive-ingestion/activation owners. Share compatible declared entry preparation, admit every binding/seed role and carry caller cancellation through creation/activation settlement. | Move actual stored, default durable, direct Rust and Python routes; delete per-point fresh declared preparation and detached creation cancellation. Test many value points, invalid later binding, changed descriptor/settings/layout/source, distinct occurrences, cancel during hydration/admission/batches, before activation, after issued/lost-ack activation and after acknowledged activation. Preserve fences, recorded starts, inactive cleanup and drain. | Scheduled; authoring-path passes do not close stored creation. |
+
+E3 includes the original thousand-point Python workload under production accuracy/resource premises.
+Construction-count controls demonstrate removal of repeated preparation; elapsed-time benefit needs
+E4 measurement. Actual Python failure diagnostics remain E1's obligation, not a diagnosis inferred
+from the review or the unfinished run's duration.
+
 ## Remaining recovery and study slices
 
 The [coordinator](28-surrealdb-unified-substrate.md#finding-dispositions) owns findings;
@@ -212,6 +252,12 @@ process-kill recovery and storage acknowledgment behavior require A1/E3's select
 profile, beyond pure in-memory policy units.
 
 ## Checkpoint and next step
+
+C5 is newly scheduled by the enhancement review; previous authoring/admission controls do not
+close stored-definition readmission or creation-phase cancellation. Migrate the actual default
+durable route with its declared basis and caller scope, including activation acknowledgment
+settlement. N2/N4 and E3 consume that working behavior; earlier checkpoint evidence below keeps
+its original boundaries.
 
 C1/C2/C3 now use canonical native lifecycle functions and protected exact result
 selections. Ordinary runs retain original Arrow blocks, diagnostics and qualified seeds;

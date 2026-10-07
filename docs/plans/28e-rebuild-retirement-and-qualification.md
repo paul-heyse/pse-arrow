@@ -3,7 +3,7 @@ title: Rebuild, retirement and integrated qualification
 status: in-progress
 date: 2026-10-05
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -232,6 +232,49 @@ it, including a future deployment/release qualification. Report that campaign's 
 and scope separately. Its absence does not block the current development campaign or plan
 closure; it limits claims about current strict deployment qualification.
 
+### Enhancement acceptance and affected diagnostics
+
+The [remaining-design enhancement review](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md)
+adds C5, B5, N5–N7, T6 and L5/L6 to existing functional scope. The coordinator alone holds its
+review-qualified dispositions; this owner supplies diagnostics, composed evidence and measurements.
+Earlier targeted N/T/L passes are foundations, not acceptance of these new corrections.
+
+E1/E2 first make the affected route executable: L6 repairs the immutable-receipt/Cargo output
+boundary; ordinary test-module placement defects remain owning static corrections. Obtain terminal
+diagnostics for the actual failed Python selections before another complete campaign. Use the
+existing selected Python/native recipes and real premises; do not infer a numerical cause or
+dominant phase from failure markers or elapsed time. No broad recapture, CI or provider rebuild
+is needed solely to repeat that diagnosis. Existing positive entries retain their scope.
+
+| Working prerequisite and E3 journey | Acceptance distinction |
+|---|---|
+| C5 default stored/durable study, including Python | Many value bindings share declared structure but every physical binding/seed role is checked; distinct occurrences and changed route/layout/source controls. Cancellation during admission/ingestion and around issued/lost-ack/acknowledged activation settles truthful durable state. Include the original thousand-point workload. |
+| L5 then B5 default worker/Python restart | Demonstrate durable reconstruction rather than fresh admission without a producer receipt or producer-profile rebuild. Same supported effective deployment reuses; changed role/artifact/native/configuration, unknown context, corruption and protection/dependency changes refuse safely. Retained outcomes and fresh execution remain available. |
+| L6 repeated native build | Unchanged/changed/read-only derived output controls preserve sealed source, then execute the affected native route. Compilation alone establishes no numerical pass. |
+| N5 dynamic layouts | Actual integration/gradient/Hessian/shooting consumers share immutable preparation with independent concurrent state; changed scales/order/constants/support, allocation refusal, events and original physical assessment remain. |
+| N6 IDAS jumps | One current sample factor with correct multipliers/directions; changed matrices and singular/nonfinite recovery; independent First/Second checks under production policy. |
+| N7 transient fit demand | Gradient-first one combined forward/backward, objective-only no backward, repeated-gradient reuse and coherent value-first upgrade; actual observation/weight/sample/unit correspondence plus admitted checkpoint memory, deadlines and cancellation. |
+| T6 adopted access paths or retained decision | Exact selective/empty/skewed source/result/analysis selection, protection/retirement, byte admission and final-statement failure. No small-result/one-RPC inference of indexed scaling. |
+
+Package checks are compile/targeted evidence during implementation; static hygiene and assembled
+integration follow complete functional scope under the repository rhythm. Close N4/T5/L4 with the
+new actual consumers before the sole composed local E3 campaign. The default replay journey is
+required once B5 is adopted; broader strict producer qualification stays explicit optional scope.
+The separate guarantee cannot be exercised by a fixture receipt or by treating historical capture
+as a current association.
+
+E4 measures complete operations only after their corresponding positive functional evidence:
+stored creation/dispatch, repeated dynamic preparation, sample-direction elimination, fitting demand,
+default restart reconstruction, selected acquisition and repeated build/setup. Reuse existing case
+owners where they exercise the behavior; add a bounded selector only for a genuinely uncovered
+operation. Preserve scientific demand, production physical accuracy and admitted resource conditions.
+Report removed construction/crossings separately from elapsed-time gain and forced-validation overhead.
+Where no comparable baseline survives, report target-only timings, not an invented speedup.
+
+E5 needs resolved confirmed corrections, recorded investigation outcomes and positive applicable
+E3/E4 evidence. ADR adoption and document consistency cannot substitute for those claims. Incomplete
+evaluation of unrelated breadth is not another defect or a new qualification campaign.
+
 ### E3 correctness, deployment and recovery
 
 The audit's native attempt selected 2,741 tests; 2,421 completed (2,342 passed, 78 failed,
@@ -408,6 +451,13 @@ owning package and rerun the affected scope. Extra SIMD/JIT/WASM/server-distribu
 generic search/MCP work needs a concrete new requirement; it is not hidden acceptance scope.
 
 ## Checkpoint and next step
+
+The enhancement review is now scheduled on `dacc9c3`; it does not change product code or qualify
+the target. The stable local assessment retained 37 passed entries (including reviewed transfers),
+three failures and one incomplete Python entry against zero. It has no terminal Python traceback
+or final reconciliation after interruption. Current next work is L6/affected diagnostics followed
+by complete C5/B5/N5–N7/T6/L5 functional scope, then composed E3, applicable E4 and E5. Earlier
+handoffs below retain their original evidence and do not mandate strict recapture/rebuilding.
 
 ### Efficiency review handoff, 2026-10-07
 
