@@ -2,7 +2,9 @@
 
 Instructions for any coding agent working in this repository. Canonical for both
 Claude Code (via `CLAUDE.md`, which imports this file) and Codex (which reads this
-file directly).
+file directly). Environment, runtime and tooling mechanics are in
+[the agent environment guide](docs/dev/agent-environment.md); read it when a command,
+hook, permission, worktree or capability question comes up.
 
 ## What this repository is
 
@@ -26,30 +28,23 @@ Crates are `pse-*` under `crates/`. The Python package is imported as `pse` and 
 
 The [architecture](docs/authoritative_design/README.md) describes the current system:
 start with its [reading guide](docs/authoritative_design/sections/reading-guide.md) and
-[overview](docs/authoritative_design/sections/architecture-overview.md). Plans 01–18 are
-complete or superseded; their enduring meaning lives in those sections and the retained
-ADRs, and their records are retired to Git history (ADR-0096). The most recent completed
-qualification basis and its exclusions are summarized in
+[overview](docs/authoritative_design/sections/architecture-overview.md). Completed plans are
+retired to Git history (ADR-0096); their enduring meaning lives in those sections and the
+retained ADRs, and the current qualification basis is summarized in
 [§24.2](docs/authoritative_design/sections/operations-and-validation.md). Retired plans,
 packets and reviews are not a backlog and authorize nothing.
 
-[Current work](docs/plans/README.md) links the owning packet status and remaining decision
-work. Plan 21 (the modeling kernel, K0–K8) is done. Plan 23 is done (2026-09-30):
-it adds the typed relational thermodynamic domain model,
-migrates the seed and implements the transferred K9 functional campaign. Its Outcome
-records production execution results and measurement limits.
-Plan 22 (solver capabilities, discrete decisions, the PostgreSQL operational store and
-typed data contracts) is done (2026-09-29); its Q1 is the current qualification basis
-(§24.2), and its record is retired to Git history with its deferrals in the register.
-New work starts only when the maintainer authorizes it. Build a target directly and remove replaced
-code/callers/tests without compatibility APIs or a second production path. Correctness
-tests retain explicit force-validation. Full library eligibility remains in force.
+[Current work](docs/plans/README.md) links the owning plans, packet status and remaining
+decision work. New work starts only when the maintainer authorizes it. Build a target
+directly and remove replaced code/callers/tests without compatibility APIs or a second
+production path. Correctness tests retain explicit force-validation. Full library
+eligibility remains in force.
 
 ## Execution rhythm: functional scope first; static checks at scope end
 
 The work is moving the codebase onto the target design and deleting what it replaces.
-Spend attention there. There are no end-of-turn hooks (ADR-0161); three bundles, each keeping
-going after a failure and listing what failed:
+Spend attention there. There are no end-of-turn hooks (ADR-0161); three bundles keep going
+after a failure and list what failed:
 
 - `just turn-end` (ADR index, `fmt` with ruff's safe auto-fixes): the root agent runs it at the
   end of a turn that changed files; subagents don't.
@@ -58,17 +53,19 @@ going after a failure and listing what failed:
 - `just hygiene` (type errors, clippy, lint, codegen drift): once all functional scope in the
   plan is implemented; fix what fails. Integrated testing happens once, at the same point.
 
-None of these is a commit, push or merge prerequisite. Formatting and lint fixes mid-work rewrite lines you did not author, so you (and
-every other agent) would have to re-assess changes that are not yours.
+None of these is a commit, push or merge prerequisite. Formatting and lint fixes mid-work
+rewrite lines you did not author, so every agent would have to re-assess changes that are not
+theirs.
 
 **While implementing a plan** — compile checks and targeted tests only:
 
-- Compile what you touched: `just check-package <pkg>`, or `just check` for cross-crate work.
+- Compile what you touched: `just check-package <pkg>` (extra `-p` and cargo flags pass
+  through), or `just check` for cross-crate work.
 - Run, or write, the targeted unit tests that show the new behaviour:
-  `just unit-package <pkg> <filter>`. A new mechanism gets its tests in the same change.
+  `just unit-package <pkg> <word|filterset>`; `just affected` previews the tests a change can
+  reach. A new mechanism gets its tests in the same change.
 - Run `just codegen` when a generator or registry declaration changes — regeneration is
-  part of the change, not polish. `just hygiene` confirms it at scope end (`codegen-*-check`,
-  `family-check`).
+  part of the change, not polish. `just hygiene` confirms it at scope end (`codegen-check`).
 - **Delete legacy code as soon as it is provably replaced** — the replacement's targeted
   tests pass and every caller has moved. Remove the old mechanism, its callers, its tests
   and its fixtures in the same change. Do not port tests for a deleted mechanism, keep a
@@ -77,20 +74,15 @@ every other agent) would have to re-assess changes that are not yours.
 **After all functional scope is implemented:** select the relevant integration, component,
 solver and Python journeys, performance campaigns, `just hygiene` (fix what fails and re-run
 the failing recipe) and the manual checks (`just governance`, `just docs`, the native and
-powerset lints). Report the commands, scope and
-results. The maintainer may also request this comprehensive qualification at any other
-time.
+powerset lints). Report the commands, scope and results. The maintainer may also request this
+comprehensive qualification at any other time.
 
-**Don't, mid-plan:**
-
-- Run `just doctor` or `just ready` unless the environment changed or a command failed in an
-  environment-shaped way.
-- Run formatters (`just turn-end` does, at the end of the turn), or linters, type checks, any other `just hygiene`
-  check (`just clippy`, `ruff`, `just quality`, `just ci-fast`) or integration suites: they wait
-  for scope end, when you run `just hygiene` and fix what it reports.
-- Rerun static checks after documentation-only edits.
-- Write per-command receipts, numbered rerun logs or "documentation checkpoint"
-  validations into plan documents. A checkpoint records state, decisions and next steps.
+**Don't, mid-plan:** run `just doctor`/`just ready` unless the environment changed or a command
+failed in an environment-shaped way; run formatters, linters, type checks or other
+`just hygiene` checks (`just clippy`, `ruff`, `just quality`, `just ci-fast`) or integration
+suites before scope end; rerun static checks after documentation-only edits; write
+per-command receipts, numbered rerun logs or "documentation checkpoint" validations into
+plans. A checkpoint records state, decisions and next steps.
 
 **Reporting mid-plan:** what changed, what was deleted, which tests exercised it, and
 what is next. Evidence labels and baseline-framed failure counts belong in the plan
@@ -99,26 +91,24 @@ Outcome, PR descriptions and ADRs (prime directives 4 and 7).
 ## Start here
 
 ```bash
-just --list        # the command surface
-just bootstrap     # only if `just ready` reports a failure -- idempotent
+just --list                 # recipes by cost tier; --usage <recipe> for parameters
+scripts/pse-env --explain   # what environment and placement a command would get
+just bootstrap              # only if `just ready` reports a failure -- idempotent
 ```
 
-`just --list` is the contract. Prefer a recipe over an ad hoc command: recipes own the
-feature flags, profiles, report paths and tool paths, so those can change without you
-re-learning them. If no recipe fits, say so rather than improvising a long command line.
+Recipes are shortcuts, not gates: they carry feature flags, profiles, report paths and
+tool paths, so use one when it fits. Bare tools are first-class too: `scripts/pse-env --
+<command>` supplies the checkout environment (licence, venv, compiler cache, a capped scope)
+under any shell, `--native` adds the linked solver environment, and `cargo c` / `cargo t`
+carry force-validation. Every recipe runs through `scripts/pse-env`; direnv and Claude
+sessions load the same environment, and Codex commands prefix `scripts/pse-env --`.
 
-`direnv` activates the environment on `cd` (run `direnv allow` once). It never installs
-or downloads — `just bootstrap` does that, visibly.
-
-For Python/native development, run `just py-sync` to refresh the editable extension
-using the dev profile, then targeted `just py-test`; `just quality` is available on
-demand. `just parity` builds the linked native extension into `.venv-parity` and runs the
-IDAES comparisons on this machine against the extracted solver prefix. Full wheel/sdist builds
-are manual (`just wheels-check <ref>`) or part of a release; ordinary PRs do not wait
-for distribution builds. CI uses editable development builds for Python and parity.
-These local recipes are available on demand. Git hooks are not installed by bootstrap,
-and GitHub check workflows run only when manually dispatched. Commits and pushes do not
-start or require CI.
+For Python, `just py-sync` refreshes the editable dev extension (`just py-sync-native` the
+linked one); `just py-unit` routes to the right environment for whichever is installed, and
+`just py-test` runs unit and component tests against the canonical store at
+`$PSE_SURREAL_STATE`. `just parity` runs the IDAES comparisons on this machine. Full wheel
+builds are manual (`just wheels-check <ref>`). Git hooks are not installed by bootstrap, and
+GitHub check workflows run only when manually dispatched.
 
 ## Prime directives
 
@@ -132,8 +122,8 @@ start or require CI.
    `crates/pse-ipopt-sys/src/bindings.rs`, `python/pse/contracts/` and
    `python/pse/_native.pyi`, plus the cargo-hakari section of
    `crates/pse-workspace-hack/Cargo.toml` and each member's `pse-workspace-hack` line
-   (`.config/hakari.toml` is their source). `just codegen-check`
-   is available to check this manually; a hand edit there is a red diff, not a fix.
+   (`.config/hakari.toml` is their source). `just codegen-check` covers every generated
+   output; a hand edit there is a red diff, not a fix.
 3. **One authoritative declaration per meaning.** A dependency is declared once, in
    `Cargo.toml` (`[workspace.dependencies]`) or `pyproject.toml`, and a pin's reason once
    beside it (`[workspace.metadata.pse.pins]`). A schema is declared in the
@@ -171,10 +161,10 @@ in context need not be reread; if unavailable, load them before acting. Follow d
 dependencies beyond initial pointers.
 
 The architecture sections own contracts; ADRs own rationale; reviews supply evidence.
-Cite stable section IDs (for example blueprint §14.3), never line numbers. The repository
-map and authority references are in [docs/README.md](docs/README.md). Dependencies and their
-pin reasons are declared in Cargo.toml and pyproject.toml; the layered review standard is selected by
-`docs/design_review/design_principles/standard.toml`. Do not restate their authority.
+Cite stable section IDs (for example blueprint §14.3), never line numbers. Dependencies and
+their pin reasons are declared in Cargo.toml and pyproject.toml; the layered review standard
+is selected by `docs/design_review/design_principles/standard.toml`. Do not restate their
+authority.
 
 ## Invariants
 
@@ -182,14 +172,12 @@ pin reasons are declared in Cargo.toml and pyproject.toml; the layered review st
   `object_store` and `datafusion`. Two majors make `downcast_ref` return `None` with no
   compile error — a silent failure that looks like a logic bug. `just family-check`.
 - **`force_validate` is a feature, not a profile.** Every test invocation passes
-  `--features pse-relations/force-validate` explicitly. `just test` does this for you.
-  The workspace-hack must never switch it on: hakari simulates all features, so the
+  `--features pse-relations/force-validate` explicitly; the recipes and `cargo t` do this
+  for you. The workspace-hack must never switch it on: hakari simulates all features, so the
   opt-in paths are excluded from its traversal in `.config/hakari.toml`.
-- **One feature set per dependency, whatever `-p` selects** (ADR-0122). `.cargo/config.toml`
-  turns on Cargo's workspace feature unification on the pinned nightly, and
-  `pse-workspace-hack` carries the same unification for Cargo that ignores `[unstable]`.
-  Only opt-in features (`force-validate`, `native-solvers`) change a dependency's
-  build; any other recipe selection reuses the same units.
+- **One feature set per dependency, whatever `-p` selects** (ADR-0122). Cargo's workspace
+  feature unification on the pinned nightly and `pse-workspace-hack` keep it; only opt-in
+  features (`force-validate`, `native-solvers`) change a dependency's build.
 - **`panic = "unwind"`** in every profile. PyO3 turns unwinds into Python exceptions and
   the Ipopt callbacks `catch_unwind`; `abort` would take the interpreter down.
 - **Never `target-cpu=native`.** It lets LLVM contract `a*b + c` into an FMA and changes
@@ -208,20 +196,14 @@ pin reasons are declared in Cargo.toml and pyproject.toml; the layered review st
 
 ## Dependencies
 
-- **Pinned.** Every declared dependency is pinned exactly: `==x.y.z` (`[tool.uv] add-bounds =
-  "exact"` makes `uv add` write it) / `=x.y.z` in `[workspace.dependencies]`
-  (`cargo add name@=x.y.z`), inherited with `.workspace = true`; a git dependency by its full
-  `rev`. The committed lockfiles hold everything beneath, so environments change only when
-  someone changes them on purpose. `dependency_pins` checks the Rust side (ADR-0165).
-- **Change versions deliberately, on judgment.** Add or bump a dependency when the work calls
-  for it, with no ADR or approval: edit that pin (or its family), run `just upgrade <package> …`
-  (moves it, regenerates the workspace-hack, runs `just family-check`), check the lock diff
-  moved only what you meant, run the tests it affects and name the move in the commit. No
-  wholesale re-resolve (`uv lock --upgrade`, bare `cargo update`) unless the operator asks. A
-  family moves as a unit; a family major needs an ADR.
-- **Holds go in `[workspace.metadata.pse.pins]`** (Python: a comment beside the pin). A version
-  that must not be bumped casually (a parity oracle, committed generated output, a known
-  breakage) gets an entry with its reason ([the dependency policy](docs/dev/dependency-policy.md#pin-reasons)).
+Every declared dependency is pinned exactly (`==x.y.z` in pyproject, `=x.y.z` in
+`[workspace.dependencies]`, a git dependency by full `rev`) and the committed lockfiles hold
+the rest (ADR-0165). Add or bump one when the work calls for it, with no ADR or approval: edit
+that pin (or its family), run `just upgrade <package> …`, check the lock diff moved only what
+you meant, run the tests it affects and name the move in the commit. No wholesale re-resolve
+(`uv lock --upgrade`, bare `cargo update`) unless the operator asks; a family moves as a unit
+and a family major needs an ADR. Holds go in `[workspace.metadata.pse.pins]` with their reason
+([dependency policy](docs/dev/dependency-policy.md#pin-reasons)).
 
 ## Gotchas that have already cost time here
 
@@ -229,36 +211,24 @@ Each of these is a real incident, not a hypothetical.
 
 - **Pinning the umbrella crate does not pin the family.** `arrow = "=59.3.0"` binds one
   direct dependency; `arrow-schema`, `arrow-array` and friends can still resolve to a
-  different version through a transitive path, and `cargo tree -d` cannot see it because
-  each package name appears once. `just family-check` exists for exactly this. Context:
-  `docs/capability-maps/evidence/README.md`.
+  different version through a transitive path, and `cargo tree -d` cannot see it.
+  `just family-check` exists for exactly this.
 - **A rustdoc extraction whose scratch project was deleted made every `[rustdoc:]` marker
   in the capability maps unreproducible.** The evidence lockfiles are committed for that
-  reason; regenerating evidence without them proves nothing. `just evidence-regen` rebuilds
-  from the committed locks.
+  reason; `just evidence-regen` rebuilds from them.
 - **PyPI `pse` is taken.** The distribution is `pse-arrow`; the import name stays `pse`.
-  Do not "fix" one to match the other.
 - **Tooling that hard-coded `/home/paul/...` broke on the first move.** Resolve the repo
   root from `git rev-parse --show-toplevel` (shell) or `Path(__file__).parents[N]` (Python).
-  Never write an absolute home path into a committed file.
-- **GitHub Actions has no YAML anchors** — duplicate the block and say why in a comment.
-  **`yaml.safe_load` accepts duplicate keys silently** (last wins), so a plain parse check
-  will not catch a second `if:` that disabled the first. **`windows-*` runners default to
-  PowerShell**; set `shell: bash` or the script dies with a `ParserError`.
-- **`SessionConfig::set_str` panics on an invalid key and `Field::extension_type()` panics
-  on a missing or invalid extension.** Both are banned in `clippy.toml`; use the typed
-  config path and `try_extension_type`.
-- **A heavy native run can exhaust the machine and take the editor down with it.** On
-  2026-09-29 a conformance study grew to 156 GB outside the engine's accounted pool. The
-  kernel OOM kill and systemd-oomd then stopped the whole editor scope, killing every
-  session and agent twice. Every recipe command now runs through `scripts/pse-env`, which
-  gives it its own memory-capped systemd scope (`PSE_MEMORY_MAX`, default 120G) in
-  `pse.slice`, so a runaway process is killed alone. Run an ad hoc heavy command the same
-  way: `scripts/pse-env -- <command>` (add `--native` for the linked solver environment).
-  The root cause, an outputs × members projection, was fixed (Plan 23 H8).
-- **uv workspaces enforce a single `requires-python`** (the intersection across members),
-  which is why the IDAES parity set is a *dependency group* with an environment marker
-  rather than a workspace member. Do not "simplify" it into one.
+- **GitHub Actions has no YAML anchors**; **`yaml.safe_load` accepts duplicate keys
+  silently** (last wins); **`windows-*` runners default to PowerShell** (set `shell: bash`).
+- **`SessionConfig::set_str` and `Field::extension_type()` panic** on invalid input. Both
+  are banned in `clippy.toml`; use the typed config path and `try_extension_type`.
+- **A heavy native run can exhaust the machine and take the editor down with it** (two
+  editor-wide OOM kills on 2026-09-29). Every recipe command now runs in its own
+  memory-capped scope in `pse.slice` (`PSE_MEMORY_MAX`, default 120G), so a runaway process
+  is killed alone; run an ad hoc heavy command with `scripts/pse-env -- <command>`.
+- **uv workspaces enforce a single `requires-python`**, which is why the IDAES parity set is
+  a *dependency group* with an environment marker rather than a workspace member.
 
 ## Qualification reporting
 
@@ -271,110 +241,59 @@ The failure baseline remains zero.
 ## Documentation context and publishing
 
 Start at `docs/authoritative_design/README.md` or `docs/plans/README.md`, then read the
-relevant contract and inspect the affected source. Markdown is the agent interface; the
-site is a convenience. `docs/site.toml` owns publishing collections, current-work selection
-and documentation-tool pins. `just bootstrap-docs` installs those tools independently of
-the product environment; `just docs` derives navigation and builds mdBook plus Pagefind.
-`just docs-test` checks publisher/citation behavior; `just docs-serve` serves the result.
-
-A function-body edit normally needs no architecture edit. Update the owner when an enduring
-contract, rationale or workflow changes. No documentation-specific source seal, symbol
-inventory, proof manifest or mandatory finding-to-test matrix is required. Mechanical
-publishing checks establish identity, syntax and links; architecture requires reasoned review.
-See `docs/dev/documentation.md`. Historical product evidence retains its original scope.
+relevant contract and inspect the affected source. Markdown is the agent interface; `just docs`
+builds the site (see `docs/dev/documentation.md`). A function-body edit normally needs no
+architecture edit; update the owner when an enduring contract, rationale or workflow changes.
 When work closes, move enduring meaning to its owner and retire the completed plan and its
 resolved reviews; Git history is the archive, not a backlog (ADR-0096).
 
 ## Decisions and documentation
 
-Use [design principles](docs/design_review/design_principles/core/design-principles.md) together
-with [Heuristics for Efficient Architecture](docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
-when making consequential architectural and implementation choices. Consider relevant execution
-patterns before committing to physical organization, interfaces, preparation, assurance and
-lifecycles; address material mismatches while the design remains easy to change. Apply this
-qualitatively to open choices or exposed mismatches, without an exhaustive checklist, cost
-models, new proof machinery or restarting settled reviews.
+Use [design principles](docs/design_review/design_principles/core/design-principles.md) with
+[Heuristics for Efficient Architecture](docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
+for consequential architectural and implementation choices, qualitatively and without
+checklists, cost models or restarting settled reviews. Architectural reviews follow the
+design-review skill within the binding's review periods (ADR-0129). Current finding
+dispositions and packet status have one owning plan; reviews keep their original scope; ADR
+acceptance is not implementation acceptance. See `.claude/rules/decisions.md` and blueprint §24.4.
 
-Architectural reviews use the selected design principles and design-review skill within the
-bounded review periods defined by the repository binding (ADR-0129). The review template owns
-the detailed method; ordinary implementation does not require an unsolicited review. AP-07/G9
-qualitatively assesses complete-operation execution fit alongside model authority and scientific
-adequacy. Consider relevant operations, growth/failure scenarios, locality, reuse, live state and
-recovery; explain material tradeoffs in plain language. This consideration requires no numerical
-estimates, cost models, estimators, runtime cost accounting, execution-planning machinery,
-instrumentation, formal cost proofs or additional proof artifacts. Such mechanisms need a separate
-concrete functional or operational requirement. Quantitative performance/capacity claims still
-require measurements; semantic correctness obligations remain. It adds no benchmark, checklist
-or standing audit.
-Current finding dispositions and packet status have one owning plan/location. Indexes link
-that owner. Reviews retain their original scope/version and evidence; ADR acceptance is not
-implementation acceptance. See `.claude/rules/decisions.md` and blueprint §24.4.
-
-**When an ADR is required:**
-
-| Change | Needs |
-|---|---|
-| Alters D1–D14; adds or removes a crate; majors one of the four pinned families (arrow, datafusion, object_store, pyo3); changes the hashing contract, the Python boundary contract, metadata conventions or the commit contract; any SHOULD deviation; governance changes | ADR **and** a design review (`needs-review`; verdict Accept or Accept-scoped before `status: accepted`) |
-| New relation family, pass, kernel contract or backend binding *within* an accepted decision; a small local SHOULD deviation; moving the parity pin; a deferred trigger firing | ADR (short); review at maintainer discretion |
-| Bug fixes, refactors within contracts, tests, docs wording, patch bumps inside a pinned family, adding, removing, upgrading or (with a recorded reason) pinning a third-party dependency, tooling | Neither. An ordinary PR with the evidence field filled |
-
-An ADR enters or changes status only in a PR labeled `adr` and titled `adr: ADR-NNNN
-<title>`; the same PR (or a named follow-up `design:` PR) amends the architecture sections
-and adds a revision row to `blueprint.md`. `.codex/skills/adr/SKILL.md` explains the §H front-matter fields and when a
-record is required.
+**When an ADR is required:** the table in `.claude/rules/decisions.md` decides. An ADR and a
+design review for D1–D14 changes, crate additions or removals, pinned-family majors, the
+hashing/Python-boundary/metadata/commit contracts, SHOULD deviations and governance; a short
+ADR for new relation families, passes, kernel contracts or bindings within an accepted
+decision; neither for bug fixes, refactors within contracts, tests, docs wording,
+dependency changes and tooling. ADRs change status only in a PR labeled `adr` and titled
+`adr: ADR-NNNN <title>`, which also amends the architecture with a revision row in
+`blueprint.md` (`.codex/skills/adr/SKILL.md`).
 
 **Doc conventions.** New files are lowercase kebab-case (exceptions: the root governance
-files and the design-review skill's `design_review_{slug}_{date}.md`). YAML front matter on ADRs, plans, capability maps and
-the authoritative design. Citations are `blueprint §14.3`, `ADR-0082`, `AP-07`, `DP-09`, `PS-10`, `G4` —
-never line numbers. Generated docs carry `<!-- @generated by pse-schema; do not edit -->`.
-Plans go in `docs/plans/`, never in a home directory.
+files and the design-review skill's `design_review_{slug}_{date}.md`). YAML front matter on
+ADRs, plans, capability maps and the authoritative design. Citations are `blueprint §14.3`,
+`ADR-0082`, `AP-07`, `DP-09`, `PS-10`, `G4` — never line numbers. Plans go in `docs/plans/`,
+never in a home directory.
 
 ## Off-limits
 
-- `docs/authoritative_design/**` — the architecture is amended through the decision/design
-  route with a revision row in `blueprint.md`, not by an edit in passing.
+- `docs/authoritative_design/**` — amended through the decision/design route with a revision
+  row in `blueprint.md`, not by an edit in passing.
 - `docs/adr/NNNN-*.md` whose front matter `status:` is not `proposed` — accepted records
-  are immutable; supersede them (`just adr-supersede`) instead. Retiring an obsolete record
-  or relocating a retired reference follows ADR-0096.
+  are immutable; supersede them (`just adr-supersede`) instead.
 - The generated paths in prime directive 2, `external/`, `build/`, `target/`.
 
-A `PreToolUse` hook blocks writes to all of these, and `.claude/settings.json` denies the
-generated paths, `build/`, `target/`, `external/` and `.git/` again with `Edit(/…)` rules. The
-rules are anchored at the repository root with a leading `/`: `./path` resolves against the
-session's current directory, and as a single-segment deny it matches the same name at any depth,
-which refused every skill's own `build/`. Claude Code consults only `Edit` and `Read` path rules
-(`Edit` covers writes), so `Write(...)` path rules do nothing; `just lint-agents` rejects both
-mistakes. The hook applies these protections within this working copy. Paths outside the
-repository, including shared library skills and other personal projects, are editable without
-a separate path allowlist.
-Project state still belongs here: plans go in `docs/plans/`, never in a private home
-directory. When a change to the architecture sections or an accepted ADR is genuinely the work, set
-`PSE_DESIGN_EDIT=1` for that session and say in the PR why. The escape exists so the guard
-can stay strict; using it silently defeats it.
+A `PreToolUse` hook (`scripts/agent-hooks.py`) blocks edits to all of these, and
+`.claude/settings.json` denies them again; neither is a shell sandbox, so follow the same
+policy for every other action. When a change to the architecture sections or an accepted ADR
+is genuinely the work, authorize it visibly — create an untracked `.design-edit` file stating
+why (remove it afterwards), or launch with `PSE_DESIGN_EDIT=1` — and say why in the commit.
 
 ## Personal-project checkout workflow
 
-This is a personal project. Use the existing checkout on `main` for ordinary
-development and GitHub updates. Do not routinely create or switch branches,
-worktrees or separate checkouts for a task.
-
-Use separate branches or worktrees only when genuinely concurrent agent editing
-requires isolation. Coordinate file ownership first and preserve other agents'
-uncommitted changes. Keep checkout paths stable to retain each checkout's build
-artifacts, and clean up any remaining worktrees that are fully merged. Each checkout builds
-into its own `target/`, and the sccache compiler cache
-is shared across checkouts: the recipe environment never exports the default
-`CARGO_TARGET_DIR`, because sccache keys Rust compilations on their `CARGO_*`
-environment. The Plan 15 second-worktree experiment saw no Rust cache hits for that
-reason, not because the paths changed. Do not set `CARGO_TARGET_DIR` for a checkout or worktree: Cargo's default `target/` is
-already per checkout, recipes drop an inherited value (`scripts/build_environment.py`), an
-exported path changes sccache keys, and a relative value resolves against the current
-directory rather than the workspace. A new worktree needs only its `.envrc.local` (the
-Symbolica licence), one cold build through a recipe (third-party crates come from the shared
-sccache) and, for Python, `just py-sync-native`. Never point two checkouts at one Cargo build
-or target directory: Cargo keys a workspace crate's unit by its workspace-relative path
-and checks freshness by mtime, so one checkout silently reuses another's artifact for
-different sources (ADR-0122).
+Use the existing checkout on `main` for ordinary development and GitHub updates. Use a
+worktree only when concurrent agents genuinely need isolation — `just worktree <name>`
+creates one correctly — coordinate file ownership, preserve other agents' uncommitted
+changes, and remove fully merged worktrees. Never set `CARGO_TARGET_DIR` or point two
+checkouts at one target directory (ADR-0122); the sccache cache is shared. Details:
+[agent environment guide](docs/dev/agent-environment.md#worktrees).
 
 ## Agent coordination and workflow skills
 
@@ -387,52 +306,19 @@ executors choose local implementation details within their assigned boundaries.
 The [local process skills](.codex/skills/README.md) pair conversational preparation with action:
 `plan-design-review` / `design-review`, `plan-creation` / `create-plan`, and
 `plan-execution` / `execute-plan`. Planning companions produce adaptable approaches and do not
-switch runtime modes. Plan creation includes a focused assessment of affected foundations;
-formal reviews follow the binding's cadence. Ordinary execution adds no standing domain-model
-review or exhaustive tracing obligation. Read `docs/plans/README.md`, then the active plan or
-packet checkpoint for the baseline and handoff. Existing plans own status and findings.
+switch runtime modes. Read `docs/plans/README.md`, then the active plan or packet checkpoint
+for the baseline and handoff. Existing plans own status and findings.
 
 ## Agent runtimes
 
-- `AGENTS.md` is the shared authority. `CLAUDE.md` starts with `@AGENTS.md` and
-  describes Claude-specific behavior. Codex reads this file directly.
-- Select library skills in `.config/library-skills.toml`, then run `just ready`
-  (`just skills-check` inspects). Gitignored `.codex/skills/<name>` links expose one live copy per skill
-  from `~/.local/share/library-skills/skills/`; `.claude/skills` and `.agents/skills` expose
-  that selection to both runtimes. Improvements reach every selecting repo. Process skills
-  remain local and tracked. Set `LIBRARY_SKILLS_ROOT` if the shared store is elsewhere.
-  A new worktree gets its links from `just ready`. Windows needs directory symlink support for the
-  shared bundles; `just agent-config-sync` preserves their links when copying local aliases.
-- Shared role behavior lives in [.agents/roles/](.agents/roles/README.md) (ADR-0149).
-  `library-research` may write new `docs/design_review/evidence/<topic>-<YYYY-MM-DD>/` folders and
-  the shared library skill its brief assigns; [its contract](.agents/roles/library-research.md)
-  bounds those writes. Capability-map evidence (`just evidence-regen`) stays with the coordinator.
-  Native adapters in `.codex/agents/` and `.claude/agents/` own model and effort defaults and carry
-  no tool lists or sandbox settings; they are maintained separately. Claude `implementer` adapts the executor role; Codex uses
-  `executor`. `just agent-config-sync` only materializes skill aliases and never changes agents.
-  The Codex coordinator defaults to Astra/high, with Sol/high as the generic worker fallback;
-  explicit user runtime choices take precedence.
-- Both runtimes use `scripts/agent-hooks.py` (PreToolUse) for protected edit checks. Claude
-  also runs its `session-env` action at SessionStart, which gives later Bash commands the
-  checkout environment (`scripts/pse-env --print`); Codex commands use `scripts/pse-env --`.
-  Nothing formats files as you edit or when you stop (see *Execution rhythm*).
-  `.codex/hooks.json` and `.claude/settings.json` contain the runtime wiring. Hooks guard supported file-edit tools; they are not a
-  sandbox for arbitrary shell commands or tools. Follow the same protection policy
-  for all other actions. Existing session authorization remains authoritative.
-- Development runs without approval prompts. `.claude/settings.json` allows the tools
-  outright and keeps one specific `deny` list for the protected paths; a session that
-  wants no prompt at all launches with `--dangerously-skip-permissions` or sets
-  `permissions.defaultMode` in user settings (Claude Code ignores `bypassPermissions` in project
-  and local settings). In that mode `deny` rules and the `PreToolUse` hook are
-  still enforced but `ask` rules are not, so a gate that must hold belongs in `deny` or
-  in `scripts/agent-hooks.py` -- never in `ask`. Recipes that reach outside the working
-  copy (`release`, `solver-image`, `labels-sync`, `gh-setup`, `solver-pin-update`) keep
-  their `just` confirmation, which is not a prompt: with no terminal it fails rather than
-  asking, so run one deliberately with `just --yes <recipe>`. Permission to act is not an
-  instruction to act -- commit, push and publish when the work calls for it.
-- `just lint-agents` checks references, aliases, native role contracts, hook wiring and that
-  every file-path deny rule is an anchored `Edit`/`Read` rule.
-  `just setup-test` exercises the guard behavior in disposable fixtures.
+`AGENTS.md` is the shared authority; `CLAUDE.md` imports it and adds Claude specifics.
+Library skills are selected in `.config/library-skills.toml` (`just ready` links them), shared
+roles live in [.agents/roles/](.agents/roles/README.md), and native adapters in
+`.claude/agents/` and `.codex/agents/` own model and effort. Hooks, permissions, runtime
+capability opt-in (MCP servers, plugins, LSP) and the environment each runtime receives are
+described in the [agent environment guide](docs/dev/agent-environment.md). Permission to act is
+not an instruction to act — commit, push and publish when the work calls for it.
+`just lint-agents` checks references and wiring; `just setup-test` exercises the guards.
 
 Before editing a matching scope, read the applicable shared rule file. Claude also
 loads these through its native path rules; Codex follows this routing table:
@@ -441,11 +327,12 @@ loads these through its native path rules; Codex follows this routing table:
 |---|---|
 | Rust source and Cargo manifests | `.claude/rules/rust.md` |
 | Python source and Python configuration | `.claude/rules/python.md` |
+| Recipes, scripts, build and agent configuration | `.claude/rules/tooling.md` |
 | Documentation | `.claude/rules/docs.md` |
 | ADRs and plans | `.claude/rules/decisions.md` |
 | Generated paths | `.claude/rules/generated.md` |
 | GitHub configuration and workflows | `.claude/rules/ci.md` |
 
-Registry model generators and regeneration equivalence follow ADR-0031/0051.
-API-reference doc lint remains deferred (register R-20). Parity covers the environment and the explicitly
-selected scientific reference comparisons; it does not establish numerical IDAES equivalence.
+Registry model generators and regeneration equivalence follow ADR-0031/0051. Parity covers the
+environment and the explicitly selected scientific reference comparisons; it does not
+establish numerical IDAES equivalence.

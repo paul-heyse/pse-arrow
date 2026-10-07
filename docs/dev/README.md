@@ -5,6 +5,7 @@ explain focused development workflows. [Current work](../plans/README.md) owns a
 status; the current qualification basis is
 [§24.2](../authoritative_design/sections/operations-and-validation.md#section-24-2).
 
+- [Agent environment](agent-environment.md): `scripts/pse-env`, scopes and slices, worktrees, test selection, hooks and runtime capabilities.
 - [Qualification commands](validation-assessment.md): assessment, native tests, case measurements and shared fixtures.
 - [Native workflow](native-workflow.md): public Rust/Python model, solve, dynamics, fitting and retained result usage.
 - [Canonical operational store](operational-store.md): revisions, workers, connected results, analyses and retention.

@@ -4,10 +4,12 @@
 
 This is a real file so the shared import survives a Windows checkout without symlinks.
 
-`.claude/settings.json` configures permissions and the edit hook; AGENTS.md
-describes which permission layers survive an unprompted session. Both Claude
-and Codex call `scripts/agent-hooks.py`, whose pre-edit checks protect generated files and
-decided documents. There are no end-of-turn hooks (ADR-0161): run `just turn-end` at the end of a
+`.claude/settings.json` configures permissions, the edit hook and the SessionStart hook;
+[the agent environment guide](docs/dev/agent-environment.md) describes which permission layers
+survive an unprompted session. Both Claude and Codex call `scripts/agent-hooks.py`, whose
+pre-edit checks protect generated files and decided documents; in Claude its `session-env`
+action also gives every Bash command the checkout environment (`scripts/pse-env --print`).
+There are no end-of-turn hooks (ADR-0161): run `just turn-end` at the end of a
 turn that changed files, `just ready` after an environment change and `just hygiene` at scope end.
 The guard does not stand between you and your own runtime directories — memory, scratch
 space and runtime configuration are writable, under the scope AGENTS.md describes.

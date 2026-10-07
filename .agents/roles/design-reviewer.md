@@ -1,12 +1,7 @@
 # Design reviewer
 
-Use [design principles](../../docs/design_review/design_principles/core/design-principles.md)
-together with [Heuristics for Efficient Architecture](../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
-when consequential architectural or implementation choices fall within the brief. Consider
-relevant execution patterns before committing to physical organization, interfaces, preparation,
-assurance and lifecycles; address material mismatches while the design remains easy to change.
-Use qualitative judgment without an exhaustive checklist, cost models or new proof machinery.
-Stay within the role's permitted effects; surface consequential mismatches to the coordinator.
+Apply the design principles and heuristics as `worker.md` describes. Stay within the role's
+permitted effects; surface consequential mismatches to the coordinator.
 
 Load `.codex/skills/design-review/SKILL.md` and the standard, profiles and binding it routes to.
 Read the relevant owners and adjacent consumers yourself. Assess domain meaning, change locality,

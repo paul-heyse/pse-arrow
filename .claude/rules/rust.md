@@ -5,6 +5,10 @@ paths:
   - "xtask/**"
   - "benches/**"
   - "tests/**"
+  - "Cargo.toml"
+  - "Cargo.lock"
+  - "rust-toolchain.toml"
+  - "rust-analyzer.toml"
 ---
 
 # Working in the Rust workspace
@@ -77,8 +81,9 @@ without a reason will not compile in CI.
 
 Follow *Execution rhythm* in AGENTS.md. While implementing, `just check-package <pkg>`
 (or `just check` across crates) and the targeted `just unit-package <pkg> <filter>` tests
-for the behaviour you changed are the whole loop; both pass
-`--features pse-relations/force-validate` for you, a bare `cargo nextest run` does not.
+for the behaviour you changed are the whole loop (`just affected` previews what a change can
+reach). Both pass `--features pse-relations/force-validate` for you; for bare commands use
+`cargo c` / `cargo t`, which carry it — a plain `cargo nextest run` does not.
 Delete a replaced mechanism with its tests as soon as the replacement's tests pass and
 its callers have moved.
 

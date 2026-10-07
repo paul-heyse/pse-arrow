@@ -1,0 +1,36 @@
+---
+description: Recipes, scripts, build configuration and agent configuration
+paths:
+  - "justfile"
+  - "scripts/**"
+  - ".config/**"
+  - ".cargo/**"
+  - ".envrc"
+  - ".claude/settings.json"
+  - ".codex/**"
+  - "rust-analyzer.toml"
+---
+
+# Changing the command surface and agent configuration
+
+The mechanics are in [the agent environment guide](../../docs/dev/agent-environment.md);
+keep it accurate when you change them.
+
+- **One environment boundary.** Recipes, direnv, the Claude SessionStart hook and the native
+  helpers all take their environment from `scripts/pse_env.py`. Add a default or a correction
+  there, not in a recipe or a second script, and keep the precedence: command options,
+  caller values, `.envrc.local`, repository defaults. A value the boundary must replace is
+  reported (`pse-env: refused …`), never silently overwritten.
+- **Recipes are thin.** A recipe composes the real tool, passes `*args` through, prints what
+  it runs when it builds a command, and leaves selection visible to Cargo/nextest. Native
+  recipes declare capabilities with `[script("bash", "scripts/pse-env", "--native=…", "--",
+  "bash", "-euo", "pipefail")]`; never source environment files inside a recipe.
+- **Placement owns memory caps.** Every command already runs in its own capped scope; do not
+  add another wrapper. Builders call `pse_env.placement()` per command (a transient unit name
+  cannot be reused). Never introduce a machine-wide or fd-inheriting lock.
+- **Status meanings.** `125` is the boundary's own failure, with a `pse-env:` line naming the
+  fix; keep a command's own exit status and signals intact.
+- **Hooks.** `scripts/agent-hooks.py` is the only hook script (`just lint-agents` checks the
+  wiring). End-of-turn automation stays removed (ADR-0161).
+- **Checks.** Exercise a changed capability once, in its revealing case; the script tests run
+  with `just setup-test`, `just native-setup-unit` and `just surreal-test`. Do not add lints.

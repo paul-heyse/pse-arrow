@@ -3,6 +3,8 @@ description: The Python package, its class systems and its boundaries
 paths:
   - "python/**"
   - "conftest.py"
+  - "pyproject.toml"
+  - "uv.lock"
 ---
 
 # Working in `python/pse`
@@ -61,6 +63,8 @@ Tools come from `.venv/bin`, declared with floors in `pyproject.toml`
 `[dependency-groups]` and resolved by `uv.lock`, never from `$PATH` and never via
 `pip install`. `just turn-end` only formats (ADR-0161); ruff, pyrefly, import-linter and
 the repository linters run in `just hygiene` once all functional scope is implemented, and you
-fix what they report. `just quality` runs them together when the maintainer requests it. While implementing, run only `just py-sync` when the native API changed and the
-targeted `just py-test` units for what you changed; do not run ruff, pyrefly or other linters
+fix what they report. `just quality` runs them together when the maintainer requests it. While implementing, run only `just py-sync` (or `just py-sync-native`) when the native API
+changed and the targeted `just py-unit` tests for what you changed (`just py-unit` picks the
+environment for whichever extension is installed; `just py-test` adds component tests against
+the canonical store); do not run ruff, pyrefly or other linters
 yourself.
