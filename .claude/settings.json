@@ -34,6 +34,33 @@
   "env": {
     "CARGO_TERM_COLOR": "never"
   },
+  "enabledPlugins": {
+    "superpowers@synced": false,
+    "notion-memory@synced": false,
+    "Notion@synced": false,
+    "design@synced": false,
+    "cowork-plugin-management@synced": false,
+    "dropbox@synced": false,
+    "pyright-lsp@claude-plugins-official": false
+  },
+  "deniedMcpServers": [
+    {
+      "serverName": "claude.ai Gmail"
+    },
+    {
+      "serverName": "claude.ai Google Calendar"
+    },
+    {
+      "serverName": "claude.ai Google Drive"
+    },
+    {
+      "serverName": "claude.ai Dropbox"
+    },
+    {
+      "serverName": "claude.ai Notion"
+    }
+  ],
+  "skillListingMaxDescChars": 400,
   "hooks": {
     "PreToolUse": [
       {

@@ -4,6 +4,8 @@
 model = "gpt-6-astra"
 model_reasoning_effort = "high"
 plan_mode_reasoning_effort = "high"
+# AGENTS.md is close to the 32 KiB default project-doc budget, past which Codex truncates silently.
+project_doc_max_bytes = 65536
 [agents]
 enabled = true
 default_subagent_model = "gpt-6.1-sol"
@@ -23,6 +25,14 @@ args = [
   "scripts/library_catalog_mcp.py",
 ]
 startup_timeout_sec = 120
+# Opt-in per session (`codex -c mcp_servers.library-catalog.enabled=true`): every thread would
+# otherwise start its own server. Role files cannot change MCP servers in Codex 0.160.
+enabled = false
 
 [mcp_servers.library-catalog.env]
 FASTMCP_CHECK_FOR_UPDATES = "off"
+
+# The user-level rust-analyzer MCP server is opt-in here for the same reason
+# (`codex -c mcp_servers.rust-analyzer.enabled=true`).
+[mcp_servers.rust-analyzer]
+enabled = false
