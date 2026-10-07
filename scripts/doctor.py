@@ -385,6 +385,39 @@ def parse_extension_observation(output: str) -> tuple[str, str, str, bool]:
     return version, cargo_sha, uv_sha, native
 
 
+#: Shared libraries whose presence among an extension's ELF NEEDED entries marks the
+#: native (linked solver) build, which must be imported with the native environment.
+NATIVE_LIBRARIES = ("libipopt", "libmkl", "libscip", "libhighs")
+
+
+def extension_kind() -> str:
+    """``native``, ``dev`` or ``absent``: observed from the installed artifact, not imported.
+
+    Locating the module does not load it, and reading the dynamic section is cheap, so this
+    can route a Python test command before conftest imports the extension.
+    """
+    python = venv_bin("python")
+    if not python.exists():
+        return "absent"
+    code, out = run(
+        str(python),
+        "-c",
+        # Locating the top-level package executes nothing; its __init__ imports _native.
+        "import importlib.util as u, pathlib; s = u.find_spec('pse'); "
+        "d = [pathlib.Path(p) for p in (s.submodule_search_locations or [])] if s else []; "
+        "m = sorted(f for p in d for f in p.glob('_native*.so')); print(m[0] if m else '')",
+        timeout=30,
+    )
+    origin = out.strip().splitlines()[-1] if code == 0 and out.strip() else ""
+    if not origin or not Path(origin).is_file():
+        return "absent"
+    code, out = run("readelf", "-d", origin, timeout=30)
+    if code != 0:
+        return "absent"
+    needed = [line for line in out.splitlines() if "(NEEDED)" in line]
+    return "native" if any(lib in line for line in needed for lib in NATIVE_LIBRARIES) else "dev"
+
+
 def check_extension() -> Check:
     """Check import and linking, without inventing absent deployment evidence.
 
@@ -591,7 +624,15 @@ def emit_json(checks: list[Check]) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--format", choices=("text", "json", "direnv"), default="text")
+    parser.add_argument(
+        "--extension-kind",
+        action="store_true",
+        help="print native, dev or absent for the installed pse extension and exit",
+    )
     args = parser.parse_args(argv)
+    if args.extension_kind:
+        print(extension_kind())
+        return 0
     checks = [fn() for fn in CHECKS]
     {"direnv": emit_direnv, "text": emit_text, "json": emit_json}[args.format](checks)
     return 1 if any(not c.ok and c.blocking for c in checks) else 0

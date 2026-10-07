@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 132
+revision: 133
 date: 2026-10-07
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 133 | 2026-10-07 | Tooling naming only (§24 measurement commands): recipe commands run in `scripts/pse-env` scopes, which replace the retired `scripts/memory-cap.sh`; the memory-capped contract is unchanged. Plan 29 B4. | Maintainer-confirmed Plan 29 rule changes; a visible untracked `.design-edit` file authorized the edit. |
 | 132 | 2026-10-07 | ADR-0164 records confirmed production-efficiency RC01: relevant role inputs precede linking, actual artifact association follows build/install, and full dirty outer observation remains at deployment/run admission without compiled all-tree fan-out. Amends §5.3 and the buildinfo owner in §3.1; source/native/ABI completeness and actual import/start controls remain. | Maintainer-authorized Plan 28f–28h execution; proposed status and qualification unchanged; `PSE_DESIGN_EDIT=1`. |
 | 131 | 2026-10-06 | ADR-0165 supersedes ADR-0159: every declared dependency is pinned exactly (Rust `=`, Python `==`, git by full `rev`) and the lockfiles hold the rest; changing a version is agent judgment with no ADR; `[workspace.metadata.pse.pins]` lists holds. Amends §3.1 (authority, `dependency_pins`) and §3.3.2 (admission specifier, locked resolution). | Operator decision 2026-10-06; `PSE_DESIGN_EDIT=1`. |
 | 130 | 2026-10-06 | ADR-0164 assembled implementation contracts: canonical execution/results/analysis, bounded selected acquisition and producer deployment, graph/relational registry lowerings and retirement of PostgreSQL/Delta composition and unconsumed vendor sources. Current source contracts replace predecessor descriptions; qualification and measurements remain explicitly scoped to demonstrated evidence. | Maintainer-authorized Plan 28a–28e execution; proposed decision status unchanged; `PSE_DESIGN_EDIT=1`. |

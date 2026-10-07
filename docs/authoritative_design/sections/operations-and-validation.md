@@ -387,7 +387,7 @@ under inline and nested realizations; nothing is solved, and workloads are regis
 |---|---|
 | `just bench-smoke` | runs every benchmark once as a test; no timing |
 | `just case-measure <output> --functional-from <qualification>` | fresh-process case measurements; requires completed functional qualification of the same source |
-| `just bench-production` | production-equivalent native measurements without force-validation, in an isolated target directory, memory-capped (`scripts/memory-cap.sh`), with receipts under the repository `build/` |
+| `just bench-production` | production-equivalent native measurements without force-validation, in an isolated target directory, memory-capped (each recipe command runs in its own `scripts/pse-env` scope), with receipts under the repository `build/` |
 
 Measurement rules:
 

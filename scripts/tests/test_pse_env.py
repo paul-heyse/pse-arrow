@@ -112,5 +112,23 @@ class PseEnvTests(unittest.TestCase):
             self.assertEqual(pse_env.main(["--no-scope", "--", "pse-env-missing-command"]), 127)
 
 
+class StoreReadinessTests(unittest.TestCase):
+    def test_unset_up_store_fails_with_the_setup_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(pse_env.Failure) as raised:
+                pse_env.require_store({"PSE_SURREAL_STATE": directory})
+        self.assertIn("just surreal setup", str(raised.exception))
+
+    def test_store_default_is_the_supervisor_default(self) -> None:
+        with patch.object(pse_env.build_environment, "configure", identity):
+            env = pse_env.compose(Path("/checkout"), {"HOME": "/home/x", "PATH": ""}, {})
+        self.assertEqual(env["PSE_SURREAL_STATE"], "/home/x/.local/state/pse-arrow/surreal")
+        with patch.object(pse_env.build_environment, "configure", identity):
+            chosen = pse_env.compose(
+                Path("/checkout"), {"PSE_SURREAL_STATE": "/elsewhere", "PATH": ""}, {}
+            )
+        self.assertEqual(chosen["PSE_SURREAL_STATE"], "/elsewhere")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -122,7 +122,7 @@ canonical-recovery-test *args:
 [group('local')]
 [doc('Native gRPC exact codec and guarded revision controls against a supervised server state')]
 canonical-test state:
-    PSE_SURREAL_STATE={{ quote(state) }} just unit-package pse-operations 'test(canonical_server_unit) | test(canonical_codec_unit)' --features pse-operations/canonical-tests
+    PSE_SURREAL_STATE={{ quote(state) }} scripts/pse-env --store -- just unit-package pse-operations 'test(canonical_server_unit) | test(canonical_codec_unit)' --features pse-operations/canonical-tests
 
 [group('local')]
 [doc('Forced-validation persisted mathematical reconstruction controls on an isolated gRPC database')]
@@ -130,7 +130,7 @@ canonical-test state:
 canonical-portable-test state:
     fixture_receipt="$PWD/target/producer-qualified-fixture.json"
     scripts/pse-env --native -- cargo run -p xtask --no-default-features --locked -- producer-identity-fixture --output "$fixture_receipt"
-    PSE_PRODUCER_FIXTURE_RECEIPT="$fixture_receipt" PSE_SURREAL_STATE={{ quote(state) }} NEXTEST_TEST_THREADS=8 just unit-native-package pse-runtime 'canonical-tests,pse-relations/force-validate' 'test(canonical_portable_body)'
+    PSE_PRODUCER_FIXTURE_RECEIPT="$fixture_receipt" PSE_SURREAL_STATE={{ quote(state) }} NEXTEST_TEST_THREADS=8 scripts/pse-env --store -- just unit-native-package pse-runtime 'canonical-tests,pse-relations/force-validate' 'test(canonical_portable_body)'
 
 [group('local')]
 [doc('Actual finite production capture prerequisite for persisted replay controls')]
@@ -664,23 +664,21 @@ lint-imports:
 
 
 [group('local')]
-[doc('Python tests against a fresh native store (unit + component; pass -m to override)')]
+[doc('Python unit + component tests against the canonical store at $PSE_SURREAL_STATE (pass -m to override)')]
 [positional-arguments]
 py-test *args:
-    cargo run --quiet --package xtask --locked {{ validate }} -- python-tests "$@"
+    scripts/pse-env --store -- cargo run --quiet --package xtask --locked {{ validate }} -- python-tests "$@"
 
 [group('local')]
-[doc('Python unit tests without compiling or publishing an inspection fixture')]
+[doc('Python unit tests; routes through the native environment when the installed extension is the linked build')]
 [positional-arguments]
+[script]
 py-unit *args:
-    uv run --no-sync pytest --maxfail=0 --continue-on-collection-errors -m unit "$@"
-
-[group('local')]
-[doc('Targeted Python functional units with the linked native solver environment')]
-[positional-arguments]
-[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
-py-unit-native *args:
-    "{{ py }}" -m pytest --maxfail=0 --continue-on-collection-errors -m unit "$@"
+    case "$(python3 scripts/doctor.py --extension-kind)" in
+      native) exec scripts/pse-env --native -- "{{ py }}" -m pytest --maxfail=0 --continue-on-collection-errors -m unit "$@" ;;
+      dev) exec "{{ py }}" -m pytest --maxfail=0 --continue-on-collection-errors -m unit "$@" ;;
+      *) echo "pse-env: no installed pse extension; run just py-sync (or just py-sync-native)" >&2; exit 125 ;;
+    esac
 
 [group('local')]
 [doc('Run data-authored modeling fixtures and shared conformance checks; accepts Python module CLI arguments')]
@@ -1288,7 +1286,7 @@ feature-absence *args:
 [doc('Full workspace native feature graph with Arrow force validation; nextest owns selection')]
 [positional-arguments]
 native-test *args:
-    scripts/pse-env --native -- "{{ py }}" -m scripts.native_tests rust "$@"
+    scripts/pse-env --native --store -- "{{ py }}" -m scripts.native_tests rust "$@"
 
 [group('local')]
 [doc('Full linked Python unit/component/integration scope; refresh with py-sync-native after Rust edits')]
@@ -1297,7 +1295,7 @@ native-test *args:
 native-python output *args:
     native_output="$1"
     shift
-    exec scripts/pse-env --native -- "{{ py }}" -m scripts.native_tests python --junitxml="$native_output/native-python.xml" "$@"
+    exec scripts/pse-env --native --store -- "{{ py }}" -m scripts.native_tests python --junitxml="$native_output/native-python.xml" "$@"
 
 [group('local')]
 [doc('Run selected native benchmark controls once; no performance receipt or timing samples')]

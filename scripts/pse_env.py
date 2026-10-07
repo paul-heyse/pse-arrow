@@ -21,6 +21,7 @@ Exit status: the command's own; 125 when this boundary fails (with a ``pse-env:`
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shlex
@@ -107,6 +108,9 @@ def compose(
         version = root / ".python-version"
         env["PSE_PYTHON"] = version.read_text().strip() if version.is_file() else "3.14.7"
     env.setdefault("UV_PROJECT_ENVIRONMENT", ".venv")
+    # The supervisor's own default state; recipes that need the server check it (--store).
+    state_home = env.get("XDG_STATE_HOME") or str(Path(env.get("HOME", str(Path.home()))) / ".local/state")
+    env.setdefault("PSE_SURREAL_STATE", str(Path(state_home) / "pse-arrow/surreal"))
     env["PATH"] = prepend(str(venv(root, env) / "bin"), env.get("PATH"))
     if (SOLVER_STACK / "bin").is_dir():
         env["PATH"] = prepend(str(SOLVER_STACK / "bin"), env["PATH"])
@@ -217,6 +221,25 @@ def limits(name: str | None) -> list[tuple[str, str]]:
                 found.append((group.name, value))
         group = group.parent
     return found
+
+
+def require_store(env: Mapping[str, str]) -> None:
+    """Fail early, with the fix, when the selected canonical server is not serving."""
+    state = Path(env["PSE_SURREAL_STATE"])
+    config_path = state / "config.json"
+    if not config_path.is_file():
+        raise Failure(
+            f"canonical store {state} is not set up; run: just surreal setup --state {state}"
+            f" && just surreal start --state {state} && just canonical-init {state}"
+            " (or choose another with PSE_SURREAL_STATE)"
+        )
+    from scripts import surreal_server  # noqa: PLC0415 -- supervisor owns readiness
+
+    config = json.loads(config_path.read_text())
+    if config.get("admission") != "open" or not surreal_server.ready(state, config):
+        raise Failure(
+            f"canonical server for {state} is not ready; run: just surreal start --state {state}"
+        )
 
 
 def manager_available() -> bool:
@@ -374,6 +397,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--explain", action="store_true")
     parser.add_argument("--native", nargs="?", const="__default__", default=None)
     parser.add_argument("--no-scope", action="store_true")
+    parser.add_argument(
+        "--store",
+        action="store_true",
+        help="require a serving canonical server at $PSE_SURREAL_STATE first",
+    )
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
     caller = dict(os.environ)
@@ -400,6 +428,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         env = compose(ROOT, caller)
         for note in refusals(caller, env, ANNOUNCED):
             print(note, file=sys.stderr)
+        if args.store:
+            require_store(env)
         if requested is not None:
             return native(ROOT, requested, command, env, scope=not args.no_scope)
         prefix = [] if args.no_scope else placement(env, native=False)
