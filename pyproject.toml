@@ -74,7 +74,7 @@ Changelog = "https://github.com/paul-heyse/pse-arrow/blob/main/CHANGELOG.md"
 # reference oracle must not move under the comparisons that cite it.
 thermo-reference = [
   { include-group = "test" },
-  "teqp==0.23.1; python_version == '3.12'",
+  "teqp==0.23.2; python_version == '3.12'",
 ]
 # Tools that only execute (formatters, linters, type checkers, test runners): exact pins
 # with no hold; bump one when the work calls for it.
