@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -86,7 +87,17 @@ def design_edit_authorized(root: Path) -> bool:
     The file is not ignored, so `git status` shows it for as long as it authorizes
     edits; delete it to end the exception.
     """
-    return os.environ.get("PSE_DESIGN_EDIT") == "1" or (root / DESIGN_EDIT_MARKER).is_file()
+    if os.environ.get("PSE_DESIGN_EDIT") == "1":
+        return True
+    if not (root / DESIGN_EDIT_MARKER).is_file():
+        return False
+    # A committed file would authorize everyone; only an untracked one counts.
+    tracked = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "--error-unmatch", DESIGN_EDIT_MARKER],
+        capture_output=True,
+        check=False,
+    )
+    return tracked.returncode != 0
 
 
 def session_env(root: Path) -> int:
@@ -111,10 +122,32 @@ def session_env(root: Path) -> int:
     return 0
 
 
+def session_root(default: Path) -> Path:
+    """The checkout the session works in: a Claude worktree's hook runs this script from
+    the main checkout (CLAUDE_PROJECT_DIR) but its payload carries the worktree's cwd."""
+    try:
+        payload = json.load(sys.stdin)
+    except ValueError:
+        return default
+    cwd = payload.get("cwd") if isinstance(payload, dict) else None
+    if not isinstance(cwd, str) or not cwd:
+        return default
+    top = subprocess.run(
+        ["git", "-C", cwd, "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    candidate = Path(top.stdout.strip()) if top.returncode == 0 else None
+    if candidate is not None and (candidate / "scripts/pse_env.py").is_file():
+        return candidate
+    return default
+
+
 def main() -> int:
     action = sys.argv[1]
     if action == "session-env":
-        return session_env(ROOT)
+        return session_env(session_root(ROOT))
     try:
         payload = json.load(sys.stdin)
         paths = edit_paths(payload)

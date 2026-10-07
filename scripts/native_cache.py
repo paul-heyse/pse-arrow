@@ -640,10 +640,12 @@ def isolation(base: Path, env: dict[str, str]) -> Path:
             raise ValueError("validated-root archive layout")
         from scripts import pse_env  # noqa: PLC0415 -- placement owner
 
-        cap = pse_env.placement(env, native=True)
+        # A fresh scope per command: a transient unit name cannot be reused.
+        def cap() -> list[str]:
+            return pse_env.placement(env, native=True)
         run(
             [
-                *cap,
+                *cap(),
                 "cmake",
                 "-S",
                 str(directories[0]),
@@ -658,7 +660,7 @@ def isolation(base: Path, env: dict[str, str]) -> Path:
         )
         run(
             [
-                *cap,
+                *cap(),
                 "cmake",
                 "--build",
                 str(work / "compiled"),
@@ -667,7 +669,7 @@ def isolation(base: Path, env: dict[str, str]) -> Path:
             ],
             env=env,
         )
-        run([*cap, "cmake", "--install", str(work / "compiled")], env=env)
+        run([*cap(), "cmake", "--install", str(work / "compiled")], env=env)
         configuration = (stage / "share/ibex/cmake/ibex-config.cmake").read_text()
         for key, expected in (
             ("IBEX_INTERVAL_LIB_VERSION", pin["interval-version"]),

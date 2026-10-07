@@ -235,7 +235,8 @@ assessment output="" *args:
         assessment_output=(--output "$1")
     fi
     shift
-    exec scripts/pse-env --native -- "{{ py }}" -m scripts.validation "${assessment_output[@]}" "$@"
+    # Assessment receipts record and require the single-thread native budget.
+    OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 exec scripts/pse-env --native -- "{{ py }}" -m scripts.validation "${assessment_output[@]}" "$@"
 
 [group('discovery')]
 [doc('Machine-readable assessment scope and explicit environment exclusions; executes no checks')]
@@ -1301,10 +1302,10 @@ native-python output *args:
 [doc('Run selected native benchmark controls once; no performance receipt or timing samples')]
 [positional-arguments]
 bench-case-smoke output *args:
-    scripts/pse-env --native -- "{{ py }}" -m scripts.case_measure --smoke "$@"
+    OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 scripts/pse-env --native -- "{{ py }}" -m scripts.case_measure --smoke "$@"
 
 [group('local')]
 [doc('Fresh-process Criterion cases; requires --functional-from with completed local qualification')]
 [positional-arguments]
 case-measure output *args:
-    scripts/pse-env --native -- "{{ py }}" -m scripts.case_measure "$@"
+    OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 scripts/pse-env --native -- "{{ py }}" -m scripts.case_measure "$@"

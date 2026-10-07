@@ -21,6 +21,7 @@ Exit status: the command's own; 125 when this boundary fails (with a ``pse-env:`
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import os
 import re
@@ -114,7 +115,6 @@ def compose(
     env["PATH"] = prepend(str(venv(root, env) / "bin"), env.get("PATH"))
     if (SOLVER_STACK / "bin").is_dir():
         env["PATH"] = prepend(str(SOLVER_STACK / "bin"), env["PATH"])
-        env.setdefault("IPOPT_DIR", str(SOLVER_STACK))
         env["PKG_CONFIG_PATH"] = prepend(
             str(SOLVER_STACK / "lib/pkgconfig"), env.get("PKG_CONFIG_PATH")
         )
@@ -130,12 +130,13 @@ ANNOUNCED = ("CARGO_TARGET_DIR", "RUSTC_WRAPPER")
 
 
 def refusals(
-    caller: Mapping[str, str], env: Mapping[str, str], names: Sequence[str] = tuple(CONFIGURED)
+    chosen: Mapping[str, str], env: Mapping[str, str], names: Sequence[str] = tuple(CONFIGURED)
 ) -> list[str]:
+    """Values the caller or .envrc.local chose that composition replaced."""
     notes = []
     for name in names:
         reason = CONFIGURED[name]
-        prior = caller.get(name)
+        prior = chosen.get(name)
         if prior is not None and env.get(name) != prior:
             now = env.get(name)
             shown = "unset" if now is None else now
@@ -152,9 +153,11 @@ def deferred(root: Path, name: str) -> str:
     )
 
 
-def required_path(root: Path, caller: Mapping[str, str]) -> list[str]:
+def required_path(
+    root: Path, caller: Mapping[str, str], local: Mapping[str, str]
+) -> list[str]:
     """PATH entries composition puts first, independent of the caller's own PATH."""
-    bare = compose(root, {"HOME": caller.get("HOME", "/"), "PATH": ""}, {})
+    bare = compose(root, {"HOME": caller.get("HOME", "/"), "PATH": ""}, local)
     return [entry for entry in bare.get("PATH", "").split(os.pathsep) if entry]
 
 
@@ -168,10 +171,10 @@ def render(root: Path, caller: Mapping[str, str], *, complete: bool = False) -> 
     """
     local = local_keys(root)
     env = compose(root, caller, local)
-    touched = set(compose(root, {"HOME": caller.get("HOME", "/"), "PATH": ""}, {})) - {"HOME"}
+    touched = set(compose(root, {"HOME": caller.get("HOME", "/"), "PATH": ""}, local)) - {"HOME"}
     lines = [
         f'case ":$PATH:" in *:{shlex.quote(entry)}:*) ;; *) PATH={shlex.quote(entry)}"${{PATH:+:$PATH}}" ;; esac'
-        for entry in reversed(required_path(root, caller))
+        for entry in reversed(required_path(root, caller, local))
     ]
     lines.append("export PATH")
     for name in sorted(env):
@@ -196,7 +199,11 @@ def parse_bytes(value: str) -> int | None:
 
 def slice_name(env: Mapping[str, str]) -> str | None:
     name = env.get("PSE_SLICE", DEFAULT_SLICE)
-    return None if name in {"", "none"} else name
+    if name in {"", "none"}:
+        return None
+    if not SLICE_VALUE.fullmatch(name):
+        raise Failure(f"PSE_SLICE={name!r} is not a slice unit name (e.g. pse.slice) or none")
+    return name
 
 
 def slice_group(name: str) -> Path:
@@ -242,9 +249,49 @@ def require_store(env: Mapping[str, str]) -> None:
         )
 
 
+MEMORY_VALUE = re.compile(r"\d+[KMGT]?|\d+%|infinity", re.IGNORECASE)
+SLICE_VALUE = re.compile(r"[A-Za-z0-9_:.-]+\.slice")
+
+
+def manager_environment() -> dict[str, str]:
+    runtime = Path(f"/run/user/{os.getuid()}")
+    return {
+        "XDG_RUNTIME_DIR": os.environ.get("XDG_RUNTIME_DIR", str(runtime)),
+        "DBUS_SESSION_BUS_ADDRESS": os.environ.get(
+            "DBUS_SESSION_BUS_ADDRESS", f"unix:path={runtime}/bus"
+        ),
+    }
+
+
+@functools.cache
 def manager_available() -> bool:
-    bus = Path(f"/run/user/{os.getuid()}/bus")
-    return bus.is_socket() and shutil.which("systemd-run") is not None
+    """A user manager that actually answers, not just a socket path."""
+    if shutil.which("systemd-run") is None or not Path(f"/run/user/{os.getuid()}/bus").is_socket():
+        return False
+    try:
+        probe = subprocess.run(
+            ["systemctl", "--user", "show-environment"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env={**os.environ, **manager_environment()},
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return probe.returncode == 0
+
+
+def memory_cap(env: Mapping[str, str]) -> str | None:
+    """The command's MemoryMax: a size, percentage or infinity; None for `off`."""
+    value = env.get("PSE_MEMORY_MAX") or DEFAULT_MEMORY_MAX
+    if value == "off":
+        return None
+    if not MEMORY_VALUE.fullmatch(value):
+        raise Failure(
+            f"PSE_MEMORY_MAX={value!r} is not a size (e.g. 64G), a percentage, infinity or off"
+        )
+    return value
 
 
 def placement(env: dict[str, str], *, native: bool) -> list[str]:
@@ -252,11 +299,12 @@ def placement(env: dict[str, str], *, native: bool) -> list[str]:
     if operation.scope_owner() is not None:
         # Never leave a scope that protects native generations or a managed worker.
         return []
+    selected = slice_name(env)
+    cap = memory_cap(env)
     if not manager_available():
         return []
-    runtime = Path(f"/run/user/{os.getuid()}")
-    env.setdefault("XDG_RUNTIME_DIR", str(runtime))
-    env.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path={runtime}/bus")
+    for name, value in manager_environment().items():
+        env.setdefault(name, value)
     kind = "native" if native else "cmd"
     command = [
         "systemd-run",
@@ -266,11 +314,9 @@ def placement(env: dict[str, str], *, native: bool) -> list[str]:
         "--collect",
         f"--unit=pse-{kind}-{uuid.uuid4().hex}.scope",
     ]
-    selected = slice_name(env)
     if selected is not None:
         command.append(f"--slice={selected}")
-    cap = env.get("PSE_MEMORY_MAX", DEFAULT_MEMORY_MAX)
-    if cap != "off":
+    if cap is not None:
         command += ["-p", f"MemoryMax={cap}", "-p", "MemorySwapMax=0"]
         requested = parse_bytes(cap)
         for group, value in limits(selected):
@@ -289,6 +335,19 @@ def setup_python(root: Path, env: Mapping[str, str]) -> str:
         return chosen
     candidate = venv(root, env) / "bin/python"
     return str(candidate) if candidate.exists() else sys.executable
+
+
+def unexecutable(command: Sequence[str], env: Mapping[str, str]) -> int | None:
+    """126/127 for a command that cannot run, decided before any scope wraps it."""
+    name = command[0]
+    path = name if "/" in name else shutil.which(name, path=env.get("PATH"))
+    if path is None or not Path(path).exists():
+        print(f"pse-env: command not found: {name}", file=sys.stderr)
+        return 127
+    if Path(path).is_dir() or not os.access(path, os.X_OK):
+        print(f"pse-env: command not executable: {name}", file=sys.stderr)
+        return 126
+    return None
 
 
 def execute(command: Sequence[str], env: Mapping[str, str]) -> int:
@@ -342,6 +401,36 @@ def describe(name: str, env: Mapping[str, str], caller: Mapping[str, str], local
     return value if caller.get(name) != value else f"{value} (caller)"
 
 
+def native_choices(
+    root: Path, chosen: Mapping[str, str], requested: list[str]
+) -> list[str]:
+    """Thread budgets and solver runtime keys a native command would get, and refusals."""
+    from scripts import native_cache as cache  # noqa: PLC0415 -- reads the image declaration
+
+    runtime = (
+        cache.runtime_env(root / "docker/solvers/Dockerfile")
+        if {"solver", "uno", "petsc"} & set(requested)
+        else {}
+    )
+    off = {name for name in chosen.get(operation.OFF_MARKER, "").split(",") if name}
+    lines = []
+    for name in operation.OVERRIDABLE:
+        value = chosen.get(name)
+        default = "1" if name in operation.THREAD_VARIABLES else runtime.get(name)
+        if value == "off" or (value is None and name in off):
+            lines.append(f"  {name:22} off (removed)")
+        elif value is not None:
+            lines.append(f"  {name:22} {value} (chosen; default {default or 'unset'})")
+        elif default is not None:
+            lines.append(f"  {name:22} {default} (default)")
+    for name, reason in operation.AUTHORITATIVE.items():
+        if name in runtime and chosen.get(name) not in (None, "", runtime[name]):
+            lines.append(
+                f"pse-env: refused {name}={chosen[name]}: {reason}; using {runtime[name]}"
+            )
+    return lines
+
+
 def explain(root: Path, caller: Mapping[str, str], requested: list[str] | None) -> str:
     local = local_keys(root)
     env = compose(root, caller, local)
@@ -368,6 +457,7 @@ def explain(root: Path, caller: Mapping[str, str], requested: list[str] | None) 
             + (",".join(requested) or "operation without capabilities")
             + " (prepared lazily when a command runs)"
         )
+        lines.extend(native_choices(root, {**local, **caller}, requested))
     owner = operation.scope_owner()
     selected = slice_name(env)
     if owner is not None:
@@ -387,7 +477,7 @@ def explain(root: Path, caller: Mapping[str, str], requested: list[str] | None) 
     lines.append("local values      " + (", ".join(
         f"{name}={describe(name, env, caller, set(local))}" for name in sorted(local)
     ) or "none"))
-    lines.extend(refusals(caller, env))
+    lines.extend(refusals({**local, **caller}, env))
     return "\n".join(lines) + "\n"
 
 
@@ -419,6 +509,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.print_exports:
             sys.stdout.write(render(ROOT, caller))
+            for note in refusals(caller, compose(ROOT, caller), ANNOUNCED):
+                print(note, file=sys.stderr)
             return 0
         if args.explain:
             sys.stdout.write(explain(ROOT, caller, requested))
@@ -430,6 +522,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(note, file=sys.stderr)
         if args.store:
             require_store(env)
+        status = unexecutable(command, env)
+        if status is not None:
+            return status
         if requested is not None:
             return native(ROOT, requested, command, env, scope=not args.no_scope)
         prefix = [] if args.no_scope else placement(env, native=False)
@@ -437,8 +532,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     except Failure as error:
         print(f"pse-env: {error}", file=sys.stderr)
         return FAILURE
-    except (OSError, ValueError, subprocess.SubprocessError) as error:
-        print(f"pse-env: {error}", file=sys.stderr)
+    except Exception as error:  # noqa: BLE001 -- any boundary error is the boundary's, not the command's
+        print(f"pse-env: {type(error).__name__}: {error}", file=sys.stderr)
         return FAILURE
 
 

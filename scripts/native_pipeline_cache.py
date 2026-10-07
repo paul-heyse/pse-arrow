@@ -211,10 +211,12 @@ int main(void) {
     binary = work / "petsc-string-control"
     from scripts import pse_env  # noqa: PLC0415 -- placement owner
 
-    cap = pse_env.placement(env, native=True)
+    # A fresh scope per command: a transient unit name cannot be reused.
+    def cap() -> list[str]:
+        return pse_env.placement(env, native=True)
     cache.run(
         [
-            *cap,
+            *cap(),
             env.get("CC", "cc"),
             "-std=c11",
             "-O3",
@@ -234,7 +236,7 @@ int main(void) {
     )
     control_env = dict(env)
     control_env["LD_LIBRARY_PATH"] = cache.prepend_library_path(str(libraries), env)
-    cache.run([*cap, str(binary)], env=control_env)
+    cache.run([*cap(), str(binary)], env=control_env)
 
 
 def prepare(kind: str, env: dict[str, str]) -> Path:
@@ -312,7 +314,9 @@ def _prepare(kind: str, env: dict[str, str]) -> Path:
         source = roots[0]
         from scripts import pse_env  # noqa: PLC0415 -- placement owner
 
-        cap = pse_env.placement(env, native=True)
+        # A fresh scope per command: a transient unit name cannot be reused.
+        def cap() -> list[str]:
+            return pse_env.placement(env, native=True)
         subprocess.run(["git", "apply", "--check", str(patch)], cwd=source, check=True)
         subprocess.run(["git", "apply", str(patch)], cwd=source, check=True)
         if kind == "uno":
@@ -320,7 +324,7 @@ def _prepare(kind: str, env: dict[str, str]) -> Path:
                 raise ValueError("Uno requires the admitted HiGHS unit")
             cache.run(
                 [
-                    *cap,
+                    *cap(),
                     "cmake",
                     "-S",
                     str(source),
@@ -337,7 +341,7 @@ def _prepare(kind: str, env: dict[str, str]) -> Path:
             )
             cache.run(
                 [
-                    *cap,
+                    *cap(),
                     "cmake",
                     "--build",
                     str(work / "compiled"),
@@ -360,14 +364,14 @@ def _prepare(kind: str, env: dict[str, str]) -> Path:
                 f"--with-blaslapack-lib=[{','.join(str(path) for path in blas)},-lgomp,-lpthread,-lm,-ldl]",
             ]
             subprocess.run(
-                [*cap, sys.executable, str(source / "configure"), *settings],
+                [*cap(), sys.executable, str(source / "configure"), *settings],
                 cwd=source,
                 env=env,
                 check=True,
                 stdout=sys.stderr,
             )
             subprocess.run(
-                [*cap, "make", "-j8", "all"],
+                [*cap(), "make", "-j8", "all"],
                 cwd=source,
                 env=env,
                 check=True,

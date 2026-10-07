@@ -26,4 +26,4 @@ change, removed paths, commands/results and remaining integration or qualificati
 
 Use `just check-package <pkg>` and `just unit-package <pkg> <filter>` for local functional
 checks. Generation changes use `just codegen`; generated paths remain protected. Follow
-AGENTS.md's immediate replacement deletion, explicit force-validation and memory-cap rules.
+AGENTS.md's immediate replacement deletion, explicit force-validation and memory-capped `scripts/pse-env` scopes.

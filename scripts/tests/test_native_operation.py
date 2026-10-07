@@ -559,6 +559,16 @@ class NativeOperationTests(unittest.TestCase):
         self.assertEqual(chosen["OPENBLAS_NUM_THREADS"], "1")
         self.assertNotIn("MKL_NUM_THREADS", chosen)
 
+    def test_off_survives_nested_native_setup_until_a_value_is_chosen(self) -> None:
+        outer = operation.environment([], {"OMP_NUM_THREADS": "off"})
+        self.assertNotIn("OMP_NUM_THREADS", outer)
+        nested = operation.environment([], outer)
+        self.assertNotIn("OMP_NUM_THREADS", nested)
+        self.assertEqual(nested["OPENBLAS_NUM_THREADS"], "1")
+        chosen = operation.environment([], {**nested, "OMP_NUM_THREADS": "6"})
+        self.assertEqual(chosen["OMP_NUM_THREADS"], "6")
+        self.assertNotIn(operation.OFF_MARKER, chosen)
+
     def test_solver_runtime_enforces_owned_keys_and_defaults_the_rest(self) -> None:
         runtime = {
             "MKL_CBWR": "COMPATIBLE",

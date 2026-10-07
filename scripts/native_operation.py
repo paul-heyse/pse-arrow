@@ -35,6 +35,8 @@ CAPABILITIES = ("compiler", "solver", "klu", "isolation", "uno", "petsc")
 # The thread budget stays "1" by default because assessment receipts require it.
 THREAD_VARIABLES = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")
 OVERRIDABLE = (*THREAD_VARIABLES, "OMP_PROC_BIND", "OMP_PLACES", "HWLOC_COMPONENTS")
+# Names a caller turned `off`, carried to nested native setup so it does not restore them.
+OFF_MARKER = "PSE_NATIVE_OFF"
 # Native setup owns these; a differing caller value is replaced and reported.
 AUTHORITATIVE = {
     "MKL_CBWR": "reproducible MKL kernels (ADR-0108)",
@@ -447,6 +449,12 @@ def environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
         )
         else env.copy()
     )
+    off = {name for name in result.get(OFF_MARKER, "").split(",") if name}
+    for name in OVERRIDABLE:
+        if result.get(name) == "off":
+            off.add(name)
+        elif name in result:
+            off.discard(name)
     if "solver" in requested or "uno" in requested or "petsc" in requested:
         if result.get("IPOPT_DIR"):
             prefix = Path(result["IPOPT_DIR"])
@@ -461,7 +469,7 @@ def environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
         for name, value in cache.runtime_env(ROOT / "docker/solvers/Dockerfile").items():
             if name in AUTHORITATIVE:
                 enforce(result, name, value)
-            else:
+            elif name not in off:
                 result.setdefault(name, value)
     if "klu" in requested:
         prefix = cache.klu(base, result)
@@ -486,10 +494,14 @@ def environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
                 f"{result[variable]}/lib", result
             )
     for name in THREAD_VARIABLES:
-        result.setdefault(name, "1")
-    for name in OVERRIDABLE:
-        if result.get(name) == "off":
-            del result[name]
+        if name not in off:
+            result.setdefault(name, "1")
+    for name in off:
+        result.pop(name, None)
+    if off:
+        result[OFF_MARKER] = ",".join(sorted(off))
+    else:
+        result.pop(OFF_MARKER, None)
     result.pop("CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER", None)
     for capability in requested:
         # Thread budgets do not change what is prepared, so a nested caller may
@@ -562,8 +574,8 @@ def main() -> int:
         for name, value in sorted(configured.items()):
             if original.get(name) != value:
                 print(f"export {name}={shlex.quote(value)}")
-        if "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER" in original:
-            print("unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER")
+        for name in sorted(original.keys() - configured.keys()):
+            print(f"unset {name}")
         return 0
     if owner_record() is not None:
         return run(
