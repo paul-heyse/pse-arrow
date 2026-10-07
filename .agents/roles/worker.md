@@ -37,8 +37,9 @@ unless the assignment includes them.
 
 Local commands and protections remain in AGENTS.md and its shared rules. Never edit generated
 paths; regenerate through `just codegen` when the declaration or generator changes. Keep the
-explicit force-validation feature on correctness tests. Run native solver, conformance, parity
-and linked-Python commands through `bash scripts/memory-cap.sh <command>`.
+explicit force-validation feature on correctness tests. Run ad hoc commands through `scripts/pse-env -- <command>` (with `--native` for solver,
+conformance, parity and linked-Python work): it supplies the checkout environment and a
+memory-capped scope.
 
 **Skills and library documentation.** Before working in an area a repository skill covers,
 load that skill: in Claude, use the Skill tool; in Codex, use `.codex/skills/<name>/SKILL.md`.

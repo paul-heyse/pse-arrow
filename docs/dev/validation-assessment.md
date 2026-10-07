@@ -54,7 +54,7 @@ manual qualification.
 ## Common conditions
 
 - Every Rust test recipe passes `--features pse-relations/force-validate` explicitly.
-- Native recipes run through `scripts/native_exec.sh` and the common operation owner,
+- Native recipes run through `scripts/pse-env --native` and the common operation owner,
   beginning the supervised lifetime before setup. Each recipe requests its actual native
   capability closure; nested consumers reuse verified immutable generations while that
   operation is alive. Local `.envrc.local` overrides remain supported. The selected solver

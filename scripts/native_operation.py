@@ -502,42 +502,6 @@ def environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
     return result
 
 
-def active(requested: list[str], env: dict[str, str]) -> bool:
-    owner = owner_record()
-    if owner is None:
-        return False
-    from scripts import native_cache as cache  # noqa: PLC0415 -- owner cycle
-    from scripts import (  # noqa: PLC0415 -- owner cycle
-        native_pipeline_cache as pipeline,
-    )
-
-    if current() is None:
-        # An ancestry-bound fallback is a lifetime guard, never a fast admission.
-        environment(requested, env)
-        return True
-    for capability in requested:
-        record = remembered("capability:" + capability)
-        expected = {*cache.INPUT_ENV, *CAPABILITY_PATHS[capability]}
-        if (
-            record is None
-            or not isinstance(record.get("inputs"), dict)
-            or set(record["inputs"]) != expected
-            or any(env.get(name) != value for name, value in record["inputs"].items())
-        ):
-            return False
-        # Mutable overrides retain their separate full boundary checks even when
-        # the operation's request itself is unchanged.
-        for variable, required in (
-            ("IPOPT_DIR", cache.SOLVER_FILES),
-            ("PSE_ROOT_ISOLATION_DIR", cache.ISOLATION_FILES),
-            ("UNO_DIR", pipeline.required_files("uno")),
-            ("PETSC_DIR", pipeline.required_files("petsc")),
-        ):
-            if variable in CAPABILITY_PATHS[capability] and env.get(variable):
-                cache.admit_external(Path(env[variable]), required)
-    return True
-
-
 def cancel_children(child: subprocess.Popen, signum: int) -> None:
     owner = scope_owner()
     if owner is not None:
@@ -581,19 +545,12 @@ def run(command: list[str], env: dict[str, str]) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--capabilities", default="")
-    parser.add_argument("--inside", action="store_true")
     parser.add_argument("--shell", action="store_true")
-    parser.add_argument("--active", action="store_true")
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
-    if args.inside:
-        path = current()
-        return 0 if path is not None and _record(path).get("scope") else 1
     requested = [value for value in args.capabilities.split(",") if value]
     if any(value not in CAPABILITIES for value in requested):
         parser.error("unknown native capability request")
-    if args.active:
-        return 0 if active(requested, dict(os.environ)) else 1
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
     if not command and not args.shell:
         parser.error("an actual child command is required")

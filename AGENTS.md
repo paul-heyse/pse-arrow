@@ -251,10 +251,10 @@ Each of these is a real incident, not a hypothetical.
 - **A heavy native run can exhaust the machine and take the editor down with it.** On
   2026-09-29 a conformance study grew to 156 GB outside the engine's accounted pool. The
   kernel OOM kill and systemd-oomd then stopped the whole editor scope, killing every
-  session and agent twice. Recipes that run native solvers, conformance, parity or linked
-  Python go through `scripts/memory-cap.sh`, which runs each command in its own
-  memory-capped systemd scope (`PSE_MEMORY_MAX`, default 120G), so a runaway process is
-  killed alone. Run an ad hoc heavy command the same way: `bash scripts/memory-cap.sh <command>`.
+  session and agent twice. Every recipe command now runs through `scripts/pse-env`, which
+  gives it its own memory-capped systemd scope (`PSE_MEMORY_MAX`, default 120G) in
+  `pse.slice`, so a runaway process is killed alone. Run an ad hoc heavy command the same
+  way: `scripts/pse-env -- <command>` (add `--native` for the linked solver environment).
   The root cause, an outputs × members projection, was fixed (Plan 23 H8).
 - **uv workspaces enforce a single `requires-python`** (the intersection across members),
   which is why the IDAES parity set is a *dependency group* with an environment marker

@@ -76,19 +76,13 @@ def local_keys(root: Path) -> dict[str, str]:
     )
     if result.returncode:
         raise Failure(f"{LOCAL} failed to load")
-    baseline = subprocess.run(
-        ["bash", "-c", "env -0"], check=True, capture_output=True, env=clean, timeout=10
-    ).stdout
-    before = dict(
-        item.split("=", 1) for item in baseline.decode().split("\0") if "=" in item
-    )
     after = dict(
         item.split("=", 1) for item in result.stdout.decode().split("\0") if "=" in item
     )
     return {
         name: value
         for name, value in after.items()
-        if before.get(name) != value and name not in {"_", "SHLVL", "PWD", "OLDPWD"}
+        if clean.get(name) != value and name not in {"_", "SHLVL", "PWD", "OLDPWD"}
     }
 
 

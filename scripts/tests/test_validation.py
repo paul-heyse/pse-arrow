@@ -70,7 +70,7 @@ class ValidationTests(unittest.TestCase):
     def test_assessment_recipe_preserves_reason_and_output_arguments(self) -> None:
         source = (Path(__file__).resolve().parents[2] / "justfile").read_text()
         match = re.search(
-            r"(?m)^\[positional-arguments\]\nassessment[^\n]*:\n(?:[ \t]+[^\n]*\n)+",
+            r"(?m)^\[positional-arguments\]\n\[script\]\nassessment[^\n]*:\n(?:[ \t]+[^\n]*\n)+",
             source,
         )
         self.assertIsNotNone(match)
@@ -79,7 +79,11 @@ class ValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "justfile").write_text(
-                'py := "' + sys.executable + '"\n' + match.group()
+                'set script-interpreter := ["bash", "-euo", "pipefail"]\n'
+                + 'py := "'
+                + sys.executable
+                + '"\n'
+                + match.group()
             )
             (root / "scripts").mkdir()
             (root / "scripts/validation.py").write_text(
@@ -88,7 +92,11 @@ class ValidationTests(unittest.TestCase):
             )
             # Argument forwarding is the scope; native lifecycle is exercised by
             # its own operation controls rather than invoking setup in this fixture.
-            (root / "scripts/native_exec.sh").write_text('exec "$@"\n')
+            boundary = root / "scripts/pse-env"
+            boundary.write_text(
+                '#!/usr/bin/env bash\nwhile [[ "$1" != "--" ]]; do shift; done\nshift\nexec "$@"\n'
+            )
+            boundary.chmod(0o755)
             reason = 'literal "quotes"; $HOME `pwd` $(touch injected)'
             subprocess.run(
                 ["just", "assessment", "output with spaces", "--change-reason", reason],

@@ -121,7 +121,7 @@ the server allocation, `MemorySwapMax=0`, `TasksMax=128`, `KillMode=control-grou
 a 45-second stop deadline. The cap includes the wrapper and server child. A user manager
 is required; unavailable supervision fails rather than starting uncapped. It discovers
 the account's standard runtime bus when shell bus variables are absent. This uses the
-same systemd resource-control surface as `scripts/memory-cap.sh`, with an explicit
+same systemd resource-control surface and `pse.slice` placement as `scripts/pse-env`, with an explicit
 service lifecycle. No automatic restart is configured: failed/abruptly killed units
 must be restarted explicitly, and application clients own reconnect/uncertain-operation
 resolution.

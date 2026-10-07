@@ -463,10 +463,11 @@ def ensure_capability_operation(root: Path, *, native: bool, workflow: bool) -> 
     environment = dict(os.environ)
     environment["PSE_NATIVE_CAPABILITIES"] = "solver,klu,isolation,uno,petsc"
     os.execvpe(  # noqa: S606 -- replaces this launcher with the supervised operation
-        "bash",
+        str(root / "scripts/pse-env"),
         [
-            "bash",
-            str(root / "scripts/native_exec.sh"),
+            str(root / "scripts/pse-env"),
+            "--native",
+            "--",
             sys.executable,
             "-m",
             "scripts.build_measurements",

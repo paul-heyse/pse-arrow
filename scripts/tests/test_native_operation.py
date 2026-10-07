@@ -592,8 +592,9 @@ class NativeOperationTests(unittest.TestCase):
         program = "from scripts import native_operation as n; import json; p=n.owner_record(); print(json.dumps({'active':p is not None,'scope':n._record(p)['scope'],'args':__import__('sys').argv[1:]}))"
         result = subprocess.run(
             [
-                "bash",
-                str(cache.ROOT / "scripts/native_exec.sh"),
+                str(cache.ROOT / "scripts/pse-env"),
+                "--native=",
+                "--",
                 sys.executable,
                 "-c",
                 program,
@@ -648,7 +649,6 @@ class NativeOperationTests(unittest.TestCase):
             with patch.dict(os.environ, {operation.MARKER: str(forged)}):
                 self.assertIsNone(operation.current())
                 self.assertIsNone(operation.owner_record())
-                self.assertFalse(operation.active(["solver"], dict(os.environ)))
             owner = {
                 "unit": "pse-native-" + "a" * 32 + ".scope",
                 "group": "/scope",
@@ -659,7 +659,9 @@ class NativeOperationTests(unittest.TestCase):
                 operation.Operation(Path(directory)),
             ):
                 operation.admit("capability:solver", {"inputs": {}})
-                self.assertFalse(operation.active(["solver"], dict(os.environ)))
+                self.assertEqual(
+                    operation.remembered("capability:solver"), {"inputs": {}}
+                )
             with (
                 patch.object(operation, "scope_owner", return_value=None),
                 operation.Operation(Path(directory)),
@@ -669,9 +671,7 @@ class NativeOperationTests(unittest.TestCase):
                 operation.admit("observation:forged-fast-hit", {"value": True})
                 self.assertIsNone(operation.remembered("observation:forged-fast-hit"))
 
-    def test_empty_capability_source_reentry_rejects_forged_marker_and_preserves_arguments(
-        self,
-    ) -> None:
+    def test_native_entry_rejects_forged_marker_and_preserves_arguments(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
             forged = base / "arbitrary.json"
@@ -686,14 +686,17 @@ class NativeOperationTests(unittest.TestCase):
                     "generations": [],
                 },
             )
-            script = base / "recipe.sh"
-            script.write_text(
-                'set -euo pipefail\nsource "$1/scripts/native-recipe-env.sh" "" "$@"\nshift\n"'
-                + str(cache.ROOT / ".venv/bin/python")
-                + '" -c \'from scripts import native_operation as n; import sys,json; print(json.dumps({"record":str(n.owner_record()),"args":sys.argv[1:]}))\' "$@"\n'
-            )
             result = subprocess.run(
-                ["bash", str(script), str(cache.ROOT), "space ; literal", "$literal"],
+                [
+                    str(cache.ROOT / "scripts/pse-env"),
+                    "--native=",
+                    "--",
+                    str(cache.ROOT / ".venv/bin/python"),
+                    "-c",
+                    'from scripts import native_operation as n; import sys,json; print(json.dumps({"record":str(n.owner_record()),"args":sys.argv[1:]}))',
+                    "space ; literal",
+                    "$literal",
+                ],
                 cwd=cache.ROOT,
                 env={**self.fixture_environment(base), operation.MARKER: str(forged)},
                 check=True,
@@ -707,44 +710,15 @@ class NativeOperationTests(unittest.TestCase):
             self.assertEqual(observed["args"], ["space ; literal", "$literal"])
 
     def test_snapshot_without_venv_uses_selected_operation_interpreter(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            base = Path(directory)
-            root = base / "snapshot"
-            scripts = root / "scripts"
-            scripts.mkdir(parents=True)
-            for name in ("native-recipe-env.sh", "native_exec.sh", "memory-cap.sh"):
-                shutil.copy2(cache.ROOT / "scripts" / name, scripts / name)
-            (scripts / "native_operation.py").write_text(
-                f"import sys\nsys.path.insert(0, {str(cache.ROOT)!r})\nfrom scripts.native_operation import main\nraise SystemExit(main())\n"
-            )
-            recipe = root / "recipe.sh"
-            recipe.write_text(
-                'set -euo pipefail\nsource "$1/scripts/native-recipe-env.sh" "" "$@"\n"$PSE_NATIVE_SETUP_PYTHON" -c \'from scripts import native_operation as n; import json; print(json.dumps({"active":n.owner_record() is not None}))\'\n'
-            )
-            result = subprocess.run(
-                ["bash", str(recipe), str(root)],
-                cwd=cache.ROOT,
-                env={
-                    **self.fixture_environment(base),
-                    "PSE_NATIVE_SETUP_PYTHON": sys.executable,
-                },
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            self.assertFalse((root / ".venv").exists())
-            self.assertTrue(json.loads(result.stdout)["active"])
+        from scripts import pse_env  # noqa: PLC0415 -- the boundary that selects it
 
-    def test_unscoped_fallback_active_boundary_performs_full_checks(self) -> None:
-        with (
-            tempfile.TemporaryDirectory() as directory,
-            patch.object(operation, "scope_owner", return_value=None),
-            operation.Operation(Path(directory)),
-            patch.object(operation, "environment", return_value={}) as validate,
-        ):
-            self.assertTrue(operation.active(["solver"], {"IPOPT_DIR": "/explicit"}))
-            validate.assert_called_once_with(["solver"], {"IPOPT_DIR": "/explicit"})
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = Path(directory)
+            self.assertEqual(
+                pse_env.setup_python(snapshot, {"PSE_NATIVE_SETUP_PYTHON": "/chosen/python"}),
+                "/chosen/python",
+            )
+            self.assertEqual(pse_env.setup_python(snapshot, {}), sys.executable)
 
     def test_real_worker_outlives_launcher_then_generation_reclaims_after_drain(
         self,
@@ -785,8 +759,9 @@ while worker.poll() is None: time.sleep(.02)
             log = (base / "fixture.log").open("w")
             process = subprocess.Popen(
                 [
-                    "bash",
-                    str(cache.ROOT / "scripts/native_exec.sh"),
+                    str(cache.ROOT / "scripts/pse-env"),
+                    "--native",
+                    "--",
                     sys.executable,
                     "-c",
                     launcher,
@@ -835,8 +810,9 @@ print(json.dumps(str(c.prepare(Path(sys.argv[1]),'fixture',{'id':1},('lib/a',),b
 """
                 admitted = subprocess.run(
                     [
-                        "bash",
-                        str(cache.ROOT / "scripts/native_exec.sh"),
+                        str(cache.ROOT / "scripts/pse-env"),
+                        "--native",
+                        "--",
                         sys.executable,
                         "-c",
                         repair,
@@ -886,8 +862,9 @@ time.sleep(30)
             log = (base / "cancel.log").open("w")
             process = subprocess.Popen(
                 [
-                    "bash",
-                    str(cache.ROOT / "scripts/native_exec.sh"),
+                    str(cache.ROOT / "scripts/pse-env"),
+                    "--native",
+                    "--",
                     sys.executable,
                     "-c",
                     program,

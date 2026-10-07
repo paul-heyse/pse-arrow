@@ -20,7 +20,8 @@
 # Every check passes `--locked`: there is no cargo config key for it, and an unlocked
 # resolve would silently move a pin.
 
-set shell := ["bash", "scripts/build-shell.sh", "-euo", "pipefail", "-c"]
+set shell := ["bash", "scripts/pse-env", "--", "bash", "-euo", "pipefail", "-c"]
+set script-interpreter := ["bash", "scripts/pse-env", "--", "bash", "-euo", "pipefail"]
 
 # The development interpreter. `.python-version` is the single source of truth (uv,
 # direnv, doctor and CI all read it); earlier interpreters are a CI-matrix concern.
@@ -100,7 +101,7 @@ surreal command *args:
 [group('env')]
 [doc('Initialize a clean canonical database; ordinary runtime opening never installs schema')]
 canonical-init state:
-    PSE_NATIVE_CAPABILITIES='' bash scripts/native_exec.sh cargo run -p xtask --no-default-features --features canonical-tools --locked -- canonical-init {{ quote(state) }}
+    scripts/pse-env --native= -- cargo run -p xtask --no-default-features --features canonical-tools --locked -- canonical-init {{ quote(state) }}
 
 [group('local')]
 [doc('Targeted canonical server supervisor mechanism controls')]
@@ -115,7 +116,7 @@ surreal-fixture-test:
 [group('local')]
 [doc('Released-server native canonical schema, source/product and gated offline recovery control')]
 canonical-recovery-test *args:
-    PSE_NATIVE_CAPABILITIES='' bash scripts/native_exec.sh cargo build -p xtask --bin pse-canonical-recovery --no-default-features --features canonical-tools,pse-relations/force-validate --locked
+    scripts/pse-env --native= -- cargo build -p xtask --bin pse-canonical-recovery --no-default-features --features canonical-tools,pse-relations/force-validate --locked
     "{{ py }}" -m scripts.tests.canonical_recovery_check target/debug/pse-canonical-recovery {{ args }}
 
 [group('local')]
@@ -125,40 +126,38 @@ canonical-test state:
 
 [group('local')]
 [doc('Forced-validation persisted mathematical reconstruction controls on an isolated gRPC database')]
+[script]
 canonical-portable-test state:
-    #!/usr/bin/env bash
-    set -euo pipefail
     fixture_receipt="$PWD/target/producer-qualified-fixture.json"
-    bash scripts/native_exec.sh cargo run -p xtask --no-default-features --locked -- producer-identity-fixture --output "$fixture_receipt"
+    scripts/pse-env --native -- cargo run -p xtask --no-default-features --locked -- producer-identity-fixture --output "$fixture_receipt"
     PSE_PRODUCER_FIXTURE_RECEIPT="$fixture_receipt" PSE_SURREAL_STATE={{ quote(state) }} NEXTEST_TEST_THREADS=8 just unit-native-package pse-runtime 'canonical-tests,pse-relations/force-validate' 'test(canonical_portable_body)'
 
 [group('local')]
 [doc('Actual finite production capture prerequisite for persisted replay controls')]
 producer-fixture output:
-    bash scripts/native_exec.sh cargo run -p xtask --bin xtask --no-default-features --locked -- producer-identity-fixture --output {{ quote(output) }}
+    scripts/pse-env --native -- cargo run -p xtask --bin xtask --no-default-features --locked -- producer-identity-fixture --output {{ quote(output) }}
 
 [group('local')]
 [doc('Derive a relevant production-unit identity; unknown inputs disable persistent reuse')]
 [positional-arguments]
+[script]
 producer-identity *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
     # Cargo's run launcher injects tool-local loader paths. Build the capture tool
     # separately so the recorded caller is the ordinary native deployment context.
-    bash scripts/build-shell.sh -c 'cargo build -p xtask --bin xtask --no-default-features --locked'
-    exec bash scripts/native_exec.sh "$PWD/target/debug/xtask" producer-identity "$@"
+    cargo build -p xtask --bin xtask --no-default-features --locked
+    exec scripts/pse-env --native -- "$PWD/target/debug/xtask" producer-identity "$@"
 
 [group('local')]
 [doc('Focused producer identity tests including irrelevant test edits and consumed-input changes')]
 producer-identity-test:
-    bash scripts/native_exec.sh cargo nextest run -p xtask --bin xtask --no-default-features --locked {{ validate }} -E 'test(producer_)'
+    scripts/pse-env --native -- cargo nextest run -p xtask --bin xtask --no-default-features --locked {{ validate }} -E 'test(producer_)'
 
 [group('local')]
 [doc('Capture reviewed runtime, worker and Python deployment targets after producer-profile installation')]
 [positional-arguments]
 producer-deployment output:
     # Keep the deployment operation and all nested captures under one setup owner.
-    bash scripts/native_exec.sh "{{ py }}" -m scripts.producer_deployment "$1"
+    scripts/pse-env --native -- "{{ py }}" -m scripts.producer_deployment "$1"
 
 [group('local')]
 [doc('Producer deployment, native runner and assessment admission mechanism controls')]
@@ -168,7 +167,7 @@ producer-deployment-unit:
 [group('local')]
 [doc('Generator identity, unchanged-output and physical fixture controls')]
 codegen-unit-test:
-    PSE_NATIVE_CAPABILITIES='compiler,solver' bash scripts/native_exec.sh cargo nextest run -p xtask --bin xtask --locked --features package-fixtures {{ validate }} -E 'test(codegen::tests::) | test(codegen::physical::tests::)'
+    scripts/pse-env --native=compiler,solver -- cargo nextest run -p xtask --bin xtask --locked --features package-fixtures {{ validate }} -E 'test(codegen::tests::) | test(codegen::physical::tests::)'
 
 [group('local')]
 [doc('Focused explicit Python target selection controls without solver discovery')]
@@ -178,7 +177,7 @@ python-runner-unit-test:
 [group('local')]
 [doc('Worker CLI admission budgets against the configured managed process allocation')]
 worker-cli-unit-test:
-    bash scripts/native_exec.sh cargo nextest run -p xtask --bin pse-worker --locked --features native-solvers {{ validate }}
+    scripts/pse-env --native -- cargo nextest run -p xtask --bin pse-worker --locked --features native-solvers {{ validate }}
 
 [group('local')]
 [doc('Miri controls for the pure qualified scientific reconstruction authority')]
@@ -187,21 +186,17 @@ scientific-replay-miri:
 
 [group('local')]
 [doc('Run canonical execution actions in a supervised native worker; e.g. --until-idle --maximum-actions 100')]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 pse-worker *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
     cargo build --locked -p xtask --bin pse-worker --features native-solvers
     "{{ py }}" scripts/surreal_server.py worker --worker-command "$PWD/target/debug/pse-worker" {{ args }}
 
 [group('local')]
 [doc('The pse-worker journey: the worker binary runs an authored case in a child process against an isolated store')]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 worker-test *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
-    bash scripts/native_exec.sh cargo build -p xtask --bin pse-worker --locked --features native-solvers
-    PSE_WORKER_BINARY="$PWD/target/debug/pse-worker" bash scripts/native_exec.sh cargo nextest {{ nextest_action }} -p pse-runtime --test worker --locked --features pse-runtime/native-solvers,pse-relations/force-validate {{ args }}
+    scripts/pse-env --native -- cargo build -p xtask --bin pse-worker --locked --features native-solvers
+    PSE_WORKER_BINARY="$PWD/target/debug/pse-worker" scripts/pse-env --native -- cargo nextest {{ nextest_action }} -p pse-runtime --test worker --locked --features pse-runtime/native-solvers,pse-relations/force-validate {{ args }}
 
 # ---------------------------------------------------------------- discovery --
 
@@ -233,15 +228,14 @@ metadata-resolve:
 [group('local')]
 [doc('All current-environment checks, continuing after failures; durable logs and reports in a new directory')]
 [positional-arguments]
+[script]
 assessment output="" *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
     assessment_output=()
     if [[ -n "$1" ]]; then
         assessment_output=(--output "$1")
     fi
     shift
-    exec bash scripts/native_exec.sh "{{ py }}" -m scripts.validation "${assessment_output[@]}" "$@"
+    exec scripts/pse-env --native -- "{{ py }}" -m scripts.validation "${assessment_output[@]}" "$@"
 
 [group('discovery')]
 [doc('Machine-readable assessment scope and explicit environment exclusions; executes no checks')]
@@ -338,7 +332,7 @@ codegen-hakari-check:
 [group('local')]
 [doc('The published document and authoring JSON Schemas and the Python document types match a fresh derivation from the owning crates (ADR-0116)')]
 codegen-schemas-check:
-    PSE_NATIVE_CAPABILITIES='' bash scripts/native_exec.sh cargo run -p xtask --locked -- codegen --only schemas --check
+    scripts/pse-env --native= -- cargo run -p xtask --locked -- codegen --only schemas --check
 
 [group('local')]
 governance-tests *args:
@@ -361,19 +355,15 @@ audit-machete:
     "{{ py }}" -m scripts.audit_tools audit-machete
 
 [group('local')]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 features-combinations:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
     export CARGO_HACK_CARGO_SRC="$PWD/scripts/cargo_feature_check.py"
     export PATH="$PWD/.venv/bin:$PATH"
     cargo hack --keep-going check --workspace --feature-powerset --depth 2 --locked
 
 [group('local')]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 features-no-default:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
     export CARGO_HACK_CARGO_SRC="$PWD/scripts/cargo_feature_check.py"
     export PATH="$PWD/.venv/bin:$PATH"
     cargo hack --keep-going check --workspace --no-default-features --locked
@@ -412,17 +402,17 @@ check-test pkg target:
 [group('local')]
 [doc('Compile one linked native test target without executing its journeys')]
 check-native-test pkg target features:
-    bash scripts/native_exec.sh cargo check -p {{ pkg }} --test {{ target }} --locked --features {{ features }},pse-relations/force-validate
+    scripts/pse-env --native -- cargo check -p {{ pkg }} --test {{ target }} --locked --features {{ features }},pse-relations/force-validate
 
 [group('local')]
 [doc('Compile selected native package targets without replacing running test executables')]
 check-native-package pkg features capabilities="solver,klu,isolation,uno,petsc":
-    PSE_NATIVE_CAPABILITIES={{ quote(capabilities) }} bash scripts/native_exec.sh cargo check -p {{ pkg }} -p pse-relations --all-targets --locked --features {{ features }},pse-relations/force-validate
+    scripts/pse-env --native={{ quote(capabilities) }} -- cargo check -p {{ pkg }} -p pse-relations --all-targets --locked --features {{ features }},pse-relations/force-validate
 
 [group('local')]
 [doc('Run selected functional controls in one Rust test target with explicit Arrow validation')]
 functional-test-target pkg target filter *args:
-    bash scripts/memory-cap.sh cargo nextest {{ nextest_action }} -p {{ pkg }} -p pse-relations --test {{ target }} --locked {{ validate }} -E {{ quote(filter) }} {{ args }}
+    cargo nextest {{ nextest_action }} -p {{ pkg }} -p pse-relations --test {{ target }} --locked {{ validate }} -E {{ quote(filter) }} {{ args }}
 
 [group('local')]
 [doc('clippy with -D warnings, workspace, all targets (default and --no-default-features)')]
@@ -509,9 +499,8 @@ engine-boundary-check:
 [group('local')]
 [doc('Measure current isolated cold/warm/body/API builds, cache reuse and optional recovery; executes no tests')]
 [positional-arguments]
+[script]
 bench-builds output *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
     "{{ py }}" -m scripts.build_measurements "$@"
 
 [group('local')]
@@ -521,94 +510,71 @@ native-setup-unit:
 
 [group('local')]
 [doc('Unit control for pinned Ipopt C linking and ABI widths; no solver execution')]
+[script]
 unit-ipopt-abi:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/build-env.sh
-    exec bash scripts/memory-cap.sh "{{ py }}" -m scripts.native_operation --capabilities solver -- cargo nextest run -p pse-ipopt-sys -p pse-relations --lib --locked --features pse-ipopt-sys/link,pse-relations/force-validate -E 'test(abi_tests::)'
+    exec scripts/pse-env --native=solver -- cargo nextest {{ nextest_action }} -p pse-ipopt-sys -p pse-relations --lib --locked --features pse-ipopt-sys/link,pse-relations/force-validate -E 'test(abi_tests::)'
 
 [group('local')]
 [doc('Prepare source-pinned validated root isolation with FILIB and bundled SoPlex')]
+[script("bash", "scripts/pse-env", "--native=isolation", "--", "bash", "-euo", "pipefail")]
 native-isolation-prepare:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "isolation" "$@"
     printf '%s\n' "$PSE_ROOT_ISOLATION_DIR"
 
 [group('local')]
 [doc('Prepare pinned Uno or PETSc scoped foreign inputs against the existing native provider')]
+[script]
 native-pipeline-prepare kind:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    case {{ quote(kind) }} in uno|petsc) ;; *) exit 2 ;; esac
-    source scripts/native-recipe-env.sh {{ quote(kind) }} "$@"
-    case {{ quote(kind) }} in
-      uno) printf '%s\n' "$UNO_DIR" ;;
-      petsc) printf '%s\n' "$PETSC_DIR" ;;
-    esac
+    case {{ quote(kind) }} in uno) variable=UNO_DIR ;; petsc) variable=PETSC_DIR ;; *) exit 2 ;; esac
+    exec scripts/pse-env --native={{ quote(kind) }} -- printenv "$variable"
 
 [group('local')]
 [doc('Bounded unit controls for a pinned scoped Uno or PETSc project ABI')]
 [positional-arguments]
+[script]
 unit-pipeline-binding kind *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
     case {{ quote(kind) }} in uno|petsc) ;; *) exit 2 ;; esac
-    source scripts/native-recipe-env.sh {{ quote(kind) }} "$@"
     shift
-    bash scripts/memory-cap.sh cargo nextest run --no-fail-fast -p "pse-{{ kind }}-sys" -p pse-relations --lib --locked --features "pse-{{ kind }}-sys/link,pse-relations/force-validate" -E 'package(pse-{{ kind }}-sys)' "$@"
+    exec scripts/pse-env --native={{ quote(kind) }} -- cargo nextest {{ nextest_action }} -p "pse-{{ kind }}-sys" -p pse-relations --lib --locked --features "pse-{{ kind }}-sys/link,pse-relations/force-validate" -E 'package(pse-{{ kind }}-sys)' "$@"
 
 [group('local')]
 [doc('Compile a scoped native pipeline adapter with its qualified foreign prefix')]
+[script]
 check-pipeline-native kind:
-    #!/usr/bin/env bash
-    set -euo pipefail
     case {{ quote(kind) }} in uno|petsc) ;; *) exit 2 ;; esac
-    source scripts/native-recipe-env.sh {{ quote(kind) }} "$@"
-    cargo check --keep-going -p pse-backend-native -p pse-runtime -p pse-relations --all-targets --locked --features 'pse-backend-native/{{ kind }},pse-relations/force-validate'
+    exec scripts/pse-env --native={{ quote(kind) }} -- cargo check --keep-going -p pse-backend-native -p pse-runtime -p pse-relations --all-targets --locked --features 'pse-backend-native/{{ kind }},pse-relations/force-validate'
 
 [group('local')]
 [doc('Targeted safe native pipeline adapter controls with a qualified foreign prefix')]
 [positional-arguments]
+[script]
 unit-pipeline-native kind filter *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
     case {{ quote(kind) }} in uno|petsc) ;; *) exit 2 ;; esac
-    source scripts/native-recipe-env.sh {{ quote(kind) }} "$@"
     shift 2
-    bash scripts/memory-cap.sh cargo nextest run --no-fail-fast -p pse-backend-native -p pse-relations --lib --locked --features 'pse-backend-native/{{ kind }},pse-relations/force-validate' -E {{ quote(filter) }} "$@"
+    exec scripts/pse-env --native={{ quote(kind) }} -- cargo nextest {{ nextest_action }} -p pse-backend-native -p pse-relations --lib --locked --features 'pse-backend-native/{{ kind }},pse-relations/force-validate' -E {{ quote(filter) }} "$@"
 
 [group('local')]
 [doc('Compile native solver adapters and unit contracts; no solver journeys')]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 check-solver-contracts:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
     cargo check --keep-going -p pse-backend-native -p pse-runtime -p pse-compiler -p pse-relations --all-targets --locked --features pse-runtime/native-solvers,pse-relations/force-validate
 
 [group('local')]
 [doc('Static lint of the linked native workspace, conformance and benchmark consumers')]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 lint-solver-contracts:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
     cargo clippy --keep-going --no-deps --workspace --all-targets --locked --features pse-py/native-solvers,pse-tests-conformance/native-acceptance,pse-benches/native-process,pse-relations/force-validate -- -D warnings
 
 [group('local')]
 [doc('Native callback, upload, status, ABI and lifetime units; no native convergence journeys')]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 unit-native-contracts:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
     cargo nextest run -p pse-backend-native -p pse-ipopt-sys -p pse-relations -p pse-compiler -p pse-structural -p pse-runtime -p pse-math --lib --locked --features pse-runtime/native-solvers,pse-relations/force-validate -E 'package(pse-backend-native) | package(pse-compiler) | package(pse-math) | test(abi_tests::) | test(flowsheet::tests::) | test(initialization::tests::) | test(math::tests::) | test(workflow::tests::)'
 
 
 [group('local')]
 [doc('Public native workflow declaration, lifecycle and result units; no solver journeys')]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 unit-public-contracts:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
     cargo nextest run -p pse-runtime -p pse-relations --lib --locked --features pse-runtime/native-solvers,pse-relations/force-validate -E 'test(workflow::tests::)'
 
 [group('local')]
@@ -651,35 +617,29 @@ py-sync:
 
 [group('local')]
 [doc('Build the editable native solver workflow with its explicit linked library environment')]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 py-sync-native profile="dev":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
     uv sync --locked --no-install-project
     VIRTUAL_ENV="{{ absolute_path(venv) }}" "{{ bin / 'maturin' }}" develop --uv --profile {{ quote(profile) }} --locked --features force-validate,native-solvers
     cargo run -p xtask --no-default-features --locked -- python-stubs
 
 [group('local')]
 [doc('Compile the linked public native Python boundary with Arrow validation')]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 check-native-python:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
     cargo check -p pse-py --locked --features force-validate,native-solvers
 
 [group('local')]
 [doc('Targeted Python native workflow units under the explicit linked solver runtime')]
+[script("bash", "scripts/pse-env", "--native=solver", "--", "bash", "-euo", "pipefail")]
 py-native-contracts:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver" "$@"
     export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
     "{{ py }}" -m pytest python/pse/tests/test_native_workflow.py python/pse/tests/test_native_boundary_contracts.py -m unit -q
 
 [group('codegen')]
 [doc('Generate or --check the actual compiled native Python API stub; run py-sync after Rust edits')]
 python-stubs *args:
-    bash scripts/native_exec.sh cargo run -p xtask --no-default-features --locked -- python-stubs {{ args }}
+    scripts/pse-env --native -- cargo run -p xtask --no-default-features --locked -- python-stubs {{ args }}
 
 [group('local')]
 [doc('ruff format in check mode')]
@@ -718,27 +678,21 @@ py-unit *args:
 [group('local')]
 [doc('Targeted Python functional units with the linked native solver environment')]
 [positional-arguments]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 py-unit-native *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
-    bash scripts/memory-cap.sh "{{ py }}" -m pytest --maxfail=0 --continue-on-collection-errors -m unit "$@"
+    "{{ py }}" -m pytest --maxfail=0 --continue-on-collection-errors -m unit "$@"
 
 [group('local')]
 [doc('Run data-authored modeling fixtures and shared conformance checks; accepts Python module CLI arguments')]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 modeling-conformance *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
-    bash scripts/memory-cap.sh "{{ py }}" -m pse.conformance {{ args }}
+    "{{ py }}" -m pse.conformance {{ args }}
 
 [group('local')]
 [doc('Run every reference fixture once from packages/reference/conformance.toml; Arrow reports in build/seed-conformance')]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 seed-conformance:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
-    bash scripts/memory-cap.sh "{{ py }}" -m pse.conformance --manifest packages/reference/conformance.toml --report-dir build/seed-conformance
+    "{{ py }}" -m pse.conformance --manifest packages/reference/conformance.toml --report-dir build/seed-conformance
 
 [group('local')]
 [doc('Repository-config lint: taplo, typos, reuse, actionlint, zizmor, shellcheck, ast-grep')]
@@ -763,9 +717,8 @@ hygiene: (_bundle "hygiene" hygiene_checks)
 
 # Run each recipe, keep going after a failure, and list the failures.
 [private]
+[script("bash", "scripts/pse-env", "--", "bash", "-uo", "pipefail")]
 _bundle name steps:
-    #!/usr/bin/env bash
-    set -uo pipefail
     failed=()
     for step in {{ steps }}; do
         echo "== just $step"
@@ -849,16 +802,14 @@ docs-serve:
 [group('local')]
 [doc('Parity suite against IDAES 2.13.0 on this machine: pse built on the linked native solvers, the extracted solver prefix first on PATH (fails, never skips)')]
 [positional-arguments]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 parity *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
     maturin="$(realpath "{{ bin / 'maturin' }}")"
     export UV_PROJECT_ENVIRONMENT=.venv-parity
     uv sync --locked --group parity --no-install-project --python 3.13
     VIRTUAL_ENV="$PWD/.venv-parity" "$maturin" develop --uv --profile dev --locked --features force-validate,native-solvers
     export PATH="$IPOPT_DIR/bin:$PATH"
-    bash scripts/memory-cap.sh .venv-parity/bin/python -m pytest --maxfail=0 --parity -m "unit or component or integration" python/pse/parity "$@"
+    .venv-parity/bin/python -m pytest --maxfail=0 --parity -m "unit or component or integration" python/pse/parity "$@"
 
 [group('manual')]
 [doc('Optional aggregate of Rust, Python, quality and documentation checks; parity is separate')]
@@ -889,10 +840,8 @@ mutants-file path:
 
 [group('manual')]
 [doc('Unsafe surface report (cargo geiger)')]
+[script("bash", "scripts/pse-env", "--native=solver", "--", "bash", "-euo", "pipefail")]
 unsafe-surface:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver" "$@"
     exec "{{ py }}" -m scripts.audit_tools unsafe-surface
 
 [group('manual')]
@@ -921,9 +870,8 @@ adr-supersede old new:
 
 [group('decisions')]
 [doc('New implementation plan under docs/plans/NN-<slug>.md')]
+[script]
 plan slug:
-    #!/usr/bin/env bash
-    set -euo pipefail
     # Numbers are never reused: count retained plans and every plan ever added (ADR-0096).
     n=$( { ls docs/plans; git log --no-renames --diff-filter=A --name-only --format= -- docs/plans 2>/dev/null | sed 's#.*/##'; } | grep -E '^[0-9]{2}-' | sort | tail -n1 | cut -c1-2)
     next=$(printf '%02d' $((10#${n:-0} + 1)))
@@ -955,7 +903,7 @@ library-catalog:
 [group('mutating')]
 [doc('Regenerate relations, Python contracts, docs/generated, the canonical native schema and codecs, the Ipopt bindings and the cargo-hakari workspace-hack')]
 codegen *args:
-    PSE_NATIVE_CAPABILITIES='compiler,solver' bash scripts/native_exec.sh cargo run --quiet -p xtask --features package-fixtures --locked -- codegen {{ args }}
+    scripts/pse-env --native=compiler,solver -- cargo run --quiet -p xtask --features package-fixtures --locked -- codegen {{ args }}
     cargo hakari generate
     cargo hakari manage-deps --yes
 
@@ -968,10 +916,8 @@ codegen-bootstrap *args:
 
 [group('mutating')]
 [doc('Generate schema contracts and reference docs without executing physical package fixtures')]
+[script]
 codegen-contracts:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/build-env.sh
     unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
     cargo run -p xtask --no-default-features --locked -- codegen --only rust-contracts
     cargo run -p xtask --no-default-features --locked -- codegen --only python
@@ -1022,9 +968,8 @@ gh-setup *args:
 # unit. Then run the tests the move affects.
 [group('mutating')]
 [doc('Move named packages after a pin edit, regenerate hakari, check families: just upgrade package ...')]
+[script]
 upgrade +packages:
-    #!/usr/bin/env bash
-    set -euo pipefail
     before="$(mktemp -d)"
     trap 'rm -rf "$before"' EXIT
     cp Cargo.lock uv.lock "$before/"
@@ -1190,7 +1135,7 @@ dev-native-boundary-tools *args:
 # Exhaustive generated annotation checks are explicit, not package import work.
 [group('local')]
 python-contracts-check:
-    bash scripts/native_exec.sh {{ py }} scripts/check_python_contracts.py
+    scripts/pse-env --native -- {{ py }} scripts/check_python_contracts.py
 
 [group('local')]
 [doc('Build the release Python extension with explicit Arrow force validation for measurements')]
@@ -1211,14 +1156,12 @@ py-measure-production:
 bench-production:
     mkdir -p "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}/production"
     CARGO_TARGET_DIR=target/measure-production cargo tree -p pse-benches --locked -e features --format '{p} features=[{f}]' > "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}/production/features.txt"
-    CARGO_TARGET_DIR=target/measure-production PSE_ACCEPTANCE_OUTPUT="$(realpath -m "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}")/production" bash scripts/memory-cap.sh cargo bench --no-fail-fast -p pse-benches --bench native_cache --bench native_consolidation --locked
+    CARGO_TARGET_DIR=target/measure-production PSE_ACCEPTANCE_OUTPUT="$(realpath -m "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}")/production" cargo bench --no-fail-fast -p pse-benches --bench native_cache --bench native_consolidation --locked
 
 [group('local')]
 [doc('M17-M18 native operator, derivative composition and workflow contract units')]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 unit-dynamics-fitting:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
     cargo nextest run -p pse-backend-native -p pse-runtime -p pse-math -p pse-compiler -p pse-relations --lib --locked --features pse-runtime/native-solvers,pse-relations/force-validate -E 'test(dynamics::) | test(fitting::) | test(workflow::tests::) | test(function_coordinates)'
 
 [group('mutating')]
@@ -1232,7 +1175,7 @@ plan14-reference:
 [group('mutating')]
 [doc('Freeze seven independent FeOS 0.10.1 PC-SAFT states into the typed oracle bank')]
 feos-reference:
-    PSE_NATIVE_CAPABILITIES='' bash scripts/native_exec.sh cargo run --package xtask --locked --features thermodynamic-oracles -- feos-reference packages/reference/data/oracles/feos-0.10.1/data
+    scripts/pse-env --native= -- cargo run --package xtask --locked --features thermodynamic-oracles -- feos-reference packages/reference/data/oracles/feos-0.10.1/data
 
 [group('mutating')]
 [doc('Freeze the declared 200 paired Latin-hypercube thermodynamic campaign feeds')]
@@ -1242,26 +1185,22 @@ thermodynamic-feeds:
 [group('manual')]
 [doc('Measure every paired flash or 1000-point value-study outcome in a fresh directory')]
 thermodynamic-campaign phase output:
-    bash scripts/native_exec.sh .venv/bin/python -m scripts.thermodynamic_campaign {{phase}} {{output}}
+    scripts/pse-env --native -- .venv/bin/python -m scripts.thermodynamic_campaign {{phase}} {{output}}
 
 [group('manual')]
 [doc('Freeze the declared IDAES 2.13.0 SRK oracle observations through the isolated parity environment')]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 srk-reference:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
     UV_PROJECT_ENVIRONMENT=.venv-parity uv sync --locked --group parity --no-install-project --python 3.13
     export PATH="$IPOPT_DIR/bin:$PATH"
-    bash scripts/memory-cap.sh .venv-parity/bin/python scripts/idaes_srk_reference.py
+    .venv-parity/bin/python scripts/idaes_srk_reference.py
 
 [group('manual')]
 [doc('Freeze the declared binary NRTL defaults through IDAES 2.13.0 equality evaluation')]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 nrtl-reference:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
     UV_PROJECT_ENVIRONMENT=.venv-parity uv sync --locked --group parity --no-install-project --python 3.13
-    bash scripts/memory-cap.sh .venv-parity/bin/python scripts/idaes_nrtl_reference.py
+    .venv-parity/bin/python scripts/idaes_nrtl_reference.py
 
 [group('local')]
 [doc('Bit-exact source-to-generated physical fixture equivalence; no solver workflow')]
@@ -1270,11 +1209,8 @@ unit-physical-fixture:
 
 [group('local')]
 [doc('M21 isolated new physical, structural and library-boundary unit controls')]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 unit-m21:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
-    if [[ -f .envrc.local ]]; then source .envrc.local; fi
     cargo nextest run -p pse-runtime -p pse-backend-native -p pse-kernels -p pse-math --lib --locked --features pse-runtime/native-solvers,pse-relations/force-validate -E 'test(contribution_authority_derives_equations_and_independent_closure) | test(implicit_response_checks_scaled_backward_error) | test(roots_and_nlp_admit_original_matching_by_class) | test(integrated_balances_carry_segments_and_refuse_undeclared_jumps) | test(declared_envelopes_bind_identity_and_reject_unrequested_pressure) | test(current_function_vocabulary_roundtrips_without_legacy_fallback)'
 
 [group('local')]
@@ -1313,16 +1249,14 @@ llvm-system *args:
 
 [group('local')]
 [doc('Explicit targeted library checks against the shared linked native feature graph')]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 unit-native-selected filter *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh "solver,klu,isolation,uno,petsc" "$@"
-    bash scripts/memory-cap.sh cargo nextest {{ nextest_action }} --workspace --lib --locked --features pse-py/native-solvers,pse-relations/force-validate -E {{ quote(filter) }} {{ args }}
+    cargo nextest {{ nextest_action }} --workspace --lib --locked --features pse-py/native-solvers,pse-relations/force-validate -E {{ quote(filter) }} {{ args }}
 
 [group('local')]
 [doc('Compile the native process measurement target with pinned native environment and force validation')]
 check-native-process-bench:
-    bash scripts/native_exec.sh cargo check -p pse-benches --bench native_process --locked --features pse-benches/native-process,pse-relations/force-validate
+    scripts/pse-env --native -- cargo check -p pse-benches --bench native_process --locked --features pse-benches/native-process,pse-relations/force-validate
 
 [group('local')]
 [doc('Targeted native package units with explicitly selected adapter features')]
@@ -1332,41 +1266,37 @@ unit-native-package pkg features filter *args:
 [group('local')]
 [doc('Targeted native package units with an explicit setup capability request')]
 unit-native-capability-package pkg features capabilities filter *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/native-recipe-env.sh {{ quote(capabilities) }} "$@"
-    bash scripts/memory-cap.sh cargo nextest {{ nextest_action }} -p {{ pkg }} -p pse-relations --lib --locked --features {{ features }},pse-relations/force-validate -E {{ quote(filter) }} {{ args }}
+    scripts/pse-env --native={{ quote(capabilities) }} -- cargo nextest {{ nextest_action }} -p {{ pkg }} -p pse-relations --lib --locked --features {{ features }},pse-relations/force-validate -E {{ quote(filter) }} {{ args }}
 
 [group('local')]
 [doc('Focused default-feature refusal controls; keeps the real serial QDLDL absence branch')]
 [positional-arguments]
 feature-absence *args:
-    bash scripts/memory-cap.sh cargo nextest {{ nextest_action }} --locked {{ validate }} "$@"
+    cargo nextest {{ nextest_action }} --locked {{ validate }} "$@"
 
 [group('local')]
 [doc('Full workspace native feature graph with Arrow force validation; nextest owns selection')]
 [positional-arguments]
 native-test *args:
-    bash scripts/native_exec.sh "{{ py }}" -m scripts.native_tests rust "$@"
+    scripts/pse-env --native -- "{{ py }}" -m scripts.native_tests rust "$@"
 
 [group('local')]
 [doc('Full linked Python unit/component/integration scope; refresh with py-sync-native after Rust edits')]
 [positional-arguments]
+[script]
 native-python output *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
     native_output="$1"
     shift
-    exec bash scripts/native_exec.sh "{{ py }}" -m scripts.native_tests python --junitxml="$native_output/native-python.xml" "$@"
+    exec scripts/pse-env --native -- "{{ py }}" -m scripts.native_tests python --junitxml="$native_output/native-python.xml" "$@"
 
 [group('local')]
 [doc('Run selected native benchmark controls once; no performance receipt or timing samples')]
 [positional-arguments]
 bench-case-smoke output *args:
-    bash scripts/native_exec.sh "{{ py }}" -m scripts.case_measure --smoke "$@"
+    scripts/pse-env --native -- "{{ py }}" -m scripts.case_measure --smoke "$@"
 
 [group('local')]
 [doc('Fresh-process Criterion cases; requires --functional-from with completed local qualification')]
 [positional-arguments]
 case-measure output *args:
-    bash scripts/native_exec.sh "{{ py }}" -m scripts.case_measure "$@"
+    scripts/pse-env --native -- "{{ py }}" -m scripts.case_measure "$@"
