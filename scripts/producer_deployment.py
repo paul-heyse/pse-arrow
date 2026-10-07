@@ -10,11 +10,15 @@ attestation consumed by qualification; receipt metadata is not that observation.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
+from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeAlias
 
@@ -132,22 +136,208 @@ def hash_value(value: object) -> bool:
     )
 
 
-def receipt_outer(receipt: dict[str, object], role: str) -> dict[str, str] | None:
-    outer = receipt.get("outer_attestation")
-    if outer is None and role == "runtime":
-        return None  # The runtime library archive has no executable buildinfo owner.
-    if (
-        not isinstance(outer, dict)
-        or set(outer) != {"source", "build"}
-        or not all(hash_value(outer[key]) for key in ("source", "build"))
+def file_observation(path: Path) -> dict[str, object]:
+    path = path.absolute()
+    with path.open("rb") as stream:
+        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+    return {
+        "path": str(path),
+        "sha256": digest,
+        "canonical": str(path.resolve(strict=True)),
+        "mode": path.stat().st_mode,
+    }
+
+
+def current_receipt(receipt: dict[str, object]) -> bool:
+    version = receipt.get("receipt_version")
+    return isinstance(version, int) and not isinstance(version, bool) and version == 2
+
+
+def receipt_artifact(receipt: dict[str, object], role: str) -> dict[str, object]:
+    if not current_receipt(receipt):
+        raise ValueError(f"{role} has unsupported deployment receipt interpretation")
+    association = receipt.get("deployment")
+    if not isinstance(association, dict) or not isinstance(
+        association.get("artifact"), dict
     ):
-        raise ValueError(f"{role} lacks an actual outer source/build attestation")
-    return {key: str(outer[key]) for key in ("source", "build")}
+        raise TypeError(f"{role} lacks actual artifact association")
+    artifact = association["artifact"]
+    if not isinstance(artifact.get("path"), str) or artifact != file_observation(
+        Path(artifact["path"])
+    ):
+        raise ValueError(f"{role} actual artifact changed or is incomplete")
+    return artifact
 
 
-def validate_receipt(output: Path, role: ProducerRole) -> dict[str, str] | None:
+def verify_native_provider(
+    receipt_path: Path, package_id: str, out_dir: Path, environment: Mapping[str, str]
+) -> bool:
+    """Pure verification through the single Rust capture/framing owner; no Cargo."""
+    try:
+        value = read_object(receipt_path)
+        if (
+            not current_receipt(value)
+            or value.get("persistent_reuse_eligible") is not True
+            or value.get("reasons") != []
+        ):
+            return False
+        association = value.get("deployment")
+        if not isinstance(association, dict) or not isinstance(
+            association.get("workspace_root"), str
+        ):
+            return False
+        tool = Path(association["workspace_root"]) / "target/debug/xtask"
+        result = subprocess.run(
+            [
+                str(tool),
+                "verify-native-provider",
+                "--receipt",
+                str(receipt_path),
+                "--package-id",
+                package_id,
+                "--out-dir",
+                str(out_dir),
+            ],
+            env=dict(environment),
+            capture_output=True,
+            check=False,
+        )
+    except (OSError, ValueError, TypeError):
+        return False
+    else:
+        return result.returncode == 0
+
+
+def verify_artifact(
+    root: Path, receipt: Path, artifact: Path, environment: Mapping[str, str]
+) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            str(root / "target/debug/xtask"),
+            "verify-deployment-artifact",
+            "--receipt",
+            str(receipt),
+            "--artifact",
+            str(artifact),
+        ],
+        cwd=root,
+        env=dict(environment),
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    if result.returncode:
+        raise ValueError(
+            f"Actual artifact/consumed-input association refused: {result.stderr}"
+        )
+    value = json.loads(result.stdout)
+    if not isinstance(value, dict) or value != file_observation(artifact):
+        raise ValueError("Independent artifact observation differs from actual file")
+    return value
+
+
+def bind_python_artifact(
+    root: Path, output: Path, environment: Mapping[str, str]
+) -> None:
+    """Associate independently imported bytes after exact admitted RPATH replay."""
+    program = (
+        "import json,sys,pse; print(json.dumps(sys.modules['pse._native'].__file__))"
+    )
+    imported = Path(
+        json.loads(
+            subprocess.check_output(
+                [str(root / ".venv/bin/python"), "-c", program],
+                cwd=root,
+                env=dict(environment),
+                text=True,
+            )
+        )
+    ).resolve(strict=True)
+    if imported.parent != (root / "python/pse").resolve():
+        raise ValueError("Actual imported extension belongs to another checkout")
+    path = output / "python.json"
+    receipt = read_object(path)
+    built = receipt_artifact(receipt, "python")
+    original = Path(str(built["path"]))
+    verify_artifact(root, path, original, environment)
+    installed = file_observation(imported)
+    if installed["sha256"] != built["sha256"]:
+        evidence = read_object(output / "python-build-evidence.json")
+        messages = [
+            json.loads(line)
+            for line in str(evidence["stdout"]).splitlines()
+            if line.startswith("{")
+        ]
+        linked = []
+        for message in messages:
+            if message.get("reason") != "build-script-executed":
+                continue
+            libraries = message.get("linked_libs", [])
+            if not any(
+                "=" not in value or value.split("=", 1)[0].startswith("dylib")
+                for value in libraries
+            ):
+                continue
+            for value in message.get("linked_paths", []):
+                if "=" not in value:
+                    linked.append(value)
+                elif value.split("=", 1)[0] in {"native", "all"}:
+                    linked.append(value.split("=", 1)[1])
+        old = (
+            subprocess.check_output(
+                ["patchelf", "--print-rpath", str(original)], text=True
+            )
+            .strip()
+            .split(":")
+        )
+        old = [value for value in old if value]
+        actual = (
+            subprocess.check_output(
+                ["patchelf", "--print-rpath", str(imported)], text=True
+            )
+            .strip()
+            .split(":")
+        )
+        # Maturin 1.15 editable install appends dynamic linked paths absent from
+        # the original RPATH. Cargo's independent message scheduling can reorder
+        # the appended paths; their exact multiplicity and original prefix remain.
+        appended = [value for value in linked if value not in old]
+        if actual[: len(old)] != old or Counter(actual[len(old) :]) != Counter(
+            appended
+        ):
+            raise ValueError(
+                "Imported extension is not the admitted Maturin RPATH transformation"
+            )
+        with tempfile.TemporaryDirectory() as scratch:
+            replay = Path(scratch) / original.name
+            shutil.copyfile(original, replay)
+            subprocess.run(["patchelf", "--remove-rpath", str(replay)], check=True)
+            subprocess.run(
+                [
+                    "patchelf",
+                    "--force-rpath",
+                    "--set-rpath",
+                    ":".join(actual),
+                    str(replay),
+                ],
+                check=True,
+            )
+            if file_observation(replay)["sha256"] != installed["sha256"]:
+                raise ValueError(
+                    "Imported extension differs beyond the admitted RPATH-only transformation"
+                )
+    association = receipt["deployment"]
+    if not isinstance(association, dict):
+        raise TypeError("Python deployment association absent")
+    association["artifact"] = installed
+    path.write_text(json.dumps(receipt, indent=2) + "\n")
+    verify_artifact(root, path, imported, environment)
+
+
+def validate_receipt(output: Path, role: ProducerRole) -> dict[str, object]:
     name, package, target, kind, _ = role
     receipt = read_object(output / f"{name}.json")
+    receipt_artifact(receipt, name)
     if receipt.get("frame") != "pse.producer.v1" or receipt.get("package") != package:
         raise ValueError(f"{name} receipt has the wrong frame or package")
     if (
@@ -155,6 +345,8 @@ def validate_receipt(output: Path, role: ProducerRole) -> dict[str, str] | None:
         or receipt.get("reasons") != []
     ):
         raise ValueError(f"{name} producer is ineligible or retains unresolved reasons")
+    if not isinstance(receipt.get("native_abi"), str) or not receipt["native_abi"]:
+        raise ValueError(f"{name} lacks reviewed native ABI contract")
     if not hash_value(receipt.get("identity")):
         raise ValueError(f"{name} receipt lacks a valid producer identity")
     units = receipt.get("units")
@@ -207,30 +399,53 @@ def validate_receipt(output: Path, role: ProducerRole) -> dict[str, str] | None:
         or actual.get("features") != unit.get("features")
     ):
         raise ValueError(f"{name} receipt root differs from actual selected build root")
-    return receipt_outer(receipt, name)
+    return receipt_artifact(receipt, name)
 
 
-def validate_receipts(
-    root: Path, output: Path, *, expected_outer: dict[str, str] | None = None
-) -> dict[str, str]:
-    """Check captured roles and actual outer agreement; no identities are minted."""
-    outers = {role[0]: validate_receipt(output, role) for role in ROLES}
-    common = outers["worker"]
-    if (
-        common is None
-        or outers["python"] != common
-        or outers["runtime"] not in (None, common)
-    ):
-        raise ValueError(
-            "Actual outer source/build attestation differs across deployment roles"
-        )
-    if expected_outer is not None and common != expected_outer:
-        raise ValueError(
-            "Captured outer attestation differs from independently observed deployment"
-        )
-    if not (root / "target/producer/pse-worker").is_file():
-        raise ValueError("Actual producer worker binary is missing")
-    return common
+def validate_receipts(output: Path) -> dict[str, dict[str, object]]:
+    """Validate each actual role; role artifact digests have no equality rule."""
+    associations = {role[0]: validate_receipt(output, role) for role in ROLES}
+    shared: dict[str, dict[str, set[str]]] = {}
+    for role in ROLES:
+        receipt = read_object(output / f"{role[0]}.json")
+        units = receipt.get("units")
+        if not isinstance(units, list):
+            raise TypeError("Malformed production unit list")
+        for unit in units:
+            if not isinstance(unit, dict):
+                raise TypeError("Malformed production unit")
+            key = json.dumps(
+                [
+                    unit.get("package_id"),
+                    unit.get("target_name"),
+                    unit.get("target_kind", []),
+                    unit.get("mode"),
+                    unit.get("platform"),
+                ],
+                sort_keys=True,
+            )
+            contract = json.dumps(
+                [
+                    unit.get("profile"),
+                    unit.get("features"),
+                    unit.get("dependencies"),
+                ],
+                sort_keys=True,
+            )
+            shared.setdefault(key, {}).setdefault(role[0], set()).add(contract)
+    # Cargo can select several contexts for one logical unit inside a role.
+    # A participating root may add helper contexts, but every common context
+    # must remain an exact contract in one role's subset of the other's set.
+    for grouped_roles in shared.values():
+        role_contracts = list(grouped_roles.items())
+        for index, (name, contracts) in enumerate(role_contracts):
+            for other, other_contracts in role_contracts[:index]:
+                if not (contracts <= other_contracts or other_contracts <= contracts):
+                    raise ValueError(
+                        f"Participating roles {other}/{name} have incompatible "
+                        "shared unit contracts"
+                    )
+    return associations
 
 
 def deployment_environment(root: Path, output: Path) -> dict[str, str]:
@@ -243,6 +458,7 @@ def deployment_environment(root: Path, output: Path) -> dict[str, str]:
         "PSE_PYTHON_PRODUCER_RECEIPT": str(output / "python.json"),
         "PSE_PRODUCER_RECEIPT": str(output / "worker.json"),
         "PSE_WORKER_BINARY": str(root / "target/producer/pse-worker"),
+        "PSE_DEPLOYMENT_ARTIFACT_OBSERVATIONS": str(output / "observed-artifacts.json"),
         "PSE_PYTHON_DEPLOYMENT_ATTESTATION": str(output / "python-attestation.json"),
     }
 
@@ -273,6 +489,9 @@ def capture(
                 role_env["PYO3_BUILD_EXTENSION_MODULE"] = "1"
             else:
                 role_env.pop("PYO3_BUILD_EXTENSION_MODULE", None)
+                # The installed extension's explicit PyO3 configuration belongs
+                # to its capture, not to the independent Rust library/worker.
+                role_env.pop("PYO3_CONFIG_FILE", None)
             declarations, files = inputs[name]
             features = (
                 "native-solvers,force-validate"
@@ -312,8 +531,33 @@ def capture(
                 )
             require_capture_success(name, result.returncode)
             validate_receipt(output, role)
-        validate_receipts(root, output)
-    except (OSError, ValueError, KeyError, TypeError) as error:
+        bind_python_artifact(root, output, env)
+        associations = validate_receipts(output)
+        for name, artifact in associations.items():
+            verify_artifact(
+                root, output / f"{name}.json", Path(str(artifact["path"])), env
+            )
+        (output / "observed-artifacts.json").write_text(
+            json.dumps(associations, indent=2) + "\n"
+        )
+        subprocess.run(
+            [
+                str(root / "target/debug/xtask"),
+                "observe-deployment",
+                "--output",
+                str(output / "outer-observation.json"),
+            ],
+            cwd=root,
+            env=env,
+            check=True,
+        )
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        subprocess.CalledProcessError,
+    ) as error:
         (output / "deployment-error.log").write_text(
             f"{type(error).__name__}: {error}\n"
         )
@@ -327,7 +571,13 @@ def main() -> int:
     args = parser.parse_args()
     try:
         environment = capture(Path(__file__).resolve().parents[1], args.output)
-    except (OSError, ValueError, KeyError, TypeError) as error:
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        subprocess.CalledProcessError,
+    ) as error:
         print(f"Producer deployment capture failed: {error}", file=sys.stderr)
         return 1
     print(json.dumps(environment, indent=2))

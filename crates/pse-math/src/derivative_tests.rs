@@ -946,6 +946,7 @@ fn evaluator_storage_counts_its_instruction_stream() {
         &[(&x * &y).sin() + &x * &x * &y + (&x + &y).exp()],
         &[x, y],
         &layout,
+        &[],
         Optimization::default(),
         &Arc::new(AtomicBool::new(false)),
         limits,
@@ -2444,4 +2445,58 @@ fn demanded_directional_provider_composition_keeps_original_guard_and_first_part
             .jacobian,
         [54.0]
     );
+}
+
+#[test]
+fn structural_taylor_zeros_preserve_complete_second_shape_and_reduce_library_work() {
+    crate::initialize().unwrap();
+    let x = library::formal(0).unwrap();
+    let y = library::formal(1).unwrap();
+    let limits = EvaluationLimits::default();
+    let layout = crate::jets::JetLayout::new(vec![0, 1], DerivativeOrder::Second, limits).unwrap();
+    let expressions = [(&x * &y) + x.sin() + (&y * &y)];
+    let parameters = [x, y];
+    let cancel = Arc::new(AtomicBool::new(false));
+    let build = |zeros: &[(usize, usize)]| {
+        library::bounded_evaluator(
+            id(1),
+            &expressions,
+            &parameters,
+            &layout,
+            zeros,
+            Optimization::default(),
+            &cancel,
+            limits,
+            limits.operations,
+            0,
+        )
+        .unwrap()
+    };
+    let mut dense = build(&[]);
+    let mut sparse = build(&[(0, 2), (0, 4), (0, 5), (1, 1), (1, 3), (1, 4)]);
+    let work = |e: &symbolica::evaluate::ExpressionEvaluator<f64>| {
+        let c = e.count_operations();
+        c.additions + c.multiplications + c.inversions + c.function_calls
+    };
+    assert!(work(&sparse) < work(&dense));
+    assert_eq!(sparse.get_input_len(), 12);
+    assert_eq!(sparse.get_output_len(), 6);
+    let input = [2.0, 1.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 1.0, 0.0, 0.0, 0.0];
+    let mut full = [0.0; 6];
+    let mut suppressed = [0.0; 6];
+    dense.evaluate(&input, &mut full);
+    sparse.evaluate(&input, &mut suppressed);
+    let expected = [
+        15.0 + 2.0_f64.sin(),
+        3.0 + 2.0_f64.cos(),
+        8.0,
+        -2.0_f64.sin(),
+        1.0,
+        2.0,
+    ];
+    for component in 0..6 {
+        let factor = layout.raw_factor(component);
+        assert!((suppressed[component] * factor - expected[component]).abs() < 1e-13);
+        assert!((suppressed[component] - full[component]).abs() < 1e-13);
+    }
 }

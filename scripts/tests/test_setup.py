@@ -347,10 +347,26 @@ class ConfigurationTests(unittest.TestCase):
         uv = hashlib.sha256((ROOT / "uv.lock").read_bytes()).hexdigest()
         library = Path("/cache/solver/prefix/lib")
         for output, ok, detail, fix in (
-            (f"0.0.1 {cargo} {uv} 1", True, "native solvers", ""),
-            (f"0.0.1 {cargo} {uv} 0", True, "(lockfiles match)", ""),
-            (f"0.0.1 {'0' * 64} {uv} 1", False, "stale", "just py-sync-native"),
-            (f"0.0.1 {'0' * 64} {uv} 0", False, "stale", "just py-sync"),
+            (json.dumps(["0.0.1", cargo, uv, True]), True, "native solvers", ""),
+            (json.dumps(["0.0.1", cargo, uv, False]), True, "(lockfiles match)", ""),
+            (
+                json.dumps(["0.0.1", "0" * 64, uv, True]),
+                False,
+                "stale",
+                "just py-sync-native",
+            ),
+            (
+                json.dumps(["0.0.1", "0" * 64, uv, False]),
+                False,
+                "stale",
+                "just py-sync",
+            ),
+            (
+                json.dumps(["0.0.1", "", "", True]),
+                True,
+                "deployment association checked separately",
+                "",
+            ),
         ):
             with (
                 patch.object(Path, "exists", return_value=True),

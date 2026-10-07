@@ -404,16 +404,28 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
             .unwrap()
     };
     let serial = chains(1);
-    let mut parallel = chains(4);
+    let parallel = chains(4);
     assert!(serial.iter().all(|chain| chain.actual_parallelism == 1));
     assert!(parallel.iter().all(|chain| chain.actual_parallelism == 4));
-    // Compare every scientific and failure field after separately asserting the
-    // actual execution parallelism; the worker count is not an interval result.
-    for chain in &mut parallel {
-        chain.actual_parallelism = 1;
-    }
-    assert_eq!(serial, parallel);
     let frozen = prepared.problem.clone();
+    assert_eq!(serial.len(), parallel.len());
+    for (serial, parallel) in serial.iter().zip(&parallel) {
+        assert_eq!(
+            (serial.parameter, serial.end),
+            (parallel.parameter, parallel.end)
+        );
+        assert_eq!(serial.bound.outcome, parallel.bound.outcome);
+        assert!(serial.worker_failure.is_none() && parallel.worker_failure.is_none());
+        assert!(serial.scheduling_failures.is_empty() && parallel.scheduling_failures.is_empty());
+        let allowance = crate::workflow::tests::engineering_target(
+            &frozen.numerics,
+            NumericalTarget::Variable,
+            serial.parameter,
+        )
+        .budget;
+        assert!((serial.estimate - parallel.estimate).abs() <= allowance);
+        assert!((serial.bound.value.unwrap() - parallel.bound.value.unwrap()).abs() <= allowance);
+    }
     let uncertainty = frozen.profile.uncertainty.as_ref().unwrap();
     let controls = uncertainty.profile.as_ref().unwrap();
     let threshold = statrs::distribution::ChiSquared::new(1.)

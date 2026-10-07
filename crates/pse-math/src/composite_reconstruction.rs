@@ -45,9 +45,10 @@ impl<R: ReconstructionOracle> CompositeReconstruction<R> {
                 "composite supplier contract mismatch".into(),
             ));
         }
+        let correspondence = Correspondence::new(contract.original())?;
         let columns = suppliers
             .iter()
-            .map(|supplier| local_columns(contract.original(), supplier.contract()))
+            .map(|supplier| correspondence.columns(supplier.contract()))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
             contract,
@@ -79,9 +80,10 @@ impl<R: ReconstructionOracle> CompositeReconstruction<R> {
                 "composite normalized contract mismatch".into(),
             ));
         }
+        let correspondence = Correspondence::new(contract.original())?;
         let columns = suppliers
             .iter()
-            .map(|s| local_columns(contract.original(), s.contract()))
+            .map(|s| correspondence.columns(s.contract()))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
             contract,
@@ -103,12 +105,14 @@ impl<R: ReconstructionOracle> CompositeReconstruction<R> {
                 "composite original normalization correspondence".into(),
             ));
         }
+        let correspondence = Correspondence::new(&original)?;
         for (supplier, scales) in suppliers.iter().zip(local) {
             scales.validate(
                 supplier.original().coordinates().len(),
                 supplier.original().constraints().len(),
             )?;
-            let columns = local_columns(&original, supplier)?;
+            let columns = correspondence.columns(supplier)?;
+            let rows = correspondence.rows(supplier)?;
             if scales.key() != supplier.original().normalization()
                 || scales.objective != normalization.objective
                 || columns.iter().enumerate().any(|(i, c)| {
@@ -119,13 +123,7 @@ impl<R: ReconstructionOracle> CompositeReconstruction<R> {
                     .constraints()
                     .iter()
                     .enumerate()
-                    .any(|(i, row)| {
-                        original
-                            .constraints()
-                            .iter()
-                            .position(|r| r == row)
-                            .is_none_or(|r| scales.rows[i] != normalization.rows[r])
-                    })
+                    .any(|(i, _)| scales.rows[i] != normalization.rows[rows[i]])
             {
                 return Err(MathError::Contract(
                     "composite local physical scales differ from original".into(),
@@ -162,10 +160,12 @@ impl<R: ReconstructionOracle> CompositeReconstruction<R> {
         let mut validity = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
         source.str("composite-admitted-reconstruction");
         validity.str("composite-admitted-validity");
+        let correspondence = Correspondence::new(&original)?;
         let mut order = DerivativeOrder::First;
         let mut action = true;
         for supplier in suppliers {
-            let columns = local_columns(&original, supplier)?;
+            let columns = correspondence.columns(supplier)?;
+            let rows = correspondence.rows(supplier)?;
             if !normalized && supplier.original().normalization() != original.normalization() {
                 return Err(MathError::Contract(
                     "composite normalization mismatch".into(),
@@ -213,14 +213,7 @@ impl<R: ReconstructionOracle> CompositeReconstruction<R> {
                 dependencies.insert(global, support);
             }
             for row in supplier.eliminated() {
-                let constraint = &supplier.original().constraints()[row.get()];
-                let global = original
-                    .constraints()
-                    .iter()
-                    .position(|c| c == constraint)
-                    .ok_or_else(|| {
-                        MathError::Contract("composite original row correspondence".into())
-                    })?;
+                let global = rows[row.get()];
                 if !eliminated.insert(GlobalRow::new(global)) {
                     return Err(MathError::Contract(
                         "overlapping composite eliminated row".into(),
@@ -570,32 +563,59 @@ impl<R: ReconstructionOracle> ReconstructionOracle for CompositeReconstruction<R
         self.evaluate(x, Some(direction), demand, refinement)
     }
 }
-fn local_columns(
-    original: &OriginalContract,
-    supplier: &ReconstructionContract,
-) -> Result<Vec<Option<usize>>, MathError> {
-    supplier
-        .original()
-        .coordinates()
-        .iter()
-        .enumerate()
-        .map(|(local, coordinate)| {
-            original
-                .coordinates()
-                .iter()
-                .position(|c| c == coordinate)
-                .map(Some)
-                .or_else(|| {
-                    (coordinate.lower.is_finite()
-                        && coordinate.lower.to_bits() == coordinate.upper.to_bits()
-                        && supplier.retained().contains(&GlobalCol::new(local)))
-                    .then_some(None)
-                })
-                .ok_or_else(|| {
-                    MathError::Contract("composite original coordinate correspondence".into())
-                })
+struct Correspondence<'a> {
+    original: &'a OriginalContract,
+    coordinates:
+        crate::index::CheckedInventory<'a, pse_ids::SemanticId, crate::derived::Coordinate>,
+    rows: crate::index::CheckedInventory<'a, pse_ids::SemanticId, crate::derived::Constraint>,
+}
+impl<'a> Correspondence<'a> {
+    fn new(original: &'a OriginalContract) -> Result<Self, MathError> {
+        Ok(Self {
+            original,
+            coordinates: crate::index::CheckedInventory::new(original.coordinates(), |c| c.id)?,
+            rows: crate::index::CheckedInventory::new(original.constraints(), |r| r.id)?,
         })
-        .collect()
+    }
+    fn columns(&self, supplier: &ReconstructionContract) -> Result<Vec<Option<usize>>, MathError> {
+        let retained = supplier.retained().iter().copied().collect::<BTreeSet<_>>();
+        supplier
+            .original()
+            .coordinates()
+            .iter()
+            .enumerate()
+            .map(|(local, coordinate)| {
+                self.coordinates
+                    .position(&coordinate.id)
+                    .filter(|position| self.original.coordinates()[*position] == *coordinate)
+                    .map(Some)
+                    .or_else(|| {
+                        (coordinate.lower.is_finite()
+                            && coordinate.lower.to_bits() == coordinate.upper.to_bits()
+                            && retained.contains(&GlobalCol::new(local)))
+                        .then_some(None)
+                    })
+                    .ok_or_else(|| {
+                        MathError::Contract("composite original coordinate correspondence".into())
+                    })
+            })
+            .collect()
+    }
+    fn rows(&self, supplier: &ReconstructionContract) -> Result<Vec<usize>, MathError> {
+        supplier
+            .original()
+            .constraints()
+            .iter()
+            .map(|row| {
+                self.rows
+                    .position(&row.id)
+                    .filter(|position| self.original.constraints()[*position] == *row)
+                    .ok_or_else(|| {
+                        MathError::Contract("composite original row correspondence".into())
+                    })
+            })
+            .collect()
+    }
 }
 fn consumed<R: ReconstructionOracle>(
     result: Result<ReconstructionObservation, R::Error>,
@@ -840,6 +860,74 @@ mod tests {
             self.values(v, out)
         }
     }
+    #[test]
+    fn composite_correspondence_preserves_fixed_auxiliary_and_complete_bounds() {
+        let original = original();
+        let make = |coordinate, constraint: Constraint| {
+            let offset = constraint.lower;
+            let local = Arc::new(
+                OriginalContract::new(
+                    hash(50),
+                    original.normalization(),
+                    vec![
+                        original.coordinates()[0].clone(),
+                        coordinate,
+                        original.coordinates()[1].clone(),
+                    ],
+                    vec![constraint],
+                    vec![],
+                    original.support(),
+                    original.obligations(),
+                )
+                .unwrap(),
+            );
+            ReconstructionContract::new_with_offsets(
+                local,
+                crate::derived::ReconstructionProducer {
+                    source: hash(51),
+                    validity: hash(52),
+                    support: original.support(),
+                },
+                vec![0.into(), 1.into()],
+                vec![0.into()],
+                vec![
+                    Entry::new(0.into(), 0.into()),
+                    Entry::new(1.into(), 1.into()),
+                    Entry::new(2.into(), 0.into()),
+                ],
+                &[(0.into(), offset)],
+            )
+            .unwrap()
+        };
+        let fixed = Coordinate {
+            id: id(8),
+            lower: 2.0,
+            upper: 2.0,
+        };
+        let supplier = make(fixed.clone(), original.constraints()[0].clone());
+        let correspondence = Correspondence::new(&original).unwrap();
+        assert_eq!(
+            correspondence.columns(&supplier).unwrap(),
+            [Some(0), None, Some(1)]
+        );
+        assert_eq!(correspondence.rows(&supplier).unwrap(), [0]);
+        let mismatch = Coordinate {
+            lower: -99.0,
+            ..original.coordinates()[2].clone()
+        };
+        assert!(
+            correspondence
+                .columns(&make(mismatch, original.constraints()[0].clone()))
+                .is_err()
+        );
+        let row = Constraint {
+            lower: 1.0,
+            upper: 1.0,
+            ..original.constraints()[0].clone()
+        };
+        assert!(correspondence.rows(&make(fixed, row)).is_err());
+    }
+
     #[test]
     fn composite_admission_binds_actual_child_sheets_before_consumed_demand() {
         for chain in [false, true] {

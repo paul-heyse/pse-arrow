@@ -59,6 +59,44 @@
 
 pub use typed_index_collections::{TiSlice, TiVec};
 
+/// Checked identity access tied to the source inventory's lifetime. Keys describe
+/// the owner's correspondence rule; repeated requests remain distinct consumers.
+#[derive(Debug)]
+pub struct CheckedInventory<'a, K, T> {
+    source: &'a [T],
+    positions: std::collections::BTreeMap<K, usize>,
+}
+
+impl<'a, K: Ord, T> CheckedInventory<'a, K, T> {
+    /// Refuse ambiguous source identities before resolving any consumer.
+    pub fn new(source: &'a [T], key: impl Fn(&T) -> K) -> Result<Self, crate::MathError> {
+        let mut positions = std::collections::BTreeMap::new();
+        for (position, value) in source.iter().enumerate() {
+            if positions.insert(key(value), position).is_some() {
+                return Err(crate::MathError::Contract(
+                    "duplicate projection source identity".into(),
+                ));
+            }
+        }
+        Ok(Self { source, positions })
+    }
+
+    /// Transfer checked ordinals to the layout owner that retains the source inventory.
+    pub fn into_positions(self) -> std::collections::BTreeMap<K, usize> {
+        self.positions
+    }
+
+    /// Resolve an ordinal without treating inventory set equality as positional equality.
+    pub fn position(&self, key: &K) -> Option<usize> {
+        self.positions.get(key).copied()
+    }
+
+    /// Access the admitted source value with its complete contract intact.
+    pub fn get(&self, key: &K) -> Option<&'a T> {
+        self.position(key).map(|position| &self.source[position])
+    }
+}
+
 /// Declares one dense index space: a `usize` newtype that `TiVec`/`TiSlice` accept as a key.
 macro_rules! index_space {
     ($($(#[$attr:meta])* $name:ident;)*) => {$(
@@ -159,6 +197,17 @@ impl<R, C> Triplet<R, C> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn checked_inventory_preserves_order_multiplicity_and_refuses_ambiguity() {
+        let source = [("row", 7), ("variable", 7), ("row", 2)];
+        let index = CheckedInventory::new(&source, |value| *value).unwrap();
+        assert_eq!(index.position(&("row", 2)), Some(2));
+        assert_eq!(index.position(&("variable", 7)), Some(1));
+        assert_eq!(index.get(&("row", 7)), index.get(&("row", 7)));
+        assert_eq!(index.position(&("row", 9)), None);
+        assert!(CheckedInventory::new(&[(1, 2), (1, 3)], |value| value.0).is_err());
+    }
 
     #[test]
     fn index_spaces_round_trip_their_position() {

@@ -209,7 +209,7 @@ fn runtime() -> (Arc<SharedRuntime>, Runtime) {
             pse_runtime::workflow::CanonicalDeployment::new(
                 pse_operations::testing::canonical_fixture_store().unwrap(),
                 pse_runtime::workflow::OuterAttestation {
-                    source: pse_ids::ContentHash::from_bytes([0; 32]),
+                    source: Some(pse_ids::ContentHash::from_bytes([0; 32])),
                     build: pse_ids::ContentHash::from_bytes([1; 32]),
                 },
                 None,
@@ -425,7 +425,7 @@ fn scip_runtime() -> (Arc<SharedRuntime>, Runtime) {
             pse_runtime::workflow::CanonicalDeployment::new(
                 pse_operations::testing::canonical_fixture_store().unwrap(),
                 pse_runtime::workflow::OuterAttestation {
-                    source: pse_ids::ContentHash::from_bytes([0; 32]),
+                    source: Some(pse_ids::ContentHash::from_bytes([0; 32])),
                     build: pse_ids::ContentHash::from_bytes([1; 32]),
                 },
                 None,

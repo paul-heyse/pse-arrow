@@ -3,7 +3,7 @@ title: Canonical substrate and immutable revisions
 status: in-progress
 date: 2026-10-05
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -210,6 +210,23 @@ A's historical local profile/receipts below remain historical. Its current next 
 targeted controls and the shared C/D protection handoff; assembled kill/reopen/restore and
 combined read/retirement races belong to E3. Reopening an obsolete A/B integrated campaign is
 not a prerequisite. No new server experiment was run for this documentation revision.
+
+## Efficiency extension at the physical boundary
+
+The [repository-wide extension](28-surrealdb-unified-substrate.md#repository-wide-efficiency-extension)
+adds [28g](28g-bulk-data-operations.md) without changing this owner's revision, exact codec,
+guard or protection authority. T0/T1 declare physical payload/index/resource bounds once and
+derive server/replay ceilings through the registry/generator. T3 reuses grouped selected
+acquisition for physical documents and composed result reads; T4 settles complete source-package
+staging and activation before changing per-chunk publication. The current 512 KiB block and
+selected transport profile remain initial ceilings, not a reason to frame six/eight-row blocks.
+
+Preserve immutable request identity, complete positive/negative inventories, exact source
+revision intervals and renewed read protection. Larger groups do not grant a new retention
+authority or permit a transaction to contain native work. Any durable interpretation change
+receives version-first admission and controlled regeneration through this owner. Actual access
+paths remain T0 decisions; an optional predicate or a returned-page cap alone does not prove
+examined-work efficiency. A's earlier Outcome retains its original evidence conditions.
 
 ## Work packages
 

@@ -20,7 +20,7 @@ use surrealdb::{
 };
 
 /// Initial negotiated protocol limit; batches must leave space for their envelope.
-pub const MESSAGE_BYTES: usize = 4 * 1024 * 1024;
+pub const MESSAGE_BYTES: usize = wire::RESULT_MESSAGE_BYTES;
 /// Bounded submitted payload, leaving conservative room for query/record metadata.
 pub const PAYLOAD_BYTES: usize = 3 * 1024 * 1024;
 /// Client operation deadline. Mutations settle a lost acknowledgment by immutable identity.

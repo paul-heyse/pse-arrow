@@ -428,6 +428,68 @@ class SurrealSupervisorTests(unittest.TestCase):
                     server.fetched_json(origin)
         opened.assert_not_called()
 
+    def test_release_partial_and_corrupt_installations_refuse_same_path_overwrite(
+        self,
+    ) -> None:
+        tag = "v3.3.0"
+        filename = f"surreal-{tag}.linux-amd64.tgz"
+        release = {
+            "tag_name": tag,
+            "assets": [
+                {
+                    "name": filename,
+                    "digest": "sha256:" + "a" * 64,
+                    "browser_download_url": f"https://github.com/surrealdb/surrealdb/releases/download/{tag}/{filename}",
+                }
+            ],
+        }
+        directory = self.root / "tools" / tag / "linux-amd64"
+        directory.mkdir(parents=True)
+        binary = directory / "surreal"
+        binary.write_bytes(b"existing executable")
+        with (
+            patch.object(server.platform, "system", return_value="Linux"),
+            patch.object(server.platform, "machine", return_value="x86_64"),
+            patch.object(server, "fetched_json", return_value=release),
+            patch.object(server.urllib.request, "urlopen") as download,
+        ):
+            with self.assertRaisesRegex(server.SupervisorError, "incomplete"):
+                server.install(tag, self.root / "tools")
+            server.write_json(
+                directory / "release.json",
+                {"archive_sha256": "a" * 64, "binary_sha256": "b" * 64},
+            )
+            with self.assertRaisesRegex(server.SupervisorError, "changed"):
+                server.install(tag, self.root / "tools")
+            self.assertEqual(binary.read_bytes(), b"existing executable")
+            download.assert_not_called()
+
+    def test_worker_scope_gets_independent_native_owner_and_launch_guard(self) -> None:
+        allocation: dict[str, object] = {"native_worker_memory_bytes": server.GIB}
+        with patch.dict(
+            "os.environ",
+            {
+                "PSE_NATIVE_OPERATION": "/parent/record",
+                "PSE_NATIVE_HANDOFF": "/stale/record",
+            },
+        ):
+            environment = server.worker_environment(
+                self.state, 0, allocation, self.root / "pending.json"
+            )
+        self.assertNotIn("PSE_NATIVE_OPERATION", environment)
+        self.assertEqual(
+            environment["PSE_NATIVE_HANDOFF"], str(self.root / "pending.json")
+        )
+        command = server.worker_scope_command(
+            self.state, 0, allocation, ["/worker", "--jobs", "1"]
+        )
+        self.assertIn(
+            str(Path(server.__file__).resolve().with_name("native_operation.py")),
+            command,
+        )
+        self.assertIn("solver,klu,isolation,uno,petsc", command)
+        self.assertEqual(command[-4:], ["--", "/worker", "--jobs", "1"])
+
     def test_owned_environment_does_not_inherit_authentication_bypass(self) -> None:
         config = self.initialized()
         with patch.dict(

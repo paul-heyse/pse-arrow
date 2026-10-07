@@ -21,6 +21,13 @@ pub struct ModelingRevision {
     _lease: Arc<AllocationLease>,
 }
 impl ModelingRevision {
+    pub(crate) fn retained_bytes(&self) -> usize {
+        self.admitted.retained_bytes()
+    }
+    #[cfg(test)]
+    pub(crate) fn same_admission(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.admitted, &other.admitted)
+    }
     /// What specializing `root` as `instance` solves (`pse_model::lineage`).
     fn solved(
         &self,
@@ -40,7 +47,6 @@ impl ModelingRevision {
         self.admitted.declarations()
     }
     /// The package data documents the declarations were admitted with (ADR-0125).
-    #[cfg(test)]
     #[cfg(test)]
     pub(crate) fn documents(&self) -> &Arc<pse_modeling::document::DocumentInventory> {
         self.admitted.documents()
@@ -94,13 +100,16 @@ pub struct ModelingPreparation {
     solved: Solved,
     consumed_sources: Arc<BTreeMap<String, String>>,
     _owner: Arc<super::products::ProductOwner>,
+    _source_owner: Option<Arc<AllocationLease>>,
 }
 impl ModelingPreparation {
     pub(crate) fn with_consumed_source_versions(
         mut self,
-        versions: BTreeMap<String, String>,
+        versions: Arc<BTreeMap<String, String>>,
+        owner: Arc<AllocationLease>,
     ) -> Self {
-        self.consumed_sources = Arc::new(versions);
+        self.consumed_sources = versions;
+        self._source_owner = Some(owner);
         self
     }
     /// Exact immutable source objects consumed before scientific preparation.
@@ -777,6 +786,7 @@ impl MathService {
         let owner = self.own_modeling_product(&product, lease)?;
         Ok(ModelingPreparation {
             consumed_sources: Arc::default(),
+            _source_owner: None,
             product: product.with_owner(owner.clone()),
             solved,
             _owner: owner,

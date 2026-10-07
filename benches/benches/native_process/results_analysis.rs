@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Exact long trajectory/output reads and complete retained-evidence graph pages.
-//! Source admission, original simulation and graph admission are untimed setup.
+//! Exact retained reads and complete source-to-result publication operations.
+//! Both variants share the original scientific and exact transport checks.
 use super::{k4_support as support, *};
 use pse_backend_native::dynamics as native;
 use pse_ids::{ContentHash, Frame, FramedHasher, SemanticId};
@@ -17,7 +17,7 @@ use pse_relations::{
 };
 use pse_runtime::workflow::{AnalysisControls, AnalysisDirection, AnalysisHandle, Runtime};
 use serde_json::{Value, json};
-use std::io::Write;
+use std::{io::Write, iter::repeat_n};
 
 const ENGINEERING_ACCURACY: f64 = pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY;
 
@@ -41,6 +41,7 @@ struct Expected {
     selected: SemanticId,
     samples: usize,
     dense: ContentHash,
+    dense_batches: u64,
     output: ContentHash,
     graph: ContentHash,
     graph_key: String,
@@ -262,14 +263,18 @@ async fn prepare(
     owner: &WorkflowRuntime,
     states: usize,
     samples: usize,
+    publish_sources: bool,
+    physical_padding_bytes: usize,
 ) -> (Expected, Value) {
-    assert_eq!(
-        states, 128,
-        "this declared bounded campaign has 128 original Time states"
+    let mut phase_seconds = BTreeMap::new();
+    let started = Instant::now();
+    assert!(
+        states > 73,
+        "the declared trajectory must contain selected state x73 and more than 64 graph nodes"
     );
-    assert_eq!(
-        samples, 31,
-        "this declared bounded campaign has 31 original output times"
+    assert!(
+        samples >= 2,
+        "the declared output grid must contain both endpoints"
     );
     assert!(states.checked_mul(samples).unwrap() <= 4096);
     assert!(2 * states * samples + 65 <= 8192);
@@ -281,8 +286,64 @@ async fn prepare(
         source.push_str(&format!("var x{state}[i in t]:Time; eq rate{state}[i in t]:d(x{state}[i])/di==p; eq initial{state}:x{state}[0{{s}}]=={state}{{s}}; annotation start x{state}(0{{s}}); annotation check x{state}(abs(x{state}[i]-{state}{{s}}-p*i)<{allowance}{{s}});"));
     }
     source.push_str("} }");
-    let sources = support::sources(&source);
-    let physical = support::physical(runtime, owner, &sources).await;
+    let mut sources = support::sources(&source);
+    let physical_block_bytes = pse_operations::canonical_execution::RESULT_BATCH_BYTES;
+    if physical_padding_bytes > 0 {
+        assert!(publish_sources);
+        assert!(
+            physical_padding_bytes > physical_block_bytes,
+            "source-growth padding must cross the actual source block bound"
+        );
+        // The physical fixture is YAML, including existing # comments. Append
+        // one comment after its complete document; all declarations are intact.
+        let document = sources.physical.get_mut("materials/physical.yaml").unwrap();
+        document.extend_from_slice(b"\n#");
+        document.extend(repeat_n(b'p', physical_padding_bytes - 3));
+        document.push(b'\n');
+    }
+    let physical_hash =
+        pse_runtime::authoring_driver::document::package_checksum(&sources.physical);
+    let physical_bytes = sources.physical.values().map(Vec::len).sum::<usize>();
+    let physical_documents = sources.physical.len();
+    let physical_blocks = sources
+        .physical
+        .values()
+        .map(|bytes| bytes.len().div_ceil(physical_block_bytes))
+        .sum::<usize>();
+    let physical_largest_document = sources.physical.values().map(Vec::len).max().unwrap();
+    let physical = if publish_sources {
+        let pse_runtime::workflow::Durability::Durable(operations) = runtime.durability() else {
+            panic!("complete publication requires the canonical execution owner")
+        };
+        let receipt = operations.put_sources(&sources.physical).await.unwrap();
+        mark(&mut phase_seconds, "physical_document_publication", started);
+        let reopened = Instant::now();
+        let exact_sources = operations.sources(&receipt).await.unwrap();
+        mark(&mut phase_seconds, "physical_protected_reopen", reopened);
+        let checked = Instant::now();
+        assert_eq!(receipt.identity, physical_hash);
+        assert_eq!(&**exact_sources, &sources.physical);
+        assert_eq!(
+            pse_runtime::authoring_driver::document::package_checksum(&**exact_sources),
+            physical_hash
+        );
+        mark(&mut phase_seconds, "original_source_byte_checks", checked);
+        let admitted = Instant::now();
+        let documents = support::admitted_documents(owner, std::slice::from_ref(&**exact_sources));
+        let physical = runtime
+            .physical_from_documents(&documents, &owner.cancel)
+            .await
+            .unwrap();
+        mark(&mut phase_seconds, "physical_document_admission", admitted);
+        drop(documents);
+        drop(exact_sources);
+        physical
+    } else {
+        let physical = support::physical(runtime, owner, &sources).await;
+        mark(&mut phase_seconds, "physical_document_admission", started);
+        physical
+    };
+    let started = Instant::now();
     let time = physical
         .quantities()
         .quantity_types()
@@ -307,6 +368,8 @@ async fn prepare(
         .find(|row| row.name == "Root")
         .unwrap()
         .declaration_id;
+    mark(&mut phase_seconds, "modeling_source_publication", started);
+    let started = Instant::now();
     let cancel = CancelSource::new();
     let profile = native::Profile {
         method: native::Method::Diffsol,
@@ -366,7 +429,11 @@ async fn prepare(
         .unit
         .as_id();
     let experiment = prepared.model().solved().instance();
+    mark(&mut phase_seconds, "simulation_preparation", started);
+    let started = Instant::now();
     let result = prepared.start().unwrap().wait().await.unwrap();
+    mark(&mut phase_seconds, "simulate_and_publish", started);
+    let started = Instant::now();
     assert!(
         result.usable(),
         "original full trajectory completion must be usable: {:?}",
@@ -464,7 +531,9 @@ async fn prepare(
         .find(|set| set.name == simulation_samples::RELATION_ID.to_string())
         .unwrap();
     assert_eq!(dense_set.row_count, (states * samples) as u64);
-    assert!(dense_set.batch_count >= states as u64 && dense_set.batch_count > 64);
+    assert!(dense_set.batch_count > 0);
+    mark(&mut phase_seconds, "original_completion_checks", started);
+    let started = Instant::now();
     let controls = AnalysisControls {
         roots: vec![],
         direction: AnalysisDirection::Downstream,
@@ -491,6 +560,8 @@ async fn prepare(
         2 * states * samples + input_sources.len()
     );
     assert!(header.node_count <= 4096 && header.edge_count <= 8192);
+    mark(&mut phase_seconds, "analysis_activation", started);
+    let started = Instant::now();
     let mut expected = Expected {
         run,
         attempt,
@@ -503,6 +574,7 @@ async fn prepare(
         selected,
         samples,
         dense: ContentHash::from_bytes([0; 32]),
+        dense_batches: dense_set.batch_count,
         output: ContentHash::from_bytes([0; 32]),
         graph: ContentHash::from_bytes([0; 32]),
         graph_key: analysis.key().into(),
@@ -629,13 +701,24 @@ async fn prepare(
     let selected = trajectory(runtime, &expected, true).await;
     assert_eq!(dense.digest, expected.dense);
     assert_eq!(dense.rows as usize, states * samples);
-    assert!(dense.pages >= states as u64);
+    assert_eq!(dense.pages, expected.dense_batches);
+    assert!(dense.pages > 0);
     assert_eq!(selected.digest, expected.output);
     assert_eq!(selected.rows as usize, samples);
-    assert!(selected.pages < dense.pages);
+    assert!(selected.pages > 0);
     let graph = graph(&analysis, &expected, Some(&evidence)).await;
     expected.graph = graph.digest;
-    let setup = json!({"run":expected.run,"attempt":expected.attempt,"scientific_run":expected.scientific_run,
+    mark(
+        &mut phase_seconds,
+        "original_transport_oracle_checks",
+        started,
+    );
+    let setup = json!({"phase_seconds":phase_seconds,"physical_source_bytes":physical_bytes,
+        "physical_source_documents":physical_documents,"physical_source_blocks":physical_blocks,
+        "physical_source_block_bytes":physical_block_bytes,"physical_source_largest_document_bytes":physical_largest_document,
+        "physical_padding_bytes":physical_padding_bytes,"physical_source_hash":physical_hash.to_hex(),
+        "physical_source_growth_scope":"declared comment-byte padding of the same physical declarations; no scientific-model growth",
+        "physical_source_ingress":if publish_sources { "canonical stage, one package activation, protected exact reopen and physical admission" } else { "owned document admission" },"run":expected.run,"attempt":expected.attempt,"scientific_run":expected.scientific_run,
         "revision":revision,"manifest":manifest_rows[0].digest,"analysis":expected.graph_key,
         "method":expected.header.method,"dense_rows":dense.rows,"dense_batches":dense.pages,
         "selected_rows":selected.rows,"selected_batches":selected.pages,
@@ -645,7 +728,9 @@ async fn prepare(
         "original_graph_digest":expected.graph.to_hex(),"engineering_relative_fraction":ENGINEERING_ACCURACY,
         "analytical_comparison":"global fraction times max(abs(reference), canonical-unit floor)","original_completion":completion,
         "original_assessments":assessments,"original_model_checks":retained_checks.len(),
-        "authored_output_sample_checks":authored_grid.len(),"numerical_observations":numerical.json()});
+        "authored_output_sample_checks":authored_grid.len(),"trajectory_states":states,"trajectory_samples":samples,
+        "trajectory_growth_scope":"joint coordinate and sample growth; no isolated per-factor speed claim",
+        "numerical_observations":numerical.json()});
     drop(reader);
     drop(analysis);
     drop(original);
@@ -656,7 +741,7 @@ async fn prepare(
     (expected, setup)
 }
 
-pub(super) fn measure(
+fn measure_retained(
     c: &mut Criterion,
     spec: &Value,
     output: &std::path::Path,
@@ -676,7 +761,7 @@ pub(super) fn measure(
     let owner = WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap();
     let runtime = runtime(&owner);
     let setup_start = Instant::now();
-    let (expected, setup) = executor.block_on(prepare(&runtime, &owner, states, samples));
+    let (expected, setup) = executor.block_on(prepare(&runtime, &owner, states, samples, false, 0));
     let setup_seconds = setup_start.elapsed().as_secs_f64();
     owner.runtime.reset_observation_peak();
     phases.reset();
@@ -695,26 +780,7 @@ pub(super) fn measure(
         let mut elapsed = Duration::ZERO;
         for _ in 0..count {
             let started = Instant::now();
-            let record = executor.block_on(async {
-                let begin = Instant::now();
-                let dense = trajectory(&runtime, &expected, false).await;
-                assert_eq!(dense.digest, expected.dense);
-                assert_eq!(dense.rows as usize, states * samples);
-                assert!(dense.pages >= states as u64);
-                let dense_seconds = begin.elapsed().as_secs_f64();
-                let begin = Instant::now();
-                let selected = trajectory(&runtime, &expected, true).await;
-                assert_eq!(selected.digest, expected.output);
-                assert_eq!(selected.rows as usize, samples);
-                assert!(selected.pages < dense.pages);
-                let output_seconds = begin.elapsed().as_secs_f64();
-                let begin = Instant::now();
-                let analysis = runtime.analysis(&expected.graph_key).await.unwrap();
-                let graph = graph(&analysis, &expected, None).await;
-                assert_eq!(graph.digest, expected.graph);
-                let graph_seconds = begin.elapsed().as_secs_f64();
-                (dense, selected, graph, dense_seconds, output_seconds, graph_seconds)
-            });
+            let record = executor.block_on(read_all(&runtime, &expected, states, samples));
             let duration = started.elapsed();
             elapsed += duration;
             let (dense, selected, graph, dense_seconds, output_seconds, graph_seconds) = record;
@@ -739,47 +805,7 @@ pub(super) fn measure(
     let retained = pool.reserved();
     // Every analysis handle and reader is scoped to setup or one completed
     // iteration. Withdraw its retention only after those owners have dropped.
-    executor.block_on(async {
-        runtime
-            .forget_analysis_results(&expected.graph_key)
-            .await
-            .unwrap();
-        let deadline = Instant::now() + pse_operations::canonical::REQUEST_TIMEOUT;
-        loop {
-            match runtime
-                .canonical_store()
-                .forget_run_results(&expected.run)
-                .await
-            {
-                Ok(()) => break,
-                Err(error)
-                    if error
-                        .to_string()
-                        .contains("run results have protected readers")
-                        && Instant::now() < deadline =>
-                {
-                    // Dropped readers release protections asynchronously. Wait
-                    // only for that named transient; all other failures surface.
-                    tokio::time::sleep(Duration::from_millis(10)).await;
-                }
-                Err(error) => panic!("explicit result retirement failed: {error}"),
-            }
-        }
-        let mut complete = false;
-        for _ in 0..expected.reclamation_pages {
-            if runtime
-                .canonical_store()
-                .reclaim_result_page(&expected.run)
-                .await
-                .unwrap()
-                .complete
-            {
-                complete = true;
-                break;
-            }
-        }
-        assert!(complete, "original descriptor reclamation bound exhausted");
-    });
+    executor.block_on(retire(&runtime, &expected));
     let after_case_teardown = pool.reserved();
     drop(expected);
     drop(runtime);
@@ -806,6 +832,240 @@ pub(super) fn measure(
         "untimed_scope":"source admission, preparation, one original simulation, analysis admission, oracle checks, observation output, explicit bounded result retirement and fixture teardown",
         "sampling":"10 flat Criterion samples, 250 ms warmup, 1 s target measurement time; slow complete operations extend sampling",
         "memory_scope":"accounted pool peak during selections; process lifetime RSS includes untimed source/solve/analysis setup"});
+    std::fs::write(
+        output.join(format!("{name}-memory.json")),
+        serde_json::to_vec_pretty(&summary).unwrap(),
+    )
+    .unwrap();
+}
+
+async fn read_all(
+    runtime: &Runtime,
+    expected: &Expected,
+    states: usize,
+    samples: usize,
+) -> (
+    ReadObservation,
+    ReadObservation,
+    ReadObservation,
+    f64,
+    f64,
+    f64,
+) {
+    let begin = Instant::now();
+    let dense = trajectory(runtime, expected, false).await;
+    assert_eq!(dense.digest, expected.dense);
+    assert_eq!(dense.rows as usize, states * samples);
+    assert_eq!(dense.pages, expected.dense_batches);
+    assert!(dense.pages > 0);
+    let dense_seconds = begin.elapsed().as_secs_f64();
+    let begin = Instant::now();
+    let selected = trajectory(runtime, expected, true).await;
+    assert_eq!(selected.digest, expected.output);
+    assert_eq!(selected.rows as usize, samples);
+    assert!(selected.pages > 0);
+    let output_seconds = begin.elapsed().as_secs_f64();
+    let begin = Instant::now();
+    let analysis = runtime.analysis(&expected.graph_key).await.unwrap();
+    let graph = graph(&analysis, expected, None).await;
+    assert_eq!(graph.digest, expected.graph);
+    let graph_seconds = begin.elapsed().as_secs_f64();
+    (
+        dense,
+        selected,
+        graph,
+        dense_seconds,
+        output_seconds,
+        graph_seconds,
+    )
+}
+
+async fn retire(runtime: &Runtime, expected: &Expected) {
+    runtime
+        .forget_analysis_results(&expected.graph_key)
+        .await
+        .unwrap();
+    let deadline = Instant::now() + pse_operations::canonical::REQUEST_TIMEOUT;
+    loop {
+        match runtime
+            .canonical_store()
+            .forget_run_results(&expected.run)
+            .await
+        {
+            Ok(()) => break,
+            Err(error)
+                if error
+                    .to_string()
+                    .contains("run results have protected readers")
+                    && Instant::now() < deadline =>
+            {
+                // Dropped readers release protections asynchronously. Wait
+                // only for that named transient; all other failures surface.
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            Err(error) => panic!("explicit result retirement failed: {error}"),
+        }
+    }
+    let mut complete = false;
+    for _ in 0..expected.reclamation_pages {
+        if runtime
+            .canonical_store()
+            .reclaim_result_page(&expected.run)
+            .await
+            .unwrap()
+            .complete
+        {
+            complete = true;
+            break;
+        }
+    }
+    assert!(complete, "original descriptor reclamation bound exhausted");
+}
+
+pub(super) fn measure(
+    c: &mut Criterion,
+    spec: &Value,
+    output: &std::path::Path,
+    phases: &phases::Phases,
+) {
+    match spec["reuse"].as_str().unwrap() {
+        "admitted-retained" => measure_retained(c, spec, output, phases),
+        "publish-chain" => measure_complete(c, spec, output, phases),
+        other => panic!("unsupported result-analysis operation scope {other}"),
+    }
+}
+
+fn measure_complete(
+    c: &mut Criterion,
+    spec: &Value,
+    output: &std::path::Path,
+    phases: &phases::Phases,
+) {
+    let name = spec["id"].as_str().unwrap();
+    assert_eq!(spec["operation"], "result_analysis");
+    assert_eq!(spec["result_reads"], 3);
+    let states = usize::try_from(spec["blocks"].as_u64().unwrap()).unwrap();
+    let samples = usize::try_from(spec["samples"].as_u64().unwrap()).unwrap();
+    let threads = usize::try_from(spec["threads"].as_u64().unwrap()).unwrap();
+    let executor = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(threads)
+        .enable_all()
+        .build()
+        .unwrap();
+    let physical_padding_bytes = usize::try_from(
+        spec.get("physical_padding_bytes")
+            .map_or(0, |value| value.as_u64().unwrap()),
+    )
+    .unwrap();
+    let records_name = format!("{name}-observations.jsonl");
+    let mut records =
+        std::io::BufWriter::new(std::fs::File::create(output.join(&records_name)).unwrap());
+    let mut iterations = 0_u64;
+    let mut inclusive_phases = BTreeMap::<String, f64>::new();
+    let mut peak = 0;
+    let mut rss = 0;
+    let mut retained = 0;
+    let mut after_case = 0;
+    let mut last_setup = Value::Null;
+    phases.reset();
+    let mut group = c.benchmark_group("process");
+    group
+        .sample_size(10)
+        .sampling_mode(criterion::SamplingMode::Flat)
+        .warm_up_time(Duration::from_millis(250))
+        .measurement_time(Duration::from_secs(1));
+    group.bench_function(name, |b| {
+        b.iter_custom(|count| {
+            let mut elapsed = Duration::ZERO;
+            for _ in 0..count {
+                // The canonical fixture is fresh per operation. Its creation and
+                // destruction are outside the source-to-results operation timer.
+                let owner =
+                    WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap();
+                let runtime = runtime(&owner);
+                owner.runtime.reset_observation_peak();
+                let started = Instant::now();
+                let (expected, setup) = executor.block_on(prepare(
+                    &runtime,
+                    &owner,
+                    states,
+                    samples,
+                    true,
+                    physical_padding_bytes,
+                ));
+                let (dense, selected, graph, dense_seconds, output_seconds, graph_seconds) =
+                    executor.block_on(read_all(&runtime, &expected, states, samples));
+                let duration = started.elapsed();
+                elapsed += duration;
+                for (phase, value) in setup["phase_seconds"].as_object().unwrap() {
+                    *inclusive_phases.entry(phase.clone()).or_default() += value.as_f64().unwrap();
+                }
+                for (phase, seconds) in [
+                    ("exact_trajectory", dense_seconds),
+                    ("selected_output", output_seconds),
+                    ("analysis_pages", graph_seconds),
+                ] {
+                    *inclusive_phases.entry(phase.into()).or_default() += seconds;
+                }
+                peak = peak.max(owner.runtime.observation_peak_bytes());
+                rss = rss.max(
+                    owner
+                        .runtime
+                        .report()
+                        .unwrap()
+                        .process_peak_rss_bytes
+                        .unwrap(),
+                );
+                let pool = owner.runtime.pool();
+                retained = retained.max(pool.reserved());
+                // No original reports/readers survive into reclamation. Retirement,
+                // observation output and fixture cleanup are explicitly untimed.
+                executor.block_on(retire(&runtime, &expected));
+                after_case = after_case.max(pool.reserved());
+                drop(expected);
+                drop(runtime);
+                executor.block_on(owner.cleanup_fixtures()).unwrap();
+                drop(owner);
+                executor.block_on(tokio::task::yield_now());
+                assert_eq!(
+                    pool.reserved(),
+                    0,
+                    "complete result operation escaped runtime ownership"
+                );
+                serde_json::to_writer(
+                    &mut records,
+                    &json!({"seconds":duration.as_secs_f64(),
+                "dense_rows":dense.rows,"dense_batches":dense.pages,"selected_rows":selected.rows,
+                "selected_batches":selected.pages,"graph_rows":graph.rows,"graph_pages":graph.pages,
+                "source_to_analysis":setup}),
+                )
+                .unwrap();
+                records.write_all(b"\n").unwrap();
+                last_setup = setup;
+                iterations += 1;
+            }
+            elapsed
+        })
+    });
+    group.finish();
+    records.flush().unwrap();
+    assert!(iterations > 0);
+    for seconds in inclusive_phases.values_mut() {
+        *seconds /= iterations as f64;
+    }
+    let summary = json!({"id":name,"workload":spec,"iterations":iterations,
+        "variables_observed":[states],"threads":threads,"native_threads":1,
+        "pool_peak_bytes":peak,"process_peak_rss_bytes":rss,"retained_runtime_bytes":retained,
+        "after_case_teardown_bytes":after_case,"after_retained_runtime_teardown_bytes":0,
+        "phase_seconds":inclusive_phases,"compiler_phases":phases.report(iterations),
+        "numerical_observations":last_setup["numerical_observations"],"setup":last_setup,
+        "observations_file":records_name,
+        "scope":"complete canonical source-to-result publication and analysis operation with exact retained reads",
+        "timed_scope":"fixture source loading, physical document stage/activation/protected reopen, modeling publication, simulation preparation, simulation and result publication, analysis activation, original scientific/transport oracle checks and three complete selections",
+        "untimed_scope":"runtime and canonical fixture creation, observation output, explicit bounded retirement, runtime and fixture teardown",
+        "phase_boundary":"simulation and publication share the public completion interface and are reported together",
+        "sampling":"10 flat Criterion samples, 250 ms warmup, 1 s target measurement time; slow complete operations extend sampling",
+        "memory_scope":"accounted pool peak across each complete operation; process lifetime RSS also includes fixture creation and teardown"});
     std::fs::write(
         output.join(format!("{name}-memory.json")),
         serde_json::to_vec_pretty(&summary).unwrap(),

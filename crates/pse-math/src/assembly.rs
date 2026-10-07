@@ -441,6 +441,13 @@ impl CasePlan {
         if limits.contributions == 0 || limits.native_index == 0 || limits.worker_bytes == 0 {
             return Err(MathError::Limit("zero case assembly budget"));
         }
+        let source_instances = source
+            .map(|source| {
+                crate::index::CheckedInventory::new(source.structure.instances(), |binding| {
+                    (binding.instance, binding.body)
+                })
+            })
+            .transpose()?;
         let known: BTreeSet<_> = structure
             .variables()
             .iter()
@@ -561,13 +568,9 @@ impl CasePlan {
             let shared_key = (binding.body, all_outputs.clone(), formal.clone());
             if !all_outputs.is_empty() && !shared_supports.contains_key(&shared_key) {
                 let established = source.and_then(|source| {
-                    source
-                        .structure
-                        .instances()
-                        .iter()
-                        .position(|original| {
-                            original.instance == binding.instance && original.body == binding.body
-                        })
+                    source_instances
+                        .as_ref()?
+                        .position(&(binding.instance, binding.body))
                         .and_then(|index| {
                             source.instances[index]
                                 .groups

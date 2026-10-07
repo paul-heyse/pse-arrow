@@ -23,7 +23,7 @@ from pathlib import Path
 
 from scripts import surreal_server as server
 
-INTERPRETATION = "pse.substrate.v1"
+INTERPRETATION = server.SUBSTRATE_INTERPRETATION
 FIXTURE = {"operation": "ack-fixed-1", "exact_bits": "8000000000000000"}
 
 

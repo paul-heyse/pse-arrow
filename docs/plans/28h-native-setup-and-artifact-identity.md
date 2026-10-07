@@ -1,0 +1,241 @@
+---
+title: Native setup lifetime and artifact identity
+status: in-progress
+date: 2026-10-07
+adrs: [ADR-0164]
+review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md]
+scenario_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#4-revealing-scenarios]
+---
+
+# 28h: Native setup lifetime and artifact identity
+
+## Responsibility and accepted direction
+
+This companion develops PE05/PE06 across native/build/tooling consumers. It supplies scoped
+setup and provenance contracts to [28b](28b-selected-compilation-and-reuse.md) and continuing
+E2 retirement/build integration. [28e](28e-rebuild-retirement-and-qualification.md) remains the
+sole assembled qualification owner; the [coordinator](28-surrealdb-unified-substrate.md#repository-wide-efficiency-extension)
+owns coverage and finding dispositions. Blueprint §5, §14 and §20 retain authority.
+
+The maintainer explicitly accepted the production review's
+[RC01](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#rc01)
+on **2026-10-07**: retain actual artifact association and complete dirty outer provenance,
+but stop making complete outer source observation a compiled input of every associated
+consumer. This is distinct from the older unified-substrate review's RC01. It is an operator
+target decision, not accepted ADR status or implemented qualification.
+
+At `5260a3e9a3cecd69b6358ab86d4e917ae2508b29`, `native_cache.prepare` verifies every receipt
+file under its per-identity exclusive lock. Native environment composition requests solver,
+KLU, root-isolation and pipeline setup; Uno obtains a Cargo-owned HiGHS installation before
+looking up its prepared prefix. `pse-buildinfo` embeds the complete crates/vendor/xtask source
+inventory; current direct consumers are Python and optional xtask, not compiler/runtime.
+Relevant scientific producer keys already differ from outer attestation. Preserve that strength.
+
+Remaining execution follows [28e's development-phase evidence policy](28e-rebuild-retirement-and-qualification.md#development-phase-evidence-and-optional-artifact-requalification).
+The identity mechanisms below describe exact execution/reuse and explicitly requested strict
+qualification. Changes to their recorded inputs do not invalidate prior scientific results
+or impose a mandatory rebuild/requalification campaign during design. No change-impact
+classification system or frozen/copied Cargo environment is in scope.
+
+## Native capability selection and installation lifetime
+
+One setup owner interprets the selected recipe's target/features/profile and constructs the
+actual required native capability closure. Build, unit/native qualification, Python, worker,
+producer capture and measurement routes consume it rather than independently source broad
+environment fragments. A default/compiler-only target initializes no unrelated native
+provider. Whole linked qualification still prepares every capability actually in its feature
+closure; selecting an Ipopt test does not imply the binary links only Ipopt.
+
+Use the existing declared native bindings and consumed build inputs as authority. Avoid a
+second handwritten dependency inventory or arbitrary inference from command text. An explicit
+recipe request is resolved by the common owner, and actual producer capture checks its selected
+unit/native closure. Preserve pinned versions, ABI widths, compiler/target/features/flags,
+single LP64 BLAS provider, runtime reproducibility/thread settings and relevant external prefixes.
+
+Adopt a conservative **top-level operation lifetime** for verified installation reuse:
+
+- On admission, select the exact installation generation and fully verify its receipt,
+  required interfaces and bytes. Hold a shared generation-use lease while the operation and
+  its actual child consumers use it. Nested setup consumes this established validity instead
+  of hashing the same immutable files and rediscovering the same tools again.
+- Publish manager-owned generations immutably from private staging. Construction has its
+  own per-identity owner; short publication coordination and generation-use protection do
+  not make ordinary verified readers wait behind unrelated building or exclusive hashing.
+  Never replace/delete a generation still in use. Retired generations are reclaimable after
+  their final consumer drains.
+- A new top-level operation performs admission again. No permanent verified bit or timestamp-only
+  shortcut crosses that boundary. Unmanaged/explicit external prefixes do not inherit cache
+  validity merely because their path or receipt looks similar; validate their consumed inputs
+  under their own trust boundary, or refuse eligible use.
+- Changed/corrupt/incomplete installations are ineligible and rebuilt or quarantined by the
+  owner. Manager-controlled replacement changes generation. Arbitrary concurrent privileged
+  mutation violates immutable-use premises and requires readmission; this design does not
+  claim protection against undetected writes outside that controlled lifecycle.
+
+The owner must keep generation selection and verification coherent with publication, and
+release leases only after child cancellation/drain. Reuse can be an ordinary scoped Python
+owner/context plus process supervision in the existing modules; no daemon or credential-like
+environment boolean is required. A caller-supplied marker never grants scientific producer
+qualification. If the owner cannot establish a stable generation, retain full verification
+at the affected boundary rather than pretend the optimization is safe.
+
+L0 identifies the actual supervising process and how generation-use protection reaches every
+shell/Cargo/native child. The current short-lived Python command substitutions exit before
+the consumers start, so a context held only inside `prepare()` is insufficient. Each surviving
+consumer must keep the generation unreclaimable, or supervision must guarantee its drain before
+the final lease disappears. Test abrupt parent exit with a surviving child as well as ordinary
+cancellation; do not silently rely on Python finalizers or a normally completed shell.
+
+This reduces repeated assurance within one complete operation, not all verification forever.
+Keep full corruption/ABI checks on admission. Source archive, compiler and build-provider
+identity work likewise occurs once per consumed input per admitted operation. Different
+capabilities can share established provider observations without merging their own ABI contracts.
+
+For Uno/HiGHS, resolve a usable installation candidate and its recorded relevant input closure
+before performing nested Cargo discovery. Reuse only an actual Cargo-owned archive/header
+association whose current consumed inputs are established. Missing/changed/unqualified state
+runs the required Cargo discovery/build once through its owner. A source pin or existing
+archive path alone is insufficient. Do not skip actual native linking or provider association
+merely to improve a cache-hit number.
+
+## Artifact identity and complete outer observation
+
+Use three distinct products under one declaration/framing owner:
+
+| Product | Meaning, placement and consumers |
+|---|---|
+| Relevant producer/build-input identity | Complete actual selected unit/native/configuration closure for the role, including its composition root. Identify inputs before link; finalize qualified identity from actual compiler consumption where necessary, and embed it only if an executable needs it before deployment admission. Incidental files outside that closure are not inputs. |
+| Actual deployed artifact association | After successful build/install, bind observed artifact bytes to the reviewed capture and role-specific target/profile/feature/ABI contract. Worker startup and the imported Python module independently identify the actual artifact. |
+| Complete outer source/build observation | Observe the complete dirty source/configuration inventory under its existing definition at deployment/run admission. Record it with commit/context and all participating role associations; it is not another scientific reuse key or a mandatory compiled all-tree digest. |
+
+Retain actual source bytes, generated/build-script/plugin inputs, vendor override presence or
+absence, native libraries and compiler effects wherever the role consumed them. Unknown inputs
+continue to refuse persistent eligibility. Compiler/tool observations are relevant when they
+determine the actual artifact or result-producing implementation; unrelated host Rust/tool
+inventory is contextual, not automatic scientific refusal. Secrets are not raw provenance fields.
+
+Producer input identity precedes linking; artifact-byte identity follows it. Avoid circular
+self-hashing or embedding the final executable's own digest into itself. Extend the existing
+actual unit-DAG capture and association mechanism instead of manufacturing a matching pair
+of runtime JSON documents. Target archive/library, worker executable and Python extension
+roles remain explicit.
+
+Role-specific artifact identities need not be equal. Qualification establishes their required
+shared scientific/ABI compatibility and binds each actual artifact to the deployment record.
+The worker and Python can share one outer observation without embedding identical all-tree
+attestations. An unrelated outer edit changes that observation while leaving unaffected
+artifacts eligible; an edit to a consumed root, native input or unit changes the affected role.
+Dirty consumed bytes count regardless of Git commit. A changed file name/presence matters
+where selection or interpretation consumed it.
+
+Keep Python's actual installed/imported extension association, including the currently admitted
+Maturin RPATH transformation. A same-path replacement, wrong selected Cargo root, stale worker,
+changed ABI/native provider or forged capture refuses. An independently observed import/start
+is necessary; receipt metadata alone does not prove the deployed artifact.
+
+L0 uses the ADR skill and decision/design route to amend proposed ADR-0164 and the governed
+hashing/deployment contract before L3. If a governed record has become accepted by execution
+time, supersede it rather than edit it. Version changed identity/receipt meanings and admit
+version before decoding current shape. Do not recompute historical keys or relabel historical
+qualification. Remove all-tree build-script watches/embedding only after replacement artifact
+association and outer observation have working consumers.
+
+## Consumer scope and packages
+
+Inspect all recipe environment roots and their callers, native caches/build scripts, bootstrap/
+doctor discovery, compiler and solver input capture, producer deployment, Python admission,
+worker launch and validation/measurement entry points. `surreal_server` release installation
+also verifies binary identity: assess whether it can consume the same immutable installation
+mechanics while retaining its release and supervisor contracts. Its lifetime is not silently
+equated to an ephemeral compiler operation. Current bounded read-only doctor discovery can
+remain when it supplies a different guarantee.
+
+| Package | Inputs and delivered behavior | Migration, deletion and focused acceptance | Status |
+|---|---|---|---|
+| L0 — Adopt lifecycle/provenance contracts | Accepted RC01, current bindings and actual capture. Route identity/deployment changes; settle coherent generation-use ownership and exact consumed setup closure. | Record operating/trust assumptions, version changes and affected composition roots. Confirm every remaining setup/capture consumer and justified distinct boundary. This does not accept the ADR or qualify deployment. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
+| L1 — Scoped verified setup | L0's installation lifetime and capability request. Implement the common setup owner, immutable generation publication and operation-scoped reuse. | Migrate native scripts, build/test/Python/worker/measurement consumers. Add a bounded `native-setup-unit` recipe since current tooling recipes do not select these lifecycle units alone. Test unchanged nested use, input changes, corruption/missing files, explicit-prefix refusal/readmission, concurrent builders/readers, surviving children after parent exit and cancellation/drain. Delete repeated same-lifetime validation and obsolete broad setup paths. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
+| L2 — Provider discovery and build locality | Working L1 and relevant native/Cargo input association. Perform actual HiGHS/compiler/archive discovery only where the current selected closure needs it. | Migrate pipeline setup and remaining generator/build consumers; unchanged outputs keep bytes/mtimes and stale outputs disappear through the generator. Test cache hit/miss and changed provider/flags/target; never infer eligibility from existence alone. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
+| L3 — Artifact and outer observation | L0's recorded decision route and actual producer tooling; compatible L1/L2 input observations. Implement separated identities and actual role association. | Migrate `pse-buildinfo`, producer capture/deployment, runtime qualification, worker/Python admission and assessment reuse together. Test unrelated/relevant edits, dirty root/native changes, wrong roles, replaced artifacts and actual imported extension. Delete replaced all-tree compiled identity and equality assumptions. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
+| L4 — Tooling consumer closure | L1–L3 and all confirmed related variants. Reconcile coordinator coverage and refresh actual affected deployed artifacts. | No displaced environment/capture mechanism remains; E3 receives eligible real artifacts and E4 receives comparable setup/build cases. Full local qualification remains at E, not repeated here. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
+
+L1/L2 can proceed independently of bulk result corrections. L3 cannot remove the old guarantee
+before actual replacement association works. Scope executor files narrowly; root owns manifest/
+recipe/generator declarations and shared qualification integration. Use existing checkout,
+pinned toolchain and Cargo target ownership; never clean or share target trees to manufacture
+cache comparisons. No dependency/toolchain/server-profile change is planned by default.
+
+## Verification and evidence limits
+
+**Interface-checked:** the authoring assessment confirms full receipt-file verification under
+exclusive preparation, nested provider discovery and all-tree compiled inventory in the current
+direct consumer scope. It does not establish their share of the interrupted test run.
+
+**Proposed acceptance:** targeted Python tooling units run through the repository's `.venv`
+and L1's bounded `just native-setup-unit` recipe, with disposable installations and no real provider rebuild when
+mocked file/ownership inputs suffice. Rust identity/deployment units use the relevant package/
+producer unit recipes and explicit force-validation. New lifecycle controls must attack stale
+and forged validity, not merely assert fewer calls. No per-test environment exception may admit
+an artifact whose material consumed inputs are unknown.
+
+E3 executes actual build/import/start association and affected native/Rust/Python journeys after
+the complete extension. A capture-only false-rejection repair requires its actual association
+controls, not automatic repetition of every prior series. L1/L3 change real setup/identity
+contracts, so their affected consumer qualification must be fresh. E4 separates setup hashing,
+discovery/build work and deployment admission; observe no-op, relevant and unrelated edits
+under comparable checkout/toolchain/cache conditions. Target-only observations carry no speedup
+claim when no comparable historical baseline exists.
+
+## Checkpoint
+
+L0 recorded confirmed RC01 in proposed ADR-0164 and architecture revision132 before dependent
+changes. Formal ADR acceptance remains separate. L1 implements an actual operation scope begun
+before setup, immutable native generations, separate build/publication coordination and
+scope-bound admission/use records. Reclamation verifies surviving descendants; unverifiable
+owners retain conservative pins. Explicit unmanaged mutable prefixes retain full boundary
+verification. Focused setup, actual ABI and recipe-root controls have positive evidence. Ordinary native
+recipes share the operation owner. Manual helpers and long-lived server installation keep
+their distinct full-verification and supervision contracts.
+
+L2's unchanged installation path uses actual Cargo-owned HiGHS archive/header association before
+nested build discovery. Its narrower relevant input closure is being integrated with L3's common
+producer capture rather than another dependency inventory. L3 uses external versioned deployment
+receipts: current actual unit-DAG/dep-info qualification finalizes the selected input key, then
+post-build/import association binds actual role bytes. No current consumer needs that key
+embedded before startup, so it is not injected into shared buildinfo and no circular self-hash
+is introduced. ProducerV1 scientific identity keeps its existing meaning; the changed deployment
+receipt shape has separate version admission. Actual worker/Python observation, allowed RPATH
+transformation and complete outer observation remain obligations, not manufactured receipt pairs.
+
+L3/L4 mechanisms are implemented and focused identity/deployment controls passed. Actual
+three-role deployment qualification and enclosing E3/E4 remain open. Compiler-cache compilation
+now remains in the supervised client and performs preprocessing; conflicting logging or
+distribution settings fall back to direct compilation. The existing local cache is a trusted
+build input, not evidence of artifact provenance. Earlier artifacts/receipts keep their historical scope.
+A new strict deployment claim requires the affected real build/import/start association;
+changing installation/source context alone does not require making that claim or requalifying
+earlier behavior.
+Independent implementation review found and corrected an unintended checkout requirement
+in Python/worker admission. Available source provenance is explicit: an installed artifact
+without its owning checkout records absence, retains actual mapped-artifact verification,
+and gains no producer qualification from that absence. A copied actual executable inside
+an unrelated Rust project exercises this boundary. Cold installation generation during
+integration is not a comparable speed measurement.
+
+Actual capture also exposed cached Rust dep-info whose output rules retain the previous
+Cargo profile directory. Association now accepts only that output-directory relocation
+with the full unit suffix and actual Cargo context preserved; source prerequisites are
+never rewritten. Cargo wrapper configuration is excluded when an explicit environment
+override selects the effective wrapper, whose native closure remains mandatory. Python
+capture selects the actual Maturin ABI3 configuration required by the reviewed PyO3 branch;
+that configuration does not enter the independent Rust library/worker caller. These capture
+corrections retain unknown-input refusal and require real eligible recapture before E3.
+
+Assembled integration also exposed environment reentry and fixture ownership mistakes.
+Selected library paths now remain stable across nested recipes while preserving explicit
+caller search components. Disposable setup fixtures establish their own admission owner
+instead of inheriting the enclosing assessment's verified installations. HiGHS candidate
+selection separates the proof locator from material compilation inputs; changing that
+locator still triggers verification. Provider capture must use the actual workspace
+composition (`pse-uno-sys` with `highs-provider`) and associate its reachable Cargo-owned
+HiGHS dependency, rather than trying to select an inactive external dependency directly.
+The real provider association and assembled deployment remain acceptance obligations.

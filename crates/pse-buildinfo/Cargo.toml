@@ -3,7 +3,7 @@
 
 [package]
 name = "pse-buildinfo"
-description = "Build provenance: rustc version, profile, git sha and the embedded lockfiles (blueprint §3.1, plan §5)."
+description = "Implementation metadata and verified deployment observation (blueprint §3.1 and §5.3)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -23,12 +23,8 @@ workspace = true
 serde.workspace = true
 schemars.workspace = true
 pse-ids.workspace = true
+sha2.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
-
-[build-dependencies]
-# External lockfile checksums for the generated provenance document, not semantic identity.
-sha2.workspace = true
-hex.workspace = true
-pse-ids.workspace = true

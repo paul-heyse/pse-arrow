@@ -31,23 +31,18 @@ impl Normalization {
         variables: &[SemanticId],
         rows: &[SemanticId],
     ) -> Result<Self, MathError> {
-        let scale = |id, kind| {
-            policy
-                .targets
-                .iter()
-                .find(|t| t.id == id && t.kind == kind)
-                .map(|t| t.coordinate_scale)
-                .ok_or_else(|| MathError::Contract(format!("missing resolved coordinate {id}")))
-        };
+        let access = crate::numerics::TargetAccess::new(policy)?;
         let result = Self {
-            variables: variables
+            variables: access
+                .ordered(NumericalTarget::Variable, variables)?
                 .iter()
-                .map(|id| scale(*id, NumericalTarget::Variable))
-                .collect::<Result<_, _>>()?,
-            rows: rows
+                .map(|t| t.coordinate_scale)
+                .collect(),
+            rows: access
+                .ordered(NumericalTarget::Row, rows)?
                 .iter()
-                .map(|id| scale(*id, NumericalTarget::Row))
-                .collect::<Result<_, _>>()?,
+                .map(|t| t.coordinate_scale)
+                .collect(),
             objective: policy
                 .targets
                 .iter()

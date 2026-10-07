@@ -17,6 +17,7 @@ use crate::workflow::dynamics::{
     CoordinateBinding, DynamicCoordinates, DynamicMode, DynamicWorker, FunctionProgram,
     GuardProgram, RangeCheck, RangeValue,
 };
+use crate::workflow::math;
 use pse_backend_native::{
     ProblemError,
     dynamics::{self as native, Function},
@@ -43,6 +44,10 @@ pub struct ModelingSimulation {
     quantities: Arc<pse_quantity::QuantityRegistry>,
     modes: Vec<SimulationMode>,
     contract: native::Contract,
+    #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+    state_positions: BTreeMap<SemanticId, usize>,
+    #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+    output_positions: BTreeMap<SemanticId, usize>,
     profile: native::Profile,
     snapshot: pse_backend_native::execution::Snapshot,
     pub(in crate::workflow) runtime: Runtime,
@@ -745,10 +750,10 @@ impl ModelingPackage {
             .unit(
                 self.quantities
                     .quantity_type(axis.quantity)
-                    .map_err(super::super::math)?
+                    .map_err(math)?
                     .canonical_unit,
             )
-            .map_err(super::super::math)?
+            .map_err(math)?
             .scale_to_canonical;
         let case = ModelingCaseBindings::from(data);
         let (states, parameters) = dynamic_ports(product, &case)?;
@@ -1027,10 +1032,10 @@ impl ModelingPackage {
             .unit(
                 self.quantities
                     .quantity_type(axis.quantity)
-                    .map_err(super::super::math)?
+                    .map_err(math)?
                     .canonical_unit,
             )
-            .map_err(super::super::math)?;
+            .map_err(math)?;
         let time_scale = time_unit.scale_to_canonical;
         if profile.start != axis.lower * time_scale || profile.end > axis.upper * time_scale {
             return Err(contract(
@@ -1382,7 +1387,7 @@ impl ModelingPackage {
                 unit: self
                     .quantities
                     .quantity_type(row.quantity)
-                    .map_err(super::super::math)?
+                    .map_err(math)?
                     .canonical_unit,
                 integer: false,
                 declared_tolerance: None,
@@ -1580,7 +1585,7 @@ impl ModelingPackage {
                 &declarations,
                 &profile.numerics,
             )
-            .map_err(super::super::math)?,
+            .map_err(math)?,
         );
         let closure_budgets = cases::closure_budgets(&numerics);
         for (position, integral) in product.model.integrals.keys().enumerate() {
@@ -1610,13 +1615,12 @@ impl ModelingPackage {
                 .ok_or_else(|| contract("integrated flux control absent"))? =
                 budgets.into_iter().fold(f64::INFINITY, f64::min);
         }
+        let target_access = pse_math::numerics::TargetAccess::new(&numerics).map_err(math)?;
         let scale = |id, kind| {
-            numerics
-                .targets
-                .iter()
-                .find(|t| t.id == id && t.kind == kind)
-                .map(|t| t.coordinate_scale)
-                .ok_or_else(|| contract("dynamic numerical target absent"))
+            target_access
+                .get(kind, id)
+                .map(|target| target.coordinate_scale)
+                .map_err(math)
         };
         let coordinates = DynamicCoordinates {
             time: axis.time,
@@ -1902,18 +1906,15 @@ impl ModelingPackage {
                             .iter()
                             .find(|r| r.id == rows[i])
                             .ok_or_else(|| contract("rate row missing"))?;
-                        let rate = self
-                            .quantities
-                            .quantity_type(row.quantity)
-                            .map_err(super::super::math)?;
+                        let rate = self.quantities.quantity_type(row.quantity).map_err(math)?;
                         self.quantities
                             .unit(rate.canonical_unit)
-                            .map_err(super::super::math)?
+                            .map_err(math)?
                             .scale_to_canonical
                             / self
                                 .quantities
                                 .unit(state[i].unit)
-                                .map_err(super::super::math)?
+                                .map_err(math)?
                                 .scale_to_canonical
                             / state_scale
                     } else {
@@ -1941,12 +1942,12 @@ impl ModelingPackage {
                     scales[i] = self
                         .quantities
                         .unit(quantity(integral.integrand)?.canonical_unit)
-                        .map_err(super::super::math)?
+                        .map_err(math)?
                         .scale_to_canonical
                         / self
                             .quantities
                             .unit(quantity(integral.result)?.canonical_unit)
-                            .map_err(super::super::math)?
+                            .map_err(math)?
                             .scale_to_canonical;
                 }
             }
@@ -2220,6 +2221,22 @@ impl ModelingPackage {
         let bytes = bytes
             .checked_add(accuracy_bytes)
             .ok_or_else(|| contract_error("dynamic accuracy goal storage"))?;
+        #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+        let state_positions = pse_math::index::CheckedInventory::new(&contract.states, |id| *id)
+            .map_err(math)?
+            .into_positions();
+        #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+        let output_positions = pse_math::index::CheckedInventory::new(&contract.outputs, |id| *id)
+            .map_err(math)?
+            .into_positions();
+        #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+        let bytes = bytes
+            .checked_add(
+                (state_positions.len() + output_positions.len())
+                    .checked_mul(size_of::<(SemanticId, usize)>() + 512)
+                    .ok_or_else(|| contract_error("dynamic projection storage"))?,
+            )
+            .ok_or_else(|| contract_error("dynamic projection storage"))?;
         Ok(ModelingSimulation {
             solved: model.solved(),
             quantities: self.quantities.clone(),
@@ -2238,6 +2255,10 @@ impl ModelingPackage {
                 original_initial_conditions,
             }],
             contract,
+            #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+            state_positions,
+            #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+            output_positions,
             profile,
             snapshot: snapshot.clone(),
             runtime: self.runtime.clone(),

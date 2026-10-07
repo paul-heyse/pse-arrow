@@ -434,9 +434,11 @@ fn native_quadrature_does_not_invent_a_conservation_claim() {
     let mut oracle = Toy::new(false, false);
     oracle.c.quadratures = vec![id(9)];
     assert!(oracle.c.balances.is_empty());
-    let mut methods = vec![Method::Diffsol];
-    #[cfg(feature = "idas")]
-    methods.push(Method::Idas);
+    let methods = vec![
+        Method::Diffsol,
+        #[cfg(feature = "idas")]
+        Method::Idas,
+    ];
     for method in methods {
         let profile = Profile {
             method,
@@ -578,9 +580,11 @@ const FD_STEP: f64 = 1e-4;
 /// the later ones are zero. Each column equals central finite differences of the outputs.
 #[test]
 fn scheduled_input_sensitivities_cross_changes() {
-    let mut methods = vec![Method::Diffsol];
-    #[cfg(feature = "idas")]
-    methods.push(Method::Idas);
+    let methods = vec![
+        Method::Diffsol,
+        #[cfg(feature = "idas")]
+        Method::Idas,
+    ];
     let values = [2.0, 3.0, 1.5];
     for method in methods {
         for dae in [false, true] {
@@ -801,9 +805,11 @@ fn idas_recovers_typed_trial_and_terminal_policy_stops() {
 
 #[test]
 fn quadratures_coexist_with_consistent_dae_forward_sensitivities() {
-    let mut methods = vec![Method::Diffsol];
-    #[cfg(feature = "idas")]
-    methods.push(Method::Idas);
+    let methods = vec![
+        Method::Diffsol,
+        #[cfg(feature = "idas")]
+        Method::Idas,
+    ];
     for method in methods {
         for dae in [false, true] {
             let mut oracle = Toy::new(dae, false);

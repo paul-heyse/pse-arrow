@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -27,7 +28,6 @@ class ProducerDeploymentTests(unittest.TestCase):
         self.root = Path(self.scratch.name)
         self.output = self.root / "evidence"
         self.environment = {}
-        self.outer = {"source": "blake3:" + "a" * 64, "build": "blake3:" + "b" * 64}
         self.native = self.root / "native-library"
         self.native.write_bytes(b"actual native input fixture")
         self.python_native = self.root / "python-native-library"
@@ -55,22 +55,48 @@ class ProducerDeploymentTests(unittest.TestCase):
         worker = self.root / "target/producer/pse-worker"
         worker.parent.mkdir(parents=True)
         worker.write_bytes(b"actual captured worker fixture")
+        self.artifacts = {"worker": worker}
+        for role in ("runtime", "python"):
+            artifact = self.root / f"{role}-artifact"
+            artifact.write_bytes(role.encode())
+            self.artifacts[role] = artifact
+        self.actual_bind = deployment.bind_python_artifact
+        binding = patch.object(deployment, "bind_python_artifact")
+        binding.start()
+        self.addCleanup(binding.stop)
 
     def actual_capture(
         self,
         change: Callable[[str, dict[str, object], dict[str, object]], None]
         | None = None,
-    ) -> Callable[..., subprocess.CompletedProcess[bytes]]:
+    ) -> Callable[..., subprocess.CompletedProcess[bytes | str]]:
         def run(
             command: list[str],
             *,
             cwd: Path,
             env: dict[str, str],
-            stdout: BinaryIO,
-            stderr: int,
+            stdout: BinaryIO | int | None = None,
+            stderr: int | None = None,
             check: bool,
-        ) -> subprocess.CompletedProcess[bytes]:
+            text: bool = False,
+            capture_output: bool = False,
+        ) -> subprocess.CompletedProcess[bytes | str]:
             self.assertEqual(cwd, self.root)
+            self.assertIsInstance(text, bool)
+            if "verify-deployment-artifact" in command:
+                self.assertTrue(text)
+                self.assertTrue(capture_output)
+                observation = deployment.file_observation(
+                    Path(command[command.index("--artifact") + 1])
+                )
+                return subprocess.CompletedProcess(
+                    command, 0, stdout=json.dumps(observation)
+                )
+            if "observe-deployment" in command:
+                Path(command[-1]).write_text(
+                    json.dumps({"source": "fresh outer", "build": "fresh context"})
+                )
+                return subprocess.CompletedProcess(command, 0)
             self.assertEqual(stderr, subprocess.STDOUT)
             self.assertFalse(check)
             output = Path(command[command.index("--output") + 1])
@@ -80,6 +106,7 @@ class ProducerDeploymentTests(unittest.TestCase):
                 expected_env["PYO3_BUILD_EXTENSION_MODULE"] = "1"
             else:
                 expected_env.pop("PYO3_BUILD_EXTENSION_MODULE", None)
+                expected_env.pop("PYO3_CONFIG_FILE", None)
             self.assertEqual(env, expected_env)
             role = next(role for role in deployment.ROLES if role[0] == name)
             _, package, target, kind, _ = role
@@ -100,7 +127,11 @@ class ProducerDeploymentTests(unittest.TestCase):
                 "units": [unit],
                 "persistent_reuse_eligible": True,
                 "reasons": [],
-                "outer_attestation": None if name == "runtime" else dict(self.outer),
+                "receipt_version": 2,
+                "native_abi": "reviewed-fixture-abi",
+                "deployment": {
+                    "artifact": deployment.file_observation(self.artifacts[name])
+                },
             }
             evidence: dict[str, object] = {
                 "success": True,
@@ -123,6 +154,8 @@ class ProducerDeploymentTests(unittest.TestCase):
             Path(command[command.index("--build-evidence") + 1]).write_text(
                 json.dumps(evidence)
             )
+            if stdout is None or isinstance(stdout, int):
+                raise AssertionError("Capture diagnostics require an opened binary log")
             stdout.write(b"actual capture diagnostics\n")
             return subprocess.CompletedProcess(command, 0)
 
@@ -138,6 +171,7 @@ class ProducerDeploymentTests(unittest.TestCase):
             CFLAGS_x86_64_unknown_linux_gnu="-O2",
             LLVM_CONFIG_PATH="selected-llvm",
             PYO3_BUILD_EXTENSION_MODULE="",
+            PYO3_CONFIG_FILE=str(self.python_native),
             SYMBOLICA_LICENSE="private-secret",
             SURREAL_PASS=str(self.root / "unused-surreal-credential"),
         )
@@ -146,7 +180,9 @@ class ProducerDeploymentTests(unittest.TestCase):
             deployment.subprocess, "run", side_effect=self.actual_capture()
         ) as run:
             environment = deployment.capture(self.root, self.output, self.environment)
-        commands = [call.args[0] for call in run.call_args_list]
+        commands = [
+            call.args[0] for call in run.call_args_list if call.args[0][0] == "just"
+        ]
         self.assertEqual(
             [command[command.index("--package") + 1] for command in commands],
             ["pse-runtime", "xtask", "pse-py"],
@@ -175,12 +211,16 @@ class ProducerDeploymentTests(unittest.TestCase):
             self.assertIn("LLVM_CONFIG_PATH=selected-llvm", command)
             if name == "python":
                 self.assertIn("PYO3_BUILD_EXTENSION_MODULE=1", command)
+                self.assertIn(f"PYO3_CONFIG_FILE={self.python_native}", command)
             else:
                 self.assertFalse(
                     any(
                         item.startswith("PYO3_BUILD_EXTENSION_MODULE=")
                         for item in command
                     )
+                )
+                self.assertFalse(
+                    any(item.startswith("PYO3_CONFIG_FILE=") for item in command)
                 )
             self.assertNotIn("private-secret", " ".join(command))
             self.assertNotIn("private-password", " ".join(command))
@@ -196,7 +236,8 @@ class ProducerDeploymentTests(unittest.TestCase):
         )
         self.assertFalse((self.output / "python-attestation.json").exists())
         self.assertEqual(
-            deployment.validate_receipts(self.root, self.output), self.outer
+            set(deployment.validate_receipts(self.output)),
+            {"runtime", "worker", "python"},
         )
 
     def test_python_native_inputs_can_use_common_reviewed_list(self) -> None:
@@ -206,6 +247,8 @@ class ProducerDeploymentTests(unittest.TestCase):
         ) as run:
             deployment.capture(self.root, self.output, self.environment)
         for call in run.call_args_list:
+            if call.args[0][0] != "just":
+                continue
             self.assertIn(str(self.native), call.args[0])
             self.assertNotIn(str(self.python_native), call.args[0])
 
@@ -350,60 +393,134 @@ class ProducerDeploymentTests(unittest.TestCase):
         self.assertEqual(run.call_count, 3)
         self.assertTrue((self.output / "deployment-error.log").is_file())
 
-    def test_outer_mismatch_and_missing_worker_attestation_are_refused(self) -> None:
-        for value in (
-            None,
-            {"source": "blake3:" + "d" * 64, "build": self.outer["build"]},
-        ):
-            with self.subTest(value=value):
-                output = self.root / ("absent" if value is None else "mismatch")
-
-                def change(
-                    name: str,
-                    receipt: dict[str, object],
-                    _evidence: dict[str, object],
-                    *,
-                    value: dict[str, str] | None = value,
-                ) -> None:
-                    if name == "worker":
-                        receipt["outer_attestation"] = value
-
-                with (
-                    patch.object(
-                        deployment.subprocess,
-                        "run",
-                        side_effect=self.actual_capture(change),
-                    ),
-                    self.assertRaisesRegex(ValueError, "attestation"),
-                ):
-                    deployment.capture(self.root, output, self.environment)
-
-    def test_missing_actual_worker_binary_prevents_success(self) -> None:
-        (self.root / "target/producer/pse-worker").unlink()
-        with (
-            patch.object(
-                deployment.subprocess, "run", side_effect=self.actual_capture()
-            ) as run,
-            self.assertRaisesRegex(ValueError, "worker binary is missing"),
-        ):
-            deployment.capture(self.root, self.output, self.environment)
-        self.assertEqual(run.call_count, 3)
-        self.assertTrue((self.output / "deployment-error.log").is_file())
-
-    def test_independent_outer_observation_is_required_to_match(self) -> None:
+    def test_artifact_replacement_and_historical_shape_refuse_before_role_decoding(
+        self,
+    ) -> None:
         with patch.object(
             deployment.subprocess, "run", side_effect=self.actual_capture()
         ):
             deployment.capture(self.root, self.output, self.environment)
-        deployment.validate_receipts(self.root, self.output, expected_outer=self.outer)
-        with self.assertRaisesRegex(ValueError, "independently observed"):
-            deployment.validate_receipts(
-                self.root,
-                self.output,
-                expected_outer={
-                    "source": self.outer["source"],
-                    "build": "blake3:" + "e" * 64,
-                },
+        receipt = deployment.read_object(self.output / "worker.json")
+        self.artifacts["worker"].write_bytes(b"replacement at same path")
+        with self.assertRaisesRegex(ValueError, "artifact changed"):
+            deployment.validate_receipts(self.output)
+        receipt["deployment"] = "historical shape cannot be current-decoded"
+        for version in (1, 2.0, True, None):
+            receipt["receipt_version"] = version
+            with self.assertRaisesRegex(ValueError, "interpretation"):
+                deployment.receipt_artifact(receipt, "worker")
+
+    def test_role_artifacts_are_independent_and_outer_is_fresh_context(self) -> None:
+        with patch.object(
+            deployment.subprocess, "run", side_effect=self.actual_capture()
+        ):
+            deployment.capture(self.root, self.output, self.environment)
+        associations = deployment.validate_receipts(self.output)
+        self.assertEqual(len({record["sha256"] for record in associations.values()}), 3)
+        self.assertTrue((self.output / "outer-observation.json").is_file())
+        self.assertEqual(
+            json.loads((self.output / "observed-artifacts.json").read_text()),
+            associations,
+        )
+
+    def capture_shared_contracts(
+        self, contracts: dict[str, list[dict[str, object]]]
+    ) -> None:
+        def change(
+            name: str,
+            receipt: dict[str, object],
+            _evidence: dict[str, object],
+        ) -> None:
+            units = receipt["units"]
+            if not isinstance(units, list):
+                raise TypeError("Expected actual unit fixture list")
+            units.extend(
+                {
+                    "key": f"{name}-bitflags-{index}",
+                    "package_id": "registry+https://github.com/rust-lang/crates.io-index#bitflags@2.9.4",
+                    "target_name": "bitflags",
+                    "target_kind": ["lib"],
+                    "mode": "build",
+                    "platform": None,
+                    **contract,
+                }
+                for index, contract in enumerate(contracts[name])
+            )
+
+        with patch.object(
+            deployment.subprocess, "run", side_effect=self.actual_capture(change)
+        ):
+            deployment.capture(self.root, self.output, self.environment)
+
+    def shared_contract(self) -> dict[str, object]:
+        return {
+            "profile": {
+                "name": "producer",
+                "opt_level": "3",
+                "debug_assertions": False,
+            },
+            "features": ["std"],
+            "dependencies": {},
+        }
+
+    def test_same_role_variants_are_retained_as_complete_contract_sets(self) -> None:
+        standard = self.shared_contract()
+        serde = {
+            **standard,
+            "features": ["serde", "std"],
+            "dependencies": {"serde_core:serde-unit": "serde-unit"},
+        }
+        self.capture_shared_contracts(
+            {
+                "runtime": [standard, serde, standard],
+                "worker": [serde, standard],
+                "python": [standard, serde],
+            }
+        )
+        self.assertEqual(
+            set(deployment.validate_receipts(self.output)),
+            {"runtime", "worker", "python"},
+        )
+
+    def test_extra_root_helper_context_is_a_compatible_superset(self) -> None:
+        standard = self.shared_contract()
+        helper = {**standard, "profile": {"name": "producer", "opt_level": "0"}}
+        self.capture_shared_contracts(
+            {"runtime": [standard], "worker": [standard, helper], "python": [standard]}
+        )
+        self.assertEqual(len(deployment.validate_receipts(self.output)), 3)
+
+    def test_shared_single_variant_contract_changes_refuse(self) -> None:
+        for field, value in (
+            ("profile", {"name": "producer", "opt_level": "0"}),
+            ("features", ["serde", "std"]),
+            ("dependencies", {"serde_core:other-unit": "other-unit"}),
+        ):
+            with self.subTest(field=field):
+                self.output = self.root / f"conflicting-{field}"
+                standard = self.shared_contract()
+                with self.assertRaisesRegex(
+                    ValueError, "incompatible shared unit contracts"
+                ):
+                    self.capture_shared_contracts(
+                        {
+                            "runtime": [standard],
+                            "worker": [standard],
+                            "python": [{**standard, field: value}],
+                        }
+                    )
+
+    def test_overlap_without_subset_refuses_across_all_roles(self) -> None:
+        standard = self.shared_contract()
+        serde = {**standard, "features": ["serde", "std"]}
+        alternate = {**standard, "features": ["bytemuck", "std"]}
+        with self.assertRaisesRegex(ValueError, "incompatible shared unit contracts"):
+            self.capture_shared_contracts(
+                {
+                    "runtime": [standard, serde],
+                    "worker": [standard],
+                    "python": [standard, alternate],
+                }
             )
 
     def test_failed_actual_capture_stops_and_keeps_command_log(self) -> None:
@@ -423,6 +540,92 @@ class ProducerDeploymentTests(unittest.TestCase):
             deployment.capture(self.root, self.output, self.environment)
         self.assertEqual(run.call_count, 1)
         self.assertIn("source changed", (self.output / "runtime.log").read_text())
+
+    def test_actual_elf_installation_accepts_only_reviewed_rpath_replay(self) -> None:
+        installed = self.root / "python/pse/_native.so"
+        installed.parent.mkdir(parents=True)
+        original = self.artifacts["python"]
+        shutil.copyfile("/usr/bin/true", original)
+        subprocess.run(
+            ["patchelf", "--set-rpath", "/original", str(original)], check=True
+        )
+        shutil.copyfile(original, installed)
+        subprocess.run(["patchelf", "--remove-rpath", str(installed)], check=True)
+        subprocess.run(
+            [
+                "patchelf",
+                "--force-rpath",
+                "--set-rpath",
+                "/original:/native:/native",
+                str(installed),
+            ],
+            check=True,
+        )
+        self.output.mkdir()
+        receipt = {
+            "receipt_version": 2,
+            "identity": "unchanged-scientific-key",
+            "deployment": {
+                "artifact": deployment.file_observation(original),
+                "built_artifact": deployment.file_observation(original),
+            },
+        }
+        path = self.output / "python.json"
+        path.write_text(json.dumps(receipt))
+        (self.output / "python-build-evidence.json").write_text(
+            json.dumps(
+                {
+                    "stdout": json.dumps(
+                        {
+                            "reason": "build-script-executed",
+                            "linked_libs": ["dylib=actual"],
+                            "linked_paths": ["native=/native", "native=/native"],
+                        }
+                    )
+                }
+            )
+        )
+        actual_check_output = subprocess.check_output
+
+        def observed(
+            command: list[str],
+            *,
+            text: bool,
+            cwd: Path | None = None,
+            env: dict[str, str] | None = None,
+        ) -> str:
+            self.assertTrue(text)
+            if command[0] == str(self.root / ".venv/bin/python"):
+                return json.dumps(str(installed))
+            return actual_check_output(command, text=True, cwd=cwd, env=env)
+
+        # The fixture tests byte-exact installation replay on actual ELF files.
+        # Import/code mapping and consumed-input guards have separate real controls.
+        with (
+            patch.object(deployment.subprocess, "check_output", side_effect=observed),
+            patch.object(deployment, "verify_artifact"),
+        ):
+            self.actual_bind(self.root, self.output, self.environment)
+            rebound = deployment.read_object(path)
+            association = rebound["deployment"]
+            if not isinstance(association, dict):
+                raise TypeError("Binding must retain an artifact association")
+            self.assertEqual(rebound["identity"], receipt["identity"])
+            self.assertEqual(
+                association["artifact"],
+                deployment.file_observation(installed),
+            )
+            self.assertEqual(
+                association["built_artifact"],
+                deployment.file_observation(original),
+            )
+            path.write_text(json.dumps(receipt))
+            subprocess.run(
+                ["patchelf", "--add-needed", "unreviewed.so", str(installed)],
+                check=True,
+            )
+            with self.assertRaisesRegex(ValueError, "beyond.*RPATH-only"):
+                self.actual_bind(self.root, self.output, self.environment)
 
     def test_deployment_environment_is_pure_and_selects_role_paths(self) -> None:
         environment = deployment.deployment_environment(self.root, self.output)

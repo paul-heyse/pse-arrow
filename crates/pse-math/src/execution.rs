@@ -2436,11 +2436,36 @@ fn compile_stages(
                         components.push(1 + layout.coordinates.len() + position);
                     }
                 }
+                // A mixed Taylor component is absent when any differentiated axis
+                // is outside this input's conservative support. Branch alternatives
+                // and composed provider reachability are already included above.
+                let zero_components = inputs
+                    .iter()
+                    .enumerate()
+                    .flat_map(|(parameter, &input)| {
+                        local
+                            .shape
+                            .iter()
+                            .enumerate()
+                            .skip(1)
+                            .filter_map(|(component, powers)| {
+                                powers
+                                    .iter()
+                                    .enumerate()
+                                    .any(|(axis, power)| {
+                                        *power > 0 && !coordinate_support[input][active[axis].0]
+                                    })
+                                    .then_some((parameter, component))
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>();
                 let evaluator = library::bounded_evaluator(
                     *source,
                     expressions,
                     &params,
                     &local,
+                    &zero_components,
                     options,
                     cancelled,
                     limits,

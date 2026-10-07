@@ -40,7 +40,7 @@ pub struct SelectedMemberships {
 
 /// A semantic premise actually inspected while resolving an immutable selection.
 /// Conflict generations are deliberately separate from these immutable meanings.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum Premise {
     Name {
@@ -73,11 +73,25 @@ enum Premise {
     },
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Dependencies {
     interpretation: String,
     premises: Vec<Premise>,
+}
+
+/// Immutable complete selection premises. This carries no protection or write authority;
+/// every reuse rechecks its meaning under a newly acquired protected revision.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct SelectedDependencies {
+    dependencies: Dependencies,
+    retained_bytes: usize,
+}
+impl SelectedDependencies {
+    /// Conservative owned premise extent; callers reserve this before snapshotting.
+    pub fn retained_bytes(&self) -> usize {
+        self.retained_bytes
+    }
 }
 
 // Borrowing projection serializes the exact dependency frame without cloning its
@@ -320,7 +334,15 @@ impl SelectedRead {
             ))
         }
     }
-    #[cfg(all(test, feature = "canonical-tests"))]
+    /// Snapshot completed premises after reserving `publication_scratch_bytes()`.
+    /// The snapshot never extends the lifetime of this read's protection.
+    pub fn snapshot_dependencies(&self) -> Result<SelectedDependencies, CanonicalError> {
+        self.complete()?;
+        Ok(SelectedDependencies {
+            retained_bytes: self.publication_scratch_bytes()?,
+            dependencies: self.dependencies(),
+        })
+    }
     fn dependencies(&self) -> Dependencies {
         let premises =
             self.names
@@ -1129,19 +1151,72 @@ impl CanonicalStore {
         let mut product = candidate.product.clone();
         product.payload = payload.into();
         product.dependencies = dependencies_bytes.into();
+        if self.recheck_dependencies(read, &dependencies).await? {
+            Ok(Some(ReusableProduct { product }))
+        } else {
+            Ok(None)
+        }
+    }
+    /// Recheck immutable in-memory premises through the same eligibility mechanism
+    /// as durable scientific products. Rejected candidates do not contaminate the read.
+    pub async fn recheck_selection_dependencies(
+        &self,
+        read: &mut SelectedRead,
+        dependencies: &SelectedDependencies,
+    ) -> Result<bool, CanonicalError> {
+        self.recheck_dependencies(read, &dependencies.dependencies)
+            .await
+    }
+    async fn recheck_dependencies(
+        &self,
+        read: &mut SelectedRead,
+        dependencies: &Dependencies,
+    ) -> Result<bool, CanonicalError> {
+        read.complete()?;
+        if dependencies.interpretation != wire::INTERPRETATION {
+            return Ok(false);
+        }
         let mut eligible = true;
         let mut candidate_read = SelectedRead::new(read.selection.clone());
-        for premise in dependencies.premises {
+        // Exact positive AND absent lookup premises share the existing bounded
+        // acquisition routes. Reuse must not replace hydration with singleton RPCs.
+        let mut logicals = dependencies
+            .premises
+            .iter()
+            .filter_map(|premise| match premise {
+                Premise::Logical { logical, .. } => Some(logical.clone()),
+                _ => None,
+            });
+        loop {
+            let window = logicals.by_ref().take(256).collect::<Vec<_>>();
+            if window.is_empty() {
+                break;
+            }
+            self.resolve_logicals(&mut candidate_read, &window).await?;
+        }
+        let mut names = dependencies
+            .premises
+            .iter()
+            .filter_map(|premise| match premise {
+                Premise::Name { scope, name, .. } => Some((scope.clone(), name.clone())),
+                _ => None,
+            });
+        loop {
+            let window = names.by_ref().take(64).collect::<Vec<_>>();
+            if window.is_empty() {
+                break;
+            }
+            self.resolve_name_pairs(&mut candidate_read, &window)
+                .await?;
+        }
+        for premise in dependencies.premises.iter().cloned() {
             match premise {
                 Premise::Name {
                     scope,
                     name,
                     version,
                 } => {
-                    let members = self
-                        .resolve_names(&mut candidate_read, &scope, &[name])
-                        .await?;
-                    eligible &= members.first().map(|member| &member.version) == version.as_ref();
+                    eligible &= candidate_read.names.get(&(scope, name)) == Some(&version);
                 }
                 Premise::Scope { scope, members } => {
                     eligible &= self
@@ -1162,10 +1237,7 @@ impl CanonicalStore {
                     eligible &= read.interpretations.get(&role) == Some(&identity)
                 }
                 Premise::Logical { logical, version } => {
-                    let members = self
-                        .resolve_logicals(&mut candidate_read, &[logical])
-                        .await?;
-                    eligible &= members.first().map(|member| &member.version) == version.as_ref();
+                    eligible &= candidate_read.logicals.get(&logical) == Some(&version);
                 }
                 Premise::KindScope {
                     scope,
@@ -1215,10 +1287,8 @@ impl CanonicalStore {
         }
         if eligible {
             read.merge_delta(candidate_read)?;
-            Ok(Some(ReusableProduct { product }))
-        } else {
-            Ok(None)
         }
+        Ok(eligible)
     }
 }
 

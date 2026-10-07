@@ -6,7 +6,10 @@ This document supplies observations and source checks, not a separate verdict or
 ## Baseline and limits
 
 Inspection uses `main` at `219338742915fb16c02534c80430bd2ea97bf94a` plus the existing uncommitted
-Plan 28 continuation. Those changes are the reviewed implementation, not a clean committed release.
+Plan 28 continuation. Those changes were the inspection snapshot. During publication,
+commit `5260a3e9a3cecd69b6358ab86d4e917ae2508b29` recorded the continuation and this supporting
+evidence. A before/after content comparison confirmed unchanged production, configuration
+and test bytes. The review supplies no release qualification.
 The maintainer requested stopping qualification to conduct this review. The owned validation
 runner was interrupted and its reports preserved; the selected SurrealDB server was retained.
 The review has not rebuilt, rerun the native series, changed production code or changed accuracy.

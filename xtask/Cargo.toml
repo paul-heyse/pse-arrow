@@ -40,14 +40,13 @@ package-fixtures = [
   "dep:pse-runtime",
   "dep:pse-rules",
   "dep:pse-backend-native",
-  "dep:pse-buildinfo",
   "dep:pse-model",
   "dep:pse-operations",
 ]
 
 [dependencies]
 pse-operations = { workspace = true, optional = true }
-pse-buildinfo = { workspace = true, optional = true }
+pse-buildinfo.workspace = true
 pse-model = { workspace = true, optional = true }
 feos = { workspace = true, optional = true }
 feos-core = { workspace = true, optional = true }

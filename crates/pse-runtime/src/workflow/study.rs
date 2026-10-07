@@ -597,30 +597,12 @@ impl Runtime {
         reason = "owning recovery projects only admitted completion or truthful worker-loss facts"
     )]
     pub(crate) async fn recover_study_point(&self, key: &str) -> Result<bool, WorkflowError> {
-        let point = self
-            .canonical_store()
-            .canonical_study_point(key)
-            .await?
-            .ok_or_else(|| contract("assigned study occurrence absent"))?;
+        let (point, actual, study, run) = self.canonical_store().recovery_snapshot(key).await?;
         let point = &point;
-        let Some(attempt_key) = point.attempt.as_deref() else {
-            return Err(contract("assigned study occurrence has no attempt"));
-        };
-        let actual = self
-            .canonical_store()
-            .canonical_attempt(attempt_key)
-            .await?
-            .ok_or_else(|| contract("assigned attempt absent"))?;
-        let study = self
-            .canonical_store()
-            .canonical_study(&point.study)
-            .await?
-            .ok_or_else(|| contract("study header absent"))?;
-        let run = self
-            .canonical_store()
-            .canonical_run(&point.run)
-            .await?
-            .ok_or_else(|| contract("point run absent"))?;
+        let attempt_key = point
+            .attempt
+            .as_deref()
+            .ok_or_else(|| contract("assigned study occurrence has no attempt"))?;
         if !actual.terminal
             && !study.cancelled
             && !run.cancelled

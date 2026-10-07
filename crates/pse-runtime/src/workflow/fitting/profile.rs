@@ -420,7 +420,13 @@ struct Chains<'a> {
 }
 impl Chains<'_> {
     /// One pinned fit at `value`, seeded from `seed`.
-    fn solve(&self, column: OriginalCol, value: f64, seed: &[f64]) -> Result<Solution, PinFailure> {
+    fn solve(
+        &self,
+        retained: &mut native::execution::Retained,
+        column: OriginalCol,
+        value: f64,
+        seed: &[f64],
+    ) -> Result<Solution, PinFailure> {
         if let Some(stop) = self.execution.stopped() {
             return Err(ProblemError::stopped(stop, "the fit stopped").into());
         }
@@ -455,7 +461,7 @@ impl Chains<'_> {
                 },
                 warm: None,
             },
-            &mut native::execution::Retained::default(),
+            retained,
             native::execution::Nlp {
                 oracle: Box::new(pinned),
                 initial: &initial,
@@ -466,8 +472,19 @@ impl Chains<'_> {
                 analysis: native::execution::Analysis::NONE,
             },
         )
-        .map_err(failed)?;
-        PinFailure::assess(report)
+        .map_err(failed);
+        let report = match report {
+            Ok(report) => report,
+            Err(failure) => {
+                retained.clear();
+                return Err(failure);
+            }
+        };
+        let assessed = PinFailure::assess(report);
+        if assessed.is_err() {
+            retained.clear();
+        }
+        assessed
     }
     fn failed(&self, task: Task, failure: ProfileWorkerFailure) -> ProfileChain {
         ProfileChain {
@@ -491,6 +508,9 @@ impl Chains<'_> {
     }
     /// Run one chain to its end.
     fn run(&self, task: Task) -> ProfileChain {
+        // Each finite chain owns and destroys its native state on this worker.
+        // The adapter checks current pin bounds, layout and profile on every step.
+        let mut retained = native::execution::Retained::default();
         let p = self.problem;
         let column = task.column.get();
         let variable = &p.contract.variables[column];
@@ -513,7 +533,7 @@ impl Chains<'_> {
             points: self.points,
             execution: self.execution,
         }
-        .run(|value, seed| self.solve(task.column, value, seed))
+        .run(|value, seed| self.solve(&mut retained, task.column, value, seed))
     }
 }
 /// Statistical target and bracketing policy, independent of problem/native startup.

@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Build provenance: rustc version, profile, git sha and the embedded lockfiles
-//! (blueprint §3.1, plan §5).
+//! Captured implementation metadata and current deployment observations.
 //!
-//! Workers and `pse-py` use these as complete outer deployment attestation; `pse-py`
-//! re-exports them as `pse._native.build_info()`, which `build_info_matches_checkout`
-//! compares against the working tree's lockfiles: an extension built against a stale
-//! `Cargo.lock` is a test failure, not a surprise at run time.
+//! Compiled implementation metadata and fresh outer deployment observations have
+//! separate lifetimes. Actual selected artifacts qualify through reviewed external
+//! receipts. `build_info()` leaves unembedded outer fields explicitly absent.
 //!
 //! This crate delegates stable build-input hashing to `pse-ids`, the workspace's only
 //! hasher (blueprint §5.1).
@@ -22,33 +20,13 @@ pub const RUSTC_VERSION: &str = env!("PSE_RUSTC_VERSION");
 /// Cargo profile the extension was compiled with (`debug`, `release`, `dist`, ...).
 pub const PROFILE: &str = env!("PSE_PROFILE");
 
-/// `git rev-parse HEAD` at build time, or `sdist` when the source is not a git checkout.
-pub const GIT_SHA: &str = env!("PSE_GIT_SHA");
-
-/// The workspace `Cargo.lock` as of the build. Empty only if the file was absent.
-pub const CARGO_LOCK: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/cargo.lock"));
-
-/// The workspace `uv.lock` as of the build. Empty until the Python skeleton lands
-/// (plan §11 step 4).
-pub const UV_LOCK: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/uv.lock"));
-
-/// Actual product source bytes, including uncommitted generated and handwritten changes.
-pub const SOURCE_IDENTITY: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes(
-    *include_bytes!(concat!(env!("OUT_DIR"), "/source.identity")),
-);
-/// Locks, toolchain, target and captured build configuration.
-pub const BUILD_IDENTITY: pse_ids::ContentHash =
-    pse_ids::ContentHash::from_bytes(*include_bytes!(concat!(env!("OUT_DIR"), "/build.identity")));
-/// Artifact producers must also supply their actual consumer feature and plugin ABI contracts.
-pub const PERSISTENT_IDENTITY_QUALIFIED: bool = !CARGO_LOCK.is_empty() && !UV_LOCK.is_empty();
-#[cfg(test)]
 #[path = "../identity.rs"]
-mod identity;
-
-/// SHA256 checksum of the exact captured Cargo lockfile; empty when absent.
-pub const CARGO_LOCK_SHA256: &str = env!("PSE_CARGO_LOCK_SHA256");
-/// SHA256 checksum of the exact captured uv lockfile; empty when absent.
-pub const UV_LOCK_SHA256: &str = env!("PSE_UV_LOCK_SHA256");
+pub mod identity;
+pub use identity::{
+    DEPLOYMENT_RECEIPT_VERSION, DeploymentAssociation, FileObservation, OuterObservation,
+    loaded_module_path, observe_deployment, observe_outer, verify_loaded_module,
+    verify_receipt_artifact, workspace_root,
+};
 
 /// Build provenance of the compiled product, projected without recomputing its identity.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -60,26 +38,26 @@ pub struct BuildInfo {
     pub rustc_version: String,
     /// Captured Cargo build profile.
     pub profile: String,
-    /// Captured Git commit, or the producer's source-distribution marker.
+    /// Captured Git commit; empty when the implementation does not embed outer context.
     pub git_sha: String,
     /// Historical public lockfile digest field; empty when no such evidence was produced.
     pub lockfile_hash: String,
-    /// External SHA256 checksum of the exact embedded Cargo lockfile bytes.
+    /// Captured Cargo lockfile checksum; empty when no lockfile is embedded.
     pub cargo_lock_sha256: String,
-    /// External SHA256 checksum of the exact embedded uv lockfile bytes.
+    /// Captured uv lockfile checksum; empty when no lockfile is embedded.
     pub uv_lock_sha256: String,
 }
 impl BuildInfo {
-    /// Observe captured provenance; an absent lockfile keeps its checksum absent.
+    /// Project only implementation metadata actually embedded during compilation.
     pub fn captured() -> Self {
         Self {
             version: VERSION.into(),
             rustc_version: RUSTC_VERSION.into(),
             profile: PROFILE.into(),
-            git_sha: GIT_SHA.into(),
+            git_sha: String::new(),
             lockfile_hash: String::new(),
-            cargo_lock_sha256: CARGO_LOCK_SHA256.into(),
-            uv_lock_sha256: UV_LOCK_SHA256.into(),
+            cargo_lock_sha256: String::new(),
+            uv_lock_sha256: String::new(),
         }
     }
 }

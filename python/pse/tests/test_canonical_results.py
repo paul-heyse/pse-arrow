@@ -2,7 +2,9 @@
 # Copyright (c) 2026 Paul Heyse
 """Exact canonical identities, bounded result streams and local IPC export."""
 
+import hashlib
 import os
+import sys
 from pathlib import Path
 
 import msgspec
@@ -165,6 +167,7 @@ def test_canonical_result_selection_and_progress_reopen(
 def test_canonical_eligible_deployment_receipt_reopens_original_scalar(
     inspection_settings: pse.EngineSettings,
     canonical_substrate: str,
+    tmp_path: Path,
 ) -> None:
     receipt_path = os.environ.get("PSE_PRODUCER_RECEIPT")
     if receipt_path is None:
@@ -179,9 +182,36 @@ def test_canonical_eligible_deployment_receipt_reopens_original_scalar(
     assert receipt["persistent_reuse_eligible"] is True
     assert receipt["reasons"] == []
     assert receipt["units"]
-    outer = receipt["outer_attestation"]
-    assert isinstance(outer, dict)
-    expected_attestation = (outer["source"], outer["build"])
+    assert receipt["receipt_version"] == 2
+    association = receipt["deployment"]
+    assert isinstance(association, dict)
+    artifact = association["artifact"]
+    assert isinstance(artifact, dict)
+    module_file = sys.modules["pse._native"].__file__
+    assert isinstance(module_file, str)
+    loaded = Path(module_file).resolve()
+    assert loaded == Path(str(artifact["canonical"]))
+    assert hashlib.sha256(loaded.read_bytes()).hexdigest() == artifact["sha256"]
+
+    # Refuse the actual other role and contradictory stale byte claims at the
+    # loaded native boundary, independently of scientific receipt identity.
+    worker = os.environ.get("PSE_WORKER_PRODUCER_RECEIPT")
+    if worker is None:
+        pytest.fail("This control requires the actual worker deployment receipt.")
+    with pytest.raises(pse.InspectionError, match="actual deployed artifact"):
+        pse.Runtime(inspection_settings, substrate=canonical_substrate, producer=worker)
+    stale = msgspec.json.decode(Path(receipt_path).read_bytes(), type=dict[str, object])
+    stale_association = stale["deployment"]
+    assert isinstance(stale_association, dict)
+    stale_artifact = stale_association["artifact"]
+    assert isinstance(stale_artifact, dict)
+    stale_artifact["sha256"] = "0" * 64
+    stale_path = tmp_path / "stale-artifact.json"
+    stale_path.write_bytes(msgspec.json.encode(stale))
+    with pytest.raises(pse.InspectionError, match="consumed file changed"):
+        pse.Runtime(
+            inspection_settings, substrate=canonical_substrate, producer=str(stale_path)
+        )
 
     runtime = pse.Runtime(
         inspection_settings, substrate=canonical_substrate, producer=receipt_path
@@ -212,10 +242,11 @@ def test_canonical_eligible_deployment_receipt_reopens_original_scalar(
     (header,) = pa.table(runtime.run_record(run)).to_pylist()
     # These identities come from the actual loaded extension's deployment, not
     # from feeding a receipt's own identities back into its qualification mint.
-    assert (
-        msgspec.json.decode(header["attestation"], type=tuple[str, str])
-        == expected_attestation
+    expected_attestation = msgspec.json.decode(
+        header["attestation"], type=tuple[str, str]
     )
+    assert len(expected_attestation) == 2
+    assert all(value.startswith("blake3:") for value in expected_attestation)
     if observed_path := os.environ.get("PSE_PYTHON_DEPLOYMENT_ATTESTATION"):
         # The native cross-role control consumes this independently observed
         # loaded-extension header, rather than a receipt's self-reported pair.

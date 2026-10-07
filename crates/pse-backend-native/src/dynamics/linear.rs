@@ -16,10 +16,11 @@ use diffsol::{
 };
 use diffsol_la::{LinearOp, LinearSolver, error::LinearSolverError};
 use faer::{
-    linalg::solvers::Solve,
-    sparse::linalg::solvers::{Lu, SymbolicLu},
+    Conj, Par,
+    dyn_stack::{MemBuffer, MemStack},
+    sparse::linalg::lu::{self, LuRef, NumericLu, SymbolicLu},
 };
-use std::cell::UnsafeCell;
+use std::cell::{RefCell, UnsafeCell};
 use suitesparse_sys as klu;
 
 type M = FaerSparseMat<f64>;
@@ -64,55 +65,111 @@ fn finite(x: &V) -> Result<(), LaError> {
 pub(super) struct FaerLu {
     matrix: Option<M>,
     symbolic: Factor<SymbolicLu<usize>>,
-    numeric: Factor<Lu<usize, f64>>,
+    numeric: NumericLu<usize, f64>,
+    scratch: Option<RefCell<MemBuffer>>,
+    ready: Factor<()>,
+    parallel: Par,
 }
 impl Default for FaerLu {
     fn default() -> Self {
         Self {
             matrix: None,
             symbolic: unset(),
-            numeric: unset(),
+            numeric: NumericLu::new(),
+            scratch: None,
+            ready: unset(),
+            parallel: faer::get_global_parallelism(),
         }
     }
 }
 impl LinearSolver<M> for FaerLu {
     fn set_sparsity<C: LinearOp<T = f64, V = V, M = M, C = FaerContext>>(&mut self, op: &C) {
-        self.numeric = unset();
-        match pattern(op) {
+        self.ready = unset();
+        self.numeric = NumericLu::new();
+        self.scratch = None;
+        self.parallel = faer::get_global_parallelism();
+        self.symbolic = match pattern(op) {
             Ok(matrix) => {
-                self.symbolic = SymbolicLu::try_new(matrix.inner().symbolic()).map_err(|e| {
-                    LinearSolverError::Other(format!("faer symbolic sparse LU: {e:?}"))
-                });
+                let result =
+                    lu::factorize_symbolic_lu(matrix.inner().symbolic(), Default::default())
+                        .map_err(|e| {
+                            LinearSolverError::Other(format!("faer symbolic sparse LU: {e:?}"))
+                        })
+                        .and_then(|symbolic| {
+                            let request = symbolic
+                                .factorize_numeric_lu_scratch::<f64>(
+                                    self.parallel,
+                                    Default::default(),
+                                )
+                                .or(symbolic.solve_in_place_scratch::<f64>(1, self.parallel));
+                            let scratch = MemBuffer::try_new(request).map_err(|e| {
+                                LinearSolverError::Other(format!("faer sparse LU scratch: {e:?}"))
+                            })?;
+                            self.scratch = Some(RefCell::new(scratch));
+                            Ok(symbolic)
+                        });
                 self.matrix = Some(matrix);
+                result
             }
-            Err(e) => {
-                self.symbolic = Err(e);
+            Err(error) => {
                 self.matrix = None;
+                Err(error)
             }
-        }
+        };
     }
     fn set_linearisation<C: LinearOp<T = f64, V = V, M = M, C = FaerContext>>(&mut self, op: &C) {
-        self.numeric = match (&self.symbolic, self.matrix.as_mut()) {
-            (Ok(symbolic), Some(matrix)) => {
+        self.ready = match (&self.symbolic, self.matrix.as_mut(), self.scratch.as_mut()) {
+            (Ok(symbolic), Some(matrix), Some(scratch)) => {
+                let same_pattern = op.sparsity().is_some_and(|pattern| {
+                    let current = matrix.inner().symbolic();
+                    pattern.nrows() == current.nrows()
+                        && pattern.ncols() == current.ncols()
+                        && pattern.col_ptr() == current.col_ptr()
+                        && pattern.row_idx() == current.row_idx()
+                });
+                if !same_pattern {
+                    return self.ready = Err(LinearSolverError::Other(
+                        "Newton matrix pattern changed".into(),
+                    ));
+                }
                 op.matrix_inplace(matrix);
-                Lu::try_new_with_symbolic(symbolic.clone(), matrix.inner().as_ref())
-                    .map_err(|e| LinearSolverError::Other(format!("faer sparse LU: {e:?}")))
+                if matrix.inner().val().iter().any(|value| !value.is_finite()) {
+                    Err(LinearSolverError::LuSolveFailed)
+                } else {
+                    symbolic
+                        .factorize_numeric_lu(
+                            &mut self.numeric,
+                            matrix.inner().as_ref(),
+                            self.parallel,
+                            MemStack::new(scratch.get_mut()),
+                            Default::default(),
+                        )
+                        .map(|_| ())
+                        .map_err(|e| LinearSolverError::Other(format!("faer sparse LU: {e:?}")))
+                }
             }
-            (Err(e), _) => Err(e.clone()),
-            (Ok(_), None) => unset(),
+            (Err(error), _, _) => Err(error.clone()),
+            _ => unset(),
         };
     }
     fn solve_in_place(&self, x: &mut V) -> Result<(), LaError> {
-        let lu = self
-            .numeric
+        self.ready.as_ref().map_err(|e| LaError::from(e.clone()))?;
+        let symbolic = self
+            .symbolic
             .as_ref()
             .map_err(|e| LaError::from(e.clone()))?;
+        let scratch = self
+            .scratch
+            .as_ref()
+            .ok_or(LinearSolverError::LinearSolverNotSetup)?;
+        let mut scratch = scratch.borrow_mut();
         let n = x.len();
-        lu.solve_in_place(faer::MatMut::from_column_major_slice_mut(
-            x.as_mut_slice(),
-            n,
-            1,
-        ));
+        LuRef::new_unchecked(symbolic, &self.numeric).solve_in_place_with_conj(
+            Conj::No,
+            faer::MatMut::from_column_major_slice_mut(x.as_mut_slice(), n, 1),
+            self.parallel,
+            MemStack::new(&mut scratch),
+        );
         finite(x)
     }
 }
@@ -320,6 +377,67 @@ mod tests {
         solver.solve_in_place(&mut x)?;
         Ok(x.as_slice().to_vec())
     }
+    #[test]
+    fn faer_numeric_refresh_keeps_scratch_and_recovers_from_failed_current_matrix() {
+        let context = FaerContext::default();
+        let matrix = faer::sparse::SparseColMat::try_new_from_triplets(
+            2,
+            2,
+            &[
+                faer::sparse::Triplet::new(0, 0, 2.0),
+                faer::sparse::Triplet::new(1, 0, 0.0),
+                faer::sparse::Triplet::new(0, 1, 1.0),
+                faer::sparse::Triplet::new(1, 1, 4.0),
+            ],
+        )
+        .unwrap();
+        let mut op = Fixed(matrix, context);
+        let mut solver = FaerLu::default();
+        solver.set_sparsity(&op);
+        let scratch = solver.scratch.as_ref().unwrap().borrow().as_ptr();
+        for (values, expected) in [
+            ([2.0, 0.0, 1.0, 4.0], [0.25, 0.5]),
+            ([4.0, 0.0, 0.0, 2.0], [0.25, 1.0]),
+        ] {
+            op.0.val_mut().copy_from_slice(&values);
+            solver.set_linearisation(&op);
+            let mut x = V::from_vec(vec![1.0, 2.0], context);
+            solver.solve_in_place(&mut x).unwrap();
+            assert_eq!(solver.scratch.as_ref().unwrap().borrow().as_ptr(), scratch);
+            for (actual, expected) in x.as_slice().iter().zip(expected) {
+                assert!((actual - expected).abs() < 1e-14);
+            }
+        }
+        for values in [[1.0; 4], [f64::NAN, 0.0, 0.0, 2.0]] {
+            op.0.val_mut().copy_from_slice(&values);
+            solver.set_linearisation(&op);
+            let mut x = V::from_vec(vec![1.0, 2.0], context);
+            assert!(solver.solve_in_place(&mut x).is_err());
+        }
+        op.0.val_mut().copy_from_slice(&[4.0, 0.0, 0.0, 2.0]);
+        solver.set_linearisation(&op);
+        let mut x = V::from_vec(vec![1.0, 2.0], context);
+        solver.solve_in_place(&mut x).unwrap();
+        assert_eq!(x.as_slice(), [0.25, 1.0]);
+        op.0 = faer::sparse::SparseColMat::try_new_from_triplets(
+            2,
+            2,
+            &[
+                faer::sparse::Triplet::new(0, 0, 4.0),
+                faer::sparse::Triplet::new(1, 1, 2.0),
+            ],
+        )
+        .unwrap();
+        solver.set_linearisation(&op);
+        assert!(solver.solve_in_place(&mut x).is_err());
+        solver.set_sparsity(&op);
+        assert!(solver.solve_in_place(&mut x).is_err());
+        solver.set_linearisation(&op);
+        let mut x = V::from_vec(vec![1.0, 2.0], context);
+        solver.solve_in_place(&mut x).unwrap();
+        assert_eq!(x.as_slice(), [0.25, 1.0]);
+    }
+
     /// Both factorizations solve a regular system and refuse singular ones, with a
     /// numerically zero pivot behind nonzero entries and with a zero row alike.
     #[test]

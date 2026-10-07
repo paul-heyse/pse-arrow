@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import build_measurements, validation
+from scripts import build_measurements, native_operation, validation
 
 
 class BuildMeasurementTests(unittest.TestCase):
@@ -23,7 +23,7 @@ class BuildMeasurementTests(unittest.TestCase):
         original = {"PATH": "/selected/tools", "CARGO_BUILD_JOBS": "2"}
         with patch.object(subprocess, "check_output") as command:
             actual = build_measurements.capability_environment(
-                Path("/checkout"), original, native=False, workflow=False
+                original, native=False, workflow=False
             )
         command.assert_not_called()
         self.assertEqual(actual, original)
@@ -34,31 +34,59 @@ class BuildMeasurementTests(unittest.TestCase):
         self,
     ) -> None:
         for native, workflow in [(True, False), (False, True), (True, True)]:
-            with patch.object(
-                subprocess,
-                "check_output",
-                return_value=b"PATH=/selected/tools\0IPOPT_DIR=/native/solver\0FLAGS=x=y\0",
-            ) as command:
+            with (
+                patch.object(
+                    native_operation, "owner_record", return_value=Path("/operation")
+                ),
+                patch.object(
+                    native_operation,
+                    "environment",
+                    return_value={"IPOPT_DIR": "/native/solver", "FLAGS": "x=y"},
+                ) as command,
+            ):
                 actual = build_measurements.capability_environment(
-                    Path("/checkout"),
                     {"PATH": "/tools"},
                     native=native,
                     workflow=workflow,
                 )
             self.assertEqual(actual["IPOPT_DIR"], "/native/solver")
             self.assertEqual(actual["FLAGS"], "x=y")
-            self.assertEqual(command.call_args.kwargs["cwd"], Path("/checkout"))
-            self.assertEqual(command.call_args.kwargs["env"], {"PATH": "/tools"})
+            self.assertEqual(
+                command.call_args.args,
+                (["solver", "klu", "isolation", "uno", "petsc"], {"PATH": "/tools"}),
+            )
 
     def test_selected_native_setup_failure_prevents_measurement(self) -> None:
         failure = subprocess.CalledProcessError(1, ["native-capability-setup"])
         with (
-            patch.object(subprocess, "check_output", side_effect=failure),
+            patch.object(
+                native_operation, "owner_record", return_value=Path("/operation")
+            ),
+            patch.object(native_operation, "environment", side_effect=failure),
             self.assertRaises(subprocess.CalledProcessError),
         ):
-            build_measurements.capability_environment(
-                Path("/checkout"), {}, native=True, workflow=False
+            build_measurements.capability_environment({}, native=True, workflow=False)
+
+    def test_native_operation_precedes_snapshot_and_preserves_arguments(self) -> None:
+        with (
+            patch.object(native_operation, "owner_record", return_value=None),
+            patch.object(build_measurements.os, "execvpe") as execute,
+        ):
+            build_measurements.ensure_capability_operation(
+                Path("/checkout"), native=True, workflow=False
             )
+        self.assertEqual(
+            execute.call_args.args[1][:2], ["bash", "/checkout/scripts/native_exec.sh"]
+        )
+        self.assertEqual(
+            execute.call_args.args[2]["PSE_NATIVE_CAPABILITIES"],
+            "solver,klu,isolation,uno,petsc",
+        )
+        with (
+            patch.object(native_operation, "owner_record", return_value=None),
+            self.assertRaisesRegex(ValueError, "before snapshot"),
+        ):
+            build_measurements.capability_environment({}, native=True, workflow=False)
 
     def test_profile_candidate_is_available_to_nested_cargo_commands(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -107,7 +107,7 @@ pub use shooting::{
 };
 mod physical;
 pub use physical::PhysicalContext;
-mod modeling;
+pub(crate) mod modeling;
 pub(crate) use modeling::PackageAdmission;
 pub use modeling::documents::{
     ConformanceControls, DeclarationEdit, DeclarationInventory, DiagnosticSamplesControls,

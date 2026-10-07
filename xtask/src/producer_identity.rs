@@ -16,6 +16,9 @@ use quote::ToTokens;
 use serde::{Deserialize, Serialize};
 use syn::visit_mut::{self, VisitMut};
 
+use deployment_identity::{ConsumedInput, ProductionUnit};
+use pse_buildinfo::identity as deployment_identity;
+
 /// Explicit reviewed build-script inputs. Cargo rerun hints alone are not proof
 /// that arbitrary file/environment/process/network inputs are absent.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -61,10 +64,6 @@ struct PestGrammarInput {
 #[serde(deny_unknown_fields)]
 struct OwnerReview {
     reviewed_source: String,
-    /// Only the reviewed workspace buildinfo owner can classify its exact
-    /// deployment provenance outputs separately from scientific inputs.
-    #[serde(default)]
-    deployment_provenance: bool,
     /// Exact selected executable dependency contexts reviewed with this owner.
     /// Helpers cannot inherit completeness after their source/features change.
     #[serde(default)]
@@ -199,9 +198,6 @@ pub(crate) struct InputDeclarations {
     #[serde(default)]
     pub(crate) native_namespaces: Vec<PathBuf>,
     pub(crate) native_abi: Option<String>,
-    /// Minted only by the source-review loader, never from receipt JSON.
-    #[serde(skip)]
-    deployment_provenance: BTreeSet<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -229,20 +225,13 @@ pub(crate) enum ProducerTarget {
     Cdylib(PathBuf),
 }
 
-/// Paths identify inputs; the per-input identity is versioned and framed too.
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct ConsumedInput {
-    pub(crate) path: String,
-    pub(crate) identity: String,
-    pub(crate) representation: String,
-}
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct ProducerIdentity {
-    /// A fresh bootstrap binds this capture to its complete executable attestation.
-    /// This changes capture eligibility, not the relevant producer identity.
+    pub(crate) receipt_version: u32,
     #[serde(default)]
-    pub(crate) outer_attestation: Option<OuterAttestation>,
+    pub(crate) deployment: Option<deployment_identity::DeploymentAssociation>,
+    #[serde(default)]
+    pub(crate) native_provider: Option<NativeProviderAssociation>,
     pub(crate) frame: String,
     pub(crate) package: String,
     /// Actual selected Cargo production root, separate from dependency membership.
@@ -254,9 +243,6 @@ pub(crate) struct ProducerIdentity {
     pub(crate) units: Vec<ProductionUnit>,
     pub(crate) selected_lock_records: Vec<serde_json::Value>,
     pub(crate) consumed_inputs: BTreeMap<String, Vec<ConsumedInput>>,
-    /// Exact actual deployment data excluded from the scientific producer key.
-    #[serde(default)]
-    pub(crate) deployment_provenance: BTreeMap<String, Vec<ConsumedInput>>,
     pub(crate) declared_environment: BTreeMap<String, String>,
     pub(crate) native_abi: Option<String>,
     /// Review-basis identities are evidence, separately from the scientific key.
@@ -264,11 +250,13 @@ pub(crate) struct ProducerIdentity {
     #[serde(default)]
     pub(crate) reviewed_owner_sources: BTreeMap<String, String>,
 }
-
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-pub(crate) struct OuterAttestation {
-    pub(crate) source: pse_ids::ContentHash,
-    pub(crate) build: pse_ids::ContentHash,
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(crate) struct NativeProviderAssociation {
+    package_id: String,
+    out_dir: PathBuf,
+    include_namespace: String,
+    build_environment: BTreeMap<String, Option<String>>,
+    files: Vec<deployment_identity::FileObservation>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -306,22 +294,6 @@ struct CargoTarget {
 struct Edge {
     index: usize,
     extern_crate_name: String,
-}
-
-/// Canonical graph nodes carry dependency unit keys, never unstable array indices.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub(crate) struct ProductionUnit {
-    pub(crate) key: String,
-    pub(crate) package_id: String,
-    pub(crate) target_name: String,
-    pub(crate) target_kind: Vec<String>,
-    pub(crate) crate_types: Vec<String>,
-    pub(crate) edition: String,
-    pub(crate) mode: String,
-    pub(crate) platform: Option<String>,
-    pub(crate) profile: serde_json::Value,
-    pub(crate) features: Vec<String>,
-    pub(crate) dependencies: BTreeMap<String, String>,
 }
 
 fn cargo_output(root: &Path, args: &[String]) -> Result<Vec<u8>> {
@@ -390,24 +362,12 @@ pub(crate) fn qualified_fixture(repository: &Path, output: &Path) -> Result<()> 
         // its fixed source has no native calls or arbitrary executable owner.
         // This scoped review must never be used for a production package.
         options.declarations.native_reviewed_source = Some(native_review_basis(&options, &root)?);
-        let mut identity = run(&options)?;
+        let identity = run(&options)?;
         ensure!(
             identity.persistent_reuse_eligible,
             "finite fixture remains unqualified: {:?}",
             identity.reasons
         );
-        let artifacts = fs::read(root.join("target/debug/libproducer_fixture.rlib"))?;
-        identity.outer_attestation = Some(OuterAttestation {
-            source: pse_ids::ContentHash::parse_hex(&hash_parts(&[
-                b"finite-fixture-source",
-                FINITE_FIXTURE_MANIFEST.as_bytes(),
-                FINITE_FIXTURE_SOURCE.as_bytes(),
-            ]))?,
-            build: pse_ids::ContentHash::parse_hex(&hash_parts(&[
-                b"finite-fixture-build",
-                &artifacts,
-            ]))?,
-        });
         write_if_changed(output, &identity)?;
         return Ok(());
     }
@@ -664,7 +624,54 @@ pub(crate) fn run(options: &ProducerOptions) -> Result<ProducerIdentity> {
             && fs::read(root.join("Cargo.toml"))? == manifest_before,
         "selected Cargo inputs changed during producer capture; capture again from one deployment baseline"
     );
-    let identity = capture(options, &root, &graph, &packages, &messages)?;
+    let mut identity = capture(options, &root, &graph, &packages, &messages)?;
+    if options.declarations.capture_actual_build {
+        identity.deployment = Some(deployment_association(
+            options, &root, &graph, &messages, &identity,
+        )?);
+        if options.package == "pse-uno-sys"
+            && graph.units[graph.roots[0]]
+                .features
+                .iter()
+                .any(|feature| feature == "highs-provider")
+        {
+            let provider_packages = packages
+                .iter()
+                .filter(|(_, package)| package.name.as_str() == "highs-sys")
+                .map(|(id, _)| id.clone())
+                .collect();
+            let (provider_unit, out_dir) =
+                highs_provider_output(&graph, &messages, &provider_packages, &root)?;
+            let mut paths = package_files(&out_dir.join("include"))?;
+            ensure!(
+                out_dir.join("include/highs/Highs.h").is_file(),
+                "provider public header absent"
+            );
+            paths.push(out_dir.join("lib/libhighs.a"));
+            identity.native_provider = Some(NativeProviderAssociation {
+                package_id: provider_unit.pkg_id.clone(),
+                include_namespace: deployment_identity::namespace_digest(&out_dir.join("include"))?,
+                build_environment: options
+                    .declarations
+                    .native_environment
+                    .keys()
+                    .chain(options.declared_environment.keys())
+                    .map(|name| {
+                        Ok((
+                            name.clone(),
+                            current_environment(name)?
+                                .map(|value| deployment_identity::value_digest(value.as_bytes())),
+                        ))
+                    })
+                    .collect::<Result<_>>()?,
+                out_dir,
+                files: paths
+                    .iter()
+                    .map(|path| deployment_identity::FileObservation::capture(path))
+                    .collect::<std::io::Result<_>>()?,
+            });
+        }
+    }
     ensure!(
         configuration_state(&root)? == configuration_before,
         "Cargo configuration/executables changed during producer capture; capture again from one deployment baseline"
@@ -758,6 +765,108 @@ fn native_caller_environment(
         .into_iter()
         .map(|name| Ok((name.clone(), current_environment(&name)?)))
         .collect()
+}
+
+/// Bind only actual Cargo-emitted selected-root outputs after dep-info capture.
+/// Private raw admission observations never enter the scientific ProducerV1 key.
+fn deployment_association(
+    options: &ProducerOptions,
+    root: &Path,
+    graph: &UnitGraph,
+    messages: &[serde_json::Value],
+    identity: &ProducerIdentity,
+) -> Result<deployment_identity::DeploymentAssociation> {
+    let unit = &graph.units[graph.roots[0]];
+    let mut paths = BTreeSet::new();
+    for message in messages
+        .iter()
+        .filter(|message| artifact_matches(unit, message))
+    {
+        if matches!(options.production_target, ProducerTarget::Binary(_)) {
+            if let Some(path) = message
+                .get("executable")
+                .and_then(serde_json::Value::as_str)
+            {
+                paths.insert(absolute(root, Path::new(path)));
+            }
+        } else if let Some(files) = message
+            .get("filenames")
+            .and_then(serde_json::Value::as_array)
+        {
+            for path in files.iter().filter_map(serde_json::Value::as_str) {
+                let path = absolute(root, Path::new(path));
+                let wanted = if unit.target.crate_types.iter().any(|kind| kind == "cdylib") {
+                    "so"
+                } else {
+                    "rlib"
+                };
+                if path
+                    .extension()
+                    .is_some_and(|extension| extension == wanted)
+                {
+                    paths.insert(path);
+                }
+            }
+        }
+    }
+    ensure!(
+        paths.len() == 1,
+        "selected production root lacks one actual role artifact"
+    );
+    let artifact = deployment_identity::FileObservation::capture(
+        &paths.into_iter().next().context("actual role artifact")?,
+    )?;
+    let mut files = identity
+        .consumed_inputs
+        .values()
+        .flatten()
+        .filter_map(|input| input.observation.clone())
+        .collect::<Vec<_>>();
+    files.sort();
+    files.dedup();
+    let mut absent_files = Vec::new();
+    let mut namespaces = BTreeMap::new();
+    for input in identity.consumed_inputs.values().flatten() {
+        if input.representation == "reviewed-absence" || input.representation == "actual-presence" {
+            absent_files.push(PathBuf::from(&input.path));
+        } else if input.representation == "bounded-raw-search-namespace.v1" {
+            let path = PathBuf::from(&input.path);
+            namespaces.insert(path.clone(), deployment_identity::namespace_digest(&path)?);
+        }
+    }
+    absent_files.sort();
+    absent_files.dedup();
+    let native_environment = options
+        .declarations
+        .native_environment
+        .keys()
+        .filter(|name| matches!(name.as_str(), "LD_LIBRARY_PATH" | "LD_PRELOAD" | "LD_AUDIT"))
+        .map(|name| {
+            Ok((
+                name.clone(),
+                current_environment(name)?
+                    .map(|value| deployment_identity::value_digest(value.as_bytes())),
+            ))
+        })
+        .collect::<Result<_>>()?;
+    Ok(deployment_identity::DeploymentAssociation {
+        producer_identity: identity.identity.clone(),
+        selected_root: identity
+            .selected_root
+            .clone()
+            .context("actual selected root")?,
+        workspace_root: root.to_path_buf(),
+        built_artifact: artifact.clone(),
+        artifact,
+        files,
+        absent_files,
+        namespaces,
+        native_environment,
+        native_absent_environment_prefixes: options
+            .declarations
+            .native_absent_environment_prefixes
+            .clone(),
+    })
 }
 
 /// Snapshots only actual Cargo-selected build-script log/output namespaces.
@@ -1154,18 +1263,6 @@ fn expand_reviews(
             // A stale review grants nothing; capture reports the ordinary owner
             // refusal, rather than silently approving changed executable bytes.
             continue;
-        }
-        if review.deployment_provenance {
-            ensure!(
-                unit.mode == "run-custom-build"
-                    && package.name.as_str() == "pse-buildinfo"
-                    && package_root.canonicalize()? == root.join("crates/pse-buildinfo"),
-                "deployment provenance classification is restricted to the workspace buildinfo owner"
-            );
-            expanded
-                .declarations
-                .deployment_provenance
-                .insert(owner.clone());
         }
         let closure = executable_closure_basis(graph, index, &sources, &keys)?;
         if !review.reviewed_closures.contains(&closure) {
@@ -2068,6 +2165,87 @@ fn executable_artifact_aliases(artifact: &Path) -> Result<Vec<PathBuf>> {
     Ok(aliases)
 }
 
+/// sccache 0.17 excludes `--out-dir` from its Rust key and restores the cached
+/// compiler dep-info alongside current outputs without rewriting its local rule
+/// targets. Admit only a Cargo profile-directory relocation: the entire unit
+/// suffix, including package/fingerprint/output names, must stay identical.
+/// Source prerequisites are never relocated by this output-only association.
+fn cargo_profile_dep_info_linkage(
+    unit: &Unit,
+    root: &Path,
+    candidate: &Path,
+    artifact: &Path,
+    outputs: &BTreeSet<PathBuf>,
+) -> bool {
+    if unit.target.kind != ["lib"]
+        || !unit
+            .target
+            .crate_types
+            .iter()
+            .all(|kind| kind == "lib" || kind == "rlib")
+        || candidate.parent() != artifact.parent()
+    {
+        return false;
+    }
+    let Some(profile) = unit.profile.get("name").and_then(serde_json::Value::as_str) else {
+        return false;
+    };
+    let profile = match profile {
+        "dev" | "test" => "debug",
+        "bench" => "release",
+        profile => profile,
+    };
+    let mut target = root.join("target");
+    if let Some(platform) = &unit.platform {
+        target.push(platform);
+    }
+    let current = target.join(profile);
+    let (Ok(dep_suffix), Ok(artifact_suffix)) = (
+        candidate.strip_prefix(&current),
+        artifact.strip_prefix(&current),
+    ) else {
+        return false;
+    };
+    if dep_suffix
+        .components()
+        .chain(artifact_suffix.components())
+        .any(|part| !matches!(part, std::path::Component::Normal(_)))
+    {
+        return false;
+    }
+    // Restrict association to Cargo's hashed unit-local layouts. Installed or
+    // aggregate output names do not establish compiler dep-info provenance.
+    let suffix = dep_suffix.components().collect::<Vec<_>>();
+    let hashed_unit = match suffix.as_slice() {
+        [
+            std::path::Component::Normal(layout),
+            _,
+            _,
+            std::path::Component::Normal(out),
+            _,
+        ] => *layout == "build" && *out == "out",
+        [std::path::Component::Normal(layout), _] => *layout == "deps",
+        _ => false,
+    };
+    if !hashed_unit {
+        return false;
+    }
+    outputs.iter().any(|output| {
+        let Ok(relative) = output.strip_prefix(&target) else {
+            return false;
+        };
+        let mut parts = relative.components();
+        let Some(std::path::Component::Normal(previous_profile)) = parts.next() else {
+            return false;
+        };
+        if previous_profile == profile || parts.as_path() != dep_suffix {
+            return false;
+        }
+        let previous = target.join(previous_profile);
+        outputs.contains(&previous.join(artifact_suffix))
+    })
+}
+
 fn artifact_dep_info(
     unit: &Unit,
     graph: &UnitGraph,
@@ -2142,8 +2320,10 @@ fn artifact_dep_info(
                     // transitive rerun hints. Only rustc's own dependency file lists
                     // itself as an output; accepting the aggregate imports unrelated
                     // provenance scans into this compilation unit's scientific key.
-                    if outputs.contains(&candidate)
-                        && outputs.contains(&artifact)
+                    if ((outputs.contains(&candidate) && outputs.contains(&artifact))
+                        || cargo_profile_dep_info_linkage(
+                            unit, root, &candidate, &artifact, &outputs,
+                        ))
                         && inputs.contains(&unit.target.src_path)
                     {
                         paths.insert(candidate);
@@ -2170,33 +2350,6 @@ fn capture(
     let mut units = Vec::new();
     let mut selected_packages = BTreeSet::new();
     let mut reviewed_owner_sources = BTreeMap::new();
-    let mut deployment_provenance = BTreeMap::new();
-    let mut provenance_outputs = BTreeMap::new();
-    for owner in &options.declarations.deployment_provenance {
-        let outputs = messages
-            .iter()
-            .filter(|message| {
-                message.get("reason").and_then(serde_json::Value::as_str)
-                    == Some("build-script-executed")
-                    && message
-                        .get("package_id")
-                        .and_then(serde_json::Value::as_str)
-                        .is_some_and(|id| logical_package(id, root) == *owner)
-            })
-            .filter_map(|message| message.get("out_dir").and_then(serde_json::Value::as_str))
-            .map(|path| absolute(root, Path::new(path)))
-            .collect::<BTreeSet<_>>();
-        if outputs.len() == 1 {
-            provenance_outputs.insert(
-                owner.clone(),
-                outputs.into_iter().next().context("provenance output")?,
-            );
-        } else {
-            reasons.insert(format!(
-                "{owner}: deployment provenance lacks one actual Cargo output association"
-            ));
-        }
-    }
     let package_counts = selected.iter().fold(BTreeMap::new(), |mut counts, index| {
         *counts
             .entry(graph.units[*index].pkg_id.clone())
@@ -2467,9 +2620,6 @@ fn capture(
                     package_root,
                     &package_id,
                 )?;
-                if let Some(out) = provenance_outputs.get(&package_id) {
-                    classify_deployment_inputs(&mut captured, &mut deployment_provenance, out);
-                }
                 merge_inputs(&mut inputs, captured);
             }
         } else if unit.mode == "build" {
@@ -2498,15 +2648,7 @@ fn capture(
                     root,
                     &package_id,
                 )?;
-                // The reviewed buildinfo script reads external data solely to
-                // report outer provenance. Its own compiled sources/helpers and
-                // selected compiler/config/native inputs remain independently
-                // bound in the ordinary capture groups above and below.
-                if provenance_outputs.contains_key(&package_id) {
-                    merge_inputs(&mut deployment_provenance, captured);
-                } else {
-                    merge_inputs(&mut inputs, captured);
-                }
+                merge_inputs(&mut inputs, captured);
             } else {
                 reasons.insert(format!(
                     "{package_id}: build-script arbitrary I/O lacks a current source-bound review"
@@ -2527,38 +2669,10 @@ fn capture(
             continue;
         }
         let owner = logical_package(id, root);
-        let mut env = message
+        let env = message
             .get("env")
             .cloned()
             .unwrap_or(serde_json::Value::Null);
-        if provenance_outputs.contains_key(&owner)
-            && let Some(values) = env.as_array_mut()
-        {
-            let mut outer = Vec::new();
-            values.retain(|value| {
-                if value
-                    .get(0)
-                    .and_then(serde_json::Value::as_str)
-                    .is_some_and(provenance_environment)
-                {
-                    outer.push(value.clone());
-                    false
-                } else {
-                    true
-                }
-            });
-            deployment_provenance
-                .entry("actual-build-script-provenance".into())
-                .or_insert_with(Vec::new)
-                .push(ConsumedInput {
-                    path: owner.clone(),
-                    identity: hash_parts(&[
-                        b"build-script-provenance",
-                        &serde_json::to_vec(&outer)?,
-                    ]),
-                    representation: "actual-cargo-message".into(),
-                });
-        }
         let payload = serde_json::to_vec(
             &serde_json::json!({"linked_libs":message.get("linked_libs"),"linked_paths":message.get("linked_paths"),"cfgs":message.get("cfgs"),"env":env}),
         )?;
@@ -2569,6 +2683,7 @@ fn capture(
                 path: owner,
                 identity: hash_parts(&[b"build-script-output", &payload]),
                 representation: "actual-cargo-message".into(),
+                observation: None,
             });
     }
     for path in &options.dep_info {
@@ -2608,6 +2723,7 @@ fn capture(
                 path,
                 identity,
                 representation: "bounded-raw-search-namespace.v1".into(),
+                observation: None,
             });
     }
     if !options.declarations.native_inputs_complete
@@ -2639,6 +2755,7 @@ fn capture(
                 path: name.clone(),
                 identity: hash_parts(&[b"native-environment", &serde_json::to_vec(&actual)?]),
                 representation: "actual-value-digest".into(),
+                observation: None,
             });
     }
     for (prefix, present) in native_environment_prefix_state(options)? {
@@ -2654,6 +2771,7 @@ fn capture(
                 path: prefix,
                 identity: hash_parts(&[b"native-environment-prefix-absence", &[u8::from(present)]]),
                 representation: "actual-family-presence".into(),
+                observation: None,
             });
     }
     for path in &options.declarations.native_absent_files {
@@ -2672,6 +2790,7 @@ fn capture(
                 path: path.to_string_lossy().into_owned(),
                 identity: hash_parts(&[b"native-file-absence", &[u8::from(present)]]),
                 representation: "actual-presence".into(),
+                observation: None,
             });
     }
     add_file(
@@ -2707,6 +2826,7 @@ fn capture(
             path: "rustc -vV".into(),
             identity: hash_parts(&[b"rustc", &rustc.stdout]),
             representation: "actual-version".into(),
+            observation: None,
         });
     let sysroot = Command::new("rustc")
         .current_dir(root)
@@ -2738,6 +2858,7 @@ fn capture(
                     path: key.clone(),
                     identity: hash_parts(&[b"environment-value", value.as_bytes()]),
                     representation: "actual-value-digest".into(),
+                    observation: None,
                 });
         }
         if matches!(
@@ -2767,44 +2888,6 @@ fn capture(
         values.sort();
         values.dedup();
     }
-    for values in deployment_provenance.values_mut() {
-        values.sort();
-        values.dedup();
-    }
-    let outer_attestation = provenance_outputs
-        .values()
-        .map(|out| {
-            let source = fs::read(out.join("source.identity"))?;
-            let build = fs::read(out.join("build.identity"))?;
-            for (name, bytes) in [("source.identity", &source), ("build.identity", &build)] {
-                let path = out.join(name).to_string_lossy().into_owned();
-                let expected = hash_parts(&[b"input", b"raw", bytes]);
-                ensure!(
-                    deployment_provenance
-                        .values()
-                        .flatten()
-                        .any(|input| input.path == path && input.identity == expected),
-                    "actual {name} provenance changed or lacks compiler consumption evidence"
-                );
-            }
-            Ok(OuterAttestation {
-                source: pse_ids::ContentHash::from_bytes(
-                    source
-                        .try_into()
-                        .map_err(|_| anyhow::anyhow!("source provenance must be 32 bytes"))?,
-                ),
-                build: pse_ids::ContentHash::from_bytes(
-                    build
-                        .try_into()
-                        .map_err(|_| anyhow::anyhow!("build provenance must be 32 bytes"))?,
-                ),
-            })
-        })
-        .collect::<Result<Vec<_>>>()?;
-    ensure!(
-        outer_attestation.len() <= 1,
-        "ambiguous deployment provenance owner"
-    );
     let selected_lock_records = lock_records(root, &selected_packages, packages)?;
     let declared_environment = options
         .declared_environment
@@ -2817,8 +2900,10 @@ fn capture(
         })
         .collect();
     let mut output = ProducerIdentity {
+        receipt_version: deployment_identity::DEPLOYMENT_RECEIPT_VERSION,
+        deployment: None,
+        native_provider: None,
         frame: Frame::ProducerV1.as_str().into(),
-        outer_attestation: outer_attestation.into_iter().next(),
         package: options.package.clone(),
         selected_root: Some(keys[&graph.roots[0]].clone()),
         identity: String::new(),
@@ -2827,23 +2912,263 @@ fn capture(
         units,
         selected_lock_records,
         consumed_inputs: inputs,
-        deployment_provenance,
         declared_environment,
         native_abi: options.declarations.native_abi.clone(),
         reviewed_owner_sources,
     };
     // Diagnostic reasons and eligibility do not silently alter scientific identity.
     // Completeness is an independent condition for reuse of this identity.
-    let bytes = serde_json::to_vec(&(
+    output.identity = deployment_identity::scientific_producer_identity(
         &output.package,
         &output.units,
         &output.selected_lock_records,
         &output.consumed_inputs,
         &output.declared_environment,
         &output.native_abi,
-    ))?;
-    output.identity = hash_parts(&[b"producer", &bytes]);
+    )?
+    .to_hex();
     Ok(output)
+}
+
+fn provider_composition_context(
+    name: &str,
+    kinds: &[String],
+    mode: &str,
+    platform: Option<&str>,
+    profile: &serde_json::Value,
+    features: &[String],
+) -> bool {
+    name == "pse_uno_sys"
+        && kinds == ["lib"]
+        && mode == "build"
+        && platform.is_none()
+        && profile["name"] == "dev"
+        && features.iter().any(|feature| feature == "highs-provider")
+}
+
+/// The provider is Cargo's optional dependency of the real workspace composition
+/// root. It cannot be selected by asking Cargo to activate a registry package's
+/// feature through an external package root.
+fn highs_provider_output<'a>(
+    graph: &'a UnitGraph,
+    messages: &[serde_json::Value],
+    provider_packages: &BTreeSet<String>,
+    root: &Path,
+) -> Result<(&'a Unit, PathBuf)> {
+    validate_production_root(graph, &ProducerTarget::Library)?;
+    let composition = &graph.units[graph.roots[0]];
+    ensure!(
+        logical_package(&composition.pkg_id, root)
+            .starts_with("path+workspace://crates/pse-uno-sys#")
+            && provider_composition_context(
+                &composition.target.name,
+                &composition.target.kind,
+                &composition.mode,
+                composition.platform.as_deref(),
+                &composition.profile,
+                &composition.features,
+            ),
+        "provider requires the host dev pse-uno-sys/highs-provider library root"
+    );
+    let edges = composition
+        .dependencies
+        .iter()
+        .filter(|edge| edge.extern_crate_name == "highs_sys")
+        .collect::<Vec<_>>();
+    ensure!(
+        edges.len() == 1,
+        "provider lacks one reachable highs_sys dependency"
+    );
+    let provider = graph
+        .units
+        .get(edges[0].index)
+        .context("provider dependency index outside graph")?;
+    ensure!(
+        provider_packages.contains(&provider.pkg_id)
+            && provider.target.name == "highs_sys"
+            && provider.target.kind == ["lib"]
+            && provider.mode == "build"
+            && provider.platform.is_none()
+            && provider.profile["name"] == "dev"
+            && messages
+                .iter()
+                .filter(|message| artifact_matches(provider, message))
+                .count()
+                == 1,
+        "provider dependency lacks its exact actual Cargo library artifact"
+    );
+    let outputs = messages
+        .iter()
+        .filter(|message| {
+            message["reason"] == "build-script-executed"
+                && message["package_id"].as_str() == Some(provider.pkg_id.as_str())
+        })
+        .collect::<Vec<_>>();
+    ensure!(
+        outputs.len() == 1,
+        "provider capture lacks one actual package/OUT_DIR association"
+    );
+    let out_dir = PathBuf::from(
+        outputs[0]["out_dir"]
+            .as_str()
+            .context("actual provider OUT_DIR")?,
+    );
+    ensure!(
+        out_dir.is_absolute(),
+        "actual provider OUT_DIR is not absolute"
+    );
+    Ok((provider, out_dir))
+}
+
+fn receipt_provider_unit<'a>(
+    receipt: &'a ProducerIdentity,
+    package_id: &str,
+) -> Result<&'a ProductionUnit> {
+    ensure!(
+        receipt.package == "pse-uno-sys",
+        "provider composition package differs"
+    );
+    let selected = receipt
+        .selected_root
+        .as_ref()
+        .context("provider selected root")?;
+    let roots = receipt
+        .units
+        .iter()
+        .filter(|unit| &unit.key == selected)
+        .collect::<Vec<_>>();
+    ensure!(roots.len() == 1, "provider selected root is not unique");
+    let composition = roots[0];
+    ensure!(
+        composition
+            .package_id
+            .starts_with("path+workspace://crates/pse-uno-sys#")
+            && provider_composition_context(
+                &composition.target_name,
+                &composition.target_kind,
+                &composition.mode,
+                composition.platform.as_deref(),
+                &composition.profile,
+                &composition.features,
+            ),
+        "provider selected role/profile differs"
+    );
+    let dependencies = composition
+        .dependencies
+        .iter()
+        .filter_map(|(edge, dependency)| {
+            edge.strip_prefix("highs_sys:")
+                .map(|suffix| (suffix, dependency))
+        })
+        .collect::<Vec<_>>();
+    ensure!(dependencies.len() == 1, "provider dependency is not unique");
+    let (suffix, dependency) = dependencies[0];
+    ensure!(
+        suffix == dependency.as_str(),
+        "provider dependency key differs"
+    );
+    let providers = receipt
+        .units
+        .iter()
+        .filter(|unit| &unit.key == dependency)
+        .collect::<Vec<_>>();
+    ensure!(providers.len() == 1, "provider dependency is not unique");
+    let provider = providers[0];
+    ensure!(
+        provider.package_id == package_id
+            && provider.target_name == "highs_sys"
+            && provider.target_kind == ["lib"]
+            && provider.mode == "build"
+            && provider.platform.is_none()
+            && provider.profile["name"] == "dev",
+        "provider package is not the selected composition dependency"
+    );
+    Ok(provider)
+}
+
+/// Pure current-file admission of a previously reviewed actual provider capture.
+/// This never runs Cargo, performs discovery or manufactures completeness.
+pub(crate) fn verify_native_provider(path: &Path, package_id: &str, out_dir: &Path) -> Result<()> {
+    let bytes = fs::read(path)?;
+    let header: serde_json::Value = serde_json::from_slice(&bytes)?;
+    ensure!(
+        header["receipt_version"].as_u64()
+            == Some(u64::from(deployment_identity::DEPLOYMENT_RECEIPT_VERSION)),
+        "unsupported provider association interpretation"
+    );
+    deployment_identity::verify_scientific_producer_identity(&header)?;
+    let receipt: ProducerIdentity = serde_json::from_value(header)?;
+    ensure!(
+        receipt.frame == Frame::ProducerV1.as_str()
+            && receipt.package == "pse-uno-sys"
+            && receipt.persistent_reuse_eligible
+            && receipt.reasons.is_empty(),
+        "provider capture is unqualified"
+    );
+    receipt_provider_unit(&receipt, package_id)?;
+    let provider = receipt
+        .native_provider
+        .context("actual provider association absent")?;
+    ensure!(
+        provider.package_id == package_id && provider.out_dir == out_dir,
+        "provider package/OUT_DIR differs"
+    );
+    ensure!(
+        provider
+            .files
+            .iter()
+            .any(|file| file.path == out_dir.join("lib/libhighs.a"))
+            && provider
+                .files
+                .iter()
+                .any(|file| file.path == out_dir.join("include/highs/Highs.h")),
+        "provider archive/header association incomplete"
+    );
+    ensure!(
+        deployment_identity::namespace_digest(&out_dir.join("include"))?
+            == provider.include_namespace,
+        "installed provider header namespace changed"
+    );
+    for (name, expected) in &provider.build_environment {
+        ensure!(
+            current_environment(name)?
+                .as_ref()
+                .map(|value| deployment_identity::value_digest(value.as_bytes()))
+                == *expected,
+            "provider consumed build environment changed: {name}"
+        );
+    }
+    ensure!(
+        std::env::vars()
+            .filter(|(name, _)| caller_build_environment(name))
+            .all(|(name, _)| provider.build_environment.contains_key(&name)),
+        "provider has new unreviewed build environment"
+    );
+    for file in &provider.files {
+        file.verify()?;
+    }
+    let deployment = receipt
+        .deployment
+        .context("provider consumed-input association absent")?;
+    ensure!(
+        deployment.producer_identity == receipt.identity
+            && Some(&deployment.selected_root) == receipt.selected_root.as_ref(),
+        "provider artifact names another scientific producer or selected root"
+    );
+    deployment.verify_current(&deployment.artifact.path)?;
+    Ok(())
+}
+pub(crate) fn verify_deployment_artifact(receipt: &Path, artifact: &Path) -> Result<()> {
+    let observed = deployment_identity::verify_receipt_artifact(&fs::read(receipt)?, artifact)?;
+    println!("{}", serde_json::to_string(&observed)?);
+    Ok(())
+}
+pub(crate) fn observe_deployment(root: &Path, output: &Path) -> Result<()> {
+    fs::write(
+        output,
+        serde_json::to_vec(&deployment_identity::observe_outer(root)?)?,
+    )?;
+    Ok(())
 }
 
 fn hash_parts(parts: &[&[u8]]) -> String {
@@ -2939,6 +3264,7 @@ fn add_reviewed_inputs_with_environment(
                 path: path.to_string_lossy().into_owned(),
                 identity: hash_parts(&[b"reviewed-file-absence"]),
                 representation: "reviewed-absence".into(),
+                observation: None,
             });
     }
     for path in &declaration.namespaces {
@@ -2950,6 +3276,7 @@ fn add_reviewed_inputs_with_environment(
                 path: path.to_string_lossy().into_owned(),
                 identity: namespace_identity(&path)?,
                 representation: "bounded-raw-search-namespace.v1".into(),
+                observation: None,
             });
     }
     let values = serde_json::to_vec(&(&declaration.environment, &declaration.absent_environment))?;
@@ -2960,6 +3287,7 @@ fn add_reviewed_inputs_with_environment(
             path: package.into(),
             identity: hash_parts(&[b"environment", &values]),
             representation: "reviewed-values".into(),
+            observation: None,
         });
     Ok(())
 }
@@ -3190,6 +3518,7 @@ fn raw_input(
         path: name,
         identity: hash_parts(&[b"input", b"raw", bytes]),
         representation: "raw".into(),
+        observation: None,
     });
 }
 
@@ -3244,19 +3573,23 @@ fn capture_configuration(
             _ => None,
         };
         if let Some(name) = wrapper_override {
-            // Cargo explicitly interprets an empty wrapper override as disabling
-            // the configured executable. Its configuration bytes remain retained.
-            if environment(name)?.is_some_and(|value| value.is_empty()) {
+            // Cargo gives any explicit wrapper environment value precedence over
+            // configuration, including empty values that disable wrapping. Retain
+            // that selector; the selected wrapper's effects belong to the mandatory
+            // native/compiler closure, not to this unused configured executable.
+            if let Some(value) = environment(name)? {
                 inputs
                     .entry("configuration-executor-exclusions".into())
                     .or_default()
                     .push(ConsumedInput {
                         path: format!("{label}:{name}"),
                         identity: hash_parts(&[
-                            b"effective-empty-wrapper-override",
+                            b"effective-wrapper-override",
                             name.as_bytes(),
+                            value.as_bytes(),
                         ]),
-                        representation: "actual-empty-wrapper-override".into(),
+                        representation: "actual-wrapper-override".into(),
+                        observation: None,
                     });
                 continue;
             }
@@ -3338,6 +3671,7 @@ fn capture_configuration(
                     path: file.to_string_lossy().into_owned(),
                     identity: hash_parts(&[b"reviewed-file-absence"]),
                     representation: "reviewed-absence".into(),
+                    observation: None,
                 });
         }
         let mut actual = BTreeMap::new();
@@ -3370,6 +3704,7 @@ fn capture_configuration(
                     &serde_json::to_vec(&actual)?,
                 ]),
                 representation: "actual-value-digest".into(),
+                observation: None,
             });
     }
     Ok(())
@@ -3477,6 +3812,7 @@ fn add_file(
         path: name,
         identity: hash_parts(&[b"input", representation.as_bytes(), &content]),
         representation,
+        observation: Some(deployment_identity::FileObservation::capture(path)?),
     });
     Ok(())
 }
@@ -3527,20 +3863,10 @@ fn add_dep_info(
                     .into(),
                 identity: hash_parts(&[b"env-dep", line.as_bytes()]),
                 representation: "actual-rustc-env-dep".into(),
+                observation: None,
             });
     }
     Ok(())
-}
-
-fn provenance_environment(name: &str) -> bool {
-    matches!(
-        name,
-        "PSE_RUSTC_VERSION"
-            | "PSE_PROFILE"
-            | "PSE_GIT_SHA"
-            | "PSE_CARGO_LOCK_SHA256"
-            | "PSE_UV_LOCK_SHA256"
-    )
 }
 
 fn merge_inputs(
@@ -3550,32 +3876,6 @@ fn merge_inputs(
     for (group, inputs) in from {
         into.entry(group).or_default().extend(inputs);
     }
-}
-
-/// This boundary is used only for the source-reviewed buildinfo owner and its
-/// one Cargo-issued OUT_DIR. Same-named inputs of another owner remain semantic.
-fn classify_deployment_inputs(
-    scientific: &mut BTreeMap<String, Vec<ConsumedInput>>,
-    deployment: &mut BTreeMap<String, Vec<ConsumedInput>>,
-    out: &Path,
-) {
-    let files = ["source.identity", "build.identity", "cargo.lock", "uv.lock"]
-        .map(|name| out.join(name).to_string_lossy().into_owned());
-    for (group, inputs) in scientific.iter_mut() {
-        let mut outer = Vec::new();
-        inputs.retain(|input| {
-            let provenance = files.contains(&input.path)
-                || group == "rustc-environment" && provenance_environment(&input.path);
-            if provenance {
-                outer.push(input.clone());
-            }
-            !provenance
-        });
-        if !outer.is_empty() {
-            deployment.entry(group.clone()).or_default().extend(outer);
-        }
-    }
-    scientific.retain(|_, inputs| !inputs.is_empty());
 }
 
 /// Make-style rustc dependency files: escaped whitespace, #, :, backslashes,
@@ -4351,7 +4651,7 @@ mod tests {
     }
 
     #[test]
-    fn producer_empty_wrapper_override_excludes_only_the_disabled_executor() {
+    fn producer_wrapper_override_excludes_only_the_replaced_executor() {
         let (directory, path, _) = configuration_fixture();
         let root = directory.path();
         let tool = root.join("reviewed-linker");
@@ -4385,16 +4685,20 @@ mod tests {
         assert!(disabled.contains_key("cargo-configuration"));
         assert_eq!(disabled["configuration-executor-exclusions"].len(), 2);
         assert!(!disabled.contains_key("configuration-executables"));
-        for value in [None, Some("unreviewed-wrapper")] {
-            let (inputs, reasons) = observe(value);
-            assert_eq!(reasons.len(), 2);
-            assert!(
-                reasons
-                    .iter()
-                    .all(|reason| reason.contains("lacks one exact closure review"))
-            );
-            assert!(!inputs.contains_key("configuration-executor-exclusions"));
-        }
+        let (replaced, reasons) = observe(Some("selected-wrapper"));
+        assert!(reasons.is_empty());
+        assert!(!replaced.contains_key("configuration-executables"));
+        assert_eq!(replaced["configuration-executor-exclusions"].len(), 2);
+        assert_ne!(disabled, replaced);
+        assert_ne!(replaced, observe(Some("another-selected-wrapper")).0);
+        let (inputs, reasons) = observe(None);
+        assert_eq!(reasons.len(), 2);
+        assert!(
+            reasons
+                .iter()
+                .all(|reason| reason.contains("lacks one exact closure review"))
+        );
+        assert!(!inputs.contains_key("configuration-executor-exclusions"));
         // No empty wrapper environment can suppress a configured linker.
         let (link_directory, link_path, _) = configuration_fixture();
         let (_, reasons, _) =
@@ -4801,218 +5105,6 @@ mod tests {
         // deployment-native/environment input has been fully qualified.
     }
 
-    #[test]
-    fn producer_actual_deployment_provenance_is_separate_and_source_bound() {
-        let directory = tempfile::tempdir().unwrap();
-        let root = directory.path();
-        let owner = root.join("crates/pse-buildinfo");
-        fs::create_dir_all(owner.join("src")).unwrap();
-        fs::create_dir(root.join("src")).unwrap();
-        fs::write(root.join("Cargo.toml"),
-            "[workspace]\nmembers=['crates/pse-buildinfo']\n[package]\nname='producer-fixture'\nversion='0.1.0'\nedition='2024'\n[dependencies]\npse-buildinfo={path='crates/pse-buildinfo'}\n").unwrap();
-        fs::write(
-            root.join("src/lib.rs"),
-            "pub fn value()->u32 {pse_buildinfo::value()}\n",
-        )
-        .unwrap();
-        fs::write(
-            owner.join("Cargo.toml"),
-            "[package]\nname='pse-buildinfo'\nversion='0.0.1'\nedition='2024'\n",
-        )
-        .unwrap();
-        let behavior = "pub fn value()->u32 {7} pub const SOURCE:&[u8]=include_bytes!(concat!(env!(\"OUT_DIR\"),\"/source.identity\")); pub const BUILD:&[u8]=include_bytes!(concat!(env!(\"OUT_DIR\"),\"/build.identity\")); pub const CARGO:&[u8]=include_bytes!(concat!(env!(\"OUT_DIR\"),\"/cargo.lock\")); pub const UV:&[u8]=include_bytes!(concat!(env!(\"OUT_DIR\"),\"/uv.lock\")); pub const GIT:&str=env!(\"PSE_GIT_SHA\");";
-        fs::write(owner.join("src/lib.rs"), behavior).unwrap();
-        fs::write(owner.join("build.rs"), r#"fn main() {
-            let input=std::path::PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("../../provenance.input");
-            println!("cargo:rerun-if-changed={}",input.display());
-            let bytes=std::fs::read(input).unwrap();
-            let out=std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
-            std::fs::write(out.join("source.identity"),&bytes).unwrap();
-            std::fs::write(out.join("build.identity"),[3u8;32]).unwrap();
-            std::fs::write(out.join("cargo.lock"),&bytes).unwrap();
-            std::fs::write(out.join("uv.lock"),&bytes).unwrap();
-            println!("cargo:rustc-env=PSE_GIT_SHA={}",bytes[0]);
-        }"#).unwrap();
-        fs::write(root.join("provenance.input"), [1u8; 32]).unwrap();
-        let repository = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-        fs::copy(
-            repository.join("rust-toolchain.toml"),
-            root.join("rust-toolchain.toml"),
-        )
-        .unwrap();
-        cargo_output(root, &["generate-lockfile".into(), "--offline".into()]).unwrap();
-        let options = ProducerOptions {
-            workspace_root: root.into(),
-            package: "producer-fixture".into(),
-            profile: "dev".into(),
-            target: None,
-            production_target: ProducerTarget::Library,
-            features: Vec::new(),
-            no_default_features: false,
-            dep_info: Vec::new(),
-            declared_inputs: Vec::new(),
-            native_inputs: Vec::new(),
-            declared_environment: BTreeMap::new(),
-            declarations: InputDeclarations {
-                capture_actual_build: true,
-                review_catalogs: vec!["review.json".into()],
-                ..Default::default()
-            },
-        };
-        let graph: UnitGraph =
-            serde_json::from_slice(&cargo_output(root, &unit_graph_arguments(&options)).unwrap())
-                .unwrap();
-        let metadata: cargo_metadata::Metadata = serde_json::from_slice(
-            &cargo_output(
-                root,
-                &[
-                    "metadata".into(),
-                    "--format-version=1".into(),
-                    "--offline".into(),
-                ],
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let packages = metadata
-            .packages
-            .into_iter()
-            .map(|package| (package.id.to_string(), package))
-            .collect();
-        let sources = selected_source_state(&graph, &packages).unwrap();
-        let keys = unit_keys(&graph, root).unwrap();
-        let (index, unit) = graph
-            .units
-            .iter()
-            .enumerate()
-            .find(|(_, unit)| unit.mode == "run-custom-build")
-            .unwrap();
-        let owner_key = logical_package(&unit.pkg_id, root);
-        let review = serde_json::json!({"reviewed_source": reviewed_source_identity(&owner).unwrap(),
-            "reviewed_closures":[executable_closure_basis(&graph,index,&sources,&keys).unwrap()],
-            "rationale":"This isolated fixture reads only provenance.input to produce outer data; value remains seven.",
-            "deployment_provenance":true,"workspace_files":["provenance.input"],
-            "workspace_absent_files":["vendor"]});
-        fs::write(
-            root.join("review.json"),
-            serde_json::to_vec(
-                &serde_json::json!({"build_scripts":{owner_key.clone():review.clone()}}),
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let first = run(&options).unwrap();
-        assert!(
-            !first.persistent_reuse_eligible,
-            "fixture has no production native qualification"
-        );
-        assert_eq!(
-            first.outer_attestation.as_ref().unwrap().source,
-            pse_ids::ContentHash::from_bytes([1; 32])
-        );
-        assert!(
-            first
-                .deployment_provenance
-                .values()
-                .flatten()
-                .any(|input| input.path.ends_with("provenance.input"))
-        );
-        fs::write(root.join("provenance.input"), [2u8; 32]).unwrap();
-        let changed_provenance = run(&options).unwrap();
-        for group in first
-            .consumed_inputs
-            .keys()
-            .chain(changed_provenance.consumed_inputs.keys())
-        {
-            assert_eq!(
-                first.consumed_inputs.get(group),
-                changed_provenance.consumed_inputs.get(group),
-                "changed scientific group {group}"
-            );
-        }
-        assert_eq!(first.identity, changed_provenance.identity);
-        assert_ne!(
-            first.outer_attestation,
-            changed_provenance.outer_attestation
-        );
-        assert_ne!(
-            serde_json::to_vec(&first.deployment_provenance).unwrap(),
-            serde_json::to_vec(&changed_provenance.deployment_provenance).unwrap()
-        );
-        assert!(
-            first
-                .deployment_provenance
-                .values()
-                .flatten()
-                .any(|input| input.path.ends_with("vendor"))
-        );
-        fs::create_dir(root.join("vendor")).unwrap();
-        let reappeared = run(&options).unwrap_err();
-        assert!(reappeared.to_string().contains("absent workspace input"));
-        fs::remove_dir(root.join("vendor")).unwrap();
-        #[cfg(unix)]
-        {
-            std::os::unix::fs::symlink("missing-target", root.join("vendor")).unwrap();
-            // The raw source inventory can reject a symlink before review
-            // expansion; either boundary must refuse the capture.
-            assert!(run(&options).is_err());
-            fs::remove_file(root.join("vendor")).unwrap();
-        }
-        fs::write(owner.join("src/lib.rs"), behavior.replace("{7}", "{8}")).unwrap();
-        let changed_behavior = run(&options).unwrap();
-        assert_ne!(first.identity, changed_behavior.identity);
-        assert!(changed_behavior.deployment_provenance.is_empty());
-        assert!(changed_behavior.outer_attestation.is_none());
-        assert!(
-            changed_behavior
-                .reasons
-                .iter()
-                .any(|reason| reason.contains("build-script arbitrary I/O"))
-        );
-        fs::write(owner.join("src/lib.rs"), behavior).unwrap();
-        fs::rename(&owner, root.join("crates/other-buildinfo")).unwrap();
-        fs::write(
-            root.join("Cargo.toml"),
-            fs::read_to_string(root.join("Cargo.toml"))
-                .unwrap()
-                .replace("crates/pse-buildinfo", "crates/other-buildinfo"),
-        )
-        .unwrap();
-        let external_options = ProducerOptions {
-            declarations: InputDeclarations {
-                review_catalogs: vec!["external.json".into()],
-                ..options.declarations.clone()
-            },
-            ..options
-        };
-        let moved_graph: UnitGraph = serde_json::from_slice(
-            &cargo_output(root, &unit_graph_arguments(&external_options)).unwrap(),
-        )
-        .unwrap();
-        let moved_unit = moved_graph
-            .units
-            .iter()
-            .find(|unit| unit.mode == "run-custom-build")
-            .unwrap();
-        let moved_key = logical_package(&moved_unit.pkg_id, root);
-        let mut moved_review = review;
-        moved_review["reviewed_source"] = serde_json::json!(
-            reviewed_source_identity(&root.join("crates/other-buildinfo")).unwrap()
-        );
-        fs::write(
-            root.join("external.json"),
-            serde_json::to_vec(&serde_json::json!({"build_scripts":{moved_key:moved_review}}))
-                .unwrap(),
-        )
-        .unwrap();
-        assert!(
-            run(&external_options)
-                .unwrap_err()
-                .to_string()
-                .contains("restricted to the workspace buildinfo owner")
-        );
-    }
-
     fn artifact_fixture(root: &Path) -> (Unit, serde_json::Value) {
         let profile = serde_json::json!({"opt_level":"2","debuginfo":"line-tables-only","debug_assertions":true,"overflow_checks":true});
         let unit = Unit {
@@ -5038,6 +5130,198 @@ mod tests {
         let message = serde_json::json!({"reason":"compiler-artifact","package_id":unit.pkg_id,"target":{"name":"producer","kind":["lib"],"crate_types":["lib"],"edition":"2024","src_path":unit.target.src_path},"profile":message_profile,"features":["selected"],"filenames":[artifact],"fresh":true});
         (unit, message)
     }
+
+    fn provider_composition_fixture(
+        root: &Path,
+    ) -> (UnitGraph, Vec<serde_json::Value>, BTreeSet<String>, PathBuf) {
+        let (mut provider, mut artifact) = artifact_fixture(root);
+        provider.pkg_id =
+            "registry+https://github.com/rust-lang/crates.io-index#highs-sys@1.15.0".into();
+        provider.target.name = "highs_sys".into();
+        provider.profile["name"] = serde_json::json!("dev");
+        provider.features = vec!["build".into(), "cmake".into(), "default".into()];
+        let compiled =
+            root.join("target/debug/build/highs-sys/rust-unit/out/libhighs_sys-rust-unit.rlib");
+        fs::create_dir_all(compiled.parent().unwrap()).unwrap();
+        fs::write(&compiled, b"actual dependency library fixture").unwrap();
+        artifact["package_id"] = serde_json::json!(provider.pkg_id);
+        artifact["target"]["name"] = serde_json::json!(provider.target.name);
+        artifact["features"] = serde_json::json!(provider.features);
+        artifact["filenames"] = serde_json::json!([compiled]);
+        let mut build = provider.clone();
+        build.target.name = "build-script-build".into();
+        build.target.kind = vec!["custom-build".into()];
+        build.target.crate_types = vec!["bin".into()];
+        build.mode = "run-custom-build".into();
+        provider.dependencies = vec![Edge {
+            index: 2,
+            extern_crate_name: "build_script_build".into(),
+        }];
+        let mut composition = provider.clone();
+        composition.pkg_id = format!("path+file://{}/crates/pse-uno-sys#0.0.1", root.display());
+        composition.target.name = "pse_uno_sys".into();
+        composition.features = vec!["highs-provider".into()];
+        composition.dependencies = vec![Edge {
+            index: 1,
+            extern_crate_name: "highs_sys".into(),
+        }];
+        let out_dir = root.join("target/debug/build/highs-sys/actual-unit/out");
+        let output = serde_json::json!({"reason":"build-script-executed","package_id":provider.pkg_id,"out_dir":out_dir});
+        let packages = BTreeSet::from([provider.pkg_id.clone()]);
+        (
+            UnitGraph {
+                version: 1,
+                roots: vec![0],
+                units: vec![composition, provider, build],
+            },
+            vec![artifact, output],
+            packages,
+            out_dir,
+        )
+    }
+
+    #[test]
+    fn producer_native_provider_uses_actual_workspace_dependency_output() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let (mut graph, messages, packages, out_dir) = provider_composition_fixture(root);
+        // Optional link selection belongs to the actual graph/input review; it
+        // must neither be invented nor silently excluded by the provider route.
+        graph.units[0].features.push("link".into());
+        let (unit, actual_out) = highs_provider_output(&graph, &messages, &packages, root).unwrap();
+        assert_eq!(unit.pkg_id, graph.units[1].pkg_id);
+        assert_ne!(unit.pkg_id, graph.units[0].pkg_id);
+        assert_eq!(actual_out, out_dir);
+    }
+
+    #[test]
+    fn producer_native_provider_refuses_wrong_root_and_unreachable_units() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let (graph, messages, packages, _) = provider_composition_fixture(root);
+        let mut external_root = graph.clone();
+        external_root.roots = vec![1];
+        assert!(highs_provider_output(&external_root, &messages, &packages, root).is_err());
+        let mut unreachable = graph.clone();
+        unreachable.units[0].dependencies.clear();
+        assert!(highs_provider_output(&unreachable, &messages, &packages, root).is_err());
+        let mut inactive = graph.clone();
+        inactive.units[0].features.clear();
+        assert!(highs_provider_output(&inactive, &messages, &packages, root).is_err());
+        let mut wrong_role = graph.clone();
+        wrong_role.units[0].target.name = "another_library".into();
+        assert!(highs_provider_output(&wrong_role, &messages, &packages, root).is_err());
+        let mut wrong_profile = graph.clone();
+        wrong_profile.units[0].profile["name"] = serde_json::json!("producer");
+        assert!(highs_provider_output(&wrong_profile, &messages, &packages, root).is_err());
+        assert!(highs_provider_output(&graph, &messages, &BTreeSet::new(), root).is_err());
+    }
+
+    #[test]
+    fn producer_native_provider_refuses_multiple_outputs_and_artifact_mismatch() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let (graph, messages, packages, out_dir) = provider_composition_fixture(root);
+        let mut multiple = messages.clone();
+        let mut second = messages[1].clone();
+        second["out_dir"] = serde_json::json!(out_dir.with_file_name("another-out"));
+        multiple.push(second);
+        assert!(highs_provider_output(&graph, &multiple, &packages, root).is_err());
+        let mut wrong_artifact = messages.clone();
+        wrong_artifact[0]["features"] = serde_json::json!(["unselected"]);
+        assert!(highs_provider_output(&graph, &wrong_artifact, &packages, root).is_err());
+        let mut wrong_package = messages.clone();
+        wrong_package[1]["package_id"] = serde_json::json!("another-package#1");
+        assert!(highs_provider_output(&graph, &wrong_package, &packages, root).is_err());
+        assert!(highs_provider_output(&graph, &messages[..1], &packages, root).is_err());
+    }
+
+    #[test]
+    fn producer_native_provider_receipt_preserves_composition_dependency_selection() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let (graph, _, packages, _) = provider_composition_fixture(root);
+        let keys = unit_keys(&graph, root).unwrap();
+        let units = graph
+            .units
+            .iter()
+            .enumerate()
+            .map(|(index, unit)| ProductionUnit {
+                key: keys[&index].clone(),
+                package_id: logical_package(&unit.pkg_id, root),
+                target_name: unit.target.name.clone(),
+                target_kind: unit.target.kind.clone(),
+                crate_types: unit.target.crate_types.clone(),
+                edition: unit.target.edition.clone(),
+                mode: unit.mode.clone(),
+                platform: unit.platform.clone(),
+                profile: unit.profile.clone(),
+                features: unit.features.clone(),
+                dependencies: unit
+                    .dependencies
+                    .iter()
+                    .map(|edge| {
+                        (
+                            format!("{}:{}", edge.extern_crate_name, keys[&edge.index]),
+                            keys[&edge.index].clone(),
+                        )
+                    })
+                    .collect(),
+            })
+            .collect();
+        // This exercises graph selection, never manufacturing an eligible grant.
+        let mut receipt = ProducerIdentity {
+            receipt_version: deployment_identity::DEPLOYMENT_RECEIPT_VERSION,
+            deployment: None,
+            native_provider: None,
+            frame: Frame::ProducerV1.as_str().into(),
+            package: "pse-uno-sys".into(),
+            selected_root: Some(keys[&0].clone()),
+            identity: String::new(),
+            persistent_reuse_eligible: false,
+            reasons: vec!["graph-selection fixture only".into()],
+            units,
+            selected_lock_records: Vec::new(),
+            consumed_inputs: BTreeMap::new(),
+            declared_environment: BTreeMap::new(),
+            native_abi: None,
+            reviewed_owner_sources: BTreeMap::new(),
+        };
+        let package_id = packages.first().unwrap();
+        assert_eq!(
+            receipt_provider_unit(&receipt, package_id).unwrap().key,
+            keys[&1]
+        );
+        let original_dependencies = receipt.units[0].dependencies.clone();
+        let provider_edge = format!("highs_sys:{}", keys[&1]);
+        receipt.units[0].dependencies.remove(&provider_edge);
+        assert!(receipt_provider_unit(&receipt, package_id).is_err());
+        receipt.units[0]
+            .dependencies
+            .insert("highs_sys".into(), keys[&1].clone());
+        assert!(receipt_provider_unit(&receipt, package_id).is_err());
+        receipt.units[0].dependencies = original_dependencies.clone();
+        receipt.units[0]
+            .dependencies
+            .insert(provider_edge.clone(), keys[&2].clone());
+        assert!(receipt_provider_unit(&receipt, package_id).is_err());
+        receipt.units[0].dependencies = original_dependencies.clone();
+        receipt.units[0].dependencies.remove(&provider_edge);
+        receipt.units[0]
+            .dependencies
+            .insert(format!("highs_sys:{}", keys[&2]), keys[&2].clone());
+        assert!(receipt_provider_unit(&receipt, package_id).is_err());
+        receipt.units[0].dependencies = original_dependencies.clone();
+        receipt.units[0]
+            .dependencies
+            .insert(format!("highs_sys:{}", keys[&2]), keys[&2].clone());
+        assert!(receipt_provider_unit(&receipt, package_id).is_err());
+        receipt.units[0].dependencies = original_dependencies;
+        receipt.selected_root = Some(keys[&1].clone());
+        receipt.package = "highs-sys".into();
+        assert!(receipt_provider_unit(&receipt, package_id).is_err());
+    }
+
     #[test]
     fn producer_git_source_encoding_preserves_exact_commit_and_branch() {
         let encoded =
@@ -5188,6 +5472,144 @@ mod tests {
                 .is_none()
         );
     }
+
+    fn cached_profile_artifact_fixture(root: &Path) -> (Unit, serde_json::Value, PathBuf) {
+        let (mut unit, mut message) = artifact_fixture(root);
+        unit.profile["name"] = serde_json::json!("producer");
+        let output = root.join("target/producer/build/producer/123/out");
+        fs::create_dir_all(&output).unwrap();
+        let artifact = output.join("libproducer-123.rlib");
+        fs::write(&artifact, b"actual current Cargo-emitted cached output").unwrap();
+        fs::write(root.join("lib.rs"), "fn production() {}").unwrap();
+        message["filenames"] = serde_json::json!([artifact]);
+        (unit, message, output.join("producer-123.d"))
+    }
+
+    #[test]
+    fn producer_cached_dep_info_preserves_unit_suffix_across_profiles() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let (unit, message, candidate) = cached_profile_artifact_fixture(root);
+        let old = root.join("target/debug/build/producer/123/out");
+        let consumed = root.join("target/debug/build/native-input/456/out/generated.rs");
+        let text = format!(
+            "{}: {} {}\n{}: {} {}\n",
+            old.join("producer-123.d").display(),
+            unit.target.src_path.display(),
+            consumed.display(),
+            old.join("libproducer-123.rlib").display(),
+            unit.target.src_path.display(),
+            consumed.display(),
+        );
+        fs::write(&candidate, &text).unwrap();
+        let graph = UnitGraph {
+            version: 1,
+            roots: vec![0],
+            units: vec![unit.clone()],
+        };
+        assert_eq!(
+            artifact_dep_info(&unit, &graph, std::slice::from_ref(&message), root).unwrap(),
+            Some(vec![candidate.clone()])
+        );
+        // Cached rule targets describe the former output directory. Consumed
+        // source paths, including generated inputs there, retain their meaning.
+        assert_eq!(fs::read_to_string(&candidate).unwrap(), text);
+        let inputs = parse_dep_info(&text).unwrap();
+        assert!(inputs.contains(&consumed));
+        assert!(
+            !inputs.contains(&root.join("target/producer/build/native-input/456/out/generated.rs"))
+        );
+        let mut wrong_profile = message.clone();
+        wrong_profile["profile"]["opt_level"] = serde_json::json!("3");
+        assert!(
+            artifact_dep_info(&unit, &graph, &[wrong_profile], root)
+                .unwrap()
+                .is_none()
+        );
+        let mut wrong_platform = graph;
+        let mut other = unit.clone();
+        other.platform = Some("other-target".into());
+        wrong_platform.units.push(other);
+        assert!(
+            artifact_dep_info(&unit, &wrong_platform, &[message], root)
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn producer_cached_dep_info_refuses_changed_fingerprint_path_and_orphan_outputs() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let (unit, message, candidate) = cached_profile_artifact_fixture(root);
+        let graph = UnitGraph {
+            version: 1,
+            roots: vec![0],
+            units: vec![unit.clone()],
+        };
+        let previous = root.join("target/debug/build/producer/123/out");
+        let wrong_fingerprint = root.join("target/debug/build/producer/456/out");
+        let wrong_package = root.join("target/debug/build/another-package/123/out");
+        let outside = root.join("other-workspace/target/debug/build/producer/123/out");
+        let wrong_profile = root.join("target/release/build/producer/123/out");
+        for (dep_output, artifact_output) in [
+            (
+                wrong_fingerprint.join("producer-456.d"),
+                wrong_fingerprint.join("libproducer-456.rlib"),
+            ),
+            (
+                previous.join("producer-123.d"),
+                previous.join("libproducer-456.rlib"),
+            ),
+            (
+                wrong_package.join("producer-123.d"),
+                wrong_package.join("libproducer-123.rlib"),
+            ),
+            (
+                outside.join("producer-123.d"),
+                outside.join("libproducer-123.rlib"),
+            ),
+            (
+                previous.join("producer-123.d"),
+                wrong_profile.join("libproducer-123.rlib"),
+            ),
+        ] {
+            fs::write(
+                &candidate,
+                format!(
+                    "{}: {}\n{}: {}\n",
+                    dep_output.display(),
+                    unit.target.src_path.display(),
+                    artifact_output.display(),
+                    unit.target.src_path.display(),
+                ),
+            )
+            .unwrap();
+            assert!(
+                artifact_dep_info(&unit, &graph, std::slice::from_ref(&message), root)
+                    .unwrap()
+                    .is_none(),
+                "unrelated output pair {dep_output:?}, {artifact_output:?}"
+            );
+        }
+        for orphan in ["producer-123.d", "libproducer-123.rlib"] {
+            fs::write(
+                &candidate,
+                format!(
+                    "{}: {}\n",
+                    previous.join(orphan).display(),
+                    unit.target.src_path.display(),
+                ),
+            )
+            .unwrap();
+            assert!(
+                artifact_dep_info(&unit, &graph, std::slice::from_ref(&message), root)
+                    .unwrap()
+                    .is_none()
+            );
+        }
+    }
+
     #[test]
     fn producer_same_context_artifacts_cover_each_dependency_closure() {
         let directory = tempfile::tempdir().unwrap();
@@ -6108,8 +6530,10 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("producer.json");
         let mut output = ProducerIdentity {
+            receipt_version: deployment_identity::DEPLOYMENT_RECEIPT_VERSION,
+            deployment: None,
+            native_provider: None,
             frame: Frame::ProducerV1.as_str().into(),
-            outer_attestation: None,
             package: "producer".into(),
             selected_root: None,
             identity: "first".into(),
@@ -6118,7 +6542,6 @@ mod tests {
             units: Vec::new(),
             selected_lock_records: Vec::new(),
             consumed_inputs: BTreeMap::new(),
-            deployment_provenance: BTreeMap::new(),
             declared_environment: BTreeMap::new(),
             native_abi: None,
             reviewed_owner_sources: BTreeMap::new(),

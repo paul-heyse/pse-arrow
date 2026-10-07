@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import shlex
 import shutil
@@ -81,6 +82,38 @@ def configure(
     if cache == "on" and not env.get("RUSTC_WRAPPER"):
         raise ValueError("cache requested but RUSTC_WRAPPER explicitly disables it")
     wrapper = env.get("RUSTC_WRAPPER", "")
+    if wrapper and Path(wrapper).name == "sccache":
+        # Keep actual compiler children in their caller's supervised lifetime.
+        # Preprocessing must observe newly present headers: sccache's direct
+        # include shortcut cannot establish the recorded absence premises.
+        env.update(SCCACHE_CLIENT_SIDE="1", SCCACHE_DIRECT="false")
+        env.setdefault("SCCACHE_CONF", str(root / ".config/sccache.toml"))
+        config_path = Path(env["SCCACHE_CONF"])
+        config_text = config_path.read_text()
+        cache_settings = (
+            json.loads(config_text)
+            if config_path.suffix == ".json"
+            else tomllib.loads(config_text)
+        )
+        if not isinstance(cache_settings, dict):
+            raise ValueError("sccache configuration must be a table")
+        dist = cache_settings.get("dist", {})
+        if not isinstance(dist, dict):
+            raise ValueError("sccache distribution configuration must be a table")
+        if "SCCACHE_ERROR_LOG" in env or dist.get("scheduler_url") is not None:
+            # Those switches disable client-side compilation in sccache. A
+            # normal build falls back to direct compilation; an explicit cache
+            # experiment reports that its requested conditions cannot hold.
+            if cache == "on":
+                raise ValueError(
+                    "sccache logging/distribution disables supervised client compilation"
+                )
+            env.update(
+                RUSTC_WRAPPER="",
+                RUSTC_WORKSPACE_WRAPPER="",
+                PSE_NATIVE_COMPILER_CACHE="",
+            )
+            wrapper = ""
     if wrapper and Path(wrapper).name == "sccache" and "SCCACHE_DIR" not in env:
         base = Path(env.get("XDG_CACHE_HOME", str(Path.home() / ".cache")))
         directory = base / "pse-arrow/sccache"

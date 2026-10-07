@@ -47,6 +47,7 @@ native-solvers = [
 ]
 
 [dependencies]
+pse-buildinfo.workspace = true
 pse-rules.workspace = true
 tracing.workspace = true
 faer.workspace = true

@@ -4,7 +4,21 @@
 //! Versioned native execution decisions. Scientific admission belongs to Rust.
 
 pub(super) fn append(ddl: &mut String) {
-    ddl.push_str(FUNCTIONS);
+    ddl.push_str(
+        &FUNCTIONS
+            .replace(
+                "__INDEX_BYTES__",
+                &pse_schema::catalog::substrate::RESULT_INDEX_BYTES.to_string(),
+            )
+            .replace(
+                "__INDEX_RECORDS__",
+                &pse_schema::catalog::substrate::RESULT_INDEX_RECORDS.to_string(),
+            )
+            .replace(
+                "__INDEX_REPLAY__",
+                &(pse_schema::catalog::substrate::RESULT_INDEX_RECORDS + 1).to_string(),
+            ),
+    );
 }
 
 const FUNCTIONS: &str = r#"
@@ -118,6 +132,7 @@ DEFINE FUNCTION fn::pse_execution_v1::claim($run: string, $operation: string, $r
 };
 
 DEFINE FUNCTION fn::pse_execution_v1::append($run: string, $attempt: string, $generation: decimal, $operation: string, $request: bytes, $set: object, $batch: object, $block: option<object>, $cells: array<object>, $outputs: array<object>) -> object {
+    IF array::len($cells) > __INDEX_RECORDS__ OR array::len($outputs) > __INDEX_RECORDS__ OR bytes::len(encoding::cbor::encode({block:$block,cells:$cells,outputs:$outputs})) > __INDEX_BYTES__ { THROW 'execution index metadata extent exceeded'; };
     fn::pse_execution_v1::available($run);
     LET $op = fn::pse_execution_v1::operation($operation, 'append', $request);
     LET $a = IF $op = NONE { fn::pse_execution_v1::fence($run, $attempt, $generation) } ELSE { NONE };
@@ -128,11 +143,11 @@ DEFINE FUNCTION fn::pse_execution_v1::append($run: string, $attempt: string, $ge
     IF $existing != NONE {
         IF $existing.payload != $batch.payload OR $existing.digest != $batch.digest OR $existing.ordinal != $batch.ordinal OR $existing.row_count != $batch.row_count OR $existing.result_set != $batch.result_set OR $existing.attempt != $attempt { THROW 'execution immutable batch changed'; };
         IF ($block = NONE AND $existing_block != NONE) OR ($block != NONE AND ($existing_block = NONE OR object::remove($existing_block, 'id') != $block)) { THROW 'execution immutable block changed'; };
-        LET $old_cells = SELECT * FROM canonical_result_cells WHERE batch = $batch.key ORDER BY key LIMIT 65;
+        LET $old_cells = SELECT * FROM canonical_result_cells WHERE batch = $batch.key ORDER BY key LIMIT __INDEX_REPLAY__;
         IF array::len($old_cells) != array::len($cells) OR $old_cells.map(|$cell| object::remove($cell, 'id')) != $cells { THROW 'execution immutable scalar cells changed'; };
-        LET $old_outputs = SELECT * FROM canonical_result_block_outputs WHERE batch = $batch.key ORDER BY key LIMIT 65;
+        LET $old_outputs = SELECT * FROM canonical_result_block_outputs WHERE batch = $batch.key ORDER BY key LIMIT __INDEX_REPLAY__;
         IF array::len($old_outputs) != array::len($outputs) OR $old_outputs.map(|$output| object::remove($output, 'id')) != $outputs { THROW 'execution immutable output block indexes changed'; };
-        IF $op != NONE { RETURN $existing; };
+        IF $op != NONE { RETURN {key:$batch.key,attempt:$attempt,result_set:$set.key,ordinal:$batch.ordinal,digest:$batch.digest,row_count:$batch.row_count,request:$request}; };
     } ELSE {
         IF $op != NONE { THROW 'execution acknowledged batch unavailable'; };
         LET $s = SELECT * FROM ONLY type::record('canonical_result_sets', $set.key);
@@ -157,7 +172,7 @@ DEFINE FUNCTION fn::pse_execution_v1::append($run: string, $attempt: string, $ge
         UPDATE ONLY type::record('canonical_result_sets', $set.key) SET next_ordinal += 1dec, row_count += $batch.row_count;
     };
     CREATE ONLY type::record('canonical_execution_operations', $operation) SET key = $operation, run = $run, attempt = $attempt, kind = 'append', request = $request, result = $request;
-    RETURN SELECT * FROM ONLY type::record('canonical_result_batches', $batch.key);
+    RETURN {key:$batch.key,attempt:$attempt,result_set:$set.key,ordinal:$batch.ordinal,digest:$batch.digest,row_count:$batch.row_count,request:$request};
 };
 
 DEFINE FUNCTION fn::pse_execution_v1::close($run: string, $attempt: string, $generation: decimal, $operation: string, $request: bytes) -> object {

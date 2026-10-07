@@ -1,0 +1,8 @@
+{
+  "generated_by": "pse-schema",
+  "interpretation": "pse.substrate.v2",
+  "result_block_bytes": 524288,
+  "result_index_bytes": 131072,
+  "max_message_bytes": 4194304,
+  "result_index_records": 18724
+}

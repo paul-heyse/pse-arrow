@@ -111,6 +111,7 @@ pub struct ShootingProblem {
     windows: Vec<Window>,
     samples: Vec<(usize, usize)>,
     controls: Vec<Control>,
+    control_positions: BTreeMap<usize, usize>,
     /// The anchored (differential) states and the start's anchors, fixed.
     differential: Vec<usize>,
     start: Vec<f64>,
@@ -594,6 +595,10 @@ impl ShootingProblem {
             derivatives: DerivativeOrder::First,
             smoothness: DerivativeOrder::First,
         };
+        let control_positions =
+            pse_math::index::CheckedInventory::new(&controls, |control| control.column)
+                .map_err(math)?
+                .into_positions();
         let mut problem = Self {
             snapshot: native::execution::Snapshot::observe(&native::execution::LINKED),
             structural_assessment: None,
@@ -605,6 +610,7 @@ impl ShootingProblem {
             windows,
             samples,
             controls,
+            control_positions,
             differential,
             start,
             rows,
@@ -841,7 +847,7 @@ impl ShootingProblem {
     /// The NLP variable a window's integration column moves, if any.
     fn variable(&self, window: usize, column: &WindowColumn) -> Option<usize> {
         match column {
-            WindowColumn::Integration(g) => self.controls.iter().position(|c| c.column == *g),
+            WindowColumn::Integration(g) => self.control_positions.get(g).copied(),
             WindowColumn::Anchor(a) if window > 0 => {
                 Some(self.controls.len() + (window - 1) * self.differential.len() + a)
             }
@@ -1653,6 +1659,13 @@ impl ShootingProblem {
             .bytes
             .checked_mul(self.windows.len() + 1)
             .and_then(|n| n.checked_add(self.solver.controls.foreign_bytes.unwrap_or(0)))
+            .and_then(|n| {
+                n.checked_add(
+                    self.control_positions
+                        .len()
+                        .checked_mul(size_of::<(usize, usize)>() + 512)?,
+                )
+            })
             .ok_or(crate::math::MathRuntimeError::Limit("shooting extent"))
     }
 }
@@ -1756,14 +1769,13 @@ fn stitch_conservation(
             "shooting conservation integral offsets",
         ));
     }
+    let quadratures = pse_math::index::CheckedInventory::new(&layout.quadratures, |id| *id)?;
     let fluxes = layout
         .balances
         .iter()
         .map(|balance| {
-            layout
-                .quadratures
-                .iter()
-                .position(|id| *id == balance.flux)
+            quadratures
+                .position(&balance.flux)
                 .ok_or_else(|| ProblemError::internal("shooting conservation flux identity"))
         })
         .collect::<Result<Vec<_>, _>>()?;

@@ -80,11 +80,46 @@ class BuildEnvironmentTests(unittest.TestCase):
         self.assertEqual(env["SCCACHE_DIR"], "/tmp/example/pse-arrow/sccache")
         self.assertEqual(env["SCCACHE_CACHE_SIZE"], "100G")
         self.assertNotIn("CARGO_INCREMENTAL", env)
+        self.assertEqual(env["SCCACHE_CLIENT_SIDE"], "1")
+        self.assertEqual(env["SCCACHE_DIRECT"], "false")
+        self.assertEqual(env["SCCACHE_CONF"], str(build.ROOT / ".config/sccache.toml"))
         self.assertEqual(build.configure(build.ROOT, env), env)
         own = {"RUSTC_WRAPPER": "sccache", "SCCACHE_DIR": "/user/cache"}
         self.assertEqual(
             {key: build.configure(build.ROOT, own)[key] for key in own}, own
         )
+
+    def test_cache_modes_that_escape_supervision_fall_back_before_setup(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory) / "sccache.toml"
+            config.write_text('[dist]\nscheduler_url="http://localhost:12345"\n')
+            json_config = Path(directory) / "sccache.json"
+            json_config.write_text(
+                '{"dist":{"scheduler_url":"http://localhost:12345"}}'
+            )
+            for extra in (
+                {"SCCACHE_ERROR_LOG": ""},
+                {"SCCACHE_CONF": str(config)},
+                {"SCCACHE_CONF": str(json_config)},
+            ):
+                original = {
+                    "RUSTC_WRAPPER": "/bin/sccache",
+                    "PSE_NATIVE_COMPILER_CACHE": "/bin/sccache",
+                    **extra,
+                }
+                env = build.configure(build.ROOT, original)
+                self.assertEqual(env["RUSTC_WRAPPER"], "")
+                self.assertEqual(env["PSE_NATIVE_COMPILER_CACHE"], "")
+                with self.assertRaisesRegex(ValueError, "disables supervised"):
+                    build.configure(build.ROOT, original, cache="on")
+            json_config.write_text('{"client_side_mode":false}')
+            selected = build.configure(
+                build.ROOT,
+                {"RUSTC_WRAPPER": "/bin/sccache", "SCCACHE_CONF": str(json_config)},
+                cache="on",
+            )
+            self.assertEqual(selected["SCCACHE_CONF"], str(json_config))
+            self.assertEqual(selected["SCCACHE_CLIENT_SIDE"], "1")
 
     def test_target_directory_belongs_to_the_building_checkout(self) -> None:
         # The default <root>/target is Cargo's default and is never exported: sccache
@@ -177,6 +212,18 @@ class BuildEnvironmentTests(unittest.TestCase):
 
 
 class NativeCacheTests(unittest.TestCase):
+    def setUp(self) -> None:
+        # Disposable prefixes must validate independently of an enclosing
+        # assessment's already admitted native installations.
+        environment = {
+            name: value
+            for name, value in os.environ.items()
+            if name not in {"PSE_NATIVE_OPERATION", "PSE_NATIVE_HANDOFF"}
+        }
+        isolated = patch.dict(os.environ, environment, clear=True)
+        isolated.start()
+        self.addCleanup(isolated.stop)
+
     def test_identity_loss_corruption_and_interrupted_install(self) -> None:
         calls = []
 
@@ -195,10 +242,19 @@ class NativeCacheTests(unittest.TestCase):
                 prefix,
             )
             self.assertEqual(len(calls), 1)
+            (prefix / required[0]).chmod(0o644)
             (prefix / required[0]).write_bytes(b"corrupt")
-            native_cache.prepare(base, "fixture", identity, required, builder)
-            (prefix / required[0]).unlink()
-            native_cache.prepare(base, "fixture", identity, required, builder)
+            repaired = native_cache.prepare(
+                base, "fixture", identity, required, builder
+            )
+            self.assertNotEqual(repaired, prefix)
+            self.assertEqual((prefix / required[0]).read_bytes(), b"corrupt")
+            (repaired / required[0]).parent.chmod(0o755)
+            (repaired / required[0]).unlink()
+            repaired_again = native_cache.prepare(
+                base, "fixture", identity, required, builder
+            )
+            self.assertNotEqual(repaired_again, repaired)
             self.assertEqual(len(calls), 3)
             self.assertNotEqual(
                 native_cache.prepare(
@@ -214,8 +270,8 @@ class NativeCacheTests(unittest.TestCase):
                     required,
                     lambda *_: None,
                 )
-            self.assertTrue(native_cache.valid(prefix, identity, required))
-            self.assertFalse(list((base / "fixture").glob(".*-*")))
+            self.assertTrue(native_cache.valid(repaired_again, identity, required))
+            self.assertFalse(list((base / "fixture").glob("*/.stage-*")))
 
     def test_concurrent_preparations_publish_once(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -246,17 +302,27 @@ print(prepare(base, 'fixture', {'id': 1}, ('lib/a',), builder))
             self.assertEqual((Path(directory) / "calls").read_text(), "build\n")
 
     def test_explicit_solver_prefix_needs_no_docker(self) -> None:
-        result = subprocess.run(
-            [
-                "bash",
-                "-c",
-                'source scripts/native-solver-env.sh; test "$IPOPT_DIR" = /explicit',
-            ],
-            cwd=build.ROOT,
-            env={**os.environ, "IPOPT_DIR": "/explicit"},
-            check=False,
-        )
-        self.assertEqual(result.returncode, 0)
+        with tempfile.TemporaryDirectory() as directory:
+            prefix = Path(directory)
+            for name in native_cache.SOLVER_FILES:
+                path = prefix / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"explicit interface")
+            result = subprocess.run(
+                [
+                    "bash",
+                    "-c",
+                    'source scripts/native-solver-env.sh; test "$IPOPT_DIR" = "$EXPECTED_PREFIX"',
+                ],
+                cwd=build.ROOT,
+                env={
+                    **os.environ,
+                    "IPOPT_DIR": str(prefix),
+                    "EXPECTED_PREFIX": str(prefix),
+                },
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0)
 
     def test_native_runner_mounts_external_target_read_only(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

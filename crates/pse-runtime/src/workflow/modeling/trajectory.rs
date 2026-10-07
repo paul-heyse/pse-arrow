@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Generated physical trajectory transport, including interrupted native outcomes.
 use super::*;
+use crate::workflow::math;
 
 impl ModelingTrajectory {
     /// Materialize a complete checked map once on success, sharing storage across clones.
@@ -62,12 +63,31 @@ impl ModelingTrajectory {
         let product = p.model().compiled();
         let pool = p.runtime.shared.pool();
         let cancel = pse_columnar::CancellationToken::new();
+        let projection_bytes = product
+            .admitted
+            .case()
+            .parameters()
+            .len()
+            .checked_add(product.admitted.case().variables().len())
+            .and_then(|n| n.checked_add(product.admitted.outputs.len()))
+            .and_then(|n| n.checked_add(product.admitted.case().rows().len()))
+            .and_then(|n| n.checked_mul(size_of::<SemanticId>() + size_of::<usize>() + 512))
+            .and_then(|n| {
+                n.checked_add(
+                    p.contract
+                        .outputs
+                        .len()
+                        .checked_mul(3 * size_of::<SemanticId>())?,
+                )
+            })
+            .ok_or_else(|| contract("trajectory projection scratch extent"))?;
         let _scratch = p.runtime.shared.math().reserve(
             "modeling:trajectory-row-copy",
             p.contract
                 .parameters
                 .len()
                 .checked_mul(size_of::<&pse_math::binding::Target>())
+                .and_then(|n| n.checked_add(projection_bytes))
                 .and_then(|n| n.checked_add(4096))
                 .and_then(|n| {
                     n.checked_add(
@@ -183,21 +203,54 @@ impl ModelingTrajectory {
                 .map_err(relation)?;
         }
         columns.push(self.inner.header.clone()).map_err(relation)?;
+        let parameter_ports = product
+            .admitted
+            .case()
+            .parameters()
+            .iter()
+            .chain(product.admitted.case().variables().iter().map(|v| &v.port))
+            .collect::<Vec<_>>();
+        let parameter_access =
+            pse_math::index::CheckedInventory::new(&parameter_ports, |v| v.id).map_err(math)?;
         let parameters = p
             .contract
             .parameters
             .iter()
             .map(|id| {
-                product
-                    .admitted
-                    .case()
-                    .parameters()
-                    .iter()
-                    .chain(product.admitted.case().variables().iter().map(|v| &v.port))
-                    .find(|v| v.id == *id)
+                parameter_access
+                    .get(id)
+                    .copied()
                     .ok_or_else(|| contract("trajectory parameter port absent"))
             })
             .collect::<Result<Vec<_>, _>>()?;
+        let output_access =
+            pse_math::index::CheckedInventory::new(&product.admitted.outputs, |o| o.row_id())
+                .map_err(math)?;
+        let row_access =
+            pse_math::index::CheckedInventory::new(product.admitted.case().rows(), |r| r.id)
+                .map_err(math)?;
+        let outputs = p
+            .contract
+            .outputs
+            .iter()
+            .map(|id| {
+                let output = output_access
+                    .get(id)
+                    .ok_or_else(|| contract("trajectory output lineage absent"))?;
+                let ModelingOutput::Member(symbol) = output else {
+                    return Err(contract("trajectory output is not an authored member"));
+                };
+                let row = row_access
+                    .get(id)
+                    .ok_or_else(|| contract("trajectory physical row absent"))?;
+                let unit = p
+                    .quantities
+                    .quantity_type(row.quantity)
+                    .map_err(math)?
+                    .canonical_unit;
+                Ok((*symbol, row.quantity.as_id(), unit.as_id()))
+            })
+            .collect::<Result<Vec<_>, WorkflowError>>()?;
         for (sample, point) in r.samples.iter().enumerate() {
             if point.outputs.len() != p.contract.outputs.len()
                 || !point.output_sensitivities.is_empty()
@@ -206,36 +259,15 @@ impl ModelingTrajectory {
             {
                 return Err(contract("trajectory output or sensitivity extent"));
             }
-            for (i, id) in p.contract.outputs.iter().enumerate() {
-                let output = product
-                    .admitted
-                    .outputs
-                    .iter()
-                    .find(|o| o.row_id() == *id)
-                    .ok_or_else(|| contract("trajectory output lineage absent"))?;
-                let ModelingOutput::Member(symbol) = output else {
-                    return Err(contract("trajectory output is not an authored member"));
-                };
-                let row = product
-                    .admitted
-                    .case()
-                    .rows()
-                    .iter()
-                    .find(|r| r.id == *id)
-                    .ok_or_else(|| contract("trajectory physical row absent"))?;
-                let unit = p
-                    .quantities
-                    .quantity_type(row.quantity)
-                    .map_err(super::super::super::math)?
-                    .canonical_unit;
+            for (i, (symbol, quantity, unit)) in outputs.iter().enumerate() {
                 columns
                     .push(simulation_samples::Row {
                         run_id: self.inner.run_id,
                         sample: sample as i64,
                         time: point.time,
                         symbol_id: *symbol,
-                        quantity_id: row.quantity.as_id(),
-                        unit_id: unit.as_id(),
+                        quantity_id: *quantity,
+                        unit_id: *unit,
                         value: point.outputs[i],
                     })
                     .map_err(relation)?;
@@ -249,7 +281,7 @@ impl ModelingTrajectory {
                                 time: Some(point.time),
                                 output_id: *symbol,
                                 parameter_id: parameter.id,
-                                output_unit_id: unit.as_id(),
+                                output_unit_id: *unit,
                                 parameter_unit_id: parameter.unit.as_id(),
                                 value: point.output_sensitivities[i * parameters.len() + j],
                             })

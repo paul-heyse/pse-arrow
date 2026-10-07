@@ -7,13 +7,13 @@ use crate::math::portable::QualifiedProducer;
 use pse_ids::ContentHash;
 use pse_operations::canonical::CanonicalStore;
 
-/// Complete deployment attestation. It describes the executable containing the
+/// Available deployment attestation. It describes the executable containing the
 /// library; it is deliberately distinct from relevant compilation producer keys.
 #[derive(Clone, Copy, Debug)]
 pub struct OuterAttestation {
-    /// Complete source closure recorded by the composition root.
-    pub source: ContentHash,
-    /// Complete build closure recorded by the composition root.
+    /// Complete source observation, absent for an installation without its authored checkout.
+    pub source: Option<ContentHash>,
+    /// Observed build/deployed artifact context recorded by the composition root.
     pub build: ContentHash,
 }
 

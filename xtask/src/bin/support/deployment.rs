@@ -18,17 +18,21 @@ pub(super) async fn open(
         .await
         .map_err(|e| e.to_string())?;
     store.open().await.map_err(|e| e.to_string())?;
+    let actual = std::env::current_exe().map_err(|error| error.to_string())?;
+    pse_buildinfo::verify_loaded_module(&actual).map_err(|error| error.to_string())?;
+    let outer = pse_buildinfo::observe_deployment(&actual).map_err(|error| error.to_string())?;
     let attestation = pse_runtime::workflow::OuterAttestation {
-        source: pse_buildinfo::SOURCE_IDENTITY,
-        build: pse_buildinfo::BUILD_IDENTITY,
+        source: outer.source,
+        build: outer.build,
     };
     let producer = std::env::var_os("PSE_PRODUCER_RECEIPT").map(|path| {
-        let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
-        // SAFETY: the operator explicitly selects a reviewed deployment-tool
-        // capture; linked build information supplies this executable's attestation.
+        let bytes = std::fs::read(path).map_err(|error| error.to_string())?;
+        let artifact = pse_buildinfo::verify_receipt_artifact(&bytes, &actual).map_err(|error| error.to_string())?;
+        // SAFETY: the operator selects the reviewed actual capture; current_exe
+        // and current consumed inputs independently establish its association.
         #[allow(unsafe_code, reason = "ADR-0164 controlled worker deployment qualification; no unsafe memory operation")]
-        unsafe { pse_runtime::math::portable::QualifiedProducer::from_deployment_receipt(&bytes, attestation.source, attestation.build, pse_runtime::math::portable::ExpectedProducerTarget::WORKER) }
-            .map_err(|e| e.to_string())
+        unsafe { pse_runtime::math::portable::QualifiedProducer::from_deployment_receipt(&bytes, &artifact.sha256, pse_runtime::math::portable::ExpectedProducerTarget::WORKER) }
+            .map_err(|error| error.to_string())
     }).transpose()?.flatten();
     Ok(pse_runtime::workflow::CanonicalDeployment::new(
         store,

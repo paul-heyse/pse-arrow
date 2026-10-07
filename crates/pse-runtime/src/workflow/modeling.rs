@@ -114,6 +114,56 @@ pub struct ModelingPackage {
     pub(in crate::workflow) physical: PhysicalContext,
     pub(in crate::workflow) quantities: Arc<pse_quantity::QuantityRegistry>,
 }
+/// Process-local request context; scientific eligibility is independently rechecked.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct SelectedRequest {
+    problem: String,
+    roots: Vec<DeclarationId>,
+    physical: pse_ids::ContentHash,
+    providers: Vec<(String, pse_kernels::ProviderKey, pse_ids::ContentHash)>,
+    validation: usize,
+    registry: usize,
+}
+impl SelectedRequest {
+    pub(crate) fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            + self.problem.capacity()
+            + self.roots.capacity() * size_of::<DeclarationId>()
+            + self.providers.capacity()
+                * size_of::<(String, pse_kernels::ProviderKey, pse_ids::ContentHash)>()
+            + self
+                .providers
+                .iter()
+                .map(|(name, _, _)| name.capacity())
+                .sum::<usize>()
+            + 128
+    }
+}
+/// Immutable checked payload only: no protected read, attempt or compiler workspace.
+#[derive(Debug)]
+pub(crate) struct SelectedAdmission {
+    pub(crate) request: Arc<SelectedRequest>,
+    pub(crate) revision: crate::math::modeling::ModelingRevision,
+    pub(crate) dependencies: Arc<pse_operations::canonical_selection::SelectedDependencies>,
+    pub(crate) versions: Arc<BTreeMap<String, String>>,
+    pub(crate) metadata: Arc<pse_columnar::AllocationLease>,
+    _validation_owner: Arc<pse_engine::session::EngineFactory>,
+    _registry_owner: Arc<pse_schema::Registry>,
+}
+impl SelectedAdmission {
+    pub(crate) fn retained_bytes(&self) -> usize {
+        self.revision.retained_bytes()
+            + self.dependencies.retained_bytes()
+            + self.request.retained_bytes()
+            + size_of::<Self>()
+            + 256
+            + self
+                .versions
+                .iter()
+                .map(|(k, v)| k.capacity() + v.capacity() + 128)
+                .sum::<usize>()
+    }
+}
 /// Explicit immutable source inventory, retaining deployment memory charges
 /// until the generated declaration rows are no longer held by the caller.
 #[derive(Debug)]
@@ -736,10 +786,10 @@ impl ModelingPackage {
         selection: pse_compiler::workspace::ModelingFlowSelection,
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::flows::PreparedFlow, WorkflowError> {
-        let selected = self.selected_source(analysis.root, cancel).await?;
+        let selected = self.checked_selection(&[analysis.root], cancel).await?;
         let prepared = (|| {
-            let (workspace, watch) = self.canonical_workspace(&selected, cancel)?;
-            let revision = self.admit_source_in(&workspace, &selected)?;
+            let (workspace, watch) = self.canonical_workspace(&selected.read, cancel)?;
+            let revision = selected.admission.revision.clone();
             Ok::<_, WorkflowError>((workspace, watch, revision))
         })();
         let (workspace, _watch, revision) = match prepared {
@@ -828,10 +878,10 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPreparation, WorkflowError> {
-        let selected = self.selected_source(root, cancel).await?;
+        let selected = self.checked_selection(&[root], cancel).await?;
         let prepared = (|| {
-            let (workspace, watch) = self.canonical_workspace(&selected, cancel)?;
-            let revision = self.admit_source_in(&workspace, &selected)?;
+            let (workspace, watch) = self.canonical_workspace(&selected.read, cancel)?;
+            let revision = selected.admission.revision.clone();
             Ok::<_, WorkflowError>((workspace, watch, revision))
         })();
         let (workspace, _watch, revision) = match prepared {
@@ -862,7 +912,10 @@ impl ModelingPackage {
             .await;
         let result = result?;
         release?;
-        Ok(result.with_consumed_source_versions(selected.versions))
+        Ok(result.with_consumed_source_versions(
+            selected.admission.versions.clone(),
+            selected.admission.metadata.clone(),
+        ))
     }
 }
 

@@ -31,23 +31,18 @@ impl Tolerances {
         rows: &[SemanticId],
     ) -> Result<Self, ProblemError> {
         use pse_model::generated::enums::NumericalTarget;
-        let budget = |ids: &[SemanticId], kind| {
-            ids.iter()
-                .map(|id| {
-                    policy
-                        .targets
-                        .iter()
-                        .find(|t| t.id == *id && t.kind == kind)
-                        .map(|t| t.budget)
-                        .ok_or_else(|| {
-                            ProblemError::Contract(format!("missing resolved budget {id}"))
-                        })
-                })
-                .collect::<Result<Vec<_>, _>>()
-        };
+        let access = pse_math::numerics::TargetAccess::new(policy)?;
         let out = Self {
-            variables: budget(variables, NumericalTarget::Variable)?,
-            rows: budget(rows, NumericalTarget::Row)?,
+            variables: access
+                .ordered(NumericalTarget::Variable, variables)?
+                .iter()
+                .map(|t| t.budget)
+                .collect(),
+            rows: access
+                .ordered(NumericalTarget::Row, rows)?
+                .iter()
+                .map(|t| t.budget)
+                .collect(),
             integrality: policy.policy.integrality,
         };
         out.validate(variables.len(), rows.len())?;

@@ -372,9 +372,27 @@ impl NativeRuntime {
         let owner = py
             .detach(|| runtime::acquire(settings))
             .map_err(|e| errors::diagnostic(py, &e))?;
+        let actual = pse_buildinfo::loaded_module_path(Self::new as *const () as usize)
+            .map_err(|error| invalid(py, error.to_string()))?;
+        let imported: std::path::PathBuf =
+            py.import("pse._native")?.getattr("__file__")?.extract()?;
+        if imported
+            .canonicalize()
+            .map_err(|error| invalid(py, error.to_string()))?
+            != actual
+                .canonicalize()
+                .map_err(|error| invalid(py, error.to_string()))?
+        {
+            return Err(invalid(
+                py,
+                "Python import does not identify the actual loaded native module",
+            ));
+        }
+        let outer = pse_buildinfo::observe_deployment(&actual)
+            .map_err(|error| invalid(py, error.to_string()))?;
         let attestation = native::OuterAttestation {
-            source: pse_buildinfo::SOURCE_IDENTITY,
-            build: pse_buildinfo::BUILD_IDENTITY,
+            source: outer.source,
+            build: outer.build,
         };
         let options = pse_operations::canonical::CanonicalOptions::from_state(
             std::path::Path::new(substrate),
@@ -397,12 +415,11 @@ impl NativeRuntime {
         )?;
         let producer = producer.map(|path| {
             let bytes = std::fs::read(path).map_err(|e| invalid(py, e.to_string()))?;
-            // The operator selects the deployment tool's reviewed capture; linked
-            // executable attestation binds it to this actual native extension.
+            let artifact = pse_buildinfo::verify_receipt_artifact(&bytes, &actual).map_err(|error| invalid(py,error.to_string()))?;
             #[allow(unsafe_code, reason = "ADR-0164 controlled deployment qualification; no unsafe memory operation")]
-            // SAFETY: this deployment boundary binds the supplied reviewed receipt
-            // to the complete attestation of the actual loaded native extension.
-            unsafe { pse_runtime::math::portable::QualifiedProducer::from_deployment_receipt(&bytes, attestation.source, attestation.build, pse_runtime::math::portable::ExpectedProducerTarget::PYTHON) }
+            // SAFETY: reviewed capture is bound to the actual native code mapping,
+            // imported module and current consumed inputs before qualification.
+            unsafe { pse_runtime::math::portable::QualifiedProducer::from_deployment_receipt(&bytes, &artifact.sha256, pse_runtime::math::portable::ExpectedProducerTarget::PYTHON) }
                 .map_err(|e| errors::diagnostic(py, &e))
         }).transpose()?.flatten();
         let inner = native::Runtime::from_shared(

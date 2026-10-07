@@ -63,7 +63,7 @@ def journey(binary: Path, profile_state: Path | None = None) -> None:
                     "--port",
                     str(port),
                     "--interpretation",
-                    "pse.substrate.v1",
+                    server.SUBSTRATE_INTERPRETATION,
                     *profile_args,
                 ]
             )
@@ -167,13 +167,15 @@ def journey(binary: Path, profile_state: Path | None = None) -> None:
                 )
             with server.state_lock(state):
                 server.backup(state, config, directory / "backup")
-            server.restore(directory / "backup", restored, "pse.substrate.v1")
+            server.restore(
+                directory / "backup", restored, server.SUBSTRATE_INTERPRETATION
+            )
             restored_config = server.config_for(restored)
             try:
                 server.validate(
                     restored,
                     restored_config,
-                    "pse.substrate.v1",
+                    server.SUBSTRATE_INTERPRETATION,
                     [*command, str(restored)],
                 )
                 server.start(restored, restored_config)

@@ -107,7 +107,6 @@ zlib-rs = { version = "0.6", default-features = false, features = ["std"] }
 
 [build-dependencies]
 aho-corasick = { version = "1", default-features = false, features = ["perf-literal", "std"] }
-blake3 = { version = "1", features = ["rayon"] }
 cc = { version = "1", default-features = false, features = ["parallel"] }
 either = { version = "1", default-features = false, features = ["use_std"] }
 memchr = { version = "2" }
@@ -117,10 +116,9 @@ quote = { version = "1" }
 regex-automata = { version = "0.4" }
 regex-syntax = { version = "0.8" }
 semver = { version = "1" }
-serde = { version = "1", features = ["alloc", "derive", "rc"] }
-serde_core = { version = "1", default-features = false, features = ["alloc", "rc", "result", "std"] }
+serde_core = { version = "1", default-features = false, features = ["alloc", "std"] }
 serde_derive = { version = "1" }
-serde_json = { version = "1", features = ["alloc"] }
+serde_json = { version = "1" }
 syn-7b89eefb6aaa9bf3 = { package = "syn", version = "3", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 syn-f595c2ba2a3f28df = { package = "syn", version = "2", features = ["extra-traits", "full", "visit-mut"] }
 typenum = { version = "1", default-features = false, features = ["const-generics"] }

@@ -86,6 +86,9 @@ class ValidationTests(unittest.TestCase):
                 "import json, pathlib, sys\n"
                 "pathlib.Path('arguments.json').write_text(json.dumps(sys.argv[1:]))\n"
             )
+            # Argument forwarding is the scope; native lifecycle is exercised by
+            # its own operation controls rather than invoking setup in this fixture.
+            (root / "scripts/native_exec.sh").write_text('exec "$@"\n')
             reason = 'literal "quotes"; $HOME `pwd` $(touch injected)'
             subprocess.run(
                 ["just", "assessment", "output with spaces", "--change-reason", reason],
@@ -850,6 +853,7 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual(original, prose)
         for name in (
             "Cargo.lock",
+            ".config/sccache.toml",
             "crates/new/data.txt",
             "crates/pse-runtime/src/lib.rs",
         ):

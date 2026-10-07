@@ -5,11 +5,18 @@ progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
 [Plan 28: SurrealDB unified simulation substrate](28-surrealdb-unified-substrate.md) owns the
-confirmed hard-pivot target, accepted rule changes and US01–US05/EF01–EF08/F01–F05 dispositions.
+confirmed hard-pivot target, accepted rule changes and US01–US05/EF01–EF08/F01–F05/PE01–PE06 dispositions.
 Its [completion-audit reconciliation](28-surrealdb-unified-substrate.md#completion-audit-reconciliation-and-capability-decisions)
 links the current corrective route and SurrealDB capability research.
+The [current checkpoint](28-surrealdb-unified-substrate.md#current-checkpoint) also routes the
+2026-10-07 production efficiency review and the preserved interrupted qualification handoff;
+The [repository-wide efficiency extension](28-surrealdb-unified-substrate.md#repository-wide-efficiency-extension)
+now schedules PE01–PE06 and comparable defects across current functionality.
 Its A–E companions develop canonical revisions, selected compilation/reuse, durable execution,
-connected native queries/Arrow, and rebuild/retirement/qualification. The coordinator's
+connected native queries/Arrow, and rebuild/retirement/qualification. Added
+[28f](28f-shared-numerical-preparation.md), [28g](28g-bulk-data-operations.md) and
+[28h](28h-native-setup-and-artifact-identity.md) develop shared numerical preparation,
+bulk data operations and native setup/artifact identity. The coordinator's
 [checkpoint](28-surrealdb-unified-substrate.md#current-checkpoint) owns the next execution route;
 [28e](28e-rebuild-retirement-and-qualification.md#qualification-handoff-from-existing-plans)
 owns assembled target qualification and adoption of the applicable remaining scientific

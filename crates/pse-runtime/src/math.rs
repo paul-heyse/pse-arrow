@@ -306,6 +306,14 @@ pub struct MathService {
     entries: DefaultCache<Key, Value>,
     pub(crate) modeling_cache: retention::ModelingCache,
     flights: Flights<Key, Artifact, MathRuntimeError>,
+    pub(crate) selected_flights: Flights<
+        (
+            Arc<crate::workflow::modeling::SelectedRequest>,
+            Arc<pse_operations::canonical_selection::SelectedDependencies>,
+        ),
+        modeling::ModelingRevision,
+        MathRuntimeError,
+    >,
     retention: pse_columnar::retention::RetentionFence,
     live: Arc<AtomicUsize>,
     hits: AtomicUsize,
@@ -471,6 +479,7 @@ impl MathService {
             entries: DefaultCache::new(policy.artifact_bytes).with_name("pse.cache.math_artifacts"),
             modeling_cache: retention::ModelingCache::new(policy.artifact_bytes),
             flights: Flights::new(policy.flights),
+            selected_flights: Flights::new(policy.flights),
             policy,
             retention: Default::default(),
             live: Arc::default(),

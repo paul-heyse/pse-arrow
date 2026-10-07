@@ -23,10 +23,52 @@ use std::time::Duration;
 use surrealdb::types::{Bytes, Object, Value};
 
 /// Independently submitted scientific block limit, below the protocol envelope.
-pub const RESULT_BATCH_BYTES: usize = 512 * 1024;
+pub const RESULT_BATCH_BYTES: usize = wire::RESULT_BLOCK_BYTES;
 /// Completion and closed descriptors are bounded metadata, never trajectories.
-pub const EXECUTION_METADATA_BYTES: usize = 128 * 1024;
+pub const EXECUTION_METADATA_BYTES: usize = wire::RESULT_INDEX_BYTES;
 const RESULT_SETS: usize = 256;
+
+/// Conservative native CBOR extent for the canonical codec's metadata values.
+/// Decimal uses a fixed bound covering its tag and the longest signed decimal text;
+/// this is independent of protobuf framing and live allocation ownership.
+pub fn result_metadata_extent(value: &Value) -> Result<usize, CanonicalError> {
+    fn head(length: usize) -> usize {
+        if length < 24 {
+            1
+        } else if length <= 255 {
+            2
+        } else if length <= 65535 {
+            3
+        } else if length <= u32::MAX as usize {
+            5
+        } else {
+            9
+        }
+    }
+    let add = |a: usize, b: usize| a.checked_add(b).ok_or(CanonicalError::PayloadLimit);
+    match value {
+        Value::None | Value::Null | Value::Bool(_) => Ok(4),
+        Value::Number(surrealdb::types::Number::Decimal(_)) => Ok(40),
+        Value::Number(_) => Ok(9),
+        Value::String(v) => add(head(v.len()), v.len()),
+        Value::Bytes(v) => add(head(v.len()), v.len()),
+        Value::Array(v) => v.iter().try_fold(head(v.len()), |sum, value| {
+            add(sum, result_metadata_extent(value)?)
+        }),
+        Value::Object(v) => v.iter().try_fold(head(v.len()), |sum, (key, value)| {
+            add(
+                add(sum, add(head(key.len()), key.len())?)?,
+                result_metadata_extent(value)?,
+            )
+        }),
+        _ => Err(CanonicalError::PayloadLimit),
+    }
+}
+
+/// Derive encoded scalar metadata extent through the canonical codec owner.
+pub fn result_cell_metadata_extent(cell: &ResultCell) -> Result<usize, CanonicalError> {
+    result_metadata_extent(&Value::Object(wire::encode_canonical_result_cells(cell)?))
+}
 
 /// Exact selected scientific input and executable provenance, before native work.
 #[derive(Clone, Debug)]
@@ -91,6 +133,36 @@ mod canonical_execution_server_unit {
             })
             .await
             .unwrap()
+    }
+    #[tokio::test]
+    async fn canonical_execution_native_metadata_bound_matches_conservative_client() {
+        let (store, database, _) = fixture().await;
+        let mut minimum = Object::new();
+        minimum.insert("key", Value::String("a".into()));
+        let mut values = vec![
+            Value::Object(minimum),
+            Value::None,
+            canonical_codec::encode_uint(u64::MAX).unwrap(),
+        ];
+        for length in [23, 24, 255, 256, 65535, 65536] {
+            values.push(Value::String("x".repeat(length)));
+        }
+        for (index, value) in values.into_iter().enumerate() {
+            let mut result = bounded_query(
+                store
+                    .db
+                    .query("RETURN bytes::len(encoding::cbor::encode($value));")
+                    .bind(("value", value.clone())),
+            )
+            .await
+            .unwrap();
+            let native = canonical_codec::decode_int(result.take::<Value>(0).unwrap()).unwrap();
+            assert!(native as usize <= result_metadata_extent(&value).unwrap());
+            if index == 0 {
+                assert_eq!(native, 7, "minimum valid canonical index key record");
+            }
+        }
+        remove(&store, &database).await;
     }
     #[tokio::test]
     async fn canonical_execution_large_request_has_narrow_ordered_summary() {
@@ -1267,6 +1339,53 @@ impl CanonicalStore {
             },
         }
     }
+    /// Coherent bounded recovery observation. It grants no claim or fence;
+    /// the recovery effect independently checks current expiration/cancellation.
+    pub async fn recovery_snapshot(
+        &self,
+        key: &str,
+    ) -> Result<
+        (
+            pse_model::generated::runtime::canonical_study_points::Row,
+            CanonicalAttempt,
+            pse_model::generated::runtime::canonical_studies::Row,
+            CanonicalRun,
+        ),
+        CanonicalError,
+    > {
+        identity(key)?;
+        let mut response = bounded_query(self.db.query("BEGIN; LET $point = SELECT * FROM ONLY type::record('canonical_study_points',$key); RETURN {point:$point,attempt:(SELECT * FROM ONLY type::record('canonical_attempts',$point.attempt)),study:(SELECT * FROM ONLY type::record('canonical_studies',$point.study)),run:(SELECT * FROM ONLY type::record('canonical_runs',$point.run))}; COMMIT;").bind(("key",key.to_owned()))).await?;
+        let index = response.num_statements().saturating_sub(2);
+        let mut row = response
+            .take::<Option<Object>>(index)?
+            .ok_or(CanonicalError::IncompleteResponse)?;
+        let object = |value| match value {
+            Value::Object(row) => Ok(row),
+            _ => Err(CanonicalError::IncompleteResponse),
+        };
+        let point = wire::decode_canonical_study_points(object(canonical_codec::required(
+            &mut row, "point",
+        )?)?)?;
+        let attempt = wire::decode_canonical_attempts(object(canonical_codec::required(
+            &mut row, "attempt",
+        )?)?)?;
+        let study =
+            wire::decode_canonical_studies(object(canonical_codec::required(&mut row, "study")?)?)?;
+        let run =
+            wire::decode_canonical_runs(object(canonical_codec::required(&mut row, "run")?)?)?;
+        if !row.is_empty()
+            || point.key != key
+            || point.attempt.as_deref() != Some(&attempt.key)
+            || point.run != attempt.run
+            || point.run != run.key
+            || point.study != study.key
+        {
+            return Err(CanonicalError::Configuration(
+                "recovery snapshot identity mismatch".into(),
+            ));
+        }
+        Ok((point, attempt, study, run))
+    }
     /// Read a retained semantic execution independently of its current generation.
     pub async fn canonical_run(&self, key: &str) -> Result<Option<CanonicalRun>, CanonicalError> {
         let mut response = bounded_query(
@@ -1576,7 +1695,7 @@ impl CanonicalStore {
         if let Some(block) = block {
             crate::canonical_results::validate_result_block(block, &batch)?;
         }
-        if cells.len() > 64 {
+        if cells.len() > wire::RESULT_INDEX_RECORDS {
             return Err(CanonicalError::PayloadLimit);
         }
         let mut cell_hash = FramedHasher::new(Frame::CanonicalPayloadV1);
@@ -1595,7 +1714,7 @@ impl CanonicalStore {
             }
             pse_model::SemanticFrame::frame(cell, &mut cell_hash);
         }
-        if outputs.len() > 64 {
+        if outputs.len() > wire::RESULT_INDEX_RECORDS {
             return Err(CanonicalError::PayloadLimit);
         }
         let mut output_hash = FramedHasher::new(Frame::CanonicalPayloadV1);
@@ -1644,24 +1763,93 @@ impl CanonicalStore {
             .iter()
             .map(wire::encode_canonical_result_block_outputs)
             .collect::<Result<Vec<_>, _>>()?;
+        let mut metadata = Object::new();
+        metadata.insert(
+            "block",
+            block.clone().map(Value::Object).unwrap_or(Value::None),
+        );
+        metadata.insert(
+            "cells",
+            Value::Array(
+                cells
+                    .iter()
+                    .cloned()
+                    .map(Value::Object)
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+        );
+        metadata.insert(
+            "outputs",
+            Value::Array(
+                outputs
+                    .iter()
+                    .cloned()
+                    .map(Value::Object)
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+        );
+        if result_metadata_extent(&Value::Object(metadata))? > EXECUTION_METADATA_BYTES {
+            return Err(CanonicalError::PayloadLimit);
+        }
         let encoded_set = wire::encode_canonical_result_sets(&set)?;
         let encoded_batch = wire::encode_canonical_result_batches(&batch)?;
         let generation = canonical_codec::encode_uint(fence.generation)?;
+        let variables = [
+            Value::String(fence.run.clone()),
+            Value::String(fence.attempt.clone()),
+            generation.clone(),
+            Value::String(operation.into()),
+            Value::Bytes(Bytes::from(request.clone())),
+            Value::Object(encoded_set.clone()),
+            Value::Object(encoded_batch.clone()),
+            block.clone().map(Value::Object).unwrap_or(Value::None),
+            Value::Array(
+                cells
+                    .iter()
+                    .cloned()
+                    .map(Value::Object)
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+            Value::Array(
+                outputs
+                    .iter()
+                    .cloned()
+                    .map(Value::Object)
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+        ];
+        let extent = variables.iter().try_fold(1024_usize, |sum, value| {
+            let bytes =
+                surrealdb::types::encode_proto(value).map_err(|_| CanonicalError::PayloadLimit)?;
+            sum.checked_add(bytes.len())
+                .ok_or(CanonicalError::PayloadLimit)
+        })?;
+        if extent > wire::RESULT_MESSAGE_BYTES {
+            return Err(CanonicalError::PayloadLimit);
+        }
         self.ensure_writes()?;
         let result = protected_query(|| Ok(self.db.query("RETURN fn::pse_execution_v1::append($run,$attempt,$generation,$operation,$request,$set,$batch,$block,$cells,$outputs);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("set",encoded_set.clone())).bind(("batch",encoded_batch.clone())).bind(("block",block.clone().map(Value::Object).unwrap_or(Value::None))).bind(("cells",cells.clone())).bind(("outputs",outputs.clone())))).await;
         match result {
             Ok(mut response) => {
-                let saved = wire::decode_canonical_result_batches(
-                    response
-                        .take::<Option<Object>>(0)?
-                        .ok_or(CanonicalError::IncompleteResponse)?,
-                )?;
-                if saved != batch {
+                let saved = response
+                    .take::<Option<Object>>(0)?
+                    .ok_or(CanonicalError::IncompleteResponse)?;
+                let mut expected = encoded_batch;
+                expected.remove("payload");
+                expected.insert("request", Value::Bytes(Bytes::from(request.clone())));
+                if saved != expected {
                     return Err(CanonicalError::OperationReused);
                 }
-                Ok(saved)
+                Ok(batch)
             }
             Err(error) => {
+                // The exact operation receipt exists only after all original
+                // payload bytes and metadata were admitted atomically. Settlement
+                // retains that guarantee without fetching the IPC success echo.
                 if self
                     .settle_operation(operation, "append", &request)
                     .await?
@@ -1669,19 +1857,7 @@ impl CanonicalStore {
                 {
                     return Err(error);
                 }
-                let mut response = bounded_query(
-                    self.db
-                        .query("SELECT * FROM ONLY type::record('canonical_result_batches', $key);")
-                        .bind(("key", key)),
-                )
-                .await?;
-                let saved = wire::decode_canonical_result_batches(
-                    response.take::<Option<Object>>(0)?.ok_or(error)?,
-                )?;
-                if saved != batch {
-                    return Err(CanonicalError::OperationReused);
-                }
-                Ok(saved)
+                Ok(batch)
             }
         }
     }
@@ -2086,5 +2262,35 @@ impl CanonicalStore {
                 None => Err(error),
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod canonical_result_admission_unit {
+    use super::*;
+    #[test]
+    fn index_metadata_accounts_strings_optional_values_and_combined_arrays() {
+        let mut row = Object::new();
+        row.insert("key", Value::String("a".into()));
+        assert_eq!(
+            result_metadata_extent(&Value::Object(row.clone())).unwrap(),
+            7
+        );
+        assert_eq!(wire::RESULT_INDEX_RECORDS, wire::RESULT_INDEX_BYTES / 7);
+        row.insert("coordinate", Value::String("x".repeat(65536)));
+        row.insert("bits", Value::Bytes(Bytes::from(vec![0; 8])));
+        row.insert(
+            "projection",
+            Value::Number(surrealdb::types::Number::Float(0.0)),
+        );
+        let mut envelope = Object::new();
+        envelope.insert(
+            "cells",
+            Value::Array(vec![Value::Object(row.clone())].into()),
+        );
+        envelope.insert("outputs", Value::Array(vec![Value::Object(row)].into()));
+        assert!(
+            result_metadata_extent(&Value::Object(envelope)).unwrap() > EXECUTION_METADATA_BYTES
+        );
     }
 }

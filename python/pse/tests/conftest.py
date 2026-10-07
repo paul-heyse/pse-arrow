@@ -155,25 +155,16 @@ def _modules_after(statement: str) -> frozenset[str]:
 
 @pytest.fixture(scope="session")
 def build_info_matches_checkout() -> None:
-    """Assert the built extension was produced from this checkout's lockfiles.
+    """Current build info exposes only provenance actually embedded by the build.
 
-    Compare captured external checksums with the exact checkout lockfiles.
-    An absent lockfile has no checksum evidence and is left unattributed.
+    Loaded artifact/current-input admission belongs to the deployment receipt and
+    native composition root; changing live lockfiles cannot fabricate compile data.
     """
     info = build_info()
-    for field_name, lockfile in (
-        ("cargo_lock_sha256", REPO_ROOT / "Cargo.lock"),
-        ("uv_lock_sha256", REPO_ROOT / "uv.lock"),
-    ):
-        recorded = getattr(info, field_name)
-        if not recorded or not lockfile.is_file():
-            continue
-        actual = hashlib.sha256(lockfile.read_bytes()).hexdigest()
-        assert recorded == actual, (
-            f"the built extension records {field_name}={recorded} but "
-            f"{lockfile.name} hashes to {actual}: rebuild with "
-            "`uv run maturin develop --uv --release`"
-        )
+    assert info.git_sha == ""
+    assert info.lockfile_hash == ""
+    assert info.cargo_lock_sha256 == ""
+    assert info.uv_lock_sha256 == ""
 
 
 def _extension_type(name: str) -> pa.ExtensionType:

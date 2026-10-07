@@ -3,7 +3,7 @@ title: SurrealDB unified simulation substrate
 status: in-progress
 date: 2026-10-05
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -23,7 +23,7 @@ The [unified-substrate review](../design_review/reviews/design_review_surrealdb-
 accepted this direction at **Proposed** design strength. Its findings and the
 [earlier efficiency review](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md)
 supply the basis. This coordinator owns the combined target, shared decisions, sequence and
-US01–US05/EF01–EF08/F01–F05 dispositions. Companions own package progress/local evidence; E owns
+US01–US05/EF01–EF08/F01–F05/PE01–PE06 dispositions. Companions own package progress/local evidence; E owns
 assembled qualification. Architecture sections and ADRs retain their authority roles.
 
 The maintainer explicitly accepted RC01–RC10 on **2026-10-05**, then selected a **clean rebuild
@@ -52,8 +52,11 @@ qualify the new store, codec, compiler boundary or durable lifecycle.
 | [28c — Durable execution and studies](28c-durable-execution-and-studies.md) | Run/attempt/study meaning, claims/generations/cancellation, bounded staging and terminal admission. C1 supplies the early execution/result envelope. |
 | [28d — Connected results and analysis](28d-connected-results-and-analysis.md) | Result physical layout, exact selectors, native Rust/Python queries, Arrow streams and graph-analysis lineage. |
 | [28e — Rebuild, retirement and qualification](28e-rebuild-retirement-and-qualification.md) | Regenerated adoption corpus; continuing deletion/dependency/build integration; sole assembled target campaign and closure. |
+| [28f — Shared numerical projections and preparation](28f-shared-numerical-preparation.md) | Ordered identity projections, immutable checked preparation and compatible library/native owners across scientific workflows. |
+| [28g — Bulk data operations](28g-bulk-data-operations.md) | Shared physical admission, sufficient acknowledgments, composed protected acquisition and comparable source/analysis/authoring migrations. |
+| [28h — Native setup and artifact identity](28h-native-setup-and-artifact-identity.md) | Operation-scoped verified installations, actual capability setup and separated artifact/outer-provenance association. |
 
-The document division expresses responsibilities, not five sequential phases. Conceptual
+The document division expresses responsibilities, not sequential phases. Conceptual
 products do not require a new crate/type/service for each concept. Root coordinates shared
 declarations, generated outputs, manifests and integration.
 
@@ -130,6 +133,17 @@ D5 physical typing, D6 library mathematics, D11 attempt-owned native state and D
 model/overlay meaning are preserved. D14 dependency completeness is refined, not weakened.
 Adding a dependency needs no ADR by itself; crate removal and the decisions above do.
 
+The maintainer also explicitly confirmed **Accept, 2026-10-07** for the production efficiency
+review's [RC01](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#rc01):
+separate artifact-specific linked identity and actual observed deployment association from
+complete dirty outer source/build observation at deployment/run admission. This is a different
+item from the 2026-10-05 review's RC01 above. [28h L0/L3](28h-native-setup-and-artifact-identity.md)
+routes the hashing/deployment ADR and architecture amendment before dependent implementation.
+The existing ADR-0164 is proposed and can be amended through that route; an accepted record
+at execution time must instead be superseded. Actual artifact association, complete consumed
+inputs and outer provenance are preserved. Operator confirmation does not accept the ADR or
+implement the new capture contract.
+
 ## Completion-audit reconciliation and capability decisions
 
 The [completion audit](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md)
@@ -179,7 +193,89 @@ accept ADR-0164.
 The next executable order is A's lifecycle/completion controls and E's valid inputs/producer
 prerequisites; A/B grouped guarded acquisition; C/D composed recovery and stream/read controls;
 then E3, E4 and E5. Independent targeted slices may proceed together with explicit ownership.
-Only 28e owns assembled execution state; this coordinator owns all US/EF/F dispositions.
+Only 28e owns assembled execution state; this coordinator owns all US/EF/F/PE dispositions.
+
+## Repository-wide efficiency extension
+
+The maintainer expanded the 2026-10-07 review follow-up to all comparable defect instances
+throughout current functionality. Address causal patterns, not only the original tests or
+example consumers: repeated identity joins, unchanged preparation/admission, mismatched physical
+units, excessive crossings/materialization, repeated native assurance and broad invalidation.
+Unrelated feature development, arbitrary solver replacement and a general optimizer/cache/
+telemetry framework are not implied. Production contextual accuracy, test scheduling/timeouts,
+server profile, exact codec/replay and independent scientific assessment remain unchanged.
+
+The product baseline is `5260a3e9a3cecd69b6358ab86d4e917ae2508b29`, preserving the dirty review
+and plan documents. Focused source assessment covered the owners below, reusing the review's
+exact-release evidence. PE01–PE06 retain their original diagnosis/evidence limits. Additional
+preflight and trajectory lookup amplification is source-established; other matches remain
+specific investigation candidates. Neither the interrupted timings nor a textual search proves
+their speed contribution or absence elsewhere.
+
+### Capability coverage and migration ownership
+
+| Current capability / inspected owners | Relevant pattern and assessment | Implementation route |
+|---|---|---|
+| Numerical policy/engineering accuracy; `pse-math` and native quality | PE01; per-goal target resolution adds the same kind/ID join. Preserve global/contextual defaults, exact precedence and frozen scales. | N0/N1 in 28f |
+| Mathematical assembly/composite reconstruction; math/compiler modeling | Existing typed row/column maps and request deduplication are reusable. Repeated supplier correspondence and prior-instance searches need exact key/lifetime decisions. | N0/N1/N3 |
+| Structural preflight/solver routing; `pse-structural`, native structural/runner | Preflight scans assessment rows per contract row after inventory-set checks. Small finite capability dispatch is justified work. Preserve contribution provenance and independent original-space checks. | N1; applicable N3 native consumers |
+| Unit/property/thermodynamic mathematics; physical operations, compiler specialization, runtime math | Shared admitted bodies/artifacts are foundations; state/composition-dependent property values remain fresh. No production FeOS-provider migration. Check extension callers for repeated preparation, not presumed identical property results. | N0/N2/N4 |
+| Dynamics/events/trajectory/shooting/recycle; runtime and native backends | Sample×output trajectory metadata lookup is established; dynamic goal/control/node mapping and compatible factor/session storage are candidates. Time/event/schedule changes retain their own work. | N0/N1/N3/N4; T1 publication |
+| Fitting/sensitivity/uncertainty; runtime fitting and response owners | Existing sparse contribution/Gram plans are strengths. Covariance parameter joins, repeated pinned fits and fresh native owners need bounded applicability decisions. | N0/N1/N3/N4 |
+| Ordinary solves, initialization, continuation/studies/workers; modeling and staged runtime | PE04 repeats selected hydration/generic admission for ready occurrences; physical cache and scoped native sessions already retain useful work. Distinct starts/claims/attempts remain distinct. | N2/N3/N4; C3 integration |
+| Authored document edits and physical source publication/reopen; authoring driver and workflow worker | Edited bundle copies unchanged bytes; source chunks cause serial revisions and singleton reopen chains. Parser-owner reuse/grouped selected acquisition are existing alternatives. | T0/T3/T4/T5 |
+| Relations/columnar/engine | Checked buffers, prepared validation owners, multiplicity-aware gathers and selective streaming are foundations. Assess actual unnecessary collection; shallow clones and required owner-change validation remain justified. | T0/T5; N2 where admission is genuinely repeated |
+| Progress/results/query/analysis/retention/export; operations/runtime | PE02/PE03; analysis node/edge loops and recovery metadata are candidate groups. Preserve page completeness, renewable protection, endpoint ordering and activation. | T0–T5; A/C/D integration |
+| Rust/Python interfaces and worker processes | Typed ingress and Arrow C streams are strengths. Mechanisms migrate at Rust owners; wrappers preserve actual completion, schema, role and allocation lifetimes. | N4/T5/L4; D integration |
+| Native providers, build/generation, producer/deployment/validation tooling; scripts/buildinfo/xtask | PE05/PE06, nested HiGHS discovery and related installation/capture consumers. No-op generated output handling already exists and must be retained. | L0–L4; B3/E2 integration |
+
+This table defines functional coverage and work routing, not a source-proof manifest or another
+finding-status ledger. At each N0/T0/L0 investigation, follow actual callers and first-party
+generator/registry sources beyond the starting pointers. Classify matches as confirmed,
+candidate or justified necessary work; finish unexamined variants that can change the design.
+Do not stop at the illustrative consumers or demand an exhaustive graph of every function.
+Every newly confirmed comparable instance joins the owning migration package in this series.
+A distinct material defect receives a coordinator finding/decision route rather than being
+silently included in a local rewrite. No supported confirmed variant is deferred without an
+explicit disposition and observable trigger at the existing owner.
+
+### Common target and foundation decisions
+
+Use one authoritative set of mechanics per causal family, customized through its actual domain
+owner: ordered projections, checked immutable preparation, byte/extent admission, sufficient
+effect acknowledgments/protected grouped reads, verified installation lifetime and artifact
+association. Different identity spaces, scientific policies and effect/recovery obligations
+remain explicit. Share operation-shaped products and existing library capabilities, not copied
+end-to-end workflows or a universal new abstraction.
+
+28f owns numerical projection/reuse details; B owns selected scientific closure and portable
+eligibility. 28g owns physical admission/crossing corrections; A/C/D retain revision, attempt,
+visibility and lineage meaning. 28h owns setup/provenance corrections; B3/E2 integrate their
+actual producer and deployment consumers. Each package moves producers, consumers and generated
+declarations together, then deletes displaced mechanisms/callers/tests/fixtures when its focused
+controls pass. A second production path is not a temporary completion strategy.
+
+Conditional Taylor-zero, numeric factor/scratch, Salsa/native-session and query/provider choices
+are bounded N0/T0 decisions with specified evidence and dependent work. Inspect source/contracts
+first; perform a small observation only when it chooses between consequential alternatives.
+Unused library features do not mandate integration, and necessary assurance is not removed
+because a search resembles repetition. Configurable policies have one declared default and
+explicit consumed override; neither tests nor individual workflows invent new defaults.
+
+### Execution and completion of the extension
+
+L0 records the accepted identity route and installation contract before L1/L3. N0/T0 resolve
+their relevant maps/physical units; established N1 projections, T2 acknowledgments and T3 result
+reads need not wait for speculative library/index choices. N2 immutable admission, T1 ingestion
+and L1 scoped setup can proceed independently with explicit shared-file ownership. N3/T4/L2/L3
+consume their actual prerequisite slices. N4/T5/L4 reconcile every functional row and actual
+caller; they cannot postpone migration/deletion needed by an earlier package.
+
+E3 starts after all adopted functional extension work and existing A–E obligations are complete.
+E4 measures the appropriate preparation/build/numerical/persistence operations; E5 assesses the
+assembled supported target and resolves findings with evidence. Keep all current open scientific
+obligations transferred to E and their original disposition owners. This authoring work neither
+resumes the interrupted campaign nor claims a speedup or scientific acceptance.
 
 ## Execution sequence and readiness
 
@@ -222,6 +318,12 @@ flowchart LR
   Study --> Q[Assembled qualification]
   Query --> Q
   Retire[Regeneration / retirement / tooling] --> Q
+  B --> N[28f numerical preparation / consumer closure]
+  Run --> T[28g bulk operations / consumer closure]
+  R0 --> L[28h setup / artifact association / consumer closure]
+  N --> Q
+  T --> Q
+  L --> Q
 ```
 
 Root owns design and integration. Delegate independent consumers/research with explicit file
@@ -232,10 +334,14 @@ deletion; static hygiene and assembled integration wait for all functional scope
 ## Finding dispositions
 
 This is the only current disposition table for the adopted unified-substrate and efficiency
-findings and the completion audit. A scheduled package or accepted rule is not resolution. Links identify local
-evidence owners; resolve only when correction and relevant acceptance actually exist.
+findings, the completion audit and the [2026-10-07 production efficiency review](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md).
+A scheduled package or accepted rule is not resolution. Links identify local evidence owners;
+resolve only when correction and relevant acceptance actually exist. US/EF/F scenario IDs
+refer to their originating reviews; PE scenario IDs refer to the new review. The PE entries
+now schedule the documented repository-wide extension; authoring is not implementation or
+correction evidence and does not change scientific acceptance criteria.
 
-| Finding | Unified review scenarios | Disposition | Work owner | Required evidence or question |
+| Finding | Review scenarios | Disposition | Work owner | Required evidence or question |
 |---|---|---|---|---|
 | [US01](../design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#us01) | S01/S03/S04/S07 | Scheduled | A/C/D; E2/E3 | Canonical connected operations, old-store retirement and coherent visibility after restart. |
 | [US02](../design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#us02) | S03/S04/S07 | Scheduled | C2/C4; D1/D2 | Ordinary success/failure/partial scientific retention, beyond completion records. |
@@ -246,15 +352,27 @@ evidence owners; resolve only when correction and relevant acceptance actually e
 | [EF02](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef02) | S01/S02/S08 | Resolved | B1/B2 | [B Outcome](28b-selected-compilation-and-reuse.md#outcome-recorded-after-implementation): actual native-owner retention, same-owner reuse and changed-context/value controls; force-validated relation/engine/document selections passed 22/26/6 controls. |
 | [EF03](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef03) | S03/S07 | Scheduled | C3; E4 | Scoped/batched dispatch and ready-attempt preparation. |
 | [EF04](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef04) | S06/S08 | Scheduled | E2 | Dependency removal, narrowed unification and isolated client closure. |
-| [EF05](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef05) | S01/S02/S06 | Scheduled | B3 | Relevant complete keys and full outer dirty-build attestation. |
-| [EF06](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef06) | S06/S08 | Scheduled | E2/E4 | Target selection before native setup; comparable cache/toolchain measurements. |
+| [EF05](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef05) | S01/S02/S06 | Scheduled | B3; 28h L0/L3 | Relevant complete keys, actual role/artifact association and full dirty outer observation under confirmed production RC01. |
+| [EF06](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef06) | S06/S08 | Scheduled | E2/E4; 28h L1/L2 | Actual target capability closure before native setup, scoped verified installations and comparable build/setup observations. |
 | [EF07](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef07) | S05/S06 | Scheduled | A2/E2 | Obsolete outputs retired; unchanged output mtimes stable; stale outputs deleted. |
 | [EF08](../design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md#ef08) | S01/S07 | Resolved | B4 | [B Outcome](28b-selected-compilation-and-reuse.md#outcome-recorded-after-implementation): actual evaluator accepts selected compact formals; migrated consumers and 26 native implicit controls preserve guards, providers and ordered derivative axes. No measured speedup is inferred. |
 | [F01](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f01) | S01/S03/S07 | Resolved | A3; C2/C4 | [A Outcome](28a-canonical-substrate-and-revisions.md#outcome-recorded-after-implementation): native generic lifecycle-root refusal, history mutation and protected reclamation controls pass; enclosing E3 remains separate. |
 | [F02](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f02) | S01/S02/S08 | Scheduled | A2; B1; E4 | Exact pinned namespace cursors, pre-RPC reservations, grouped manifests/payloads and concurrent acknowledgment settlement have positive targeted controls at [E Outcome](28e-rebuild-retirement-and-qualification.md#outcome-recorded-after-implementation). Complete-operation measurements remain E4. |
 | [F03](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f03) | S03/S07 | Resolved | A1 | [A Outcome](28a-canonical-substrate-and-revisions.md#outcome-recorded-after-implementation): zero-result, lost-ack, cancellation, normal/repeated creation and marker refusal controls pass. They do not establish the cause of historical missing-table failures. |
-| [F04](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f04) | S01/S03/S04/S07 | Scheduled | E1/E2; B3; C/D; E3 | Validate corrected fixture/wire premises, eligible installed producers, progress and intended-point scientific controls, then complete the stable assembled campaign against zero. |
-| [F05](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f05) | S06/S08 | Scheduled | B3; E3/E4/E5 | Actual installed deployment association, full qualification, all applicable prepared measurements, accepted assembled review and enduring-owner retirement route. |
+| [F04](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f04) | S01/S03/S04/S07 | Scheduled | E1/E2; B3; C/D; E3 | Validate corrected fixture/wire premises, producer mechanism controls, progress and intended-point scientific controls, then complete the stable assembled development campaign against zero under [E's evidence policy](28e-rebuild-retirement-and-qualification.md#development-phase-evidence-and-optional-artifact-requalification). |
+| [F05](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f05) | S06/S08 | Scheduled | B3; E3/E4/E5 | Development functional campaign, all applicable prepared measurements, accepted assembled review and enduring-owner retirement route; actual installed strict deployment qualification is explicit optional scope under [E's evidence policy](28e-rebuild-retirement-and-qualification.md#development-phase-evidence-and-optional-artifact-requalification). |
+| [PE01](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#pe01) | S02 | In progress | 28f N1/N4; numerical policy/quality consumers | Shared ordered kind/ID projection and confirmed related maps; frozen scales, allowances, attribution and refusal controls. No tolerance changes. |
+| [PE02](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#pe02) | S03/S05 | In progress | 28g T0/T1/T5; C/D | Payload/index/resource admission and generated finite replay bounds replace scalar-count-driven framing. Exact rows/indexes, coverage, atomic visibility and complete-route E4 observations remain. |
+| [PE03](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#pe03) | S03/S05/S10 | In progress | 28g T2/T3/T5; C/D | Compact sufficient append acknowledgment and composed protected acquisition; distinct replay/read completion, expiry and cancellation controls. |
+| [PE04](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#pe04) | S01/S04/S10 | In progress | 28f N0/N2/N4; B/C3 | Bounded immutable checked selected preparation, complete invalidation and fresh protection; all confirmed repeat consumers migrate without merging occurrences or attempt state. |
+| [PE05](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#pe05) | S06 | In progress | 28h L0/L1/L2/L4; E2 | Operation-scoped verified generation and actual capability setup; corruption/provider/input and concurrent-use/drain controls. Refines EF06 without claiming a measured bottleneck. |
+| [PE06](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#pe06) | S07 | In progress | 28h L0/L3/L4; B3/E2 | RC01 confirmed 2026-10-07; actual artifact-specific association plus complete outer observation, relevant/unrelated edit and genuine installed-role controls. |
+
+The efficiency review's conditional query-plan, Taylor-zero, numeric-scratch and related
+library options have bounded N0/T0 decision routes; applicability precedes dependent changes.
+Its RC01 is explicitly confirmed above. Scheduling documents is not correction evidence or
+production execution. Prior US/EF/F dispositions and historical scientific evidence remain
+at their existing owners; none is resolved by the extension or substituted for E3/E4/E5.
 
 Other preparation work is included in B3/C3: ready-attempt preparation/product sharing,
 bounded Salsa diversity and native lifetimes. General SIMD/JIT/WASM, distributed deployment
@@ -274,18 +392,24 @@ exact scientific values/interpretation, correct concurrency/restart recovery, mi
 Rust/Python consumers and deletion of replaced mechanisms. Execute and report the selected
 campaigns/measurements; no invented speedup threshold is inferred from architectural
 acceptance. Unsupported scientific/provider scope remains explicit. Document checks of this
-series do not establish those product claims.
+series do not establish those product claims. The expanded completion boundary includes
+N4/T5/L4 caller/coverage reconciliation: no confirmed comparable variant remains on a displaced
+mechanism, and justified distinct contracts and conditional retained-design decisions are explicit.
 
 ## Current checkpoint
 
-The latest committed correction baseline is `219338742`, with the subsequent uncommitted
-continuation preserved. At the maintainer's request, the current qualification runner was
+The latest committed correction baseline is `5260a3e9a`, recording the continuation from
+`219338742` without changing its reviewed product bytes. At the maintainer's request, the current qualification runner was
 stopped to conduct the [production execution efficiency review](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md).
 [28e's current handoff](28e-rebuild-retirement-and-qualification.md#efficiency-review-handoff-2026-10-07)
 owns the interrupted campaign, retained evidence and resumption boundary. Review publication
 does not implement its proposed corrections or establish E3/E4/E5 acceptance. The current
-review's dispositions belong here; detailed corrective scope and its rule changes require
-the subsequent plan-creation decision. D3 retains regular indexed edges.
+review's dispositions belong here. The 2026-10-07 plan-creation extension above and 28f/28g/28h
+now supply detailed corrective scope, repository-wide investigation and migration packages.
+RC01 is explicitly accepted; its decision route remains an implementation prerequisite.
+The next route is N0/T0/L0 and their ready corrective slices, followed by consumer closure
+and E3/E4/E5. Production and the preserved interrupted evidence are unchanged by authoring.
+D3 retains regular indexed edges.
 
 Remaining-scope execution on 2026-10-06 has completed grouped exact namespace,
 supplier, record, document and physical acquisitions, including complete-inventory

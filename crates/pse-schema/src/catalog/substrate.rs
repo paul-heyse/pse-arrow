@@ -10,6 +10,20 @@ use crate::{
 };
 use arrow_schema::DataType;
 
+/// Exact schema/codec/structural-operation interpretation.
+pub const INTERPRETATION: &str = "pse.substrate.v2";
+
+/// Self-contained scientific IPC admission, independent of derived indexes.
+pub const RESULT_BLOCK_BYTES: usize = 512 * 1024;
+/// Native CBOR index/descriptor envelope admission per append.
+pub const RESULT_INDEX_BYTES: usize = 128 * 1024;
+/// Complete uncompressed selected gRPC message admission.
+pub const RESULT_MESSAGE_BYTES: usize = 4 * 1024 * 1024;
+/// Every valid index object contains at least the nonempty `key` field. The
+/// minimal CBOR map `{key: "a"}` occupies seven bytes; other mandatory fields
+/// only increase its extent. This ceiling protects loops, never chooses blocks.
+pub const RESULT_INDEX_RECORDS: usize = RESULT_INDEX_BYTES / 7;
+
 /// Physical access path owned by the canonical declaration route.
 #[derive(Clone, Copy, Debug)]
 pub struct NativeIndex {

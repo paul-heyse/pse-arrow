@@ -3,7 +3,7 @@ title: Rebuild, retirement and integrated qualification
 status: in-progress
 date: 2026-10-05
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -97,6 +97,21 @@ Use `just codegen` as part of the change; never edit protected generated files. 
 declaration generation must still update its real consumers. Build-key changes are owned by
 B3, not duplicated here.
 
+## Efficiency extension integration
+
+The [repository-wide extension](28-surrealdb-unified-substrate.md#repository-wide-efficiency-extension)
+adds [28f](28f-shared-numerical-preparation.md), [28g](28g-bulk-data-operations.md) and
+[28h](28h-native-setup-and-artifact-identity.md). N4/T5/L4 reconcile scientific/data/tooling
+consumers after their adopted shared mechanisms and package-local deletion are implemented.
+E2 remains integration owner for removed dependencies/recipes/generated outputs and actual
+deployment adoption; it does not duplicate N/T/L package status or defer their necessary cleanup.
+
+Preserve current qualification evidence at its original scope. E3 stays parked until the
+existing A–E obligations and expanded functional scope are complete. The 2026-10-07 review,
+source inventory and authored plans are not product acceptance. L0 records the accepted RC01
+identity route before L3 changes capture/admission; fresh actual runtime/worker/imported-Python
+association must establish the new role-specific contract before it supports assessment reuse.
+
 ## Remaining assembled execution
 
 This is the sole assembled E3–E5 execution owner. F01–F05 dispositions are linked at the
@@ -172,9 +187,9 @@ the current consistently assessed native time stop, without granting candidate u
 starting further work after expiry. The provider deadline alone does not identify an
 Ipopt defect, nested implicit solve or dominant preparation cost; the retained execution
 evidence must inform the next pipeline diagnosis.
-Existing source and
-deployment captures precede these repairs; E3 requires fresh captures and an unchanged,
-zero-failure assembled rerun before E4 measurements or E5 closure.
+Existing source and deployment captures retain their original scope. E3 requires positive
+affected functional evidence before E4 measurements or E5 closure; the development-phase
+policy below replaces the earlier blanket requirement for fresh deployment captures.
 
 The maintainer confirmed local validation is sufficient; no separate CI campaign is
 required. Local native runs use the `local` Nextest profile, retaining resource groups,
@@ -183,13 +198,39 @@ its own deadline. A diagnostic recycle run stopped by the earlier 360-second har
 cutoff did not exercise its declared 600-second production limit and does not establish
 a native convergence failure.
 
-Refresh and associate actual runtime, worker and installed Python artifacts under B3's supported
-producer profile before persisted reuse acceptance. The installed extension and previous
-captures predate these repairs, so their refresh remains a real deployment prerequisite.
-Set up the selected initialized
-supervised state and actual deployment captures through the owning recipes. A fixture
-receipt, old installed binary or current git HEAD is insufficient. Reconcile manifest runner
+Set up the selected initialized supervised state through the owning recipes. Use linked
+code containing the behavior under test; ordinary compilation/install when needed to execute
+edited code is separate from artifact requalification. B3's strict persisted-reuse controls
+retain their actual artifact association requirements when that scope is explicitly selected.
+A fixture receipt or current git HEAD cannot establish strict deployment qualification.
+Reconcile manifest runner
 prerequisites and obsolete recipe references at their owners; no new evidence wrapper is needed.
+
+### Development-phase evidence and optional artifact requalification
+
+The maintainer clarified on **2026-10-07** that dependency, compiler, environment or artifact
+changes must not automatically require an artifact rebuild, producer recapture, or behavior
+requalification. This policy governs the remaining E3/E4/E5 execution and supersedes earlier
+checkpoint instructions that made fresh three-role capture a blanket prerequisite.
+
+Keep prior results, tests and measurements with their original provenance and scope. A changed
+fingerprint describes a different context; it does not demonstrate that a result is wrong.
+Neither claim an old test exercised new code nor relabel an old capture as a current strict
+artifact association. Test affected behavior when implementing a change, and repair actual
+failures. Do not replay unrelated successful suites solely because a fingerprint changed.
+
+Use the existing development assessment by default. Do not copy or freeze the Cargo environment
+to retain evidence, restore an old host environment for capture eligibility, or add a nuanced
+change-impact classifier at this stage. Cargo still builds stale units when executing changed
+code. Exact cache/reconstruction eligibility, corruption checks and actual ABI requirements
+remain execution-safety contracts; refusal of cache reuse is not invalidation of a retained
+scientific outcome or a demand to requalify that outcome.
+
+Retain producer capture/import/start association tooling and its focused positive/refusal
+controls. Run the full strict artifact campaign only when the maintainer explicitly requests
+it, including a future deployment/release qualification. Report that campaign's date, artifacts
+and scope separately. Its absence does not block the current development campaign or plan
+closure; it limits claims about current strict deployment qualification.
 
 ### E3 correctness, deployment and recovery
 
@@ -200,9 +241,13 @@ version precedence and wire ID premises require current targeted evidence. Those
 interrupted and overlapped; neither qualifies the final tree or supplies comparable timings.
 Old pre-pivot Plan 25/27 passes and three smoke cases do not replace this campaign.
 
+Prerequisites include completed N4/T5/L4 migration reconciliation, settled N0/T0/L0 decisions
+and working adopted mechanisms. Confirm the full capability coverage at the coordinator;
+the original PE example consumers are not the expanded completion boundary. Source-staging,
+analysis activation and native installation reuse retain their distinct recovery/trust units.
+
 Use `just assessment-list` to confirm the current gate surface, then the selected assembled
-`just assessment <output> --python-profile producer` with its refreshed linked Python
-and ordered deployment prerequisites, `just seed-conformance` for the current reference manifest, and
+`just assessment <output>` with its development linked Python, `just seed-conformance` for the current reference manifest, and
 `just parity` scope named in the verification section. A standalone
 `just native-python <output>` is for a deliberately separate selected Python campaign
 or an affected rerun; do not execute the same integrated scope twice.
@@ -223,8 +268,8 @@ completion/export refusal. Abrupt acknowledged-write kill/reopen and quiesced of
 backup/restore must validate exact IDs, interpretation and replay in that same supported
 profile. Logical export/import alone cannot establish these guarantees.
 
-Require zero failures, complete selected/executed accounting, and unchanged relevant
-product-input/deployment association. Use the runner's declared input families; unrelated
+Require zero failures and complete selected/executed accounting for the selected functional
+scope. Record the actual code/artifacts exercised. Use the runner's declared input families; unrelated
 concurrent prose edits remain contextual observations. A report's terminal-complete flag does not establish those conditions. If source
 changes or a required scope fails, repair its owner and rerun affected qualification on the
 stable final state; identify any repaired composite honestly. Do not introduce per-test accuracy
@@ -233,7 +278,8 @@ in the Outcome rather than accumulating per-command checkpoint logs.
 
 ### E4 measurements after positive E3
 
-Run the 22 applicable process/preparation selectors through
+Retain the 22 transferred process/preparation selectors and extend measurement coverage where
+the confirmed new consumer scope is not exercised by them. Run the applicable selectors through
 `just case-measure <new-output> --functional-from <qualified-assessment>` with explicit
 `--case` selections and their current
 `.config/process-cases.json` / `.config/preparation-cases.json` owners. Each selector needs
@@ -250,7 +296,39 @@ The transferred selection is `cold-small-1`, `warm-small-1`, `cold-small-4`,
 `k4-retention-bypass`, `document-admission`, `k4-accuracy-ordinary-1`,
 `k4-accuracy-separated-decision-1` and `k4-accuracy-refinement-1`. Add the five
 pivot selectors `cold-medium-1`, `cold-large-1`, `warm-medium-1`, `warm-large-1`
-and `results-chain-1`: 22 selected cases rather than the whole case registry.
+and `results-chain-1`. Complete publication adds `results-publish-chain-1`,
+`results-publish-source-growth-1` and `results-publish-small-chain-1`.
+The last case supplies a joint coordinate/sample growth comparison; source growth
+changes physical comment bytes without changing scientific declarations.
+This is 25 selected cases rather than the whole case registry.
+
+The publication cases separate physical stage/reopen, document admission, modeling
+publication, simulation preparation/execution, result reading and analysis activation.
+The durable study case exercises the private worker physical-source and selected admission
+route; public publication uses protected source reopening followed by one public document
+admission. Standalone fitting/shooting remain one-shot consumers rather than a manufactured
+repeat session. Empty/skewed selection and interrupted recovery have correctness controls;
+these cases do not measure their timing. Authored unchanged-byte edit sharing has functional
+controls but no isolated timing claim. Native installation and deployment admission use
+complete-operation observations from the existing build and assessment routes, whose Cargo
+sample durations alone do not include setup.
+
+Reconcile added coverage explicitly rather than silently rerun the whole registry or omit a
+new mechanism. N4/T5/L4 supply affected workload conditions and existing case mapping. Add
+recipe-owned cases only for gaps: policy/preflight/trajectory projection growth; unchanged
+selected admission and repeated fit/shooting owners; physical-document stage/reopen and authored
+edit copying; narrow/wide result append/read and analysis activation. Actual native setup and
+artifact-edit locality use the existing build measurement routes, extended at their owner if
+phase timing currently excludes setup/admission. Keep benchmark declarations in their existing
+registry/script owners; no parallel measurement service or per-helper benchmark quota.
+
+Separate build/native installation and schema/fixture setup, selected preparation, numerical
+execution, durable append/read and teardown. The interrupted whole-test observations cannot
+serve as isolated solve or database latency baselines. Use cold/warm, value-only/structural and
+relevant/unrelated edits, plus sample/coordinate/source growth, selective/empty/skewed reads
+and complete recovery where applicable. Keep production accuracy and sensitivity basis and
+identify force-validation overhead separately. Exact transported rows are compared with their
+own original payload; independently solved outcomes use the production decision allowance.
 
 Use the existing `just build-frontend`, `just build-uncached`, `just build-cache-probe`
 and `just build-storage` routes as applicable for default/native closure and turnaround.
@@ -263,7 +341,7 @@ framework is required; raw samples and honest limits accompany **Measured** clai
 ### E5 acceptance and retirement after E3/E4
 
 Conduct the binding's bounded independent assembled review on the demonstrated final scope.
-Reconcile US/EF/F dispositions at the coordinator and original scientific findings at their
+Reconcile US/EF/F/PE dispositions at the coordinator and original scientific findings at their
 existing owners. The earlier Revise audit does not satisfy final acceptance. Route enduring
 contracts, supported deployment/accuracy limits and measurements through the existing
 decision/design owners with a blueprint revision row; follow the required ADR adoption route
@@ -278,7 +356,7 @@ No retirement, ADR acceptance or final qualification was performed by this docum
 |---|---|---|---|
 | E1 — Controlled target regeneration | R0; A2 schema/selection and B1 admission slice. Replace storage-specific fixture setup, regenerate scientific source corpus and run configurations; add recipe-owned target DB setup. | Target inputs are admitted with exact interpretation; old test setup does not silently start PG/Delta. No migration importer or compatibility fixture service remains. | Implemented; focused declaration/schema and linked scientific/generated consumers passed. |
 | E2 — Retirement and build locality | Joins each migrated A/B/C/D consumer as it becomes ready; tooling corrections can begin after R0 independently. Remove displaced crates/codegen/dependencies/recipes and implement scoped native setup/unchanged generation. | All target consumers work; remaining dependency consumers are explicit and justified; replaced mechanisms/tests/fixtures are gone. This does not postpone package-local deletions. | Implemented; focused native and linked consumers passed; earlier runtime/worker producer qualification is scoped; current replacement artifact association and installed Python admission remain. |
-| E3 — Assembled correctness and recovery | All functional A/B/C/D, B4's bounded decision and E1/E2 scope complete. Run one selected static/integration/scientific campaign against regenerated target. | Zero failures in named required scope; explain unsupported scientific/provider limits, repaired composite runs and actual crash/durability conditions. | Attempted; interrupted/nonqualifying; current correction handoff precedes fresh E3. |
+| E3 — Assembled correctness and recovery | All functional A/B/C/D, adopted N/T/L scope with N4/T5/L4 reconciliation, B4's bounded decision and E1/E2 integration complete. Run one selected static/integration/scientific campaign against regenerated target. | Zero failures in named required scope; explain unsupported scientific/provider limits, repaired composite runs and actual crash/durability conditions. | Attempted; interrupted/nonqualifying; expanded functional handoff precedes fresh E3. |
 | E4 — Preparation, build and operation measurement | E3 for scientifically comparable runtime measurements; targeted build instrumentation can be prepared earlier. Execute selected scientific and pivot efficiency measurements under recorded conditions. | Report measured scope and limitations without invented speedup thresholds or comparison to incomparable receipts. | Scheduled |
 | E5 — Assembled review and closure | E3/E4. Conduct the binding's bounded assembled design assessment, reconcile finding owners and migrate enduring meaning through the decision/design route. | Demonstrated architectural/scientific scope has owners; qualification is published honestly; plans/reviews retire only when their references have moved. | Completion audit delivered Revise; final assembled acceptance/closure pending. |
 
@@ -335,7 +413,9 @@ generic search/MCP work needs a concrete new requirement; it is not hidden accep
 
 The maintainer redirected execution to the [production execution efficiency review](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md)
 because of the long native run, then selected stopping and preserving the owned runner.
-The selected SurrealDB server, resource profile and dirty implementation remain preserved.
+The selected SurrealDB server, resource profile and implementation remain preserved.
+Commit `5260a3e9a` subsequently recorded that implementation and this handoff during review
+publication; the reviewed production, configuration and test bytes remained unchanged.
 E3 is interrupted and incomplete; E4 measurements and E5 assembled acceptance remain pending.
 The review is a separate design assessment, not the E5 completion review.
 
@@ -353,10 +433,10 @@ The review's [preserved execution evidence](../design_review/evidence/production
 states the attribution limits. These are incomplete campaign observations, not a full pass or
 new production performance qualification.
 
-Review findings and rule impacts first go through detailed corrective plan creation at the
-[coordinator](28-surrealdb-unified-substrate.md#finding-dispositions). Production remedies,
-accuracy changes and qualification resumption are not performed by this review. After that
-scope decision and its functional handoff, resume affected correctness/deployment journeys and
+The subsequent [repository-wide plan extension](28-surrealdb-unified-substrate.md#repository-wide-efficiency-extension)
+now schedules review findings, related variants and confirmed RC01 through 28f/28g/28h.
+Production remedies, accuracy changes and qualification resumption were not performed by
+the review or plan authoring. After the expanded functional handoff, resume affected correctness/deployment journeys and
 E4/E5 under this existing owner. Keep valid earlier evidence at its original scope; a capture-only
 repair does not itself justify repeating the completed series. The earlier continuation notes
 below describe the work leading to this handoff.
@@ -878,10 +958,10 @@ duration or assembled qualification.
 seconds, against the selected managed substrate. Authored execution, package/data
 round-trip, killed-worker recovery, cross-process cancellation and durable parallel
 study dispatch retain their original obligations. This recipe builds the debug worker;
-actual producer deployment association remains a separate E3 prerequisite.
+actual producer deployment association is a separately selectable strict qualification scope.
 
 **Tested (2026-10-07 local parity, baseline zero):** `just parity` passed 9/9 in
 134.10 seconds, including the linked preflight, covariance, degeneracy, PID and sensitivity
 comparisons against the pinned IDAES environment. The recipe installed a development
-extension; E3 reinstalls the producer-profile extension before actual capture and import
-association. This parity scope does not establish the assembled scientific campaign.
+extension. The development-phase policy above removes mandatory producer-profile reinstall,
+capture and import association. This parity scope does not establish the assembled scientific campaign.

@@ -590,7 +590,10 @@ class ExecutionContracts(unittest.TestCase):
         validation.write_json(self.output / "checks.json", receipt)
         gate = FUNCTIONAL_SCOPES["preparation"].name
         with (
-            patch("scripts.validation_scope.INPUT_SCOPE_VERSION", 2),
+            patch(
+                "scripts.validation_scope.INPUT_SCOPE_VERSION",
+                receipt["checks"][0]["inputs"]["version"] + 1,
+            ),
             self.assertRaisesRegex(ValueError, "identical inputs"),
         ):
             validation_receipts.reuse_checks(

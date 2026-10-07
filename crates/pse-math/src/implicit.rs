@@ -26,11 +26,11 @@ use configuration::ConfigurationWorker;
 pub use configuration::{Configuration, HintResolver};
 pub use cubic::CubicRoots;
 use faer::{
-    Mat,
-    linalg::solvers::Solve,
+    Conj, Mat, Par,
+    dyn_stack::{MemBuffer, MemStack},
     sparse::{
         SparseColMat, SymbolicSparseColMat,
-        linalg::solvers::{Lu, SymbolicLu},
+        linalg::lu::{self, LuRef, NumericLu, SymbolicLu},
     },
 };
 pub use isolation::{
@@ -103,7 +103,28 @@ pub struct Problem {
     providers: Mutex<BTreeMap<pse_kernels::ProviderKey, Box<dyn pse_kernels::Provider>>>,
     pattern: SymbolicSparseColMat<usize>,
     symbolic: SymbolicLu<usize>,
+    factor: Mutex<FactorWorkspace>,
 }
+struct FactorWorkspace {
+    numeric: NumericLu<usize, f64>,
+    memory: MemBuffer,
+    parallel: Par,
+}
+impl std::fmt::Debug for FactorWorkspace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FactorWorkspace")
+            .field("scratch_bytes", &self.memory.len())
+            .finish_non_exhaustive()
+    }
+}
+fn factor_workspace_bytes(unknowns: usize) -> Option<usize> {
+    unknowns
+        .checked_mul(unknowns)?
+        .checked_mul(64)?
+        .checked_add(unknowns.checked_mul(512)?)?
+        .checked_add(4096)
+}
+
 fn selected_inputs(
     worker: &Worker,
     unknowns: &[f64],
@@ -185,8 +206,31 @@ impl Problem {
             .collect::<Vec<_>>();
         let (pattern, _) = SymbolicSparseColMat::try_new_from_indices(n, n, &indices)
             .map_err(|e| MathError::Library(e.to_string()))?;
-        let symbolic =
-            SymbolicLu::try_new(pattern.as_ref()).map_err(|e| MathError::Library(e.to_string()))?;
+        let symbolic = lu::factorize_symbolic_lu(pattern.as_ref(), Default::default())
+            .map_err(|e| MathError::Library(e.to_string()))?;
+        let parallel = faer::get_global_parallelism();
+        let rhs = inputs
+            .checked_add(1)
+            .and_then(|next| inputs.checked_mul(next))
+            .map(|n| n / 2)
+            .ok_or(MathError::Limit("implicit factor RHS extent"))?
+            .max(inputs)
+            .max(1);
+        let scratch = symbolic
+            .factorize_numeric_lu_scratch::<f64>(parallel, Default::default())
+            .or(symbolic.solve_in_place_scratch::<f64>(rhs, parallel));
+        let allowance = factor_workspace_bytes(n)
+            .and_then(|bytes| bytes.checked_add(max_entries.checked_mul(8)?))
+            .ok_or(MathError::Limit("implicit factor workspace extent"))?;
+        if scratch.size_bytes() > allowance {
+            return Err(MathError::Limit("implicit factor workspace scratch"));
+        }
+        let factor = FactorWorkspace {
+            numeric: NumericLu::new(),
+            parallel,
+            memory: MemBuffer::try_new(scratch)
+                .map_err(|_| MathError::Limit("implicit factor scratch allocation"))?,
+        };
         let residual_offsets = vec![0.0; rows.len()];
         Ok(Self {
             id,
@@ -208,6 +252,7 @@ impl Problem {
             providers: Mutex::new(BTreeMap::new()),
             pattern,
             symbolic,
+            factor: Mutex::new(factor),
         })
     }
     /// Apply an explicit authored-equality offset in named residual output order.
@@ -358,6 +403,43 @@ impl Problem {
         }
         Ok(())
     }
+    fn factorize_matrix(
+        &self,
+        matrix: &SparseColMat<usize, f64>,
+        requirement: &'static str,
+    ) -> Result<std::sync::MutexGuard<'_, FactorWorkspace>, MathError> {
+        let mut held = self
+            .factor
+            .lock()
+            .map_err(|_| MathError::Contract("implicit factor lock poisoned".into()))?;
+        let FactorWorkspace {
+            numeric,
+            memory,
+            parallel,
+        } = &mut *held;
+        self.symbolic
+            .factorize_numeric_lu(
+                numeric,
+                matrix.as_ref(),
+                *parallel,
+                MemStack::new(memory),
+                Default::default(),
+            )
+            .map_err(|_| MathError::Domain {
+                source_id: self.id,
+                requirement,
+            })?;
+        Ok(held)
+    }
+    fn solve_factor(&self, factor: &mut FactorWorkspace, rhs: faer::MatMut<'_, f64>) {
+        LuRef::new_unchecked(&self.symbolic, &factor.numeric).solve_in_place_with_conj(
+            Conj::No,
+            rhs,
+            factor.parallel,
+            MemStack::new(&mut factor.memory),
+        );
+    }
+
     /// Use one faer factorization and multiple right-hand sides for first and second IFT jets.
     pub fn derivatives(
         &self,
@@ -406,16 +488,10 @@ impl Problem {
             .map(|(i, j)| jet.jacobian[i * width + j])
             .collect();
         let matrix = SparseColMat::new(self.pattern.clone(), values);
-        let lu =
-            Lu::try_new_with_symbolic(self.symbolic.clone(), matrix.as_ref()).map_err(|_| {
-                MathError::Domain {
-                    source_id: self.id,
-                    requirement: "implicit Jacobian is singular",
-                }
-            })?;
+        let mut factor = self.factorize_matrix(&matrix, "implicit Jacobian is singular")?;
         let mut first = Mat::from_fn(n, p, |i, j| -jet.jacobian[i * width + n + j]);
         let original = first.clone();
-        lu.solve_in_place(first.as_mut());
+        self.solve_factor(&mut factor, first.as_mut());
         check_solve(
             &jet.jacobian,
             width,
@@ -453,7 +529,7 @@ impl Problem {
             value
         });
         let original = second.clone();
-        lu.solve_in_place(second.as_mut());
+        self.solve_factor(&mut factor, second.as_mut());
         check_solve(
             &jet.jacobian,
             width,
@@ -644,7 +720,8 @@ impl ImplicitFactory {
             .body
             .retained_bytes()
             .checked_add(factory.body.scratch_bytes())?
-            .checked_add(factory.max_entries.checked_mul(8)?)
+            .checked_add(factory.max_entries.checked_mul(8)?)?
+            .checked_add(factor_workspace_bytes(factory.unknowns.len())?)
             .and_then(|n| n.checked_add(factory.configuration.retained_bytes()))
             .and_then(|n| {
                 n.checked_add(
@@ -1579,6 +1656,13 @@ mod tests {
         assert_eq!(jet.values, vec![2.0]);
         assert_eq!(jet.jacobian, vec![0.25]);
         assert_eq!(jet.hessians, vec![-0.03125]);
+        let scratch = problem.factor.lock().unwrap().memory.as_ptr();
+        let current = problem
+            .derivatives(&[1.], &[1.], DerivativeOrder::Second, &options, &cancel)
+            .unwrap();
+        assert_eq!(current.jacobian, [0.5]);
+        assert_eq!(current.hessians, [-0.25]);
+        assert_eq!(problem.factor.lock().unwrap().memory.as_ptr(), scratch);
         // The root remains an original feasible value at an interval endpoint,
         // but full local derivatives require an interior at the physical budget.
         assert_eq!(
@@ -1605,6 +1689,12 @@ mod tests {
                 .is_err()
         );
         problem.unknowns[0].lower = 0.;
+        let recovered = problem
+            .derivatives(&[4.], &[2.], DerivativeOrder::Second, &options, &cancel)
+            .unwrap();
+        assert_eq!(recovered.jacobian, [0.25]);
+        assert_eq!(recovered.hessians, [-0.03125]);
+        assert_eq!(problem.factor.lock().unwrap().memory.as_ptr(), scratch);
         assert!(
             problem
                 .derivatives(&[4.0], &[1.0], DerivativeOrder::First, &options, &cancel)

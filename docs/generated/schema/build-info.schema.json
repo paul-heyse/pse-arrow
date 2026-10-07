@@ -5,11 +5,11 @@
   "description": "Build provenance of the compiled product, projected without recomputing its identity.",
   "properties": {
     "cargo_lock_sha256": {
-      "description": "External SHA256 checksum of the exact embedded Cargo lockfile bytes.",
+      "description": "Captured Cargo lockfile checksum; empty when no lockfile is embedded.",
       "type": "string"
     },
     "git_sha": {
-      "description": "Captured Git commit, or the producer's source-distribution marker.",
+      "description": "Captured Git commit; empty when the implementation does not embed outer context.",
       "type": "string"
     },
     "lockfile_hash": {
@@ -25,7 +25,7 @@
       "type": "string"
     },
     "uv_lock_sha256": {
-      "description": "External SHA256 checksum of the exact embedded uv lockfile bytes.",
+      "description": "Captured uv lockfile checksum; empty when no lockfile is embedded.",
       "type": "string"
     },
     "version": {

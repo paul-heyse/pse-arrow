@@ -3,7 +3,7 @@ title: Selected compilation and durable reuse
 status: in-progress
 date: 2026-10-05
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -102,7 +102,11 @@ must change when a consumed kernel, provider, library or configuration changes. 
 test file or unrelated crate must not become a scientific dependency through a recursive
 whole-tree hash. Establish the affected source boundary from the real implementation and its
 dependencies, not a manually maintained list that silently omits a helper. Whole-build
-attestation remains complete; narrowing product keys is not permission to weaken it.
+observation remains complete; narrowing product keys is not permission to weaken it. The
+2026-10-07 accepted production RC01 further separates artifact-specific linked identity and
+actual deployment association from complete outer observation. [28h L0/L3](28h-native-setup-and-artifact-identity.md)
+owns that target and its decision route before replacement; current linked-attestation receipts
+remain historical evidence for the original contract.
 
 This creates a new cross-process and potentially cross-build reuse capability. The existing
 process-local cache does not establish that capability already. Version the identity frame
@@ -134,7 +138,7 @@ F02 correction; they do not establish physical hydration locality or a measured 
 |---|---|---|
 | B1 grouped frontier, with A2 acquisition | Selected roots, interpretation and exact unresolved demands produce scientifically sufficient closure under unchanged lexical/import/provider rules. Carry namespace inventory and guard premises forward; resolve only the new frontier instead of rescanning accumulated declarations. Owners: `pse-modeling/src/selected_source.rs` and runtime `workflow/modeling/canonical.rs`. | Check nearer-name shadowing, deletion, imports, cycles, absent-name conflicts, unrelated namespaces and expiry. Include sparse `(scope,name)` pairs so independent IN sets cannot accidentally admit cross-pairs. Observe the actual query path to establish removal of repeated crossings/parsing, without a new planner or a fixed RPC quota. Remove remaining superseded singleton reads/rescans once consumers pass. |
 | B1 physical hydration, with A2/B2 | Group selected manifests/extent metadata first; fetch bounded payload groups only after extent admission. Produce the same exact Arrow physical input and interpretation consumed by shared kernels and persisted descriptions. Protect selection on misses and hits until product admission. | Scale legitimate declaration count and include mixed-size blocks; show bounded group admission, refusal before oversized decoding, exact bit/shape identity and no unrelated full-bundle hydration. Inspect current hydration before changing it: a fresh targeted receipt must settle the remaining premise. Delete duplicate probes/conversions, preserving required scientific validation. |
-| B3 deployed replay, with E2 producer tooling | Fresh runtime, worker and installed Python extension captures associate actual executable bytes, compiler/native configuration and dirty source with qualified outer attestation; relevant dependencies alone key scientific products. Consumers reopen persisted descriptions only under complete eligible context. | Qualify actual installed extension/import association, then solve/reopen/reconstruct under that deployment. Changed relevant provider/config/input refuses reuse; irrelevant source change changes outer attestation without unnecessarily re-keying the product. Fixture captures and git HEAD alone cannot establish installed eligibility. |
+| B3 deployed replay, with E2 and 28h L3 producer tooling | Fresh runtime, worker and installed Python extension captures associate actual artifact bytes with their relevant role/input closure and the deployment's separate complete outer observation. Relevant dependencies alone key scientific products; consumers reopen only under complete eligible context. | Qualify actual installed extension/import association, then solve/reopen/reconstruct. Changed relevant provider/config/input refuses reuse; irrelevant source changes outer observation without re-keying the product or recompiling an unaffected artifact. Fixture captures, matching outer hashes and git HEAD alone cannot establish installed eligibility. |
 
 B3 also settles the audit's honest cross-target receipt question. A receipt for a runtime
 library or worker must not silently establish installed Python target association merely
@@ -157,6 +161,23 @@ Existing EF02/EF08 focused resolution is preserved. Fresh A/B/A, value/structura
 selected acquisition controls must compose with C/D consumers before E3. E4 owns comparable
 complete-operation timings. The current next step supersedes historical continuation text
 below; prior receipts retain their original source and workload limits.
+
+## Shared numerical preparation extension
+
+[28f](28f-shared-numerical-preparation.md) develops PE01/PE04 and comparable numerical variants.
+N1 supplies ordered policy/coordinate projections to current assessment consumers; N2 extends
+this owner's selected-input admission through the existing bounded math service and fresh
+protection. Compiler-issued witnesses, portable descriptions and complete scientific eligibility
+remain here. Immutable cached preparation cannot retain an expired storage read or attempt fence.
+
+Ordinary solve/initialization, durable ready occurrences, continuation, fitting, dynamics,
+shooting and analyses migrate wherever N0 confirms unchanged preparation is rebuilt. Values,
+current source attribution, seeds and original-space assessment remain fresh. N3's library and
+native session work consumes this same split; no second compiler/cache or persisted native
+state is introduced. [28g T3/T4](28g-bulk-data-operations.md) groups physical source transport
+and retains unchanged authored bytes without duplicating scientific admission. [28h](28h-native-setup-and-artifact-identity.md)
+supplies actual role association; B3 integrates it rather than maintaining another capture rule.
+N4/T5/L4 consumer closure precedes E3. Earlier B package Outcomes remain at their named scope.
 
 ## Work packages
 

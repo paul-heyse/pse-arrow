@@ -51,6 +51,7 @@ impl CubicRoots {
             &coefficients,
             &formals,
             &layout,
+            &[],
             crate::library::Optimization::default(),
             cancel,
             limits,

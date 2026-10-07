@@ -40,10 +40,22 @@ Repurpose `pse-operations` as the concrete thin remote SDK and typed-operation o
 
 Immutable object versions and membership intervals supply linear per-problem head-CAS revisions. Named head/name/scope/retention guards protect all consumed premises; conflict retries repeat the whole decision. Selected scientific admission remains one Rust kernel. Portable admitted descriptions retain complete positive, absent-name, membership and interpretation dependencies; native handles remain process-local. Producer-specific relevant identities govern reuse, while complete dirty-build attestation belongs to the outer run.
 
-The outer source attestation includes the executable composition roots, including
-the worker's `xtask` sources, alongside library and vendored sources. It remains
-separate from the selected scientific producer closure; editing unrelated outer
-code does not automatically invalidate a scientific product.
+The maintainer confirmed the production-efficiency review's RC01 on 2026-10-07.
+Three versioned products have separate lifetimes: relevant role-specific producer/build
+inputs before linking; independently observed deployed artifact bytes associated with the
+reviewed capture after build/install; and complete dirty outer source/build observation at
+deployment/run admission. The latter includes executable composition roots, handwritten,
+generated and vendored sources, but is not compiled into every associated consumer.
+An unrelated outer edit updates provenance without rebuilding an unaffected role or
+invalidating its scientific products. Consumed root/native/configuration changes invalidate
+the affected role. Unknown consumed inputs and caller-manufactured matching receipts confer
+no deployment eligibility. Actual worker startup and Python import check their own artifact
+associations and required scientific/ABI compatibility, rather than equal all-tree hashes.
+An installation without its owning authored checkout records absent source evidence and an
+actual artifact observation. Ordinary admission and persistence remain available; missing
+outer evidence never mints a scientific producer qualification. Supplied producer evidence
+still requires independent current-artifact and consumed-input verification.
+Historical identity and receipt meanings are never silently reinterpreted.
 
 Normal runs retain scientific outcomes; ephemeral execution is explicit. Closed bounded staging admits an exact result descriptor atomically under the attempt fence. Protected selection becomes durable retained roots before preparation releases protection. Native selectors and bounded Arrow streams replace Runtime, modeling-knowledge and TableReader SQL APIs. Rebuild controlled artifacts, with no preservation importer, compatibility reader, dual writes or second production backend. Retire `pse-operations-queries` and `pse-catalog` when their last callers move.
 
@@ -77,7 +89,7 @@ separate unsafe publication entry requires an actual compiler-issued admitted de
 The storage and runtime writer/reader trust boundaries are explicit, and governance records
 the affected owners, with compiler fixture minting restricted to tests; the pure permit controls are the bounded non-FFI Miri scope.
 
-Deployment producer qualification is also an explicit unsafe trust assertion: the operator supplies the reviewed actual tool capture, bound to the linked executable outer attestation. Public embedding callers cannot safely mint an eligible deployment merely by manufacturing matching JSON hashes. Publication identities include the store-issued protection identity; repeated publication within one protected admission is idempotent, while independently admitted recompilation can retain a fresh product after explicit release of an older one. Request and dependency eligibility remain separate from publication identity. Generic root retention cannot create or move product roots.
+Deployment producer qualification is also an explicit unsafe trust assertion: the operator supplies the reviewed actual tool capture, bound to the independently observed deployed artifact and its relevant role-specific inputs; complete dirty outer observation remains at deployment/run admission. Public embedding callers cannot safely mint an eligible deployment merely by manufacturing matching JSON hashes. Publication identities include the store-issued protection identity; repeated publication within one protected admission is idempotent, while independently admitted recompilation can retain a fresh product after explicit release of an older one. Request and dependency eligibility remain separate from publication identity. Generic root retention cannot create or move product roots.
 
 Already rooted exact descriptions are reused atomically, so repeated preparation does not retain duplicate publications merely because it acquired a fresh pin.
 
@@ -106,3 +118,5 @@ One substrate makes revision selection, product discovery, result queries and re
 
 - 2026-10-05 — proposed before dependent production changes, under maintainer implementation authorization. Formal acceptance and ADR-0114 supersession remain in the decision PR route.
 - 2026-10-06 — maintainer authorized all companion functional scope; capability-informed function, result-block and read contracts are included before dependent changes. Assembled verification follows full functional implementation.
+
+- 2026-10-07 — maintainer-authorized Plan 28f–28h execution records confirmed production RC01 before dependent identity changes; artifact association and complete outer observation have separate lifetimes. Proposed status and qualification remain unchanged.

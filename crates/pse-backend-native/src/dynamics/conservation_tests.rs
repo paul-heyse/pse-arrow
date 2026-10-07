@@ -123,9 +123,11 @@ impl Oracle for Conserved {
     }
 }
 fn methods() -> Vec<Method> {
-    let mut methods = vec![Method::Diffsol];
-    #[cfg(feature = "idas")]
-    methods.push(Method::Idas);
+    let methods = vec![
+        Method::Diffsol,
+        #[cfg(feature = "idas")]
+        Method::Idas,
+    ];
     methods
 }
 fn policy(method: Method) -> Profile {

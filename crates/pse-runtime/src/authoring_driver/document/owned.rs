@@ -213,13 +213,24 @@ impl OwnedDocumentSet {
             allocation.grow(crate::authoring_driver::work::sources(
                 std::slice::from_ref(part.bundle()),
             )?)?;
-            let mut texts = part
+            let mut texts: BTreeMap<String, bytes::Bytes> = part
                 .bundle()
                 .documents
                 .iter()
-                .map(|document| (document.path.clone(), document.bytes().to_vec()))
+                .map(|document| (document.path.clone(), document.shared_bytes()))
                 .collect();
-            super::apply_edits(&mut texts, &own)?;
+            for edit in &own {
+                if texts
+                    .get(&edit.path)
+                    .map(|bytes: &bytes::Bytes| bytes.as_ref())
+                    != Some(edit.before.as_bytes())
+                {
+                    return Err(contract(None, "document edit exact preimage changed"));
+                }
+            }
+            for edit in own {
+                texts.insert(edit.path, bytes::Bytes::from(edit.after.into_bytes()));
+            }
             let mut bundle = super::load::load_reusing(
                 texts,
                 Some(part.bundle()),
@@ -628,6 +639,19 @@ mod tests {
                 Arc::ptr_eq(&prior.syntax, &next.syntax),
                 prior.path != "materials/quantity-kinds.yaml"
             );
+            if prior.path != "materials/quantity-kinds.yaml" {
+                let retained = prior.shared_bytes();
+                assert_eq!(
+                    retained.as_ptr(),
+                    prior.bytes().as_ptr(),
+                    "unchanged source borrows its original immutable bytes"
+                );
+                assert_eq!(
+                    next.bytes().as_ptr(),
+                    prior.bytes().as_ptr(),
+                    "edited package retains original source byte owner"
+                );
+            }
             if let Some(rows) = prior.modeling_rows() {
                 assert!(Arc::ptr_eq(rows, next.modeling_rows().unwrap()));
                 assert!(!prior.batches.contains_key(

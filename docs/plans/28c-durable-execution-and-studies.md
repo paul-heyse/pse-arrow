@@ -3,7 +3,7 @@ title: Durable execution and dependency-scoped studies
 status: in-progress
 date: 2026-10-05
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -33,8 +33,10 @@ starts, permission restrictions, predecessor usability and occurrence identity.
 ## Ordinary runs and attempt state
 
 An application run selects an immutable problem revision and records demand, resolved
-configuration, compilation/provider interpretation and outer build attestation before native
-execution. Scientific results and available diagnostics are retained automatically for normal
+configuration, compilation/provider interpretation, actual deployed artifact association and
+complete outer source/build observation before native execution, under the accepted
+[28h identity route](28h-native-setup-and-artifact-identity.md). Scientific results and available
+diagnostics are retained automatically for normal
 completion, failure and cancellation. Storage or admission failure is observable; a caller
 does not receive a successfully durable outcome when retention failed. An explicitly selected
 ephemeral mode remains available to numerical libraries and local tests; it is not selected
@@ -150,6 +152,23 @@ C's focused controls below do not establish deployed managed-worker recovery. Ex
 controls with the admitted profile; E3 then composes concurrency, cancellation, progress,
 retention and restart with refreshed producers. Changes to global/contextual accuracy require
 physical decision rationale and their policy owner, never a study-specific tolerance adjustment.
+
+## Shared preparation and bulk ingestion extension
+
+The [repository-wide extension](28-surrealdb-unified-substrate.md#repository-wide-efficiency-extension)
+adds [28f N2/N3](28f-shared-numerical-preparation.md) and [28g T1/T2/T4](28g-bulk-data-operations.md)
+to the durable/run/study consumers. Ready occurrences acquire bounded immutable checked
+preparation under complete eligibility and fresh protection. Equal parameter values remain
+distinct occurrences; compatible native owner reuse never merges claims, starts, attempt
+fences, cancellation or independently assessed outcomes.
+
+Result writers choose physical row groups by the shared payload/index/resource admission
+instead of the 64-cell-driven IPC unit. Successful append returns a sufficient immutable
+acknowledgment; the existing effect owner retains exact changed-replay refusal and lost-ack
+settlement. Atomic indexes, closed ingestion/coverage and terminal admission remain C's contract.
+Source/analysis grouping changes only after its specific effect/recovery unit is settled.
+N4/T5/L4 closure and current C obligations precede E3; earlier Outcomes do not qualify these
+replacement mechanisms. No new scheduler or recovery authority is introduced.
 
 ## Work packages
 

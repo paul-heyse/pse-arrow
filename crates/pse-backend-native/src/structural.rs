@@ -674,11 +674,10 @@ pub fn validate_assessment(
             "retained structural inventory changed".into(),
         ));
     }
+    let rows = pse_math::index::CheckedInventory::new(&assessment.equations, |row| row.id)?;
     for (id, &(lower, upper)) in contract.rows.iter().zip(bounds) {
-        let row = assessment
-            .equations
-            .iter()
-            .find(|row| row.id == *id)
+        let row = rows
+            .get(id)
             .ok_or_else(|| ProblemError::Internal("retained structural row missing".into()))?;
         let originally_equal = row
             .lower
@@ -958,6 +957,56 @@ mod tests {
             );
         }
     }
+    #[test]
+    fn retained_assessment_projects_reordered_rows_and_refuses_duplicate_sources() {
+        let contract = OracleContract {
+            identity: pse_ids::ContentHash::from_bytes([3; 32]),
+            variables: vec![
+                crate::Variable {
+                    id: id(1),
+                    lower: -1.0,
+                    upper: 1.0,
+                },
+                crate::Variable {
+                    id: id(2),
+                    lower: -1.0,
+                    upper: 1.0,
+                },
+            ],
+            rows: vec![id(3), id(4)],
+            derivatives: pse_kernels::DerivativeOrder::First,
+            smoothness: pse_kernels::DerivativeOrder::First,
+        };
+        let pattern = faer::sparse::SymbolicSparseColMat::try_new_from_indices(
+            2,
+            2,
+            &[faer::sparse::Pair::new(0, 0), faer::sparse::Pair::new(1, 1)],
+        )
+        .unwrap()
+        .0;
+        let original = oracle_structure_with_cancel(
+            &contract,
+            pattern.as_ref(),
+            &[(0.0, 0.0), (-1.0, 1.0)],
+            true,
+            &std::sync::atomic::AtomicBool::new(false),
+        )
+        .unwrap();
+        let mut assessment = Assessment::new(
+            Mode::NativeFeasibility,
+            original.variables,
+            original.equations,
+            original.witness,
+        )
+        .unwrap();
+        let mut reordered = contract.clone();
+        reordered.rows.reverse();
+        validate_assessment(&assessment, &reordered, &[(-1.0, 1.0), (3.0, 3.0)]).unwrap();
+        assert!(validate_assessment(&assessment, &reordered, &[(3.0, 3.0), (-1.0, 1.0)]).is_err());
+        assessment.equations[1].id = assessment.equations[0].id;
+        assert!(validate_assessment(&assessment, &reordered, &[(-1.0, 1.0), (3.0, 3.0)]).is_err());
+    }
+
     #[test]
     fn contextual_unit_original_structure_extent_cancellation_and_retained_validation() {
         let contract = OracleContract {

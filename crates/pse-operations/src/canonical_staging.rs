@@ -26,6 +26,8 @@ pub const SOURCE_BLOCK_BYTES: usize = 512 * 1024;
 // The closed manifest is an internal authoring inventory, never one wire payload.
 // Its digest travels alone; per-object metadata, edges and blocks remain separate.
 pub(crate) const MAX_EDITS: usize = 8_192;
+/// Maximum members of one coherently activated source package effect.
+pub const SOURCE_PACKAGE_EDITS: usize = MAX_EDITS;
 const MANIFEST_BYTES: usize = 32 * 1024 * 1024;
 pub(crate) const IDENTITY_BYTES: usize = 4096;
 const RETRIES: usize = 8;

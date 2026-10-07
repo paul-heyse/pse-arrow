@@ -1,0 +1,196 @@
+---
+title: Bulk data operations and sufficient protected crossings
+status: in-progress
+date: 2026-10-07
+adrs: [ADR-0164]
+review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md]
+scenario_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#4-revealing-scenarios]
+---
+
+# 28g: Bulk data operations and sufficient protected crossings
+
+## Responsibility and affected foundations
+
+This companion owns the efficiency corrections to physical data units and operation contracts.
+It develops PE02/PE03 and comparable source/analysis/authoring variants for [28a](28a-canonical-substrate-and-revisions.md),
+[28c](28c-durable-execution-and-studies.md) and [28d](28d-connected-results-and-analysis.md).
+Those documents retain revision, attempt, terminal, query and lineage semantics. The
+[coordinator](28-surrealdb-unified-substrate.md#repository-wide-efficiency-extension) owns
+coverage/dispositions; [28e](28e-rebuild-retirement-and-qualification.md) owns qualification.
+
+The inspected product baseline is `5260a3e9a3cecd69b6358ab86d4e917ae2508b29`. Current source
+has exact codecs, bounded self-contained IPC, scalar indexes, guarded effects, closed
+descriptors, selected grouped acquisition, escaped-buffer leases and Arrow C streams.
+They are suitable foundations. PE02 is scalar-index count imposing six/eight-row scientific
+blocks, not a per-cell RPC. PE03 is a full-payload success echo and two protected crossings
+per block. Existing append already bulk-inserts cell arrays.
+
+Source inspection also found physical-document publication/reopening per chunk, whole edited
+bundle byte copying, separate analysis node/edge pages, and sequential recovery metadata
+reads. Their repeated work is visible; the largest permissible effect/lifetime unit needs
+the focused decisions below. A shallow `Arc`/`Bytes`/Python dictionary clone is not by itself
+a duplicated payload. Query syntax and bounded returned pages do not establish examined work.
+
+## One bounded physical admission policy
+
+Separate scientific rows/coordinates, IPC blocks, index pages and committed effects. Give
+each a useful physical unit under one authoritative admission policy, rather than letting
+an incidental scalar count choose every unit. Derive runtime and generated bounds from the
+owning declarations, never independently maintained magic constants in each consumer.
+
+Retain the existing initial limits: a self-contained scientific IPC block is at most
+512 KiB, execution metadata uses the existing 128 KiB allowance, and the selected transport
+profile caps gRPC messages at 4 MiB. Apply the metadata allowance to each append's derived
+index/descriptor envelope. Account for complete encoded request overhead and decoded/live
+extent independently. A caller may request a lower admitted extent; exceeding the generated
+server ceiling requires a deliberate interpretation/profile change, not a local bypass.
+
+The writer chooses a useful contiguous row prefix that fits actual payload, encoded index
+metadata, complete wire overhead and resource admission; exact maximality is not required.
+Prepare row-metadata extents once, select a sufficiently large candidate, then encode/admit
+through the actual Arrow/codec owners with bounded deterministic splitting retries. Reuse
+prepared metadata rather than repeatedly rebuilding discarded candidates. Reserve builders
+and scratch before allocation. Split an overlarge candidate deterministically and
+refuse a single row that cannot fit. Empty completion is explicit. Small progress observations
+may still flush promptly under the existing latency policy; batching never waits indefinitely
+for a byte target or blocks terminal drain.
+
+T0 establishes actual encoded metadata admission, including IDs, tags, bits and variable
+strings, and a separate generated defensive cardinality ceiling. Derive that ceiling from
+the positive minimum valid record extent or another justified finite schema bound; it bounds
+pathological cardinality and replay work. Do not choose ordinary batches by dividing the
+allowance by the maximum permitted per-cell string size, which would recreate tiny blocks
+for compact identities. The 128 KiB append-index allowance is a proposed reuse of the existing
+completion/descriptor metadata policy, not a claim that it already governs those indexes.
+T1 uses the defensive ceiling for server checks and exact replay queries; the current
+64-cell guard and `LIMIT 65` must change together. The server checks actual admitted fields
+and bounds, not a client assertion of its own size. Do not substitute an unbounded comparison
+or trust a byte cap to bound unlimited zero-sized records. The same declaration supplies
+runtime policy, native guards, count ceilings and boundary controls.
+
+Keep authoritative IPC rows, exact bits/nulls/signed zero, derived-index correspondence,
+contiguous ordinals and frozen result membership. Payload and all its indexes become visible
+atomically under the attempt fence. Closing ingestion still precedes terminal reconciliation;
+large native work and ingestion stay outside the terminal transaction. Changing these physical
+limits must follow version-first interpretation admission and controlled artifact regeneration
+where persisted interpretation changes. No legacy reader or second result writer is introduced.
+
+## Sufficient operation crossings
+
+### Append acknowledgment
+
+The append operation receives the complete expected immutable batch and index metadata.
+The server performs current fence/ingestion checks and exact recorded-request comparison on
+replay, then returns a compact acknowledgment identifying the admitted effect and immutable
+descriptor. It does not echo IPC bytes on normal success. Existing request/result identities
+and framed digests may supply sufficient fields; define them once through the generator.
+
+The client verifies that the acknowledgment names this exact result set, ordinal, request and
+coverage. A matching digest supplies identity, not scientific correctness. Rows/indexes retain
+their independent admission. An identical acknowledged retry resolves the same effect;
+changed bytes or metadata at that effect identity refuse. Lost acknowledgment settles through
+the existing operation owner before retrying, with exact readback only where uncertainty
+requires it. No new retry wrapper or scientific re-solve follows a storage acknowledgment loss.
+
+### Protected reads
+
+Use one protected bounded operation to obtain an admitted block's metadata and payload.
+Connected selection already supplies block identities/extents; consume that plan instead of
+performing another metadata RPC for the same block. Group compatible exact blocks only under
+one combined payload/metadata/reservation allowance and the same immutable protected selection.
+
+Metadata-first planning remains necessary where extent admission needs it. Reserve bounded
+wire buffers before acquisition and decoded extent before Arrow decoding. The fused operation
+rechecks membership, interpretation and current protection; it cannot turn a cached lease into
+fresh authority. Preserve ordinal order and payload/index comparison before typed publication.
+Rows before successful statement completion remain provisional. Cancellation closes/drains
+unread work while escaped Arrow arrays retain their own allocation leases.
+
+These contracts cover source ingress, result append and analysis acquisition through common
+grouping/admission mechanics. Their effect receipts remain distinct: source revision publication,
+result attempt ingestion, analysis activation and study claims are different transitions.
+A generic transport success response cannot replace any of their completion guarantees.
+
+## Broader consumer migrations and open choices
+
+| Area | Target and decision needed before changing effects |
+|---|---|
+| Solve/fit/dynamic scientific tables | `result_projection` and `result_blocks` share the new physical admission policy. Scalar indexes no longer force an IPC stream/transaction per 64 cells. Preserve schema order, finite/nonfinite domains and complete sample coverage. |
+| Reopened results and progress | `canonical_results`, connected reads, durable progress and Rust/Python wrappers consume sufficient read/ack contracts. Retain the distinction between live observations and sealed durable history, and their current completeness meanings. |
+| Physical source documents | `Operations::sources` groups logical IDs, manifests and exact source payloads through existing selected acquisition. Preserve manifest version, package/path/chunk identity, lengths/digests and current protection. Publication should stage bounded groups under one complete package effect and publish the final revision coherently, rather than committing a head transition per chunk when no consumer needs it. T0 must settle current stage/edit cardinality and interruption recovery before extending that operation. |
+| Edited authored bundles | `OwnedDocumentSet::edit` reuses unchanged parser owners but currently copies each document's bytes. Carry immutable byte ownership into the existing loader so changed bytes alone allocate anew. Preserve exact edit conflicts, spans, full required package hydration, cancellation and leases; this does not assume all scientific checks become incremental. |
+| Analysis graphs | Existing append accepts nodes and edges, but endpoints must exist and activation requires full membership. Group compatible node/edge pages where that ordering holds. Keep separate stages where effect dependencies require them; do not create an alternate graph publisher. |
+| Worker recovery metadata | Determine whether point/attempt/study/run reads can be acquired as one coherent operation under existing identities. Changing claim/predecessor/fence facts require fresh authoritative reads. Never merge distinct occurrences merely because their source is equal. |
+| Relations/engine/Arrow export | Reuse checked batches, selective inputs, streaming and multiplicity-aware gather reservations. Replace collection/materialization only for an actual consumer that does not need it. Existing Python Arrow C streams remain the preferred result boundary. |
+
+T0 also assesses exact SurrealDB 3.3.0 plans for active, historical, supplier, empty and skewed
+selections. The streaming planner folds eligible constants, so optional OR alone is not a
+scan diagnosis. Inspect examined work, ordering and maintenance costs before adding compound
+indexes, decomposing predicates or selecting target-driven acquisition. Generate changes at
+the registry/codegen owner and preserve complete negative inventories and revision intervals.
+
+Follow a real analytical demand before proposing DataFusion provider/pushdown integration.
+If that consumer benefits, preserve schema/null/order, filter/limit/projection semantics,
+protected selection, late errors and allocation ownership. Otherwise improve existing native
+selection/Arrow streaming. The [release-backed evidence](../design_review/evidence/production-execution-efficiency-2026-10-07/surreal/README.md)
+and library skills inform these choices; Context7 is used for additional API documentation.
+
+## Work packages and dependencies
+
+| Package | Inputs and delivered behavior | Migration, deletion and focused acceptance | Status |
+|---|---|---|---|
+| T0 — Settle physical units and variants | Coordinator coverage and existing codecs/stage/read owners. Set metadata/count extent, largest legal effect groups, actual caller demand and query/library applicability. | Record adopted versus justified retained units and the evidence selecting each. Query-plan observations are bounded to decision-changing predicates; no wholesale profiling prerequisite for PE02/PE03. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
+| T1 — Payload and index admission | T0's result bound plus A's generated codec/interpretation route. Implement one byte/extent-based scientific writer and derived server/replay bounds. | Migrate solve, fit, trajectory and all indexed result producers. Test narrow/wide/empty/single-overlarge rows, boundary splits, exact coverage/indexes, fence/close races and identical/changed replay. Delete the 64-cell-driven framing path and its obsolete assumptions. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
+| T2 — Compact exact append acknowledgment | Working current append ownership and settled sufficient request/descriptor identity; independent of increasing block size. | Change generator and actual Rust callers together. Test successful first/repeated effects, mismatched descriptor, changed request and committed lost-ack recovery. Remove full payload success echo/readback comparisons only after the replacements establish their guarantees. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
+| T3 — Composed protected acquisition | A3 protection plus exact result descriptors and reservation planning; independent of T1/T2 except changed stored-bound compatibility. | Migrate connected and direct block readers, grouped physical source reopening, and applicable recovery metadata consumers. Test retirement/expiry/cancellation, selected ordering, missing/changed blocks and final statement failure. Delete replaced singleton metadata/payload chains. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
+| T4 — Source and analysis effect grouping | T0's source-stage and node/edge decisions; working shared admission/grouping slices. | Migrate source package publication, unchanged-byte authoring reuse and applicable analysis publication. Test interrupted stages, exact final revision visibility, changed replay, endpoint ordering and activation completeness. Delete redundant revisions/copies/loops only where no required consumer remains. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
+| T5 — Data consumer closure | T1–T4 and adopted access-path/provider work. Reconcile all data capability rows and actual callers. | All confirmed variants consume the shared target; justified distinct effects remain explicit. Compose complete source→solve→retained result→selected analysis/Arrow journeys in E3, then measure in E4. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
+
+T1/T2/T3 can proceed independently once their own contracts are available. Acknowledgment
+correctness and read correctness remain separate obligations even if larger blocks reduce
+both call counts. Root owns shared schema/generators, policy declarations and integration.
+Regenerate changed declarations through `just codegen`; never edit generated codecs/functions.
+
+## Verification and evidence limits
+
+**Interface-checked:** source inspection establishes the reviewed framing/echo/two-read
+mechanisms and additional source-chunk/copy leads. Selected acquisition, checked Arrow
+ownership and streaming already provide reusable foundations. No query timing or preferred
+index access path was newly measured during plan authoring.
+
+**Proposed acceptance:** compile affected packages and run narrow actual mechanism units
+through `just check-package`, `just unit-package` and appropriate native recipes, with explicit
+force-validation. Include null/signed-zero/large integral IDs and independent exact original
+rows/indexes. Unit tests cover splitting, identity and ownership without unrelated solvers.
+Server/recovery/stream journeys belong to E3 after the complete functional extension, not an
+integration run for every package. Use the existing canonical recipes for their selected scope.
+
+E4 observes total source acquisition, append/read and analysis/export operations, with narrow
+and wide rows, trajectory/sample growth, selective/empty/skewed requests, cancellation and
+reopen. Separate setup/schema installation and teardown from publication/query work. Report
+wire bytes/crossings or construction counters only when they answer the relevant hypothesis;
+no new telemetry framework or fixed RPC quota is required. Exact original transport checks
+do not impose bit-identical independently solved scientific outcomes.
+
+## Checkpoint
+
+T0–T4 functional source and focused actual-server controls are implemented. T5 reconciles
+confirmed consumers with the shared publication/acquisition owners; enclosing assembled
+consumer qualification remains at E3. Registry-derived limits now govern Rust, generated SurrealQL and supervisor
+policy under substrate interpretation v2. Native CBOR metadata accounting is distinct from
+gRPC's actual protobuf transport. A defensive cardinality ceiling follows the minimum valid
+metadata object; it does not choose physical blocks. Scalar publication frames admitted payload
+and metadata once per bounded row window, reserves live scratch, and no longer splits at64cells.
+
+Append acknowledgments carry compact exact request/batch identity while server replay compares
+full content. Protected result acquisition returns descriptor and payload together. Source
+publication groups admitted stages into one final revision; reopening groups selected sources
+and unchanged authored bytes share their existing allocation/parser owners. Analysis pages group
+ready edges with nodes while retaining endpoint and activation requirements. Study recovery uses
+an initial consistent metadata snapshot and retains fresh effect/fence validation.
+
+The retained page/cursor loops supply complete bounded acquisition and renewal, so their64-entry
+page sizes are not removed indiscriminately. Current connected consumers need Rust protected
+streams, not a speculative TableProvider. Units and actual native controls cover large IDs,
+null/signed-zero, wide rows, ownership, replay and grouping; Focused server controls exercise exact append/replay, protected acquisition, physical staging
+and graph activation. E3 supplies the assembled caller and recovery acceptance. No timing or query-index claim is made.

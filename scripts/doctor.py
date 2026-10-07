@@ -364,14 +364,29 @@ def check_repo_linters() -> Check:
 #: Imports the extension and reports its provenance, plus whether the dynamic linker
 #: loaded the native solvers (Linux ``/proc/self/maps``; native builds are Linux-only).
 EXTENSION_PROBE = (
-    "import pathlib, pse; b = pse.build_info(); m = pathlib.Path('/proc/self/maps'); "
+    "import json, pathlib, pse; b = pse.build_info(); m = pathlib.Path('/proc/self/maps'); "
     "n = m.exists() and 'libipopt' in m.read_text(); "
-    "print(b.version, b.cargo_lock_sha256, b.uv_lock_sha256, int(n))"
+    "print(json.dumps([b.version, b.cargo_lock_sha256, b.uv_lock_sha256, bool(n)]))"
 )
 
 
+def parse_extension_observation(output: str) -> tuple[str, str, str, bool]:
+    observation: object = json.loads(output)
+    if not isinstance(observation, list) or len(observation) != 4:
+        raise ValueError("invalid extension observation")
+    version, cargo_sha, uv_sha, native = observation
+    if (
+        not isinstance(version, str)
+        or not isinstance(cargo_sha, str)
+        or not isinstance(uv_sha, str)
+        or not isinstance(native, bool)
+    ):
+        raise TypeError("invalid extension observation")
+    return version, cargo_sha, uv_sha, native
+
+
 def check_extension() -> Check:
-    """The built extension must import and match the checkout's lockfiles (pse-buildinfo).
+    """Check import and linking, without inventing absent deployment evidence.
 
     It is imported the way native recipes import it, with the prepared solver libraries
     on the library path, so a native build is recognized rather than reported missing.
@@ -397,8 +412,16 @@ def check_extension() -> Check:
             "just py-sync, or just py-sync-native for the native solvers",
             blocking=False,
         )
-    version, cargo_sha, uv_sha, linked = [*out.split(), "", "", "", ""][:4]
-    native = linked == "1"
+    try:
+        version, cargo_sha, uv_sha, native = parse_extension_observation(out)
+    except (ValueError, TypeError):
+        return Check(
+            "extension",
+            False,
+            "invalid import observation",
+            "just py-sync-native",
+            blocking=False,
+        )
     sync = "just py-sync-native" if native else "just py-sync"
     kind = "native solvers, " if native else ""
     stale = []
@@ -418,7 +441,12 @@ def check_extension() -> Check:
             sync,
             blocking=False,
         )
-    return Check("extension", True, f"pse {version} ({kind}lockfiles match)")
+    evidence = (
+        "lockfiles match"
+        if cargo_sha and uv_sha
+        else "imports; deployment association checked separately"
+    )
+    return Check("extension", True, f"pse {version} ({kind}{evidence})")
 
 
 def check_solvers() -> Check:

@@ -559,6 +559,7 @@ pub fn bind_goals(
     requested: &[AccuracyGoal],
 ) -> Result<Vec<AccuracyGoal>, MathError> {
     use pse_model::generated::enums::NumericalSource;
+    let access = crate::index::CheckedInventory::new(targets, |t| (t.kind, t.id))?;
     let mut selected = std::collections::BTreeMap::new();
     for (analysis, rows) in [(false, declarations), (true, requested)] {
         let mut identities = std::collections::BTreeSet::new();
@@ -616,9 +617,8 @@ pub fn bind_goals(
     selected
         .into_values()
         .map(|mut row| {
-            let target = targets
-                .iter()
-                .find(|t| t.id == row.target_id && t.kind == row.target_kind)
+            let target = access
+                .get(&(row.target_kind, row.target_id))
                 .ok_or_else(|| {
                     MathError::Contract("accuracy goal names an unselected scalar target".into())
                 })?;

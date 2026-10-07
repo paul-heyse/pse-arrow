@@ -62,6 +62,17 @@ async fn canonical_document_sources_chunked_exact_and_kind_checked() {
     let receipt = operations.put_sources(&documents).await.unwrap();
     let receipt_again = operations.put_sources(&documents).await.unwrap();
     assert_eq!(receipt.revision, receipt_again.revision);
+    let revision = operations
+        .store()
+        .revision(&receipt.revision)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        revision.sequence, 1,
+        "all chunks and the final manifest share one coherent source publication"
+    );
+    assert!(revision.parent.is_none());
     let reopened = operations.sources(&receipt).await.unwrap();
     assert_eq!(&**reopened, &documents);
     assert!(runtime.shared.pool().reserved() > before);

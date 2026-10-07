@@ -104,7 +104,7 @@ pub(crate) fn canonical_deployment() -> CanonicalDeployment {
     CanonicalDeployment::new(
         pse_operations::testing::canonical_fixture_store().unwrap(),
         OuterAttestation {
-            source: pse_ids::ContentHash::from_bytes([0; 32]),
+            source: Some(pse_ids::ContentHash::from_bytes([0; 32])),
             build: pse_ids::ContentHash::from_bytes([1; 32]),
         },
         None,

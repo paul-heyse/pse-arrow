@@ -97,7 +97,7 @@ async fn preparation(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Durat
         pse_runtime::workflow::CanonicalDeployment::new(
             store,
             pse_runtime::workflow::OuterAttestation {
-                source: pse_ids::ContentHash::from_bytes([0; 32]),
+                source: Some(pse_ids::ContentHash::from_bytes([0; 32])),
                 build: pse_ids::ContentHash::from_bytes([1; 32]),
             },
             None,
@@ -242,7 +242,7 @@ async fn pressure(
         pse_runtime::workflow::CanonicalDeployment::new(
             store,
             pse_runtime::workflow::OuterAttestation {
-                source: pse_ids::ContentHash::from_bytes([0; 32]),
+                source: Some(pse_ids::ContentHash::from_bytes([0; 32])),
                 build: pse_ids::ContentHash::from_bytes([1; 32]),
             },
             None,

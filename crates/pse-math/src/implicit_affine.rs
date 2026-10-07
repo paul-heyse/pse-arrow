@@ -78,16 +78,10 @@ impl InnerSolver for Affine {
             .map(|(i, j)| jet.jacobian[i * width + j])
             .collect();
         let matrix = SparseColMat::new(problem.pattern.clone(), values);
-        let lu =
-            Lu::try_new_with_symbolic(problem.symbolic.clone(), matrix.as_ref()).map_err(|_| {
-                MathError::Domain {
-                    source_id: problem.id,
-                    requirement: "dynamic rate matrix is singular",
-                }
-            })?;
+        let mut factor = problem.factorize_matrix(&matrix, "dynamic rate matrix is singular")?;
         let mut delta = Mat::from_fn(n, 1, |i, _| -jet.values[i]);
         let rhs = delta.clone();
-        lu.solve_in_place(delta.as_mut());
+        problem.solve_factor(&mut factor, delta.as_mut());
         check_solve(
             &jet.jacobian,
             width,
@@ -96,6 +90,7 @@ impl InnerSolver for Affine {
             options.derivative_tolerance,
             problem.id,
         )?;
+        drop(factor);
         let point = (0..n)
             .map(|i| options.start[i] + delta[(i, 0)])
             .collect::<Vec<_>>();

@@ -386,30 +386,27 @@ impl MathService {
             result = &mut operation => result?,
             () = driver.cancelled() => { control.cancel(); let _ = operation.await; return Err(MathRuntimeError::Cancelled); }
         };
+        // Boundary difference identities are a checked projection of supplied members;
+        // keep the originating member beside each local row through policy transport.
+        let boundary_inputs =
+            pse_math::index::CheckedInventory::new(&view.boundary.inputs, |id| {
+                pse_compiler::workspace::ModelingOutput::ConditionalBoundary(*id).row_id()
+            })?;
         let boundaries: Vec<_> = view
             .plan
             .structure()
             .rows()
             .iter()
             .enumerate()
-            .filter_map(|(index, row)| {
-                // Typed difference rows retain the original supplied-member identity.
-                view.boundary
-                    .inputs
-                    .iter()
-                    .find(|id| {
-                        pse_compiler::workspace::ModelingOutput::ConditionalBoundary(**id).row_id()
-                            == row.id
-                    })
-                    .map(|id| (index, *id))
-            })
+            .filter_map(|(index, row)| boundary_inputs.get(&row.id).map(|id| (index, *id)))
             .collect();
         let mut effective_numerics = numerics.as_ref().clone();
         if !boundaries.is_empty() {
             use pse_model::generated::enums::NumericalTarget;
             let mut projections = Vec::new();
             let mut defaults = Vec::new();
-            for (index, _) in &boundaries {
+            let source_access = pse_math::numerics::TargetAccess::new(&numerics)?;
+            for (index, original) in &boundaries {
                 let row = &view.plan.structure().rows()[*index];
                 let target = pse_math::numerics::TargetSpec {
                     id: row.id,
@@ -422,16 +419,7 @@ impl MathService {
                     integer: false,
                     declared_tolerance: None,
                 };
-                let original = view.boundary.inputs.iter().find(|id| {
-                    pse_compiler::workspace::ModelingOutput::ConditionalBoundary(**id).row_id()
-                        == row.id
-                });
-                if let Some(source) = original.and_then(|id| {
-                    numerics
-                        .targets
-                        .iter()
-                        .find(|t| t.id == *id && t.kind == NumericalTarget::Observable)
-                }) {
+                if let Some(source) = source_access.find(NumericalTarget::Observable, *original) {
                     projections.push(pse_math::numerics::TargetProjection {
                         source: source.id,
                         source_kind: source.kind,

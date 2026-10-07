@@ -70,6 +70,27 @@ enum Cmd {
         output: PathBuf,
     },
     ProducerIdentity(Box<ProducerIdentityArgs>),
+    /// Verify a reviewed provider association without Cargo discovery or building.
+    VerifyNativeProvider {
+        #[arg(long)]
+        receipt: PathBuf,
+        #[arg(long)]
+        package_id: String,
+        #[arg(long)]
+        out_dir: PathBuf,
+    },
+    /// Independently verify actual deployed bytes and their current consumed inputs.
+    VerifyDeploymentArtifact {
+        #[arg(long)]
+        receipt: PathBuf,
+        #[arg(long)]
+        artifact: PathBuf,
+    },
+    /// Observe complete dirty outer context without compiling it into consumers.
+    ObserveDeployment {
+        #[arg(long)]
+        output: PathBuf,
+    },
     /// Freeze independent FeOS PC-SAFT properties as typed oracle Parquet banks.
     #[cfg(feature = "thermodynamic-oracles")]
     FeosReference {
@@ -161,12 +182,6 @@ struct ProducerIdentityArgs {
     /// in the selected profile before guarded actual capture.
     #[arg(long)]
     refresh_executors: bool,
-    /// Complete outer source attestation that contains this deployment.
-    #[arg(long, requires = "outer_build")]
-    outer_source: Option<String>,
-    /// Complete outer build attestation that contains this deployment.
-    #[arg(long, requires = "outer_source")]
-    outer_build: Option<String>,
     #[arg(long)]
     output: PathBuf,
 }
@@ -215,6 +230,15 @@ fn main() -> Result<()> {
             producer_identity::qualified_fixture(&root, &output)?;
             Ok(())
         }
+        Cmd::VerifyNativeProvider {
+            receipt,
+            package_id,
+            out_dir,
+        } => producer_identity::verify_native_provider(&receipt, &package_id, &out_dir),
+        Cmd::VerifyDeploymentArtifact { receipt, artifact } => {
+            producer_identity::verify_deployment_artifact(&receipt, &artifact)
+        }
+        Cmd::ObserveDeployment { output } => producer_identity::observe_deployment(&root, &output),
         Cmd::ProducerIdentity(args) => {
             let ProducerIdentityArgs {
                 package,
@@ -232,8 +256,6 @@ fn main() -> Result<()> {
                 declarations,
                 build_evidence,
                 refresh_executors,
-                outer_source,
-                outer_build,
                 output,
             } = *args;
             let declared_environment = environment
@@ -254,7 +276,7 @@ fn main() -> Result<()> {
                 declarations.actual_build_evidence = Some(path);
             }
             declarations.refresh_executors |= refresh_executors;
-            let mut identity = producer_identity::run(&producer_identity::ProducerOptions {
+            let identity = producer_identity::run(&producer_identity::ProducerOptions {
                 workspace_root: root,
                 package,
                 profile,
@@ -272,20 +294,6 @@ fn main() -> Result<()> {
                 declared_environment,
                 declarations,
             })?;
-            if let (Some(source), Some(build)) = (outer_source, outer_build) {
-                let supplied = producer_identity::OuterAttestation {
-                    source: pse_ids::ContentHash::parse_hex(&source)?,
-                    build: pse_ids::ContentHash::parse_hex(&build)?,
-                };
-                ensure!(
-                    identity
-                        .outer_attestation
-                        .as_ref()
-                        .is_none_or(|actual| actual == &supplied),
-                    "supplied outer attestation differs from the actual captured deployment"
-                );
-                identity.outer_attestation = Some(supplied);
-            }
             producer_identity::write_if_changed(&output, &identity)?;
             println!(
                 "producer identity {}: persistent reuse eligible={}",

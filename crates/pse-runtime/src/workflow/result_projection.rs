@@ -248,8 +248,8 @@ pub(super) fn scalar_cells_at(
 }
 
 /// Ingest the sole admitted scientific IPC payload and its derived scalar index
-/// through the same fenced transaction. Projected batches contain at most 64
-/// cells; other relations retain the ordinary independently bounded IPC blocks.
+/// through the same fenced transaction. IPC and derived metadata independently
+/// choose useful prefixes; scalar count is only a defensive extent ceiling.
 pub(super) async fn store_result_table(
     store: &CanonicalStore,
     fence: &AttemptFence,
@@ -303,24 +303,52 @@ pub(super) async fn store_result_table(
         return store_trajectory(store, fence, table, pool).await;
     }
     let reservation = MemoryConsumer::new("canonical:result-scalar-index").register(pool);
-    reservation
-        .try_grow(2 * 1024 * 1024)
-        .map_err(pse_engine::EngineError::from)?;
+    // Live prepared cells, encoded metadata, Arrow writer/protobuf scratch and
+    // the outgoing payload are independent of either encoded admission ceiling.
     let name = id.to_string();
     let set = result_set_key(fence.attempt(), &name);
     let width = scalar_width(id);
-    let chunk = 64_usize.checked_div(width).unwrap_or(32768);
+    let window = pse_operations::generated::surreal::RESULT_INDEX_RECORDS
+        .checked_div(width)
+        .map_or(32768, |rows| rows.min(1024));
+    reservation
+        .try_grow(
+            window * width * (size_of::<Cell>() + 1024)
+                + window * size_of::<usize>()
+                + 16 * pse_operations::canonical_execution::EXECUTION_METADATA_BYTES
+                + 4 * result_blocks::RESULT_BLOCK_BYTES,
+        )
+        .map_err(pse_engine::EngineError::from)?;
     let mut ordinal = 0_u64;
-    for base in (0..table.batch().num_rows()).step_by(chunk) {
-        let batch = table
-            .batch()
-            .slice(base, chunk.min(table.batch().num_rows() - base));
-        result_blocks::visit_result_blocks_async(&batch, |offset, rows, payload| {
-            let start = base + offset;
+    for base in (0..table.batch().num_rows()).step_by(window) {
+        let count = window.min(table.batch().num_rows() - base);
+        let initial_key = result_batch_key(fence.attempt(), &set, ordinal);
+        let prepared = scalar_cells(table, &set, &initial_key, base, count)?;
+        let mut extents = vec![0_usize; count];
+        for cell in &prepared {
+            let extent = pse_operations::canonical_execution::result_cell_metadata_extent(cell)?;
+            extents[cell.row as usize - base] += extent;
+        }
+        let mut offset = 0;
+        while offset < count {
             let current = ordinal;
-            ordinal += 1;
             let key = result_batch_key(fence.attempt(), &set, current);
-            let cells = scalar_cells(table, &set, &key, start, rows);
+            // Descriptor envelope allowance includes maximum encoded actual
+            // identity lengths below. Cell extents are prepared once per window.
+            let rows = metadata_prefix(&extents[offset..])?;
+            let (payload, rows) =
+                result_blocks::encode_result_prefix(table.batch(), base + offset, rows)?;
+            let start = base + offset;
+            let cells = prepared
+                .iter()
+                .filter(|cell| cell.row >= start as u64 && cell.row < (start + rows) as u64)
+                .map(|cell| {
+                    let mut cell = cell.clone();
+                    cell.key = format!("{key}{}", &cell.key[initial_key.len()..]);
+                    cell.batch = key.clone();
+                    cell
+                })
+                .collect::<Vec<_>>();
             let block = Block {
                 key: key.clone(),
                 batch: key,
@@ -338,28 +366,46 @@ pub(super) async fn store_result_table(
                 payload_digest: result_payload_digest(&payload),
                 interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
             };
-            let operation = format!("table:{}:{}", fence.attempt(), block.key);
-            let name = name.clone();
-            async move {
-                let cells = cells?;
-                store
-                    .append_result_block_cells(
-                        fence,
-                        &operation,
-                        &name,
-                        current,
-                        &payload,
-                        rows as u64,
-                        &block,
-                        &cells,
-                    )
-                    .await?;
-                Ok::<(), WorkflowError>(())
-            }
-        })
-        .await?;
+            store
+                .append_result_block_cells(
+                    fence,
+                    &format!("table:{}:{}", fence.attempt(), block.key),
+                    &name,
+                    current,
+                    &payload,
+                    rows as u64,
+                    &block,
+                    &cells,
+                )
+                .await?;
+            ordinal += 1;
+            offset += rows;
+        }
     }
     Ok(())
+}
+
+fn metadata_prefix(extents: &[usize]) -> Result<usize, WorkflowError> {
+    // Runtime result identities are fixed-width hashes, relation names are at
+    // most128 bytes, partition is "0", and descriptor scalars are fixed-width.
+    // This conservative envelope covers those fields and array/map headers.
+    let mut metadata = 4096_usize;
+    let mut rows = 0;
+    for extent in extents {
+        if metadata.saturating_add(*extent)
+            > pse_operations::canonical_execution::EXECUTION_METADATA_BYTES
+        {
+            break;
+        }
+        metadata += extent;
+        rows += 1;
+    }
+    if rows == 0 {
+        return Err(contract(
+            "single result row index exceeds metadata admission",
+        ));
+    }
+    Ok(rows)
 }
 
 /// Sort storage by the declared output and sample keys. Original scientific
@@ -489,4 +535,67 @@ async fn store_trajectory(
         base = end;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod result_projection_unit {
+    use super::*;
+    #[test]
+    fn result_metadata_prefix_uses_encoded_extent_and_keeps_exact_cells() {
+        let relation = solve_variables::RELATION_ID;
+        let mut extents = Vec::new();
+        let mut cells = Vec::new();
+        for row in 0..100 {
+            let mut extent = 0;
+            for field in [
+                "value",
+                "lower",
+                "upper",
+                "lower_violation",
+                "upper_violation",
+                "tolerance",
+                "lower_dual",
+                "upper_dual",
+                "reduced_cost",
+                "stationarity",
+            ] {
+                let value = if row % 2 == 0 { Some(-0.0) } else { None };
+                let cell = cell(
+                    &"s".repeat(64),
+                    &"b".repeat(64),
+                    relation,
+                    relation,
+                    field,
+                    "step:0",
+                    row,
+                    value,
+                )
+                .unwrap();
+                extent += pse_operations::canonical_execution::result_cell_metadata_extent(&cell)
+                    .unwrap();
+                cells.push(cell);
+            }
+            extents.push(extent);
+        }
+        let rows = metadata_prefix(&extents).unwrap();
+        assert!(rows > 6, "ten-field rows are no longer capped by64 cells");
+        assert!(rows < 100);
+        assert!(
+            4096 + extents[..rows].iter().sum::<usize>()
+                <= pse_operations::canonical_execution::EXECUTION_METADATA_BYTES
+        );
+        assert!(
+            4096 + extents[..=rows].iter().sum::<usize>()
+                > pse_operations::canonical_execution::EXECUTION_METADATA_BYTES
+        );
+        assert_eq!(
+            cells[0].bits.as_ref().unwrap().as_slice(),
+            (-0.0f64).to_bits().to_be_bytes()
+        );
+        assert!(cells[10].bits.is_none());
+        assert!(
+            metadata_prefix(&[pse_operations::canonical_execution::EXECUTION_METADATA_BYTES])
+                .is_err()
+        );
+    }
 }

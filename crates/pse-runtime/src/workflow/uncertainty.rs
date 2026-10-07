@@ -92,14 +92,15 @@ pub fn propagate(
         ));
     }
     let p = covariance.parameters.len();
+    let parameter_access = pse_math::index::CheckedInventory::new(&jacobian.parameters, |id| *id)
+        .map_err(super::math)?;
+    pse_math::index::CheckedInventory::new(&jacobian.outputs, |id| *id).map_err(super::math)?;
     let columns = covariance
         .parameters
         .iter()
         .map(|id| {
-            jacobian
-                .parameters
-                .iter()
-                .position(|q| q == id)
+            parameter_access
+                .position(id)
                 .ok_or_else(|| contract(format!("the Jacobian does not differentiate {id}")))
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -172,3 +173,40 @@ impl super::Covariance {
 #[cfg(all(feature = "solver-ipopt", feature = "solver-highs"))]
 #[path = "uncertainty_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+mod projection_tests {
+    use super::*;
+    #[test]
+    fn covariance_projection_reorders_parameters_and_refuses_ambiguous_axes() {
+        let id = |value| SemanticId::from_bytes([value; 16]);
+        let covariance = ParameterCovariance {
+            run_id: id(9).into(),
+            parameters: vec![id(2), id(1)],
+            values: [4.0, 0.0, 0.0, 9.0]
+                .into_iter()
+                .map(|v| FiniteBound::try_new(v).unwrap())
+                .collect(),
+        };
+        let mut jacobian = Jacobian {
+            outputs: vec![id(3)],
+            parameters: vec![id(1), id(2)],
+            values: vec![2.0, 3.0],
+        };
+        assert_eq!(
+            propagate(Ok(&covariance), Ok(&jacobian))
+                .unwrap()
+                .unwrap()
+                .values,
+            [72.0]
+        );
+        jacobian.parameters = vec![id(1), id(1)];
+        assert!(propagate(Ok(&covariance), Ok(&jacobian)).is_err());
+        jacobian.parameters = vec![id(1), id(4)];
+        assert!(propagate(Ok(&covariance), Ok(&jacobian)).is_err());
+        jacobian.parameters = vec![id(1), id(2)];
+        jacobian.outputs = vec![id(3), id(3)];
+        jacobian.values = vec![2.0, 3.0, 2.0, 3.0];
+        assert!(propagate(Ok(&covariance), Ok(&jacobian)).is_err());
+    }
+}

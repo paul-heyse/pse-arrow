@@ -109,7 +109,37 @@ impl Operations {
     ) -> Result<PhysicalSource, WorkflowError> {
         let identity = package_checksum(sources);
         let problem = format!("physical:documents:{identity}");
-        let mut parent = None;
+        let reservation = pse_columnar::MemoryConsumer::new("canonical:source-package-publication")
+            .register(&self.pool);
+        let (bytes, chunks) = sources
+            .values()
+            .try_fold((0_usize, 1_usize), |(bytes, chunks), source| {
+                Some((
+                    bytes.checked_add(source.len())?,
+                    chunks.checked_add(
+                        source
+                            .len()
+                            .div_ceil(pse_operations::canonical_execution::RESULT_BATCH_BYTES),
+                    )?,
+                ))
+            })
+            .ok_or_else(|| contract("physical package extent overflow"))?;
+        if chunks > pse_operations::canonical_staging::SOURCE_PACKAGE_EDITS {
+            return Err(contract("physical package exceeds source edit admission"));
+        }
+        reservation
+            .try_grow(
+                bytes
+                    .checked_mul(4)
+                    .and_then(|bytes| {
+                        chunks
+                            .checked_mul(16384)
+                            .and_then(|metadata| bytes.checked_add(metadata))
+                    })
+                    .ok_or_else(|| contract("physical package allocation overflow"))?,
+            )
+            .map_err(pse_engine::EngineError::from)?;
+        let mut edits = Vec::with_capacity(chunks);
         let mut documents = Vec::new();
         for (path, bytes) in sources {
             let chunks = bytes
@@ -133,16 +163,7 @@ impl Operations {
                     "physical:documents:bytes:v1",
                     payload.to_vec(),
                 );
-                let revision = self
-                    .store()
-                    .edit(
-                        &problem,
-                        parent.as_deref(),
-                        &format!("physical:{identity}:{path_key}:{ordinal}"),
-                        &[edit],
-                    )
-                    .await?;
-                parent = Some(revision.key);
+                edits.push(edit);
             }
             documents.push(SourceEntry {
                 path: path.clone(),
@@ -169,13 +190,14 @@ impl Operations {
             "physical:documents:manifest:v1",
             payload,
         );
+        edits.push(edit);
         let revision = self
             .store()
             .edit(
                 &problem,
-                parent.as_deref(),
-                &format!("physical:{identity}:manifest"),
-                &[edit],
+                None,
+                &format!("physical:{identity}:package"),
+                &edits,
             )
             .await?;
         Ok(PhysicalSource {
@@ -202,12 +224,15 @@ impl Operations {
             .await?;
         let mut read = pse_operations::canonical_selection::SelectedRead::new(protection);
         let result = async {
-            let reservation = datafusion::execution::memory_pool::MemoryConsumer::new(
+            let scratch = datafusion::execution::memory_pool::MemoryConsumer::new(
                 "canonical:physical-documents",
             )
             .register(&self.pool);
-            reservation
-                .try_grow(2 * pse_operations::canonical_execution::RESULT_BATCH_BYTES)
+            scratch
+                .try_grow(
+                    pse_operations::canonical_staging::SELECTED_OBJECT_HEADER_SCRATCH
+                        + 2 * pse_operations::canonical_execution::RESULT_BATCH_BYTES,
+                )
                 .map_err(pse_engine::EngineError::from)?;
             let memberships = self
                 .store()
@@ -221,7 +246,10 @@ impl Operations {
                 .selected_object(read.selection(), &member.version)
                 .await?
                 .ok_or_else(|| contract("physical document manifest object absent"))?;
-            if object.kind != "physical:documents:manifest:v1" {
+            if object.kind != "physical:documents:manifest:v1"
+                || object.payload.len()
+                    > pse_operations::canonical_execution::EXECUTION_METADATA_BYTES
+            {
                 return Err(contract("physical source kind differs"));
             }
             let manifest: PhysicalManifest = serde_json::from_slice(object.payload.as_slice())
@@ -240,21 +268,43 @@ impl Operations {
                         .and_then(|bytes| sum.checked_add(bytes))
                 })
                 .ok_or_else(|| contract("physical source declared extent overflow"))?;
+            let reservation =
+                pse_columnar::MemoryConsumer::new("canonical:physical-document-buffers")
+                    .register(&self.pool);
             reservation
                 .try_grow(
                     bytes
                         .checked_mul(4)
+                        .and_then(|bytes| {
+                            object
+                                .payload
+                                .len()
+                                .checked_mul(8)
+                                .and_then(|metadata| bytes.checked_add(metadata))
+                        })
                         .ok_or_else(|| contract("physical source allocation extent overflow"))?,
                 )
                 .map_err(pse_engine::EngineError::from)?;
+            if manifest
+                .documents
+                .windows(2)
+                .any(|pair| pair[0].path >= pair[1].path)
+            {
+                return Err(contract("physical document manifest paths differ"));
+            }
             let mut sources = BTreeMap::new();
-            for document in manifest.documents {
+            let mut requests = Vec::new();
+            for document in &manifest.documents {
                 if document.chunks
                     != document
                         .bytes
                         .div_ceil(pse_operations::canonical_execution::RESULT_BATCH_BYTES as u64)
                 {
                     return Err(contract("physical document coverage differs"));
+                }
+                if document.chunks > pse_operations::canonical_staging::SOURCE_PACKAGE_EDITS as u64
+                {
+                    return Err(contract("physical document chunk admission exceeded"));
                 }
                 let path_key = pse_ids::document::of(
                     pse_ids::Frame::CanonicalPayloadV1,
@@ -268,32 +318,112 @@ impl Operations {
                             .map_err(|_| contract("physical document extent"))?,
                     )
                     .map_err(|_| contract("physical document allocation refused"))?;
+                sources.insert(document.path.clone(), bytes);
                 for ordinal in 0..document.chunks {
-                    let logical = format!("document:{path_key}:{ordinal:020}");
-                    let members = self.store().resolve_logicals(&mut read, &[logical]).await?;
-                    let member = members
-                        .first()
-                        .ok_or_else(|| contract("physical document chunk absent"))?;
-                    let object = self
+                    requests.push((
+                        &document.path,
+                        format!("document:{path_key}:{ordinal:020}"),
+                        (document.bytes
+                            - ordinal
+                                * pse_operations::canonical_execution::RESULT_BATCH_BYTES as u64)
+                            .min(pse_operations::canonical_execution::RESULT_BATCH_BYTES as u64)
+                            as usize,
+                    ));
+                    if requests.len() > pse_operations::canonical_staging::SOURCE_PACKAGE_EDITS {
+                        return Err(contract("physical package chunk admission exceeded"));
+                    }
+                }
+            }
+            for group in requests.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH) {
+                let logicals = group
+                    .iter()
+                    .map(|(_, logical, _)| logical.clone())
+                    .collect::<Vec<_>>();
+                let members = self.store().resolve_logicals(&mut read, &logicals).await?;
+                let versions = logicals
+                    .iter()
+                    .map(|logical| {
+                        members
+                            .iter()
+                            .find(|member| &member.logical == logical)
+                            .map(|member| member.version.clone())
+                            .ok_or_else(|| contract("physical document chunk absent"))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                let batch = self
+                    .store()
+                    .selected_object_batch(read.selection(), &versions)
+                    .await?;
+                let extents = batch
+                    .extents()
+                    .map(|(_, extent)| extent)
+                    .collect::<Vec<_>>();
+                if extents
+                    .iter()
+                    .zip(group)
+                    .any(|(extent, (_, _, expected))| extent != expected)
+                {
+                    return Err(contract("physical document chunk manifest extent differs"));
+                }
+                let mut payloads = extents
+                    .iter()
+                    .map(|extent| {
+                        let mut bytes = Vec::new();
+                        bytes
+                            .try_reserve_exact(*extent)
+                            .map_err(|_| contract("physical chunk allocation refused"))?;
+                        Ok(bytes)
+                    })
+                    .collect::<Result<Vec<_>, WorkflowError>>()?;
+                while let Some(object) = payloads
+                    .iter()
+                    .zip(&extents)
+                    .position(|(payload, extent)| payload.len() < *extent)
+                {
+                    let ordinal = (payloads[object].len()
+                        / pse_operations::canonical_staging::SOURCE_BLOCK_BYTES)
+                        as u64;
+                    for (object, block) in self
                         .store()
-                        .selected_object(read.selection(), &member.version)
+                        .selected_object_blocks(&batch, object, ordinal)
                         .await?
-                        .ok_or_else(|| contract("physical document chunk object absent"))?;
-                    let length = (document.bytes
-                        - ordinal * pse_operations::canonical_execution::RESULT_BATCH_BYTES as u64)
-                        .min(pse_operations::canonical_execution::RESULT_BATCH_BYTES as u64);
+                    {
+                        if block.ordinal as usize
+                            * pse_operations::canonical_staging::SOURCE_BLOCK_BYTES
+                            != payloads[object].len()
+                        {
+                            return Err(contract("physical grouped chunk order differs"));
+                        }
+                        payloads[object].extend_from_slice(block.payload.as_slice());
+                    }
+                }
+                let objects = self
+                    .store()
+                    .finish_selected_object_batch(batch, payloads)
+                    .await?;
+                for (object, (path, logical, length)) in objects.into_iter().zip(group) {
                     if object.kind != "physical:documents:bytes:v1"
-                        || object.payload.len() as u64 != length
+                        || &object.logical != logical
+                        || object.payload.len() != *length
                     {
                         return Err(contract("physical document chunk kind/extent differs"));
                     }
-                    bytes.extend_from_slice(object.payload.as_slice());
+                    sources
+                        .get_mut(*path)
+                        .ok_or_else(|| contract("physical document inventory differs"))?
+                        .extend_from_slice(object.payload.as_slice());
                 }
-                if pse_operations::canonical_execution::result_payload_digest(&bytes)
-                    != document.digest
-                    || sources.insert(document.path, bytes).is_some()
+            }
+            drop(requests);
+            for document in manifest.documents {
+                let bytes = sources
+                    .get(&document.path)
+                    .ok_or_else(|| contract("physical document absent"))?;
+                if bytes.len() as u64 != document.bytes
+                    || pse_operations::canonical_execution::result_payload_digest(bytes)
+                        != document.digest
                 {
-                    return Err(contract("physical document digest/path differs"));
+                    return Err(contract("physical document original bytes digest differs"));
                 }
             }
             if package_checksum(&sources) != source.identity {

@@ -12,6 +12,7 @@ use std::sync::atomic::Ordering;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum Key {
     Package(AdmittedClosureHash),
+    Selected(Arc<crate::workflow::modeling::SelectedRequest>),
     Body(SemanticBodyHash),
     Solver(PreparedViewHash),
     Observation(PreparedViewHash),
@@ -19,7 +20,12 @@ enum Key {
 }
 impl CacheKey for Key {
     fn size(&self) -> usize {
-        size_of::<Self>() + 128
+        size_of::<Self>()
+            + 128
+            + match self {
+                Self::Selected(request) => request.retained_bytes(),
+                _ => 0,
+            }
     }
     fn table_ref(&self) -> Option<&TableReference> {
         None
@@ -28,6 +34,7 @@ impl CacheKey for Key {
 #[derive(Clone)]
 enum Product {
     Package(crate::workflow::PackageAdmission),
+    Selected(Arc<Vec<Arc<crate::workflow::modeling::SelectedAdmission>>>),
     Body(Arc<pse_compiler::typed_math::AdmittedBody>),
     Solver(Preparation),
     Program(Arc<ExecutableCase>),
@@ -40,6 +47,11 @@ impl CacheValue for Product {
             + 128
             + match self {
                 Self::Package(p) => p.retained_bytes(),
+                Self::Selected(values) => {
+                    values.capacity()
+                        * size_of::<Arc<crate::workflow::modeling::SelectedAdmission>>()
+                        + values.iter().map(|p| p.retained_bytes()).sum::<usize>()
+                }
                 Self::Body(body) => body.math().retained_bytes() + body.descriptor_bytes(),
                 Self::Solver(p) => p.compiled().retained_bytes(),
                 Self::Program(p) => p.assembly.retained_bytes(),
@@ -49,6 +61,7 @@ impl CacheValue for Product {
 pub(crate) struct ModelingCache {
     entries: DefaultCache<Key, Product>,
     fence: pse_columnar::retention::RetentionFence,
+    selected_updates: Mutex<()>,
     hits: AtomicUsize,
     misses: AtomicUsize,
     bypasses: AtomicUsize,
@@ -58,6 +71,7 @@ impl ModelingCache {
         Self {
             entries: DefaultCache::new(bytes).with_name("pse.cache.modeling_products"),
             fence: Default::default(),
+            selected_updates: Mutex::default(),
             hits: Default::default(),
             misses: Default::default(),
             bypasses: Default::default(),
@@ -84,6 +98,56 @@ impl ModelingCache {
             .is_none()
         {
             self.bypasses.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    pub(crate) fn selected(
+        &self,
+        request: &Arc<crate::workflow::modeling::SelectedRequest>,
+    ) -> Option<Arc<Vec<Arc<crate::workflow::modeling::SelectedAdmission>>>> {
+        match self.get(&Key::Selected(request.clone()))? {
+            Product::Selected(values) => Some(values),
+            _ => None,
+        }
+    }
+    pub(crate) fn retain_selected(
+        &self,
+        generation: u64,
+        admission: Arc<crate::workflow::modeling::SelectedAdmission>,
+    ) {
+        // A/B/A candidates share the existing byte-bounded owner. Serialize replacement
+        // so concurrent eligible products do not discard each other's candidates.
+        let _update = self
+            .selected_updates
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let key = Key::Selected(admission.request.clone());
+        let mut values = match self.entries.get(&key) {
+            Some(Product::Selected(values)) => values.as_ref().clone(),
+            _ => Vec::new(),
+        };
+        if values
+            .iter()
+            .any(|old| old.dependencies == admission.dependencies)
+        {
+            return;
+        }
+        values.push(admission);
+        loop {
+            let product = Product::Selected(Arc::new(values));
+            if key.size().saturating_add(product.size()) <= self.entries.cache_limit() {
+                self.put(generation, key, product);
+                break;
+            }
+            let owned = match product {
+                Product::Selected(owned) => owned,
+                _ => return,
+            };
+            values = Arc::unwrap_or_clone(owned);
+            if values.len() == 1 {
+                self.bypasses.fetch_add(1, Ordering::Relaxed);
+                break;
+            }
+            values.remove(0);
         }
     }
     pub(crate) fn generation(&self) -> u64 {
@@ -149,7 +213,7 @@ impl ModelingCache {
     pub(super) fn clear(&self) {
         self.fence.clear(|| self.entries.clear());
     }
-    pub(super) fn report(&self) -> pse_engine::cache_service::CacheReport {
+    pub(super) fn report(&self, active_loads: usize) -> pse_engine::cache_service::CacheReport {
         pse_engine::cache_service::CacheReport {
             name: self.entries.name(),
             capacity_bytes: 0,
@@ -158,7 +222,7 @@ impl ModelingCache {
             live_bytes: None,
             pinned_bytes: None,
             inflight_bytes: None,
-            active_loads: None,
+            active_loads: Some(active_loads),
             evictions: None,
             entries: self.entries.len(),
             hits: self.hits.load(Ordering::Relaxed),

@@ -69,12 +69,20 @@ pub(crate) fn bounded_evaluator(
     expressions: &[Atom],
     parameters: &[Atom],
     layout: &JetLayout,
+    zero_components: &[(usize, usize)],
     options: Optimization,
     cancelled: &Arc<AtomicBool>,
     limits: EvaluationLimits,
     remaining: usize,
     occupied_entries: usize,
 ) -> Result<ExpressionEvaluator<f64>, MathError> {
+    if zero_components.iter().any(|&(parameter, component)| {
+        parameter >= parameters.len() || component == 0 || component >= layout.width()
+    }) {
+        return Err(MathError::Contract(
+            "invalid structural Taylor zero component".into(),
+        ));
+    }
     let source_work = expressions
         .iter()
         .try_fold(0, |sum, e| add(sum, total(e.count_operations())?))?;
@@ -137,13 +145,16 @@ pub(crate) fn bounded_evaluator(
     )?)?;
     let dual = symbolica::prelude::HyperDual::<Complex<Rational>>::new(layout.shape.clone());
     let evaluator = evaluator
-        .vectorize(&symbolica::prelude::Dualizer::new(dual, vec![]))
+        .vectorize(&symbolica::prelude::Dualizer::new(
+            dual,
+            zero_components.to_vec(),
+        ))
         .map_err(MathError::Library)?;
     if total(evaluator.count_operations())? > bound {
         return Err(MathError::Contract(
             "library Taylor expansion exceeded admitted bound".into(),
         ));
     }
-    // Pinned vectorize's stack optimizer is unsupported; retain its own slot layout.
+    // Pinned vectorize already optimizes its stack and common pairs.
     Ok(evaluator.map_coeff(&|c| c.re.to_f64()))
 }

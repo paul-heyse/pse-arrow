@@ -855,8 +855,8 @@ mod canonical_connected_results_server_unit {
         let unit: pse_ids::SemanticId = pse_operations::mint_id();
         let run_id = pse_operations::mint_id();
         let mut parameters =
-            fit_parameters::Builder::with_registry(&runtime.registry, 80, &validation).unwrap();
-        for index in 0..80 {
+            fit_parameters::Builder::with_registry(&runtime.registry, 800, &validation).unwrap();
+        for index in 0..800 {
             parameters
                 .push(fit_parameters::Row {
                     run_id,

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -14,7 +15,19 @@ import tarfile
 import tomllib
 from pathlib import Path
 
+if str(Path(__file__).resolve().parents[1]) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts import native_cache as cache
+from scripts import native_operation as operation
+from scripts import producer_deployment
+
+
+def required_files(kind: str) -> tuple[str, ...]:
+    if kind == "uno":
+        return ("lib/libuno.a", "include/uno/Uno_C_API.h")
+    if kind == "petsc":
+        return ("lib/libpetsc.so", "include/petscsnes.h", "include/petscts.h")
+    raise ValueError("unknown native pipeline capability")
 
 
 def source_archive(base: Path, url: str, checksum: str) -> Path:
@@ -46,6 +59,78 @@ def source_archive(base: Path, url: str, checksum: str) -> Path:
 
 
 def highs_archive(env: dict[str, str]) -> Path:
+    """Reuse only a common eligible provider capture, otherwise discover once."""
+    request = {
+        "root": str(cache.ROOT),
+        **{
+            name: env.get(name)
+            for name in (
+                *cache.INPUT_ENV,
+                "RUSTFLAGS",
+                "CARGO_ENCODED_RUSTFLAGS",
+                "PSE_CARGO_TARGET_DIR",
+                "PSE_NATIVE_PROVIDER_RECEIPT",
+            )
+        },
+    }
+    key = json.dumps(request, sort_keys=True)
+    return Path(
+        operation.observe(
+            "highs-cargo:" + key, lambda: str(_highs_candidate(env, request))
+        )
+    )
+
+
+def highs_files(directory: Path) -> dict[str, str]:
+    required = (directory / "lib/libhighs.a", directory / "include/highs/Highs.h")
+    if not all(path.is_file() for path in required):
+        raise ValueError("Cargo's HiGHS archive/header installation is incomplete")
+    paths = [required[0], *sorted((directory / "include").rglob("*"))]
+    return {
+        str(path.relative_to(directory)): cache.digest(path)
+        for path in paths
+        if path.is_file()
+    }
+
+
+def _highs_candidate(env: dict[str, str], request: dict) -> Path:
+    # The proof locator admits an existing candidate; it does not select the
+    # compiler output. Keep it in the operation observation key above so changing
+    # the supplied receipt still causes a fresh admission attempt.
+    candidate_inputs = {
+        name: value
+        for name, value in request.items()
+        if name != "PSE_NATIVE_PROVIDER_RECEIPT"
+    }
+    owner = (
+        cache.cache_root(env)
+        / "highs-cargo"
+        / hashlib.sha256(
+            json.dumps(candidate_inputs, sort_keys=True).encode()
+        ).hexdigest()
+    )
+    with cache.coordination(owner, ".build.lock"):
+        candidate = owner / ".candidate.json"
+        receipt = env.get("PSE_NATIVE_PROVIDER_RECEIPT")
+        try:
+            association = json.loads(candidate.read_text())
+            directory = Path(association["directory"])
+            if receipt and producer_deployment.verify_native_provider(
+                Path(receipt), association["package"], directory, env
+            ):
+                return directory
+        except (OSError, ValueError, KeyError):
+            pass
+        # A dev link is usable without persistent producer eligibility. Its actual
+        # provider state is reused only by this real operation, never by existence.
+        directory, package = _build_highs_archive(env)
+        operation.write_json(
+            candidate, {"directory": str(directory), "package": package}
+        )
+        return directory
+
+
+def _build_highs_archive(env: dict[str, str]) -> tuple[Path, str]:
     """Cargo owns the exact archive and feature unit. Consume its actual build message."""
     completed = subprocess.run(
         [
@@ -77,21 +162,18 @@ def highs_archive(env: dict[str, str]) -> Path:
         ):
             print(message["message"]["rendered"], file=sys.stderr, end="")
     completed.check_returncode()
-    directories = [
-        Path(message["out_dir"])
+    messages = [
+        message
         for message in outputs
         if message.get("reason") == "build-script-executed"
         and message["package_id"].split("#")[-1].startswith("highs-sys@")
     ]
-    if len(directories) != 1:
+    if len(messages) != 1:
         raise ValueError("Cargo must supply one matching HiGHS build")
-    directory = directories[0]
-    if (
-        not (directory / "lib/libhighs.a").is_file()
-        or not (directory / "include/highs/Highs.h").is_file()
-    ):
-        raise ValueError("Cargo's HiGHS archive/header installation is incomplete")
-    return directory
+    message = messages[0]
+    directory = Path(message["out_dir"])
+    highs_files(directory)
+    return directory, message["package_id"]
 
 
 def verify_petsc_strings(
@@ -148,15 +230,31 @@ int main(void) {
         env=env,
     )
     control_env = dict(env)
-    control_env["LD_LIBRARY_PATH"] = f"{libraries}:{env.get('LD_LIBRARY_PATH', '')}"
+    control_env["LD_LIBRARY_PATH"] = cache.prepend_library_path(str(libraries), env)
     cache.run([*cap, str(binary)], env=control_env)
 
 
 def prepare(kind: str, env: dict[str, str]) -> Path:
+
+    key = json.dumps(
+        {
+            "kind": kind,
+            "base": str(cache.cache_root(env)),
+            "root": str(cache.ROOT),
+            "solver": env.get("IPOPT_DIR"),
+            "inputs": {name: env.get(name) for name in cache.INPUT_ENV},
+        },
+        sort_keys=True,
+    )
+    return Path(operation.observe("pipeline:" + key, lambda: str(_prepare(kind, env))))
+
+
+def _prepare(kind: str, env: dict[str, str]) -> Path:
     base = cache.cache_root(env)
     with (cache.ROOT / "Cargo.toml").open("rb") as stream:
         pin = tomllib.load(stream)["workspace"]["metadata"]["pse"][kind]
     solver = Path(env["IPOPT_DIR"]) if env.get("IPOPT_DIR") else cache.solver(base)
+    cache.admit_external(solver, cache.SOLVER_FILES)
     blas = [
         solver / "lib" / name
         for name in (
@@ -172,6 +270,8 @@ def prepare(kind: str, env: dict[str, str]) -> Path:
     high = highs_archive(env) if kind == "uno" else None
     patch = cache.ROOT / pin["patch"]
     archive = source_archive(base, pin["archive"], pin["sha256"])
+    cc = cache.tool_identity(env, "CC", "cc")
+    cxx = cache.tool_identity(env, "CXX", "c++")
     identity = {
         "pin": pin,
         "blas": {str(path): cache.digest(path) for path in blas},
@@ -186,27 +286,20 @@ def prepare(kind: str, env: dict[str, str]) -> Path:
         if high
         else None,
         "patch": cache.digest(patch),
-        "compiler": {
-            name: subprocess.check_output(
-                [env.get(name, default), "--version"], text=True
-            )
-            for name, default in (("CC", "cc"), ("CXX", "c++"))
-        },
+        "compiler": {"CC": cc, "CXX": cxx},
         "flags": {
             name: env.get(name)
             for name in ("CFLAGS", "CXXFLAGS", "LDFLAGS", "CMAKE_TOOLCHAIN_FILE")
         },
-        "target": subprocess.check_output(
-            [env.get("CC", "cc"), "-dumpmachine"], text=True
-        ).strip(),
+        "target": env.get("CARGO_BUILD_TARGET") or cc["target"],
     }
     if kind == "petsc":
         identity["source_archive"] = cache.digest(archive)
     if kind == "uno":
         identity["provider_contract"] = "single-lp64-blas-and-lapack"
-    destination = cache.location(base, kind, identity)
 
     def build(stage: Path, work: Path) -> None:
+        destination = cache.generation_destination(stage)
         work.mkdir(parents=True)
         with tarfile.open(archive) as packed:
             packed.extractall(work / "source", filter="data")
@@ -289,13 +382,13 @@ def prepare(kind: str, env: dict[str, str]) -> Path:
             verify_petsc_strings(
                 stage / "include", stage / "lib", env, work / "string-control"
             )
+        for pattern in ("*.pc", "*.cmake"):
+            for metadata in stage.rglob(pattern):
+                metadata.write_text(
+                    metadata.read_text().replace(str(stage), str(destination))
+                )
 
-    required = (
-        ("lib/libuno.a", "include/uno/Uno_C_API.h")
-        if kind == "uno"
-        else ("lib/libpetsc.so", "include/petscsnes.h", "include/petscts.h")
-    )
-    return cache.prepare(base, kind, identity, required, build)
+    return cache.prepare(base, kind, identity, required_files(kind), build)
 
 
 def main() -> None:

@@ -744,7 +744,13 @@ def run_gates(
             artifacts = (
                 [
                     output / "deployment" / f"{role}.json"
-                    for role in ("runtime", "worker", "python")
+                    for role in (
+                        "runtime",
+                        "worker",
+                        "python",
+                        "outer-observation",
+                        "observed-artifacts",
+                    )
                 ]
                 if gate.name == "producer-deployment"
                 else [Path(deployment_env["PSE_PYTHON_DEPLOYMENT_ATTESTATION"])]
@@ -764,10 +770,9 @@ def run_gates(
                 and record["status"] == "passed"
             ):
                 try:
+                    observed_deployment_attestation(artifacts[0])
                     producer_deployment.validate_receipts(
-                        root,
                         output / "deployment",
-                        expected_outer=observed_deployment_attestation(artifacts[0]),
                     )
                 except (OSError, ValueError, KeyError, TypeError) as error:
                     record["status"] = "failed"

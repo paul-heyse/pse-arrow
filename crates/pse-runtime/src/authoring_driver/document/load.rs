@@ -84,6 +84,13 @@ struct SourceBytes {
     bytes: bytes::Bytes,
     _lease: Arc<pse_columnar::AllocationLease>,
 }
+struct SharedText(Arc<SourcePayload<String>>);
+impl AsRef<[u8]> for SharedText {
+    fn as_ref(&self) -> &[u8] {
+        self.0.value.as_bytes()
+    }
+}
+
 impl AsRef<[u8]> for SourceBytes {
     fn as_ref(&self) -> &[u8] {
         &self.bytes
@@ -160,6 +167,16 @@ pub struct BundleData {
 }
 
 impl Document {
+    /// Retain original immutable source bytes with their existing allocation owner.
+    pub(super) fn shared_bytes(&self) -> bytes::Bytes {
+        match &self.content {
+            Content::Text(text) | Content::Modeling { text, .. } => {
+                bytes::Bytes::from_owner(SharedText(Arc::clone(text)))
+            }
+            Content::Data { bytes, .. } => bytes.clone(),
+        }
+    }
+
     /// The source text of a text document; `None` for a data document.
     pub fn text(&self) -> Option<&str> {
         match &self.content {
@@ -427,19 +444,24 @@ pub(super) fn load_inventory(
 }
 
 /// The UTF-8 text of a text document.
-fn utf8(path: &str, bytes: Vec<u8>) -> Result<String, DriverError> {
-    String::from_utf8(bytes)
+fn utf8(path: &str, bytes: bytes::Bytes) -> Result<String, DriverError> {
+    std::str::from_utf8(&bytes)
+        .map(str::to_owned)
         .map_err(|_| contract(None, &format!("text document {path} must be UTF-8")))
 }
 
-pub(super) fn load_reusing(
-    sources: BTreeMap<String, Vec<u8>>,
+pub(super) fn load_reusing<T: AsRef<[u8]> + Into<bytes::Bytes>>(
+    sources: BTreeMap<String, T>,
     previous: Option<&DocumentBundle>,
     registry: &Registry,
     budget: ParseBudget,
     mut allocation: Option<&mut super::allocation::Allocation<'_>>,
     validation: &pse_relations::validate::ValidationContext,
 ) -> Result<DocumentBundle, DriverError> {
+    let sources = sources
+        .into_iter()
+        .map(|(path, bytes)| (path, bytes.into()))
+        .collect::<BTreeMap<_, bytes::Bytes>>();
     check_size(&sources, budget.max_bytes)?;
     let checksum = package_checksum(&sources);
     let header_text = std::str::from_utf8(
@@ -468,7 +490,7 @@ pub(super) fn load_reusing(
         let prior = previous.and_then(|bundle| {
             bundle.documents.iter().find(|document| {
                 document.path == path
-                    && document.bytes() == bytes.as_slice()
+                    && document.bytes() == bytes.as_ref()
                     && document.declaration == declaration
                     && document.interpretation == interpretation
             })
@@ -478,7 +500,6 @@ pub(super) fn load_reusing(
             let content = if let Some(prior) = prior {
                 prior.content.clone()
             } else {
-                let bytes = bytes::Bytes::from(bytes);
                 let rows = super::data::decode(&path, &bytes, budget, allocation.as_deref_mut())?;
                 Content::Data {
                     bytes,
@@ -507,7 +528,11 @@ pub(super) fn load_reusing(
             });
             continue;
         }
-        let text = utf8(&path, bytes)?;
+        let text = if prior.is_some() {
+            String::new()
+        } else {
+            utf8(&path, bytes)?
+        };
         let mut modeling_rows = None;
         let (value, spans) = if declaration.kind == DocumentKind::PackageHeader {
             header_parts
@@ -722,11 +747,14 @@ pub(super) fn select<'a>(
     }
 }
 
-fn check_size(sources: &BTreeMap<String, Vec<u8>>, allowed: u64) -> Result<(), DriverError> {
+fn check_size<T: AsRef<[u8]>>(
+    sources: &BTreeMap<String, T>,
+    allowed: u64,
+) -> Result<(), DriverError> {
     let needed = sources
         .values()
         .try_fold(0_u64, |sum, bytes| {
-            sum.checked_add(u64::try_from(bytes.len()).unwrap_or(u64::MAX))
+            sum.checked_add(u64::try_from(bytes.as_ref().len()).unwrap_or(u64::MAX))
         })
         .unwrap_or(u64::MAX);
     if needed > allowed {
@@ -746,16 +774,16 @@ fn check_size(sources: &BTreeMap<String, Vec<u8>>, allowed: u64) -> Result<(), D
 /// of an authored package, and of a source bundle stored for job execution (ADR-0112). Every
 /// document enters with its exact bytes, a data document's included (ADR-0125); a text
 /// document's bytes are its UTF-8 source.
-pub fn package_checksum(sources: &BTreeMap<String, Vec<u8>>) -> ContentHash {
+pub fn package_checksum<T: AsRef<[u8]>>(sources: &BTreeMap<String, T>) -> ContentHash {
     // An integrity encoding: sorted path/content pairs, each prefixed by its byte length.
-    let mut bytes = Vec::new();
+    let mut hasher = pse_ids::EncodingHasher::new();
     for (path, content) in sources {
-        for part in [path.as_bytes(), content.as_slice()] {
-            bytes.extend_from_slice(&u64::try_from(part.len()).unwrap_or(u64::MAX).to_le_bytes());
-            bytes.extend_from_slice(part);
+        for part in [path.as_bytes(), content.as_ref()] {
+            hasher.update(&u64::try_from(part.len()).unwrap_or(u64::MAX).to_le_bytes());
+            hasher.update(part);
         }
     }
-    pse_ids::encoding_checksum(&bytes).content_hash()
+    hasher.finish().content_hash()
 }
 
 pub(super) fn contract(at: Option<SourceSpan>, reason: &str) -> DriverError {
@@ -790,15 +818,18 @@ fn check_header_depth(value: &toml::Value, allowed: u32) -> Result<(), DriverErr
     Ok(())
 }
 
-fn reserve_inventory(
-    sources: &BTreeMap<String, Vec<u8>>,
+fn reserve_inventory<T: AsRef<[u8]>>(
+    sources: &BTreeMap<String, T>,
     header_text: &str,
     registry: &Registry,
     budget: &ParseBudget,
     funds: &mut super::allocation::Allocation<'_>,
 ) -> Result<(), DriverError> {
     let checksum_extent = sources.iter().try_fold(0, |sum, (path, bytes)| {
-        memory::add(sum, memory::add(16, memory::add(path.len(), bytes.len())?)?)
+        memory::add(
+            sum,
+            memory::add(16, memory::add(path.len(), bytes.as_ref().len())?)?,
+        )
     })?;
     funds.grow(memory::add(
         memory::mul(checksum_extent, 4)?,

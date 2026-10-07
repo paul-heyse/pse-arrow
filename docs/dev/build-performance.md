@@ -76,15 +76,28 @@ user's server configuration. `build-cache-probe` uses a disposable server and ch
 an eligible Rust hit plus incremental pass-through. Product benefit must be measured
 with `bench-builds`; a canary is insufficient.
 
+The shared environment requires sccache client-side compilation, keeping compiler
+children inside the invoking operation's supervision. It disables the C/C++ direct
+include shortcut so preprocessing observes newly present headers. The repository's
+`.config/sccache.toml` supplies the default configuration; explicit configurations
+remain supported. Logging or distributed scheduler settings that disable client-side
+compilation cause ordinary builds to use the compiler directly. An explicit cache
+experiment refuses those settings rather than measuring a different execution mode.
+The local cache remains a trusted build input, not an artifact provenance authority.
+
 ## Native preparations
 
-`scripts/native-solver-env.sh` and `scripts/native-math-env.sh` use one persistent
-root, `${PSE_NATIVE_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/pse-arrow/native}`. Solver
-extraction is keyed by immutable image identity. KLU is keyed by vendored source,
-compiler bytes/version, target, flags, CMake identity and options. Preparations are
-locked per identity, installed into private staging directories and published after
-required files and content hashes are recorded. Missing or changed files trigger
-repreparation. Explicit `IPOPT_DIR` and the CI image route remain supported.
+The native operation owner uses one persistent root,
+`${PSE_NATIVE_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/pse-arrow/native}`. Recipes request
+only their required capabilities. Solver extraction is keyed by immutable image identity;
+compiled providers include actual source, compiler, target, flags and build-tool inputs.
+Private staging publishes immutable generations after complete byte/interface verification.
+Construction and publication use separate coordination, so an admitted reader need not wait
+for another generation's build. An operation retains its selected generation until actual
+descendants drain; a new operation verifies it again. Missing or changed files cause readmission
+or rebuilding. Unverifiable surviving owners retain conservative guards. Explicit `IPOPT_DIR`
+remains supported with full boundary verification. Manual sourced helpers grant no operation
+reuse; the math helper selects KLU/root isolation and the pipeline helper selects UNO/PETSc.
 
 Bindgen selects resource headers from its selected Clang without changing the C/C++
 compiler. When no user CMake toolchain file exists, `.config/native-cache.cmake`

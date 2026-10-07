@@ -13,6 +13,42 @@ use pse_model::{
 use pse_quantity::{QuantityRegistry, QuantityTypeId, UnitId};
 use std::collections::BTreeMap;
 
+/// Resolved kind/identity access shared by coordinate transport and original quality.
+/// The source policy owns frozen scales, allowances and provenance throughout access.
+#[derive(Debug)]
+pub struct TargetAccess<'a> {
+    targets: crate::index::CheckedInventory<'a, (NumericalTarget, SemanticId), ResolvedTarget>,
+}
+impl<'a> TargetAccess<'a> {
+    /// Refuse ambiguous resolved targets rather than selecting the first duplicate.
+    pub fn new(policy: &'a ResolvedNumericalPolicy) -> Result<Self, MathError> {
+        Ok(Self {
+            targets: crate::index::CheckedInventory::new(&policy.targets, |t| (t.kind, t.id))?,
+        })
+    }
+    /// Resolve one target without repeating the source-vector search.
+    pub fn get(
+        &self,
+        kind: NumericalTarget,
+        id: SemanticId,
+    ) -> Result<&'a ResolvedTarget, MathError> {
+        self.find(kind, id)
+            .ok_or_else(|| failure(id, "target was not resolved"))
+    }
+    /// Optional source access for owners whose explicit missing-target rule selects defaults.
+    pub fn find(&self, kind: NumericalTarget, id: SemanticId) -> Option<&'a ResolvedTarget> {
+        self.targets.get(&(kind, id))
+    }
+    /// Resolve ordered coordinates; duplicate consumer requests retain their multiplicity.
+    pub fn ordered(
+        &self,
+        kind: NumericalTarget,
+        ids: &[SemanticId],
+    ) -> Result<Vec<&'a ResolvedTarget>, MathError> {
+        ids.iter().map(|id| self.get(kind, *id)).collect()
+    }
+}
+
 /// Exact admitted coordinate; declared representation is retained through normalization.
 #[derive(Clone, Debug)]
 pub struct TargetSpec {
@@ -88,6 +124,7 @@ fn project_with(
     };
     let mut key = FramedHasher::new(frame);
     key.hash(&source.key);
+    let access = TargetAccess::new(source)?;
     let mut ordered = projections.iter().collect::<Vec<_>>();
     ordered.sort_by_key(|p| (p.target.id, p.target.kind.as_str()));
     let mut seen = std::collections::BTreeSet::new();
@@ -103,11 +140,7 @@ fn project_with(
                 "projection must name unique continuous coordinates without new tolerances",
             ));
         }
-        let original = source
-            .targets
-            .iter()
-            .find(|t| t.id == projection.source && t.kind == projection.source_kind)
-            .ok_or_else(|| failure(projection.source, "projection source was not resolved"))?;
+        let original = access.get(projection.source_kind, projection.source)?;
         let projected_quantity = match meaning {
             ProjectionMeaning::Coordinate => original.quantity.into(),
             ProjectionMeaning::Difference => {
@@ -503,16 +536,10 @@ pub fn resolve(
     policy
         .validate()
         .map_err(|e| MathError::Contract(e.to_string()))?;
-    let mut target_ids = std::collections::BTreeSet::new();
-    for t in targets {
-        if !target_ids.insert((t.id, t.kind.as_str())) {
-            return Err(failure(t.id, "duplicate numerical target"));
-        }
-    }
+    let target_access = crate::index::CheckedInventory::new(targets, |t| (t.kind, t.id))?;
     for scale in &policy.engineering_scales {
-        let target = targets
-            .iter()
-            .find(|t| t.id == scale.target_id && t.kind == scale.target_kind)
+        let target = target_access
+            .get(&(scale.target_kind, scale.target_id))
             .ok_or_else(|| {
                 failure(
                     scale.target_id,
@@ -967,6 +994,39 @@ mod tests {
             declared_tolerance: None,
         }
     }
+    #[test]
+    fn target_access_preserves_kinds_order_frozen_budgets_and_duplicate_requests() {
+        let registry = standard_registry().unwrap();
+        let mut row = target();
+        row.kind = NumericalTarget::Row;
+        let policy = resolve(
+            &registry,
+            &[row, target()],
+            &[],
+            &NumericalPolicy::default(),
+        )
+        .unwrap();
+        let access = TargetAccess::new(&policy).unwrap();
+        let variable = access.get(NumericalTarget::Variable, id(1)).unwrap();
+        let row = access.get(NumericalTarget::Row, id(1)).unwrap();
+        assert_eq!(variable.kind, NumericalTarget::Variable);
+        assert_eq!(row.kind, NumericalTarget::Row);
+        let requested = access
+            .ordered(NumericalTarget::Variable, &[id(1), id(1)])
+            .unwrap();
+        assert_eq!(requested.len(), 2);
+        assert!(std::ptr::eq(requested[0], variable));
+        assert!(std::ptr::eq(requested[1], variable));
+        assert!(access.get(NumericalTarget::Variable, id(2)).is_err());
+        let scales =
+            crate::normalization::Normalization::from_policy(&policy, &[id(1)], &[id(1)]).unwrap();
+        assert_eq!(scales.variables, [variable.coordinate_scale]);
+        assert_eq!(scales.rows, [row.coordinate_scale]);
+        let mut ambiguous = policy.clone();
+        ambiguous.targets.push(variable.clone());
+        assert!(TargetAccess::new(&ambiguous).is_err());
+    }
+
     fn requirement(n: u8, source: NumericalSource, nominal: f64) -> SourcedRequirement {
         SourcedRequirement {
             source,

@@ -3,7 +3,7 @@ title: Connected result queries and analysis
 status: in-progress
 date: 2026-10-05
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -140,6 +140,22 @@ readmission. Exercise unsupported-version refusal before malformed-current-shape
 exact wire ID comparison and eligible persisted replay. Current source fixes are not fresh
 execution evidence. D's earlier positive controls remain local; E3 owns end-to-end retention,
 completion, Python and restart composition.
+
+## Bulk protected read and analysis extension
+
+[28g](28g-bulk-data-operations.md) develops PE02/PE03 and related physical source/analysis
+variants. T1's common result bounds preserve the same exact scientific layout and indexes;
+T3 consumes selected block metadata once and acquires metadata/payload through a composed
+protected operation. Bound compatible groups by their combined transfer and decoded reservation.
+Preserve index-versus-original-row correspondence, renewable selection, exact order and final
+statement completion before typed rows or completed exports become visible.
+
+T4 examines node/edge grouping within the existing analysis append/activation owner; edges
+still require admitted endpoints and activation requires complete membership. T0's actual
+query-plan and analytical-demand investigation decides index/provider changes. A new DataFusion
+provider is not required without a benefiting consumer. Rust/Python wrappers retain their
+typed Arrow stream and cancellation/allocation contract. T5 caller reconciliation and existing
+D obligations precede E3; the historical D Outcome supplies no new replacement evidence.
 
 ## Work packages
 

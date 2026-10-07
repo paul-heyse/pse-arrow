@@ -23,7 +23,7 @@ use std::{sync::Arc, time::Duration};
 use surrealdb::types::{Object, Value};
 
 /// Bound on independently read scientific blobs, including IPC schema and EOS.
-pub const RESULT_BLOCK_BYTES: usize = 512 * 1024;
+pub const RESULT_BLOCK_BYTES: usize = wire::RESULT_BLOCK_BYTES;
 const PAGE: usize = 64;
 const IDENTITY_BYTES: usize = 4096;
 
@@ -760,25 +760,31 @@ SELECT * FROM ONLY type::record('canonical_result_manifests',$manifest);\nCOMMIT
         {
             return Err(invalid("block outside admitted descriptor"));
         }
-        let mut response=protected_query(||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM ONLY type::record('canonical_result_blocks',$key);\nCOMMIT;"))
+        let mut response=protected_query(||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nRETURN {{metadata:(SELECT * FROM ONLY type::record('canonical_result_blocks',$key)),batch:(SELECT * FROM ONLY type::record('canonical_result_batches',$batch))}};\nCOMMIT;"))
             .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone()))
             .bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?))
-            .bind(("protection",read.owner.selection.key().to_owned())).bind(("key",metadata.key.clone())))).await?;
+            .bind(("protection",read.owner.selection.key().to_owned())).bind(("key",metadata.key.clone())).bind(("batch",metadata.batch.clone())))).await?;
         let index = response.num_statements().saturating_sub(2);
-        let recorded = response
+        let mut envelope = response
             .take::<Option<Object>>(index)?
-            .map(wire::decode_canonical_result_blocks)
-            .transpose()?
-            .ok_or_else(|| invalid("admitted block metadata unavailable"))?;
-        if recorded != metadata {
+            .ok_or_else(|| invalid("admitted block envelope absent"))?;
+        let object = |value: Value| match value {
+            Value::Object(row) => Ok(row),
+            _ => Err(invalid("admitted block envelope shape")),
+        };
+        let recorded = wire::decode_canonical_result_blocks(object(canonical_codec::required(
+            &mut envelope,
+            "metadata",
+        )?)?)?;
+        let batch = wire::decode_canonical_result_batches(object(canonical_codec::required(
+            &mut envelope,
+            "batch",
+        )?)?)?;
+        if recorded != metadata || !envelope.is_empty() || batch.attempt != read.attempt.key {
             return Err(invalid(
-                "block metadata differs from its immutable recorded coverage",
+                "block differs from its immutable admitted coverage",
             ));
         }
-        let payload = self
-            .result_payload(read, &metadata.result_set, metadata.ordinal)
-            .await?;
-        let batch = payload.batch;
         validate_result_block(&metadata, &batch)?;
         Ok(ResultBlock {
             metadata,

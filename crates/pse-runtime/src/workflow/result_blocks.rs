@@ -13,7 +13,7 @@ use datafusion::arrow::{
 use std::io::{Cursor, Write};
 
 /// One self-contained schema, batch and explicit end marker per database blob.
-pub const RESULT_BLOCK_BYTES: usize = 512 * 1024;
+pub const RESULT_BLOCK_BYTES: usize = pse_operations::generated::surreal::RESULT_BLOCK_BYTES;
 const MAX_FIELDS: usize = 16 * 1024;
 const MAX_DEPTH: usize = 64;
 const MAX_ROWS: usize = 32 * 1024;
@@ -113,6 +113,30 @@ fn encode_block(batch: &RecordBatch, purpose: Purpose) -> Result<Vec<u8>, Result
         purpose,
     )?;
     Ok(writer.bytes)
+}
+
+/// Encode a useful contiguous prefix with deterministic bounded splitting.
+/// Callers independently admit prepared metadata before selecting this candidate.
+pub(super) fn encode_result_prefix(
+    batch: &RecordBatch,
+    start: usize,
+    count: usize,
+) -> Result<(Vec<u8>, usize), ResultBlockError> {
+    let mut rows = count.min(MAX_ROWS);
+    if rows == 0
+        || start
+            .checked_add(rows)
+            .is_none_or(|end| end > batch.num_rows())
+    {
+        return Err(ResultBlockError::Invalid("invalid result prefix"));
+    }
+    loop {
+        match encode_result_block(&batch.slice(start, rows)) {
+            Ok(payload) => return Ok((payload, rows)),
+            Err(error) if rows > 1 && can_split(&error) => rows = rows.div_ceil(2),
+            Err(error) => return Err(error),
+        }
+    }
 }
 
 fn can_split(error: &ResultBlockError) -> bool {
@@ -746,6 +770,74 @@ mod canonical_result_blocks_unit {
         datatypes::Field,
     };
     use std::sync::Arc;
+    #[test]
+    fn admitted_result_prefix_splits_deterministically_and_preserves_exact_transport() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::UInt64, false),
+            Field::new("value", DataType::Float64, true),
+            Field::new("text", DataType::Utf8, false),
+        ]));
+        let rows = 256;
+        let text = "x".repeat(4096);
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(UInt64Array::from(
+                    (0..rows)
+                        .map(|row| u64::MAX - row as u64)
+                        .collect::<Vec<_>>(),
+                )),
+                Arc::new(Float64Array::from(
+                    (0..rows)
+                        .map(|row| if row % 2 == 0 { Some(-0.0) } else { None })
+                        .collect::<Vec<_>>(),
+                )),
+                Arc::new(datafusion::arrow::array::StringArray::from(
+                    vec![text.as_str(); rows],
+                )),
+            ],
+        )
+        .unwrap();
+        let (first, count) = encode_result_prefix(&batch, 0, rows).unwrap();
+        assert!(count > 1 && count < rows);
+        assert_eq!(
+            encode_result_prefix(&batch, 0, rows).unwrap(),
+            (first.clone(), count)
+        );
+        let mut start = 0;
+        while start < rows {
+            let (bytes, count) = encode_result_prefix(&batch, start, rows - start).unwrap();
+            let decoded = decode_result_block(&bytes, schema.clone(), count).unwrap();
+            let ids = decoded
+                .column(0)
+                .as_any()
+                .downcast_ref::<UInt64Array>()
+                .unwrap();
+            let values = decoded
+                .column(1)
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .unwrap();
+            for row in 0..count {
+                assert_eq!(ids.value(row), u64::MAX - (start + row) as u64);
+                if (start + row) % 2 == 0 {
+                    assert_eq!(values.value(row).to_bits(), (-0.0f64).to_bits());
+                } else {
+                    assert!(values.is_null(row));
+                }
+            }
+            start += count;
+        }
+        assert_eq!(start, rows);
+        let overlarge = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![Field::new("text", DataType::Utf8, false)])),
+            vec![Arc::new(datafusion::arrow::array::StringArray::from(vec![
+                "x".repeat(RESULT_BLOCK_BYTES),
+            ]))],
+        )
+        .unwrap();
+        assert!(encode_result_prefix(&overlarge, 0, 1).is_err());
+    }
     #[test]
     fn admitted_physical_source_schemas_fit_canonical_input_transport() {
         let registry = pse_schema::registry().unwrap();

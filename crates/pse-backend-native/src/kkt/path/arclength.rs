@@ -7,8 +7,8 @@ use faer::{
     Conj, Mat, Par,
     dyn_stack::{MemBuffer, MemStack},
     sparse::{
-        SparseColMat,
-        linalg::lu::{self, LuRef, NumericLu},
+        SparseColMat, SymbolicSparseColMat,
+        linalg::lu::{self, LuRef, NumericLu, SymbolicLu},
     },
 };
 use pse_ids::ContentHash;
@@ -239,6 +239,73 @@ fn assemble<O: ParameterizedOracle<Error = ProblemError>>(
     }
     Ok(SparseColMat::new(symbolic, values))
 }
+/// Mutable factor storage for one finite, owning-thread path attempt. Point values,
+/// orientation and scientific acceptance never survive through this owner.
+#[derive(Default)]
+pub struct TangentWorkspace {
+    storage: Option<TangentStorage>,
+}
+impl std::fmt::Debug for TangentWorkspace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TangentWorkspace")
+            .field("retained", &self.storage.is_some())
+            .finish()
+    }
+}
+struct TangentStorage {
+    family: ContentHash,
+    pattern: SymbolicSparseColMat<usize>,
+    symbolic: SymbolicLu<usize>,
+    numeric: NumericLu<usize, f64>,
+    memory: MemBuffer,
+    scratch_bytes: usize,
+}
+impl TangentWorkspace {
+    fn storage(
+        &mut self,
+        family: ContentHash,
+        matrix: &SparseColMat<usize, f64>,
+        bytes: usize,
+    ) -> Result<&mut TangentStorage, ProblemError> {
+        let pattern = matrix.symbolic();
+        let compatible = self.storage.as_ref().is_some_and(|held| {
+            held.family == family
+                && held.pattern.nrows() == matrix.nrows()
+                && held.pattern.ncols() == matrix.ncols()
+                && held.pattern.col_ptr() == pattern.col_ptr()
+                && held.pattern.row_idx() == pattern.row_idx()
+        });
+        if !compatible {
+            self.storage = None;
+            let symbolic =
+                lu::factorize_symbolic_lu(pattern, Default::default()).map_err(sparse_error)?;
+            let request = symbolic
+                .factorize_numeric_lu_scratch::<f64>(Par::Seq, Default::default())
+                .or(symbolic.solve_in_place_scratch::<f64>(1, Par::Seq));
+            if request.size_bytes() > bytes / 2 {
+                return Err(ProblemError::memory("arclength LU scratch allowance"));
+            }
+            self.storage = Some(TangentStorage {
+                family,
+                pattern: pattern.to_owned().map_err(sparse_error)?,
+                symbolic,
+                numeric: NumericLu::new(),
+                memory: MemBuffer::try_new(request)
+                    .map_err(|e| ProblemError::memory(e.to_string()))?,
+                scratch_bytes: request.size_bytes(),
+            });
+        }
+        let held = self
+            .storage
+            .as_mut()
+            .ok_or_else(|| ProblemError::internal("arclength factor storage absent"))?;
+        if held.scratch_bytes > bytes / 2 {
+            return Err(ProblemError::memory("arclength LU scratch allowance"));
+        }
+        Ok(held)
+    }
+}
+
 /// Solve the actual scaled sparse border and orient its unit tangent against the
 /// supplied history. Checkpoints preserve the original absolute scope.
 /// # Errors
@@ -247,30 +314,26 @@ pub fn tangent<O: ParameterizedOracle<Error = ProblemError>>(
     request: Request<'_>,
     oracle: &mut O,
     execution: &Execution,
+    workspace: &mut TangentWorkspace,
 ) -> Result<Tangent, Failure> {
     let mut work = Work::default();
     let result = quality::contained(|| {
         let matrix = assemble(&request, oracle, execution, &mut work)?;
         let d = matrix.ncols();
-        let symbolic = lu::factorize_symbolic_lu(matrix.symbolic(), Default::default())
-            .map_err(sparse_error)?;
-        let factor_req = symbolic.factorize_numeric_lu_scratch::<f64>(Par::Seq, Default::default());
-        let solve_req = symbolic.solve_in_place_scratch::<f64>(1, Par::Seq);
-        let req = factor_req.or(solve_req);
-        if req.size_bytes() > request.limits.bytes / 2 {
-            return Err(ProblemError::memory("arclength LU scratch allowance"));
-        }
-        let mut memory =
-            MemBuffer::try_new(req).map_err(|e| ProblemError::memory(e.to_string()))?;
-        let mut numeric = NumericLu::new();
+        let TangentStorage {
+            symbolic,
+            numeric,
+            memory,
+            ..
+        } = workspace.storage(request.family.key(), &matrix, request.limits.bytes)?;
         execution.check()?;
         work.factorizations += 1;
         symbolic
             .factorize_numeric_lu(
-                &mut numeric,
+                numeric,
                 matrix.as_ref(),
                 Par::Seq,
-                MemStack::new(&mut memory),
+                MemStack::new(memory),
                 Default::default(),
             )
             .map_err(lu_error)?;
@@ -278,11 +341,11 @@ pub fn tangent<O: ParameterizedOracle<Error = ProblemError>>(
         let mut x = Mat::zeros(d, 1);
         x[(d - 1, 0)] = 1.;
         work.backsolves += 1;
-        LuRef::new_unchecked(&symbolic, &numeric).solve_in_place_with_conj(
+        LuRef::new_unchecked(symbolic, numeric).solve_in_place_with_conj(
             Conj::No,
             x.as_mut(),
             Par::Seq,
-            MemStack::new(&mut memory),
+            MemStack::new(memory),
         );
         execution.check()?;
         if x.col(0).iter().any(|v| !v.is_finite()) {
@@ -362,10 +425,13 @@ pub fn tangent<O: ParameterizedOracle<Error = ProblemError>>(
             result.work = work;
             Ok(result)
         }
-        Err(cause) => Err(Failure {
-            cause: Arc::new(cause),
-            work,
-        }),
+        Err(cause) => {
+            workspace.storage = None;
+            Err(Failure {
+                cause: Arc::new(cause),
+                work,
+            })
+        }
     }
 }
 /// Actual native root view for a fixed augmented hyperplane. It preserves the same
@@ -1006,27 +1072,34 @@ mod tests {
             fail_parameter: false,
         };
         let execution = execution();
+        let mut workspace = TangentWorkspace::default();
         let left = tangent(
             request(&family, &[0.2, 0.04], &[0., -1.]),
             &mut curve,
             &execution,
+            &mut workspace,
         )
         .unwrap();
         assert!(left.physical[0] < 0. && left.physical[1] < 0.);
+        let scratch = workspace.storage.as_ref().unwrap().memory.as_ptr();
         let fold = tangent(
             request(&family, &[0., 0.], &left.normalized),
             &mut curve,
             &execution,
+            &mut workspace,
         )
         .unwrap();
+        assert_eq!(workspace.storage.as_ref().unwrap().memory.as_ptr(), scratch);
         assert!(fold.physical[0] < 0.);
         assert_eq!(fold.physical[1], 0.);
         let right = tangent(
             request(&family, &[-0.2, 0.04], &fold.normalized),
             &mut curve,
             &execution,
+            &mut workspace,
         )
         .unwrap();
+        assert_eq!(workspace.storage.as_ref().unwrap().memory.as_ptr(), scratch);
         assert!(right.physical[0] < 0. && right.physical[1] > 0.);
         assert!(right.orientation > 0.);
         assert_eq!(
@@ -1128,10 +1201,22 @@ mod tests {
             fail_parameter: true,
         };
         let execution = execution();
+        let mut workspace = TangentWorkspace::default();
+        curve.fail_parameter = false;
+        tangent(
+            request(&family, &[0., 0.], &[-1., 0.]),
+            &mut curve,
+            &execution,
+            &mut workspace,
+        )
+        .unwrap();
+        assert!(workspace.storage.is_some());
+        curve.fail_parameter = true;
         let failure = tangent(
             request(&family, &[0., 0.], &[-1., 0.]),
             &mut curve,
             &execution,
+            &mut workspace,
         )
         .unwrap_err();
         assert!(
@@ -1139,6 +1224,16 @@ mod tests {
         );
         assert_eq!(failure.work.parameter_actions, 1);
         assert_eq!(failure.work.factorizations, 0);
+        assert!(workspace.storage.is_none());
+        curve.fail_parameter = false;
+        tangent(
+            request(&family, &[0., 0.], &[-1., 0.]),
+            &mut curve,
+            &execution,
+            &mut workspace,
+        )
+        .unwrap();
+        assert!(workspace.storage.is_some());
         execution
             .cancel
             .store(true, std::sync::atomic::Ordering::Relaxed);
@@ -1146,14 +1241,16 @@ mod tests {
             request(&family, &[0., 0.], &[-1., 0.]),
             &mut curve,
             &execution,
+            &mut workspace,
         )
         .unwrap_err();
         assert!(matches!(failure.cause.as_ref(), ProblemError::Cancelled));
         assert_eq!(failure.work, Work::default());
+        assert!(workspace.storage.is_none());
         let execution = self::execution();
         let mut r = request(&family, &[0., 0.], &[-1., 0.]);
         r.limits.bytes = 1;
-        let failure = tangent(r, &mut curve, &execution).unwrap_err();
+        let failure = tangent(r, &mut curve, &execution, &mut workspace).unwrap_err();
         assert!(matches!(
             failure.cause.as_ref(),
             ProblemError::Limit {
@@ -1174,10 +1271,12 @@ mod tests {
             fail_parameter: false,
         };
         let execution = execution();
+        let mut workspace = TangentWorkspace::default();
         let t = tangent(
             request(&family, &[0., 0.], &[-1., 0.]),
             &mut curve,
             &execution,
+            &mut workspace,
         )
         .unwrap();
         let prediction = vec![-0.1, 0.];

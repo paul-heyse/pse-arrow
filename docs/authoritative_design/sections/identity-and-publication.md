@@ -162,10 +162,25 @@ remain refusals. A source-bound completeness declaration can qualify reviewed bu
 procedural-macro owners. Consumed raw source is a conservative fallback when normalized source
 cannot preserve macro/location meaning; that fallback may invalidate on otherwise irrelevant
 inline text changes. No blanket closure claim follows from Cargo rerun hints or file discovery.
-Operator qualification must be bound to the expected package, target and kind of the
-selected production root and the linked executable's complete outer attestation;
-incomplete deployment evidence permits normal admission and persistence but refuses cross-build
-scientific replay.
+Operator qualification binds the expected package, target, kind, profile, features and ABI
+of the actual selected production root to its relevant build-input identity and independently
+observed deployed artifact bytes. Relevant inputs are identified before linking; artifact
+association follows build/install, including admitted Python installation transformations.
+Complete dirty outer source/build observation, including authored Rust, Python and tooling
+composition roots, root build declarations/locks and Git context, is recorded at
+deployment/run admission and is not a compiled input of every associated role. Role capture
+retains the tool and flag inputs actually consumed by that artifact. An installed artifact
+without its owning authored checkout records source observation as absent and identifies its
+actual artifact context; another Rust project is not treated as that checkout. Missing outer
+source evidence does not prevent ordinary admission or persistence and never supplies a
+scientific producer qualification.
+Role artifact identities need not match: their required scientific/ABI compatibility and each
+actual artifact association must hold. Unrelated outer edits change that observation without
+rebuilding unaffected artifacts; dirty consumed inputs invalidate affected associations.
+Unknown consumed inputs, same-path artifact replacement and manufactured matching receipts
+refuse eligibility. Identity/receipt versions are admitted before their current shape is decoded;
+historical keys retain their original meaning. Incomplete deployment evidence permits normal
+admission and persistence but refuses cross-build scientific replay.
 
 Product publication and scientific request have separate identities. A store-issued protected
 admission supplies a stable publication identity through transaction/acknowledgment retries.

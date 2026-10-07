@@ -33,7 +33,7 @@ pub(crate) fn runtime(owner: &WorkflowRuntime) -> Runtime {
         pse_runtime::workflow::CanonicalDeployment::new(
             store,
             pse_runtime::workflow::OuterAttestation {
-                source: pse_ids::ContentHash::from_bytes([0; 32]),
+                source: Some(pse_ids::ContentHash::from_bytes([0; 32])),
                 build: pse_ids::ContentHash::from_bytes([1; 32]),
             },
             None,

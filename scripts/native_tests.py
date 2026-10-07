@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-from scripts import validation, validation_receipts
+from scripts import producer_deployment, validation, validation_receipts
 
 ROOT = Path(__file__).resolve().parents[1]
 FEATURES = "pse-runtime/native-solvers,pse-runtime/canonical-tests,pse-tests-conformance/native-acceptance,pse-relations/force-validate"
@@ -59,6 +59,8 @@ def native_provenance(
         "PSE_WORKER_PRODUCER_RECEIPT",
         "PSE_PYTHON_PRODUCER_RECEIPT",
         "PSE_PYTHON_DEPLOYMENT_ATTESTATION",
+        "PSE_DEPLOYMENT_ARTIFACT_OBSERVATIONS",
+        "PSE_NATIVE_PROVIDER_RECEIPT",
     ):
         selected = native_environment.get(name)
         if selected:
@@ -112,6 +114,28 @@ def python_native_binary(environment: Mapping[str, str]) -> Path:
     if package != expected / "__init__.py" or binary.parent != expected:
         raise ValueError("native Python import belongs to a different checkout")
     return binary
+
+
+def observe_deployed_artifacts(
+    environment: Mapping[str, str], python_binary: Path | None = None
+) -> None:
+    """Refresh control observations from actual role paths, never receipt claims."""
+    destination = environment.get("PSE_DEPLOYMENT_ARTIFACT_OBSERVATIONS")
+    if not destination:
+        return
+    worker = environment.get("PSE_WORKER_BINARY")
+    if not worker:
+        raise ValueError("deployment controls require the actual worker executable")
+    python = (
+        python_binary
+        if python_binary is not None
+        else python_native_binary(environment)
+    )
+    observations = {
+        "worker": producer_deployment.file_observation(Path(worker)),
+        "python": producer_deployment.file_observation(python),
+    }
+    validation.write_json(Path(destination), observations)
 
 
 PYTHON_DEFAULT_SELECTION = ("-o", "testpaths=python/pse/tests")
@@ -211,6 +235,7 @@ def main() -> int:
         provenance = Path(path) if path else report.with_suffix(".native.json")
         env = dict(os.environ)
         binary = python_native_binary(env)
+        observe_deployed_artifacts(env, binary)
         native = native_provenance(
             {"features": ["force-validate", "native-solvers"]},
             [str(binary)],
@@ -329,6 +354,7 @@ def main() -> int:
         worker = worker_binary(extra, environment)
         environment["PSE_WORKER_BINARY"] = str(worker)
         binaries.append(str(worker))
+    observe_deployed_artifacts(environment)
     validation.write_json(
         Path(path),
         native_provenance(

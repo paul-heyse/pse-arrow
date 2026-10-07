@@ -128,7 +128,7 @@ impl CacheComponent for MathService {
     }
     fn report(&self) -> Vec<CacheReport> {
         vec![
-            self.modeling_cache.report(),
+            self.modeling_cache.report(self.selected_flights.active()),
             CacheReport {
                 name: self.entries.name(),
                 capacity_bytes: 0,

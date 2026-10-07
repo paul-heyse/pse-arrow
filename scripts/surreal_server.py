@@ -38,7 +38,13 @@ if TYPE_CHECKING:
 
 MIB = 1024 * 1024
 GIB = 1024 * MIB
-MESSAGE_BYTES = 4 * MIB
+_POLICY_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "crates/pse-operations/src/generated/surreal-policy.json"
+)
+_POLICY = json.loads(_POLICY_PATH.read_text())
+MESSAGE_BYTES = _POLICY["max_message_bytes"]
+SUBSTRATE_INTERPRETATION = _POLICY["interpretation"]
 OWNER = "pse-arrow-surreal-v1"
 RELEASE_API = "https://api.github.com/repos/surrealdb/surrealdb/releases"
 SCRIPT = Path(__file__).resolve()
@@ -240,7 +246,11 @@ def install(version: str | None, tool_root: Path) -> dict[str, str]:
     binary = directory / "surreal"
     receipt = directory / "release.json"
     with state_lock(directory):
-        if receipt.exists() and binary.exists():
+        if receipt.exists() or binary.exists():
+            if not receipt.exists() or not binary.exists():
+                raise SupervisorError(
+                    "Installed release is incomplete; use a new tool directory"
+                )
             prior = read_json(receipt)
             if prior.get("archive_sha256") == digest.removeprefix(
                 "sha256:"
@@ -554,11 +564,15 @@ def workers_drained(state: Path, config: dict[str, object]) -> None:
 
 
 def worker_environment(
-    state: Path, slot: int, allocation: dict[str, object]
+    state: Path, slot: int, allocation: dict[str, object], handoff: Path | None = None
 ) -> dict[str, str]:
     environment = systemd_environment()
     # Never inherit the ordinary ad hoc workload's optional/off/default cap policy.
     environment.pop("PSE_MEMORY_MAX", None)
+    environment.pop("PSE_NATIVE_OPERATION", None)
+    environment.pop("PSE_NATIVE_HANDOFF", None)
+    if handoff is not None:
+        environment["PSE_NATIVE_HANDOFF"] = str(handoff)
     environment.update(
         {
             "PSE_SURREAL_STATE": str(state),
@@ -572,7 +586,12 @@ def worker_environment(
 
 
 def worker_scope_command(
-    state: Path, slot: int, allocation: dict[str, object], command: list[str]
+    state: Path,
+    slot: int,
+    allocation: dict[str, object],
+    command: list[str],
+    *,
+    capabilities: tuple[str, ...] = ("solver", "klu", "isolation", "uno", "petsc"),
 ) -> list[str]:
     return [
         "systemd-run",
@@ -586,6 +605,11 @@ def worker_scope_command(
         f"--property=MemoryMax={integer(allocation['native_worker_memory_bytes'])}",
         "--property=MemorySwapMax=0",
         "--property=TasksMax=128",
+        "--",
+        str(Path(__file__).resolve().parents[1] / ".venv/bin/python"),
+        str(Path(__file__).resolve().with_name("native_operation.py")),
+        "--capabilities",
+        ",".join(capabilities),
         "--",
         *command,
     ]
@@ -620,9 +644,19 @@ def worker(state: Path, command: list[str]) -> int:
             raise SupervisorError("All configured native worker slots are occupied")
         if not ready(state, config):
             start(state, config)
+        # Pin the launch window before crossing into an independent worker scope.
+        # The common child owner binds this guard using actual kernel membership.
+        root = str(Path(__file__).resolve().parents[1])
+        if root not in sys.path:
+            sys.path.insert(0, root)
+        from scripts.native_operation import (  # noqa: PLC0415 -- standalone supervisor loads shared owner after root selection
+            prepare_handoff,
+        )
+
+        handoff = prepare_handoff(worker_unit(state, slot))
         child = subprocess.Popen(
             worker_scope_command(state, slot, allocation, command),
-            env=worker_environment(state, slot, allocation),
+            env=worker_environment(state, slot, allocation, handoff),
         )
         deadline = time.monotonic() + 10
         while child.poll() is None:

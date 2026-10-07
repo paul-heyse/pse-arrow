@@ -422,6 +422,42 @@
       "samples": 31
     },
     {
+      "id": "results-publish-chain-1",
+      "operation": "result_analysis",
+      "reuse": "publish-chain",
+      "blocks": 128,
+      "threads": 1,
+      "variables": [128],
+      "result_reads": 3,
+      "physical_padding_bytes": 0,
+      "functional_scopes": ["process", "lifecycle"],
+      "samples": 31
+    },
+    {
+      "id": "results-publish-small-chain-1",
+      "operation": "result_analysis",
+      "reuse": "publish-chain",
+      "blocks": 80,
+      "threads": 1,
+      "variables": [80],
+      "result_reads": 3,
+      "physical_padding_bytes": 0,
+      "functional_scopes": ["process", "lifecycle"],
+      "samples": 15
+    },
+    {
+      "id": "results-publish-source-growth-1",
+      "operation": "result_analysis",
+      "reuse": "publish-chain",
+      "blocks": 128,
+      "threads": 1,
+      "variables": [128],
+      "result_reads": 3,
+      "physical_padding_bytes": 1048576,
+      "functional_scopes": ["process", "lifecycle"],
+      "samples": 31
+    },
+    {
       "id": "k4-study-in-process-8",
       "operation": "k4-study",
       "adapter": "in-process",

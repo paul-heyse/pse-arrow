@@ -140,7 +140,7 @@ register crates.
 | `pse-rules` | Registry-declared invariants as one native diagnostic query; its consumers are inspection and fixture validation |
 | `pse-operations` | Authenticated remote SurrealDB client, generated native schema/codecs and bounded canonical revision, product, execution, result, analysis and retention operations ([§20.6](identity-and-publication.md#section-20-6)) |
 | `pse-runtime` | Composition root: canonical source admission, selected compilation, bounded physical reuse, class-specific native attempts, durable workflows and connected exact results ([§19](workflows-and-results.md#section-19)) |
-| `pse-buildinfo` | Complete executable source/build attestation and controlled selected-production-unit qualification; relevant producer identity remains separate from outer run attestation |
+| `pse-buildinfo` | Role-specific linked build-input identity and actual deployed artifact association; complete dirty source/build observation is retained at deployment/run admission, separately from scientific eligibility |
 | `pse-py` | The PyO3 extension `pse._native`, which is the whole Rust/Python boundary ([§21](workflows-and-results.md#section-21)) |
 | `pse-testkit` | Development-only fixtures that use production engine factories; never a production dependency |
 | `pse-workspace-hack` | No code: cargo-hakari generates its dependencies so every package selection resolves one feature set per dependency ([ADR-0122](../../adr/0122-nightly-toolchain-and-feature-unification.md)) |

@@ -2432,9 +2432,9 @@ class BuildInfo(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only
 
     #: Workspace and wheel version.
     version: str
-    #: External SHA256 checksum of the exact embedded Cargo lockfile bytes.
+    #: Captured Cargo lockfile checksum; empty when no lockfile is embedded.
     cargo_lock_sha256: str
-    #: Captured Git commit, or the producer's source-distribution marker.
+    #: Captured Git commit; empty when the implementation does not embed outer context.
     git_sha: str
     #: Historical public lockfile digest field; empty when no such evidence was produced.
     lockfile_hash: str
@@ -2442,7 +2442,7 @@ class BuildInfo(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only
     profile: str
     #: Captured compiler release.
     rustc_version: str
-    #: External SHA256 checksum of the exact embedded uv lockfile bytes.
+    #: Captured uv lockfile checksum; empty when no lockfile is embedded.
     uv_lock_sha256: str
 
     def _pse_equality_key(self) -> v.EqualityKey:

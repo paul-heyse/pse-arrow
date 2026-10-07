@@ -619,16 +619,21 @@ pub(super) async fn persist(
 
 /// One compiler input, resolved entirely from immutable canonical records. Read
 /// premises remain protected until the preparation or portable publication ends.
+#[cfg(all(test, feature = "canonical-tests"))]
 pub(super) struct SelectedSource {
     pub(super) rows: Vec<Declaration>,
     pub(super) physical: PhysicalScope,
-    pub(super) documents: Arc<pse_modeling::document::DocumentInventory>,
     pub(super) read: SelectedRead,
     pub(super) versions: BTreeMap<String, String>,
     record_sources: BTreeMap<DeclarationId, DeclarationId>,
     _leases: Vec<Arc<pse_columnar::AllocationLease>>,
 }
 
+/// Active eligibility belongs to this call, never to retained admission.
+pub(super) struct CheckedSelection {
+    pub(super) admission: Arc<super::SelectedAdmission>,
+    pub(super) read: SelectedRead,
+}
 pub(super) struct CancellationWatch(tokio::task::JoinHandle<()>);
 impl Drop for CancellationWatch {
     fn drop(&mut self) {
@@ -1492,41 +1497,116 @@ impl ModelingPackage {
         release?;
         Ok(result)
     }
-    pub(super) fn admit_source(
+    pub(super) async fn checked_selection(
         &self,
-        source: &SelectedSource,
-    ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
-        self.admit_source_in(&self.numerical_workspace()?, source)
-    }
-    pub(super) fn admit_source_in(
-        &self,
-        workspace: &crate::math::Workspace,
-        source: &SelectedSource,
-    ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
-        let revision = self.runtime.shared.math().modeling_revision(
-            workspace,
-            source.rows.clone(),
-            source.physical.clone(),
-            source.documents.clone(),
-            &self.physical.key,
-        )?;
-        for (record, supplier) in &source.record_sources {
-            if revision
-                .checked()
-                .record(*record)
-                .map(|record| record.origin)
-                != Some(*supplier)
-            {
-                return Err(contract(
-                    "canonical record supplier differs from admitted scientific identity",
-                ));
+        roots: &[DeclarationId],
+        cancel: &crate::CancelSource,
+    ) -> Result<CheckedSelection, WorkflowError> {
+        let store = self.runtime.canonical.store();
+        let math = self.runtime.shared.math();
+        checkpoint(cancel)?;
+        let protection = store
+            .protect(
+                self.revision.canonical.clone(),
+                std::time::Duration::from_secs(3600),
+            )
+            .await?;
+        let mut read = SelectedRead::new(protection);
+        let result: Result<_, WorkflowError> = async {
+            let generation = math.modeling_cache.generation();
+            let request_bytes = size_of::<super::SelectedRequest>() + self.revision.canonical.problem.len()
+                + size_of_val(roots) + 512
+                + self.providers.keys().map(|name| name.len() + size_of::<(String, pse_kernels::ProviderKey, pse_ids::ContentHash)>() + 128).sum::<usize>();
+            let request_lease = math.reserve("modeling:selected-request", request_bytes)?;
+            let request = super::SelectedRequest {
+                problem: self.revision.canonical.problem.clone(), roots: roots.to_vec(), physical: self.physical.key,
+                providers: self.providers.iter().map(|(name, provider)| (name.clone(), provider.spec().key(), provider.configuration_key())).collect(),
+                validation: Arc::as_ptr(&self.runtime.sessions) as usize,
+                registry: Arc::as_ptr(&self.runtime.registry) as usize,
+            };
+            // This request is bounded by the same admitted package/roots, and its owned
+            // extent is reserved before either cache insertion or flight publication.
+            let request = Arc::new(request);
+            if let Some(candidates) = math.modeling_cache.selected(&request) {
+                for admission in candidates.iter().rev() {
+                    checkpoint(cancel)?;
+                    let _scratch = math.reserve("modeling:selected-recheck", admission.dependencies.retained_bytes())?;
+                    if store.recheck_selection_dependencies(&mut read, &admission.dependencies).await? {
+                        checkpoint(cancel)?;
+                        return Ok(admission.clone());
+                    }
+                }
+            }
+            let (index, physical, documents, leases) = self.select_into(roots, &mut read, cancel).await?;
+            checkpoint(cancel)?;
+            let bytes = read.publication_scratch_bytes()?.checked_add(request.retained_bytes())
+                .and_then(|n| n.checked_add(index.versions.iter().map(|(k,v)| k.capacity() + v.capacity() + 128).sum::<usize>()))
+                .and_then(|n| n.checked_add(size_of::<super::SelectedAdmission>() + 512))
+                .ok_or_else(|| contract("selected admission metadata extent"))?;
+            let metadata = math.reserve("modeling:selected-admission", bytes)?;
+            let dependencies = Arc::new(read.snapshot_dependencies()?);
+            // A concurrent first loader may have completed while this request was
+            // resolving its fresh premises. The same complete receipt proves reuse.
+            if let Some(candidates) = math.modeling_cache.selected(&request)
+                && let Some(admission) = candidates.iter().find(|candidate| candidate.dependencies == dependencies) {
+                return Ok(admission.clone());
+            }
+            let rows = index.rows.into_values().collect();
+            let suppliers = index.record_sources;
+            let versions = Arc::new(index.versions);
+            let inputs = super::compiler_context(&self.physical, &self.providers);
+            let physical_key = self.physical.key;
+            let service = math.clone();
+            let flight_metadata = metadata.clone();
+            let key = (request.clone(), dependencies.clone());
+            let operation = math.selected_flights.load_owned(key, move |control| async move {
+                let worker_service = service.clone();
+                let admitted = service.job(1, 0, control, move |flag| {
+                    let _sources = leases;
+                    let _metadata = flight_metadata;
+                    let _request = request_lease;
+                    if flag.load(std::sync::atomic::Ordering::Acquire) { return Err(crate::math::MathRuntimeError::Cancelled); }
+                    let workspace = worker_service.workspace(inputs, pse_compiler::workspace::WorkspaceLimits::default())?;
+                    let revision = worker_service.modeling_revision(&workspace, rows, physical, Arc::new(documents), &physical_key)?;
+                    for (record, supplier) in suppliers {
+                        if revision.checked().record(record).map(|record| record.origin) != Some(supplier) {
+                            return Err(crate::math::MathRuntimeError::Infrastructure("canonical record supplier differs from admitted scientific identity".into()));
+                        }
+                    }
+                    if flag.load(std::sync::atomic::Ordering::Acquire) { return Err(crate::math::MathRuntimeError::Cancelled); }
+                    Ok(revision)
+                }).await?;
+                Ok(Arc::new(admitted))
+            });
+            tokio::pin!(operation);
+            let revision = tokio::select! {
+                result = &mut operation => result.map_err(|error| match error {
+                    pse_columnar::flight::FlightError::Load(error) => crate::math::MathRuntimeError::Shared(error),
+                    pse_columnar::flight::FlightError::Capacity => crate::math::MathRuntimeError::Limit("selected admission flights"),
+                    pse_columnar::flight::FlightError::Retiring => crate::math::MathRuntimeError::Retiring,
+                    pse_columnar::flight::FlightError::Panicked => crate::math::MathRuntimeError::Panic("selected admission task panic".into()),
+                })?,
+                () = cancel.cancelled() => return Err(crate::math::MathRuntimeError::Cancelled.into()),
+            };
+            checkpoint(cancel)?;
+            let admission = Arc::new(super::SelectedAdmission {
+                request, revision: revision.as_ref().clone(), dependencies, versions, metadata,
+                _validation_owner: self.runtime.sessions.clone(), _registry_owner: self.runtime.registry.clone(),
+            });
+            math.modeling_cache.retain_selected(generation, admission.clone());
+            Ok(admission)
+        }.await;
+        match result {
+            Ok(admission) => Ok(CheckedSelection { admission, read }),
+            Err(error) => {
+                let _ = store.release(read.selection()).await;
+                Err(error)
             }
         }
-        Ok(revision)
     }
     pub(super) fn canonical_workspace(
         &self,
-        source: &SelectedSource,
+        read: &SelectedRead,
         cancel: &crate::CancelSource,
     ) -> Result<(crate::math::Workspace, CancellationWatch), WorkflowError> {
         let flag = Arc::new(std::sync::atomic::AtomicBool::new(
@@ -1542,7 +1622,7 @@ impl ModelingPackage {
             super::compiler_context(&self.physical, &self.providers),
             pse_compiler::workspace::WorkspaceLimits::default(),
             Arc::new(self.runtime.canonical.store().clone()),
-            Arc::new(std::sync::Mutex::new(source.read.clone())),
+            Arc::new(std::sync::Mutex::new(read.clone())),
             self.runtime.canonical.producer().cloned(),
             self.runtime.canonical.attestation().build,
             flag,
@@ -1557,10 +1637,10 @@ impl ModelingPackage {
         profile: pse_compiler::workspace::Profile,
         cancel: &crate::CancelSource,
     ) -> Result<pse_compiler::workspace::ModelingPointChecks, WorkflowError> {
-        let selected = self.selected_source(root, cancel).await?;
+        let selected = self.checked_selection(&[root], cancel).await?;
         let admitted = (|| {
-            let (workspace, watch) = self.canonical_workspace(&selected, cancel)?;
-            let revision = self.admit_source_in(&workspace, &selected)?;
+            let (workspace, watch) = self.canonical_workspace(&selected.read, cancel)?;
+            let revision = selected.admission.revision.clone();
             Ok::<_, WorkflowError>((workspace, watch, revision))
         })();
         let result = match admitted {
@@ -1588,8 +1668,8 @@ impl ModelingPackage {
         root: DeclarationId,
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
-        let selected = self.selected_source(root, cancel).await?;
-        let result = self.admit_source(&selected);
+        let selected = self.checked_selection(&[root], cancel).await?;
+        let result = Ok::<_, WorkflowError>(selected.admission.revision.clone());
         let release = self
             .runtime
             .canonical
@@ -1605,8 +1685,8 @@ impl ModelingPackage {
         roots: &[DeclarationId],
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
-        let selected = self.selected_sources(roots, cancel).await?;
-        let result = self.admit_source(&selected);
+        let selected = self.checked_selection(roots, cancel).await?;
+        let result = Ok::<_, WorkflowError>(selected.admission.revision.clone());
         let release = self
             .runtime
             .canonical
@@ -1629,6 +1709,7 @@ impl ModelingPackage {
             &self.physical.key,
         )?)
     }
+    #[cfg(all(test, feature = "canonical-tests"))]
     pub(super) async fn selected_source(
         &self,
         root: DeclarationId,
@@ -1636,6 +1717,7 @@ impl ModelingPackage {
     ) -> Result<SelectedSource, WorkflowError> {
         self.selected_sources(&[root], cancel).await
     }
+    #[cfg(all(test, feature = "canonical-tests"))]
     async fn selected_sources(
         &self,
         roots: &[DeclarationId],
@@ -1652,12 +1734,11 @@ impl ModelingPackage {
         let mut read = SelectedRead::new(protection);
         let result = self.select_into(roots, &mut read, cancel).await;
         match result {
-            Ok((index, physical, documents, leases)) => Ok(SelectedSource {
+            Ok((index, physical, _documents, leases)) => Ok(SelectedSource {
                 record_sources: index.record_sources,
                 versions: index.versions,
                 rows: index.rows.into_values().collect(),
                 physical,
-                documents: Arc::new(documents),
                 read,
                 _leases: leases,
             }),
@@ -2650,7 +2731,13 @@ mod tests {
                 .iter()
                 .any(|row| row.name.starts_with("ignored"))
         );
-        assert!(revised.admit_source(&selected).is_ok());
+        let checked = revised.checked_selection(&[root], &cancel).await.unwrap();
+        runtime
+            .canonical
+            .store()
+            .release(checked.read.selection())
+            .await
+            .unwrap();
         let changed = selected
             .versions
             .iter()
@@ -2866,7 +2953,14 @@ mod tests {
             names,
             ["p", "shared", "law", "D", "x", "e"].into_iter().collect()
         );
-        let admitted = package.admit_source(&selected).unwrap();
+        let checked = package.checked_selection(&[root], &cancel).await.unwrap();
+        let admitted = checked.admission.revision.clone();
+        runtime
+            .canonical
+            .store()
+            .release(checked.read.selection())
+            .await
+            .unwrap();
         assert!(admitted.checked().entry("p.D").is_some());
         assert!(admitted.checked().entry("p.Unrelated").is_none());
         runtime
@@ -2899,7 +2993,13 @@ mod tests {
             "unrelated declarations never enter the typed compiler input"
         );
         assert_eq!(selected.rows.len(), 6);
-        assert!(revised.admit_source(&selected).is_ok());
+        let checked = revised.checked_selection(&[root], &cancel).await.unwrap();
+        runtime
+            .canonical
+            .store()
+            .release(checked.read.selection())
+            .await
+            .unwrap();
         runtime
             .canonical
             .store()
@@ -2958,7 +3058,17 @@ mod tests {
             .unwrap();
         assert!(selected.rows.iter().any(|row| row.declaration_id == inner));
         assert!(!selected.rows.iter().any(|row| row.declaration_id == outer));
-        let revision = package.admit_source(&selected).unwrap();
+        let checked = package
+            .checked_selection(&[root], &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let revision = checked.admission.revision.clone();
+        runtime
+            .canonical
+            .store()
+            .release(checked.read.selection())
+            .await
+            .unwrap();
         assert_eq!(revision.checked().resolve(root, "outer"), Some(inner));
         runtime
             .canonical
@@ -3030,7 +3140,20 @@ mod tests {
             1,
             "shared suppliers are hydrated once across exact record demands"
         );
-        let admitted = package.admit_source(&selected).unwrap();
+        let checked = package
+            .checked_selection(
+                &[root, record, other_records[0], other_records[1]],
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let admitted = checked.admission.revision.clone();
+        runtime
+            .canonical
+            .store()
+            .release(checked.read.selection())
+            .await
+            .unwrap();
         for (record, expected) in other_records.into_iter().zip([3.0, 4.0]) {
             let value = admitted.checked().record(record).unwrap();
             assert_eq!(value.origin, supplier);
@@ -3097,7 +3220,16 @@ mod tests {
                 .count(),
             1
         );
-        assert!(package.admit_source(&selected).is_ok());
+        let checked = package
+            .checked_selection(&[root], &crate::CancelSource::new())
+            .await
+            .unwrap();
+        runtime
+            .canonical
+            .store()
+            .release(checked.read.selection())
+            .await
+            .unwrap();
         runtime
             .canonical
             .store()

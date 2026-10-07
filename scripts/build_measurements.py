@@ -14,13 +14,14 @@ import shutil
 import signal
 import statistics
 import subprocess
+import sys
 import tempfile
 import threading
 import time
 import tomllib
 from pathlib import Path
 
-from scripts import build_environment, validation
+from scripts import build_environment, native_operation, validation
 
 
 def snapshot(root: Path, output: Path) -> Path:
@@ -439,23 +440,40 @@ def execute_workload(
 
 
 def capability_environment(
-    root: Path, original: dict[str, str], *, native: bool, workflow: bool
+    original: dict[str, str], *, native: bool, workflow: bool
 ) -> dict[str, str]:
     """Prepare linked capabilities only when the selected workload consumes them."""
     if not native and not workflow:
         return original.copy()
-    output = subprocess.check_output(
+    if native_operation.owner_record() is None:
+        raise ValueError(
+            "native build measurement requires its operation owner before snapshot admission"
+        )
+    return native_operation.environment(
+        ["solver", "klu", "isolation", "uno", "petsc"], original
+    )
+
+
+def ensure_capability_operation(root: Path, *, native: bool, workflow: bool) -> None:
+    """Start the real operation before setup, snapshot creation and child builds."""
+    if not native and not workflow:
+        return
+    if native_operation.owner_record() is not None:
+        return
+    environment = dict(os.environ)
+    environment["PSE_NATIVE_CAPABILITIES"] = "solver,klu,isolation,uno,petsc"
+    os.execvpe(  # noqa: S606 -- replaces this launcher with the supervised operation
+        "bash",
         [
             "bash",
-            "-c",
-            'source "$1/scripts/native-execution-env.sh" >/dev/null; env -0',
-            "build-measurement-capabilities",
-            str(root),
+            str(root / "scripts/native_exec.sh"),
+            sys.executable,
+            "-m",
+            "scripts.build_measurements",
+            *sys.argv[1:],
         ],
-        cwd=root,
-        env=original,
+        environment,
     )
-    return dict(entry.decode().split("=", 1) for entry in output.split(b"\0") if entry)
 
 
 def main() -> None:
@@ -502,6 +520,7 @@ def main() -> None:
     if args.execute and args.native:
         parser.error("use --workflow for the native unit selection")
     root = Path(__file__).resolve().parents[1]
+    ensure_capability_operation(root, native=args.native, workflow=args.workflow)
     settings = tomllib.loads((root / ".config/build.toml").read_text())
     if shutil.disk_usage(root).free < settings["free_space_gib"] * 1024**3:
         raise ValueError(
@@ -513,7 +532,7 @@ def main() -> None:
     env = build_environment.configure(
         root,
         capability_environment(
-            root, validation.command_env(), native=args.native, workflow=args.workflow
+            validation.command_env(), native=args.native, workflow=args.workflow
         ),
         cache=args.cache,
         frontend=args.frontend,

@@ -5,12 +5,14 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts import native_tests
 
@@ -77,6 +79,33 @@ class PythonSelectionTests(unittest.TestCase):
                 selected = self.selected("--ignore", "absent.py", target)
                 self.assertNotIn("test_second.py", selected)
                 self.assertIn("1 test collected", selected)
+
+
+class ArtifactObservationTests(unittest.TestCase):
+    def test_control_observations_follow_actual_import_and_worker_replacement(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            worker = root / "worker"
+            worker.write_bytes(b"actual worker")
+            python = root / "_native.so"
+            python.write_bytes(b"actual imported extension")
+            output = root / "observed.json"
+            environment = {
+                "PSE_WORKER_BINARY": str(worker),
+                "PSE_DEPLOYMENT_ARTIFACT_OBSERVATIONS": str(output),
+            }
+            with patch.object(
+                native_tests, "python_native_binary", return_value=python
+            ):
+                native_tests.observe_deployed_artifacts(environment)
+                first = json.loads(output.read_text())
+                worker.write_bytes(b"same-path replacement")
+                native_tests.observe_deployed_artifacts(environment)
+                second = json.loads(output.read_text())
+            self.assertNotEqual(first["worker"]["sha256"], second["worker"]["sha256"])
+            self.assertEqual(first["python"], second["python"])
 
 
 if __name__ == "__main__":

@@ -1208,10 +1208,9 @@ impl ModelingSimulation {
                 }
             }
             let index = self
-                .contract
-                .states
-                .iter()
-                .position(|id| *id == goal.target_id)
+                .state_positions
+                .get(&goal.target_id)
+                .copied()
                 .ok_or_else(|| {
                     ProblemError::Unsupported("dynamic accuracy state target is not a state".into())
                 })?;
@@ -1794,10 +1793,9 @@ impl ModelingSimulation {
             }
             (_, NumericalTarget::Variable) => {
                 let index = self
-                    .contract
-                    .states
-                    .iter()
-                    .position(|id| *id == goal.target_id)
+                    .state_positions
+                    .get(&goal.target_id)
+                    .copied()
                     .ok_or(Unavailable::UnsupportedObservation)?;
                 let binding = self
                     .coordinates
@@ -1815,10 +1813,9 @@ impl ModelingSimulation {
             (_, NumericalTarget::Observable) => {
                 let output = ModelingOutput::Member(goal.target_id).row_id();
                 let i = self
-                    .contract
-                    .outputs
-                    .iter()
-                    .position(|id| *id == output)
+                    .output_positions
+                    .get(&output)
+                    .copied()
                     .ok_or(Unavailable::UnsupportedObservation)?;
                 point
                     .outputs
@@ -1875,21 +1872,13 @@ impl ModelingSimulation {
         match (goal.observation, goal.target_kind) {
             (AccuracyObservation::Integrated, _) => None,
             (_, NumericalTarget::Variable) => {
-                let index = self
-                    .contract
-                    .states
-                    .iter()
-                    .position(|id| *id == goal.target_id)?;
+                let index = self.state_positions.get(&goal.target_id).copied()?;
                 let binding = self.coordinates.state.get(index)?;
                 Some(*point.state.get(index)? * binding.scale + binding.offset)
             }
             (_, NumericalTarget::Observable) => {
                 let id = ModelingOutput::Member(goal.target_id).row_id();
-                let index = self
-                    .contract
-                    .outputs
-                    .iter()
-                    .position(|candidate| *candidate == id)?;
+                let index = self.output_positions.get(&id).copied()?;
                 point.outputs.get(index).copied()
             }
             _ => None,

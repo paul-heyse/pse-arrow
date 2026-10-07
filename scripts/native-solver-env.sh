@@ -4,18 +4,12 @@
 # Source this file to compile against the immutable solver image's C interface.
 # The image is the pinned dev image, or the immutable local override
 # PSE_SOLVER_IMAGE (docker/solvers/README.md, "Local images").
+# Manual exports only: outside an admitted operation, every use gets full
+# verification and managed generations remain conservatively pinned. Prefer
+# native_exec.sh when setup and command lifetime must be scoped together.
 set -euo pipefail
-# CI/devcontainer already exports the admitted image's interface and runtime paths.
-# An explicit local prefix is also checked by pse-ipopt-sys; do not require nested Docker.
-if [[ -n "${IPOPT_DIR:-}" ]]; then
-  return 0
-fi
 pse_solver_root="$(git rev-parse --show-toplevel)"
 source "$pse_solver_root/scripts/build-env.sh"
-pse_solver_prefix="$(python3 "$pse_solver_root/scripts/native_cache.py" solver)"
-# One prefix serves every native build script: Ipopt (pse-ipopt-sys) and SCIP
-# (scip-sys reads SCIPOPTDIR).  Test binaries run in the same image through
-# native-solver-runner.sh, which supplies the solver process environment.
-export IPOPT_DIR="$pse_solver_prefix"
-export SCIPOPTDIR="$pse_solver_prefix"
-export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER="bash $pse_solver_root/scripts/native-solver-runner.sh"
+pse_solver_exports="$("${PSE_NATIVE_SETUP_PYTHON:-$pse_solver_root/.venv/bin/python}" "$pse_solver_root/scripts/native_operation.py" --capabilities solver --shell)"
+eval "$pse_solver_exports"
+unset pse_solver_exports

@@ -278,7 +278,7 @@ EXCLUSIONS = {
 
 # Versioned, conservative subsystem declarations project the one captured map.
 # A missing declaration deliberately retains every contextual input.
-INPUT_SCOPE_VERSION = 1
+INPUT_SCOPE_VERSION = 2
 RUST_INPUTS = (
     "Cargo.toml",
     "Cargo.lock",
@@ -296,6 +296,7 @@ RUST_INPUTS = (
     ".config/hakari.toml",
     ".config/native-cache.cmake",
     ".config/build.toml",
+    ".config/sccache.toml",
     "scripts/build",
     "scripts/native",
     "scripts/memory-cap.sh",
@@ -407,6 +408,8 @@ PRODUCT_ENVIRONMENT = (
     "PSE_WORKER_PRODUCER_RECEIPT",
     "PSE_PYTHON_PRODUCER_RECEIPT",
     "PSE_PYTHON_DEPLOYMENT_ATTESTATION",
+    "PSE_DEPLOYMENT_ARTIFACT_OBSERVATIONS",
+    "PSE_NATIVE_PROVIDER_RECEIPT",
     "PSE_PRODUCER_FIXTURE_RECEIPT",
     "PSE_MEMORY_MAX",
     "SYMBOLICA_LICENSE",

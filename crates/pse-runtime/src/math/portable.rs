@@ -106,14 +106,15 @@ impl QualifiedProducer {
     /// # Safety
     /// The bytes must be the actual current capture from the controlled deployment
     /// identity tool, with its reviewed completeness declarations. The caller must
-    /// supply the real linked executable source/build attestations, not hashes chosen
+    /// supply the independently observed actual loaded artifact digest, after current
+    /// consumed inputs and role contract have been checked, not hashes chosen
     /// to make an arbitrary JSON claim match. This asserts deployment provenance;
     /// matching JSON fields alone cannot establish a qualified producer.
     ///
     /// ```compile_fail
     /// use pse_runtime::math::portable::QualifiedProducer;
     /// let id=pse_ids::ContentHash::from_bytes([0;32]);
-    /// let _=QualifiedProducer::from_deployment_receipt(b"{}",id,id,pse_runtime::math::portable::ExpectedProducerTarget::WORKER);
+    /// let _=QualifiedProducer::from_deployment_receipt(b"{}",&id.to_hex(),pse_runtime::math::portable::ExpectedProducerTarget::WORKER);
     /// ```
     /// # Errors
     /// Wrong interpretation, malformed identity or contradictory eligibility evidence.
@@ -123,17 +124,16 @@ impl QualifiedProducer {
     )]
     pub unsafe fn from_deployment_receipt(
         bytes: &[u8],
-        expected_source: ContentHash,
-        expected_build: ContentHash,
+        actual_artifact_sha256: &str,
         expected_target: ExpectedProducerTarget,
     ) -> Result<Option<Self>, PortableError> {
         #[derive(Deserialize)]
         struct Receipt {
             frame: String,
-            identity: String,
             persistent_reuse_eligible: bool,
             reasons: Vec<String>,
-            outer_attestation: Option<Attestation>,
+            deployment: Option<Association>,
+            native_abi: Option<String>,
             #[serde(default)]
             package: Option<String>,
             #[serde(default)]
@@ -147,13 +147,33 @@ impl QualifiedProducer {
             target_name: String,
             target_kind: Vec<String>,
             mode: String,
+            #[serde(default)]
+            profile: serde_json::Value,
+            #[serde(default)]
+            features: Vec<String>,
         }
         #[derive(Deserialize)]
-        struct Attestation {
-            source: ContentHash,
-            build: ContentHash,
+        struct Association {
+            artifact: Artifact,
+            producer_identity: String,
+            selected_root: String,
         }
-        let receipt: Receipt = serde_json::from_slice(bytes)
+        #[derive(Deserialize)]
+        struct Artifact {
+            sha256: String,
+        }
+        let header: serde_json::Value = serde_json::from_slice(bytes)
+            .map_err(|error| PortableError::Qualification(error.to_string()))?;
+        if header
+            .get("receipt_version")
+            .and_then(serde_json::Value::as_u64)
+            != Some(u64::from(pse_buildinfo::DEPLOYMENT_RECEIPT_VERSION))
+        {
+            return Err(PortableError::Qualification(
+                "unsupported deployment receipt interpretation".into(),
+            ));
+        }
+        let receipt: Receipt = serde_json::from_value(header.clone())
             .map_err(|error| PortableError::Qualification(error.to_string()))?;
         if receipt.frame != Frame::ProducerV1.as_str() {
             return Err(PortableError::Qualification(
@@ -168,15 +188,25 @@ impl QualifiedProducer {
                 "eligible producer retains unresolved input evidence".into(),
             ));
         }
-        let Some(attestation) = receipt.outer_attestation else {
+        let Some(association) = receipt.deployment else {
             return Ok(None);
         };
-        if attestation.source != expected_source || attestation.build != expected_build {
+        if association.artifact.sha256 != actual_artifact_sha256
+            || actual_artifact_sha256.len() != 64
+            || !actual_artifact_sha256
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit())
+        {
             return Ok(None);
         }
         let Some(selected_root) = receipt.selected_root else {
             return Ok(None);
         };
+        if association.selected_root != selected_root {
+            return Err(PortableError::Qualification(
+                "actual artifact association names another selected root".into(),
+            ));
+        }
         let mut roots = receipt
             .units
             .iter()
@@ -200,8 +230,29 @@ impl QualifiedProducer {
         {
             return Ok(None);
         }
-        let identity = ContentHash::parse_hex(&receipt.identity)
+        if receipt
+            .native_abi
+            .as_ref()
+            .is_none_or(|abi| abi.trim().is_empty())
+        {
+            return Ok(None);
+        }
+        if matches!(expected_target.package, "xtask" | "pse-py")
+            && (root.profile.get("name").and_then(serde_json::Value::as_str) != Some("producer")
+                || !root
+                    .features
+                    .iter()
+                    .any(|feature| feature == "native-solvers"))
+        {
+            return Ok(None);
+        }
+        let identity = pse_buildinfo::identity::verify_scientific_producer_identity(&header)
             .map_err(|error| PortableError::Qualification(error.to_string()))?;
+        if association.producer_identity != identity.to_hex() {
+            return Err(PortableError::Qualification(
+                "actual artifact association names another scientific producer".into(),
+            ));
+        }
         Ok(Some(Self { identity }))
     }
     /// Exact relevant producer identity; eligibility is not a property of global builds.
@@ -574,6 +625,97 @@ async fn qualify_candidate(
 mod portable_frame_tests {
     use super::*;
     #[test]
+    #[allow(
+        unsafe_code,
+        reason = "isolated current receipt decoder controls, no production qualification exposed"
+    )]
+    fn deployment_receipt_current_shape_binds_actual_artifact_role_and_native_contract() {
+        let artifact = "a".repeat(64);
+        let identity = "b".repeat(64);
+        let mut value = serde_json::json!({
+            "receipt_version": pse_buildinfo::DEPLOYMENT_RECEIPT_VERSION,
+            "frame": Frame::ProducerV1.as_str(), "identity": identity,
+            "persistent_reuse_eligible": true, "reasons": [],
+            "selected_lock_records":[],"consumed_inputs":{},"declared_environment":{},
+            "deployment": {"artifact": {"sha256": artifact},"producer_identity":"pending-fixture-key","selected_root":"root"},
+            "native_abi": "actual reviewed native ABI", "package": "xtask", "selected_root": "root",
+            "units": [{"key":"root", "target_name":"pse-worker", "target_kind":["bin"], "crate_types":["bin"],"package_id":"selected-fixture","edition":"2024","platform":null,"dependencies":{}, "mode":"build", "profile":{"name":"producer"}, "features":["native-solvers"]}]
+        });
+        let units: Vec<pse_buildinfo::identity::ProductionUnit> =
+            serde_json::from_value(value["units"].clone()).unwrap();
+        value["identity"] = pse_buildinfo::identity::scientific_producer_identity(
+            "xtask",
+            &units,
+            &[],
+            &std::collections::BTreeMap::new(),
+            &std::collections::BTreeMap::new(),
+            &Some("actual reviewed native ABI".into()),
+        )
+        .unwrap()
+        .to_hex()
+        .into();
+        value["deployment"]["producer_identity"] = value["identity"].clone();
+        // SAFETY: isolated decoder controls use artificial observations; this fixture
+        // exposes no native composition root or persisted eligibility.
+        let mint = |value: &serde_json::Value, observed: &str, role| unsafe {
+            // Isolated decoder controls supply artificial observations; no native
+            // composition root or persisted eligibility is exposed by this fixture.
+            QualifiedProducer::from_deployment_receipt(
+                &serde_json::to_vec(value).unwrap(),
+                observed,
+                role,
+            )
+        };
+        assert!(
+            mint(&value, &artifact, ExpectedProducerTarget::WORKER)
+                .unwrap()
+                .is_some()
+        );
+        let mut substituted = value.clone();
+        substituted["identity"] = "c".repeat(64).into();
+        assert!(mint(&substituted, &artifact, ExpectedProducerTarget::WORKER).is_err());
+        assert!(
+            mint(&value, &"c".repeat(64), ExpectedProducerTarget::WORKER)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            mint(&value, &artifact, ExpectedProducerTarget::PYTHON)
+                .unwrap()
+                .is_none()
+        );
+        for changed in [
+            {
+                let mut v = value.clone();
+                v["native_abi"] = serde_json::Value::Null;
+                v
+            },
+            {
+                let mut v = value.clone();
+                v["units"][0]["profile"]["name"] = "dev".into();
+                v
+            },
+            {
+                let mut v = value.clone();
+                v["units"][0]["features"] = serde_json::json!([]);
+                v
+            },
+        ] {
+            assert!(
+                mint(&changed, &artifact, ExpectedProducerTarget::WORKER)
+                    .unwrap()
+                    .is_none()
+            );
+        }
+        let mut inconsistent = value.clone();
+        inconsistent["reasons"] = serde_json::json!(["unresolved"]);
+        assert!(mint(&inconsistent, &artifact, ExpectedProducerTarget::WORKER).is_err());
+        let historical = serde_json::json!({"receipt_version":1,"deployment":"old shape"});
+        assert!(
+            matches!(mint(&historical,&artifact,ExpectedProducerTarget::WORKER),Err(PortableError::Qualification(reason)) if reason=="unsupported deployment receipt interpretation")
+        );
+    }
+    #[test]
     fn portable_envelope_over_wire_block_preserves_hash_and_refuses_forged_extent() {
         let payload = vec![b'x'; 3 * 1024 * 1024 + 1];
         let id = ContentHash::from_bytes([1; 32]);
@@ -612,13 +754,9 @@ mod canonical_deployment_tests {
     #[test]
     #[allow(
         unsafe_code,
-        reason = "actual controlled deployment captures qualified against an independently observed Python run header"
+        reason = "actual controlled deployment captures qualified against independently observed role artifacts"
     )]
     fn canonical_deployment_actual_receipts_enforce_selected_role() {
-        let observed = std::env::var_os("PSE_PYTHON_DEPLOYMENT_ATTESTATION")
-            .expect("qualification supplies the actual imported Python run header attestation");
-        let (source, build): (ContentHash, ContentHash) =
-            serde_json::from_slice(&std::fs::read(observed).unwrap()).unwrap();
         for (path, target, other) in [
             (
                 "PSE_PYTHON_PRODUCER_RECEIPT",
@@ -636,24 +774,35 @@ mod canonical_deployment_tests {
             let receipt: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
             assert_eq!(receipt["persistent_reuse_eligible"], true);
             assert!(receipt["reasons"].as_array().unwrap().is_empty());
-            // Matching the independently observed loaded-extension attestation is
-            // required for BOTH roles: a mismatched outer hash is not this oracle.
-            assert_eq!(receipt["outer_attestation"]["source"], source.to_prefixed());
-            assert_eq!(receipt["outer_attestation"]["build"], build.to_prefixed());
+            // Each role is observed independently; no outer-context equality
+            // participates in scientific producer qualification.
+            let role = if target.package == "pse-py" {
+                "python"
+            } else {
+                "worker"
+            };
+            let observation: serde_json::Value = serde_json::from_slice(
+                &std::fs::read(
+                    std::env::var_os("PSE_DEPLOYMENT_ARTIFACT_OBSERVATIONS")
+                        .expect("independent role observations"),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+            let artifact = observation[role]["sha256"].as_str().unwrap();
             // SAFETY: the qualification runner supplies current actual controlled
-            // captures and independently records the installed/imported Python
-            // deployment's real run header, with binary association checked before
-            // this control. No receipt chooses its own expected attestation.
-            let qualified = unsafe {
-                QualifiedProducer::from_deployment_receipt(&bytes, source, build, target)
-            }
-            .unwrap()
-            .expect("actual capture qualifies for its selected deployment role");
+            // captures and independently records actual worker/imported Python
+            // artifact bytes, with native loaded association checked at each
+            // composition root. No receipt chooses its own expected artifact.
+            let qualified =
+                unsafe { QualifiedProducer::from_deployment_receipt(&bytes, artifact, target) }
+                    .unwrap()
+                    .expect("actual capture qualifies for its selected deployment role");
             assert_eq!(qualified.identity().to_hex(), receipt["identity"]);
             // SAFETY: identical actual deployment premises; only the receiving
             // executable role changes, so refusal exercises target association.
             assert!(
-                unsafe { QualifiedProducer::from_deployment_receipt(&bytes, source, build, other) }
+                unsafe { QualifiedProducer::from_deployment_receipt(&bytes, artifact, other) }
                     .unwrap()
                     .is_none()
             );
@@ -674,16 +823,14 @@ mod canonical_portable_body_tests {
     )]
     fn deployment_fixture(
         bytes: &[u8],
-        source: ContentHash,
-        build: ContentHash,
+        artifact: &str,
     ) -> Result<Option<QualifiedProducer>, PortableError> {
         // SAFETY: isolated fixture supplies a complete controlled receipt and exact
         // fixture attestations; no production completeness is asserted by these tests.
         unsafe {
             QualifiedProducer::from_deployment_receipt(
                 bytes,
-                source,
-                build,
+                artifact,
                 ExpectedProducerTarget {
                     package: "producer-fixture",
                     target: "producer_fixture",
@@ -1267,12 +1414,14 @@ mod canonical_portable_body_tests {
         assert_eq!(receipt["persistent_reuse_eligible"], true);
         assert!(receipt["reasons"].as_array().unwrap().is_empty());
         assert!(!receipt["units"].as_array().unwrap().is_empty());
-        let source =
-            serde_json::from_value(receipt["outer_attestation"]["source"].clone()).unwrap();
-        let build = serde_json::from_value(receipt["outer_attestation"]["build"].clone()).unwrap();
-        let qualified = deployment_fixture(&bytes, source, build)
-            .unwrap()
-            .expect("actual finite tool fixture is eligible");
+        let qualified = deployment_fixture(
+            &bytes,
+            receipt["deployment"]["artifact"]["sha256"]
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap()
+        .expect("actual finite tool fixture is eligible");
         assert_eq!(
             qualified.identity().to_hex(),
             receipt["identity"].as_str().unwrap()
@@ -1466,78 +1615,53 @@ mod canonical_portable_body_tests {
     }
     #[test]
     fn canonical_portable_body_incomplete_producer_refuses_persistent_reuse() {
-        let receipt=serde_json::to_vec(&serde_json::json!({"frame":Frame::ProducerV1.as_str(),"identity":ContentHash::from_bytes([1;32]).to_hex(),"persistent_reuse_eligible":false,"reasons":["undeclared build-script input"]})).unwrap();
+        let receipt=serde_json::to_vec(&serde_json::json!({"receipt_version":2,"frame":Frame::ProducerV1.as_str(),"native_abi":null,"deployment":null,"identity":ContentHash::from_bytes([1;32]).to_hex(),"persistent_reuse_eligible":false,"reasons":["undeclared build-script input"]})).unwrap();
         assert!(
-            deployment_fixture(
-                &receipt,
-                ContentHash::from_bytes([2; 32]),
-                ContentHash::from_bytes([3; 32])
-            )
-            .unwrap()
-            .is_none()
-        );
-        let contradictory=serde_json::to_vec(&serde_json::json!({"frame":Frame::ProducerV1.as_str(),"identity":ContentHash::from_bytes([1;32]).to_hex(),"persistent_reuse_eligible":true,"reasons":["unknown native bytes"]})).unwrap();
-        assert!(
-            deployment_fixture(
-                &contradictory,
-                ContentHash::from_bytes([2; 32]),
-                ContentHash::from_bytes([3; 32])
-            )
-            .is_err()
-        );
-    }
-    #[test]
-    fn canonical_portable_body_producer_requires_current_outer_binding() {
-        let source = ContentHash::from_bytes([2; 32]);
-        let build = ContentHash::from_bytes([3; 32]);
-        let identity = ContentHash::from_bytes([4; 32]);
-        let receipt=serde_json::to_vec(&serde_json::json!({"frame":Frame::ProducerV1.as_str(),"identity":identity.to_hex(),"persistent_reuse_eligible":true,"reasons":[],"package":"producer-fixture","selected_root":"fixture-root","units":[{"key":"fixture-root","target_name":"producer_fixture","target_kind":["lib"],"mode":"build"}],"outer_attestation":{"source":source,"build":build}})).unwrap();
-        assert_eq!(
-            deployment_fixture(&receipt, source, build)
-                .unwrap()
-                .unwrap()
-                .identity(),
-            identity
-        );
-        assert!(
-            deployment_fixture(&receipt, ContentHash::from_bytes([5; 32]), build)
+            deployment_fixture(&receipt, &"a".repeat(64))
                 .unwrap()
                 .is_none()
         );
-        assert!(
-            deployment_fixture(&receipt, source, ContentHash::from_bytes([6; 32]))
-                .unwrap()
-                .is_none()
-        );
-        let refreshed_source = ContentHash::from_bytes([7; 32]);
-        let refreshed=serde_json::to_vec(&serde_json::json!({"frame":Frame::ProducerV1.as_str(),"identity":identity.to_hex(),"persistent_reuse_eligible":true,"reasons":[],"package":"producer-fixture","selected_root":"fixture-root","units":[{"key":"fixture-root","target_name":"producer_fixture","target_kind":["lib"],"mode":"build"}],"outer_attestation":{"source":refreshed_source,"build":build}})).unwrap();
-        assert_eq!(
-            deployment_fixture(&refreshed, refreshed_source, build)
-                .unwrap()
-                .unwrap()
-                .identity(),
-            identity
-        );
+        let contradictory=serde_json::to_vec(&serde_json::json!({"receipt_version":2,"frame":Frame::ProducerV1.as_str(),"native_abi":null,"deployment":null,"identity":ContentHash::from_bytes([1;32]).to_hex(),"persistent_reuse_eligible":true,"reasons":["unknown native bytes"]})).unwrap();
+        assert!(deployment_fixture(&contradictory, &"a".repeat(64)).is_err());
     }
 
     #[test]
     fn canonical_portable_body_producer_requires_selected_root_not_dependency() {
-        let source = ContentHash::from_bytes([2; 32]);
-        let build = ContentHash::from_bytes([3; 32]);
+        let artifact = "a".repeat(64);
         let mut receipt = serde_json::json!({
             "frame": Frame::ProducerV1.as_str(), "identity": ContentHash::from_bytes([4; 32]).to_hex(),
             "persistent_reuse_eligible": true, "reasons": [], "package": "producer-fixture",
-            "outer_attestation": {"source": source, "build": build}, "selected_root": "worker",
+            "receipt_version":2,"native_abi":"fixture-abi","deployment":{"artifact":{"sha256":artifact},"producer_identity":"pending-fixture-key","selected_root":"worker"}, "selected_root": "worker",
+            "selected_lock_records":[],"consumed_inputs":{},"declared_environment":{},
             "units": [
-                {"key": "worker", "target_name": "worker", "target_kind": ["bin"], "mode": "build"},
-                {"key": "library", "target_name": "producer_fixture", "target_kind": ["lib"], "mode": "build"}
+                {"key": "worker", "target_name": "worker", "target_kind": ["bin"], "crate_types":["bin"],"package_id":"fixture","edition":"2024","platform":null,"dependencies":{},"profile":{},"features":[], "mode": "build"},
+                {"key": "library", "target_name": "producer_fixture", "target_kind": ["lib"], "crate_types":["lib"],"package_id":"fixture","edition":"2024","platform":null,"dependencies":{},"profile":{},"features":[], "mode": "build"}
             ]
         });
+        let units: Vec<pse_buildinfo::identity::ProductionUnit> =
+            serde_json::from_value(receipt["units"].clone()).unwrap();
+        receipt["identity"] = pse_buildinfo::identity::scientific_producer_identity(
+            "producer-fixture",
+            &units,
+            &[],
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &Some("fixture-abi".into()),
+        )
+        .unwrap()
+        .to_hex()
+        .into();
+        receipt["deployment"]["producer_identity"] = receipt["identity"].clone();
         let check = |receipt: &serde_json::Value| {
-            deployment_fixture(&serde_json::to_vec(receipt).unwrap(), source, build)
+            deployment_fixture(&serde_json::to_vec(receipt).unwrap(), &artifact)
         };
         assert!(check(&receipt).unwrap().is_none());
         receipt["selected_root"] = "library".into();
+        assert!(
+            check(&receipt).is_err(),
+            "artifact bound to the actual worker root cannot qualify a dependency root"
+        );
+        receipt["deployment"]["selected_root"] = "library".into();
         assert!(check(&receipt).unwrap().is_some());
         receipt["selected_root"] = "absent".into();
         assert!(matches!(

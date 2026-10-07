@@ -18,6 +18,15 @@ rhythm*). It is not a prerequisite for a commit, push, merge or plan close. Duri
 implementation, use `just check-package`, targeted `just unit-package` and `just codegen`.
 The failure baseline is zero. A report names the command, mode, scope and result.
 
+During design, dependency, toolchain, environment and artifact fingerprints are provenance,
+not automatic grounds to invalidate an earlier result or require a new artifact qualification.
+Use the development profile by default and run targeted tests for changed behavior. Cargo may
+need to compile edited code to execute it; that is separate from a qualification-driven rebuild.
+Retain historical evidence with its original conditions, without claiming it exercised new code.
+Strict producer/artifact qualification remains available on explicit request. Do not freeze or
+copy the Cargo environment to keep historical evidence valid, or infer scientific invalidity
+from a refused exact cache match. No automatic change-impact classification is required.
+
 ## What each command establishes
 
 During implementation the inner loop is `just check-package`/`just check`, targeted
@@ -45,12 +54,14 @@ manual qualification.
 ## Common conditions
 
 - Every Rust test recipe passes `--features pse-relations/force-validate` explicitly.
-- Native recipes run through `scripts/native_exec.sh`, which sources
-  `scripts/native-execution-env.sh`. That script loads the build, solver and math
-  environments and optional local `.envrc.local` overrides. It prepends `$IPOPT_DIR/lib`
-  to `LD_LIBRARY_PATH` and sets `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS` and
-  `MKL_NUM_THREADS` to `1`. A missing native library or capability fails; it is never
-  skipped.
+- Native recipes run through `scripts/native_exec.sh` and the common operation owner,
+  beginning the supervised lifetime before setup. Each recipe requests its actual native
+  capability closure; nested consumers reuse verified immutable generations while that
+  operation is alive. Local `.envrc.local` overrides remain supported. The selected solver
+  prefix supplies its loader path, and native thread settings remain `1`. A missing required
+  library or capability fails. Manual sourced environment helpers perform full verification
+  on every unscoped use and retain conservative generation guards; they do not grant scoped
+  reuse, cancellation or reclamation.
 - Results are local outputs under the ignored `build/` directory; they are not
   committed. The runner refuses an output path that Git does not ignore or that
   already exists.
@@ -110,7 +121,7 @@ Native Python resolves the imported package and extension in pytest's interprete
 environment, refuses origins outside this checkout, and checks the same loaded extension
 inside pytest before collection. On-disk candidates are not execution identity.
 
-For assembled persisted-reuse qualification, use `--python-profile producer` and
+For explicitly requested strict assembled persisted-reuse qualification, use `--python-profile producer` and
 supply the reviewed host inputs through `PSE_RUNTIME_PRODUCER_DECLARATIONS`,
 `PSE_WORKER_PRODUCER_DECLARATIONS`, `PSE_PYTHON_PRODUCER_DECLARATIONS` and
 `PSE_NATIVE_PRODUCER_INPUTS`. The declaration variables name current source-bound
@@ -126,16 +137,19 @@ deployment targets, then runs the eligible Python solve/reopen control with
 `PSE_PYTHON_DEPLOYMENT_OBSERVATION_OUTPUT` naming a fresh output file. The wrapper
 passes that output to the control only after recording the imported binary and its
 input captures. That control writes the
-actual imported extension's run-header attestation after checking it against its
-capture. The native cross-role control requires both eligible captures to match
-that independently observed pair and refuses each receipt for the other receiving
-role. Provenance hashes both captures and the observed header bytes; a receipt's
-self-reported attestation cannot supply this control's expected pair.
+actual imported extension's run-header context after verifying its mapped code against
+the selected artifact capture. `PSE_DEPLOYMENT_ARTIFACT_OBSERVATIONS` supplies independent
+observations of the actual deployed role artifacts. The native cross-role control checks
+each eligible capture against its role observation and refuses each receipt for the other
+receiving role. Role artifacts and their outer observations need not match. Provenance
+hashes the captures, role observations and header bytes; a receipt's self-reported artifact
+cannot supply this control's independent expected observation.
 For a standalone capture, `just producer-deployment <fresh-output>` consumes the
 same reviewed inputs. Subsequent native commands use
 `PSE_WORKER_PRODUCER_RECEIPT`, `PSE_PYTHON_PRODUCER_RECEIPT` and
-`PSE_PYTHON_DEPLOYMENT_ATTESTATION` for their actual input receipts and observed
-header; the association control must have produced that header first.
+`PSE_PYTHON_DEPLOYMENT_ATTESTATION` and `PSE_DEPLOYMENT_ARTIFACT_OBSERVATIONS` for their
+actual input receipts, observed header and independently observed role artifacts;
+the association control must have produced the header first.
 
 One before/after contextual inventory captures source hashes, additions, deletions, modes,
 symlink targets and Git provenance. Each gate projects that map into a versioned declared
@@ -168,7 +182,9 @@ a current version-5 report, and each retained gate takes one of two repeatable f
 Retained records keep their origin and are labelled `unchanged-input-reuse` or
 `reviewed-transfer`, never fresh execution.
 The production deployment capture and imported Python association always execute
-fresh; `--reuse` and `--transfer` refuse those two gates. Their host review contexts
+fresh within an explicitly selected producer campaign; `--reuse` and `--transfer` refuse those two gates. This
+is a condition for a new current-artifact claim, not a requirement to start such a campaign
+after a dependency/environment change or a rejection of historical scientific results. Their host review contexts
 and native-input lists can select external inputs, so ordinary source-only reuse
 cannot establish a current deployment. Other eligible gates retain the continuation
 behavior above.

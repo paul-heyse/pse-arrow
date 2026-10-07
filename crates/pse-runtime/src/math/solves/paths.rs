@@ -1592,6 +1592,7 @@ struct PathExecution<'a> {
     execution: &'a Execution,
     budget: &'a Arc<WorkerBudget>,
     retained: &'a mut Retained,
+    tangent_workspace: &'a mut arclength::TangentWorkspace,
 }
 fn correct(
     context: PathExecution<'_>,
@@ -1605,6 +1606,7 @@ fn correct(
         execution,
         budget,
         retained,
+        tangent_workspace: _,
     } = context;
     let supplier = path.supplier(service, execution, budget)?;
     let binding = path
@@ -2069,6 +2071,7 @@ fn localize_event(
         execution,
         budget,
         retained,
+        tangent_workspace,
     } = context;
     let EventBracket {
         left,
@@ -2087,6 +2090,7 @@ fn localize_event(
         event_request(path, right, &tangent.normalized),
         supplier,
         execution,
+        tangent_workspace,
     ) {
         Ok(value) => {
             outcome.tangent_work.push(value.work);
@@ -2162,6 +2166,7 @@ fn localize_event(
                     execution,
                     budget,
                     retained,
+                    tangent_workspace,
                 },
                 &predicted,
                 &tangent.normalized,
@@ -2185,6 +2190,7 @@ fn localize_event(
             event_request(path, &point, &tangent.normalized),
             supplier,
             execution,
+            tangent_workspace,
         ) {
             Ok(value) => {
                 outcome.tangent_work.push(value.work);
@@ -2320,6 +2326,7 @@ pub(crate) fn run_path(
             .unwrap_or(0);
         let _proof_work = budget.charge(proof_bytes)?;
         let _tangent_work = budget.charge(path.request.policy.tangent.bytes)?;
+        let mut tangent_workspace = arclength::TangentWorkspace::default();
         let _event_work = path
             .request
             .policy
@@ -2432,6 +2439,7 @@ pub(crate) fn run_path(
                 },
                 &mut supplier,
                 &execution,
+                &mut tangent_workspace,
             ) {
                 Ok(tangent) => {
                     outcome.tangent_work.push(tangent.work);
@@ -2465,6 +2473,7 @@ pub(crate) fn run_path(
                                 execution: &execution,
                                 budget,
                                 retained: &mut retained,
+                                tangent_workspace: &mut tangent_workspace,
                             },
                             &predictor,
                             &tangent.normalized,
@@ -2550,6 +2559,7 @@ pub(crate) fn run_path(
                             execution: &execution,
                             budget,
                             retained: &mut retained,
+                            tangent_workspace: &mut tangent_workspace,
                         },
                         EventBracket {
                             left: &point,
