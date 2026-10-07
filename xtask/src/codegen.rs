@@ -150,7 +150,7 @@ fn append_physical(
 #[cfg(not(feature = "package-fixtures"))]
 fn append_physical(_: &Path, _: &pse_schema::Registry, _: &mut GeneratedTree) -> Result<()> {
     bail!(
-        "complete Rust generation requires package-fixtures; use codegen-bootstrap to rebuild its admitted package loader"
+        "complete Rust generation requires package-fixtures; `just codegen` regenerates the contracts first and then rebuilds the admitted package loader"
     )
 }
 

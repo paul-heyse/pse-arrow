@@ -106,8 +106,9 @@ foreign meaning. Registry and relation fingerprints identify content, not admiss
 `cargo xtask codegen` writes the tree and removes stale files; `--check` compares a real
 regeneration byte for byte. Generated sources are committed, never produced in
 `build.rs`, and never edited by hand. Run `just codegen` when a declaration or generator
-changes. `just codegen-check` proves equivalence, and `just codegen-bootstrap` orders the
-bootstrap when the package loader itself depends on regenerated contracts.
+changes; it regenerates the Rust contracts and canonical schema first, so a package loader
+that depends on regenerated contracts builds from current ones. `just codegen-check` proves
+equivalence for every generated output.
 
 | Generated tree | Content | Main consumers |
 |---|---|---|

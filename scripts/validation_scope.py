@@ -100,7 +100,10 @@ GROUPS = {
     "adr-lint": ("adr-frontmatter-check", "adr-index-check", "register-lint"),
     "codegen-check": (
         "codegen-relations-check",
+        "codegen-rust-contracts-check",
         "codegen-python-check",
+        "python-contracts-check",
+        "python-stubs-check",
         "codegen-docs-check",
         "codegen-surreal-check",
         "codegen-bindgen-check",

@@ -63,11 +63,22 @@ pub(crate) fn run(root: &Path, extension: Option<&Path>, check: bool) -> Result<
     Ok(())
 }
 
+/// The checkout's environment: `UV_PROJECT_ENVIRONMENT` when set, as uv and the recipes use it.
+fn venv(root: &Path) -> PathBuf {
+    let selected = std::env::var_os("UV_PROJECT_ENVIRONMENT")
+        .map_or_else(|| PathBuf::from(".venv"), PathBuf::from);
+    if selected.is_absolute() {
+        selected
+    } else {
+        root.join(selected)
+    }
+}
+
 fn tool(root: &Path, name: &str) -> PathBuf {
     if cfg!(windows) {
-        root.join(".venv/Scripts").join(format!("{name}.exe"))
+        venv(root).join("Scripts").join(format!("{name}.exe"))
     } else {
-        root.join(".venv/bin").join(name)
+        venv(root).join("bin").join(name)
     }
 }
 fn installed_extension(root: &Path) -> Result<PathBuf> {
