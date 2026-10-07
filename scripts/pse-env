@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# The checkout's environment and placement boundary; see scripts/pse_env.py.
+exec python3 "$(dirname "${BASH_SOURCE[0]}")/pse_env.py" "$@"
