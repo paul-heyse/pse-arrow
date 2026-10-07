@@ -419,8 +419,9 @@ packet checkpoint for the baseline and handoff. Existing plans own status and fi
   for all other actions. Existing session authorization remains authoritative.
 - Development runs without approval prompts. `.claude/settings.json` allows the tools
   outright and keeps one specific `deny` list for the protected paths; a session that
-  wants no prompt at all sets `permissions.defaultMode` in the gitignored
-  `.claude/settings.local.json`. In that mode `deny` rules and the `PreToolUse` hook are
+  wants no prompt at all launches with `--dangerously-skip-permissions` or sets
+  `permissions.defaultMode` in user settings (Claude Code ignores `bypassPermissions` in project
+  and local settings). In that mode `deny` rules and the `PreToolUse` hook are
   still enforced but `ask` rules are not, so a gate that must hold belongs in `deny` or
   in `scripts/agent-hooks.py` -- never in `ask`. Recipes that reach outside the working
   copy (`release`, `solver-image`, `labels-sync`, `gh-setup`, `solver-pin-update`) keep

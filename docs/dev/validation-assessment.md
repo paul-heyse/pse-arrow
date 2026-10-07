@@ -66,7 +66,7 @@ manual qualification.
   committed. The runner refuses an output path that Git does not ignore or that
   already exists.
 - Local scientific validation uses Nextest's `local` profile. It reports slow tests
-  and retains a finite two-hour whole-run bound, while the production task owns its
+  and retains a finite four-hour whole-run bound, while the production task owns its
   numerical deadline. It does not terminate a declared 600-second solve after 120
   or 360 seconds. Resource groups, memory caps, force-validation and zero retries
   remain in effect. The separate `ci` profile is available for an explicit CI run.

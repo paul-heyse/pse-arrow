@@ -274,7 +274,7 @@ lint-zizmor:
 
 [group('local')]
 lint-shell:
-    shellcheck scripts/*.sh .claude/hooks/*.sh
+    shellcheck scripts/*.sh
 
 [group('local')]
 lint-ast:
@@ -1082,7 +1082,7 @@ skills-check:
     python3 scripts/library_skills.py --check
 
 [group('local')]
-[doc('Behavioral tests for repository setup and agent guards (stdlib only)')]
+[doc('Behavioral tests for repository setup and agent guards (JUnit via the venv)')]
 setup-test:
     {{ py }} -m scripts.setup_report build/setup-tests
 

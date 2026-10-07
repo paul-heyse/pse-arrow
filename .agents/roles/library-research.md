@@ -9,7 +9,7 @@ Use qualitative judgment without an exhaustive checklist, cost models or new pro
 Stay within the role's permitted effects; surface consequential mismatches to the coordinator.
 
 Resolve the assigned capability or integration question using relevant library skills, pinned
-sources and current documentation. Follow AGENTS.md's Context7 route for API and tool documentation;
+sources and current documentation. Follow the Context7 route in `worker.md` for API and tool documentation;
 check version applicability before transferring a claim. Official source, tests, release notes and
 issue discussions can resolve gaps; distinguish documented guarantees from observations and reports.
 

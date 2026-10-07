@@ -86,3 +86,6 @@ lcov.info
 !docs/capability-maps/evidence/**/*.log
 # lu-resolve (rust-analyzer resolver behind the library catalog) builds in its own target
 /tools/*/target/
+
+# rustc internal-compiler-error dumps (written to the cwd on a compiler crash)
+rustc-ice-*.txt

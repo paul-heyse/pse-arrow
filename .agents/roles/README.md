@@ -13,10 +13,10 @@ and their role; native definitions carry model and effort settings only.
 | Responsibility | Shared contract | Codex model / effort | Claude agent / model / effort |
 |---|---|---|---|
 | Repository evidence and dependency mapping | [code-mapper](code-mapper.md) | `gpt-6-luna` / high | `code-mapper` / sonnet / medium |
-| Library capabilities, contracts and alternatives | [library-research](library-research.md) | `gpt-6.1-sol` / medium | `library-research` / opus / medium |
-| Independent architecture and domain assessment | [design-reviewer](design-reviewer.md) | `gpt-6.1-sol` / high | `design-reviewer` / opus / high |
-| Bounded implementation with local discretion | [executor](executor.md) | `gpt-6.1-sol` / high | `implementer` / opus / medium |
-| Correctness and regression review | [implementation-reviewer](implementation-reviewer.md) | `gpt-6.1-sol` / high | `implementation-reviewer` / opus / medium |
+| Library capabilities, contracts and alternatives | [library-research](library-research.md) | `gpt-6.1-sol` / medium | `library-research` / opus / high |
+| Independent architecture and domain assessment | [design-reviewer](design-reviewer.md) | `gpt-6.1-sol` / high | `design-reviewer` / opus / xhigh |
+| Bounded implementation with local discretion | [executor](executor.md) | `gpt-6.1-sol` / high | `implementer` / opus / high |
+| Correctness and regression review | [implementation-reviewer](implementation-reviewer.md) | `gpt-6.1-sol` / high | `implementation-reviewer` / opus / high |
 | Functional verification and failure diagnosis | [test-agent](test-agent.md) | `gpt-6.1-sol` / medium | `test-agent` / opus / medium |
 
 Codex definitions live in [`.codex/agents/`](../../.codex/agents/); Claude definitions live in
@@ -77,7 +77,7 @@ higher-tier roles or assume an override changes a named custom role.
 
 Claude permits a per-invocation model override: selecting Opus for `code-mapper`, the one Sonnet
 role, retains its configured medium effort. There is no per-invocation effort override; use the existing
-Opus/high design-reviewer when the question calls for design judgment. Otherwise the coordinator
+Opus/xhigh design-reviewer when the question calls for design judgment. Otherwise the coordinator
 can resolve the uncertainty directly. A configuration edit does not change an already-running agent.
 
 ## Workflow integration

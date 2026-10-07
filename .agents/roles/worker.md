@@ -47,7 +47,7 @@ load that skill: in Claude, use the Skill tool; in Codex, use `.codex/skills/<na
 |---|---|
 | Native solvers | `native-solver-libraries` |
 | Symbolica, faer, Oximo, FeOS, POUNCE presolve | `symbolica-faer-oximo` |
-| Data, storage and query tracing | `datafusion`, `deltalake`, `datafusion-tracing` |
+| Data, storage and query tracing | `datafusion`, `datafusion-tracing` |
 | Incremental compilation | `salsa` |
 | Graphs | `rust-graphs` |
 | Symbolic reasoning | `rust-reasoning` |
