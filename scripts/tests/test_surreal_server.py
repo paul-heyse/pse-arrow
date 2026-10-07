@@ -6,7 +6,9 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -780,3 +782,28 @@ class SurrealSupervisorTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StandaloneSupervisorTests(unittest.TestCase):
+    def test_placement_resolves_shared_owner_when_run_as_a_script(self) -> None:
+        # `just surreal` and worker launches run the file as a script, from any cwd,
+        # where `scripts` is not importable until the supervisor selects its root.
+        program = (
+            "import importlib.util, sys\n"
+            "spec = importlib.util.spec_from_file_location('supervisor', sys.argv[1])\n"
+            "module = importlib.util.module_from_spec(spec)\n"
+            "spec.loader.exec_module(module)\n"
+            "print(module.placement_slice())\n"
+        )
+        script = Path(server.__file__).resolve()
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(
+                [sys.executable, "-I", "-c", program, str(script)],
+                cwd=directory,
+                capture_output=True,
+                text=True,
+                check=False,
+                env={**os.environ, "PSE_SLICE": "pse.slice"},
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("--slice=pse.slice", result.stdout)
