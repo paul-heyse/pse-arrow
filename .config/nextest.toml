@@ -10,28 +10,65 @@ solver = { max-threads = 2 }
 # Each engineering workflow has its own 64 GiB ceiling and two workers.
 # At most two such processes run together (128 GiB aggregate declared ceiling).
 engineering = { max-threads = 4 }
-# All canonical fixture consumers share the selected server, even with isolated databases.
-# Each canonical fixture owns the server installation interval. Its internal
-# concurrency still exercises readers and managed workers against the same database.
+# Canonical consumers on the one selected supervised server. Each fixture owns an
+# isolated UUID database, so database-only tests share the server (threads-required 1);
+# the cap matches the server's four runtime worker threads. Tests that own server-wide
+# resources or depend on sub-second timing take all four slots (threads-required 4).
 store = { max-threads = 4 }
 
 [profile.default]
 fail-fast = false
 slow-timeout = { period = "60s", terminate-after = 2 }
 leak-timeout = "500ms"
+# Several agents share this machine; NEXTEST_TEST_THREADS or --test-threads override.
+test-threads = 16
+# Concise by default (Plan 29 P7): failures, slow tests and leaks print, passes do not;
+# `--status-level pass` (or NEXTEST_STATUS_LEVEL=pass) shows every test.
+status-level = "slow"
+failure-output = "immediate-final"
+success-output = "never"
+
+# Canonical tests are scheduled by their effect on the shared server (Plan 29 D5).
+# Group and threads-required each take the first matching override, so the exclusive
+# and engineering classes precede the solver and database-only classes. Tests with no
+# server use (for example `study_policy`, `math::strategy`, `workflow::diagnostics` and
+# the `pse-tests-engine` session controls) have no group.
 
 [[profile.default.overrides]]
-filter = 'package(pse-runtime) & binary(worker)'
-# One case owns the finite managed profile; its study can use both slots.
-# Scheduler waiting precedes case execution and does not consume its deadline.
+# Exclusive among store tests:
+# - `worker` journeys own the deployment's finite managed worker slots and kill workers
+#   (they also serialise across runs on the state's flock). Scheduler waiting precedes
+#   case execution and does not consume its deadline.
+# - The fixture-connection control observes the deployment database's existence.
+# - Lease, deadline and polling controls assert sub-second windows (50/250 ms client
+#   deadlines, 250-300 ms claims and fences, 1 s leases, 32 x 10 ms polls).
+filter = """
+(package(pse-runtime) & binary(worker))
+| (package(pse-operations) & (
+    test(=testing::canonical_server_unit::fixture_connections_preserve_external_and_deployment_databases)
+    | test(/^canonical::canonical_server_unit::(initialization_cancellation_cannot_establish_success|query_cancellation_cannot_establish_empty_success|initialization_uses_atomic_transition_client_for_complete_schema)$/)
+    | test(=canonical_execution::canonical_execution_server_unit::canonical_execution_expiry_cancellation_and_truthful_recovery)
+    | test(=canonical_retention::canonical_server_unit::expired_selection_cannot_read_or_resurrect_reclaimed_history)
+    | test(=canonical_staging::canonical_server_unit::abandoned_blocks_reclaim_in_bounded_pages_and_permanent_identity_survives)
+    | test(/^canonical_result_retention::canonical_result_retention_server_unit::(retired_results_respect_readers_resume_cleanup_and_preserve_receipts|result_read_and_retirement_conflict_on_exact_selection)$/)))
+| (package(pse-runtime) & test(/^workflow::study_tests::(canonical_study_summary_live_owner_and_expired_writer_rebuild_without_science|canonical_study_cancellation_after_summary_close_fences_success)$/))
+"""
 test-group = "store"
 threads-required = 4
 
 [[profile.default.overrides]]
-# Tests using isolated canonical databases on the explicitly selected server.
-filter = 'package(pse-operations) | (package(pse-runtime) & (test(workflow::) | test(math::) | binary(worker))) | (package(pse-tests-conformance) & test(acceptance::)) | (package(pse-tests-engine) & (binary(native_session_controls) | binary(pushdown_vs_unpruned)))'
-test-group = "store"
-threads-required = 4
+# Memory-heavy engineering journeys: conformance acceptances own a 64 GiB workflow pool
+# with two workers; the reference-seed journeys declare a 128 GiB pool with 16 GiB of
+# case workers, and the reference flash a 64 GiB pool. Two slots each, so at most two
+# run together. Their isolated fixture databases are light server load.
+filter = """
+(package(pse-tests-conformance) & test(/^acceptance::/) & !test(/^acceptance::(coefficient_conic|native_outcomes)::/))
+| (package(pse-runtime) & (
+    test(/^workflow::modeling::(pr_jacobian_tests|recycle_tests)::/)
+    | test(=math::solves::derived::tests::reference_flash_completed_blocks_discharge_reporting_allowance)))
+"""
+test-group = "engineering"
+threads-required = 2
 
 [[profile.default.overrides]]
 filter = '(package(pse-backend-native) & test(/^(kinsol|ipopt|uno|petsc|root_isolation|dynamics|highs|clarabel_tests|restart_tests|scip_tests|l1_tests|pounce_convex_tests|measurement_tests)::/)) | test(/(^|::)solve_/)'
@@ -40,11 +77,17 @@ threads-required = 2
 slow-timeout = { period = "300s", terminate-after = 2 }
 
 [[profile.default.overrides]]
-# Owned native engineering/result journeys consume two scheduler slots.
-# Pure package tests use normal scheduling; only actual responsibility selectors apply.
-filter = '(package(pse-runtime) & (test(workflow::) | test(math::))) | (package(pse-tests-conformance) & test(acceptance::)) | (package(pse-tests-engine) & (binary(native_session_controls) | binary(pushdown_vs_unpruned)))'
-test-group = "engineering"
-threads-required = 2
+# Database-only canonical consumers: an isolated fixture database each, shared server.
+# New `workflow::`/`math::` modules default here; the excluded modules have no server use.
+filter = """
+(package(pse-operations) & test(/_server_unit::/))
+| (package(pse-runtime) & test(/^(workflow|math)::/) & !(
+    test(/^math::(flows|initialization|modeling|prediction|retention|settings|staged|tests)::/)
+    | test(/^workflow::(controls|diagnostic_documents|diagnostic_rows|diagnostics|dynamics|numerics|progress_documents|result_blocks|result_projection|time)::/)
+    | (test(/^math::strategy::/) & !test(=math::strategy::tests::automatic_refusal_only_trace_publishes_without_admitting_empty_execution))))
+"""
+test-group = "store"
+threads-required = 1
 
 [[profile.default.overrides]]
 # These acceptances admit the scientific package closure before native execution.
@@ -55,8 +98,6 @@ slow-timeout = { period = "300s", terminate-after = 3 }
 # This original scientific closure has untimed preparation followed by a bounded
 # 1800-second derivative-condition and material-response job on one worker.
 filter = 'test(original_pr_case_derivatives_satisfy_production_basis_conditions)'
-test-group = "engineering"
-threads-required = 2
 slow-timeout = { period = "300s", terminate-after = 9 }
 
 [[profile.default.overrides]]
@@ -72,9 +113,8 @@ slow-timeout = { period = "300s", terminate-after = 6 }
 inherits = "default"
 retries = 0
 slow-timeout = "60s"
-# The full native campaign serializes canonical server owners. Complete positive
-# scientific journeys exceed the earlier two-hour allowance; this bounds the
-# assembled campaign, while production jobs retain their own deadlines.
+# Complete positive scientific journeys exceed the earlier two-hour allowance; this
+# bounds the assembled campaign, while production jobs retain their own deadlines.
 global-timeout = "4h"
 success-output = "never"
 failure-output = "immediate-final"
