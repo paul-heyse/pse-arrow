@@ -31,23 +31,37 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("name")
     parser.add_argument("--ref", default="HEAD")
-    parser.add_argument("--python", action="store_true", help="build its venv and dev extension")
-    parser.add_argument("--native", action="store_true", help="build the linked native extension")
+    parser.add_argument(
+        "--python", action="store_true", help="build its venv and dev extension"
+    )
+    parser.add_argument(
+        "--native", action="store_true", help="build the linked native extension"
+    )
     args = parser.parse_args(argv)
     target = WORKTREES / args.name
     if target.exists():
         parser.error(f"{target} already exists")
     commit = subprocess.run(
         ["git", "rev-parse", "--verify", f"{args.ref}^{{commit}}"],
-        cwd=ROOT, capture_output=True, text=True, check=True,
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
-    print(f"worktree: {target} on new branch {args.name} from {args.ref} ({commit[:12]})")
+    print(
+        f"worktree: {target} on new branch {args.name} from {args.ref} ({commit[:12]})"
+    )
     dirty = subprocess.run(
         ["git", "status", "--porcelain", "--untracked-files=no"],
-        cwd=ROOT, capture_output=True, text=True, check=True,
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     if dirty:
-        print("worktree: uncommitted changes in this checkout are NOT in the new worktree:")
+        print(
+            "worktree: uncommitted changes in this checkout are NOT in the new worktree:"
+        )
         print("".join(f"  {line}\n" for line in dirty.splitlines()[:20]), end="")
     WORKTREES.mkdir(parents=True, exist_ok=True)
     run(["git", "worktree", "add", "-b", args.name, str(target), commit], ROOT)

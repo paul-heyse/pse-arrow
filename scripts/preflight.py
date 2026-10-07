@@ -56,7 +56,9 @@ def native(env: Mapping[str, str], _manifest: Path | None) -> None:
     explicit = env.get("IPOPT_DIR")
     if explicit:
         missing = [
-            name for name in native_cache.SOLVER_FILES if not (Path(explicit) / name).is_file()
+            name
+            for name in native_cache.SOLVER_FILES
+            if not (Path(explicit) / name).is_file()
         ]
         if missing:
             raise BoundaryError(
@@ -129,7 +131,9 @@ def conformance(env: Mapping[str, str], manifest: Path | None) -> None:
     try:
         document = tomllib.loads(path.read_text())
     except (OSError, tomllib.TOMLDecodeError) as error:
-        raise BoundaryError(f"prerequisite conformance: cannot read {path}: {error}") from error
+        raise BoundaryError(
+            f"prerequisite conformance: cannot read {path}: {error}"
+        ) from error
     runs = document.get("runs")
     if not isinstance(runs, list) or not runs:
         raise BoundaryError(f"prerequisite conformance: {path} declares no [[runs]]")
@@ -138,7 +142,10 @@ def conformance(env: Mapping[str, str], manifest: Path | None) -> None:
             raise BoundaryError(f"prerequisite conformance: {path} has a malformed run")
         roots = [run.get("package"), run.get("physical"), *run.get("dependencies", [])]
         for root in roots:
-            if not isinstance(root, str) or not (path.parent / root / "package.toml").is_file():
+            if (
+                not isinstance(root, str)
+                or not (path.parent / root / "package.toml").is_file()
+            ):
                 raise BoundaryError(
                     f"prerequisite conformance: run {run.get('name')!r} in {path} names "
                     f"{root!r}, which has no package.toml"
@@ -160,7 +167,9 @@ KINDS: dict[str, Callable[[Mapping[str, str], Path | None], None]] = {
 }
 
 
-def check(kinds: Sequence[str], env: Mapping[str, str], manifest: Path | None = None) -> None:
+def check(
+    kinds: Sequence[str], env: Mapping[str, str], manifest: Path | None = None
+) -> None:
     """Raise ``BoundaryError`` for the first missing prerequisite, in the order given."""
     for kind in kinds:
         KINDS[kind](env, manifest)
@@ -173,11 +182,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("kinds", nargs="+", choices=sorted(KINDS), metavar="KIND")
-    parser.add_argument("--manifest", type=Path, help="the conformance manifest to check")
+    parser.add_argument(
+        "--manifest", type=Path, help="the conformance manifest to check"
+    )
     args = parser.parse_args(argv)
     if os.environ.get("PSE_PREFLIGHT") == "off":
         # The caller chose to proceed without the early check (e.g. partial evidence).
-        print(f"preflight: skipped {' '.join(args.kinds)} (PSE_PREFLIGHT=off)", file=sys.stderr)
+        print(
+            f"preflight: skipped {' '.join(args.kinds)} (PSE_PREFLIGHT=off)",
+            file=sys.stderr,
+        )
         return 0
     try:
         check(args.kinds, pse_env.compose(ROOT, os.environ), args.manifest)
@@ -185,7 +199,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"pse-env: {error}", file=sys.stderr)
         return pse_env.FAILURE
     except Exception as error:  # an unobservable prerequisite is not admitted
-        print(f"pse-env: preflight could not observe {args.kinds}: {type(error).__name__}: {error}", file=sys.stderr)
+        print(
+            f"pse-env: preflight could not observe {args.kinds}: {type(error).__name__}: {error}",
+            file=sys.stderr,
+        )
         return pse_env.FAILURE
     return 0
 

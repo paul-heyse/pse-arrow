@@ -84,10 +84,7 @@ class ValidationTests(unittest.TestCase):
             root = Path(directory)
             (root / "justfile").write_text(
                 'set script-interpreter := ["bash", "-euo", "pipefail"]\n'
-                 'py := "'
-                + sys.executable
-                + '"\n'
-                + match.group()
+                'py := "' + sys.executable + '"\n' + match.group()
             )
             (root / "scripts").mkdir()
             (root / "scripts/validation.py").write_text(
@@ -403,7 +400,11 @@ class ValidationTests(unittest.TestCase):
         timer.start()
         self.addCleanup(timer.cancel)
         result = validation.execute(
-            self.root, self.output, "interrupted", ["bash", "-c", script], dict(os.environ)
+            self.root,
+            self.output,
+            "interrupted",
+            ["bash", "-c", script],
+            dict(os.environ),
         )
         self.assertEqual(result["status"], "interrupted")
         pid = int(marker.read_text())
@@ -428,10 +429,10 @@ class ValidationTests(unittest.TestCase):
     ) -> None:
         hygiene = [g.name for g in expand(("hygiene",))]
         self.assertEqual([g.name for g in expand(("turn-end",))], ["adr-index", "fmt"])
-        self.assertEqual([g.name for g in expand(("ready",))], ["skills-sync", "doctor"])
-        self.assertTrue(
-            {g.name for g in expand(("codegen-check",))}.issubset(hygiene)
+        self.assertEqual(
+            [g.name for g in expand(("ready",))], ["skills-sync", "doctor"]
         )
+        self.assertTrue({g.name for g in expand(("codegen-check",))}.issubset(hygiene))
         self.assertNotIn("codegen-check", hygiene)
         self.assertEqual(validation.preflight_kinds(expand(("hygiene",))), [])
         self.assertEqual(

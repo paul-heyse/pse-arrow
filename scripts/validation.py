@@ -575,7 +575,10 @@ def report_gate(output: Path, record: dict) -> None:
     for error in record["report_errors"][:5]:
         print(f"    report: {error}", flush=True)
     if len(record["report_errors"]) > 5:
-        print(f"    report: {len(record['report_errors']) - 5} more in checks.json", flush=True)
+        print(
+            f"    report: {len(record['report_errors']) - 5} more in checks.json",
+            flush=True,
+        )
     if not LIVE:
         for line in tail(log):
             print(f"    | {line}", flush=True)
@@ -753,7 +756,11 @@ def run_gates(
         if interrupted or dependencies:
             print(
                 f"validation: {gate.name}: {record['status']}"
-                + (f" by {', '.join(dependencies)}" if dependencies and not interrupted else ""),
+                + (
+                    f" by {', '.join(dependencies)}"
+                    if dependencies and not interrupted
+                    else ""
+                ),
                 flush=True,
             )
             continue
@@ -1122,9 +1129,7 @@ def main(argv: list[str] | None = None) -> int:
         return 128 + RECEIVED_SIGNAL
     checks = json.loads((output / "checks.json").read_text())["checks"]
     unsuccessful = [
-        check["gate"]
-        for check in checks
-        if not validation_receipts.qualified(check)
+        check["gate"] for check in checks if not validation_receipts.qualified(check)
     ]
     if any(check["status"] == "interrupted" for check in checks):
         code = 128 + RECEIVED_SIGNAL

@@ -725,7 +725,9 @@ class NativeOperationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             snapshot = Path(directory)
             self.assertEqual(
-                pse_env.setup_python(snapshot, {"PSE_NATIVE_SETUP_PYTHON": "/chosen/python"}),
+                pse_env.setup_python(
+                    snapshot, {"PSE_NATIVE_SETUP_PYTHON": "/chosen/python"}
+                ),
                 "/chosen/python",
             )
             self.assertEqual(pse_env.setup_python(snapshot, {}), sys.executable)

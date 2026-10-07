@@ -48,12 +48,18 @@ NATIVE_FEATURES = "pse-runtime/native-solvers"
 def changed_files(base: str) -> list[tuple[str, str]]:
     diff = subprocess.run(
         ["git", "diff", "--name-status", "--no-renames", base],
-        cwd=ROOT, capture_output=True, text=True, check=True,
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     entries = [tuple(line.split("\t", 1)) for line in diff.splitlines() if "\t" in line]
     untracked = subprocess.run(
         ["git", "ls-files", "--others", "--exclude-standard"],
-        cwd=ROOT, capture_output=True, text=True, check=True,
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     entries += [("?", path) for path in untracked.splitlines()]
     return [(status, path) for status, path in entries]
@@ -63,7 +69,10 @@ def workspace_packages() -> tuple[dict[str, Path], dict[str, set[str]]]:
     metadata = json.loads(
         subprocess.run(
             ["cargo", "metadata", "--no-deps", "--format-version", "1", "--locked"],
-            cwd=ROOT, capture_output=True, text=True, check=True,
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout
     )
     roots = {
@@ -100,7 +109,9 @@ def closure(seeds: set[str], dependents: dict[str, set[str]]) -> set[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base", default="HEAD", help="compare the working tree to REF")
+    parser.add_argument(
+        "--base", default="HEAD", help="compare the working tree to REF"
+    )
     parser.add_argument("--run", action="store_true", help="run the selection")
     parser.add_argument("--features", default="", help="extra cargo features")
     parser.add_argument("nextest", nargs=argparse.REMAINDER)
@@ -125,16 +136,23 @@ def main(argv: list[str] | None = None) -> int:
             seeds.add(name)
         elif not path.startswith(("python/", "docs/")) and path not in WORKSPACE_WIDE:
             unowned.append(f"{status} {path}")
-    print(f"affected: {len(changes)} changed file(s) against {args.base} (staged, unstaged, deleted, untracked)")
+    print(
+        f"affected: {len(changes)} changed file(s) against {args.base} (staged, unstaged, deleted, untracked)"
+    )
     if not changes:
         print("affected: nothing changed")
         return 0
     selected = sorted(closure(seeds, dependents)) if not wide else sorted(roots)
-    features = ",".join(item for item in ("pse-relations/force-validate", args.features) if item)
+    features = ",".join(
+        item for item in ("pse-relations/force-validate", args.features) if item
+    )
     command = ["cargo", "nextest", "run", "--locked", "--features", features]
     if wide:
         command.append("--workspace")
-        print("affected: root build configuration changed -> whole workspace: " + ", ".join(wide[:5]))
+        print(
+            "affected: root build configuration changed -> whole workspace: "
+            + ", ".join(wide[:5])
+        )
     else:
         for name in [*selected, "pse-relations"]:
             command += ["-p", name]
@@ -144,21 +162,34 @@ def main(argv: list[str] | None = None) -> int:
     command += extra
     print("affected: changed packages: " + (", ".join(sorted(seeds)) or "none"))
     if not wide:
-        print(f"affected: packages built: {len(selected)} (changed packages and their reverse dependencies)")
+        print(
+            f"affected: packages built: {len(selected)} (changed packages and their reverse dependencies)"
+        )
     native = sorted(NATIVE_PACKAGES & set(selected))
     print("not covered by this selection:")
     print(
         "  - feature-gated tests: native packages reached ("
         + (", ".join(native) or "none")
-        + ")" + (f"; add --features {NATIVE_FEATURES} and run under --run for their native tests" if native and not args.features else "")
+        + ")"
+        + (
+            f"; add --features {NATIVE_FEATURES} and run under --run for their native tests"
+            if native and not args.features
+            else ""
+        )
     )
     if python:
-        print(f"  - Python consumers ({len(python)} file(s)): run just py-unit, and just py-test for component tests")
+        print(
+            f"  - Python consumers ({len(python)} file(s)): run just py-unit, and just py-test for component tests"
+        )
     if generators:
-        print(f"  - generator/registry inputs ({len(generators)} file(s)): run just codegen, then just codegen-check")
+        print(
+            f"  - generator/registry inputs ({len(generators)} file(s)): run just codegen, then just codegen-check"
+        )
     if unowned:
         print("  - changes outside any package: " + "; ".join(unowned[:8]))
-    print("  - behaviour reached only through data, fixtures or other processes is not inferred")
+    print(
+        "  - behaviour reached only through data, fixtures or other processes is not inferred"
+    )
     print("command: " + shlex.join(command))
     if not args.run or (not seeds and not wide):
         return 0

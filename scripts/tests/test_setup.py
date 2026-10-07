@@ -276,7 +276,9 @@ class EditPolicyTests(unittest.TestCase):
 
     def test_session_env_appends_exports_without_local_values(self) -> None:
         (self.root / ".python-version").write_text("3.14.7\n")
-        (self.root / ".envrc.local").write_text("export PSE_TEST_SECRET='do not print'\n")
+        (self.root / ".envrc.local").write_text(
+            "export PSE_TEST_SECRET='do not print'\n"
+        )
         target = self.root / "claude-env"
         with (
             patch.dict(os.environ, {"CLAUDE_ENV_FILE": str(target)}),

@@ -135,8 +135,10 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         return 0
-    print(f"slice: {selected or 'caller slice'}; aggregate limits: "
-          + (", ".join(f"{group} MemoryMax={value}" for group, value in bounds) or "none"))
+    print(
+        f"slice: {selected or 'caller slice'}; aggregate limits: "
+        + (", ".join(f"{group} MemoryMax={value}" for group, value in bounds) or "none")
+    )
     if observed:
         print(f"\n{'unit':58} {'state':8} {'memory':>7} {'up':>7}  command")
         for unit in observed:
@@ -148,7 +150,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print("\nno pse-* units")
     if builds:
-        print(f"\nbuild processes in this checkout ({len(builds)}); Cargo lock owner: unknown")
+        print(
+            f"\nbuild processes in this checkout ({len(builds)}); Cargo lock owner: unknown"
+        )
         for pid, tool, group, command in builds:
             print(f"  {pid:>8} {tool:14} {group[:44]:44} {command}")
     else:

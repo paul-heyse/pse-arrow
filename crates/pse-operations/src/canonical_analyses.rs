@@ -68,7 +68,6 @@ impl<'a> EdgePublication<'a> {
     }
 }
 
-
 /// Versioned framed identity shared by analysis producers and native receipts.
 pub fn analysis_key(kind: &str, parts: &[&[u8]]) -> String {
     let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);

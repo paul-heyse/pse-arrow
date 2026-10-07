@@ -643,6 +643,7 @@ def isolation(base: Path, env: dict[str, str]) -> Path:
         # A fresh scope per command: a transient unit name cannot be reused.
         def cap() -> list[str]:
             return pse_env.placement(env, native=True)
+
         run(
             [
                 *cap(),

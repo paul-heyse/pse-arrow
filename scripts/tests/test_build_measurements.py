@@ -76,7 +76,8 @@ class BuildMeasurementTests(unittest.TestCase):
                 Path("/checkout"), native=True, workflow=False
             )
         self.assertEqual(
-            execute.call_args.args[1][:3], ["/checkout/scripts/pse-env", "--native", "--"]
+            execute.call_args.args[1][:3],
+            ["/checkout/scripts/pse-env", "--native", "--"],
         )
         self.assertEqual(
             execute.call_args.args[2]["PSE_NATIVE_CAPABILITIES"],

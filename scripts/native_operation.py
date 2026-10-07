@@ -466,7 +466,9 @@ def environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
         result["LD_LIBRARY_PATH"] = cache.prepend_library_path(
             str(prefix / "lib"), result
         )
-        for name, value in cache.runtime_env(ROOT / "docker/solvers/Dockerfile").items():
+        for name, value in cache.runtime_env(
+            ROOT / "docker/solvers/Dockerfile"
+        ).items():
             if name in AUTHORITATIVE:
                 enforce(result, name, value)
             elif name not in off:

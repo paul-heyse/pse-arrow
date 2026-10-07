@@ -28,24 +28,30 @@ class PreflightTests(unittest.TestCase):
             (self.root / name / "package.toml").write_text("")
         path = self.root / "conformance.toml"
         path.write_text(
-            "[settings]\nmemory_limit_bytes = 1\n\n[[runs]]\nname = \"one\"\n"
-            f"package = \"pkg\"\nphysical = \"physical\"\ndependencies = {dependencies}\n"
+            '[settings]\nmemory_limit_bytes = 1\n\n[[runs]]\nname = "one"\n'
+            f'package = "pkg"\nphysical = "physical"\ndependencies = {dependencies}\n'
         )
         return path
 
     def test_conformance_manifest_requires_every_package_root(self) -> None:
-        preflight.check(["conformance"], {}, self.manifest("[\"physical\"]"))
+        preflight.check(["conformance"], {}, self.manifest('["physical"]'))
         (self.root / "conformance.toml").unlink()
         for name in ("pkg", "physical"):
             (self.root / name / "package.toml").unlink()
             (self.root / name).rmdir()
-        with self.assertRaisesRegex(preflight.BoundaryError, "'absent', which has no package.toml"):
-            preflight.check(["conformance"], {}, self.manifest("[\"absent\"]"))
+        with self.assertRaisesRegex(
+            preflight.BoundaryError, "'absent', which has no package.toml"
+        ):
+            preflight.check(["conformance"], {}, self.manifest('["absent"]'))
 
-    def test_incomplete_explicit_solver_prefix_is_refused_without_preparation(self) -> None:
+    def test_incomplete_explicit_solver_prefix_is_refused_without_preparation(
+        self,
+    ) -> None:
         with (
             patch.object(preflight.native_cache, "solver") as solver,
-            self.assertRaisesRegex(preflight.BoundaryError, "prerequisite native: IPOPT_DIR="),
+            self.assertRaisesRegex(
+                preflight.BoundaryError, "prerequisite native: IPOPT_DIR="
+            ),
         ):
             preflight.check(["native"], {"IPOPT_DIR": str(self.root)})
         solver.assert_not_called()
@@ -65,7 +71,9 @@ class PreflightTests(unittest.TestCase):
     def test_order_reports_the_first_missing_prerequisite(self) -> None:
         with (
             patch.object(preflight.doctor, "extension_kind", return_value="dev"),
-            self.assertRaisesRegex(preflight.BoundaryError, "native-extension: .*py-sync-native"),
+            self.assertRaisesRegex(
+                preflight.BoundaryError, "native-extension: .*py-sync-native"
+            ),
         ):
             preflight.check(["extension", "native-extension", "store"], {})
 

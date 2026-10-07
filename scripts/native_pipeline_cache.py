@@ -214,6 +214,7 @@ int main(void) {
     # A fresh scope per command: a transient unit name cannot be reused.
     def cap() -> list[str]:
         return pse_env.placement(env, native=True)
+
     cache.run(
         [
             *cap(),
@@ -317,6 +318,7 @@ def _prepare(kind: str, env: dict[str, str]) -> Path:
         # A fresh scope per command: a transient unit name cannot be reused.
         def cap() -> list[str]:
             return pse_env.placement(env, native=True)
+
         subprocess.run(["git", "apply", "--check", str(patch)], cwd=source, check=True)
         subprocess.run(["git", "apply", str(patch)], cwd=source, check=True)
         if kind == "uno":

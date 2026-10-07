@@ -89,7 +89,9 @@ def local_keys(root: Path) -> dict[str, str]:
 
 
 def prepend(path: str, existing: str | None) -> str:
-    parts = [part for part in (existing or "").split(os.pathsep) if part and part != path]
+    parts = [
+        part for part in (existing or "").split(os.pathsep) if part and part != path
+    ]
     return os.pathsep.join([path, *parts])
 
 
@@ -107,10 +109,14 @@ def compose(
         env.setdefault(name, value)
     if "PSE_PYTHON" not in env:
         version = root / ".python-version"
-        env["PSE_PYTHON"] = version.read_text().strip() if version.is_file() else "3.14.7"
+        env["PSE_PYTHON"] = (
+            version.read_text().strip() if version.is_file() else "3.14.7"
+        )
     env.setdefault("UV_PROJECT_ENVIRONMENT", ".venv")
     # The supervisor's own default state; recipes that need the server check it (--store).
-    state_home = env.get("XDG_STATE_HOME") or str(Path(env.get("HOME", str(Path.home()))) / ".local/state")
+    state_home = env.get("XDG_STATE_HOME") or str(
+        Path(env.get("HOME", str(Path.home()))) / ".local/state"
+    )
     env.setdefault("PSE_SURREAL_STATE", str(Path(state_home) / "pse-arrow/surreal"))
     env["PATH"] = prepend(str(venv(root, env) / "bin"), env.get("PATH"))
     if (SOLVER_STACK / "bin").is_dir():
@@ -130,7 +136,9 @@ ANNOUNCED = ("CARGO_TARGET_DIR", "RUSTC_WRAPPER")
 
 
 def refusals(
-    chosen: Mapping[str, str], env: Mapping[str, str], names: Sequence[str] = tuple(CONFIGURED)
+    chosen: Mapping[str, str],
+    env: Mapping[str, str],
+    names: Sequence[str] = tuple(CONFIGURED),
 ) -> list[str]:
     """Values the caller or .envrc.local chose that composition replaced."""
     notes = []
@@ -171,7 +179,9 @@ def render(root: Path, caller: Mapping[str, str], *, complete: bool = False) -> 
     """
     local = local_keys(root)
     env = compose(root, caller, local)
-    touched = set(compose(root, {"HOME": caller.get("HOME", "/"), "PATH": ""}, local)) - {"HOME"}
+    touched = set(
+        compose(root, {"HOME": caller.get("HOME", "/"), "PATH": ""}, local)
+    ) - {"HOME"}
     lines = [
         f'case ":$PATH:" in *:{shlex.quote(entry)}:*) ;; *) PATH={shlex.quote(entry)}"${{PATH:+:$PATH}}" ;; esac'
         for entry in reversed(required_path(root, caller, local))
@@ -202,7 +212,9 @@ def slice_name(env: Mapping[str, str]) -> str | None:
     if name in {"", "none"}:
         return None
     if not SLICE_VALUE.fullmatch(name):
-        raise BoundaryError(f"PSE_SLICE={name!r} is not a slice unit name (e.g. pse.slice) or none")
+        raise BoundaryError(
+            f"PSE_SLICE={name!r} is not a slice unit name (e.g. pse.slice) or none"
+        )
     return name
 
 
@@ -266,7 +278,10 @@ def manager_environment() -> dict[str, str]:
 @functools.cache
 def manager_available() -> bool:
     """A user manager that actually answers, not just a socket path."""
-    if shutil.which("systemd-run") is None or not Path(f"/run/user/{os.getuid()}/bus").is_socket():
+    if (
+        shutil.which("systemd-run") is None
+        or not Path(f"/run/user/{os.getuid()}/bus").is_socket()
+    ):
         return False
     try:
         probe = subprocess.run(
@@ -362,7 +377,12 @@ def execute(command: Sequence[str], env: Mapping[str, str]) -> int:
 
 
 def native(
-    root: Path, requested: list[str], command: list[str], env: dict[str, str], *, scope: bool
+    root: Path,
+    requested: list[str],
+    command: list[str],
+    env: dict[str, str],
+    *,
+    scope: bool,
 ) -> int:
     """Native capabilities are admitted only under an operation owner."""
     if operation.owner_record() is not None:
@@ -389,12 +409,20 @@ def native(
     with operation.Operation(cache.cache_root(env)):
         if os.environ.get("PSE_NATIVE_HANDOFF"):
             operation.bind_handoff(Path(os.environ["PSE_NATIVE_HANDOFF"]))
-        return operation.run(command, operation.environment(requested, dict(os.environ)))
+        return operation.run(
+            command, operation.environment(requested, dict(os.environ))
+        )
 
 
-def describe(name: str, env: Mapping[str, str], caller: Mapping[str, str], local: set[str]) -> str:
+def describe(
+    name: str, env: Mapping[str, str], caller: Mapping[str, str], local: set[str]
+) -> str:
     if name in local:
-        return "<set: .envrc.local>" if name not in caller else "<set: caller, overrides .envrc.local>"
+        return (
+            "<set: .envrc.local>"
+            if name not in caller
+            else "<set: caller, overrides .envrc.local>"
+        )
     value = env.get(name)
     if value is None:
         return "<unset>"
@@ -472,11 +500,21 @@ def explain(root: Path, caller: Mapping[str, str], requested: list[str] | None) 
         bounds = limits(selected)
         lines.append(
             "aggregate limits  "
-            + (", ".join(f"{group} MemoryMax={value}" for group, value in bounds) or "none")
+            + (
+                ", ".join(f"{group} MemoryMax={value}" for group, value in bounds)
+                or "none"
+            )
         )
-    lines.append("local values      " + (", ".join(
-        f"{name}={describe(name, env, caller, set(local))}" for name in sorted(local)
-    ) or "none"))
+    lines.append(
+        "local values      "
+        + (
+            ", ".join(
+                f"{name}={describe(name, env, caller, set(local))}"
+                for name in sorted(local)
+            )
+            or "none"
+        )
+    )
     lines.extend(refusals({**local, **caller}, env))
     return "\n".join(lines) + "\n"
 

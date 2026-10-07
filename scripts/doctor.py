@@ -415,7 +415,11 @@ def extension_kind() -> str:
     if code != 0:
         return "absent"
     needed = [line for line in out.splitlines() if "(NEEDED)" in line]
-    return "native" if any(lib in line for line in needed for lib in NATIVE_LIBRARIES) else "dev"
+    return (
+        "native"
+        if any(lib in line for line in needed for lib in NATIVE_LIBRARIES)
+        else "dev"
+    )
 
 
 def check_extension() -> Check:
