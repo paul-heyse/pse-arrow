@@ -546,6 +546,48 @@ class NativeOperationTests(unittest.TestCase):
             manager.assert_not_called()
             group.assert_called_once_with(child.pid, 2)
 
+    def test_thread_budget_defaults_to_one_and_honours_the_caller(self) -> None:
+        defaulted = operation.environment([], {})
+        self.assertEqual(
+            {name: defaulted[name] for name in operation.THREAD_VARIABLES},
+            dict.fromkeys(operation.THREAD_VARIABLES, "1"),
+        )
+        chosen = operation.environment(
+            [], {"OMP_NUM_THREADS": "4", "MKL_NUM_THREADS": "off"}
+        )
+        self.assertEqual(chosen["OMP_NUM_THREADS"], "4")
+        self.assertEqual(chosen["OPENBLAS_NUM_THREADS"], "1")
+        self.assertNotIn("MKL_NUM_THREADS", chosen)
+
+    def test_solver_runtime_enforces_owned_keys_and_defaults_the_rest(self) -> None:
+        runtime = {
+            "MKL_CBWR": "COMPATIBLE",
+            "OMP_PLACES": "sockets",
+            "OMP_NUM_THREADS": "1",
+        }
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(cache, "solver", return_value=Path(directory)),
+            patch.object(cache, "runtime_env", return_value=runtime),
+            patch("sys.stderr", new_callable=io.StringIO) as notices,
+        ):
+            result = operation.environment(
+                ["solver"],
+                {"MKL_CBWR": "AUTO", "OMP_PLACES": "cores", "OMP_NUM_THREADS": "8"},
+            )
+        self.assertEqual(result["MKL_CBWR"], "COMPATIBLE")
+        self.assertEqual(result["OMP_PLACES"], "cores")
+        self.assertEqual(result["OMP_NUM_THREADS"], "8")
+        self.assertEqual(result["SCIPOPTDIR"], directory)
+        self.assertIn("pse-env: refused MKL_CBWR=AUTO", notices.getvalue())
+        self.assertNotIn("OMP_PLACES", notices.getvalue())
+
+    def test_signal_death_reports_shell_status(self) -> None:
+        self.assertEqual(
+            operation.run(["sh", "-c", "kill -TERM $$"], dict(os.environ)),
+            128 + signal.SIGTERM,
+        )
+
     def test_actual_zero_capability_entry_owns_child_before_command(self) -> None:
         program = "from scripts import native_operation as n; import json; p=n.owner_record(); print(json.dumps({'active':p is not None,'scope':n._record(p)['scope'],'args':__import__('sys').argv[1:]}))"
         result = subprocess.run(

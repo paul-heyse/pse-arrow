@@ -603,6 +603,11 @@ def run_gates(
                 "PSE_PYTHON_DEPLOYMENT_ATTESTATION"
             )
         if recipe in {"native-test", "native-python", "feature-absence"}:
+            # Receipts require the single-thread native budget; an ambient caller
+            # choice must not reach a qualification gate.
+            gate_env.update(
+                OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1"
+            )
             gate_env["PSE_NATIVE_PROVENANCE"] = str(output / f"{gate.name}-native.json")
             if recipe == "native-test":
                 gate_env["PSE_NATIVE_SELECTION"] = str(
@@ -610,10 +615,6 @@ def run_gates(
                 )
             elif recipe == "native-python":
                 command.append("--terminal-owner=assessment")
-            else:
-                gate_env.update(
-                    OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1"
-                )
         if gate.report and f"nextest/{gate.profile}/junit.xml" in gate.report:
             config = native_report_config(root, output, gate.name, gate.profile)
             command.extend(("--config-file", str(config)))

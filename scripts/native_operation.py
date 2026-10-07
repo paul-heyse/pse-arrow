@@ -31,6 +31,19 @@ from scripts import build_environment  # noqa: E402 -- direct-script path routin
 MARKER = "PSE_NATIVE_OPERATION"
 VERSION = 2
 CAPABILITIES = ("compiler", "solver", "klu", "isolation", "uno", "petsc")
+# Native setup supplies these unless the caller chose a value; `off` removes one.
+# The thread budget stays "1" by default because assessment receipts require it.
+THREAD_VARIABLES = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")
+OVERRIDABLE = (*THREAD_VARIABLES, "OMP_PROC_BIND", "OMP_PLACES", "HWLOC_COMPONENTS")
+# Native setup owns these; a differing caller value is replaced and reported.
+AUTHORITATIVE = {
+    "MKL_CBWR": "reproducible MKL kernels (ADR-0108)",
+    "MKL_DYNAMIC": "fixed MKL threading (ADR-0108)",
+    "OMP_CANCELLATION": "SPRAL requires OpenMP cancellation",
+    "SCIPOPTDIR": "follows the admitted solver prefix",
+    "SUITESPARSE_INCLUDE_DIR": "follows the prepared KLU prefix",
+    "SUITESPARSE_LIBRARY_DIR": "follows the prepared KLU prefix",
+}
 CAPABILITY_PATHS = {
     "compiler": ("CLANG_PATH", "BINDGEN_EXTRA_CLANG_ARGS"),
     "solver": ("IPOPT_DIR", "SCIPOPTDIR"),
@@ -408,6 +421,17 @@ class Operation:
         # Do not unlink records on return or cancellation while children may survive.
 
 
+def enforce(env: dict[str, str], name: str, value: str) -> None:
+    """Set a native-owned value, reporting a caller value it replaces."""
+    prior = env.get(name)
+    if prior not in (None, "", value):
+        print(
+            f"pse-env: refused {name}={prior}: {AUTHORITATIVE[name]}; using {value}",
+            file=sys.stderr,
+        )
+    env[name] = value
+
+
 def environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
     from scripts import native_cache as cache  # noqa: PLC0415 -- owner cycle
     from scripts import (  # noqa: PLC0415 -- owner cycle
@@ -429,15 +453,20 @@ def environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
             cache.admit_external(prefix, cache.SOLVER_FILES)
         else:
             prefix = cache.solver(base)
-        result["IPOPT_DIR"] = result["SCIPOPTDIR"] = str(prefix)
+        result["IPOPT_DIR"] = str(prefix)
+        enforce(result, "SCIPOPTDIR", str(prefix))
         result["LD_LIBRARY_PATH"] = cache.prepend_library_path(
             str(prefix / "lib"), result
         )
-        result.update(cache.runtime_env(ROOT / "docker/solvers/Dockerfile"))
+        for name, value in cache.runtime_env(ROOT / "docker/solvers/Dockerfile").items():
+            if name in AUTHORITATIVE:
+                enforce(result, name, value)
+            else:
+                result.setdefault(name, value)
     if "klu" in requested:
         prefix = cache.klu(base, result)
-        result["SUITESPARSE_INCLUDE_DIR"] = str(prefix / "include/suitesparse")
-        result["SUITESPARSE_LIBRARY_DIR"] = str(prefix / "lib")
+        enforce(result, "SUITESPARSE_INCLUDE_DIR", str(prefix / "include/suitesparse"))
+        enforce(result, "SUITESPARSE_LIBRARY_DIR", str(prefix / "lib"))
     if "isolation" in requested:
         if result.get("PSE_ROOT_ISOLATION_DIR"):
             cache.admit_external(
@@ -456,18 +485,16 @@ def environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
             result["LD_LIBRARY_PATH"] = cache.prepend_library_path(
                 f"{result[variable]}/lib", result
             )
-    result["OMP_NUM_THREADS"] = result["OPENBLAS_NUM_THREADS"] = result[
-        "MKL_NUM_THREADS"
-    ] = "1"
+    for name in THREAD_VARIABLES:
+        result.setdefault(name, "1")
+    for name in OVERRIDABLE:
+        if result.get(name) == "off":
+            del result[name]
     result.pop("CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER", None)
     for capability in requested:
-        names = (
-            *cache.INPUT_ENV,
-            *CAPABILITY_PATHS[capability],
-            "OMP_NUM_THREADS",
-            "OPENBLAS_NUM_THREADS",
-            "MKL_NUM_THREADS",
-        )
+        # Thread budgets do not change what is prepared, so a nested caller may
+        # choose another one without disturbing the operation's admission.
+        names = (*cache.INPUT_ENV, *CAPABILITY_PATHS[capability])
         admit(
             "capability:" + capability,
             {"inputs": {name: result.get(name) for name in names}},
@@ -490,13 +517,7 @@ def active(requested: list[str], env: dict[str, str]) -> bool:
         return True
     for capability in requested:
         record = remembered("capability:" + capability)
-        expected = {
-            *cache.INPUT_ENV,
-            *CAPABILITY_PATHS[capability],
-            "OMP_NUM_THREADS",
-            "OPENBLAS_NUM_THREADS",
-            "MKL_NUM_THREADS",
-        }
+        expected = {*cache.INPUT_ENV, *CAPABILITY_PATHS[capability]}
         if (
             record is None
             or not isinstance(record.get("inputs"), dict)
@@ -548,7 +569,10 @@ def run(command: list[str], env: dict[str, str]) -> int:
     for signum in (signal.SIGTERM, signal.SIGINT):
         old_handlers[signum] = signal.signal(signum, cancel)
     try:
-        return child.wait()
+        status = child.wait()
+        # A child killed by signal N reports 128+N, as a shell would, rather than
+        # a negative status that `SystemExit` would turn into 256-N.
+        return 128 - status if status < 0 else status
     finally:
         for signum, handler in old_handlers.items():
             signal.signal(signum, handler)
