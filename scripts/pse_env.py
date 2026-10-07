@@ -58,7 +58,7 @@ CONFIGURED = {
 }
 
 
-class Failure(Exception):
+class BoundaryError(Exception):
     """This boundary, not the command, failed."""
 
 
@@ -77,7 +77,7 @@ def local_keys(root: Path) -> dict[str, str]:
         timeout=10,
     )
     if result.returncode:
-        raise Failure(f"{LOCAL} failed to load")
+        raise BoundaryError(f"{LOCAL} failed to load")
     after = dict(
         item.split("=", 1) for item in result.stdout.decode().split("\0") if "=" in item
     )
@@ -121,7 +121,7 @@ def compose(
     try:
         return build_environment.configure(root, env)
     except ValueError as error:
-        raise Failure(str(error)) from error
+        raise BoundaryError(str(error)) from error
 
 
 # Values an agent sets deliberately; the others usually come from a login profile, so
@@ -202,12 +202,12 @@ def slice_name(env: Mapping[str, str]) -> str | None:
     if name in {"", "none"}:
         return None
     if not SLICE_VALUE.fullmatch(name):
-        raise Failure(f"PSE_SLICE={name!r} is not a slice unit name (e.g. pse.slice) or none")
+        raise BoundaryError(f"PSE_SLICE={name!r} is not a slice unit name (e.g. pse.slice) or none")
     return name
 
 
 def slice_group(name: str) -> Path:
-    """systemd nests dashed slice names: pse-x.slice lives inside pse.slice."""
+    """Systemd nests dashed slice names: pse-x.slice lives inside pse.slice."""
     stem = name.removesuffix(".slice").split("-")
     parts = ["-".join(stem[: index + 1]) + ".slice" for index in range(len(stem))]
     service = f"user.slice/user-{os.getuid()}.slice/user@{os.getuid()}.service"
@@ -235,7 +235,7 @@ def require_store(env: Mapping[str, str]) -> None:
     state = Path(env["PSE_SURREAL_STATE"])
     config_path = state / "config.json"
     if not config_path.is_file():
-        raise Failure(
+        raise BoundaryError(
             f"canonical store {state} is not set up; run: just surreal setup --state {state}"
             f" && just surreal start --state {state} && just canonical-init {state}"
             " (or choose another with PSE_SURREAL_STATE)"
@@ -244,7 +244,7 @@ def require_store(env: Mapping[str, str]) -> None:
 
     config = json.loads(config_path.read_text())
     if config.get("admission") != "open" or not surreal_server.ready(state, config):
-        raise Failure(
+        raise BoundaryError(
             f"canonical server for {state} is not ready; run: just surreal start --state {state}"
         )
 
@@ -288,7 +288,7 @@ def memory_cap(env: Mapping[str, str]) -> str | None:
     if value == "off":
         return None
     if not MEMORY_VALUE.fullmatch(value):
-        raise Failure(
+        raise BoundaryError(
             f"PSE_MEMORY_MAX={value!r} is not a size (e.g. 64G), a percentage, infinity or off"
         )
     return value
@@ -352,7 +352,7 @@ def unexecutable(command: Sequence[str], env: Mapping[str, str]) -> int | None:
 
 def execute(command: Sequence[str], env: Mapping[str, str]) -> int:
     try:
-        os.execvpe(command[0], list(command), dict(env))
+        os.execvpe(command[0], list(command), dict(env))  # noqa: S606 -- the boundary becomes the command
     except FileNotFoundError:
         print(f"pse-env: command not found: {command[0]}", file=sys.stderr)
         return 127
@@ -405,7 +405,7 @@ def native_choices(
     root: Path, chosen: Mapping[str, str], requested: list[str]
 ) -> list[str]:
     """Thread budgets and solver runtime keys a native command would get, and refusals."""
-    from scripts import native_cache as cache  # noqa: PLC0415 -- reads the image declaration
+    from scripts import native_cache as cache  # noqa: PLC0415 -- owner cycle
 
     runtime = (
         cache.runtime_env(root / "docker/solvers/Dockerfile")
@@ -447,7 +447,7 @@ def explain(root: Path, caller: Mapping[str, str], requested: list[str] | None) 
 
         check = doctor.check_extension()
         lines.append(f"extension         {check.detail} (observed, not admitted)")
-    except Exception as error:  # noqa: BLE001 -- an observation, never a failure
+    except Exception as error:
         lines.append(f"extension         unobserved: {error}")
     if requested is None:
         lines.append("native            none requested (use --native[=caps])")
@@ -529,10 +529,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             return native(ROOT, requested, command, env, scope=not args.no_scope)
         prefix = [] if args.no_scope else placement(env, native=False)
         return execute([*prefix, *command], env)
-    except Failure as error:
+    except BoundaryError as error:
         print(f"pse-env: {error}", file=sys.stderr)
         return FAILURE
-    except Exception as error:  # noqa: BLE001 -- any boundary error is the boundary's, not the command's
+    except Exception as error:
         print(f"pse-env: {type(error).__name__}: {error}", file=sys.stderr)
         return FAILURE
 

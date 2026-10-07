@@ -590,7 +590,7 @@ def placement_slice() -> list[str]:
     root = str(Path(__file__).resolve().parents[1])
     if root not in sys.path:
         sys.path.insert(0, root)
-    from scripts import pse_env  # noqa: PLC0415 -- standalone supervisor loads the placement owner after root selection
+    from scripts import pse_env  # noqa: PLC0415 -- after root selection
 
     selected = pse_env.slice_name(os.environ)
     return [] if selected is None else [f"--slice={selected}"]

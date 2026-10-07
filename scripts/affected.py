@@ -160,12 +160,12 @@ def main(argv: list[str] | None = None) -> int:
         print("  - changes outside any package: " + "; ".join(unowned[:8]))
     print("  - behaviour reached only through data, fixtures or other processes is not inferred")
     print("command: " + shlex.join(command))
-    if not args.run or not seeds and not wide:
+    if not args.run or (not seeds and not wide):
         return 0
     runner = [str(ROOT / "scripts/pse-env")]
     if args.features:
         runner.append("--native")
-    os.execv(runner[0], [*runner, "--", *command])
+    os.execv(runner[0], [*runner, "--", *command])  # noqa: S606 -- the preview becomes the run
     return 127
 
 

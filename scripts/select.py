@@ -22,7 +22,10 @@ import os
 import re
 import shlex
 import sys
-from collections.abc import Sequence
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 VALIDATE = ("--features", "pse-relations/force-validate")
 BARE = re.compile(r"[A-Za-z0-9_]+(?:::[A-Za-z0-9_]+)*(?:::)?")
@@ -112,7 +115,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 2
     print("select: " + shlex.join(command), file=sys.stderr, flush=True)
-    os.execvp(command[0], command)
+    os.execvp(command[0], command)  # noqa: S606 -- the selection becomes the run
     return 127
 
 

@@ -84,7 +84,7 @@ class ValidationTests(unittest.TestCase):
             root = Path(directory)
             (root / "justfile").write_text(
                 'set script-interpreter := ["bash", "-euo", "pipefail"]\n'
-                + 'py := "'
+                 'py := "'
                 + sys.executable
                 + '"\n'
                 + match.group()

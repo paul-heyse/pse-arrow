@@ -48,8 +48,8 @@ def _require_native_libraries() -> None:
     The linked native build needs the solver libraries that only the native environment
     puts on the library path. Importing ``pse`` happens before any test conftest can
     report it, so the dynamic loader is asked here, without running package code; only
-    its missing-library failure is labelled. Exit 125 is the environment boundary's. Only
-    this checkout's own package is probed: a run elsewhere never imports it.
+    its missing-library failure is labelled. Exit 125 is the environment boundary's.
+    Only this checkout's own package is probed: a run elsewhere never imports it.
     """
     import ctypes  # noqa: PLC0415 -- only this probe needs it
     import importlib.machinery  # noqa: PLC0415
@@ -202,8 +202,8 @@ def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> bool 
 
     Deselecting parity items happens after collection, too late for a tree whose import
     needs IDAES; without this a bare `pytest` or `just py-unit` fails in any environment
-    but the parity one. With `--parity` the tree is collected and the session still fails,
-    never skips, when the environment is wrong.
+    but the parity one. With `--parity` the tree is collected and the session still
+    fails, never skips, when the environment is wrong.
 
     Args:
         collection_path: The path pytest is about to collect.
@@ -271,7 +271,12 @@ def pytest_report_collectionfinish(config: pytest.Config) -> list[str]:
     count = config.stash.get(_parity_deselected_key, 0)
     if not count:
         if config.stash.get(_parity_uncollected_key, False):
-            return ["parity suite not collected: pass --parity (in the parity environment) to run it"]
+            return [
+                (
+                    "parity suite not collected: pass --parity "
+                    "(in the parity environment) to run it"
+                )
+            ]
         return []
     line = (
         f"deselected {count} parity test(s): pass --parity to run them "

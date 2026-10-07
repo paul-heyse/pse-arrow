@@ -43,14 +43,14 @@ class PseEnvTests(unittest.TestCase):
         self.assertEqual(pse_env.compose(self.root, once), once)
 
     def test_print_defers_local_values_and_evaluates_to_them(self) -> None:
-        text = pse_env.render(self.root, {"PATH": "/usr/bin:/bin", "HOME": "/tmp"})
+        text = pse_env.render(self.root, {"PATH": "/usr/bin:/bin", "HOME": "/nonexistent-home"})
         self.assertNotIn("s3cret", text)
         result = subprocess.run(
             ["bash", "-c", text + 'printf "%s|%s" "$PSE_TEST_LICENSE" "$PSE_TEST_OTHER"'],
             capture_output=True,
             text=True,
             check=True,
-            env={"PATH": "/usr/bin:/bin", "HOME": "/tmp"},
+            env={"PATH": "/usr/bin:/bin", "HOME": "/nonexistent-home"},
         )
         self.assertEqual(result.stdout, "s3cret value|local")
 
@@ -106,7 +106,7 @@ class PseEnvTests(unittest.TestCase):
         self.assertIn("bounded by pse.slice", written)
 
     def test_boundary_failure_and_missing_command_statuses(self) -> None:
-        with patch.object(pse_env, "compose", side_effect=pse_env.Failure("broken")):
+        with patch.object(pse_env, "compose", side_effect=pse_env.BoundaryError("broken")):
             self.assertEqual(pse_env.main(["--no-scope", "--", "true"]), pse_env.FAILURE)
         with patch.object(pse_env, "compose", return_value={"PATH": "/usr/bin:/bin"}):
             self.assertEqual(pse_env.main(["--no-scope", "--", "pse-env-missing-command"]), 127)
@@ -114,9 +114,11 @@ class PseEnvTests(unittest.TestCase):
 
 class StoreReadinessTests(unittest.TestCase):
     def test_unset_up_store_fails_with_the_setup_commands(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            with self.assertRaises(pse_env.Failure) as raised:
-                pse_env.require_store({"PSE_SURREAL_STATE": directory})
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            self.assertRaises(pse_env.BoundaryError) as raised,
+        ):
+            pse_env.require_store({"PSE_SURREAL_STATE": directory})
         self.assertIn("just surreal setup", str(raised.exception))
 
     def test_store_default_is_the_supervisor_default(self) -> None:

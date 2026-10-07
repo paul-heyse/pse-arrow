@@ -68,108 +68,6 @@ impl<'a> EdgePublication<'a> {
     }
 }
 
-#[cfg(test)]
-mod canonical_analysis_publication_unit {
-    use super::*;
-
-    fn nodes(count: usize) -> Vec<AnalysisNode> {
-        (0..count)
-            .map(|ordinal| AnalysisNode {
-                key: format!("node-{ordinal}"),
-                analysis: "analysis".into(),
-                semantic: format!("semantic-{ordinal}"),
-                kind: "variable".into(),
-            })
-            .collect()
-    }
-
-    fn edge(ordinal: usize, source: usize, target: usize) -> AnalysisEdge {
-        AnalysisEdge {
-            key: format!("edge-{ordinal}"),
-            analysis: "analysis".into(),
-            source: format!("node-{source}"),
-            target: format!("node-{target}"),
-            kind: "incidence".into(),
-            evidence: None,
-        }
-    }
-
-    fn classify<'a>(nodes: &[AnalysisNode], edges: &'a [AnalysisEdge]) -> EdgePublication<'a> {
-        let node_pages = nodes
-            .iter()
-            .enumerate()
-            .map(|(ordinal, node)| (node.key.as_str(), ordinal / 64))
-            .collect::<BTreeMap<_, _>>();
-        let mut publication = EdgePublication::new(nodes.len());
-        for (ordinal, edge) in edges.iter().enumerate() {
-            assert!(publication.classify(ordinal, edge, &node_pages).is_some());
-        }
-        publication
-    }
-
-    #[test]
-    fn reordered_nodes_publish_edges_only_after_their_last_endpoint_page() {
-        let mut nodes = nodes(129);
-        nodes.reverse();
-        let edges = vec![
-            edge(0, 0, 128),
-            edge(1, 128, 128),
-            edge(2, 64, 128),
-            edge(3, 0, 64),
-        ];
-        let mut publication = classify(&nodes, &edges);
-        assert_eq!(publication.node_page(0), vec![&edges[1]]);
-        assert_eq!(publication.node_page(1), vec![&edges[2]]);
-        assert_eq!(publication.node_page(2), vec![&edges[0], &edges[3]]);
-        assert!(publication.take_ready().is_empty());
-    }
-
-    #[test]
-    fn ready_backlog_and_late_edges_drain_in_exact_original_selection_order() {
-        let nodes = nodes(65);
-        let edges = (0..131)
-            .map(|ordinal| {
-                // The first selected edge becomes ready later than its successors.
-                edge(ordinal, 0, if ordinal == 0 { 64 } else { 1 })
-            })
-            .collect::<Vec<_>>();
-        let mut publication = classify(&nodes, &edges);
-        assert_eq!(
-            publication.node_page(0),
-            edges[1..65].iter().collect::<Vec<_>>()
-        );
-        let mut second = vec![&edges[0]];
-        second.extend(edges[65..128].iter());
-        assert_eq!(publication.node_page(1), second);
-        assert_eq!(
-            publication.take_ready(),
-            edges[128..].iter().collect::<Vec<_>>()
-        );
-        assert!(publication.take_ready().is_empty());
-    }
-
-    #[test]
-    fn missing_endpoints_cannot_enter_a_publication_page() {
-        let nodes = nodes(1);
-        let node_pages = BTreeMap::from([(nodes[0].key.as_str(), 0)]);
-        let missing_source = edge(0, 1, 0);
-        let missing_target = edge(1, 0, 1);
-        let mut publication = EdgePublication::new(nodes.len());
-        assert!(
-            publication
-                .classify(0, &missing_source, &node_pages)
-                .is_none()
-        );
-        assert!(
-            publication
-                .classify(1, &missing_target, &node_pages)
-                .is_none()
-        );
-        assert!(publication.node_page(0).is_empty());
-        assert!(publication.take_ready().is_empty());
-        assert!(EdgePublication::new(0).take_ready().is_empty());
-    }
-}
 
 /// Versioned framed identity shared by analysis producers and native receipts.
 pub fn analysis_key(kind: &str, parts: &[&[u8]]) -> String {
@@ -181,213 +79,6 @@ pub fn analysis_key(kind: &str, parts: &[&[u8]]) -> String {
     hash.finish_hash().to_hex()
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
-mod canonical_analyses_server_unit {
-    use super::*;
-    use crate::canonical::{CanonicalOptions, checked};
-    #[tokio::test]
-    async fn canonical_analysis_graph_staging_requires_complete_immutable_membership() {
-        let state = std::env::var("PSE_SURREAL_STATE").expect("explicit native fixture required");
-        let mut options = CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
-        options.database = format!("analysis_{}", uuid::Uuid::new_v4().simple());
-        let store = CanonicalStore::connect(&options).await.unwrap();
-        store.create().await.unwrap();
-        let revision = store
-            .edit("analysis-source", None, "source", &[])
-            .await
-            .unwrap();
-        let key = "graph";
-        let header = Analysis {
-            key: key.into(),
-            revision: revision.key.clone(),
-            method: "mechanism-fixture:v1".into(),
-            configuration: vec![1].into(),
-            input_digest: "exact-fixture".into(),
-            interpretation: wire::INTERPRETATION.into(),
-            node_count: 2,
-            edge_count: 1,
-            active: false,
-        };
-        let mut source = Object::new();
-        source.insert("key", codec::encode_string("graph-root".into()).unwrap());
-        source.insert(
-            "problem",
-            codec::encode_string(revision.problem.clone()).unwrap(),
-        );
-        source.insert(
-            "revision",
-            codec::encode_string(revision.key.clone()).unwrap(),
-        );
-        source.insert("sequence", codec::encode_uint(revision.sequence).unwrap());
-        bounded_query(
-            store
-                .db
-                .query("RETURN fn::pse_analysis_v1::begin($row,$sources,$inputs);")
-                .bind(("row", wire::encode_canonical_analyses(&header).unwrap()))
-                .bind(("sources", vec![source]))
-                .bind(("inputs", Vec::<Object>::new())),
-        )
-        .await
-        .unwrap();
-        assert!(store.analysis(key).await.is_err());
-        assert!(
-            bounded_query(
-                store
-                    .db
-                    .query("RETURN fn::pse_analysis_v1::activate($key);")
-                    .bind(("key", key))
-            )
-            .await
-            .is_err()
-        );
-        let first = AnalysisNode {
-            key: "node-a".into(),
-            analysis: key.into(),
-            semantic: "a".into(),
-            kind: "variable".into(),
-        };
-        let second = AnalysisNode {
-            key: "node-b".into(),
-            analysis: key.into(),
-            semantic: "b".into(),
-            kind: "row".into(),
-        };
-        let edge = AnalysisEdge {
-            key: "edge".into(),
-            analysis: key.into(),
-            source: first.key.clone(),
-            target: second.key.clone(),
-            kind: "incidence".into(),
-            evidence: None,
-        };
-        store
-            .append_analysis(
-                key,
-                vec![wire::encode_canonical_analysis_nodes(&first).unwrap()],
-                vec![],
-            )
-            .await
-            .unwrap();
-        assert!(
-            store
-                .append_analysis(
-                    key,
-                    vec![],
-                    vec![wire::encode_canonical_analysis_edges(&edge).unwrap()]
-                )
-                .await
-                .is_err()
-        );
-        store
-            .append_analysis(
-                key,
-                vec![wire::encode_canonical_analysis_nodes(&second).unwrap()],
-                vec![wire::encode_canonical_analysis_edges(&edge).unwrap()],
-            )
-            .await
-            .unwrap();
-        bounded_query(
-            store
-                .db
-                .query("RETURN fn::pse_analysis_v1::activate($key);")
-                .bind(("key", key)),
-        )
-        .await
-        .unwrap();
-        assert!(store.analysis(key).await.unwrap().active);
-        assert_eq!(store.analysis_node_page(key, None).await.unwrap().len(), 2);
-        assert_eq!(
-            store.analysis_edge_page(key, None).await.unwrap(),
-            vec![edge.clone()]
-        );
-        store
-            .append_analysis(
-                key,
-                vec![wire::encode_canonical_analysis_nodes(&first).unwrap()],
-                vec![wire::encode_canonical_analysis_edges(&edge).unwrap()],
-            )
-            .await
-            .unwrap();
-        let grouped = Analysis {
-            key: "grouped".into(),
-            node_count: 65,
-            edge_count: 1,
-            ..header.clone()
-        };
-        let nodes = (0..65)
-            .map(|ordinal| AnalysisNode {
-                key: format!("grouped:{ordinal:03}"),
-                analysis: grouped.key.clone(),
-                ..first.clone()
-            })
-            .collect::<Vec<_>>();
-        let dependent = AnalysisEdge {
-            key: "grouped-edge".into(),
-            analysis: grouped.key.clone(),
-            source: nodes[0].key.clone(),
-            target: nodes[64].key.clone(),
-            ..edge.clone()
-        };
-        let saved = store
-            .persist_analysis(
-                &grouped,
-                &[revision.clone()],
-                &[],
-                &nodes,
-                &[dependent.clone()],
-            )
-            .await
-            .unwrap();
-        assert!(
-            saved.active,
-            "an edge may share the page that establishes its last endpoint"
-        );
-        assert_eq!(
-            store
-                .analysis_node_page(&grouped.key, None)
-                .await
-                .unwrap()
-                .len(),
-            64
-        );
-        assert_eq!(
-            store.analysis_edge_page(&grouped.key, None).await.unwrap(),
-            vec![dependent]
-        );
-        let mut changed = first.clone();
-        changed.kind = "parameter".into();
-        assert!(
-            store
-                .append_analysis(
-                    key,
-                    vec![wire::encode_canonical_analysis_nodes(&changed).unwrap()],
-                    vec![]
-                )
-                .await
-                .is_err()
-        );
-        store.forget_analysis_results(key).await.unwrap();
-        assert!(store.analysis_node_page(key, None).await.is_err());
-        assert!(store.analysis(key).await.is_err());
-        let mut response = bounded_query(
-            store
-                .db
-                .query(
-                    "SELECT key FROM canonical_roots WHERE owner_kind='analysis' AND owner=$key;",
-                )
-                .bind(("key", key)),
-        )
-        .await
-        .unwrap();
-        assert!(response.take::<Vec<Object>>(0).unwrap().is_empty());
-        store
-            .db
-            .query(format!("REMOVE DATABASE {};", options.database))
-            .await
-            .and_then(checked)
-            .unwrap();
-    }
-}
 fn invalid(message: &str) -> CanonicalError {
     CanonicalError::Configuration(message.into())
 }
@@ -658,5 +349,316 @@ impl CanonicalStore {
             return Err(CanonicalError::PayloadLimit);
         }
         Ok(rows)
+    }
+}
+
+#[cfg(test)]
+mod canonical_analysis_publication_unit {
+    use super::*;
+
+    fn nodes(count: usize) -> Vec<AnalysisNode> {
+        (0..count)
+            .map(|ordinal| AnalysisNode {
+                key: format!("node-{ordinal}"),
+                analysis: "analysis".into(),
+                semantic: format!("semantic-{ordinal}"),
+                kind: "variable".into(),
+            })
+            .collect()
+    }
+
+    fn edge(ordinal: usize, source: usize, target: usize) -> AnalysisEdge {
+        AnalysisEdge {
+            key: format!("edge-{ordinal}"),
+            analysis: "analysis".into(),
+            source: format!("node-{source}"),
+            target: format!("node-{target}"),
+            kind: "incidence".into(),
+            evidence: None,
+        }
+    }
+
+    fn classify<'a>(nodes: &[AnalysisNode], edges: &'a [AnalysisEdge]) -> EdgePublication<'a> {
+        let node_pages = nodes
+            .iter()
+            .enumerate()
+            .map(|(ordinal, node)| (node.key.as_str(), ordinal / 64))
+            .collect::<BTreeMap<_, _>>();
+        let mut publication = EdgePublication::new(nodes.len());
+        for (ordinal, edge) in edges.iter().enumerate() {
+            assert!(publication.classify(ordinal, edge, &node_pages).is_some());
+        }
+        publication
+    }
+
+    #[test]
+    fn reordered_nodes_publish_edges_only_after_their_last_endpoint_page() {
+        let mut nodes = nodes(129);
+        nodes.reverse();
+        let edges = vec![
+            edge(0, 0, 128),
+            edge(1, 128, 128),
+            edge(2, 64, 128),
+            edge(3, 0, 64),
+        ];
+        let mut publication = classify(&nodes, &edges);
+        assert_eq!(publication.node_page(0), vec![&edges[1]]);
+        assert_eq!(publication.node_page(1), vec![&edges[2]]);
+        assert_eq!(publication.node_page(2), vec![&edges[0], &edges[3]]);
+        assert!(publication.take_ready().is_empty());
+    }
+
+    #[test]
+    fn ready_backlog_and_late_edges_drain_in_exact_original_selection_order() {
+        let nodes = nodes(65);
+        let edges = (0..131)
+            .map(|ordinal| {
+                // The first selected edge becomes ready later than its successors.
+                edge(ordinal, 0, if ordinal == 0 { 64 } else { 1 })
+            })
+            .collect::<Vec<_>>();
+        let mut publication = classify(&nodes, &edges);
+        assert_eq!(
+            publication.node_page(0),
+            edges[1..65].iter().collect::<Vec<_>>()
+        );
+        let mut second = vec![&edges[0]];
+        second.extend(edges[65..128].iter());
+        assert_eq!(publication.node_page(1), second);
+        assert_eq!(
+            publication.take_ready(),
+            edges[128..].iter().collect::<Vec<_>>()
+        );
+        assert!(publication.take_ready().is_empty());
+    }
+
+    #[test]
+    fn missing_endpoints_cannot_enter_a_publication_page() {
+        let nodes = nodes(1);
+        let node_pages = BTreeMap::from([(nodes[0].key.as_str(), 0)]);
+        let missing_source = edge(0, 1, 0);
+        let missing_target = edge(1, 0, 1);
+        let mut publication = EdgePublication::new(nodes.len());
+        assert!(
+            publication
+                .classify(0, &missing_source, &node_pages)
+                .is_none()
+        );
+        assert!(
+            publication
+                .classify(1, &missing_target, &node_pages)
+                .is_none()
+        );
+        assert!(publication.node_page(0).is_empty());
+        assert!(publication.take_ready().is_empty());
+        assert!(EdgePublication::new(0).take_ready().is_empty());
+    }
+}
+
+#[cfg(all(test, feature = "canonical-tests"))]
+mod canonical_analyses_server_unit {
+    use super::*;
+    use crate::canonical::{CanonicalOptions, checked};
+    #[tokio::test]
+    async fn canonical_analysis_graph_staging_requires_complete_immutable_membership() {
+        let state = std::env::var("PSE_SURREAL_STATE").expect("explicit native fixture required");
+        let mut options = CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
+        options.database = format!("analysis_{}", uuid::Uuid::new_v4().simple());
+        let store = CanonicalStore::connect(&options).await.unwrap();
+        store.create().await.unwrap();
+        let revision = store
+            .edit("analysis-source", None, "source", &[])
+            .await
+            .unwrap();
+        let key = "graph";
+        let header = Analysis {
+            key: key.into(),
+            revision: revision.key.clone(),
+            method: "mechanism-fixture:v1".into(),
+            configuration: vec![1].into(),
+            input_digest: "exact-fixture".into(),
+            interpretation: wire::INTERPRETATION.into(),
+            node_count: 2,
+            edge_count: 1,
+            active: false,
+        };
+        let mut source = Object::new();
+        source.insert("key", codec::encode_string("graph-root".into()).unwrap());
+        source.insert(
+            "problem",
+            codec::encode_string(revision.problem.clone()).unwrap(),
+        );
+        source.insert(
+            "revision",
+            codec::encode_string(revision.key.clone()).unwrap(),
+        );
+        source.insert("sequence", codec::encode_uint(revision.sequence).unwrap());
+        bounded_query(
+            store
+                .db
+                .query("RETURN fn::pse_analysis_v1::begin($row,$sources,$inputs);")
+                .bind(("row", wire::encode_canonical_analyses(&header).unwrap()))
+                .bind(("sources", vec![source]))
+                .bind(("inputs", Vec::<Object>::new())),
+        )
+        .await
+        .unwrap();
+        assert!(store.analysis(key).await.is_err());
+        assert!(
+            bounded_query(
+                store
+                    .db
+                    .query("RETURN fn::pse_analysis_v1::activate($key);")
+                    .bind(("key", key))
+            )
+            .await
+            .is_err()
+        );
+        let first = AnalysisNode {
+            key: "node-a".into(),
+            analysis: key.into(),
+            semantic: "a".into(),
+            kind: "variable".into(),
+        };
+        let second = AnalysisNode {
+            key: "node-b".into(),
+            analysis: key.into(),
+            semantic: "b".into(),
+            kind: "row".into(),
+        };
+        let edge = AnalysisEdge {
+            key: "edge".into(),
+            analysis: key.into(),
+            source: first.key.clone(),
+            target: second.key.clone(),
+            kind: "incidence".into(),
+            evidence: None,
+        };
+        store
+            .append_analysis(
+                key,
+                vec![wire::encode_canonical_analysis_nodes(&first).unwrap()],
+                vec![],
+            )
+            .await
+            .unwrap();
+        assert!(
+            store
+                .append_analysis(
+                    key,
+                    vec![],
+                    vec![wire::encode_canonical_analysis_edges(&edge).unwrap()]
+                )
+                .await
+                .is_err()
+        );
+        store
+            .append_analysis(
+                key,
+                vec![wire::encode_canonical_analysis_nodes(&second).unwrap()],
+                vec![wire::encode_canonical_analysis_edges(&edge).unwrap()],
+            )
+            .await
+            .unwrap();
+        bounded_query(
+            store
+                .db
+                .query("RETURN fn::pse_analysis_v1::activate($key);")
+                .bind(("key", key)),
+        )
+        .await
+        .unwrap();
+        assert!(store.analysis(key).await.unwrap().active);
+        assert_eq!(store.analysis_node_page(key, None).await.unwrap().len(), 2);
+        assert_eq!(
+            store.analysis_edge_page(key, None).await.unwrap(),
+            vec![edge.clone()]
+        );
+        store
+            .append_analysis(
+                key,
+                vec![wire::encode_canonical_analysis_nodes(&first).unwrap()],
+                vec![wire::encode_canonical_analysis_edges(&edge).unwrap()],
+            )
+            .await
+            .unwrap();
+        let grouped = Analysis {
+            key: "grouped".into(),
+            node_count: 65,
+            edge_count: 1,
+            ..header.clone()
+        };
+        let nodes = (0..65)
+            .map(|ordinal| AnalysisNode {
+                key: format!("grouped:{ordinal:03}"),
+                analysis: grouped.key.clone(),
+                ..first.clone()
+            })
+            .collect::<Vec<_>>();
+        let dependent = AnalysisEdge {
+            key: "grouped-edge".into(),
+            analysis: grouped.key.clone(),
+            source: nodes[0].key.clone(),
+            target: nodes[64].key.clone(),
+            ..edge.clone()
+        };
+        let saved = store
+            .persist_analysis(
+                &grouped,
+                &[revision.clone()],
+                &[],
+                &nodes,
+                &[dependent.clone()],
+            )
+            .await
+            .unwrap();
+        assert!(
+            saved.active,
+            "an edge may share the page that establishes its last endpoint"
+        );
+        assert_eq!(
+            store
+                .analysis_node_page(&grouped.key, None)
+                .await
+                .unwrap()
+                .len(),
+            64
+        );
+        assert_eq!(
+            store.analysis_edge_page(&grouped.key, None).await.unwrap(),
+            vec![dependent]
+        );
+        let mut changed = first.clone();
+        changed.kind = "parameter".into();
+        assert!(
+            store
+                .append_analysis(
+                    key,
+                    vec![wire::encode_canonical_analysis_nodes(&changed).unwrap()],
+                    vec![]
+                )
+                .await
+                .is_err()
+        );
+        store.forget_analysis_results(key).await.unwrap();
+        assert!(store.analysis_node_page(key, None).await.is_err());
+        assert!(store.analysis(key).await.is_err());
+        let mut response = bounded_query(
+            store
+                .db
+                .query(
+                    "SELECT key FROM canonical_roots WHERE owner_kind='analysis' AND owner=$key;",
+                )
+                .bind(("key", key)),
+        )
+        .await
+        .unwrap();
+        assert!(response.take::<Vec<Object>>(0).unwrap().is_empty());
+        store
+            .db
+            .query(format!("REMOVE DATABASE {};", options.database))
+            .await
+            .and_then(checked)
+            .unwrap();
     }
 }

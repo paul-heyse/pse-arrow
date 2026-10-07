@@ -117,14 +117,17 @@ def session_env(root: Path) -> int:
         text = pse_env.render(root, dict(os.environ), complete=True)
         with Path(target).open("a") as output:
             output.write(text)
-    except Exception as exc:  # noqa: BLE001 -- the session proceeds without it
+    except Exception as exc:
         print(f"pse-env: session environment unavailable: {exc}", file=sys.stderr)
     return 0
 
 
 def session_root(default: Path) -> Path:
-    """The checkout the session works in: a Claude worktree's hook runs this script from
-    the main checkout (CLAUDE_PROJECT_DIR) but its payload carries the worktree's cwd."""
+    """The checkout the session works in, taken from the hook payload's cwd.
+
+    A Claude worktree's hook runs this script from the main checkout (CLAUDE_PROJECT_DIR),
+    but its payload carries the worktree's cwd.
+    """
     try:
         payload = json.load(sys.stdin)
     except ValueError:

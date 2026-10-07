@@ -49,7 +49,7 @@ from scripts import (  # noqa: E402 -- direct-script path routing
     pse_env,
 )
 
-Failure = pse_env.Failure
+BoundaryError = pse_env.BoundaryError
 
 
 def native(env: Mapping[str, str], _manifest: Path | None) -> None:
@@ -59,7 +59,7 @@ def native(env: Mapping[str, str], _manifest: Path | None) -> None:
             name for name in native_cache.SOLVER_FILES if not (Path(explicit) / name).is_file()
         ]
         if missing:
-            raise Failure(
+            raise BoundaryError(
                 f"prerequisite native: IPOPT_DIR={explicit} lacks {missing[0]}"
                 f"{f' and {len(missing) - 1} more' if len(missing) > 1 else ''}; "
                 "point it at a complete solver prefix or unset it to use the pinned image"
@@ -70,13 +70,13 @@ def native(env: Mapping[str, str], _manifest: Path | None) -> None:
     try:
         image = native_cache.solver_image()
     except ValueError as error:
-        raise Failure(
+        raise BoundaryError(
             f"prerequisite native: cannot resolve the solver image ({error}); "
             "check PSE_SOLVER_IMAGE or run just bootstrap-solvers"
         ) from error
     docker = shutil.which("docker", path=env.get("PATH"))
     if docker is None:
-        raise Failure(
+        raise BoundaryError(
             "prerequisite native: the solver prefix is not extracted and docker is not "
             "available to extract it; install docker and run just bootstrap-solvers"
         )
@@ -88,7 +88,7 @@ def native(env: Mapping[str, str], _manifest: Path | None) -> None:
         timeout=60,
     )
     if inspected.returncode != 0:
-        raise Failure(
+        raise BoundaryError(
             f"prerequisite native: solver image {image} is not present locally; "
             "run just bootstrap-solvers (or set PSE_SOLVER_IMAGE)"
         )
@@ -97,14 +97,14 @@ def native(env: Mapping[str, str], _manifest: Path | None) -> None:
 def store(env: Mapping[str, str], _manifest: Path | None) -> None:
     try:
         pse_env.require_store(env)
-    except Failure as error:
-        raise Failure(f"prerequisite store: {error}") from error
+    except BoundaryError as error:
+        raise BoundaryError(f"prerequisite store: {error}") from error
 
 
 def extension(env: Mapping[str, str], _manifest: Path | None) -> None:
     del env
     if doctor.extension_kind() == "absent":
-        raise Failure(
+        raise BoundaryError(
             "prerequisite extension: no installed pse extension; "
             "run just py-sync (or just py-sync-native for the native solvers)"
         )
@@ -115,7 +115,7 @@ def native_extension(env: Mapping[str, str], _manifest: Path | None) -> None:
     kind = doctor.extension_kind()
     if kind != "native":
         found = "no installed pse extension" if kind == "absent" else "the dev build"
-        raise Failure(
+        raise BoundaryError(
             f"prerequisite native-extension: the command needs the linked native build, "
             f"found {found}; run just py-sync-native"
         )
@@ -124,28 +124,28 @@ def native_extension(env: Mapping[str, str], _manifest: Path | None) -> None:
 def conformance(env: Mapping[str, str], manifest: Path | None) -> None:
     del env
     if manifest is None:
-        raise Failure("prerequisite conformance: no --manifest given")
+        raise BoundaryError("prerequisite conformance: no --manifest given")
     path = manifest if manifest.is_absolute() else ROOT / manifest
     try:
         document = tomllib.loads(path.read_text())
     except (OSError, tomllib.TOMLDecodeError) as error:
-        raise Failure(f"prerequisite conformance: cannot read {path}: {error}") from error
+        raise BoundaryError(f"prerequisite conformance: cannot read {path}: {error}") from error
     runs = document.get("runs")
     if not isinstance(runs, list) or not runs:
-        raise Failure(f"prerequisite conformance: {path} declares no [[runs]]")
+        raise BoundaryError(f"prerequisite conformance: {path} declares no [[runs]]")
     for run in runs:
         if not isinstance(run, dict):
-            raise Failure(f"prerequisite conformance: {path} has a malformed run")
+            raise BoundaryError(f"prerequisite conformance: {path} has a malformed run")
         roots = [run.get("package"), run.get("physical"), *run.get("dependencies", [])]
         for root in roots:
             if not isinstance(root, str) or not (path.parent / root / "package.toml").is_file():
-                raise Failure(
+                raise BoundaryError(
                     f"prerequisite conformance: run {run.get('name')!r} in {path} names "
                     f"{root!r}, which has no package.toml"
                 )
     diagnostics = document.get("settings", {}).get("diagnostics")
     if isinstance(diagnostics, str) and not (path.parent / diagnostics).is_file():
-        raise Failure(
+        raise BoundaryError(
             f"prerequisite conformance: {path} names diagnostics {diagnostics}, "
             "which is not a file"
         )
@@ -161,7 +161,7 @@ KINDS: dict[str, Callable[[Mapping[str, str], Path | None], None]] = {
 
 
 def check(kinds: Sequence[str], env: Mapping[str, str], manifest: Path | None = None) -> None:
-    """Raise ``Failure`` for the first missing prerequisite, in the order given."""
+    """Raise ``BoundaryError`` for the first missing prerequisite, in the order given."""
     for kind in kinds:
         KINDS[kind](env, manifest)
 
@@ -181,7 +181,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     try:
         check(args.kinds, pse_env.compose(ROOT, os.environ), args.manifest)
-    except Failure as error:
+    except BoundaryError as error:
         print(f"pse-env: {error}", file=sys.stderr)
         return pse_env.FAILURE
     except Exception as error:  # an unobservable prerequisite is not admitted
