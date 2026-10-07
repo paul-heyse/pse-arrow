@@ -148,6 +148,33 @@ def _deselect_parity(config: pytest.Config, items: list[pytest.Item]) -> None:
 
 
 _parity_deselected_key = pytest.StashKey[int]()
+_parity_uncollected_key = pytest.StashKey[bool]()
+#: The parity test tree. Its conftest imports IDAES, which only the parity environment
+#: (`just parity`) installs, so it is collected only when parity is requested.
+_PARITY_TESTS = Path(__file__).resolve().parent / "python" / "pse" / "parity" / "tests"
+
+
+def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> bool | None:
+    """Leave the parity tree uncollected unless `--parity` was given.
+
+    Deselecting parity items happens after collection, too late for a tree whose import
+    needs IDAES; without this a bare `pytest` or `just py-unit` fails in any environment
+    but the parity one. With `--parity` the tree is collected and the session still fails,
+    never skips, when the environment is wrong.
+
+    Args:
+        collection_path: The path pytest is about to collect.
+        config: The active configuration.
+
+    Returns:
+        True to leave the path uncollected; None to let pytest decide.
+    """
+    if config.option.parity:
+        return None
+    if collection_path == _PARITY_TESTS or _PARITY_TESTS in collection_path.parents:
+        config.stash[_parity_uncollected_key] = True
+        return True
+    return None
 
 
 @pytest.hookimpl(wrapper=True)
@@ -200,6 +227,8 @@ def pytest_report_collectionfinish(config: pytest.Config) -> list[str]:
     """
     count = config.stash.get(_parity_deselected_key, 0)
     if not count:
+        if config.stash.get(_parity_uncollected_key, False):
+            return ["parity suite not collected: pass --parity (in the parity environment) to run it"]
         return []
     line = (
         f"deselected {count} parity test(s): pass --parity to run them "

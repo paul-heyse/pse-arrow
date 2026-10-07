@@ -451,7 +451,9 @@ ignore_imports = ["pse.contracts.values -> pse._build"]
 
 [tool.pytest.ini_options]
 minversion = "9.1"
-testpaths = ["python/pse/tests", "python/pse/parity/tests"]
+# The parity tree is collected only by `just parity` (explicit path, --parity): its
+# conftest imports IDAES, which only the parity environment installs.
+testpaths = ["python/pse/tests"]
 python_files = ["test_*.py"]
 addopts = [
   "--strict-markers",
