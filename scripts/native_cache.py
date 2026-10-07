@@ -638,7 +638,9 @@ def isolation(base: Path, env: dict[str, str]) -> Path:
         directories = [path for path in source.iterdir() if path.is_dir()]
         if len(directories) != 1:
             raise ValueError("validated-root archive layout")
-        cap = ["bash", str(ROOT / "scripts/memory-cap.sh")]
+        from scripts import pse_env  # noqa: PLC0415 -- placement owner
+
+        cap = pse_env.placement(env, native=True)
         run(
             [
                 *cap,

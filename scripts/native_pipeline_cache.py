@@ -132,10 +132,11 @@ def _highs_candidate(env: dict[str, str], request: dict) -> Path:
 
 def _build_highs_archive(env: dict[str, str]) -> tuple[Path, str]:
     """Cargo owns the exact archive and feature unit. Consume its actual build message."""
+    from scripts import pse_env  # noqa: PLC0415 -- placement owner
+
     completed = subprocess.run(
         [
-            "bash",
-            str(cache.ROOT / "scripts/memory-cap.sh"),
+            *pse_env.placement(env, native=True),
             "cargo",
             "build",
             "--locked",
@@ -208,7 +209,9 @@ int main(void) {
 }
 """)
     binary = work / "petsc-string-control"
-    cap = ["bash", str(cache.ROOT / "scripts/memory-cap.sh")]
+    from scripts import pse_env  # noqa: PLC0415 -- placement owner
+
+    cap = pse_env.placement(env, native=True)
     cache.run(
         [
             *cap,
@@ -307,7 +310,9 @@ def _prepare(kind: str, env: dict[str, str]) -> Path:
         if len(roots) != 1 or not roots[0].is_dir():
             raise ValueError("expected one foreign source root")
         source = roots[0]
-        cap = ["bash", str(cache.ROOT / "scripts/memory-cap.sh")]
+        from scripts import pse_env  # noqa: PLC0415 -- placement owner
+
+        cap = pse_env.placement(env, native=True)
         subprocess.run(["git", "apply", "--check", str(patch)], cwd=source, check=True)
         subprocess.run(["git", "apply", str(patch)], cwd=source, check=True)
         if kind == "uno":

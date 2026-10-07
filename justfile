@@ -1067,6 +1067,12 @@ upgrade +packages:
     just family-check
 
 [group('mutating')]
+[doc('Install the pse.slice user unit: CPU weight below the editor, memory-pressure monitoring (machine-local)')]
+slice-install:
+    install -Dm644 .config/systemd/pse.slice "$HOME/.config/systemd/user/pse.slice"
+    systemctl --user daemon-reload
+
+[group('mutating')]
 [doc('Materialize shared skill aliases; native agent adapters are maintained separately')]
 agent-config-sync:
     python3 scripts/agent-config.py

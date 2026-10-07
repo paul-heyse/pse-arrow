@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# Machine-local placement for pse-arrow commands (scripts/pse-env, the native setup
+# builders, supervised canonical servers and workers). Install with `just slice-install`.
+# Without this file systemd still creates the slice on demand; the file adds a CPU weight
+# below interactive applications and memory-pressure monitoring of agent work.
+#
+# There is deliberately no aggregate MemoryMax: each command's scope (PSE_MEMORY_MAX) is
+# its failure boundary, and a stricter ancestor would silently defeat a raised cap. Opt in
+# for one boot with: systemctl --user set-property --runtime pse.slice MemoryMax=96G
+[Unit]
+Description=pse-arrow agent and recipe commands
+
+[Slice]
+CPUWeight=30
+ManagedOOMMemoryPressure=kill
+ManagedOOMMemoryPressureLimit=50%

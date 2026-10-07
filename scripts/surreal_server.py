@@ -585,6 +585,14 @@ def worker_environment(
     return environment
 
 
+def placement_slice() -> list[str]:
+    """Workers and servers launch their own units, so they name the agent slice too."""
+    from scripts import pse_env  # noqa: PLC0415 -- placement owner
+
+    selected = pse_env.slice_name(os.environ)
+    return [] if selected is None else [f"--slice={selected}"]
+
+
 def worker_scope_command(
     state: Path,
     slot: int,
@@ -602,6 +610,7 @@ def worker_scope_command(
         "--no-ask-password",
         "--expand-environment=no",
         f"--unit={worker_unit(state, slot)}",
+        *placement_slice(),
         f"--property=MemoryMax={integer(allocation['native_worker_memory_bytes'])}",
         "--property=MemorySwapMax=0",
         "--property=TasksMax=128",
@@ -760,6 +769,7 @@ def start(state: Path, config: dict[str, object], *, validation: bool = False) -
         "--quiet",
         "--collect",
         f"--unit={unit_name(state)}",
+        *placement_slice(),
         "--service-type=exec",
         "--property=KillMode=control-group",
         "--property=TimeoutStopSec=45",
