@@ -1237,6 +1237,16 @@ build-cache-probe:
     "{{ py }}" -m scripts.build_cache_probe
 
 [group('discovery')]
+[doc('What runs now: pse-* scopes, canonical servers and workers, Cargo processes in this checkout, slice limits (read-only; --json)')]
+activity *args:
+    "{{ py }}" scripts/activity.py {{ args }}
+
+[group('env')]
+[doc('Second working copy for a parallel agent: just worktree <name> [--ref REF] [--python|--native]')]
+worktree name *args:
+    python3 scripts/worktree.py {{ quote(name) }} {{ args }}
+
+[group('discovery')]
 [doc('Inventory build and persistent cache storage; never deletes artifacts')]
 build-storage:
     "{{ py }}" -m scripts.build_storage

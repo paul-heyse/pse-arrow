@@ -32,6 +32,10 @@ jobs = 16
 # Resolve dependency features for the whole workspace whatever `-p` selects, so each
 # recipe selection shares one build of symbolica, DataFusion and Arrow ([resolver]).
 feature-unification = true
+# Lock individual build units instead of the whole target directory, so concurrent
+# check-type commands in one checkout wait only for a unit both need (Plan 29 P3).
+# Artifact-producing builds and tests still contend; use a worktree for those.
+fine-grain-locking = true
 
 [resolver]
 # Read only with `-Z feature-unification` (above); stable Cargo ignores it and resolves
