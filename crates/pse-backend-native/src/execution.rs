@@ -24,6 +24,63 @@ use pse_math::{
 use pse_model::generated::enums::{ModelingStructuralRequirement, NativeConstraintForm};
 use std::{any::Any, collections::BTreeMap};
 
+/// The runtime's existing compute allowance on the current native owner thread.
+/// Waiting for a real native exclusion guard releases compute capacity; acquiring
+/// that guard does not grant capacity, so it must be reacquired before native work.
+pub trait ComputeAdmission: std::fmt::Debug + Send {
+    /// Relinquish active compute capacity before native exclusion admission.
+    fn pause(&mut self);
+    /// Reacquire the same allowance under the original attempt/task clock and stop.
+    /// # Errors
+    /// Cancellation, deadline or a closed runtime admission.
+    fn resume(&mut self, execution: &Execution) -> Result<(), ProblemError>;
+}
+thread_local! {
+    static COMPUTE: std::cell::RefCell<Option<Box<dyn ComputeAdmission>>> = const { std::cell::RefCell::new(None) };
+}
+struct ComputeScope(Option<Box<dyn ComputeAdmission>>);
+impl Drop for ComputeScope {
+    fn drop(&mut self) {
+        COMPUTE.with(|owner| *owner.borrow_mut() = self.0.take());
+    }
+}
+/// Install the actual compute owner for a synchronous native operation. The owner
+/// and its permit survive cleanup and unwind; neither native guards nor state cross
+/// threads. Nested scopes restore their enclosing owner on exit.
+pub fn compute_scoped<T>(owner: Box<dyn ComputeAdmission>, work: impl FnOnce() -> T) -> T {
+    let _scope = ComputeScope(COMPUTE.with(|held| held.borrow_mut().replace(owner)));
+    work()
+}
+#[cfg(any(feature = "highs", feature = "uno", feature = "petsc"))]
+pub(crate) fn pause_compute() {
+    COMPUTE.with(|held| {
+        if let Some(owner) = held.borrow_mut().as_mut() {
+            owner.pause();
+        }
+    });
+}
+#[cfg(any(feature = "highs", feature = "uno", feature = "petsc"))]
+pub(crate) fn resume_compute(execution: &Execution) -> Result<(), ProblemError> {
+    execution.check()?;
+    COMPUTE.with(|held| {
+        held.borrow_mut()
+            .as_mut()
+            .map_or(Ok(()), |owner| owner.resume(execution))
+    })
+}
+
+/// Whether a waiting Uno owner requires idle retained HiGHS state to be relinquished.
+pub fn scheduler_waiting() -> bool {
+    #[cfg(feature = "uno")]
+    {
+        crate::highs_lifecycle::waiting()
+    }
+    #[cfg(not(feature = "uno"))]
+    {
+        false
+    }
+}
+
 mod context;
 pub use context::{BuildObservation, Snapshot};
 
@@ -42,7 +99,7 @@ pub mod sos;
 mod uno;
 pub use factorable::{
     Factorable, Refusal, RelaxedOracle, Resolve, ResolveSensitivity, admit_program, factorable,
-    factorable_resolve_order,
+    factorable_resolve_allocation_bound, factorable_resolve_order,
 };
 pub use runner::{
     Analysis, Coefficients, Evaluation, Nlp, OriginalModel, Recognized, Roots, Step, coefficients,
@@ -423,6 +480,13 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
         work();
         Ok(())
     }
+    /// Additional threads created by this adapter's execution scope. Each distinct
+    /// adapter is counted independently, including nested pools; serial scopes reuse
+    /// the calling thread. The runtime reserves their qualified stack extent before
+    /// entering the scope and retains it through pool teardown and join.
+    fn scope_threads(&self, _threads: usize) -> usize {
+        0
+    }
     /// Prepare (reusing compatible retained state), solve and retain on the owning worker.
     ///
     /// # Errors
@@ -673,6 +737,7 @@ pub struct Retained {
     session: Option<(Backend, Box<dyn Any>)>,
     session_charge: Option<Box<dyn Any + Send>>,
     advance: Option<(crate::kkt::Advance, Option<Box<dyn Any + Send>>)>,
+    scheduler_discard: Option<Backend>,
 }
 impl std::fmt::Debug for Retained {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -693,6 +758,15 @@ impl Retained {
     pub fn clear(&mut self) {
         self.session = None;
         self.session_charge = None;
+        self.scheduler_discard = None;
+    }
+    /// Relinquish idle direct HiGHS state on its owning thread for a waiting Uno
+    /// scheduler reset. Immutable starts and independent response factors survive.
+    pub fn relinquish_scheduler(&mut self) {
+        if self.backend() == Some(Backend::Highs) {
+            self.clear();
+            self.scheduler_discard = Some(Backend::Highs);
+        }
     }
     /// Keep the admitted opaque-library allowance until native session destruction.
     /// The runtime supplies this lease; native allocation observations are not exact extents.
@@ -748,6 +822,15 @@ impl Retained {
         reuse: impl FnOnce(&mut S) -> Result<bool, ProblemError>,
         build: impl FnOnce() -> Result<S, ProblemError>,
     ) -> Result<(&mut S, bool), ProblemError> {
+        if self.session.is_none()
+            && self.scheduler_discard == Some(backend)
+            && policy == crate::solve::ReusePolicy::RequireReuse
+        {
+            return Err(ProblemError::Reuse {
+                backend,
+                refusal: crate::ReuseRefusal::Structure,
+            });
+        }
         let refusal = match &mut self.session {
             Some((held, state)) if *held == backend => match state.downcast_mut::<S>() {
                 Some(session) => (!reuse(session)?).then_some(crate::ReuseRefusal::Structure),
@@ -802,6 +885,31 @@ pub fn scoped<T: Send, E: From<ProblemError> + Send>(
     out.unwrap_or_else(|| {
         Err(ProblemError::Internal("execution scope did not run its work".into()).into())
     })
+}
+/// Qualified stack extent of the actual teams created by [`scoped`]. This is an
+/// allocation allowance, not an observation or bound of resident native memory.
+///
+/// # Errors
+/// The sum or multiplication is not representable.
+pub fn scope_stack_bytes(
+    adapters: &[&dyn BackendExecution],
+    threads: usize,
+    stack: usize,
+) -> Result<usize, ProblemError> {
+    let mut distinct = Vec::with_capacity(adapters.len());
+    let mut count = 0usize;
+    for adapter in adapters {
+        if distinct.contains(&adapter.backend()) {
+            continue;
+        }
+        distinct.push(adapter.backend());
+        count = count
+            .checked_add(adapter.scope_threads(threads))
+            .ok_or_else(|| ProblemError::memory("native scope thread count overflow"))?;
+    }
+    count
+        .checked_mul(stack)
+        .ok_or_else(|| ProblemError::memory("native scope stack extent overflow"))
 }
 fn enter(
     adapters: &[&dyn BackendExecution],

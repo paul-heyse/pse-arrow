@@ -1516,7 +1516,7 @@ fn warm_payload(payload: SeedPayload) -> WarmPayload {
         },
     }
 }
-fn seed_extent(payload: &WarmPayload) -> Result<usize, WorkflowError> {
+pub(in crate::workflow) fn seed_extent(payload: &WarmPayload) -> Result<usize, WorkflowError> {
     let count = match payload {
         WarmPayload::Root(primal) => primal.len(),
         WarmPayload::Nlp {
@@ -1553,8 +1553,16 @@ fn seed_extent(payload: &WarmPayload) -> Result<usize, WorkflowError> {
             })
             .ok_or_else(|| contract("portable seed extent"))?,
     };
+    seed_values_extent(count)
+}
+pub(in crate::workflow) fn seed_values_extent(count: usize) -> Result<usize, WorkflowError> {
+    // A portable u64 bit value has at most20 decimal digits plus its separator.
+    // Keep the live8-byte bit vector and the JSON Vec's geometric capacity
+    // (up to twice its written extent) together:64 bytes per numeric member
+    // covers both, with fixed room for the envelope and initial128-byte writer.
+    // The original n-f64 materialization has a separate grant below.
     count
-        .checked_mul(32)
+        .checked_mul(64)
         .and_then(|n| n.checked_add(16 * 1024))
         .ok_or_else(|| contract("portable seed serialization extent"))
 }
@@ -1576,43 +1584,61 @@ async fn store_seeds(
         .await?
         .ok_or_else(|| contract("seed run absent"))?;
     for (index, (step, request)) in steps.iter().zip(requests).enumerate() {
-        let crate::math::solves::Outcome::Native(native) = &step.outcome else {
-            continue;
-        };
-        if !step.completion.decision.permits_seed() {
-            continue;
-        }
         let (Some(seed), Some(preparation)) = (
-            native.warm_start.as_ref(),
+            super::study_execution::completed_modeling_seed(step),
             request.solve.seed_preparation_identity(),
         ) else {
             continue;
         };
-        let prediction_extent = native
-            .candidate
-            .as_ref()
-            .map_or(0, |candidate| candidate.primal.len())
-            .checked_add(native.variables.len())
-            .and_then(|n| {
-                n.checked_add(
-                    native
-                        .observation
-                        .as_ref()
-                        .map_or(0, |observation| observation.values.len()),
-                )
-            })
-            .and_then(|n| n.checked_mul(32))
-            .ok_or_else(|| contract("portable prediction extent"))?;
-        let extent = seed_extent(&seed.payload)?
+        // Retain the original native producer's serialization bound. Complete
+        // structural evaluations currently issue no portable prediction product.
+        let prediction_extent = match &step.outcome {
+            crate::math::solves::Outcome::Native(native) => native
+                .candidate
+                .as_ref()
+                .map_or(0, |candidate| candidate.primal.len())
+                .checked_add(native.variables.len())
+                .and_then(|n| {
+                    n.checked_add(
+                        native
+                            .observation
+                            .as_ref()
+                            .map_or(0, |observation| observation.values.len()),
+                    )
+                })
+                .and_then(|n| n.checked_mul(32))
+                .ok_or_else(|| contract("portable prediction extent"))?,
+            crate::math::solves::Outcome::Constant(_) => 0,
+            crate::math::solves::Outcome::Rejected(_) => continue,
+        };
+        let materialization_extent = match &step.outcome {
+            crate::math::solves::Outcome::Constant(_) => seed.owned_extent()?,
+            // The native seed is borrowed from its independently retained report.
+            crate::math::solves::Outcome::Native(_) | crate::math::solves::Outcome::Rejected(_) => {
+                0
+            }
+        };
+        let extent = seed
+            .serialization_extent()?
             .checked_add(prediction_extent)
+            .and_then(|n| n.checked_add(materialization_extent))
             .ok_or_else(|| contract("portable seed document extent"))?;
-        let _serialization = reserve(&operations.pool, extent)?;
+        let serialization = reserve(&operations.pool, extent)?;
+        let seed = seed.materialize(serialization)?;
+        let prediction = step.portable_prediction()?;
+        if matches!(&step.outcome, crate::math::solves::Outcome::Constant(_))
+            && prediction.is_some()
+        {
+            return Err(contract(
+                "complete original seed has an unbounded prediction product",
+            ));
+        }
         let solution: SolutionId = pse_operations::mint_id();
         let name = "__seeds";
         let bytes = serde_json::to_vec(&SeedDocument {
             version: 1,
-            warm: seed_payload(&seed.payload),
-            prediction: step.portable_prediction()?,
+            warm: seed_payload(&seed.warm().payload),
+            prediction,
         })
         .map_err(|e| contract(e.to_string()))?;
         let receipt = write_chunks(&operations.store, fence, name, next, &bytes).await?;
@@ -1624,11 +1650,11 @@ async fn store_seeds(
             result_set: set,
             attempt: fence.attempt().into(),
             run: fence.run().into(),
-            layout: seed.compatibility.layout.to_string(),
+            layout: seed.warm().compatibility.layout.to_string(),
             preparation: preparation.to_string(),
-            profile: seed.compatibility.profile.to_string(),
-            data: seed.compatibility.data.to_string(),
-            backend: seed.compatibility.backend.as_str().into(),
+            profile: seed.warm().compatibility.profile.to_string(),
+            data: seed.warm().compatibility.data.to_string(),
+            backend: seed.warm().compatibility.backend.as_str().into(),
             step: index as u64,
             batch_count: receipt.batch_count,
             payload_bytes: receipt.payload_bytes,
@@ -2322,5 +2348,85 @@ mod canonical_durable_codec {
         assert!(
             matches!(restored[0].values["counter"],super::super::ProgressMetricDocument::Integer(value) if value==(1_i64<<53)+17)
         );
+    }
+}
+
+#[cfg(test)]
+mod seed_allocation_tests {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "codec allocation controls require exact bounded round trips"
+    )]
+    use super::*;
+    #[test]
+    fn portable_seed_encoding_bound_covers_long_bit_patterns_and_vector_capacity() {
+        const COUNT: usize = 10_000;
+        let cases = [
+            WarmPayload::Root(vec![-2.; COUNT]),
+            WarmPayload::Nlp {
+                primal: vec![-2.; COUNT],
+                bounds: Some((vec![-2.; COUNT], vec![-2.; COUNT])),
+                rows: Some(vec![-2.; COUNT]),
+                barrier: Some(-2.),
+                working: None,
+            },
+            WarmPayload::Highs {
+                primal: Some(vec![-2.; COUNT]),
+                dual: Some((vec![-2.; COUNT], vec![-2.; COUNT])),
+                basis: Some(pse_backend_native::solve::Basis {
+                    columns: vec![i32::MIN; COUNT],
+                    rows: vec![i32::MIN; COUNT],
+                }),
+            },
+        ];
+        for original in cases {
+            let extent = seed_extent(&original).unwrap();
+            let document = SeedDocument {
+                version: 1,
+                warm: seed_payload(&original),
+                prediction: None,
+            };
+            let numeric_capacity = match &document.warm {
+                SeedPayload::Root { primal } => primal.capacity() * size_of::<u64>(),
+                SeedPayload::Nlp {
+                    primal,
+                    bounds,
+                    rows,
+                    ..
+                } => {
+                    (primal.capacity()
+                        + bounds
+                            .as_ref()
+                            .map_or(0, |(lower, upper)| lower.capacity() + upper.capacity())
+                        + rows.as_ref().map_or(0, Vec::capacity))
+                        * size_of::<u64>()
+                }
+                SeedPayload::Highs {
+                    primal,
+                    dual,
+                    basis,
+                } => {
+                    (primal.as_ref().map_or(0, Vec::capacity)
+                        + dual
+                            .as_ref()
+                            .map_or(0, |(columns, rows)| columns.capacity() + rows.capacity()))
+                        * size_of::<u64>()
+                        + basis.as_ref().map_or(0, |(columns, rows)| {
+                            (columns.capacity() + rows.capacity()) * size_of::<i32>()
+                        })
+                }
+            };
+            let bytes = serde_json::to_vec(&document).unwrap();
+            assert!(
+                extent >= numeric_capacity + bytes.capacity(),
+                "grant{extent} must cover simultaneous bit arrays{numeric_capacity} and JSON Vec capacity{}",
+                bytes.capacity()
+            );
+            let reopened: SeedDocument = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(
+                serde_json::to_value(seed_payload(&warm_payload(reopened.warm))).unwrap(),
+                serde_json::to_value(&document.warm).unwrap()
+            );
+        }
     }
 }

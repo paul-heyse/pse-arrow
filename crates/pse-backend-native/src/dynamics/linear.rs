@@ -78,7 +78,7 @@ impl Default for FaerLu {
             numeric: NumericLu::new(),
             scratch: None,
             ready: unset(),
-            parallel: faer::get_global_parallelism(),
+            parallel: Par::Seq,
         }
     }
 }
@@ -87,7 +87,9 @@ impl LinearSolver<M> for FaerLu {
         self.ready = unset();
         self.numeric = NumericLu::new();
         self.scratch = None;
-        self.parallel = faer::get_global_parallelism();
+        // The integrator admits this context's threads; a process-global default may
+        // create an unadmitted team alongside independent trajectory workers.
+        self.parallel = op.context().par;
         self.symbolic = match pattern(op) {
             Ok(matrix) => {
                 let result =
@@ -357,6 +359,29 @@ mod tests {
             Some(self.0.symbolic().to_owned().unwrap())
         }
     }
+    /// The native factor uses the operator's admitted context, not ambient globals.
+    #[test]
+    fn faer_factor_consumes_serial_integrator_context() {
+        let context = FaerContext { par: Par::Seq };
+        let matrix = faer::sparse::SparseColMat::try_new_from_triplets(
+            2,
+            2,
+            &[
+                faer::sparse::Triplet::new(0, 0, 2.0),
+                faer::sparse::Triplet::new(1, 1, 4.0),
+            ],
+        )
+        .unwrap();
+        let op = Fixed(matrix, context);
+        let mut solver = FaerLu::default();
+        solver.set_sparsity(&op);
+        assert!(matches!(solver.parallel, Par::Seq));
+        solver.set_linearisation(&op);
+        let mut x = V::from_vec(vec![2.0, 8.0], context);
+        solver.solve_in_place(&mut x).unwrap();
+        assert_eq!(x.as_slice(), &[1.0, 2.0]);
+    }
+
     /// Solve with column-major values `[a00, a10, a01, a11]`.
     fn solve<S: LinearSolver<M>>(values: [f64; 4]) -> Result<Vec<f64>, LaError> {
         let triplets = [(0, 0), (1, 0), (0, 1), (1, 1)]

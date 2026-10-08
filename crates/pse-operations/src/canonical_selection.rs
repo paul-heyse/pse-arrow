@@ -457,7 +457,7 @@ impl CanonicalStore {
         if logicals.len() > 256 {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = protected_query(|| Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND logical IN $logicals AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nCOMMIT;"))
+        let mut response = protected_query("canonical_selection::resolve_logicals", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND logical IN $logicals AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nCOMMIT;"))
             .bind(("problem", read.selection.revision().problem.clone())).bind(("revision", read.selection.revision().key.clone())).bind(("protection", read.selection.key().to_owned())).bind(("logicals", logicals.to_vec())).bind(("sequence", crate::canonical_codec::encode_uint(read.selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         let members = rows
@@ -611,7 +611,7 @@ impl CanonicalStore {
             sql.push_str(&format!("\nSELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope{index} = NONE OR scope = $scope{index}) AND key > $after{index} AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($kind{index} = NONE OR (out.kind = $kind{index} AND out.closed = true)) AND ($target_scope{index} = NONE OR (SELECT VALUE key FROM canonical_edges WHERE source_version = $parent.version AND target_scope = $target_scope{index} AND target_name = $target_name{index} LIMIT 1) != []) ORDER BY key LIMIT {limit};"));
         }
         sql.push_str("\nCOMMIT;");
-        let mut response = protected_query(|| {
+        let mut response = protected_query("canonical_selection::next_membership_pages", || {
             let mut query = self
                 .db
                 .query(sql.clone())
@@ -763,7 +763,7 @@ impl CanonicalStore {
         target: Option<(&str, &str)>,
         after: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
-        let mut response = protected_query(|| Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope = NONE OR scope = $scope) AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($source_kind = NONE OR (out.kind = $source_kind AND out.closed = true)) AND ($target_scope = NONE OR (SELECT VALUE key FROM canonical_edges WHERE source_version = $parent.version AND target_scope = $target_scope AND target_name = $target_name LIMIT 1) != []) ORDER BY key LIMIT 64;\nCOMMIT;"))
+        let mut response = protected_query("canonical_selection::selection_membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope = NONE OR scope = $scope) AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($source_kind = NONE OR (out.kind = $source_kind AND out.closed = true)) AND ($target_scope = NONE OR (SELECT VALUE key FROM canonical_edges WHERE source_version = $parent.version AND target_scope = $target_scope AND target_name = $target_name LIMIT 1) != []) ORDER BY key LIMIT 64;\nCOMMIT;"))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("protection", selection.key().to_owned())).bind(("scope", scope.map(str::to_owned))).bind(("source_kind", source_kind.map(str::to_owned))).bind(("after", after.to_owned())).bind(("target_scope", target.map(|(scope,_)| scope.to_owned()))).bind(("target_name", target.map(|(_,name)| name.to_owned()))).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
@@ -866,7 +866,7 @@ impl CanonicalStore {
         let sql = format!(
             "{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND ({predicate}) AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nCOMMIT;"
         );
-        let mut response = protected_query(|| {
+        let mut response = protected_query("canonical_selection::resolve_name_pairs", || {
             let mut query = self
                 .db
                 .query(sql.clone())
@@ -916,7 +916,7 @@ impl CanonicalStore {
         scope: Option<&str>,
         after: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
-        let mut response = protected_query(|| Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope = NONE OR scope = $scope) AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) ORDER BY key LIMIT 64;\nCOMMIT;"))
+        let mut response = protected_query("canonical_selection::membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope = NONE OR scope = $scope) AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) ORDER BY key LIMIT 64;\nCOMMIT;"))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("protection", selection.key().to_owned())).bind(("scope", scope.map(str::to_owned))).bind(("after", after.to_owned())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
@@ -1109,7 +1109,7 @@ impl CanonicalStore {
         {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = protected_query(|| Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_products WHERE problem = $problem AND producer = $producer AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1;\nCOMMIT;"))
+        let mut response = protected_query("canonical_selection::product_candidate", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_products WHERE problem = $problem AND producer = $producer AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1;\nCOMMIT;"))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?))
             .bind(("protection", selection.key().to_owned())).bind(("producer", producer.to_owned())).bind(("request", surrealdb::types::Bytes::from(request.to_vec()))).bind(("after", after.to_owned())).bind(("interpretation", wire::INTERPRETATION.to_owned())))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;

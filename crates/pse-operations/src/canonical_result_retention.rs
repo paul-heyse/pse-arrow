@@ -40,7 +40,7 @@ impl CanonicalStore {
     pub async fn forget_study_results(&self, study: &str) -> Result<(), CanonicalError> {
         identity(study)?;
         self.ensure_writes()?;
-        protected_query(|| {
+        protected_query("canonical_result_retention::forget_study_results", || {
             Ok(self
                 .db
                 .query("RETURN fn::pse_retention_v1::forget_study($study);")
@@ -54,12 +54,15 @@ impl CanonicalStore {
     pub async fn forget_analysis_results(&self, analysis: &str) -> Result<(), CanonicalError> {
         identity(analysis)?;
         self.ensure_writes()?;
-        protected_query(|| {
-            Ok(self
-                .db
-                .query("RETURN fn::pse_retention_v1::forget_analysis($analysis);")
-                .bind(("analysis", analysis.to_owned())))
-        })
+        protected_query(
+            "canonical_result_retention::forget_analysis_results",
+            || {
+                Ok(self
+                    .db
+                    .query("RETURN fn::pse_retention_v1::forget_analysis($analysis);")
+                    .bind(("analysis", analysis.to_owned())))
+            },
+        )
         .await?;
         Ok(())
     }
@@ -70,7 +73,7 @@ impl CanonicalStore {
     pub async fn forget_run_results(&self, run: &str) -> Result<(), CanonicalError> {
         identity(run)?;
         self.ensure_writes()?;
-        protected_query(|| {
+        protected_query("canonical_result_retention::forget_run_results", || {
             Ok(self
                 .db
                 .query("RETURN fn::pse_retention_v1::forget_run($run);")
@@ -88,13 +91,14 @@ impl CanonicalStore {
     ) -> Result<ResultReclamationPage, CanonicalError> {
         identity(run)?;
         self.ensure_writes()?;
-        let mut response = protected_query(|| {
-            Ok(self
-                .db
-                .query("RETURN fn::pse_retention_v1::collect_run($run);")
-                .bind(("run", run.to_owned())))
-        })
-        .await?;
+        let mut response =
+            protected_query("canonical_result_retention::reclaim_result_page", || {
+                Ok(self
+                    .db
+                    .query("RETURN fn::pse_retention_v1::collect_run($run);")
+                    .bind(("run", run.to_owned())))
+            })
+            .await?;
         let mut row = response
             .take::<Option<Object>>(0)?
             .ok_or(CanonicalError::IncompleteResponse)?;

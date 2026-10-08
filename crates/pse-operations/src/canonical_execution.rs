@@ -1184,7 +1184,7 @@ impl CanonicalStore {
         let (row, sources) = run_request_receipt(request)?;
         let encoded = wire::encode_canonical_runs(&row)?;
         self.ensure_writes()?;
-        let response = protected_query(|| {
+        let response = protected_query("canonical_execution::begin_run", || {
             Ok(self
                 .db
                 .query("RETURN fn::pse_execution_v1::begin_run($row,$sources);")
@@ -1327,7 +1327,7 @@ impl CanonicalStore {
         }
         let generation = canonical_codec::encode_uint(fence.generation)?;
         self.ensure_writes()?;
-        let mut response = protected_query(|| {
+        let mut response = protected_query("canonical_execution::renew_attempt", || {
             Ok(self
                 .db
                 .query("RETURN fn::pse_execution_v1::renew($run,$attempt,$generation,$lifetime);")
@@ -1374,7 +1374,7 @@ impl CanonicalStore {
         ))?;
         let generation = canonical_codec::encode_uint(fence.generation)?;
         self.ensure_writes()?;
-        let result=protected_query(||Ok(self.db.query("RETURN fn::pse_execution_v1::seed($run,$attempt,$generation,$operation,$request,$seed);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("seed",encoded.clone())))).await;
+        let result=protected_query("canonical_execution::register_result_seed", ||Ok(self.db.query("RETURN fn::pse_execution_v1::seed($run,$attempt,$generation,$operation,$request,$seed);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("seed",encoded.clone())))).await;
         match result {
             Ok(mut response) => {
                 let saved = wire::decode_canonical_result_seeds(
@@ -1548,7 +1548,7 @@ impl CanonicalStore {
         let attempt = execution_attempt_key(run, operation);
         let request = json(&(run, operation, worker, lifetime, wire::INTERPRETATION))?;
         self.ensure_writes()?;
-        let result = protected_query(|| Ok(self.db.query("RETURN fn::pse_execution_v1::claim($run,$operation,$request,$attempt,$worker,$lifetime,$interpretation);").bind(("run",run.to_owned())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)).bind(("interpretation",wire::INTERPRETATION)))).await;
+        let result = protected_query("canonical_execution::claim_run", || Ok(self.db.query("RETURN fn::pse_execution_v1::claim($run,$operation,$request,$attempt,$worker,$lifetime,$interpretation);").bind(("run",run.to_owned())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)).bind(("interpretation",wire::INTERPRETATION)))).await;
         let row = match result {
             Ok(mut response) => wire::decode_canonical_attempts(
                 response
@@ -1886,7 +1886,7 @@ impl CanonicalStore {
             return Err(CanonicalError::PayloadLimit);
         }
         self.ensure_writes()?;
-        let result = protected_query(|| Ok(self.db.query("RETURN fn::pse_execution_v1::append($run,$attempt,$generation,$operation,$request,$set,$batch,$block,$cells,$outputs);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("set",encoded_set.clone())).bind(("batch",encoded_batch.clone())).bind(("block",block.clone().map(Value::Object).unwrap_or(Value::None))).bind(("cells",cells.clone())).bind(("outputs",outputs.clone())))).await;
+        let result = protected_query("canonical_execution::append_execution_batch", || Ok(self.db.query("RETURN fn::pse_execution_v1::append($run,$attempt,$generation,$operation,$request,$set,$batch,$block,$cells,$outputs);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("set",encoded_set.clone())).bind(("batch",encoded_batch.clone())).bind(("block",block.clone().map(Value::Object).unwrap_or(Value::None))).bind(("cells",cells.clone())).bind(("outputs",outputs.clone())))).await;
         match result {
             Ok(mut response) => {
                 let saved = response
@@ -1925,7 +1925,7 @@ impl CanonicalStore {
         let request = json(&(&fence.run, &fence.attempt, fence.generation))?;
         let generation = canonical_codec::encode_uint(fence.generation)?;
         self.ensure_writes()?;
-        let result = protected_query(|| Ok(self.db.query("RETURN fn::pse_execution_v1::close($run,$attempt,$generation,$operation,$request);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))))).await;
+        let result = protected_query("canonical_execution::close_result_ingestion", || Ok(self.db.query("RETURN fn::pse_execution_v1::close($run,$attempt,$generation,$operation,$request);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))))).await;
         self.closed_response(result, operation, "close", &request)
             .await
     }
@@ -1994,7 +1994,7 @@ impl CanonicalStore {
         identity(operation)?;
         let request = json(&(run, operation))?;
         self.ensure_writes()?;
-        let result = protected_query(|| {
+        let result = protected_query("canonical_execution::cancel_run", || {
             Ok(self
                 .db
                 .query("RETURN fn::pse_execution_v1::cancel($run,$operation,$request);")
@@ -2033,7 +2033,7 @@ impl CanonicalStore {
         identity(operation)?;
         let request = json(&(run, operation))?;
         self.ensure_writes()?;
-        let result = protected_query(|| {
+        let result = protected_query("canonical_execution::recover_closed_attempt", || {
             Ok(self
                 .db
                 .query("RETURN fn::pse_execution_v1::recover($run,$operation,$request);")
@@ -2185,7 +2185,7 @@ impl CanonicalStore {
         };
         let encoded = wire::encode_canonical_result_manifests(&row)?;
         self.ensure_writes()?;
-        let result = protected_query(|| {
+        let result = protected_query("canonical_execution::reconcile_closed_attempt", || {
             Ok(self
                 .db
                 .query("RETURN fn::pse_execution_v1::manifest($run,$manifest);")
@@ -2289,7 +2289,7 @@ impl CanonicalStore {
         } else {
             "RETURN fn::pse_execution_v1::seal($run,$attempt,$authority,$operation,$request,$manifest,$digest,$outcome,$completion);"
         };
-        let result = protected_query(|| {
+        let result = protected_query("canonical_execution::seal_execution", || {
             Ok(self
                 .db
                 .query(query)

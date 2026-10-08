@@ -8,6 +8,7 @@ mod class_evidence;
 pub mod coefficients;
 pub mod collocation;
 pub mod composite_reconstruction;
+pub mod construction;
 pub mod continuation;
 pub mod convexity;
 pub mod curvature;

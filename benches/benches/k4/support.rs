@@ -8,6 +8,16 @@ use std::{collections::BTreeMap, path::Path};
 
 pub(super) const SOURCE: &str = "package k4 { def Root { param a:Scalar=2; var x:Scalar; var y:Scalar; eq first:x==a; eq second:y==3; annotation start x(1); annotation start y(1); annotation report x(\"x\"); annotation check x(abs(x-a)<1e-7); annotation check y(abs(y-3)<1e-7); } }";
 
+/// Separate recipe-selected profile; the existing eight-point fixtures retain
+/// their one-thread/64 GiB budget and native policy.
+pub(super) fn study_owner(parallel: bool) -> WorkflowRuntime {
+    if parallel {
+        WorkflowRuntime::parallel_reference().unwrap()
+    } else {
+        WorkflowRuntime::with_threads(std::num::NonZeroUsize::new(1).unwrap()).unwrap()
+    }
+}
+
 pub(super) fn repository() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()
 }

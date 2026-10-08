@@ -124,6 +124,67 @@ impl SemanticModeling {
         self.model = self.model.with_owner(owner);
         self
     }
+    /// Known selected source populations before declaration/physical graph allocation.
+    /// Invalid selections still use bounded source subsets and refuse in `flow_graph`.
+    pub fn flow_allocation_bound(
+        &self,
+        selection: &ModelingFlowSelection,
+        quantities: &QuantityRegistry,
+    ) -> Result<usize> {
+        let overflow = || CompileError::from(MathError::Limit("flow construction extent"));
+        let ports = self
+            .model
+            .ports
+            .values()
+            .filter(|port| selection.nodes.contains(&port.lineage.instance))
+            .count();
+        let mut connections = 0usize;
+        let mut bindings = 0usize;
+        let mut quantity_payload = 0usize;
+        for connection in self.model.connections.values() {
+            let owner = |id| {
+                self.model
+                    .material_ports
+                    .get(&id)
+                    .map(|port| port.lineage.instance)
+                    .or_else(|| self.model.ports.get(&id).map(|port| port.lineage.instance))
+            };
+            if !owner(connection.from).is_some_and(|id| selection.nodes.contains(&id))
+                && !owner(connection.to).is_some_and(|id| selection.nodes.contains(&id))
+            {
+                continue;
+            }
+            connections = connections.checked_add(1).ok_or_else(overflow)?;
+            bindings = bindings
+                .checked_add(connection.bindings.len())
+                .ok_or_else(overflow)?;
+            for (source, _) in &connection.bindings {
+                let quantity = self
+                    .port_quantities
+                    .get(source)
+                    .ok_or_else(|| CompileError::Missing("physical flow coordinate".into()))?;
+                let quantity = quantities
+                    .quantity_type(*quantity)
+                    .map_err(MathError::from)?;
+                quantity_payload = quantity
+                    .key
+                    .shape
+                    .len()
+                    .checked_mul(size_of::<pse_quantity::EntityKindId>())
+                    .and_then(|n| n.checked_add(quantity.name.as_ref().map_or(0, String::len)))
+                    .and_then(|n| quantity_payload.checked_add(n))
+                    .ok_or_else(overflow)?;
+            }
+        }
+        Ok(FlowGraph::construction_allocation_bound(
+            selection.nodes.len(),
+            ports,
+            connections,
+            selection.connections.len(),
+            bindings,
+            quantity_payload,
+        )?)
+    }
     /// Project declared port ownership and directed connections into the existing graph library.
     pub fn flow_graph(
         &self,

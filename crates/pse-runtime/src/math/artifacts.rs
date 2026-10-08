@@ -85,9 +85,15 @@ impl MathService {
                     return Ok(v.0);
                 }
                 let cores = request.cores();
+                let demand = request
+                    .construction_allocation_bound()?
+                    .unwrap_or(service.policy.worker_bytes);
+                if demand > service.policy.worker_bytes {
+                    return Err(MathRuntimeError::Limit("artifact construction capacity"));
+                }
                 let check = cancel.flag();
                 let (program, lease) = service
-                    .job_retained(cores, request.scratch_limit(), cancel, move |flag| {
+                    .job_retained(cores, demand, cancel, move |flag| {
                         let program = request.build(&flag).map_err(MathRuntimeError::Math)?;
                         let retained = program.retained_bytes();
                         Ok((program, retained))

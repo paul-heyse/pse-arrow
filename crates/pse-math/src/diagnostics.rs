@@ -348,6 +348,56 @@ pub struct TermReport {
     /// Subsets examined.
     pub examined: usize,
 }
+/// Conservative construction peak for `analyze_terms`, including transient index
+/// selection and all escaping report vectors. This bounds the enumeration algorithm
+/// before construction rather than measuring a completed report.
+/// # Errors
+/// Invalid policy or an extent too large to represent.
+pub fn term_allocation_bound(terms: &[f64], policy: TermPolicy) -> Result<usize, MathError> {
+    policy.validate()?;
+    let n = terms.len();
+    let count = n.min(policy.maximum_terms);
+    let cap = policy.findings.min(policy.combinations);
+    // At most these subsets can become findings, irrespective of their numeric values.
+    // u128 intermediates saturate to the finite finding allowance on enormous input.
+    let mut choose = 1u128;
+    let mut subsets = 0u128;
+    for k in 1..=count {
+        choose = choose
+            .checked_mul((n - k + 1) as u128)
+            .map(|value| value / k as u128)
+            .unwrap_or(u128::MAX);
+        if k >= 2 {
+            subsets = subsets.saturating_add(choose);
+        }
+        if subsets >= cap as u128 {
+            break;
+        }
+    }
+    let findings = usize::try_from(subsets.min(cap as u128))
+        .map_err(|_| MathError::Limit("term diagnostic finding extent"))?;
+    // Filtered vectors and push-grown output vectors may double capacity. The
+    // minimum four-element allocation is included even for tiny inputs/findings.
+    let vectors = n
+        .checked_mul(4)
+        .and_then(|n| n.checked_add(8))
+        .and_then(|n| n.checked_mul(size_of::<usize>()));
+    let selections = findings
+        .checked_add(1)
+        .and_then(|n| n.checked_mul(count.max(4)))
+        .and_then(|n| n.checked_mul(size_of::<usize>()));
+    let output = findings
+        .checked_mul(2)
+        .and_then(|n| n.checked_add(4))
+        .and_then(|n| n.checked_mul(size_of::<Vec<usize>>()));
+    vectors
+        .and_then(|n| n.checked_add(selections?))
+        .and_then(|n| n.checked_add(output?))
+        .and_then(|n| n.checked_add(count.checked_mul(size_of::<usize>())?))
+        .and_then(|n| n.checked_add(size_of::<TermReport>() + 256))
+        .ok_or(MathError::Limit("term diagnostic construction extent"))
+}
+
 /// Numerica supplies combination enumeration. All reductions use a common magnitude
 /// to avoid overflowing an intermediate sum; an exhausted budget is explicitly incomplete.
 pub fn analyze_terms(
@@ -418,6 +468,33 @@ pub fn analyze_terms(
 #[cfg(test)]
 mod term_tests {
     use super::*;
+    #[test]
+    fn term_construction_bound_covers_growing_reports_without_using_capacity_ceiling() {
+        let policy = TermPolicy {
+            zero: 0.0,
+            mismatch: 1e6,
+            cancellation: 1e-8,
+            maximum_terms: 8,
+            combinations: 10_000,
+            findings: 10_000,
+        };
+        for n in 0..=12 {
+            let terms = (0..n)
+                .map(|i| if i % 2 == 0 { 1.0 } else { -1.0 })
+                .collect::<Vec<_>>();
+            let report = analyze_terms(&terms, policy, &AtomicBool::new(false)).unwrap();
+            let owned = report.mismatched.capacity() * size_of::<usize>()
+                + report.cancellations.capacity() * size_of::<Vec<usize>>()
+                + report
+                    .cancellations
+                    .iter()
+                    .map(|v| v.capacity() * size_of::<usize>())
+                    .sum::<usize>()
+                + size_of::<TermReport>();
+            assert!(term_allocation_bound(&terms, policy).unwrap() >= owned);
+        }
+        assert!(term_allocation_bound(&[1.0, -1.0], policy).unwrap() < 4096);
+    }
     #[test]
     fn diagnostics_original_terms_bounded_combinations_report_incompleteness() {
         let p = TermPolicy {

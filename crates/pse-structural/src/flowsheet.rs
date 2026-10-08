@@ -84,6 +84,201 @@ impl PartialEq for FlowGraph {
     }
 }
 impl FlowGraph {
+    /// Source-population bound before flow declaration and graph construction.
+    /// Counts declaration growth, physical Binding clones, simultaneous graph copies,
+    /// graph-index maps/sets and bounded traversal vectors. Registry-owned quantities
+    /// remain shared; `quantity_payload` covers cloned names and shape vectors.
+    pub fn construction_allocation_bound(
+        nodes: usize,
+        ports: usize,
+        connections: usize,
+        decisions: usize,
+        bindings: usize,
+        quantity_payload: usize,
+    ) -> Result<usize, ProjectionError> {
+        let add = |a: usize, b: usize| a.checked_add(b).ok_or(ProjectionError::Limit);
+        let mul = |a: usize, b: usize| a.checked_mul(b).ok_or(ProjectionError::Limit);
+        let vector = |count: usize, width: usize| -> Result<usize, ProjectionError> {
+            if count == 0 {
+                return Ok(0);
+            }
+            mul(add(mul(count, 2)?, 4)?, width)
+        };
+        // A BTree node has at most eleven key/value slots and twelve child links.
+        // Charging a full node per entry includes sparsely occupied roots/splits.
+        let tree = |count: usize, width: usize| -> Result<usize, ProjectionError> {
+            if count == 0 {
+                return Ok(0);
+            }
+            mul(
+                add(count, 1)?,
+                add(mul(width, 11)?, 16 * size_of::<usize>())?,
+            )
+        };
+        let mut bytes = 2 * size_of::<Self>() + size_of::<Declaration>();
+        for (count, width) in [
+            (nodes, size_of::<Node>()),
+            (ports, size_of::<pse_kernels::Port>()),
+            (connections, size_of::<Connection>()),
+            (decisions, size_of::<Decision>()),
+            (bindings, size_of::<(SemanticId, SemanticId)>()),
+            (bindings, size_of::<Binding>()),
+            // Index graphs coexist with a forbidden/tear witness clone.
+            (nodes, 2 * size_of::<petgraph::graph::Node<SemanticId>>()),
+            (connections, 2 * size_of::<petgraph::graph::Edge<usize>>()),
+            // DFS/SCC/toposort stacks, visit/order maps and cycle result.
+            (
+                add(nodes, connections)?,
+                8 * size_of::<usize>() + size_of::<SemanticId>(),
+            ),
+        ] {
+            bytes = add(bytes, vector(count, width)?)?;
+        }
+        for (count, width) in [
+            (nodes, size_of::<(SemanticId, petgraph::graph::NodeIndex)>()),
+            (
+                ports,
+                size_of::<(SemanticId, (SemanticId, &pse_kernels::Port))>(),
+            ),
+            (connections, size_of::<(SemanticId, Vec<Binding>)>()),
+            (
+                decisions,
+                size_of::<(SemanticId, Decision)>() + 2 * size_of::<SemanticId>(),
+            ),
+            (bindings, size_of::<SemanticId>()),
+        ] {
+            bytes = add(bytes, tree(count, width)?)?;
+        }
+        // Vec::push grows each separate node-port/edge-binding vector from four.
+        bytes = add(bytes, mul(nodes, 4 * size_of::<pse_kernels::Port>())?)?;
+        bytes = add(
+            bytes,
+            mul(
+                connections,
+                4 * (size_of::<Binding>() + size_of::<(SemanticId, SemanticId)>()),
+            )?,
+        )?;
+        add(bytes, quantity_payload)
+    }
+    /// Physical names/shape arrays copied when Binding values are cloned.
+    pub fn binding_payload_bytes(&self) -> Result<usize, ProjectionError> {
+        self.bindings
+            .values()
+            .flatten()
+            .try_fold(0usize, |total, binding| {
+                let shape = binding
+                    .quantity
+                    .key
+                    .shape
+                    .len()
+                    .checked_mul(size_of::<pse_quantity::EntityKindId>())
+                    .ok_or(ProjectionError::Limit)?;
+                total
+                    .checked_add(shape)
+                    .and_then(|n| {
+                        n.checked_add(binding.quantity.name.as_ref().map_or(0, String::len))
+                    })
+                    .ok_or(ProjectionError::Limit)
+            })
+    }
+    /// Retained declaration, graph and physical binding containers, including known
+    /// vector capacities and sparsely occupied BTree nodes. Temporary traversal maps
+    /// and forbidden/tear graph copies are excluded after construction completes.
+    pub fn retained_allocation_bound(&self) -> Result<usize, ProjectionError> {
+        let add = |a: usize, b: usize| a.checked_add(b).ok_or(ProjectionError::Limit);
+        let mul = |a: usize, b: usize| a.checked_mul(b).ok_or(ProjectionError::Limit);
+        let d = self.declaration();
+        let (nodes, edges) = self.graph.capacity();
+        let mut bytes = size_of::<Self>();
+        for (count, width) in [
+            (d.nodes.capacity(), size_of::<Node>()),
+            (d.connections.capacity(), size_of::<Connection>()),
+            (d.decisions.capacity(), size_of::<Decision>()),
+            (nodes, size_of::<petgraph::graph::Node<SemanticId>>()),
+            (edges, size_of::<petgraph::graph::Edge<usize>>()),
+        ] {
+            bytes = add(bytes, mul(count, width)?)?;
+        }
+        for node in &d.nodes {
+            bytes = add(
+                bytes,
+                mul(node.ports.capacity(), size_of::<pse_kernels::Port>())?,
+            )?;
+        }
+        for edge in &d.connections {
+            bytes = add(
+                bytes,
+                mul(
+                    edge.bindings.capacity(),
+                    size_of::<(SemanticId, SemanticId)>(),
+                )?,
+            )?;
+        }
+        if !self.bindings.is_empty() {
+            bytes = add(
+                bytes,
+                mul(
+                    add(self.bindings.len(), 1)?,
+                    11 * size_of::<(SemanticId, Vec<Binding>)>() + 16 * size_of::<usize>(),
+                )?,
+            )?;
+        }
+        for bindings in self.bindings.values() {
+            bytes = add(bytes, mul(bindings.capacity(), size_of::<Binding>())?)?;
+            for binding in bindings {
+                bytes = add(
+                    bytes,
+                    mul(
+                        binding.quantity.key.shape.capacity(),
+                        size_of::<pse_quantity::EntityKindId>(),
+                    )?,
+                )?;
+                bytes = add(
+                    bytes,
+                    binding.quantity.name.as_ref().map_or(0, String::capacity),
+                )?;
+            }
+        }
+        Ok(bytes)
+    }
+    /// Tear witness construction uses the original admitted graph population.
+    /// The greedy petgraph algorithm additionally has two adjacency copies,
+    /// linked degree-bucket entries and positive/negative degree bucket vectors.
+    pub fn tear_allocation_bound(&self) -> Result<usize, ProjectionError> {
+        let d = self.declaration();
+        let ports = d.nodes.iter().try_fold(0usize, |n, node| {
+            n.checked_add(node.ports.len())
+                .ok_or(ProjectionError::Limit)
+        })?;
+        let bindings = d.connections.iter().try_fold(0usize, |n, edge| {
+            n.checked_add(edge.bindings.len())
+                .ok_or(ProjectionError::Limit)
+        })?;
+        let base = Self::construction_allocation_bound(
+            d.nodes.len(),
+            ports,
+            d.connections.len(),
+            d.decisions.len(),
+            bindings,
+            self.binding_payload_bytes()?,
+        )?;
+        // Pinned petgraph 0.8.3 FasNode + optional prev/next links: at most
+        // eight usize fields and two adjacency Vec descriptors per node. Each
+        // edge occurs in both directions; degree buckets are bounded by edges.
+        d.nodes
+            .len()
+            .checked_mul(2)
+            .and_then(|n| n.checked_add(4))
+            .and_then(|n| n.checked_mul(8 * size_of::<usize>() + 2 * size_of::<Vec<usize>>()))
+            .and_then(|n| {
+                d.connections
+                    .len()
+                    .checked_mul(8 * size_of::<usize>())
+                    .and_then(|e| n.checked_add(e))
+            })
+            .and_then(|n| n.checked_add(base))
+            .ok_or(ProjectionError::Limit)
+    }
     /// Canonicalize complete inventories and check physical bindings before projection.
     pub fn admit(
         mut d: Declaration,
@@ -344,6 +539,17 @@ mod tests {
     use super::*;
     fn id(n: u8) -> SemanticId {
         SemanticId::from_bytes([n; 16])
+    }
+    #[test]
+    fn flow_source_construction_checks_populations_and_overflow_before_allocation() {
+        let small = FlowGraph::construction_allocation_bound(2, 4, 2, 2, 2, 32).unwrap();
+        assert!(small < 1 << 20);
+        let larger = FlowGraph::construction_allocation_bound(2, 4, 2, 2, 4, 64).unwrap();
+        assert!(larger > small);
+        assert!(matches!(
+            FlowGraph::construction_allocation_bound(usize::MAX, 1, 1, 1, 1, 1),
+            Err(ProjectionError::Limit)
+        ));
     }
     #[test]
     fn forbidden_cycles_retain_actual_connection_and_decision_identities() {

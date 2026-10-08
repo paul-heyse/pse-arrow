@@ -491,9 +491,10 @@ impl Session {
         p: &CoefficientProblem,
         certificate: Option<&dyn pse_math::convexity::QuadraticEvidence>,
         compatibility: Compatibility,
+        execution: &Execution,
     ) -> Result<Self, ProblemError> {
         admit(p, certificate)?;
-        let gate = crate::highs_lifecycle::read()?;
+        let gate = crate::highs_lifecycle::read(execution)?;
         let mut session = Self {
             model: None,
             gate: Some(gate),
@@ -1644,7 +1645,13 @@ mod tests {
         p.hessian = Some(hessian);
         p.objective = vec![-2., -2.];
         let stamp = crate::solver_tests::stamp(Backend::Highs);
-        let mut session = Session::new(&p, Some(&certificate), stamp).unwrap();
+        let mut session = Session::new(
+            &p,
+            Some(&certificate),
+            stamp,
+            &Execution::new(Default::default(), &Controls::default()),
+        )
+        .unwrap();
         let report =
             solve_quadratic(&mut session, &p, Method::Choose, Options::new(), None).unwrap();
         assert_eq!(report.termination.category, Termination::Success);
@@ -1656,7 +1663,13 @@ mod tests {
     fn highs_qp_explicit_method_refused() {
         let (p, certificate) = quadratic();
         let stamp = crate::solver_tests::stamp(Backend::Highs);
-        let mut session = Session::new(&p, Some(&certificate), stamp).unwrap();
+        let mut session = Session::new(
+            &p,
+            Some(&certificate),
+            stamp,
+            &Execution::new(Default::default(), &Controls::default()),
+        )
+        .unwrap();
         for method in [Method::Simplex, Method::Ipm, Method::Pdlp] {
             let error =
                 solve_quadratic(&mut session, &p, method, Options::new(), None).unwrap_err();
@@ -1671,7 +1684,13 @@ mod tests {
     fn highs_qp_hot_start_consumed() {
         let (p, certificate) = quadratic();
         let stamp = crate::solver_tests::stamp(Backend::Highs);
-        let mut session = Session::new(&p, Some(&certificate), stamp).unwrap();
+        let mut session = Session::new(
+            &p,
+            Some(&certificate),
+            stamp,
+            &Execution::new(Default::default(), &Controls::default()),
+        )
+        .unwrap();
         let iterations = |r: &SolveReport| match r.metrics.get("qp_iteration_count") {
             Some(Metric::Integer(k)) => *k,
             other => panic!("{other:?}"),
@@ -1748,8 +1767,13 @@ mod tests {
             p.contract.variables[0].lower = bounds.0;
             p.contract.variables[0].upper = bounds.1;
             p.bounds[0] = row;
-            let mut session =
-                Session::new(&p, None, crate::solver_tests::stamp(Backend::Highs)).unwrap();
+            let mut session = Session::new(
+                &p,
+                None,
+                crate::solver_tests::stamp(Backend::Highs),
+                &Execution::new(Default::default(), &Controls::default()),
+            )
+            .unwrap();
             let evidence = session
                 .diagnose(
                     &p,
@@ -1812,6 +1836,7 @@ mod tests {
             &normalized,
             None,
             crate::solver_tests::stamp(Backend::Highs),
+            &Execution::new(Default::default(), &Controls::default()),
         )
         .unwrap();
         let controls = Controls::default();
@@ -1867,7 +1892,13 @@ mod tests {
     #[test]
     fn checked_upload_clips_binary_bounds_and_preserves_authored_sense_offset() {
         let p = problem();
-        let mut s = Session::new(&p, None, crate::solver_tests::stamp(Backend::Highs)).unwrap();
+        let mut s = Session::new(
+            &p,
+            None,
+            crate::solver_tests::stamp(Backend::Highs),
+            &Execution::new(Default::default(), &Controls::default()),
+        )
+        .unwrap();
         let ptr = s.model().unwrap().as_mut_ptr();
         let (mut n, mut nnz, mut cost, mut lower, mut upper) = (0, 0, 0.0, 0.0, 0.0);
         native!(
@@ -1915,7 +1946,13 @@ mod tests {
             data: p.contract.identity,
             backend: Backend::Highs,
         };
-        let mut session = Session::new(&p, None, stamp).unwrap();
+        let mut session = Session::new(
+            &p,
+            None,
+            stamp,
+            &Execution::new(Default::default(), &Controls::default()),
+        )
+        .unwrap();
         native!(
             ffi::Highs_changeColCost(
                 session.model().unwrap().as_mut_ptr(),
@@ -1936,7 +1973,15 @@ mod tests {
     fn native_upload_warnings_are_refused_and_semi_quality_keeps_zero_branch() {
         let mut p = problem();
         p.constraints.val_mut()[0] = 1e-12;
-        assert!(Session::new(&p, None, crate::solver_tests::stamp(Backend::Highs)).is_err());
+        assert!(
+            Session::new(
+                &p,
+                None,
+                crate::solver_tests::stamp(Backend::Highs),
+                &Execution::new(Default::default(), &Controls::default())
+            )
+            .is_err()
+        );
         p.constraints.val_mut()[0] = 1.0;
         p.domains[0] = ModelingVariableDomain::Semicontinuous;
         p.contract.variables[0].lower = 2.0;

@@ -110,7 +110,13 @@ fn commitment_milp(y: ModelingVariableDomain, y_bounds: (f64, f64)) -> Coefficie
 fn native_ranging_fills_every_family_on_its_side() {
     use diagnostics::{RangeFamily, RangeSide};
     let p = commitment_milp(CONTINUOUS, (0.0, 10.0));
-    let mut session = Session::new(&p, None, stamp(Backend::Highs)).unwrap();
+    let mut session = Session::new(
+        &p,
+        None,
+        stamp(Backend::Highs),
+        &Execution::new(Default::default(), &Controls::default()),
+    )
+    .unwrap();
     let report = solve(&mut session, &p, &Controls::default(), &Settings::default());
     assert_eq!(report.termination.category, Termination::Success);
     let evidence = diagnose(
@@ -158,7 +164,13 @@ fn native_ranging_fills_every_family_on_its_side() {
 #[test]
 fn fixed_lp_duals_conditional_on_commitment() {
     let p = commitment_milp(INTEGER, (0.0, 10.0));
-    let mut session = Session::new(&p, None, stamp(Backend::Highs)).unwrap();
+    let mut session = Session::new(
+        &p,
+        None,
+        stamp(Backend::Highs),
+        &Execution::new(Default::default(), &Controls::default()),
+    )
+    .unwrap();
     let report = solve(&mut session, &p, &Controls::default(), &Settings::default());
     assert_eq!(report.termination.category, Termination::Success);
     let candidate = report.candidate.as_ref().unwrap();
@@ -186,7 +198,13 @@ fn fixed_lp_duals_conditional_on_commitment() {
     // They equal the duals of the LP with y fixed by hand at that commitment.
     let lp = commitment_milp(CONTINUOUS, (3.0, 3.0));
     drop(session);
-    let mut session = Session::new(&lp, None, stamp(Backend::Highs)).unwrap();
+    let mut session = Session::new(
+        &lp,
+        None,
+        stamp(Backend::Highs),
+        &Execution::new(Default::default(), &Controls::default()),
+    )
+    .unwrap();
     let manual = solve(
         &mut session,
         &lp,
@@ -274,7 +292,13 @@ fn highs_incumbents_streamed() {
         objective: 8.0,
     };
     let (native, _) = crate::transport::coefficients(&p, &n, None).unwrap();
-    let mut session = Session::new(&native, None, stamp(Backend::Highs)).unwrap();
+    let mut session = Session::new(
+        &native,
+        None,
+        stamp(Backend::Highs),
+        &Execution::new(Default::default(), &Controls::default()),
+    )
+    .unwrap();
     // An empty knapsack is a poor feasible start, so the search improves on it.
     session
         .sparse_start(
@@ -371,7 +395,13 @@ fn highs_incumbents_streamed() {
 #[test]
 fn mip_node_budget_independent() {
     let p = knapsack();
-    let mut session = Session::new(&p, None, stamp(Backend::Highs)).unwrap();
+    let mut session = Session::new(
+        &p,
+        None,
+        stamp(Backend::Highs),
+        &Execution::new(Default::default(), &Controls::default()),
+    )
+    .unwrap();
     let integer = |r: &SolveReport, key: &str| match r.options.get(key) {
         Some(OptionValue::Integer(v)) => *v,
         other => panic!("{key}: {other:?}"),
@@ -452,7 +482,13 @@ fn basis_inverse_and_presolve_views() {
             (vec![(0, 1.0)], f64::NEG_INFINITY, 0.7),
         ],
     );
-    let mut session = Session::new(&p, None, stamp(Backend::Highs)).unwrap();
+    let mut session = Session::new(
+        &p,
+        None,
+        stamp(Backend::Highs),
+        &Execution::new(Default::default(), &Controls::default()),
+    )
+    .unwrap();
     let report = solve(
         &mut session,
         &p,
@@ -558,7 +594,13 @@ fn cut_pool_captured_on_request() {
         })
         .collect::<Vec<_>>();
     let p = problem(&cost, &vec![(0.0, 1.0, BINARY); n], &rows);
-    let mut session = Session::new(&p, None, stamp(Backend::Highs)).unwrap();
+    let mut session = Session::new(
+        &p,
+        None,
+        stamp(Backend::Highs),
+        &Execution::new(Default::default(), &Controls::default()),
+    )
+    .unwrap();
     let request = diagnostics::Request {
         cut_pool: true,
         ..Default::default()

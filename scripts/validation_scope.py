@@ -180,7 +180,7 @@ def expand(names: tuple[str, ...]) -> list[Gate]:
 
 
 def comprehensive(python_profile: str = "dev") -> list[Gate]:
-    """Canonical linked Rust graph, focused absence controls and Python once."""
+    """Canonical linked graph and separate Python runtime-budget processes."""
     static = expand(
         (
             "fmt-check",
@@ -293,6 +293,12 @@ def comprehensive(python_profile: str = "dev") -> list[Gate]:
             if deployment
             else ("producer-fixture",),
         ),
+        replace(
+            native_gate("managed-native", "test(managed_primary_)"),
+            args=("--profile", "local", "--managed-primary-route"),
+            dependencies=("native-test",),
+            enumerate_native=False,
+        ),
         Gate(
             "native-python",
             ("{output}", "--producer-deployment") if deployment else ("{output}",),
@@ -300,6 +306,23 @@ def comprehensive(python_profile: str = "dev") -> list[Gate]:
             dependencies=("py-sync-native", "python-deployment-association")
             if deployment
             else ("py-sync-native",),
+            mode="python-native",
+            input_scope="python-product",
+        ),
+        Gate(
+            "managed-python",
+            (
+                "{output}/managed-python",
+                "--managed-primary-route",
+                "--producer-deployment",
+            )
+            if deployment
+            else ("{output}/managed-python", "--managed-primary-route"),
+            "{output}/managed-python/native-python.xml",
+            dependencies=("py-sync-native", "python-deployment-association")
+            if deployment
+            else ("py-sync-native",),
+            recipe="native-python",
             mode="python-native",
             input_scope="python-product",
         ),

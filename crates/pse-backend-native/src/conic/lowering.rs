@@ -89,7 +89,126 @@ pub struct Lowered {
     /// Authored orientation: one to minimize, minus one to maximize.
     pub sign: f64,
 }
+// A B-tree can own a complete node for each entry. The node's eleven key/value
+// positions plus sixteen words cover its child links and header, including sparse
+// partially occupied trees. These are typed payloads, not an allocator/RSS claim.
+fn contract_validation_bytes(columns: usize, rows: usize) -> Option<usize> {
+    columns
+        .checked_add(rows)?
+        .checked_mul(11 * size_of::<pse_ids::SemanticId>() + 16 * size_of::<usize>())
+}
+// faer 0.24.4 triplet construction retains input triplets, one argsort index,
+// one output row index/value and n+1 column offsets. Sorting is in place.
+fn symmetric_sparse_bytes(columns: usize, source_entries: usize) -> Option<usize> {
+    source_entries
+        .checked_mul(2)?
+        .checked_mul(
+            size_of::<faer::sparse::Triplet<usize, usize, f64>>()
+                + 2 * size_of::<usize>()
+                + size_of::<f64>(),
+        )?
+        .checked_add(columns.checked_add(1)?.checked_mul(size_of::<usize>())?)
+}
+fn construction_overflow() -> ProblemError {
+    ProblemError::Limit {
+        kind: crate::LimitKind::Memory,
+        detail: "conic construction extent".into(),
+    }
+}
 impl ConicProblem {
+    /// Actual source populations for coefficient-to-cone construction. Every bound
+    /// contributes at most two cone rows and every A entry at most two entries.
+    /// Includes quadratic symmetry maps, faer triplet/CSC conversion, temporary
+    /// column sorting, Vec growth and the retained lowered contract. Opaque native
+    /// solver/library workspace remains the caller's separate foreign allowance.
+    /// # Errors
+    /// Overflow before constructing any population.
+    pub fn coefficient_allocation_bound(p: &CoefficientProblem) -> Result<usize, ProblemError> {
+        let extent = || -> Option<usize> {
+            let n = p.contract.variables.len();
+            let m = p.bounds.len();
+            let q = p.hessian.as_ref().map_or(0, |q| q.val().len());
+            let a = p.constraints.val().len();
+            let cone_rows = m.checked_mul(2)?;
+            let sparse = symmetric_sparse_bytes(n, q)?;
+            let symmetry =
+                q.checked_mul(11 * size_of::<((usize, usize), f64)>() + 16 * size_of::<usize>())?;
+            // Upper()'s per-column pairs coexist with their stable-sort scratch
+            // and the growing output CSC arrays; the zero-Q source also owns offsets.
+            let quadratic_arrays = q
+                .checked_mul(2)?
+                .checked_add(4)?
+                .checked_mul(size_of::<usize>() + size_of::<f64>())?
+                .checked_add(q.checked_mul(3)?.checked_add(4)?.checked_mul(size_of::<(
+                    usize,
+                    f64,
+                )>(
+                ))?)?
+                .checked_add(
+                    n.checked_add(1)?
+                        .checked_mul(3)?
+                        .checked_add(4)?
+                        .checked_mul(size_of::<usize>())?,
+                )?;
+            let a_entries = a.checked_mul(2)?;
+            let constraint_arrays = a_entries
+                .checked_mul(2)?
+                .checked_add(4)?
+                .checked_mul(size_of::<usize>() + size_of::<f64>())?
+                .checked_add(
+                    a_entries
+                        .checked_mul(3)?
+                        .checked_add(4)?
+                        .checked_mul(size_of::<(usize, f64)>())?,
+                )?
+                .checked_add(
+                    n.checked_add(1)?
+                        .checked_mul(2)?
+                        .checked_add(4)?
+                        .checked_mul(size_of::<usize>())?,
+                )?;
+            let row_maps = m
+                .checked_mul(size_of::<Vec<(usize, f64)>>() + 4 * size_of::<(usize, f64)>())?
+                .checked_add(
+                    cone_rows
+                        .checked_mul(2)?
+                        .checked_add(4)?
+                        .checked_mul(size_of::<LoweredRow>())?,
+                )?;
+            let contract = n
+                .checked_mul(size_of::<crate::Variable>() + size_of::<f64>())?
+                .checked_add(
+                    p.contract
+                        .rows
+                        .len()
+                        .checked_add(cone_rows)?
+                        .checked_mul(size_of::<pse_ids::SemanticId>())?,
+                )?
+                .checked_add(cone_rows.checked_mul(size_of::<f64>())?)?
+                .checked_add(4 * size_of::<Cone>())?;
+            contract_validation_bytes(n, p.contract.rows.len())?
+                .checked_mul(3)?
+                .checked_add(sparse)?
+                .checked_add(symmetry)?
+                .checked_add(quadratic_arrays)?
+                .checked_add(constraint_arrays)?
+                .checked_add(row_maps)?
+                .checked_add(contract)?
+                .checked_add(size_of::<Lowered>())
+        };
+        extent().ok_or_else(construction_overflow)
+    }
+    /// Actual validation populations: identity uniqueness sets and the mirrored
+    /// quadratic's triplet/argsort/CSC arrays. Sealed evidence validates by scanning
+    /// the quadratic rather than allocating a new Gram or numerical assessment.
+    /// # Errors
+    /// Overflow before validation constructs its metadata or symmetric matrix.
+    pub fn validation_allocation_bound(&self) -> Result<usize, ProblemError> {
+        let n = self.contract.variables.len();
+        contract_validation_bytes(n, self.contract.rows.len())
+            .and_then(|v| v.checked_add(symmetric_sparse_bytes(n, self.quadratic.values.len())?))
+            .ok_or_else(construction_overflow)
+    }
     /// Lower a continuous linear or convex quadratic coefficient program: each equality
     /// row to a zero-cone row and each finite side of the other rows to a nonnegative row
     /// (`layout`), a maximization to the minimization of the negated objective, and the
@@ -403,7 +522,14 @@ mod contextual_tests {
             bounds: vec![(4.0, 4.0), (-2.0, 5.0)],
             objectives: vec![],
         };
+        let demand = ConicProblem::coefficient_allocation_bound(&p).unwrap();
+        assert!(demand < 1 << 20);
         let admitted = ConicProblem::from_coefficients(&p, None).unwrap();
+        assert_eq!(admitted.rows.len(), 3);
+        assert!(admitted.problem.constraints.values.len() <= 2 * p.constraints.val().len());
+        assert!(admitted.problem.validation_allocation_bound().unwrap() < 1 << 20);
+        assert!(symmetric_sparse_bytes(usize::MAX, 1).is_none());
+        assert!(symmetric_sparse_bytes(1, usize::MAX).is_none());
         let normalization = Normalization {
             variables: vec![2.0],
             rows: vec![4.0, 8.0],

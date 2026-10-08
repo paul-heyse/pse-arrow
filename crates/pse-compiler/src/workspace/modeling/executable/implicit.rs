@@ -502,6 +502,79 @@ impl AdmittedImplicit {
                 })
                 .sum::<usize>()
     }
+    /// Initial known payload for this factory's actual compilation population.
+    /// The body constructor reserves positive optimized excess before floating allocation. Native
+    /// rational optimization/isolation remains runtime's separate foreign allowance.
+    /// A control/provider body has no arithmetic-only ceiling and fails closed to the
+    /// caller's conservative construction admission.
+    pub fn reconstruction_allocation_bound(
+        &self,
+        configurations: &BTreeMap<SemanticId, pse_math::implicit::Configuration>,
+        limits: EvaluationLimits,
+    ) -> Result<Option<usize>> {
+        let overflow = || CompileError::from(MathError::Limit("implicit construction extent"));
+        let mut bytes = self
+            .residuals
+            .len()
+            .checked_mul(1024)
+            .ok_or_else(overflow)?;
+        for residual in &self.residuals {
+            let configuration = configurations
+                .get(&residual.id)
+                .ok_or_else(|| CompileError::Missing("implicit branch configuration".into()))?;
+            let mut bodies = vec![&residual.body];
+            if matches!(configuration, pse_math::implicit::Configuration::Hints(_)) {
+                bodies.extend(residual.hints.iter().chain(residual.terms.iter()));
+            }
+            // Factory compiles selection and assessment per residual branch.
+            bodies.extend(
+                self.selection
+                    .anchors
+                    .iter()
+                    .chain(self.selection.restriction.iter()),
+            );
+            if let Some(assessment) = &residual.assessment {
+                bodies.extend([&assessment.eligibility, &assessment.criterion]);
+            }
+            for body in bodies {
+                let Some(bound) = body.math.arithmetic_compilation_allocation_bound(limits)? else {
+                    return Ok(None);
+                };
+                bytes = bytes.checked_add(bound).ok_or_else(overflow)?;
+            }
+            // The reconstruction and regime factories additionally project exact
+            // root-isolation descriptors for residual/assessment bodies. Those
+            // known Rust vectors are separate from foreign Rational/optimizer memory.
+            for body in std::iter::once(&residual.body).chain(
+                residual
+                    .assessment
+                    .iter()
+                    .flat_map(|assessment| [&assessment.eligibility, &assessment.criterion]),
+            ) {
+                let Some(bound) = body
+                    .math
+                    .root_isolation_allocation_bound(limits.derivative_components)?
+                else {
+                    return Ok(None);
+                };
+                bytes = bytes.checked_add(bound).ok_or_else(overflow)?;
+            }
+            bytes = bytes
+                .checked_add(configuration.retained_bytes())
+                .and_then(|bytes| {
+                    bytes.checked_add(residual.rows.len().checked_mul(size_of::<SemanticId>())?)
+                })
+                .and_then(|bytes| {
+                    bytes.checked_add(
+                        self.unknowns
+                            .len()
+                            .checked_mul(size_of::<pse_math::implicit::Unknown>())?,
+                    )
+                })
+                .ok_or_else(overflow)?;
+        }
+        Ok(Some(bytes))
+    }
     /// Retain the actual numerical source with producer-issued residual realization
     /// and an exact single-root proof projection, when representable.
     pub fn reconstruction_factory(

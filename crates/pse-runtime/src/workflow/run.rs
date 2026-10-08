@@ -348,8 +348,8 @@ async fn admit<T>(
     }
     admission.await
 }
-/// Submit a native operation under the run's durability: an ephemeral run is refused when
-/// the service is full; a durable run queues for admission and is running once admitted.
+/// Submit a native operation under bounded population admission. Durable provenance
+/// observes when CPU and memory are admitted without adding another waiting population.
 fn submission(
     cancel: &FlightCancellation,
     progress: &Arc<Progress>,
@@ -366,7 +366,6 @@ fn submission(
         Submission {
             cancel: cancel.clone(),
             progress: progress.clone(),
-            queue: durable,
             admitted,
             deadline: Some(deadline),
         },
@@ -886,7 +885,12 @@ impl super::ModelingSolvePreparation {
         let solution = solution.as_id();
         let columns: Vec<SemanticId> = self.model.case.compiled().plan.columns().to_vec();
         let owner = warm.owner();
-        let mut seeded = self.with_start((*warm).clone())?;
+        let mut seeded = self;
+        seeded.solve = seeded
+            .solve
+            .with_start_owned((*warm).clone(), owner.clone())
+            .map_err(MathRuntimeError::from)?;
+        seeded.profile.controls.start = pse_backend_native::solve::StartPolicy::Explicit;
         seeded.stored_seed_owner = Some(owner);
         for column in columns {
             seeded
@@ -963,8 +967,8 @@ impl Runtime {
     /// ends the sequence unless the steps are independent. The handle shares one progress
     /// stream across steps; cancelling it stops the current step and joins native teardown.
     ///
-    /// An ephemeral run opens its session now and is refused when none is free. A durable
-    /// run registers its attempt, queues for a session, and runs under its lease.
+    /// Both routes require a bounded population ticket. A durable run registers its
+    /// attempt, waits for CPU/memory under its original clock, and runs under its lease.
     fn launch(
         &self,
         steps: Vec<super::ModelingSolvePreparation>,
@@ -1003,7 +1007,8 @@ impl Runtime {
                 match opened {
                     Some(staged) => Ok(staged),
                     None => tokio::select! {
-                        staged=super::staged::Staged::open_queued(&runtime,Some(shared))=>staged,
+                        staged=super::staged::Staged::open_queued(&runtime,Some(shared), &cancel,
+                            steps.iter().filter_map(|step| step.solve.task_scope().and_then(|scope| scope.deadline())).min())=>staged,
                         ()=cancel.cancelled()=>Err(MathRuntimeError::Cancelled.into()),
                     },
                 }

@@ -386,6 +386,56 @@ impl ConvexityEvidence {
     }
 }
 impl Coefficients {
+    /// Construction extent of the serial numerical PSD assessment. The scientific
+    /// `bytes` guard still determines its conclusion and identity; admission instead
+    /// counts the actual dimension, faer's 64-byte f64 row alignment and EVD scratch.
+    /// Its two early resource refusals allocate only their reached construction phase.
+    /// # Errors
+    /// Overflow in the typed allocation population.
+    pub fn numerical_convexity_allocation_bound(&self, bytes: usize) -> Result<usize, MathError> {
+        let n = self.hessian.ncols();
+        let overflow = || MathError::Limit("numerical convexity construction extent");
+        let metadata = n
+            .checked_mul(size_of::<f64>())
+            .and_then(|v| v.checked_add(size_of::<ConvexityEvidence>()))
+            .ok_or_else(overflow)?;
+        let dense = n
+            .checked_mul(n)
+            .and_then(|v| v.checked_mul(10 * size_of::<f64>()));
+        if dense.is_none_or(|v| v > bytes) {
+            return Ok(metadata);
+        }
+        let rows = n.checked_add(7).map(|v| v / 8 * 8).ok_or_else(overflow)?;
+        let matrix = rows
+            .checked_mul(n)
+            .and_then(|v| v.checked_mul(size_of::<f64>()))
+            .ok_or_else(overflow)?;
+        let scratch = faer::linalg::evd::self_adjoint_evd_scratch::<f64>(
+            n,
+            faer::linalg::evd::ComputeEigenvectors::Yes,
+            faer::Par::Seq,
+            Default::default(),
+        )
+        .unaligned_bytes_required();
+        if dense
+            .and_then(|v| v.checked_add(scratch))
+            .is_none_or(|v| v > bytes)
+        {
+            return matrix
+                .checked_mul(2)
+                .and_then(|v| v.checked_add(metadata))
+                .ok_or_else(overflow);
+        }
+        // Original, normalized matrix, eigenvectors, weighted eigenvectors and
+        // both residual/orthogonality products and subtraction operands/results;
+        // ten aligned matrices dominate those concrete expression populations.
+        matrix
+            .checked_mul(10)
+            .and_then(|v| v.checked_add(scratch))
+            .and_then(|v| v.checked_add(rows.checked_mul(size_of::<f64>())?))
+            .and_then(|v| v.checked_add(metadata))
+            .ok_or_else(overflow)
+    }
     /// The residual-qualified numerical PSD assessment of the admitted snapshot under one
     /// request's explicit tolerances (ADR-0121 Outcome 4), in normalized coordinates. It
     /// never changes Q or silently repairs curvature, and it is never a fact: exact
@@ -612,6 +662,27 @@ pub(crate) enum Ldlt {
     Exhausted,
 }
 impl GramCertificate {
+    /// Known container population for exact LDL transpose construction, including
+    /// fill, pivot metadata, simultaneous neighbor/multiplier arrays and retained
+    /// factors. Arbitrary-precision rational limbs retain a separate foreign allowance.
+    /// # Errors
+    /// Overflow before any row, pivot or factor container is allocated.
+    pub fn construction_allocation_bound(n: usize) -> Result<usize, MathError> {
+        let cells = n
+            .checked_mul(n)
+            .ok_or(MathError::Limit("Gram construction extent"))?;
+        cells
+            .checked_mul(4 * size_of::<(usize, Rational)>() + 256)
+            .and_then(|bytes| {
+                bytes.checked_add(n.checked_mul(
+                    3 * size_of::<BTreeMap<usize, Rational>>()
+                        + 4 * size_of::<Vec<Rational>>()
+                        + 512,
+                )?)
+            })
+            .and_then(|bytes| bytes.checked_add(size_of::<Self>()))
+            .ok_or(MathError::Limit("Gram construction extent"))
+    }
     /// Decide positive semidefiniteness of `sign · q` exactly: every binary64 entry is a
     /// rational, and a symmetric-pivoted rational LDLᵀ within `limit` multiply-adds either
     /// yields the Gram factors, finds a direction of negative curvature, or is inconclusive.

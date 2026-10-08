@@ -111,7 +111,7 @@ impl ModelingPackage {
                     data: problem.assumptions,
                     backend: Backend::Highs,
                 };
-                let mut session = highs::Session::new(&problem, None, compatibility)?;
+                let mut session = highs::Session::new(&problem, None, compatibility, &execution)?;
                 let mut attempt = session.solve(
                     &problem,
                     &normalization,

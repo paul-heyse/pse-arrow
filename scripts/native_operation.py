@@ -145,7 +145,7 @@ def scope_owner() -> ScopeOwner | None:
             part
             for part in Path(group).parts
             if re.fullmatch(
-                r"(?:pse-native-[a-f0-9]{32}|pse-surreal-worker-[a-f0-9]{16}-[0-9]+)\.scope",
+                r"(?:pse-native-[a-f0-9]{32}\.scope|pse-surreal-worker-[a-f0-9]{16}-[0-9]+\.(?:scope|service))",
                 part,
             )
         )

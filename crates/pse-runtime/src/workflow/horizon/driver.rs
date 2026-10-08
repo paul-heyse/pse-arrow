@@ -220,7 +220,7 @@ async fn admit(
     let staged = match opened {
         Some(staged) => staged,
         None => tokio::select! {
-            staged = Staged::open_queued(runtime, Some(progress.clone())) => staged?,
+            staged = Staged::open_queued(runtime, Some(progress.clone()), cancel, None) => staged?,
             () = cancel.cancelled() => return Err(MathRuntimeError::Cancelled.into()),
         },
     };

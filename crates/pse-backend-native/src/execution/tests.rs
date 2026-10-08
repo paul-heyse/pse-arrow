@@ -41,6 +41,63 @@ static STUB_CAPABILITY: Capability = Capability {
     diagnostics: "none",
 };
 static STUB_TABLE: Table = Table::new(&[&STUB]);
+
+#[test]
+fn scope_stack_extent_counts_actual_nested_teams_once_per_adapter() {
+    let pounce = adapter(Backend::Pounce);
+    let convex = adapter(Backend::PounceConvex);
+    let adapters = [pounce, convex, pounce, adapter(Backend::Kinsol)];
+    assert_eq!(scope_stack_bytes(&adapters, 1, 1024).unwrap(), 0);
+    assert_eq!(
+        scope_stack_bytes(&adapters, 3, 1024).unwrap(),
+        if cfg!(feature = "pounce") {
+            6 * 1024
+        } else {
+            0
+        },
+    );
+    #[cfg(feature = "pounce")]
+    {
+        assert!(scope_stack_bytes(&[pounce, convex], usize::MAX, 1).is_err());
+        assert!(scope_stack_bytes(&[pounce], 2, usize::MAX).is_err());
+    }
+}
+
+#[test]
+fn idle_scheduler_relinquishment_refuses_only_required_discarded_cache() {
+    let mut retained = Retained::default();
+    retained
+        .session(
+            Backend::Highs,
+            ReusePolicy::AllowRebuild,
+            |_: &mut u64| Ok(true),
+            || Ok(1u64),
+        )
+        .unwrap();
+    retained.relinquish_scheduler();
+    assert!(retained.is_empty());
+    assert!(matches!(
+        retained.session(
+            Backend::Highs,
+            ReusePolicy::RequireReuse,
+            |_: &mut u64| Ok(true),
+            || Ok(2u64)
+        ),
+        Err(ProblemError::Reuse {
+            backend: Backend::Highs,
+            ..
+        })
+    ));
+    retained
+        .session(
+            Backend::Kinsol,
+            ReusePolicy::RequireReuse,
+            |_: &mut u64| Ok(true),
+            || Ok(3u64),
+        )
+        .unwrap();
+    assert_eq!(retained.backend(), Some(Backend::Kinsol));
+}
 impl BackendExecution for Stub {
     fn backend(&self) -> Backend {
         // A registry value that has no algebraic adapter in the production table.

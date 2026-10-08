@@ -151,6 +151,8 @@ tokio = { version = "=1.53.2", default-features = false, features = [
   "sync",
   "macros",
   "time",
+  "process",
+  "io-util",
 ] }
 tokio-util = { version = "=0.7.19", default-features = false, features = [
   "rt",

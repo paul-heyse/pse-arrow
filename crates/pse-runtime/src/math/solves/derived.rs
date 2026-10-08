@@ -58,7 +58,15 @@ impl PreparedSolve {
         let _class_owner = source
             .coefficients
             .is_none()
-            .then(|| service.reserve("math:qp-class-production", service.policy.workspace_bytes))
+            .then(|| {
+                let demand = source
+                    .class_allocation_bound(&case.values)?
+                    .unwrap_or(service.policy.workspace_bytes);
+                if demand > service.policy.worker_bytes {
+                    return Err(MathRuntimeError::Limit("QP class construction capacity"));
+                }
+                service.reserve("math:qp-class-production", demand)
+            })
             .transpose()?;
         let classified = if source.coefficients.is_none() {
             let product = execution.counted(

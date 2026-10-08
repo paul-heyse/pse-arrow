@@ -80,8 +80,16 @@ impl MathService {
             return Ok(prepared);
         }
         let source = prepared.prepared.clone();
+        let demand = source
+            .support_upgrade_allocation_bound()?
+            .unwrap_or(self.policy.workspace_bytes);
+        if demand > self.policy.worker_bytes {
+            return Err(MathRuntimeError::Limit(
+                "support upgrade construction capacity",
+            ));
+        }
         let upgraded = self
-            .job_retained(1, self.policy.workspace_bytes, control, move |flag| {
+            .job_retained(1, demand, control, move |flag| {
                 let product = source.prepare_order(order, &flag)?;
                 let bytes = product.retained_bytes();
                 Ok((product, bytes))
@@ -98,17 +106,20 @@ impl MathService {
             return Ok(prepared);
         }
         let source = prepared.prepared.clone();
+        let demand = source
+            .support_upgrade_allocation_bound()?
+            .unwrap_or(self.policy.workspace_bytes);
+        if demand > self.policy.worker_bytes {
+            return Err(MathRuntimeError::Limit(
+                "directional support construction capacity",
+            ));
+        }
         let upgraded = self
-            .job_retained(
-                1,
-                self.policy.workspace_bytes,
-                FlightCancellation::default(),
-                move |flag| {
-                    let product = source.prepare_directional_actions(&flag)?;
-                    let bytes = product.retained_bytes();
-                    Ok((product, bytes))
-                },
-            )
+            .job_retained(1, demand, FlightCancellation::default(), move |flag| {
+                let product = source.prepare_directional_actions(&flag)?;
+                let bytes = product.retained_bytes();
+                Ok((product, bytes))
+            })
             .await?;
         self.own_preparation(upgraded)
     }

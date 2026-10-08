@@ -1442,6 +1442,19 @@ owner. Its `MathPolicy` draws finite allowances from the deployment memory pool:
 artifact retention, per-job foreign allowance, worker storage, workspace generations,
 native stack, live jobs and flights.
 
+> Decision: [ADR-0166](../../adr/0166-bounded-parallel-scientific-execution.md)
+> (proposed, under Plan 28 implementation). Temporary demand is distinct from worker
+> capacity. One population ticket bounds pending requests, running jobs and retained
+> sessions together. Failed entry releases CPU and temporary dispatch resources before
+> waiting on the common pool's release notification; notification grants no bytes.
+> Retries retain cancellation and the original finite deadline. Without such a clock,
+> the configurable admission-only default is thirty seconds and ends at dispatch.
+> Native team stacks are reserved before actual team creation and held through idle
+> scope and destruction/join. Actual native exclusion releases compute while waiting;
+> guard acquisition and native destruction remain on the owning thread. These changes
+> do not lower scientific demand or change native execution clocks. The owning plan
+> distinguishes implemented slices and their evidence from this target.
+
 - A job acquires a job slot, CPU permits for its admitted cores and a pool reservation
   covering stacks (one per worker plus a coordinator for parallel teams), numeric bytes
   and the foreign allowance; parallelism cannot exceed the effective process CPU count.

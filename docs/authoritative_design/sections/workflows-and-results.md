@@ -637,6 +637,15 @@ diagnostics, scientific decisions, chosen start and retention-effect knowledge i
 of available result members. A partial multi-result run remains governed by E's final decision;
 counting tables or selecting the first result cannot promote it.
 
+> Decision: [ADR-0166](../../adr/0166-bounded-parallel-scientific-execution.md)
+> (proposed, under Plan 28 implementation). Ready independent sequences compose through
+> a finite completion-driven group with private mutable state and exact occurrence
+> placement. Genuine predecessor/seed dependencies retain ordered native reuse;
+> suitable native bulk operations remain eligible. Cancellation stops issuance and
+> drains issued native work before closing its owners. Public Rust/Python routes are
+> consumers of this target, not a separate serial implementation. Plan 28 owns current
+> migration and qualification evidence.
+
 **Execution and preparation.** `ModelingPackage::study` consumes the admitted definition within
 the caller's bound and the shared maximum. Ordinary `StudyReport` retains compact outcomes
 and `StudyOccurrenceResult::Retained` selections containing the scientific run ID and exact

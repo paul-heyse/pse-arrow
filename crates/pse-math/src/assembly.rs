@@ -938,6 +938,92 @@ impl CasePlan {
     pub fn has_directional_actions(&self) -> bool {
         self.requests.iter().any(|r| r.directional)
     }
+    /// Construction extent of immutable support/order or directional-demand
+    /// upgrades. Numerical evaluators are deferred; this bounds selected support,
+    /// instance/demand copies and actual possible sparse derivative contributions.
+    /// Unknown control/provider support retains a conservative caller-owned entry.
+    /// # Errors
+    /// Overflow before constructing any support or sparse population.
+    pub fn support_upgrade_allocation_bound(
+        &self,
+        evaluation: EvaluationLimits,
+    ) -> Result<Option<usize>, MathError> {
+        let overflow = || MathError::Limit("support upgrade construction extent");
+        let add = |a: usize, b: usize| a.checked_add(b).ok_or_else(overflow);
+        let mul = |a: usize, b: usize| a.checked_mul(b).ok_or_else(overflow);
+        let mut support_bytes = 0;
+        for support in self.supports.iter() {
+            let Some(bytes) = support.compilation_allocation_bound(evaluation)? else {
+                return Ok(None);
+            };
+            support_bytes = add(support_bytes, mul(bytes, 2)?)?;
+        }
+        let mut dimensions = 0;
+        let mut copies = 0;
+        let mut contributions = 0;
+        for (instance, binding) in self.instances.iter().zip(self.structure.instances()) {
+            let n = instance.coordinates.len();
+            dimensions = add(dimensions, n)?;
+            copies = add(copies, mul(n, size_of::<Slot>() + size_of::<GlobalCol>())?)?;
+            for group in instance.groups.values().flatten() {
+                dimensions = add(dimensions, group.outputs.len())?;
+            }
+            contributions = add(
+                contributions,
+                mul(binding.contributions.len(), add(n, mul(n, n)?)?)?,
+            )?;
+        }
+        for demand in self.requests.iter() {
+            dimensions = add(
+                dimensions,
+                add(demand.outputs.len(), demand.coordinates.len())?,
+            )?;
+        }
+        let count = add(self.requests.len(), self.instances.len())?;
+        let descriptors = add(
+            mul(
+                add(mul(count, 2)?, 4)?,
+                size_of::<LocalDemand>() + size_of::<Arc<PreparedSupport>>(),
+            )?,
+            add(
+                mul(self.instances.len(), size_of::<Instance>())?,
+                add(copies, mul(dimensions, 4 * size_of::<usize>())?)?,
+            )?,
+        )?;
+        let maps = mul(
+            count,
+            11 * (size_of::<(ContentHash, Vec<usize>, Vec<usize>, usize)>()
+                + size_of::<(usize, Arc<PreparedSupport>)>())
+                + 32 * size_of::<usize>(),
+        )?;
+        // case_patterns checks the combined contribution ceiling BEFORE either
+        // push. Include Vec growth plus faer's indices/argsort/CSC/refill and zero
+        // buffers, preserving duplicate contributions and aliased coordinates.
+        let terms = contributions.min(self.limits.contributions);
+        let sparse = add(
+            mul(
+                terms,
+                2 * size_of::<Entry<GlobalCol, GlobalCol>>()
+                    + 2 * size_of::<Term>()
+                    + size_of::<faer::sparse::Pair<usize, usize>>()
+                    + 4 * size_of::<usize>()
+                    + 2 * size_of::<f64>(),
+            )?,
+            add(
+                8 * (size_of::<Entry<GlobalCol, GlobalCol>>() + size_of::<Term>())
+                    + 4 * size_of::<usize>(),
+                mul(add(self.columns.len(), 1)?, 2 * size_of::<usize>())?,
+            )?,
+        )?;
+        let bodies = mul(
+            self.bodies.len(),
+            11 * size_of::<(ContentHash, Arc<PreparedBody>)>() + 16 * size_of::<usize>(),
+        )?;
+        Ok(Some(add(
+            add(add(add(support_bytes, descriptors)?, maps)?, sparse)?,
+            add(bodies, size_of::<Self>())?,
+        )?))
+    }
     /// Monotonic immutable support upgrade under the original case and body allowances.
     /// Failed or cancelled stronger construction leaves this plan and its products intact.
     pub fn prepare_order(

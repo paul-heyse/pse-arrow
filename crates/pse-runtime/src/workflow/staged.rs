@@ -164,18 +164,23 @@ impl Staged {
             progress,
         })
     }
-    /// Open a sequence for durable work: native admission queues until a job slot is free
-    /// instead of refusing (ADR-0112 Outcome 14).
+    /// Open a durable sequence with bounded memory waiting, cancellation and the
+    /// original task clock under the common native population limit.
     ///
     /// # Errors
     /// Pool capacity, or the session thread could not start.
     pub(in crate::workflow) async fn open_queued(
         runtime: &Runtime,
         progress: Option<Arc<Progress>>,
+        cancel: &crate::CancelSource,
+        deadline: Option<Instant>,
     ) -> Result<Self, WorkflowError> {
         Ok(Self {
             runtime: runtime.clone(),
-            session: runtime.native().open_session_queued().await?,
+            session: runtime
+                .native()
+                .open_session_queued(cancel, deadline)
+                .await?,
             records: Vec::new(),
             progress,
         })

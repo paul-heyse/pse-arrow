@@ -512,6 +512,17 @@
       ]
     },
     {
+      "id": "k4-study-in-process-16",
+      "operation": "k4-study",
+      "adapter": "in-process-parallel",
+      "reuse": "admitted-definition",
+      "blocks": 16,
+      "threads": 16,
+      "functional_scopes": [
+        "process"
+      ]
+    },
+    {
       "id": "k4-study-durable-8",
       "operation": "k4-study",
       "adapter": "durable",

@@ -407,6 +407,17 @@ impl ArtifactRequest {
     pub fn scratch_limit(&self) -> usize {
         self.evaluation.scratch_bytes
     }
+    /// Producer-issued initial selected construction population. Scientific scratch
+    /// limits remain independent; opaque control/provider bodies return None.
+    pub fn construction_allocation_bound(&self) -> std::result::Result<Option<usize>, MathError> {
+        self.support
+            .compilation_allocation_bound(self.evaluation)?
+            .map(|body| {
+                body.checked_add(self.descriptor_bytes())
+                    .ok_or(MathError::Limit("artifact construction extent"))
+            })
+            .transpose()
+    }
     /// Construct native programs only at the runtime effect boundary.
     pub fn build(&self, cancel: &Arc<AtomicBool>) -> std::result::Result<CompiledBody, MathError> {
         let _span = tracing::info_span!("pse.case.program_optimization").entered();
@@ -627,6 +638,114 @@ impl PreparedCase {
             initialization,
             dependencies,
         })
+    }
+    /// Conditional initialization restricts this admitted source: at most one
+    /// block per row, each with a subset of source support and incidence. Account
+    /// for retained block products beside schedule/dependency construction and
+    /// actual matching stacks before constructing the schedule.
+    /// # Errors
+    /// Overflow or unsupported structural dimensions before allocation.
+    pub fn initialization_allocation_bound(&self) -> Result<Option<usize>> {
+        let Some(support) = self.support_upgrade_allocation_bound()? else {
+            return Ok(None);
+        };
+        let rows = self.plan.structure().rows().len();
+        let columns = self.plan.columns().len();
+        let contributions = self
+            .plan
+            .structure()
+            .instances()
+            .iter()
+            .try_fold(0usize, |count, instance| {
+                count.checked_add(instance.contributions.len())
+            })
+            .and_then(|count| count.checked_mul(columns))
+            .ok_or(MathError::Limit(
+                "initialization incidence construction extent",
+            ))?;
+        let graph = CaseIncidence::memory_extent(rows, columns, contributions)
+            .map_err(|_| MathError::Limit("initialization incidence construction extent"))?;
+        let evaluation = self
+            .artifacts
+            .first()
+            .map_or(EvaluationLimits::default(), |a| a.evaluation);
+        let mut bodies = 0usize;
+        for body in self.plan.bodies().values() {
+            let Some(bytes) = body.arithmetic_compilation_allocation_bound(evaluation)? else {
+                return Ok(None);
+            };
+            bodies = bodies
+                .checked_add(bytes)
+                .ok_or(MathError::Limit("initialization body construction extent"))?;
+        }
+        // Block columns/rows partition the source. The parent support bound covers
+        // their combined sparse contribution population. Full source descriptors,
+        // selected support internals and structural metadata may repeat per block;
+        // matching's temporary native stack exists once at a time.
+        let copies = bodies
+            .checked_add(self.plan.retained_bytes())
+            .and_then(|bytes| bytes.checked_add(self.structure.retained_bytes()))
+            .and_then(|bytes| bytes.checked_mul(rows.checked_add(2)?))
+            .ok_or(MathError::Limit("initialization block construction extent"))?;
+        Ok(Some(
+            support
+                .checked_add(graph)
+                .and_then(|bytes| bytes.checked_add(copies))
+                .ok_or(MathError::Limit("initialization block construction extent"))?,
+        ))
+    }
+    /// Source-driven class/affine construction is a subset of value rebind's
+    /// projection/class producers, under an equal or smaller proof allowance.
+    /// # Errors
+    /// Overflow in the producer-issued source population.
+    pub fn class_allocation_bound(&self, values: &CaseValues) -> Result<Option<usize>> {
+        self.rebind_allocation_bound(values)
+    }
+    /// Support upgrades create descriptors and sparse support, while numeric
+    /// compilation remains in independently admitted artifact flights.
+    /// # Errors
+    /// Overflow in support, demand or artifact descriptor populations.
+    pub fn support_upgrade_allocation_bound(&self) -> Result<Option<usize>> {
+        let evaluation = self
+            .artifacts
+            .first()
+            .map_or(EvaluationLimits::default(), |a| a.evaluation);
+        let Some(plan) = self.plan.support_upgrade_allocation_bound(evaluation)? else {
+            return Ok(None);
+        };
+        let count = self
+            .plan
+            .demands()
+            .len()
+            .checked_add(self.plan.structure().instances().len())
+            .ok_or(MathError::Limit("support artifact construction extent"))?;
+        let dimensions = self
+            .plan
+            .demands()
+            .iter()
+            .try_fold(0usize, |n, d| {
+                n.checked_add(d.outputs.len())?
+                    .checked_add(d.coordinates.len())
+            })
+            .and_then(|n| {
+                self.plan
+                    .structure()
+                    .instances()
+                    .iter()
+                    .try_fold(n, |n, b| {
+                        n.checked_add(b.slots.len())?
+                            .checked_add(b.contributions.len())
+                    })
+            })
+            .ok_or(MathError::Limit("support artifact construction extent"))?;
+        Ok(Some(
+            count
+                .checked_mul(size_of::<ArtifactRequest>())
+                .and_then(|v| v.checked_add(dimensions.checked_mul(4 * size_of::<usize>())?))
+                .and_then(|v| v.checked_add(plan))
+                .and_then(|v| v.checked_add(2 * size_of::<Self>()))
+                .ok_or(MathError::Limit("support artifact construction extent"))?,
+        ))
     }
     /// Resolve demanded coefficient-class evidence without preparing solver derivatives.
     /// Missing proof remains explicitly unresolved, and resource failure remains an error.
@@ -882,6 +1001,30 @@ pub struct PreparedBlock {
     pub artifacts: Arc<Vec<ArtifactRequest>>,
 }
 impl PreparedBlock {
+    /// Preconstruction population of a first conditional binding. Arithmetic projection
+    /// and scalar requirements share the ordinary rebind producer; regions/providers
+    /// without that contract explicitly retain conservative runtime admission.
+    pub fn binding_allocation_bound(&self, values: &CaseValues) -> Result<Option<usize>> {
+        let Some(projection) = self
+            .plan
+            .rebind_projection_allocation_bound(self.class_proof_work)?
+        else {
+            return Ok(None);
+        };
+        let metadata = values
+            .scalars
+            .len()
+            .checked_add(self.plan.structure().parameters().len())
+            .and_then(|n| n.checked_add(self.plan.structure().variables().len()))
+            .and_then(|n| n.checked_mul(512))
+            .and_then(|n| n.checked_add(2 * size_of::<PreparedCase>() + 4096))
+            .ok_or_else(|| {
+                CompileError::from(MathError::Limit("block binding construction extent"))
+            })?;
+        Ok(Some(projection.checked_add(metadata).ok_or_else(|| {
+            CompileError::from(MathError::Limit("block binding construction extent"))
+        })?))
+    }
     /// The block's solver view bound to `values` (A6): the plan, structural analysis and
     /// artifact requests are the block's own and shared; only the value-dependent products
     /// are built. Later values rebind it ([`PreparedCase::rebind`]).

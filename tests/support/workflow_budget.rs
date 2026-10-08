@@ -7,3 +7,6 @@
 
 /// One shared pool for the workflow's sessions, leaving workstation headroom.
 pub(crate) const MEMORY_LIMIT_BYTES: usize = 64 << 30;
+
+/// Exact selected parallel campaign pool, shared by all sixteen independent lanes.
+pub(crate) const PARALLEL_REFERENCE_MEMORY_BYTES: usize = 128 << 30;

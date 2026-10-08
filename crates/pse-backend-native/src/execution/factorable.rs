@@ -48,6 +48,124 @@ pub(crate) const STRICT_MARGIN: f64 = 1e-9;
 /// Largest affine form tracked for one node; larger forms export as expressions.
 const AFFINE_TERMS: usize = 4096;
 
+fn pricing_allocation_extent(
+    nodes: usize,
+    coordinates: usize,
+    leaves: usize,
+    semi: usize,
+    rows: usize,
+    native: usize,
+    additional_constraints: usize,
+) -> Option<usize> {
+    let terms = coordinates.min(leaves);
+    let retained_terms = terms.min(AFFINE_TERMS);
+    let constraints = rows
+        .checked_add(additional_constraints)?
+        .checked_add(semi.checked_mul(2)?)?;
+    let refusals = nodes
+        .checked_add(native)?
+        .checked_add(semi)?
+        .checked_add(coordinates)?
+        .checked_add(1)?;
+    // Sum checks AFFINE_TERMS only after adding one complete child's terms, so
+    // the transient union uses the actual coordinate/leaf population, not 4096.
+    let candidate = terms.checked_mul(11 * size_of::<(usize, f64)>() + 16 * size_of::<usize>())?;
+    let forms = nodes.checked_mul(
+        size_of::<Option<Affine>>().checked_add(
+            retained_terms
+                .checked_mul(2)?
+                .checked_add(4)?
+                .checked_mul(size_of::<(usize, f64)>())?,
+        )?,
+    )?;
+    let constraints = constraints
+        .checked_mul(2)?
+        .checked_add(4)?
+        .checked_mul(size_of::<Function>())?;
+    let boxes = coordinates
+        .checked_add(semi)?
+        .checked_mul(2)?
+        .checked_add(4)?
+        .checked_mul(size_of::<(f64, f64)>())?;
+    let semi_storage = semi
+        .checked_mul(2)?
+        .checked_add(4)?
+        .checked_mul(size_of::<Semi>())?
+        .checked_add(
+            semi.checked_mul(2)?
+                .checked_mul(size_of::<Affine>() + 2 * size_of::<(usize, f64)>())?,
+        )?;
+    let unbounded = coordinates
+        .checked_mul(11 * size_of::<(usize, MissingBound)>() + 16 * size_of::<usize>())?;
+    // Refusal fields are fixed IDs, indices, enums and booleans. 256 UTF-8 bytes
+    // per Debug entry dominates their bounded rendering; allow Vec/String growth.
+    let diagnostics = refusals
+        .checked_mul(2)?
+        .checked_add(4)?
+        .checked_mul(size_of::<Refusal>() + 256)?;
+    forms
+        .checked_add(candidate)?
+        .checked_add(constraints)?
+        .checked_add(boxes)?
+        .checked_add(semi_storage)?
+        .checked_add(unbounded)?
+        .checked_add(diagnostics)?
+        .checked_add(rows.checked_mul(size_of::<Enforcement>())?)?
+        .checked_add(
+            native
+                .checked_mul(2)?
+                .checked_add(4)?
+                .checked_mul(size_of::<usize>())?,
+        )?
+        .checked_add(nodes.checked_mul(2 * size_of::<bool>())?)?
+        .checked_add(size_of::<Plan<'_>>())
+}
+/// Construction extent of callback-order selection, before its pure algebraic
+/// export plan is built. Counts actual DAG/coordinate/row/implicit populations;
+/// the 4096 affine limit caps retained forms, never the pre-check Sum union.
+/// # Errors
+/// Overflow before allocating the export plan.
+pub fn factorable_resolve_allocation_bound(
+    program: &FactorableProgram,
+) -> Result<usize, ProblemError> {
+    let extent = || -> Option<usize> {
+        let coordinates = program
+            .variables
+            .len()
+            .checked_add(program.auxiliaries.len())?;
+        let semi = program
+            .variables
+            .iter()
+            .filter(|v| v.domain.is_semi())
+            .count();
+        let leaves = program
+            .nodes
+            .iter()
+            .filter(|n| matches!(n, Node::Var(_) | Node::Aux(_)))
+            .count();
+        let obligations = program
+            .obligations
+            .iter()
+            .try_fold(0usize, |n, o| n.checked_add(o.constraints.len()))?;
+        let additional = program.implicit.iter().try_fold(obligations, |n, b| {
+            n.checked_add(b.residuals.len())?
+                .checked_add(b.bounds.len())
+        })?;
+        pricing_allocation_extent(
+            program.nodes.len(),
+            coordinates,
+            leaves,
+            semi,
+            program.rows.len(),
+            program.native.len(),
+            additional,
+        )
+    };
+    extent().ok_or_else(|| ProblemError::Limit {
+        kind: crate::LimitKind::Memory,
+        detail: "factorable callback-order construction extent".into(),
+    })
+}
 /// Callback support consumed by a potential fixed-assignment NLP re-solve. The
 /// primary factorable export's value support remains independent of this demand.
 pub fn factorable_resolve_order(
@@ -1677,6 +1795,19 @@ fn adopt(
 #[cfg(test)]
 mod selected_graph_tests {
     use super::*;
+    #[test]
+    fn callback_order_source_extent_checks_overflow_and_late_affine_union() {
+        let small = pricing_allocation_extent(12, 3, 3, 1, 2, 1, 0).unwrap();
+        assert!(small < 1 << 20);
+        // Coordinates beyond the retained affine ceiling still increase the
+        // candidate Sum union and cannot be hidden by min(AFFINE_TERMS).
+        let limited = pricing_allocation_extent(5000, 4096, 5000, 0, 1, 0, 0).unwrap();
+        let late_union = pricing_allocation_extent(5000, 5000, 5000, 0, 1, 0, 0).unwrap();
+        assert!(late_union > limited);
+        assert!(pricing_allocation_extent(usize::MAX, 2, 2, 0, 1, 0, 0).is_none());
+        assert!(pricing_allocation_extent(1, usize::MAX, 1, 0, 1, 0, 0).is_none());
+        assert!(pricing_allocation_extent(1, 1, 1, usize::MAX, 1, 0, 0).is_none());
+    }
     #[test]
     fn strict_selected_graph_closure_keeps_arbitrarily_small_valid_roots() {
         let c = Constraint {

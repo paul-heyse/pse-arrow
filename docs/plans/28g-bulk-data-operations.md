@@ -3,7 +3,7 @@ title: Bulk data operations and sufficient protected crossings
 status: in-progress
 date: 2026-10-07
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md]
+review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md]
 scenario_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#4-revealing-scenarios]
 ---
 
@@ -179,6 +179,38 @@ unowned indefinite follow-up. New scientific meaning or a material rule change r
 decision owner before dependent implementation. The other confirmed corrections need not wait
 for unrelated query questions.
 
+## Parallel protected-operation composition
+
+T7 supports Parallel F01/S01/S03/S06 through
+[A4's canonical decision](28a-canonical-substrate-and-revisions.md#parallel-canonical-protection-and-contention).
+It owns bounded physical crossings, not guard safety or another retry authority. Existing
+product stage/ack convergence and exact append replay must be reused where they already meet
+the consumed contract.
+
+For operations A4 identifies as unnecessarily repeated, compose metadata/payload selection or
+equivalent reachability publication under one valid protected selection and useful byte-bounded
+unit. Preserve every selector and its completed dependency receipt. Keep source activation,
+product/root admission, result append/close/terminal, analysis activation and study claim as
+their actual separate effect/recovery identities; one RPC is not permission to merge them.
+Bulk payload work remains outside short terminal/guarded decisions. A grouping change that
+widens the transaction or prolongs a conflicting protection must justify the complete-operation
+tradeoff rather than claiming fewer crossings alone.
+
+Do not echo large immutable content solely to establish acknowledgment. Normal success can
+use the existing exact compact acknowledgment; uncertain delivery requires the actual owner's
+settlement/readback. Changed replay refuses, and no storage acknowledgment loss restarts a
+scientific solve. Provisional rows remain provisional until successful final statement completion.
+Decoder and escaped Arrow ownership retain their current bounds.
+
+| Package | Inputs and delivered behavior | Migration, deletion and focused acceptance | Status |
+|---|---|---|---|
+| T7 — Parallel protected crossings | A4's selected atomic predicates and operation identities; B6 lifetime where consumed. Adopt useful bounded grouping/coalescing only for demonstrated equivalent operations. | Migrate canonical source/product/result/analysis consumers selected by A4; remove displaced helpers/round trips after controls. Race read/publication with protection release, expiry and retirement; test exact/changed/lost acknowledgments, empty/partial/skewed selection, byte admission and final-statement failure. A reasoned retained path needs a concrete scope and reopen trigger. | A4 selects local staging-RPC pacing; existing compact acknowledgments and protected grouping retained; composed serving controls pass, E3/E4 pending. |
+
+T5's consumer reconciliation includes T7 and D1/D2 where their protected acquisition changes.
+Existing T6 access-path evidence is retained; no second query census, streaming replacement or
+mandatory new index is introduced by this extension. E4 measures whole-operation and store
+waiting effects separately from candidate counts or RPC-count mechanisms.
+
 ## Work packages and dependencies
 
 | Package | Inputs and delivered behavior | Migration, deletion and focused acceptance | Status |
@@ -188,7 +220,7 @@ for unrelated query questions.
 | T2 — Compact exact append acknowledgment | Working current append ownership and settled sufficient request/descriptor identity; independent of increasing block size. | Change generator and actual Rust callers together. Test successful first/repeated effects, mismatched descriptor, changed request and committed lost-ack recovery. Remove full payload success echo/readback comparisons only after the replacements establish their guarantees. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
 | T3 — Composed protected acquisition | A3 protection plus exact result descriptors and reservation planning; independent of T1/T2 except changed stored-bound compatibility. | Migrate connected and direct block readers, grouped physical source reopening, and applicable recovery metadata consumers. Test retirement/expiry/cancellation, selected ordering, missing/changed blocks and final statement failure. Delete replaced singleton metadata/payload chains. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
 | T4 — Source and analysis effect grouping | T0's source-stage and node/edge decisions; working shared admission/grouping slices. | Migrate source package publication, unchanged-byte authoring reuse and applicable analysis publication. Test interrupted stages, exact final revision visibility, changed replay, endpoint ordering and activation completeness. Delete redundant revisions/copies/loops only where no required consumer remains. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
-| T5 — Data consumer closure | T1–T4, completed T6 decision and working adopted access-path/provider corrections. Reconcile all data capability rows and actual callers. | All confirmed variants consume the shared target; justified distinct effects remain explicit. Compose complete source→solve→retained result→selected analysis/Arrow journeys in E3, then measure in E4. | Consumer source reconciliation complete; assembled E3/E4 acceptance pending. |
+| T5 — Data consumer closure | T1–T4, completed T6 decision, working adopted corrections and T7/A4/B6/D1/D2 protected-operation migration. Reconcile coordinator coverage and every confirmed applicable caller. | All confirmed variants consume the shared target; justified distinct effects remain explicit. Compose complete source→solve→retained result→selected analysis/Arrow journeys in E3, then measure in E4. | Prior T1–T6 source reconciliation complete; parallel consumer source reconciliation complete; assembled E3/E4 pending. |
 
 T1/T2/T3 can proceed independently once their own contracts are available. Acknowledgment
 correctness and read correctness remain separate obligations even if larger blocks reduce
@@ -217,6 +249,16 @@ no new telemetry framework or fixed RPC quota is required. Exact original transp
 do not impose bit-identical independently solved scientific outcomes.
 
 ## Checkpoint
+
+A4 attributed the observed conflict to same-owner staging and selected pacing of the
+single bounded staging RPC, retaining native global guards and exact stage/readback identity.
+T7 therefore retains existing compact append acknowledgment, grouped protected result/source
+acquisition and analysis activation; no identity merge, longer transaction or second retry
+owner is introduced. Actual protected multipage read-to-analysis handoff, exact-selection
+retirement races, resumed cleanup and analysis completeness controls pass. A newly observed
+conflict attributed to a distinct owner, or growth in a complete protected acquisition,
+reopens that concrete path. T5/D1/D2 enclosing consumer qualification remains E3.
+The earlier T0–T6 implementation and access-path controls below keep their evidence limits.
 
 T6's populated current-v2 SurrealDB 3.3 investigations retain bounded source/numeric/analysis
 paths and their complete projections. A proposed supplier compound index did not improve the

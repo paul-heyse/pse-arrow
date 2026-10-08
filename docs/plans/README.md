@@ -13,9 +13,16 @@ The [current checkpoint](28-surrealdb-unified-substrate.md#current-checkpoint) a
 The [repository-wide efficiency extension](28-surrealdb-unified-substrate.md#repository-wide-efficiency-extension)
 now schedules PE01–PE06 and comparable defects across current functionality.
 The [remaining-design enhancement integration](28-surrealdb-unified-substrate.md#remaining-design-enhancement-integration)
-adds the latest review's separately qualified F01–F05, accepted deployment-local replay decision,
+adds that review's separately qualified F01–F05, accepted deployment-local replay decision,
 stored-creation cancellation and bounded fitting/access-path investigations. Its owners remain the
 existing companions; document adoption supplies no implementation or qualification evidence.
+The [parallel-execution integration](28-surrealdb-unified-substrate.md#parallel-execution-integration)
+routes the 2026-10-08 review and four confirmed rule decisions through the same A–H owners.
+The coordinator owns its separately qualified Parallel F01–F05 dispositions; the companions
+own canonical contention, temporary admission/native lifetimes, backend/deployment decisions
+and concurrent ordinary studies. [28e's restart/acceptance route](28e-rebuild-retirement-and-qualification.md#parallel-extension-acceptance-and-campaign-restart)
+keeps the campaign pause and links the required correction evidence. Consult the coordinator's
+checkpoint for the next executable package rather than treating this index as a status ledger.
 Its A–E companions develop canonical revisions, selected compilation/reuse, durable execution,
 connected native queries/Arrow, and rebuild/retirement/qualification. Added
 [28f](28f-shared-numerical-preparation.md), [28g](28g-bulk-data-operations.md) and

@@ -1262,7 +1262,7 @@ native-test *args:
     scripts/pse-env --native --store -- "{{ py }}" -m scripts.native_tests rust "$@"
 
 [group('local')]
-[doc('Full linked Python unit/component/integration scope; refresh with py-sync-native after Rust edits')]
+[doc('Linked Python scopes; --managed-primary-route uses a separate observer process; refresh with py-sync-native after Rust edits')]
 [positional-arguments]
 [script]
 native-python output *args:

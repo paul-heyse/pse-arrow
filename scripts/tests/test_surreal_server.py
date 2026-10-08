@@ -89,6 +89,555 @@ class SurrealSupervisorTests(unittest.TestCase):
             allocation["memory_threshold_bytes"], allocation["server_memory_bytes"]
         )
 
+    def test_reference_execution_materializes_exact_case_profile(self) -> None:
+        allocation = server.reference_resources()
+        execution = allocation["execution"]
+        self.assertIsInstance(execution, dict)
+        if not isinstance(execution, dict):
+            self.fail("materialized execution must be an object")
+        self.assertEqual(execution["pool_memory_bytes"], 128 * server.GIB)
+        self.assertEqual(execution["worker_bytes"], 16 * server.GIB)
+        self.assertEqual(execution["cpu_threads"], 16)
+        self.assertEqual(execution["case_lanes"], 16)
+        self.assertEqual(execution["math_jobs"], 32)
+        self.assertEqual(allocation["native_workers"], 1)
+        self.assertEqual(allocation["native_worker_memory_bytes"], 140 * server.GIB)
+        self.assertEqual(allocation["total_memory_bytes"], 160 * server.GIB)
+        with self.assertRaises(server.SupervisorError):
+            server.resources(
+                156 * server.GIB, 16 * server.GIB, 1, 140 * server.GIB, execution
+            )
+
+    def reference_fixture(self) -> dict[str, object]:
+        config = self.initialized()
+        worker = self.root / "pse-worker"
+        worker.write_text("#!/bin/sh\nexit 0\n")
+        worker.chmod(0o700)
+        selected = patch.dict(os.environ, {"PSE_WORKER_BINARY": str(worker)})
+        selected.start()
+        self.addCleanup(selected.stop)
+        config["resources"] = server.reference_resources()
+        config["primary_receiver"] = server.primary_receiver(worker)
+        server.write_json(self.state / "config.json", config)
+        return config
+
+    def test_changed_primary_executable_requires_readmission(self) -> None:
+        config = self.reference_fixture()
+        server.checked_primary(config)
+        (self.root / "pse-worker").write_text("#!/bin/sh\nexit 1\n")
+        with self.assertRaises(server.SupervisorError):
+            server.checked_primary(config)
+
+    def test_primary_environment_selects_worker_receipt_and_native_inputs(self) -> None:
+        config = self.reference_fixture()
+        receipt = self.root / "worker-role.json"
+        receipt.write_text("worker admission belongs to the deployment owner")
+        with patch.dict(
+            os.environ,
+            {
+                "PSE_PRODUCER_RECEIPT": "/python-role.json",
+                "PSE_WORKER_PRODUCER_RECEIPT": str(receipt),
+                "PSE_WORKER_BINARY": str(self.root / "pse-worker"),
+                "PSE_NATIVE_PROVIDER_RECEIPT": "/provider.json",
+                "IPOPT_DIR": "/admitted/solver",
+                "SYMBOLICA_LICENSE": "private-test-value",
+                "PSE_NATIVE_OPERATION": "/caller-operation.json",
+            },
+            clear=True,
+        ):
+            environment, names = server.primary_environment(
+                self.state, config["resources"], config["primary_receiver"]
+            )
+        self.assertEqual(environment["PSE_PRODUCER_RECEIPT"], str(receipt))
+        self.assertEqual(environment["PSE_NATIVE_PROVIDER_RECEIPT"], "/provider.json")
+        self.assertEqual(environment["IPOPT_DIR"], "/admitted/solver")
+        self.assertNotIn("PSE_NATIVE_OPERATION", environment)
+        arguments = server.primary_service_environment(environment, names)
+        for name in (
+            "PSE_PRODUCER_RECEIPT",
+            "PSE_NATIVE_PROVIDER_RECEIPT",
+            "IPOPT_DIR",
+            "SYMBOLICA_LICENSE",
+        ):
+            self.assertIn(f"--setenv={name}", arguments)
+        self.assertFalse(
+            any("private-test-value" in argument for argument in arguments)
+        )
+        removed = next(
+            argument
+            for argument in arguments
+            if argument.startswith("--property=UnsetEnvironment=")
+        )
+        self.assertIn("PSE_NATIVE_OPERATION", removed)
+
+    def test_primary_environment_without_worker_role_removes_generic_receipt(
+        self,
+    ) -> None:
+        config = self.reference_fixture()
+        with patch.dict(
+            os.environ, {"PSE_PRODUCER_RECEIPT": "/python-role.json"}, clear=True
+        ):
+            environment, names = server.primary_environment(
+                self.state, config["resources"], config["primary_receiver"]
+            )
+        self.assertNotIn("PSE_PRODUCER_RECEIPT", environment)
+        arguments = server.primary_service_environment(environment, names)
+        self.assertNotIn("--setenv=PSE_PRODUCER_RECEIPT", arguments)
+        removed = next(
+            argument
+            for argument in arguments
+            if argument.startswith("--property=UnsetEnvironment=")
+        )
+        self.assertIn("PSE_PRODUCER_RECEIPT", removed)
+
+    def test_selected_worker_mismatch_refuses_before_primary_launch_or_reuse(
+        self,
+    ) -> None:
+        self.reference_fixture()
+        other = self.root / "other-worker"
+        other.write_text("#!/bin/sh\nexit 0\n")
+        other.chmod(0o700)
+        # Even identical bytes at another selected path are another receiving artifact.
+        with (
+            patch.dict(os.environ, {"PSE_WORKER_BINARY": str(other)}, clear=True),
+            patch.object(server, "ensure_execution_placement") as placement,
+            patch.object(server, "primary_ready") as readiness,
+            patch.object(server.subprocess, "run") as launch,
+            self.assertRaises(server.SupervisorError),
+        ):
+            server.ensure_primary(self.state)
+        placement.assert_not_called()
+        readiness.assert_not_called()
+        launch.assert_not_called()
+
+    def test_primary_receipt_reuse_checks_actual_path_and_observed_bytes(self) -> None:
+        receipt = self.root / "worker.json"
+        receipt.write_bytes(b"actual worker receipt")
+        process = self.root / "proc-worker"
+        process.mkdir()
+        (process / "environ").write_bytes(
+            b"OTHER=ignored\0PSE_PRODUCER_RECEIPT=" + os.fsencode(receipt) + b"\0"
+        )
+        environment = {"PSE_WORKER_PRODUCER_RECEIPT": str(receipt)}
+        marker = {
+            "producer_receipt_path": str(receipt),
+            "producer_receipt_sha256": server.file_digest(receipt),
+        }
+        self.assertTrue(server.primary_receipt_ready(process, marker, environment))
+        self.assertFalse(server.primary_receipt_ready(process, marker, {}))
+        alternate = self.root / "other-worker.json"
+        alternate.write_bytes(receipt.read_bytes())
+        self.assertFalse(
+            server.primary_receipt_ready(
+                process, marker, {"PSE_WORKER_PRODUCER_RECEIPT": str(alternate)}
+            )
+        )
+        receipt.write_bytes(b"changed worker receipt")
+        self.assertFalse(server.primary_receipt_ready(process, marker, environment))
+        (process / "environ").write_bytes(b"PSE_PRODUCER_RECEIPT=/python-role.json\0")
+        marker["producer_receipt_sha256"] = server.file_digest(receipt)
+        self.assertFalse(server.primary_receipt_ready(process, marker, environment))
+
+    def test_primary_local_reuse_requires_actual_generic_receipt_absence(self) -> None:
+        process = self.root / "proc-worker"
+        process.mkdir()
+        (process / "environ").write_bytes(b"OTHER=ignored\0")
+        self.assertTrue(server.primary_receipt_ready(process, {}, {}))
+        (process / "environ").write_bytes(b"PSE_PRODUCER_RECEIPT=\0")
+        self.assertFalse(server.primary_receipt_ready(process, {}, {}))
+
+    def test_primary_reuses_only_verified_ready_receiver(self) -> None:
+        self.reference_fixture()
+        observation = {
+            "LoadState": "loaded",
+            "ActiveState": "active",
+            "ControlGroup": "/owned",
+        }
+        with (
+            patch.object(server, "ensure_execution_placement"),
+            patch.object(server, "primary_observation", return_value=observation),
+            patch.object(server, "primary_ready", return_value=True),
+            patch.object(server, "ready", return_value=True),
+            patch.object(server.subprocess, "run") as launch,
+        ):
+            self.assertTrue(server.ensure_primary(self.state)["ready"])
+            launch.assert_not_called()
+
+    def test_unmatched_live_primary_is_refused(self) -> None:
+        self.reference_fixture()
+        observation = {
+            "LoadState": "loaded",
+            "ActiveState": "active",
+            "ControlGroup": "/owned",
+        }
+        with (
+            patch.object(server, "ensure_execution_placement"),
+            patch.object(server, "primary_observation", return_value=observation),
+            patch.object(server, "primary_ready", return_value=False),
+            patch.object(server.subprocess, "run") as launch,
+            self.assertRaises(server.SupervisorError),
+        ):
+            server.ensure_primary(self.state)
+        launch.assert_not_called()
+
+    def test_primary_cold_start_preserves_database_and_one_case_group(self) -> None:
+        config = self.reference_fixture()
+        inactive = {
+            "LoadState": "not-found",
+            "ActiveState": "inactive",
+            "ControlGroup": "",
+        }
+        with (
+            patch.object(server, "ensure_execution_placement"),
+            patch.object(server, "primary_observation", return_value=inactive),
+            patch.object(
+                server, "primary_ready", side_effect=[False, True]
+            ) as readiness,
+            patch.object(server, "settled_worker", return_value=inactive),
+            patch.object(server, "ready", return_value=True),
+            patch(
+                "scripts.native_operation.prepare_handoff",
+                return_value=self.root / "handoff",
+            ),
+            patch.object(
+                server.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess([], 0),
+            ) as launch,
+        ):
+            receipt = server.ensure_primary(self.state, database="isolated-study")
+        self.assertEqual(receipt["canonical_database"], "isolated-study")
+        self.assertEqual(readiness.call_args.args[-1], "isolated-study")
+        command = launch.call_args.args[0]
+        self.assertIn(f"--slice={server.execution_slice(self.state)}", command)
+        self.assertIn(f"--property=MemoryMax={140 * server.GIB}", command)
+        self.assertEqual(
+            command[-4:],
+            ["--maximum-in-flight", "16", "--canonical-database", "isolated-study"],
+        )
+        self.assertGreater(launch.call_args.kwargs["timeout"], 0)
+        self.assertLessEqual(launch.call_args.kwargs["timeout"], 30)
+        self.assertEqual(config["resources"]["execution"], receipt["execution"])
+
+    def test_live_observer_launcher_reserves_the_single_foreground_allocation(
+        self,
+    ) -> None:
+        self.reference_fixture()
+        start = (
+            Path(f"/proc/{os.getpid()}/stat").read_text().rsplit(")", 1)[1].split()[19]
+        )
+        server.write_json(
+            self.state / "observer-launch.json",
+            {"pid": os.getpid(), "start": start, "unit": "pse-observer-live.scope"},
+        )
+        with (
+            patch.object(server, "ensure_execution_placement"),
+            patch.object(server.subprocess, "call") as launch,
+            self.assertRaises(server.SupervisorError),
+        ):
+            server.observer(self.state, ["python", "-m", "pytest"])
+        launch.assert_not_called()
+
+    def test_observer_scope_preserves_shared_profile_and_finite_cap(self) -> None:
+        allocation = server.reference_resources()
+        command = server.observer_scope_command(
+            self.state,
+            allocation,
+            "pse-observer-owned.scope",
+            ["python", "-m", "pytest", "-n", "0"],
+        )
+        self.assertIn(f"--slice={server.execution_slice(self.state)}", command)
+        self.assertIn(f"--property=MemoryMax={4 * server.GIB}", command)
+        self.assertIn("--property=MemorySwapMax=0", command)
+        self.assertEqual(command[-5:], ["python", "-m", "pytest", "-n", "0"])
+        with self.assertRaises(server.SupervisorError):
+            server.observer_scope_command(
+                self.state, allocation, "pse-observer-owned.scope", []
+            )
+
+    def test_qualification_control_requires_private_owned_state_directory(self) -> None:
+        self.reference_fixture()
+        private = self.state / "native-entry-control"
+        private.mkdir(mode=0o700)
+        self.assertEqual(server.qualification_directory(self.state, private), private)
+        with self.assertRaises(server.SupervisorError):
+            server.qualification_directory(self.state, self.root)
+        private.chmod(0o755)
+        with self.assertRaises(server.SupervisorError):
+            server.qualification_directory(self.state, private)
+        private.chmod(0o700)
+        alias = self.state / "entry-alias"
+        alias.symlink_to(private, target_is_directory=True)
+        with self.assertRaises(server.SupervisorError):
+            server.qualification_directory(self.state, alias)
+
+    def test_qualification_primary_launch_forwards_only_explicit_control(self) -> None:
+        self.reference_fixture()
+        private = self.state / "native-entry-control"
+        private.mkdir(mode=0o700)
+        inactive = {
+            "LoadState": "not-found",
+            "ActiveState": "inactive",
+            "ControlGroup": "",
+        }
+        with (
+            patch.object(server, "ensure_execution_placement"),
+            patch.object(server, "primary_observation", return_value=inactive),
+            patch.object(
+                server, "primary_ready", side_effect=[False, True]
+            ) as readiness,
+            patch.object(server, "settled_worker", return_value=inactive),
+            patch.object(server, "ready", return_value=True),
+            patch(
+                "scripts.native_operation.prepare_handoff",
+                return_value=self.root / "handoff",
+            ),
+            patch.object(
+                server.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess([], 0),
+            ) as launch,
+        ):
+            server.ensure_primary(
+                self.state, database="qualified-study", qualification=private
+            )
+        self.assertEqual(readiness.call_args.args[-1], private)
+        self.assertEqual(
+            launch.call_args.args[0][-2:],
+            ["--qualification-native-entry", str(private)],
+        )
+
+    def test_qualification_cannot_use_nonprimary_command(self) -> None:
+        args = server.parser().parse_args(
+            [
+                "start",
+                "--state",
+                str(self.state),
+                "--qualification-native-entry",
+                str(self.state / "control"),
+            ]
+        )
+        with self.assertRaises(server.SupervisorError):
+            server.dispatch(args)
+
+    def test_primary_database_mismatch_cannot_claim_readiness(self) -> None:
+        config = self.reference_fixture()
+        server.write_json(
+            self.state / "primary-launch.json", {"nonce": "actual-launch"}
+        )
+        server.write_json(
+            self.state / "primary-receiver.json",
+            {
+                "ready": True,
+                "nonce": "actual-launch",
+                "pid": os.getpid(),
+                "canonical_database": "another-study",
+                **server.reference_execution(),
+            },
+        )
+        observation = {
+            "LoadState": "loaded",
+            "ActiveState": "active",
+            "ControlGroup": "/owned",
+            "MemoryMax": str(140 * server.GIB),
+        }
+        self.assertFalse(
+            server.primary_ready(self.state, config, observation, "selected-study")
+        )
+
+    def test_primary_quiesce_signals_actual_receiver_without_killing_wrapper(
+        self,
+    ) -> None:
+        self.reference_fixture()
+        server.write_json(self.state / "primary-receiver.json", {"pid": 12345})
+        args = server.parser().parse_args(["quiesce", "--state", str(self.state)])
+        real_close = os.close
+
+        def close_resource(descriptor: int) -> None:
+            if descriptor != 87:
+                real_close(descriptor)
+
+        with (
+            patch.object(server, "primary_observation", return_value={}),
+            patch.object(server, "primary_ready", return_value=True),
+            patch.object(server.os, "pidfd_open", return_value=87) as open_pid,
+            patch.object(server.signal, "pidfd_send_signal") as signal_pid,
+            patch.object(server.os, "close", side_effect=close_resource) as close_pid,
+            patch.object(server, "active", return_value=False),
+            patch("builtins.print"),
+        ):
+            self.assertEqual(server.dispatch(args), 0)
+        open_pid.assert_called_once_with(12345)
+        signal_pid.assert_called_once_with(87, server.signal.SIGINT)
+        self.assertEqual(
+            sum(call.args == (87,) for call in close_pid.call_args_list), 1
+        )
+        self.assertFalse(server.config_for(self.state)["accepting_writes"])
+
+    def test_profile_ancestor_limits_are_read_from_actual_hierarchy(self) -> None:
+        parent = self.root / "cgroups"
+        child = parent / "primary"
+        child.mkdir(parents=True)
+        (parent / "memory.max").write_text(str(120 * server.GIB))
+        (child / "memory.max").write_text(str(140 * server.GIB))
+        (parent / "cpu.max").write_text("800000 100000")
+        (child / "cpu.max").write_text("max 100000")
+        memory, cpu = server.effective_limits(child)
+        self.assertEqual(memory, 120 * server.GIB)
+        self.assertEqual(cpu, 8)
+
+    def test_insufficient_ancestor_cap_refuses_before_placement_mutation(self) -> None:
+        with (
+            patch.object(server, "physical_cpus", return_value=list(range(16))),
+            patch.object(
+                server, "effective_limits", return_value=(120 * server.GIB, 16)
+            ),
+            patch.object(server, "systemctl") as manager,
+            self.assertRaises(server.SupervisorError),
+        ):
+            server.ensure_execution_placement(self.state, server.reference_resources())
+        manager.assert_not_called()
+
+    def test_host_capacity_below_cap_refuses_before_placement_mutation(self) -> None:
+        with (
+            patch.object(server, "physical_cpus", return_value=list(range(16))),
+            patch.object(server, "group_for_slice", return_value=self.root / "group"),
+            patch.object(server, "effective_limits", return_value=(None, None)),
+            patch.object(
+                server, "host_memory", return_value=(159 * server.GIB, 150 * server.GIB)
+            ),
+            patch.object(server, "systemctl") as manager,
+            self.assertRaisesRegex(server.SupervisorError, "Host physical memory"),
+        ):
+            server.ensure_execution_placement(self.state, server.reference_resources())
+        manager.assert_not_called()
+
+    def test_available_memory_is_observed_without_upfront_reservation(self) -> None:
+        self.reference_fixture()
+        group = self.root / "cgroups/profile"
+        group.mkdir(parents=True)
+        (group / "memory.current").write_text(str(2 * server.GIB))
+        (group / "cpuset.cpus.effective").write_text("0-15")
+        with (
+            patch.object(server, "physical_cpus", return_value=list(range(16))),
+            patch.object(server, "group_for_slice", return_value=group),
+            patch.object(
+                server,
+                "effective_limits",
+                side_effect=[(None, None), (160 * server.GIB, 16)],
+            ),
+            patch.object(
+                server, "host_memory", return_value=(188 * server.GIB, 112 * server.GIB)
+            ),
+            patch.object(server, "systemctl") as manager,
+        ):
+            server.ensure_execution_placement(self.state, server.reference_resources())
+        self.assertEqual(manager.call_count, 2)
+        observation = server.read_json(self.state / "execution-placement.json")
+        self.assertEqual(observation["available_plus_owned_bytes"], 114 * server.GIB)
+        self.assertEqual(observation["memory_max_bytes"], 160 * server.GIB)
+        self.assertFalse(observation["physically_reserved"])
+
+    def test_readiness_marker_without_kernel_association_is_not_readiness(self) -> None:
+        config = self.reference_fixture()
+        execution = server.reference_execution()
+        server.write_json(
+            self.state / "primary-launch.json", {"nonce": "actual-launch"}
+        )
+        server.write_json(
+            self.state / "primary-receiver.json",
+            {
+                "ready": True,
+                "nonce": "actual-launch",
+                "pid": os.getpid(),
+                "canonical_database": config["database"],
+                **execution,
+            },
+        )
+        observation = {
+            "LoadState": "loaded",
+            "ActiveState": "active",
+            "ControlGroup": "/different",
+            "MemoryMax": str(140 * server.GIB),
+        }
+        with patch.object(server, "group_populated", return_value=True):
+            self.assertFalse(server.primary_ready(self.state, config, observation))
+
+    def test_missing_cpuset_uses_verified_role_affinity(self) -> None:
+        self.reference_fixture()
+        group = self.root / "cgroups/profile"
+        group.mkdir(parents=True)
+        with (
+            patch.object(server, "physical_cpus", return_value=list(range(16))),
+            patch.object(server, "group_for_slice", return_value=group),
+            patch.object(
+                server,
+                "effective_limits",
+                side_effect=[(None, None), (160 * server.GIB, 16)],
+            ),
+            patch.object(
+                server, "host_memory", return_value=(188 * server.GIB, 20 * server.GIB)
+            ),
+            patch.object(server, "systemctl"),
+        ):
+            server.ensure_execution_placement(self.state, server.reference_resources())
+        observation = server.read_json(self.state / "execution-placement.json")
+        self.assertEqual(observation["cpu_placement"], "process-affinity")
+        self.assertEqual(observation["physical_cpus"], list(range(16)))
+
+    def test_role_affinity_is_inherited_and_reads_actual_thread_escape(self) -> None:
+        execution = {"cpu_threads": 2}
+        allowed = sorted(os.sched_getaffinity(0))
+        cpus = server.physical_cpus(2)
+        program = (
+            "import os, sys, threading\n"
+            "ready = threading.Event(); escape = threading.Event(); changed = threading.Event(); stop = threading.Event()\n"
+            "def worker():\n"
+            " ready.set(); escape.wait(); os.sched_setaffinity(0, "
+            + repr(allowed)
+            + "); changed.set(); stop.wait()\n"
+            "thread = threading.Thread(target=worker); thread.start(); ready.wait()\n"
+            "print('ready', flush=True); sys.stdin.readline(); escape.set(); changed.wait()\n"
+            "print('escaped', flush=True); sys.stdin.readline(); stop.set(); thread.join()\n"
+        )
+        command = server.role_command(
+            {"execution": execution}, [sys.executable, "-c", program]
+        )
+        with subprocess.Popen(
+            command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True
+        ) as child:
+            if child.stdin is None or child.stdout is None:
+                raise AssertionError("child diagnostic pipes absent")
+            try:
+                self.assertEqual(child.stdout.readline().strip(), "ready")
+                self.assertEqual(os.sched_getaffinity(child.pid), set(cpus))
+                self.assertTrue(server.role_affinity_ready(child.pid, execution))
+                child.stdin.write("escape\n")
+                child.stdin.flush()
+                self.assertEqual(child.stdout.readline().strip(), "escaped")
+                self.assertEqual(os.sched_getaffinity(child.pid), set(cpus))
+                self.assertFalse(server.role_affinity_ready(child.pid, execution))
+                child.stdin.write("stop\n")
+                child.stdin.flush()
+                self.assertEqual(child.wait(timeout=5), 0)
+            finally:
+                if child.poll() is None:
+                    child.kill()
+                    child.wait(timeout=5)
+
+    def test_profile_worker_uses_one_shared_parent_and_finite_process_cap(self) -> None:
+        allocation = server.reference_resources()
+        command = server.worker_scope_command(
+            self.state, 0, allocation, ["/built/pse-worker"]
+        )
+        self.assertIn(f"--slice={server.execution_slice(self.state)}", command)
+        self.assertIn(f"--property=MemoryMax={140 * server.GIB}", command)
+        self.assertIn("--property=TasksMax=2048", command)
+        environment = server.worker_environment(self.state, 0, allocation)
+        self.assertEqual(
+            environment["PSE_NATIVE_WORKER_MEMORY_BYTES"], str(140 * server.GIB)
+        )
+
     def quiesced_fixture(self) -> dict[str, object]:
         config = self.initialized()
         config["admission"] = "quiesced"

@@ -319,9 +319,14 @@ prerequisites govern execution; add a bounded recipe only when no existing one o
 journey. No full release/wheel or CI campaign is implied.
 
 Run on one stable reconciled source state with regenerated inputs and exact deployed artifacts.
-Select the admitted isolated RocksDB/gRPC profile: the prepared 32 GiB allocation is a 16 GiB
-server plus two 8 GiB managed worker slots. Record actual configured/used conditions, not merely
-the proposed allocation. No uncontrolled concurrent heavy campaign should compete with it.
+Select the admitted isolated RocksDB/gRPC `plan28-reference` profile: one primary process
+with the original 128 GiB shared pool, 16 GiB per-worker capacity, sixteen CPU lanes and
+thirty-two population tickets. Its worker ceiling is 140 GiB, the server ceiling 16 GiB
+and the separate observer ceiling 4 GiB, under one finite 160 GiB parent. These are
+ceilings rather than physical reservations; record available memory and actual readback.
+Ordinary Rust/Python tests use sixteen outer workers; managed-primary journeys use the
+separate observer partition, with native work exclusively in the primary. Record actual
+configured/used conditions. No uncontrolled concurrent heavy campaign should compete with it.
 Exercise A/C/D's composed read/retirement/root handoff, committed lost-ack claim recovery,
 worker interruption/drain, ordinary retained failure/partial/cancellation and actual gRPC
 completion/export refusal. Abrupt acknowledged-write kill/reopen and quiesced offline
@@ -360,7 +365,12 @@ and `results-chain-1`. Complete publication adds `results-publish-chain-1`,
 `results-publish-source-growth-1` and `results-publish-small-chain-1`.
 The last case supplies a joint coordinate/sample growth comparison; source growth
 changes physical comment bytes without changing scientific declarations.
-This is 25 selected cases rather than the whole case registry.
+This historical selection contains 25 cases. Add `k4-study-in-process-16` for independent
+nonbatch Ipopt dispatch using the exact reference pool, CPU and population settings.
+The eight-point in-process selector explicitly uses the ephemeral adapter; the durable
+eight-point selector retains its explicit standalone worker and continuation meaning.
+Neither selector establishes managed-primary overlap; the public managed controls own
+that obligation. Added enhancement selectors below retain their separate coverage.
 
 The publication cases separate physical stage/reopen, document admission, modeling
 publication, simulation preparation/execution, result reading and analysis activation.
@@ -410,13 +420,76 @@ resolved reviews and displaced references only after surviving meaning has its o
 explicit scientific/provider or measurement exclusions with their real disposition and trigger.
 No retirement, ADR acceptance or final qualification was performed by this documentation work.
 
+## Parallel extension acceptance and campaign restart
+
+The [coordinator's parallel target](28-surrealdb-unified-substrate.md#parallel-execution-integration)
+adds A4/B6/T7/N8–N10/C6/C7/L7 and affected D1/D2 to E3/E4/E5. The maintainer accepted all
+four Parallel RC decisions on 2026-10-08. Directions are confirmed; actual design amendments,
+implementation, targeted correction evidence and qualification are not supplied by plan adoption.
+The baseline is committed `84a1caf`; no new product campaign ran for this authoring extension.
+
+### Targeted readiness before restarting
+
+Keep the reference campaign stopped until the selected route has its working contracts,
+consumer migrations and targeted controls. A4 ends its attribution/guard decision; N10/L7 end
+the native strategy and deployment decision; changed contracts follow R0. N8/N9 supply actual
+temporary admission and scope ownership, B6/T7 integrate protection/publication, and C6/C7
+compose ordinary studies. Extend N4/T5/L4 reconciliation to all these consumers, including
+Rust public APIs, managed receivers and the installed Python route. An investigation can end
+with a supported retained mechanism, but unresolved required concurrency remains a finding.
+
+The existing native `conformance_parallel_sixteen_` selection keeps its original scientific
+checks and force-validation. Its prior two failures are a zero-baseline failed result, not a
+native concurrency ceiling, memory diagnosis or acceptance transfer. Preserve the distinction
+between its 2 GiB fixture pool and the broader 128 GiB reference pool/16 GiB worker capacity;
+L7 must establish the selected aggregate resource placement rather than assuming either pool
+is an RSS cap. A reader-only pass does not settle complete-case operation.
+
+| Required targeted behavior | Package evidence supplied to E3 |
+|---|---|
+| Sixteen complete authored cases and staged initialization | A4/B6/T7 plus N8; actual native entries, full inventory, discovery-order report and original assessment under unchanged production science. |
+| Ordinary independent study execution | C6: sixteen fresh non-batching points through the public ephemeral route; actual overlapping workers, distinct repeated bindings and exact result placement. Keep continuation/seed order, failed-point isolation, finite admission and cancel/drain. A specialized native batch or independent conformance fixtures alone are insufficient. |
+| Durable study deployment | C7/L7: the selected ordinary Rust/Python route and finite managed group complete ready points concurrently; no hidden extra local worker. Exercise claim races, stale generation, loss/reopen, uncertain claim/publication and cancel-after-start with drain. |
+| Temporary preparation admission | N8/B6: generous capacity does not multiply immediate demand; real retained pressure yields bounded waiting or truthful typed refusal, with original deadline/cancellation and oversized refusal. |
+| Native resource/coexistence | N9/N10: all actual persistent teams charged through idle scope/teardown, admission refusal before team creation, supported mixed/native profiles and cancellation/exclusion wait without resource cycles. |
+| Protected publication and serving | A4/T7/D1/D2: concurrent pin/root/result publication and retirement, changed/uncertain replay, final-statement errors and retained escaped Arrow buffers preserve exact history and partiality. |
+
+Use existing touched-package compile and narrowly selected unit/native recipes while implementing;
+correctness invocations retain explicit force-validation. Test names/selectors added with each
+mechanism must expose actual operation concurrency, not merely configured worker counts or timing
+speedup thresholds. Do not run a full campaign per package. The relevant integration/solver/Python
+journeys and static bundles remain E3 at functional scope end under the existing recipes.
+
+### E3, E4 and E5 completion
+
+E3 combines review S01–S10 with the existing scientific/recovery acceptance; no previously required
+journey is silently removed. Build/Cargo jobs, Nextest/xdist placement, application cases and native
+teams have separate selected limits. Parallel tests containing sixteen workers retain exclusive
+outer slots; memory-heavy suites and the server use L7's aggregate placement. Qualification must
+name the executed recipe/profile, selected inventory, zero-failure result and unsupported limits.
+No power-loss, distributed deployment or universal sixteen-native-solves guarantee is inferred.
+
+After positive corresponding functional evidence, E4 measures preparation/store waiting, numerical
+execution and publication/serving separately, with complete wall time for the operation. Include
+independent case/frontier growth, one versus sixteen workers where scientifically comparable,
+cold/warm and changed-premise runs, selected internal teams and retained-session pressure. Use
+existing case/build-measurement owners; add a selector only where the declared workload is missing.
+Keep original tolerance/start/assessment/resource conditions explicit. Preserve comparability or
+report target-only measurements; counts of jobs, RPCs, factors or candidates are mechanism evidence,
+not elapsed-time proof. No sixteen-fold speedup or arbitrary latency target is required.
+
+E5 reconciles Parallel F01–F05 at the sole coordinator, the accepted decisions and their actual
+routes, and separate architectural/scientific conclusions. Local package completion is not
+whole-finding closure. Carry enduring contracts through their architecture owners with a revision
+row; retire plans/reviews only after their references and remaining obligations are resolved.
+
 ## Work packages
 
 | Package | Prerequisite and delivered behavior | Completion boundary | Status |
 |---|---|---|---|
 | E1 — Controlled target regeneration | R0; A2 schema/selection and B1 admission slice. Replace storage-specific fixture setup, regenerate scientific source corpus and run configurations; add recipe-owned target DB setup. | Target inputs are admitted with exact interpretation; old test setup does not silently start PG/Delta. No migration importer or compatibility fixture service remains. | Implemented; focused declaration/schema and linked scientific/generated consumers passed. |
 | E2 — Retirement and build locality | Joins each migrated A/B/C/D consumer as it becomes ready; tooling corrections can begin after R0 independently. Remove displaced crates/codegen/dependencies/recipes and implement scoped native setup/unchanged generation. | All target consumers work; remaining dependency consumers are explicit and justified; replaced mechanisms/tests/fixtures are gone. This does not postpone package-local deletions. | Implemented; focused native and linked consumers passed; earlier runtime/worker producer qualification is scoped; current replacement artifact association and installed Python admission remain. |
-| E3 — Assembled correctness and recovery | All functional A/B/C/D, adopted N/T/L scope with N4/T5/L4 reconciliation, B4's bounded decision and E1/E2 integration complete. Run one selected static/integration/scientific campaign against regenerated target. | Zero failures in named required scope; explain unsupported scientific/provider limits, repaired composite runs and actual crash/durability conditions. | Attempted; interrupted/nonqualifying; expanded functional handoff precedes fresh E3. |
+| E3 — Assembled correctness and recovery | All functional A/B/C/D and adopted N/T/L scope, including [parallel readiness](#parallel-extension-acceptance-and-campaign-restart), N4/T5/L4 reconciliation, B4's bounded decision and E1/E2 integration complete. Run one selected static/integration/scientific campaign against regenerated target. | Zero failures in named required scope; explain unsupported scientific/provider limits, repaired composite runs and actual crash/durability conditions. | Attempted; interrupted/nonqualifying; expanded functional handoff precedes fresh E3. |
 | E4 — Preparation, build and operation measurement | E3 for scientifically comparable runtime measurements; targeted build instrumentation can be prepared earlier. Execute selected scientific and pivot efficiency measurements under recorded conditions. | Report measured scope and limitations without invented speedup thresholds or comparison to incomparable receipts. | Scheduled |
 | E5 — Assembled review and closure | E3/E4. Conduct the binding's bounded assembled design assessment, reconcile finding owners and migrate enduring meaning through the decision/design route. | Demonstrated architectural/scientific scope has owners; qualification is published honestly; plans/reviews retire only when their references have moved. | Completion audit delivered Revise; final assembled acceptance/closure pending. |
 
@@ -469,14 +542,19 @@ generic search/MCP work needs a concrete new requirement; it is not hidden accep
 
 ## Checkpoint and next step
 
-The maintainer redirected execution to the
-[2026-10-08 parallel-execution review](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md).
-That review is complete and returns **Revise**; the
-[coordinator's open dispositions](28-surrealdb-unified-substrate.md#parallel-execution-review-dispositions)
-own the five findings and conditional rule decisions. The stopped reference campaign has
-not restarted. The immediate route is the selected architectural correction and applicable
-decision route, followed by its targeted complete-case controls; prior notes below retain
-their evidence scope and do not authorize resumption by themselves.
+The parallel review's five findings remain in progress at the
+[coordinator](28-surrealdb-unified-substrate.md#parallel-execution-review-dispositions), and
+Parallel RC01–RC04 are explicitly confirmed on 2026-10-08. The new packages are planned on
+committed `84a1caf` and are now integrated in the working tree. The stopped reference
+campaign has not restarted. A4/N8–N10/C6/C7/L7 foundations and focused controls are integrated;
+consumer reconciliation includes synchronous ingress tickets, original-clock direct drain,
+completion-qualified continuation seeds and separate ordinary/observer test partitions.
+Managed Rust builds precede observer placement and reuse library-owned metadata; managed
+Python and thermodynamic callers enter their bounded observer before native execution.
+Known source-demand producers are integrated, including fitting/trajectory reports and conditional
+block bindings. Conservative foreign expansion variants are reconciled at N4. Final targeted
+controls and live receiver/native-overlap controls precede the assembled E3 campaign. Earlier notes
+retain their evidence scope and do not independently authorize campaign resumption.
 
 The maintainer's current execution requirement is sixteen parallel workers, including
 actual concurrent reference fixtures. The former one-worker reference process has been
@@ -558,8 +636,9 @@ review does not require sixteen maximum-sized jobs to fit simultaneously, reduce
 width as a substitute for the functional target, or weaken scientific tolerances.
 
 The coordinator records findings and decides the correction; this handoff adds no second
-ledger. Conditional RC01–RC04 remain unconfirmed. E3, applicable E4 measurements and E5
-acceptance remain incomplete. The existing implementation and scientific corpus are preserved.
+ledger. Parallel RC01–RC04 were subsequently confirmed on 2026-10-08 and are routed in the
+coordinator; the expanded packages and restart prerequisites above supersede the unconfirmed
+review handoff. E3, applicable E4 measurements and E5 acceptance remain incomplete. The existing implementation and scientific corpus are preserved.
 
 ### Efficiency review handoff, 2026-10-07
 

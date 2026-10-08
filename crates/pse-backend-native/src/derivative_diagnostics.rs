@@ -40,6 +40,22 @@ impl Policy {
             .checked_mul(1024)
             .ok_or_else(|| pse_math::MathError::Limit("derivative diagnostic allocation").into())
     }
+    /// Actual dimension-based diagnostic construction, with the original cell
+    /// maximum remaining an eligibility guard rather than initial demand.
+    /// # Errors
+    /// Invalid policy, oversized dimensions or allocation overflow.
+    pub fn construction_allocation_bound(
+        self,
+        variables: usize,
+        rows: usize,
+    ) -> Result<usize, ProblemError> {
+        self.allowance()?;
+        self.check_extent(variables, rows)?;
+        rows.checked_add(1)
+            .and_then(|rows| variables.checked_mul(rows))
+            .and_then(|cells| cells.checked_mul(1024))
+            .ok_or_else(|| pse_math::MathError::Limit("derivative diagnostic allocation").into())
+    }
     fn check_extent(self, variables: usize, rows: usize) -> Result<(), ProblemError> {
         if rows
             .checked_add(1)
@@ -332,6 +348,37 @@ fn comparison(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn diagnostic_demand_uses_dimensions_without_changing_original_cell_guard() {
+        let policy = Policy {
+            perturbation: 1e-6,
+            relative_tolerance: 1e-4,
+            maximum_cells: 100_000_000,
+        };
+        assert_eq!(
+            policy.construction_allocation_bound(2, 1).unwrap(),
+            4 * 1024
+        );
+        assert_eq!(
+            Policy {
+                maximum_cells: 4,
+                ..policy
+            }
+            .construction_allocation_bound(2, 1)
+            .unwrap(),
+            4 * 1024
+        );
+        assert!(
+            Policy {
+                maximum_cells: 3,
+                ..policy
+            }
+            .construction_allocation_bound(2, 1)
+            .is_err()
+        );
+        assert!(policy.construction_allocation_bound(usize::MAX, 1).is_err());
+        assert!(policy.construction_allocation_bound(1, usize::MAX).is_err());
+    }
     #[test]
     fn interior_central_sample_avoids_forward_truncation_bias() {
         // For x^3 at x=2, a forward step of 2e-4 incurs O(h) relative bias;

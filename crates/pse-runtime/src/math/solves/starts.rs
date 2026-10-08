@@ -165,7 +165,8 @@ impl PreparedSolve {
             compatibility,
             payload,
         };
-        self.explicit_start = Some(seed);
+        self.explicit_start = Some(Arc::new(seed));
+        self._explicit_start_owner = None;
         self.proposal_start = Some(start.clone());
         self.task_scope = Some(start.scope().clone());
         Ok(self)

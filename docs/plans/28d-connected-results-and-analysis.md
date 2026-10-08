@@ -3,7 +3,7 @@ title: Connected result queries and analysis
 status: in-progress
 date: 2026-10-05
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -169,6 +169,23 @@ D1 is an early working slice, not a claim that D2/D3 are complete. Root coordina
 declarations and Python boundary generation. C owns sealing; D cannot implement a shortcut
 that publishes raw database rows as a successful scientific run.
 
+## Parallel protected serving acceptance
+
+The [parallel extension](28-surrealdb-unified-substrate.md#parallel-execution-integration)
+adds consumed-contract work and acceptance to D1/D2, not a new reader or analysis authority.
+Consume A4/T7's changed protected acquisition where selected. Keep exact terminal identity,
+frozen manifests, recorded failed/cancelled/partial coverage, final-statement success and
+bounded independently decoded buffers. An escaped Arrow buffer retains its allocation owner
+while other cases prepare or publish; backpressure cannot relabel missing results as complete.
+
+Extend D1/D2 targeted controls to serve current and explicitly historical terminal results
+while sixteen cases publish and retention attempts deletion. Cover slow/abandoned readers,
+protection expiry/cancellation, sparse/dense/empty ranges, late writes and retained buffer
+pressure. A4's selected writer coverage must also protect result/analysis roots. T7 changes
+only justified physical crossings. Preserve the existing selectors and Python Arrow contract;
+a public/identity change would require its actual decision route. E3 supplies composed serving
+qualification; prior isolated reader passes do not establish it.
+
 ## Verification
 
 **Proposed acceptance:** touched-package compile checks and targeted force-validating units
@@ -195,6 +212,10 @@ indexed lookup/projection; do not claim generic graph or aggregation scaling. Pe
 measurements belong to E4 and do not substitute for selection correctness.
 
 ## Checkpoint and next step
+
+D1/D2 now consume the parallel extension's A4/T7 protection changes where selected and own
+concurrent serving controls above. No new D package or replacement query census is required.
+Their changed consumers join T5 and E3; earlier reader/analysis evidence retains its scope.
 
 The enhancement review adds [28g T6](28g-bulk-data-operations.md#remaining-native-access-path-decision)
 as the single bounded access-path investigation owner. D1/D2 migrate actual exact-result/analysis

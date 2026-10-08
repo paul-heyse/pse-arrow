@@ -17,6 +17,9 @@ engineering = { max-threads = 4 }
 store = { max-threads = 16 }
 
 [profile.default]
+# These public journeys require one externally placed four-GiB observer. The
+# managed-native assessment partition selects them with --ignore-default-filter.
+default-filter = "not test(managed_primary_)"
 fail-fast = false
 slow-timeout = { period = "60s", terminate-after = 2 }
 leak-timeout = "500ms"
@@ -45,6 +48,9 @@ success-output = "never"
 filter = """
 (package(pse-runtime) & binary(worker))
 | (package(pse-runtime) & test(conformance_parallel_))
+| (package(pse-runtime) & (test(ephemeral_study_sixteen_native_lanes_)
+    | test(ephemeral_study_cancellation_drains_sixteen_)
+    | test(managed_primary_)))
 | (package(pse-operations) & (
     test(=testing::canonical_server_unit::fixture_connections_preserve_external_and_deployment_databases)
     | test(=canonical::canonical_server_unit::initialization_sixteen_independent_databases_complete_in_parallel)

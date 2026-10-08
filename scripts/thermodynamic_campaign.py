@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 import os
+import sys
 import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -16,35 +17,6 @@ import msgspec
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-import pse
-from pse import conformance
-from pse.contracts.documents import (
-    AssemblyLimits,
-    BindingAssignment,
-    BindingQuantity,
-    BindingTargetPath,
-    CaseOperation,
-    EvaluationLimits,
-    Limits,
-    OperationRequestDeclaredCase,
-    Optimization,
-    PointOverlay,
-    PreparationSettings,
-    SolveControls,
-    SolveSettings,
-    StartPolicyFresh,
-    StudyCompilerProfile,
-    StudyPoint,
-    StudyPointPolicy,
-    StudyRequest,
-    StudyRunControls,
-)
-from pse.contracts.enums import (
-    ModelingAnalysisRoute,
-    NativeBackend,
-    NativeSolveIntent,
-    NativeTermination,
-)
 from scripts.thermodynamic_feeds import COUNT, FEEDS, ROOT
 
 
@@ -66,6 +38,37 @@ def binary_hex(value: object) -> str:
 
 
 def measure(output: Path, selected: str) -> None:
+    # Load the linked extension only inside the placed observer process.
+    import pse  # noqa: PLC0415 -- load only inside placed observer
+    from pse import conformance  # noqa: PLC0415 -- load only inside placed observer
+    from pse.contracts.documents import (  # noqa: PLC0415 -- load only inside placed observer
+        AssemblyLimits,
+        BindingAssignment,
+        BindingQuantity,
+        BindingTargetPath,
+        CaseOperation,
+        EvaluationLimits,
+        Limits,
+        OperationRequestDeclaredCase,
+        Optimization,
+        PointOverlay,
+        PreparationSettings,
+        SolveControls,
+        SolveSettings,
+        StartPolicyFresh,
+        StudyCompilerProfile,
+        StudyPoint,
+        StudyPointPolicy,
+        StudyRequest,
+        StudyRunControls,
+    )
+    from pse.contracts.enums import (  # noqa: PLC0415 -- load only inside placed observer
+        ModelingAnalysisRoute,
+        NativeBackend,
+        NativeSolveIntent,
+        NativeTermination,
+    )
+
     output.mkdir(parents=True, exist_ok=False)
     manifest = conformance.load_manifest(ROOT / "packages/reference/conformance.toml")
     spec = next(run for run in manifest.runs if run.name == "seed")
@@ -75,11 +78,22 @@ def measure(output: Path, selected: str) -> None:
         raise ValueError("the complete ordered frozen 200-feed case set is required")
     with TemporaryDirectory(prefix="pse-thermodynamic-campaign-") as spill:
         engine = pse.EngineSettings(
-            memory_limit_bytes=48 << 30,
-            threads=1,
+            memory_limit_bytes=2 << 30,
+            threads=2,
+            target_partitions=1,
             spill_dir=spill,
             max_spill_bytes=1 << 30,
             batch_size=1024,
+            math_workspace_bytes=64 << 20,
+            math_worker_bytes=256 << 20,
+            math_artifact_bytes=128 << 20,
+            cache=pse.CacheSettings(
+                working_bytes=128 << 20,
+                metadata_bytes=8 << 20,
+                concurrent_loads=2,
+                inflight_bytes=32 << 20,
+                inspection_bytes=4 << 20,
+            ),
         )
         runtime = pse.Runtime(engine, substrate=os.environ["PSE_SURREAL_STATE"])
         package = runtime.modeling_from_documents(
@@ -313,7 +327,7 @@ def measure(output: Path, selected: str) -> None:
                     "memory": {
                         "pool_peak_bytes": resources.pool_peak_bytes,
                         "process_peak_rss_bytes": resources.process_peak_rss_bytes,
-                        "scope": "deployment pool and process lifetime high-water marks",
+                        "scope": "caller observer pool and process lifetime high-water marks; excludes primary worker",
                     },
                 }
             )
@@ -326,7 +340,9 @@ def measure(output: Path, selected: str) -> None:
                     "feed_generator": pq.read_schema(FEEDS)
                     .metadata[b"generator"]
                     .decode(),
-                    "pool_limit_bytes": 48 << 30,
+                    "observer_pool_limit_bytes": 2 << 30,
+                    "execution": "managed primary using the configured reference profile",
+                    "preparations_scope": "caller process; excludes primary worker",
                     "solver_threads": 1,
                     "time_limit_seconds": 600,
                     "start": "no_prior_start",
@@ -339,16 +355,38 @@ def measure(output: Path, selected: str) -> None:
         )
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("phase", choices=("flash", "study"))
     parser.add_argument("output", type=Path, nargs="?")
+    parser.add_argument(
+        "--managed-primary-child", action="store_true", help=argparse.SUPPRESS
+    )
     args = parser.parse_args()
     if args.output is None:
         parser.error("measurement requires a fresh output directory")
-    else:
-        measure(args.output, args.phase)
+    if not args.managed_primary_child:
+        state = os.environ.get("PSE_SURREAL_STATE")
+        if not state:
+            parser.error("managed study measurement requires PSE_SURREAL_STATE")
+        from scripts import (  # noqa: PLC0415 -- selected managed placement owner
+            surreal_server,
+        )
+
+        return surreal_server.observer(
+            Path(state),
+            [
+                sys.executable,
+                "-m",
+                "scripts.thermodynamic_campaign",
+                args.phase,
+                str(args.output),
+                "--managed-primary-child",
+            ],
+        )
+    measure(args.output, args.phase)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

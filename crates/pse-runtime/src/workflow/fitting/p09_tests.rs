@@ -242,6 +242,7 @@ async fn source_case(
     expected: f64,
     case: &str,
 ) -> (crate::workflow::ModelingPackage, FitProfile) {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
     let mut physical = crate::workflow::tests::physical();
     physical.preconditions = Arc::new(
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
@@ -297,7 +298,6 @@ async fn source_case(
         uncertainty: None,
     };
     let case_id = root(case);
-    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
     let package = runtime
         .modeling_package(rows, physical)
         .await
@@ -1774,4 +1774,259 @@ async fn transient_fit_demand_cache_and_coherent_upgrade() {
         assert!(oracle.point.is_none());
     })
     .await;
+}
+
+#[tokio::test]
+async fn fitting_and_dynamic_diagnostic_construction_use_source_under_generous_ceilings() {
+    use native::dynamics::{Function, Oracle};
+    // Retain the original source fixture runtime: its control/provider artifacts
+    // use conservative entry admission. The generous cell ceilings below exercise
+    // the known sparse-layout and numeric diagnostic producers independently.
+    let (package, mut profile) = source(true, 73.).await;
+    profile.solver.controls.hessian = HessianMode::GaussNewton;
+    for integration in profile.simulations.values_mut() {
+        integration.method = native::dynamics::Method::Diffsol;
+    }
+    let (problem, _) = package
+        .prepare_fit_problem(
+            FitId::from(id(73)),
+            profile,
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let demand = sparse::Layout::construction_allocation_bound(
+        &problem.experiments,
+        &problem.measurements,
+        &problem.parameter_columns,
+        problem.contract.variables.len(),
+        problem.contract.derivatives,
+        problem.profile.max_cells,
+    )
+    .unwrap();
+    let generous = sparse::Layout::construction_allocation_bound(
+        &problem.experiments,
+        &problem.measurements,
+        &problem.parameter_columns,
+        problem.contract.variables.len(),
+        problem.contract.derivatives,
+        100_000_000,
+    )
+    .unwrap();
+    assert_eq!(demand, generous);
+    assert!(demand < 1 << 20);
+    assert!(
+        sparse::Layout::construction_allocation_bound(
+            &problem.experiments,
+            &problem.measurements,
+            &problem.parameter_columns,
+            usize::MAX,
+            problem.contract.derivatives,
+            problem.profile.max_cells
+        )
+        .is_err()
+    );
+    let mut invalid = problem.experiments.clone();
+    let Experiment::Transient(invalid) = &mut invalid[0] else {
+        panic!("expected transient input");
+    };
+    invalid.bindings[0].parameter = usize::MAX;
+    // The producer refuses invalid source coordinates before Layout can index them.
+    assert!(
+        sparse::Layout::construction_allocation_bound(
+            &[Experiment::Transient(invalid.clone())],
+            &problem.measurements,
+            &problem.parameter_columns,
+            problem.contract.variables.len(),
+            problem.contract.derivatives,
+            problem.profile.max_cells
+        )
+        .is_err()
+    );
+    assert!(
+        sparse::Layout::new(
+            &problem.experiments,
+            &problem.measurements,
+            &problem.parameter_columns,
+            problem.contract.rows.len(),
+            problem.contract.variables.len(),
+            problem.contract.derivatives,
+            1
+        )
+        .is_err()
+    );
+    let Experiment::Transient(transient) = &problem.experiments[0] else {
+        panic!("expected original transient experiment");
+    };
+    let p = &transient.program;
+    let allowances =
+        crate::workflow::dynamics::allowance_bytes(&p.state_allowances, &p.output_allowances)
+            .unwrap();
+    // The unchanged whole simulation owns generated rate providers. Its actual
+    // producer must retain conservative admission until those factories issue bounds.
+    assert!(p.modes.iter().any(|mode| !mode.providers.is_empty()));
+    assert!(
+        crate::workflow::dynamics::DynamicProgram::worker_allocation_bound(
+            &p.contract,
+            &p.programs,
+            &p.coordinates,
+            p.modes.iter(),
+            &p.layout,
+            allowances
+        )
+        .unwrap()
+        .is_none()
+    );
+    // Independently compose the unchanged Initial/Output functions for this
+    // diagnostic. Remove registrations only after their actual selected demands,
+    // including every retained range guard, establish that none are consumed.
+    let provider_free = |assembly: &pse_math::assembly::CaseAssembly| {
+        for demand in assembly.demands() {
+            assert!(
+                assembly.bodies()[&demand.body]
+                    .provider_demands_for_selection(
+                        &demand.outputs,
+                        &demand.coordinates,
+                        demand.order
+                    )
+                    .unwrap()
+                    .is_empty()
+            );
+        }
+    };
+    let mut projection = p.clone();
+    projection.programs = p
+        .programs
+        .iter()
+        .filter(|program| matches!(program.function, Function::Initial | Function::Output))
+        .cloned()
+        .collect::<Vec<_>>()
+        .into();
+    assert_eq!(projection.programs.len(), 2);
+    for program in projection.programs.iter() {
+        provider_free(&program.case.assembly);
+    }
+    for mode in &mut projection.modes {
+        if let Some(guard) = &mode.guard {
+            provider_free(&guard.case.assembly);
+        }
+        mode.providers.clear();
+    }
+    let workers = crate::workflow::dynamics::DynamicProgram::worker_allocation_bound(
+        &projection.contract,
+        &projection.programs,
+        &projection.coordinates,
+        projection.modes.iter(),
+        &projection.layout,
+        allowances,
+    )
+    .unwrap()
+    .unwrap();
+    let numeric = projection
+        .programs
+        .iter()
+        .map(|p| p.case.assembly.numeric_worker_bytes())
+        .sum::<usize>();
+    assert!(workers >= numeric + projection.layout.worker_bytes());
+    let parameters = transient.parameters.clone();
+    let start = transient.profile.start;
+    let policy = native::derivative_diagnostics::Policy {
+        perturbation: 1e-6,
+        relative_tolerance: 1e-4,
+        maximum_cells: 100_000_000,
+    };
+    let coordinates = p.contract.states.len() + p.contract.parameters.len();
+    let diagnostics = policy
+        .construction_allocation_bound(coordinates, p.contract.outputs.len())
+        .unwrap();
+    assert!(workers + diagnostics < 8 << 20);
+    let service = problem.runtime.native().clone();
+    let observed = Arc::new(problem);
+    // Original whole-program diagnostic: conservative 8 MiB source fixture entry,
+    // including diagnostic arrays; no claim that it qualifies for source entry.
+    let report = service
+        .job_scoped(1, 8 << 20, Default::default(), None, move |flag| {
+            let Experiment::Transient(s) = &observed.experiments[0] else {
+                return Err(ProblemError::internal("transient test source absent").into());
+            };
+            let controls = native::solve::Controls::default();
+            let execution = Execution::new(flag, &controls);
+            let scope = execution.scope()?;
+            let mut worker = s.program.worker(scope)?;
+            let state = worker
+                .evaluate(
+                    0,
+                    Function::Initial,
+                    s.profile.start,
+                    &vec![0.; s.program.contract.states.len()],
+                    &s.parameters,
+                    false,
+                )?
+                .values;
+            let bounds = worker.coordinate_box(0, s.profile.start, &state, &s.parameters)?;
+            native::derivative_diagnostics::analyze_dynamic(
+                Box::new(worker),
+                native::derivative_diagnostics::DynamicSample {
+                    mode: 0,
+                    function: Function::Output,
+                    time: s.profile.start,
+                    state,
+                    parameters: s.parameters.clone(),
+                    bounds,
+                },
+                Normalization::identity(coordinates, s.program.contract.outputs.len()),
+                policy,
+                execution,
+            )
+            .map_err(Into::into)
+        })
+        .await
+        .unwrap();
+    assert!(report.complete && report.passed(), "{}", report.summary());
+    // Known diagnostic projection: use the actual producer extent to construct and
+    // exercise a real worker, with the same physical values, guards and cell policy.
+    let report = service
+        .job_scoped(
+            1,
+            workers + diagnostics,
+            Default::default(),
+            None,
+            move |flag| {
+                let controls = native::solve::Controls::default();
+                let execution = Execution::new(flag, &controls);
+                let scope = execution.scope()?;
+                let mut worker = projection.worker(scope)?;
+                let state = worker
+                    .evaluate(
+                        0,
+                        Function::Initial,
+                        start,
+                        &vec![0.; projection.contract.states.len()],
+                        &parameters,
+                        false,
+                    )?
+                    .values;
+                let bounds = worker.coordinate_box(0, start, &state, &parameters)?;
+                native::derivative_diagnostics::analyze_dynamic(
+                    Box::new(worker),
+                    native::derivative_diagnostics::DynamicSample {
+                        mode: 0,
+                        function: Function::Output,
+                        time: start,
+                        state,
+                        parameters,
+                        bounds,
+                    },
+                    Normalization::identity(coordinates, projection.contract.outputs.len()),
+                    policy,
+                    execution,
+                )
+                .map_err(Into::into)
+            },
+        )
+        .await
+        .unwrap();
+    assert!(report.complete && report.passed(), "{}", report.summary());
 }

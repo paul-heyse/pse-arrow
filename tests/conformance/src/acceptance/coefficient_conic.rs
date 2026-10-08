@@ -84,7 +84,8 @@ fn coefficient_conic() {
             rows: vec![pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY],
             integrality: pse_model::numerics::NumericalPolicy::default().integrality,
         };
-        let mut session = highs::Session::new(&p, None, stamp(Backend::Highs)).unwrap();
+        let run = execution(&controls);
+        let mut session = highs::Session::new(&p, None, stamp(Backend::Highs), &run).unwrap();
         let mut r = session
             .solve(
                 &p,
@@ -92,7 +93,7 @@ fn coefficient_conic() {
                 &controls,
                 &accuracy,
                 &highs::Settings::default(),
-                execution(&controls),
+                run,
                 &tolerances,
                 None,
             )
@@ -197,7 +198,8 @@ fn coefficient_conic() {
         bounds: vec![],
         objectives: Vec::new(),
     };
-    let mut r = highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs))
+    let run = execution(&controls);
+    let mut r = highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs), &run)
         .unwrap()
         .solve(
             &p,
@@ -205,7 +207,7 @@ fn coefficient_conic() {
             &controls,
             &accuracy,
             &highs::Settings::default(),
-            execution(&controls),
+            run,
             &Tolerances {
                 variables: vec![pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY],
                 rows: vec![],
@@ -232,8 +234,9 @@ fn coefficient_conic() {
     let mut raw = controls.clone();
     raw.options
         .insert("qp_regularization_value".into(), OptionValue::Real(1e-12));
+    let run = execution(&raw);
     assert!(
-        highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs))
+        highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs), &run)
             .unwrap()
             .solve(
                 &p,
@@ -241,7 +244,7 @@ fn coefficient_conic() {
                 &raw,
                 &accuracy,
                 &highs::Settings::default(),
-                execution(&raw),
+                run,
                 &Tolerances {
                     variables: vec![pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY],
                     rows: vec![],
@@ -258,10 +261,26 @@ fn coefficient_conic() {
         "original objective={original_cost}, {r:?}"
     );
     p.domains[0] = ModelingVariableDomain::Integer;
-    assert!(highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs)).is_err());
+    assert!(
+        highs::Session::new(
+            &p,
+            Some(&certificate),
+            stamp(Backend::Highs),
+            &execution(&controls)
+        )
+        .is_err()
+    );
     p.domains[0] = ModelingVariableDomain::Continuous;
     p.hessian.as_mut().unwrap().val_mut()[0] = -2.;
-    assert!(highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs)).is_err());
+    assert!(
+        highs::Session::new(
+            &p,
+            Some(&certificate),
+            stamp(Backend::Highs),
+            &execution(&controls)
+        )
+        .is_err()
+    );
 }
 
 #[test]

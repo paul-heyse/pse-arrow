@@ -862,12 +862,12 @@ impl MathService {
         let control = FlightCancellation::default();
         let prepared = source.source.prepared.clone();
         let values = source.source.values.clone();
-        let operation = self.job_retained_scoped(
-            1,
-            self.policy.workspace_bytes,
-            control.clone(),
-            scope.deadline(),
-            move |abort| {
+        let demand = prepared
+            .compiled()
+            .initialization_allocation_bound()?
+            .unwrap_or(self.policy.workspace_bytes);
+        let operation =
+            self.job_retained_scoped(1, demand, control.clone(), scope.deadline(), move |abort| {
                 if abort.load(std::sync::atomic::Ordering::Acquire) {
                     return Err(MathRuntimeError::Cancelled);
                 }
@@ -881,15 +881,6 @@ impl MathService {
                     compiler_profile,
                     worker_scope.cancellation(),
                 )?;
-                // Validate the actual frozen conditional views once. Callbacks below use
-                // compact selected slots, not whole-parent AlgebraicOracle value validation.
-                for block in products.iter() {
-                    block.bind(
-                        prepared.compiled().quantities.clone(),
-                        &values,
-                        worker_scope.cancellation(),
-                    )?;
-                }
                 let bytes = products
                     .iter()
                     .try_fold(size_of_val(products.as_ref()), |n, p| {
@@ -899,14 +890,44 @@ impl MathService {
                     .ok_or(MathRuntimeError::Limit("PETSc compiled block products"))?;
                 worker_scope.check().map_err(ProblemError::from)?;
                 Ok((products, bytes))
-            },
-        );
+            });
         tokio::pin!(operation);
         let (products, lease) = tokio::select! {
             result = &mut operation => result?,
             () = driver.cancelled() => { scope.cancellation().store(true,std::sync::atomic::Ordering::Release); control.cancel(); let _ = operation.await; return Err(MathRuntimeError::Cancelled); }
             error = scope_stopped(&scope) => {control.cancel();let _=operation.await;return Err(error.into());}
         };
+        // Each binding has its own value-dependent projection population. Check
+        // it under the unchanged scope without pricing every block as a complete
+        // parent projection or keeping validation storage after the check.
+        for block in products.iter() {
+            let demand = block
+                .binding_allocation_bound(&values)?
+                .unwrap_or(self.policy.worker_bytes);
+            if demand > self.policy.worker_bytes {
+                return Err(MathRuntimeError::Limit(
+                    "PETSc block binding construction capacity",
+                ));
+            }
+            let block = block.clone();
+            let quantities = source.source.prepared.compiled().quantities.clone();
+            let bound_values = values.clone();
+            let checked_scope = scope.clone();
+            let control = FlightCancellation::default();
+            let validation =
+                self.job_scoped(1, demand, control.clone(), scope.deadline(), move |_| {
+                    checked_scope.check().map_err(ProblemError::from)?;
+                    block.bind(quantities, &bound_values, checked_scope.cancellation())?;
+                    checked_scope.check().map_err(ProblemError::from)?;
+                    Ok(())
+                });
+            tokio::pin!(validation);
+            tokio::select! {
+                result = &mut validation => result?,
+                () = driver.cancelled() => { scope.cancellation().store(true, std::sync::atomic::Ordering::Release); control.cancel(); let _ = validation.await; return Err(MathRuntimeError::Cancelled); }
+                error = scope_stopped(&scope) => { control.cancel(); let _ = validation.await; return Err(error.into()); }
+            }
+        }
         let owner = self.shared_product(
             vec![31, Arc::as_ptr(&products) as usize],
             products.clone(),

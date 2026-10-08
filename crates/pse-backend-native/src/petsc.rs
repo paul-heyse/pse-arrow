@@ -18,7 +18,7 @@ use std::{
     ffi::{CStr, c_void},
     panic::{AssertUnwindSafe, catch_unwind},
     ptr,
-    sync::{Mutex, MutexGuard, TryLockError},
+    sync::{Condvar, Mutex, MutexGuard, TryLockError},
     time::Duration,
 };
 mod blocks;
@@ -62,9 +62,17 @@ enum Phase {
     Failed,
 }
 static PROCESS: Mutex<Phase> = Mutex::new(Phase::Fresh);
+static CHANGE: Mutex<()> = Mutex::new(());
+static RELEASED: Condvar = Condvar::new();
+fn notify_release() {
+    let _changed = CHANGE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    RELEASED.notify_all();
+}
 thread_local! { static ACTIVE: Cell<bool> = const { Cell::new(false) }; }
 struct Admission {
-    phase: MutexGuard<'static, Phase>,
+    phase: Option<MutexGuard<'static, Phase>>,
     failed: Cell<bool>,
 }
 impl Admission {
@@ -74,22 +82,43 @@ impl Admission {
                 "nested PETSc process admission on its owning thread".into(),
             ));
         }
-        let mut phase = loop {
+        crate::execution::pause_compute();
+        let phase = loop {
             execution.check()?;
+            let changed = CHANGE
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             match PROCESS.try_lock() {
-                Ok(guard) => break guard,
+                Ok(guard) => {
+                    drop(changed);
+                    break guard;
+                }
                 Err(TryLockError::WouldBlock) => {
-                    std::thread::park_timeout(Duration::from_millis(1))
+                    drop(
+                        RELEASED
+                            .wait_timeout(changed, Duration::from_millis(10))
+                            .unwrap_or_else(std::sync::PoisonError::into_inner),
+                    );
                 }
                 Err(TryLockError::Poisoned(_)) => {
                     return Err(ProblemError::internal("PETSc process owner poisoned"));
                 }
             }
         };
+        let owner = Self {
+            phase: Some(phase),
+            failed: Cell::new(false),
+        };
+        crate::execution::resume_compute(execution)?;
+        let mut owner = owner;
+        let phase = owner
+            .phase
+            .as_mut()
+            .ok_or_else(|| ProblemError::internal("PETSc process gate missing"))?;
         execution.check()?;
-        if *phase == Phase::Fresh {
+        if **phase == Phase::Fresh {
             // Once initialization begins, an error must never permit a second initialization.
-            *phase = Phase::Failed;
+            **phase = Phase::Failed;
             let (mut initialized, mut finalized) = (0, 0);
             {
                 check(
@@ -110,9 +139,9 @@ impl Admission {
                     "process initialization",
                 )?;
             }
-            *phase = Phase::Ready;
+            **phase = Phase::Ready;
         }
-        if *phase != Phase::Ready {
+        if **phase != Phase::Ready {
             return Err(ProblemError::Unsupported(
                 "PETSc process owner is terminally shut down or failed".into(),
             ));
@@ -131,18 +160,19 @@ impl Admission {
             ));
         }
         ACTIVE.set(true);
-        Ok(Self {
-            phase,
-            failed: Cell::new(false),
-        })
+        Ok(owner)
     }
 }
 impl Drop for Admission {
     fn drop(&mut self) {
         if self.failed.get() {
-            *self.phase = Phase::Failed;
+            if let Some(phase) = &mut self.phase {
+                **phase = Phase::Failed;
+            }
         }
         ACTIVE.set(false);
+        self.phase.take();
+        notify_release();
     }
 }
 
@@ -958,6 +988,52 @@ fn native_termination(code: i32, name: String) -> NativeTermination {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn petsc_process_wait_pauses_compute_and_preserves_deadline() {
+        use crate::execution::{ComputeAdmission, compute_scoped};
+        use std::sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+            mpsc,
+        };
+        #[derive(Debug)]
+        struct Compute(mpsc::Sender<()>, Arc<AtomicUsize>);
+        impl ComputeAdmission for Compute {
+            fn pause(&mut self) {
+                self.0.send(()).unwrap();
+            }
+            fn resume(&mut self, execution: &Execution) -> Result<(), ProblemError> {
+                execution.check()?;
+                self.1.fetch_add(1, Ordering::Release);
+                Ok(())
+            }
+        }
+        let held = PROCESS.lock().unwrap();
+        let (paused, observed) = mpsc::channel();
+        let resumed = Arc::new(AtomicUsize::new(0));
+        let seen = resumed.clone();
+        let thread = std::thread::spawn(move || {
+            compute_scoped(Box::new(Compute(paused, seen)), || {
+                let controls = Controls {
+                    time_limit: Duration::from_millis(25),
+                    ..Default::default()
+                };
+                let execution = Execution::new(Arc::default(), &controls);
+                assert!(matches!(
+                    Admission::enter(&execution),
+                    Err(ProblemError::Limit {
+                        kind: crate::LimitKind::Time,
+                        ..
+                    })
+                ));
+            })
+        });
+        observed.recv_timeout(Duration::from_secs(2)).unwrap();
+        thread.join().unwrap();
+        assert_eq!(resumed.load(Ordering::Acquire), 0);
+        drop(held);
+        notify_release();
+    }
     use std::sync::{
         Arc,
         atomic::{AtomicBool, Ordering},

@@ -3,7 +3,7 @@ title: Durable execution and dependency-scoped studies
 status: in-progress
 date: 2026-10-05
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -210,6 +210,75 @@ Source/analysis grouping changes only after its specific effect/recovery unit is
 N4/T5/L4 closure and current C obligations precede E3; earlier Outcomes do not qualify these
 replacement mechanisms. No new scheduler or recovery authority is introduced.
 
+## Parallel study frontiers and durable workers
+
+C6/C7 implement the accepted Parallel RC04 direction and consume RC03's supported native
+placement. [The coordinator](28-surrealdb-unified-substrate.md#parallel-execution-integration)
+owns F05/F03 dispositions; [N8–N10](28f-shared-numerical-preparation.md#parallel-admission-and-native-lifetimes)
+and [L7](28h-native-setup-and-artifact-identity.md#parallel-deployment-and-supported-native-placement)
+supply admission, native scope and deployment contracts. The `84a1caf` ephemeral driver opens
+one Staged, prepares frontier cases sequentially and uses generic serial batch execution except
+for eligible native coefficient/cone bulk operations. The durable local loop calls work_once
+sequentially; the currently selected two external workers do not establish sixteen-case studies.
+
+### C6 — Independent ready sequences
+
+Compose a bounded set of independent sequence drivers using existing async completion polling,
+preparation, Staged/native sessions and assessment operations. Each sequence owns private mutable
+state; immutable selected/compiled products remain shareable. The orchestration owner alone
+consumes the existing pure occurrence policy and applies transitions. Do not reinterpret policy
+inside another scheduler or make a backend selection depend on occurrence internals.
+
+Issue only policy-ready occurrences and bound both active preparation and execution under the
+same deployment. Replenish completed slots without a discovery-order execution barrier; place
+outcomes by exact occurrence identity before deterministic reduction/report assembly. Avoid
+preparing a whole frontier into retained products before admitting execution. Close completed
+sequence owners promptly. Genuine continuation/start dependencies retain serial reuse until the
+required predecessor result and exact seed provenance exist; repeated equal bindings remain
+distinct occurrences/attempts. Preserve original default/explicit starts, retry revisions and
+original-model assessment.
+
+Retain a suitable native bulk operation for compatible ready members with its admitted thread
+extent and per-member semantics. Do not require a full group before useful work can progress
+or route every ordinary independent case through the generic serial batch merely because the
+interface is named batch. N10's strategy constrains actual native phases without erasing the
+independent-case composition target.
+
+A failed point follows existing scientific availability policy and does not silently fail its
+independent siblings. Cancellation or a fatal enclosing infrastructure condition stops new
+issuance, preserves unattempted inventory, drains all issued operations and explicitly closes
+sessions before resources are returned. Dropping futures is not native drain. Migrate public
+Rust and Python ephemeral studies and their sweep/continuation/fit/dynamic compositions where
+this ordinary driver is used; a private conformance helper is not the migration boundary.
+
+### C7 — One coordinated durable realization
+
+Use one primary concurrency realization selected by N10/L7: a finite group of existing sequential
+managed worker handles, or bounded concurrent work_once execution sharing one runtime where its
+native strategy permits. Do not multiply sixteen process workers by sixteen independent local
+claim loops. The caller/observer's assisting execution consumes the same declared allowance;
+otherwise it observes without an extra unbudgeted native worker. C7 activates the chosen group
+only after L7 supplies numeric CPU/memory placement and receiving-process reconstruction premises.
+
+Keep discovery distinct from atomic claim authority. Preserve exact occurrence/generation/start
+lineage, heartbeat through terminal settlement, original-model outcomes, bounded progress/result
+ingestion and existing uncertain-acknowledgment recovery. Worker replacement cannot duplicate
+an acknowledged or uncertain started scientific attempt. Expired attempts stay charged until
+native work drains under the selected supervisor. Parent/process cancellation stops issuance,
+records the existing fences and drains actual children; interruption preserves recoverable
+partial history rather than silently switching to ephemeral execution.
+
+| Package | Inputs and delivered behavior | Migration, deletion and targeted acceptance | Status |
+|---|---|---|---|
+| C6 — Concurrent independent sequences | Accepted RC04; pure occurrence policy and working A4/B6/N8/N9/N10 slices actually consumed. Compose ready sequence workers while retaining true dependency order and suitable native bulk paths. | Move ordinary Rust/Python ephemeral study driver and composed callers; delete displaced generic single-session frontier dispatch once replaced. Test sixteen fresh non-batching cases with actual overlap, exact/repeated identities, starts, deterministic placement, dependency chains, failed-point isolation, finite admission and cancel/drain. | Implemented; ordinary overlap/cancel/drain and action-bound controls pass; managed and assembled qualification pending. |
+| C7 — Durable parallel composition | C6's occurrence semantics, existing claims/settlement, N10 strategy and L7's working selected deployment/reconstruction. Compose one finite durable worker realization. | Move default durable study caller, workers, supervisor and Python entry points together; delete displaced unbudgeted assistance/serial realization where replaced. Test ordinary sixteen-point study, competing claims, stale generations, killed worker/reopen, lost acknowledgment, partial results, heartbeat/backpressure and cancellation through native teardown. | Implemented; default observers and bounded primary serve are migrated; actual managed placement and composed recovery qualification pending. |
+
+C5's stored creation basis/cancellation stays intact; concurrent execution does not merge
+occurrences or repeat declared preparation per point. C6/C7 consume B6/T7 only where their
+canonical lifetime/operation changes are needed, rather than waiting for whole companion
+completion. Their consumer closure joins N4/T5/L4 and E3; new package completion does not
+resolve the broader finding without its complete public-route evidence.
+
 ## Work packages
 
 | Package | Prerequisite and delivered behavior | Consumer migration and deletion | Status |
@@ -253,13 +322,26 @@ profile, beyond pure in-memory policy units.
 
 ## Checkpoint and next step
 
+C6 now has bounded completion-driven preparation/execution, actual eligible batching,
+private independent session owners and unambiguous continuation transfer. C7 now has one
+bounded group on the shared runtime, local preparation ownership before canonical claims,
+exact total-action admission and stop/failure draining. The ordinary durable study caller
+observes the configured managed primary; its former serial assistance path is removed.
+Public controls use the original model's eligible non-batching Ipopt adapter and refuse
+fewer than two population slots before effects. The effect-free durable sixteen-occurrence
+action-bound and ordinary native overlap/cancel/drain controls pass. Actual managed receiving
+placement and primary-only native overlap are not yet accepted. L7 activation precedes that
+qualification. Earlier C1–C5 evidence retains its original scope.
+
 C5 now shares a compatible declared basis on the actual stored-definition route and checks
 every binding/seed policy while preserving distinct occurrences. Caller cancellation reaches
 source validation and creation; issued source/protection/study effects settle before cancellation
 is reported. Exact activation and lost-acknowledgment controls fence the study identity, including
 idempotent retries of an already activated study. Focused runtime and canonical-server controls
-pass. Benchmark/public Python callers and original study journeys are being reconciled before
-N4/E3/E4 acceptance. Earlier checkpoint evidence below keeps its original boundaries.
+pass. Benchmark and public Python callers are migrated: the original eight-point ephemeral
+and standalone durable journeys retain their distinct meaning, while the new sixteen-point
+selector and managed-primary controls supply separate parallel coverage. Rebuilt Python and
+actual managed journeys precede N4/E3/E4 acceptance. Earlier checkpoint evidence below keeps its original boundaries.
 
 C1/C2/C3 now use canonical native lifecycle functions and protected exact result
 selections. Ordinary runs retain original Arrow blocks, diagnostics and qualified seeds;

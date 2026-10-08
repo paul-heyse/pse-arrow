@@ -133,6 +133,13 @@ impl BackendExecution for Pounce {
     fn accepts(&self, payload: &WarmPayload) -> bool {
         matches!(payload, WarmPayload::Nlp { .. })
     }
+    fn scope_threads(&self, threads: usize) -> usize {
+        if cfg!(feature = "pounce") && threads > 1 {
+            threads
+        } else {
+            0
+        }
+    }
     fn scope(
         &self,
         threads: usize,

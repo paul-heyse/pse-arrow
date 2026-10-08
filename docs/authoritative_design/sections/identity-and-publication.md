@@ -657,6 +657,17 @@ writers are observed; an expired summary writer may be replaced without rerunnin
 points. Generic run recovery leaves an unfinished study header recoverable and does not
 invent the summary conclusion.
 
+> Decision: [ADR-0166](../../adr/0166-bounded-parallel-scientific-execution.md)
+> (proposed, under Plan 28 implementation). The selected primary durable group has
+> sixteen bounded lanes sharing one runtime, pool and CPU owner in one supervised
+> process; observers add no unbudgeted native assistance. Discovery and local in-flight
+> suppression do not grant canonical claim authority. Server, group, observer and
+> selected test placements consume one declared finite envelope. The reference pool
+> remains 128 GiB, with compatible process/ancestor caps required before launch;
+> insufficient placement refuses rather than shrinking the workload. Backend-specific
+> isolation uses whole operations and explicit partitions where required. Numeric
+> placement and actual readback are L7 prerequisites, not RSS guarantees.
+
 **Operational limits.** The supported deployment is authenticated local gRPC with native
 RocksDB and finite server/native-worker allocations. Backup drains managed work and copies
 a stopped coherent database; it is an operator lifecycle, not an online export lease.

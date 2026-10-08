@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 135
-date: 2026-10-07
+revision: 136
+date: 2026-10-08
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 136 | 2026-10-08 | Proposed ADR-0166: §18.8 bounded demand admission, original task clocks and persistent team ownership; §19.3 concurrent independent study sequences; §20.6 one coordinated durable group and finite aggregate placement. Parallel RC01–RC04 and execution defaults are maintainer-confirmed; implementation and E3–E5 qualification remain in Plan 28. | Maintainer-authorized Plan 28 execution; visible `.design-edit` authorization; no ADR acceptance or performance claim. |
 | 135 | 2026-10-07 | Proposed ADR-0164, accepted enhancement RC01: §5.3/§14.3 distinguish default exact deployment-local replay from strict relevant-source producer qualification. Controlled Linux/glibc 2.39 reconstruction uses bounded loader exclusion and context revalidation; immutable products own no native provider handles, and downstream native generation-use contracts remain separate. Unknown consumed premises refuse reuse without preventing fresh science/history. | Maintainer-authorized Plan 28 implementation; visible `.design-edit` authorization. Implementation and assembled qualification remain owned by Plan 28. |
 | 134 | 2026-10-07 | Tooling naming only (generated sources): `just codegen` orders its own contract-first bootstrap, retiring `just codegen-bootstrap`, and `just codegen-check` covers every generated output including the native stub. Plan 29 C3. | Maintainer-confirmed Plan 29 rule changes; a visible untracked `.design-edit` file authorized the edit. |
 | 133 | 2026-10-07 | Tooling naming only (§24 measurement commands): recipe commands run in `scripts/pse-env` scopes, which replace the retired `scripts/memory-cap.sh`; the memory-capped contract is unchanged. Plan 29 B4. | Maintainer-confirmed Plan 29 rule changes; a visible untracked `.design-edit` file authorized the edit. |

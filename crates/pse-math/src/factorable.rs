@@ -1003,6 +1003,24 @@ pub struct FactorableProgram {
     pub native: Vec<ProjectedNative>,
     fidelity: Vec<Fidelity>,
 }
+#[cfg(test)]
+pub(crate) fn tape_construction_fixture(nodes: Vec<Node>) -> FactorableProgram {
+    FactorableProgram {
+        require_exact: false,
+        key: ContentHash::from_bytes([0; 32]),
+        structure: ContentHash::from_bytes([0; 32]),
+        values: BTreeMap::new(),
+        fidelity: vec![Fidelity::Exact; nodes.len()],
+        nodes,
+        variables: vec![],
+        auxiliaries: vec![],
+        rows: vec![],
+        objective: None,
+        obligations: vec![],
+        implicit: vec![],
+        native: vec![],
+    }
+}
 impl FactorableProgram {
     /// Refuse stale numeric assumptions without including free trial values.
     pub fn matches(&self, plan: &CasePlan, values: &CaseValues) -> bool {
@@ -1158,7 +1176,222 @@ pub(crate) fn power(base: f64, exponent: &Constant) -> f64 {
     }
 }
 
+impl PreparedBody {
+    /// Known descriptor/container population of an exact root-isolation projection.
+    /// Rational coefficient limbs and symbolic identities remain foreign allocations.
+    /// The exact builder can lower a u64 dyadic denominator to at most 63 square
+    /// roots and one integer power. Charge that source vertex before construction,
+    /// rather than the policy's maximum node population.
+    pub fn root_isolation_allocation_bound(
+        &self,
+        max_nodes: usize,
+    ) -> Result<Option<usize>, MathError> {
+        if !self.is_flat_arithmetic() {
+            return Ok(None);
+        }
+        let overflow = || MathError::Limit("root isolation construction extent");
+        let add = |a: usize, b: usize| a.checked_add(b).ok_or_else(overflow);
+        let mul = |a: usize, b: usize| a.checked_mul(b).ok_or_else(overflow);
+        let mut source_nodes = Some(0usize);
+        for stage in &self.stages {
+            let Stage::Block { expressions, .. } = stage else {
+                // A Require may materialize its existing scalar and retain one
+                // obligation with one closed constraint, not a new region.
+                source_nodes = source_nodes.and_then(|count| count.checked_add(2));
+                continue;
+            };
+            for atom in expressions {
+                atom.as_view().visitor(&mut |view| {
+                    let emitted = match view {
+                        AtomView::Pow(power) if matches!(power.get_exp(), AtomView::Num(_)) => 64,
+                        AtomView::Pow(_) => 3,
+                        AtomView::Var(_) => 2,
+                        _ => 1,
+                    };
+                    source_nodes = source_nodes.and_then(|count| count.checked_add(emitted));
+                    source_nodes.is_some()
+                });
+            }
+        }
+        let all_nodes = add(
+            add(source_nodes.ok_or_else(overflow)?, self.input_count())?,
+            2,
+        )?;
+        let nodes = all_nodes.min(max_nodes);
+        // Trees plus generated unary/root/Product edges; n-ary source operands
+        // are bounded by visited vertices. Keep edges uncapped: a candidate's
+        // operand Vec can be allocated before Builder::push refuses its node.
+        let edges = mul(all_nodes, 2)?;
+        let graph = add(
+            mul(nodes, 4 * size_of::<Node>() + 256)?,
+            mul(edges, 4 * size_of::<NodeId>() + 2 * size_of::<Constant>())?,
+        )?;
+        let requirements = self
+            .stages
+            .iter()
+            .filter(|stage| matches!(stage, Stage::Require { .. }))
+            .count();
+        let metadata = add(
+            add(
+                mul(self.slot_count(), 2 * size_of::<Value>() + 128)?,
+                mul(add(self.input_count(), self.output_count())?, 256)?,
+            )?,
+            mul(
+                requirements,
+                4 * size_of::<ProjectedObligation>() + 4 * size_of::<Constraint>(),
+            )?,
+        )?;
+        Ok(Some(add(
+            add(add(graph, metadata)?, mul(self.retained_bytes(), 4)?)?,
+            4096,
+        )?))
+    }
+}
+
 impl CasePlan {
+    /// Initial construction extent for a flat factorable export. Implicit residual
+    /// substitution and provider envelopes have separate expansion populations;
+    /// they remain conservative until their producer supplies that contract.
+    /// # Errors
+    /// Overflow in the source projection population.
+    pub fn factorable_allocation_bound(
+        &self,
+        request: &FactorableRequest,
+        limit: usize,
+    ) -> Result<Option<usize>, MathError> {
+        if !request.implicit.is_empty() || !request.envelopes.is_empty() {
+            return Ok(None);
+        }
+        self.rebind_projection_allocation_bound(limit)
+    }
+    /// Known construction populations for the ordinary flat arithmetic projection.
+    /// Count actual visited source vertices and instance bindings. A variable real
+    /// power emits Log/Product/Exp; a scaled, offset column emits up to five nodes.
+    /// Rational payloads remain the separate foreign-library allocation allowance.
+    /// Returns `None` for control/provider lowering without this population contract.
+    pub fn rebind_projection_allocation_bound(
+        &self,
+        limit: usize,
+    ) -> Result<Option<usize>, MathError> {
+        let overflow = || MathError::Limit("rebind projection construction extent");
+        let add = |a: usize, b: usize| a.checked_add(b).ok_or_else(overflow);
+        let mul = |a: usize, b: usize| a.checked_mul(b).ok_or_else(overflow);
+        let mut source = 0usize;
+        let mut vertices = 0usize;
+        let mut bindings = 0usize;
+        let mut environments = 0usize;
+        let mut contributions = 0usize;
+        let mut requirements = 0usize;
+        for instance in self.structure().instances() {
+            let body = &self.bodies()[&instance.body];
+            if !body.is_flat_arithmetic() {
+                return Ok(None);
+            }
+            source = add(source, body.retained_bytes())?;
+            bindings = add(bindings, instance.slots.len())?;
+            environments = add(environments, body.slot_count())?;
+            contributions = add(contributions, instance.contributions.len())?;
+            // Counting repeats is intentional: each semantic instance and expression
+            // is lowered independently before node interning can discard duplicates.
+            for stage in &body.stages {
+                let Stage::Block { expressions, .. } = stage else {
+                    requirements = add(requirements, 1)?;
+                    vertices = add(vertices, 2)?;
+                    continue;
+                };
+                for atom in expressions {
+                    let mut count = Some(0usize);
+                    atom.as_view().visitor(&mut |_| {
+                        count = count.and_then(|count| count.checked_add(1));
+                        count.is_some()
+                    });
+                    vertices = add(vertices, count.ok_or_else(overflow)?)?;
+                }
+            }
+        }
+        let rows = self.structure().rows().len();
+        let columns = self.columns().len();
+        let nodes = add(
+            add(
+                add(mul(vertices, 3)?, mul(bindings, 5)?)?,
+                mul(contributions, 2)?,
+            )?,
+            add(rows, 2)?,
+        )?
+        .min(limit);
+        // A source expression is a tree: operand edges <= vertices. Variable Pow
+        // adds two edges and E can add one; four per vertex covers these exact
+        // lowerings. Binding scale/offset uses four edges; contributions use two
+        // scaling edges and one row/objective summation edge.
+        let edges = add(
+            add(mul(vertices, 4)?, mul(bindings, 4)?)?,
+            mul(contributions, 3)?,
+        )?;
+        // Node Vec growth, interned Node clones and hash metadata; operand vectors
+        // include their interned clones and the pre-push candidate/fold temporary.
+        let graph = add(
+            add(
+                mul(nodes, 4 * size_of::<Node>() + 256)?,
+                mul(
+                    edges,
+                    4 * size_of::<NodeId>() + 2 * size_of::<Constant>() + 2 * size_of::<Value>(),
+                )?,
+            )?,
+            mul(source, 4)?,
+        )?;
+        // Negative integer Pow emits three native operations; n-ary operations
+        // emit one per operand edge. A refused late row still constructs reachable,
+        // pending edges, initial Vec capacity and the slot map before operation
+        // budget refusal. Charge that candidate alongside all retained prior tapes.
+        let candidate_operations = add(mul(nodes, 3)?, edges)?;
+        let retained_operations = mul(candidate_operations, rows)?.min(limit);
+        // Domain tape Vec capacity may double during push growth.
+        let tapes = add(
+            add(
+                add(
+                    mul(
+                        retained_operations,
+                        2 * size_of::<pounce_nlp::expression_provider::FbbtOp>(),
+                    )?,
+                    mul(
+                        candidate_operations,
+                        2 * size_of::<pounce_nlp::expression_provider::FbbtOp>(),
+                    )?,
+                )?,
+                mul(nodes, 256 + 128)?,
+            )?,
+            mul(edges, 2 * size_of::<NodeId>())?,
+        )?;
+        // Curvature memoizes a rational quadratic form per node, including every
+        // column pair. Arbitrary precision limbs remain foreign admission.
+        let cells = mul(mul(add(columns, 1)?, add(columns, 1)?)?, add(nodes, 1)?)?;
+        let curvature = add(
+            mul(cells, 4 * size_of::<Rational>() + 256)?,
+            mul(nodes, 512)?,
+        )?;
+        let population = add(
+            add(add(rows, columns)?, self.structure().variables().len())?,
+            add(
+                self.structure().parameters().len(),
+                self.structure().instances().len(),
+            )?,
+        )?;
+        let metadata = add(
+            mul(population, 1024)?,
+            add(
+                mul(environments, 2 * size_of::<Value>() + 128)?,
+                mul(bindings, 256)?,
+            )?,
+        )?;
+        let guards = mul(
+            requirements,
+            4 * size_of::<ProjectedObligation>() + 4 * size_of::<Constraint>(),
+        )?;
+        Ok(Some(add(
+            add(add(add(add(graph, tapes)?, curvature)?, metadata)?, guards)?,
+            4096,
+        )?))
+    }
     /// Project the case into a library-neutral factorable program under fixed consumed
     /// values. `limit` bounds the number of DAG nodes.
     ///
@@ -3467,6 +3700,54 @@ fn constant(view: CoefficientView<'_>) -> Option<Constant> {
 #[cfg(test)]
 mod exact_constant_tests {
     use super::*;
+    #[test]
+    fn flat_projection_accounts_for_variable_power_and_scaled_binding_populations() {
+        crate::initialize().unwrap();
+        let x = library::formal(0).unwrap();
+        let y = library::formal(1).unwrap();
+        let body = PreparedBody::new(
+            2,
+            3,
+            vec![2],
+            vec![Stage::Block {
+                expressions: vec![x.pow(&y)],
+                outputs: vec![2],
+                source: SemanticId::NIL,
+            }],
+            DerivativeOrder::Second,
+        )
+        .unwrap();
+        let request = FactorableRequest::default();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut builder = Builder::new(&request, &cancel, 64, 3).unwrap();
+        let output = builder
+            .instance(
+                SemanticId::NIL,
+                &body,
+                &[Input::Column(0, 2.0, 3.0), Input::Column(0, 4.0, 5.0)],
+                &[0],
+            )
+            .unwrap();
+        let root = output[&0];
+        assert!(matches!(builder.nodes[root], Node::Exp(_)));
+        assert!(
+            builder
+                .nodes
+                .iter()
+                .any(|node| matches!(node, Node::Log(_)))
+        );
+        // One initial zero, <=five nodes per binding, <=three per source vertex.
+        assert!(builder.nodes.len() <= 1 + 2 * 5 + 3 * 3);
+        assert_eq!(
+            builder
+                .nodes
+                .iter()
+                .filter(|node| matches!(node, Node::Var(_)))
+                .count(),
+            1
+        );
+    }
+
     #[test]
     fn exact_branch_identity_converts_floating_coefficients_before_expansion() {
         crate::initialize().unwrap();

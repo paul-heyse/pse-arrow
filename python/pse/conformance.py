@@ -60,6 +60,8 @@ class RunSettings(
     math_worker_bytes: int | None = None
     #: Maximum admitted native jobs, forwarded to the shared engine owner.
     math_jobs: int | None = None
+    #: Admission-only wait when the operation supplies no finite enclosing deadline.
+    math_admission_wait_ms: int | None = None
     threads: int = 1
     time_limit_seconds: float = 600
     intent: NativeSolveIntent = NativeSolveIntent.ROOT
@@ -232,6 +234,7 @@ def run_once(
             memory_limit_bytes=settings.memory_limit_bytes,
             math_worker_bytes=settings.math_worker_bytes,
             math_jobs=settings.math_jobs,
+            math_admission_wait_ms=settings.math_admission_wait_ms,
             threads=settings.threads,
             spill_dir=spill,
             max_spill_bytes=1 << 30,

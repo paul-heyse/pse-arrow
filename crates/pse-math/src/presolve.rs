@@ -595,3 +595,50 @@ fn optional_tape<T>(result: Result<T, MathError>) -> Result<Option<T>, MathError
         other => other.map(Some),
     }
 }
+
+#[cfg(test)]
+mod tape_construction_tests {
+    use super::*;
+    #[test]
+    fn late_tape_refusal_keeps_prior_tape_and_visits_full_candidate_population() {
+        let mut nodes = (0..16).map(Node::Var).collect::<Vec<_>>();
+        nodes.push(Node::Sum((0..16).collect()));
+        nodes.push(Node::Pow {
+            base: 16,
+            exponent: crate::factorable::Constant::Rational(
+                symbolica::domains::rational::Rational::from(-2),
+            ),
+        });
+        let program = crate::factorable::tape_construction_fixture(nodes);
+        let mut remaining = 35;
+        let retained = tape(&program, 17, &mut remaining, false).unwrap();
+        assert_eq!(retained.ops.len(), 34); // sixteen leaves, fifteen adds, three negative-power ops
+        assert!(retained.first_invalid_slot().is_none());
+        assert_eq!(remaining, 1);
+        assert!(matches!(
+            tape(&program, 17, &mut remaining, true),
+            Err(MathError::Limit("presolve tape extent"))
+        ));
+        // The second call builds its full reachable-node set, initial operation
+        // capacity and slot map even with only one operation of budget left.
+        assert_eq!(remaining, 0);
+        assert_eq!(retained.ops.len(), 34);
+    }
+    #[test]
+    fn nary_alias_tape_population_counts_operand_edges_beyond_reachable_nodes() {
+        let program = crate::factorable::tape_construction_fixture(vec![
+            Node::Var(0),
+            Node::Sum(vec![0; 256]),
+        ]);
+        let mut remaining = 256;
+        let complete = tape(&program, 1, &mut remaining, false).unwrap();
+        assert_eq!(complete.ops.len(), 256);
+        assert!(complete.first_invalid_slot().is_none());
+        let mut insufficient = 255;
+        assert!(matches!(
+            tape(&program, 1, &mut insufficient, false),
+            Err(MathError::Limit("presolve tape extent"))
+        ));
+        assert_eq!(insufficient, 0);
+    }
+}

@@ -342,8 +342,74 @@ impl PreparedRecycle {
             .witness(&self.request.tears)
             .map_err(|e| contract(e.to_string()))
     }
+    fn factory_allocation_bound(&self) -> Result<Option<usize>, MathRuntimeError> {
+        // Provider realizations retain their separately declared conservative factory
+        // entry until the provider supplies a construction population contract.
+        if !self.providers.is_empty() {
+            return Ok(None);
+        }
+        let overflow = || MathRuntimeError::Limit("recycle factory construction extent");
+        let mut bytes = CausalMap::construction_allocation_bound(
+            &self.graph,
+            self.contract.variables.len(),
+            self.fixed.len(),
+        )?;
+        // Unit ownership, coordinate maps and original observer candidate overlays.
+        // The underlying programs/views/graph are immutable shared owners.
+        for program in &self.programs {
+            if let Some(conditional) = &program.conditional {
+                let Some(binding) = conditional.view.binding_allocation_bound(&program.values)?
+                else {
+                    return Ok(None);
+                };
+                bytes = bytes.checked_add(binding).ok_or_else(overflow)?;
+            }
+            let coordinates = program
+                .inputs
+                .len()
+                .checked_add(program.outputs.len())
+                .ok_or_else(overflow)?;
+            let values = program.values.scalars.len();
+            bytes = coordinates
+                .checked_mul(2 * size_of::<SemanticId>())
+                .and_then(|v| {
+                    v.checked_add(values.checked_mul(
+                        4 * (11 * size_of::<(SemanticId, f64)>() + 16 * size_of::<usize>()),
+                    )?)
+                })
+                .and_then(|v| {
+                    v.checked_add(
+                        size_of::<UnitWorker>()
+                            + 11 * size_of::<(SemanticId, Box<dyn CausalUnit>)>()
+                            + 16 * size_of::<usize>(),
+                    )
+                })
+                .and_then(|v| bytes.checked_add(v))
+                .ok_or_else(overflow)?;
+        }
+        bytes = self
+            ._source
+            .values
+            .scalars
+            .len()
+            .checked_mul(4 * (11 * size_of::<(SemanticId, f64)>() + 16 * size_of::<usize>()))
+            .and_then(|v| {
+                v.checked_add(
+                    self.original
+                        .assembly
+                        .structure()
+                        .rows()
+                        .len()
+                        .checked_mul(size_of::<SemanticId>() + 4 * size_of::<f64>())?,
+                )
+            })
+            .and_then(|v| bytes.checked_add(v))
+            .ok_or_else(overflow)?;
+        Ok(Some(bytes))
+    }
     /// Execute only the explicitly requested map strategy; no automatic fallback follows failure.
     pub fn start(&self) -> Result<SolveHandle<DeclaredRootReport>, WorkflowError> {
+        let factory_bytes = self.factory_allocation_bound()?;
         let prepared = self.clone();
         let candidate = Arc::new(std::sync::Mutex::new(None));
         let observed = candidate.clone();
@@ -357,6 +423,7 @@ impl PreparedRecycle {
             self.numerics.policy.clone(),
             self.profile_key,
             Some(candidate),
+            factory_bytes,
             move |execution, budget| prepared.function(execution, budget, observed),
         )?)
     }

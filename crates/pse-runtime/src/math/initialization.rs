@@ -748,6 +748,9 @@ impl MathService {
         policy: pse_model::numerics::NumericalPolicy,
         profile: pse_ids::ContentHash,
         original_candidate: Option<Arc<std::sync::Mutex<Option<CaseValues>>>>,
+        // Known factory containers, excluding evaluator charges drawn as constructed.
+        // None preserves conservative entry for opaque external/provider factories.
+        factory_bytes: Option<usize>,
         factory: impl FnOnce(
             Execution,
             Arc<WorkerBudget>,
@@ -781,22 +784,33 @@ impl MathService {
         let events = progress.clone();
         let service = self.clone();
         let foreign_bytes = self.policy.foreign_allowance(&controls);
+        let factory_demand = factory_bytes.unwrap_or(self.policy.worker_bytes);
+        if factory_demand > self.policy.worker_bytes {
+            return Err(MathRuntimeError::Limit(
+                "declared root construction capacity",
+            ));
+        }
         let job_bytes =
-            self.policy
-                .worker_bytes
+            factory_demand
                 .checked_add(foreign_bytes)
                 .ok_or(MathRuntimeError::Limit(
                     "declared root worker/foreign allowance",
                 ))?;
+        let entry = self.admit_entry(1, job_bytes, &control, Some(deadline), None)?;
         let run_id = pse_operations::mint_id();
         let (tx, receiver) = tokio::sync::oneshot::channel();
         tokio::spawn(async move {
-            let bytes = service.policy.worker_bytes;
-            // The factory charges every evaluator it builds to this job's reservation.
-            let budget = WorkerBudget::new(bytes);
+            // Known factories draw each live evaluator before allocating it; the
+            // entry lease covers their separately bounded container construction.
+            // Unknown factories retain the pre-reserved conservative worker extent.
+            let budget = if factory_bytes.is_some() {
+                WorkerBudget::drawing(service.policy.worker_bytes - factory_demand, &service.pool)
+            } else {
+                WorkerBudget::new(service.policy.worker_bytes)
+            };
             let worker_service = service.clone();
             let result = service
-                .job_scoped(1, job_bytes, control, Some(deadline), move |flag| {
+                .job_scoped_on_entry(1, job_bytes, control, Some(deadline), entry, move |flag| {
                     let original = contract.identity;
                     let start_identity =
                         super::strategy::target::point_identity(original, &initial);
@@ -1389,20 +1403,23 @@ impl MathService {
         deadline: Option<std::time::Instant>,
     ) -> Result<Preparation, MathRuntimeError> {
         let view = block.view.clone();
+        let demand = view
+            .binding_allocation_bound(&values)?
+            .unwrap_or(self.policy.worker_bytes);
+        if demand > self.policy.worker_bytes {
+            return Err(MathRuntimeError::Limit(
+                "block binding construction capacity",
+            ));
+        }
         let control = FlightCancellation::default();
-        let operation = self.job_retained_scoped(
-            1,
-            self.policy.worker_bytes,
-            control.clone(),
-            deadline,
-            move |flag| {
+        let operation =
+            self.job_retained_scoped(1, demand, control.clone(), deadline, move |flag| {
                 let bound = view.bind(quantities, &values, &flag)?;
                 // The block plan, structural witness, descriptors and registry already
                 // have owners. Only this first binding's products and wrappers escape.
                 let bytes = block_binding_bytes(&bound);
                 Ok((bound, bytes))
-            },
-        );
+            });
         tokio::pin!(operation);
         let (bound, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         let executable = Arc::new(std::sync::OnceLock::from(block.executable.clone()));
@@ -1552,7 +1569,7 @@ mod tests {
         service: &Arc<MathService>,
         duration: std::time::Duration,
         called: Arc<AtomicBool>,
-    ) -> SolveHandle<DeclaredRootReport> {
+    ) -> Result<SolveHandle<DeclaredRootReport>, MathRuntimeError> {
         let contract = native::OracleContract {
             identity: pse_ids::ContentHash::from_bytes([72; 32]),
             variables: vec![native::Variable {
@@ -1601,30 +1618,37 @@ mod tests {
             composition: Default::default(),
             reconstruction: None,
         };
-        service
-            .solve_declared_root(
-                contract,
-                vec![0.],
-                settings,
-                controls,
-                accuracy,
-                tolerances,
-                policy,
-                super::super::solves::profile_key(&profile).unwrap().as_id(),
-                None,
-                move |_, _| {
-                    called.store(true, std::sync::atomic::Ordering::Release);
-                    Err(native::ProblemError::Internal(
-                        "queued declared root factory must not run".into(),
-                    ))
-                },
-            )
-            .unwrap()
+        service.solve_declared_root(
+            contract,
+            vec![0.],
+            settings,
+            controls,
+            accuracy,
+            tolerances,
+            policy,
+            super::super::solves::profile_key(&profile).unwrap().as_id(),
+            None,
+            Some(4096),
+            move |_, _| {
+                called.store(true, std::sync::atomic::Ordering::Release);
+                Err(native::ProblemError::Internal(
+                    "queued declared root factory must not run".into(),
+                ))
+            },
+        )
     }
     #[tokio::test]
     async fn declared_root_deadline_and_cancellation_cover_cpu_wait_without_dispatch() {
         use std::sync::atomic::Ordering;
-        let service = super::super::tests::service();
+        let (service, _cache) = super::super::tests::service_with_policy(
+            256 << 20,
+            super::super::MathPolicy {
+                worker_bytes: 16usize << 30,
+                workspace_bytes: 16 << 20,
+                foreign_bytes: 1 << 20,
+                ..Default::default()
+            },
+        );
         let baseline = service.pool.reserved();
         let permit = service.cpu.clone().acquire_many_owned(2).await.unwrap();
         let called = Arc::new(AtomicBool::new(false));
@@ -1632,7 +1656,8 @@ mod tests {
             &service,
             std::time::Duration::from_millis(25),
             called.clone(),
-        );
+        )
+        .unwrap();
         let cancellation = handle.cancellation();
         let result = handle.finish().await;
         assert!(matches!(
@@ -1646,7 +1671,8 @@ mod tests {
         assert!(!called.load(Ordering::Acquire));
         assert_eq!(service.cpu.available_permits(), 0);
         let handle =
-            declared_submission(&service, std::time::Duration::from_secs(5), called.clone());
+            declared_submission(&service, std::time::Duration::from_secs(5), called.clone())
+                .unwrap();
         handle.cancel();
         assert!(matches!(
             handle.finish().await,
@@ -1657,7 +1683,73 @@ mod tests {
         assert_eq!(service.pool.reserved(), baseline);
         assert_eq!(service.cpu.available_permits(), 2);
     }
+    #[tokio::test(flavor = "current_thread")]
+    async fn declared_root_burst_owns_ticket_before_spawning_factory_task() {
+        let (service, _cache) = super::super::tests::service_with_policy(
+            256 << 20,
+            super::super::MathPolicy {
+                jobs: 32,
+                foreign_bytes: 1 << 20,
+                ..Default::default()
+            },
+        );
+        let baseline = service.pool.reserved();
+        let cpu = service.cpu.clone().acquire_many_owned(2).await.unwrap();
+        let called = Arc::new(AtomicBool::new(false));
+        let mut handles = Vec::new();
+        for _ in 0..32 {
+            handles.push(
+                declared_submission(&service, std::time::Duration::from_secs(5), called.clone())
+                    .unwrap(),
+            );
+        }
+        assert_eq!(service.jobs.available_permits(), 0);
+        assert!(matches!(
+            declared_submission(&service, std::time::Duration::from_secs(5), called.clone()),
+            Err(MathRuntimeError::Limit("native jobs"))
+        ));
+        assert!(!called.load(std::sync::atomic::Ordering::Acquire));
+        for handle in &handles {
+            handle.cancel();
+        }
+        for handle in handles {
+            assert!(matches!(
+                handle.finish().await,
+                Err(MathRuntimeError::Cancelled)
+            ));
+        }
+        assert!(!called.load(std::sync::atomic::Ordering::Acquire));
+        assert_eq!(service.jobs.available_permits(), 32);
+        assert_eq!(service.pool.reserved(), baseline);
+        drop(cpu);
+    }
     #[cfg(feature = "solver-kinsol")]
+    #[tokio::test]
+    async fn declared_root_known_factory_enters_small_pool_under_generous_worker_capacity() {
+        let (service, _cache) = super::super::tests::service_with_policy(
+            256 << 20,
+            super::super::MathPolicy {
+                worker_bytes: 16usize << 30,
+                foreign_bytes: 1 << 20,
+                ..Default::default()
+            },
+        );
+        let baseline = service.pool.reserved();
+        let called = Arc::new(AtomicBool::new(false));
+        let result =
+            declared_submission(&service, std::time::Duration::from_secs(1), called.clone())
+                .unwrap()
+                .finish()
+                .await;
+        // The supplied factory's original typed refusal follows dispatch. The
+        // unchanged worker ceiling must not refuse this tiny factory at entry.
+        assert!(called.load(std::sync::atomic::Ordering::Acquire));
+        assert!(result.is_err());
+        // The returned refusal owns its retained strategy trace until released.
+        drop(result);
+        assert_eq!(service.pool.reserved(), baseline);
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+    }
     #[test]
     fn conditional_failure_preserves_shared_terminal_causes_and_actual_native_status() {
         let controls = Controls::default();
@@ -1765,7 +1857,15 @@ mod tests {
     #[tokio::test]
     async fn first_block_binding_retains_shared_parents_until_last_alias() {
         pse_math::initialize().unwrap();
-        let service = super::super::tests::service();
+        let (service, _cache) = super::super::tests::service_with_policy(
+            256 << 20,
+            super::super::MathPolicy {
+                worker_bytes: 16usize << 30,
+                workspace_bytes: 16 << 20,
+                foreign_bytes: 1 << 20,
+                ..Default::default()
+            },
+        );
         let baseline = service.pool.reserved();
         let registry = Arc::new(
             pse_quantity::QuantityRegistryBuilder::new()
@@ -1844,7 +1944,7 @@ mod tests {
         // Filling the existing test pool must still refuse worker admission, with no
         // retained binding or parent charge lost by the failed first attempt.
         let pressure = service
-            .reserve("math:test-pressure", (512 << 20) - parents)
+            .reserve("math:test-pressure", (256 << 20) - parents)
             .unwrap();
         assert!(matches!(
             service
@@ -1855,10 +1955,13 @@ mod tests {
                         scalars: BTreeMap::new()
                     },
                     &crate::CancelSource::new(),
-                    None,
+                    Some(std::time::Instant::now() + std::time::Duration::from_millis(20)),
                 )
                 .await,
-            Err(MathRuntimeError::Pool(_))
+            Err(MathRuntimeError::Solve(native::ProblemError::Limit {
+                kind: native::LimitKind::Time,
+                ..
+            }))
         ));
         drop(pressure);
         assert_eq!(service.pool.reserved(), parents);

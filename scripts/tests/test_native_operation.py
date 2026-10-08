@@ -426,6 +426,34 @@ class NativeOperationTests(unittest.TestCase):
                 ["--capabilities", "klu,isolation", "--shell"],
             )
 
+    def test_managed_primary_service_requires_actual_group_and_invocation(self) -> None:
+        unit = "pse-surreal-worker-" + "a" * 16 + "-0.service"
+        group = "/user.slice/pse-reference-fixture.slice/" + unit
+        observation = {
+            "LoadState": "loaded",
+            "ControlGroup": group,
+            "InvocationID": "b" * 32,
+        }
+        with (
+            patch.object(
+                operation, "process_group", return_value=group + "/native-child"
+            ),
+            patch.object(operation, "unit_observation", return_value=observation),
+        ):
+            self.assertEqual(
+                operation.scope_owner(),
+                {"unit": unit, "group": group, "invocation": "b" * 32},
+            )
+        for invalid in (
+            {**observation, "ControlGroup": "/another"},
+            {**observation, "InvocationID": "unknown"},
+        ):
+            with (
+                patch.object(operation, "process_group", return_value=group),
+                patch.object(operation, "unit_observation", return_value=invalid),
+            ):
+                self.assertIsNone(operation.scope_owner())
+
     def test_marker_requires_actual_scope_membership_and_generation(self) -> None:
         unit = "pse-native-" + "a" * 32 + ".scope"
         owner = {"unit": unit, "group": "/user.slice/" + unit, "invocation": "b" * 32}

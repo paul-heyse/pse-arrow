@@ -63,6 +63,108 @@ fn push<R, C>(
     Ok(index)
 }
 impl Layout {
+    /// Source-issued contribution envelope for construction, including late cell
+    /// refusal. Each response/constraint/Hessian vector has its own pre-push limit;
+    /// their combined limit is checked only after all three and the Gram coexist.
+    /// Canonical Gram support is bounded by source observation row widths, with
+    /// its product ceiling enforced before faer's symbolic multiplication.
+    /// # Errors
+    /// Invalid source coordinates or overflow before allocating a sparse population.
+    pub(super) fn construction_allocation_bound(
+        experiments: &[Experiment],
+        measurements: &[Measurement],
+        parameter_columns: &[Option<OriginalCol>],
+        columns: usize,
+        order: DerivativeOrder,
+        limit: usize,
+    ) -> Result<usize, ProblemError> {
+        let extent = || -> Option<usize> {
+            let mut responses = 0usize;
+            let mut constraints = 0usize;
+            let mut hessian = 0usize;
+            let mut products = 0usize;
+            for (ei, experiment) in experiments.iter().enumerate() {
+                match experiment {
+                    Experiment::Steady(s) => {
+                        let j = s.case.assembly.jacobian_pattern();
+                        for (local, _) in s.coordinates.iter_enumerated() {
+                            for k in j.col_range(local.get()) {
+                                if s.constraints.iter().any(|(r, _)| r.get() == j.row_idx()[k]) {
+                                    constraints = constraints.checked_add(1)?;
+                                }
+                            }
+                            if order >= DerivativeOrder::Second {
+                                hessian = hessian.checked_add(
+                                    s.case
+                                        .assembly
+                                        .hessian_pattern()
+                                        .col_range(local.get())
+                                        .len(),
+                                )?;
+                            }
+                        }
+                        for observation in measurements
+                            .iter()
+                            .filter(|o| o.experiment == ei && o.included)
+                        {
+                            let width = s.coordinates.iter_enumerated().try_fold(
+                                0usize,
+                                |n, (local, _)| {
+                                    n.checked_add(
+                                        j.col_range(local.get())
+                                            .filter(|k| j.row_idx()[*k] == observation.row)
+                                            .count(),
+                                    )
+                                },
+                            )?;
+                            responses = responses.checked_add(width)?;
+                            products = products
+                                .checked_add(width.min(columns).checked_mul(width.min(columns))?)?;
+                        }
+                    }
+                    Experiment::Transient(s) => {
+                        let free = s.bindings.iter().try_fold(0usize, |n, b| {
+                            n.checked_add(usize::from(
+                                parameter_columns.get(b.parameter)?.is_some(),
+                            ))
+                        })?;
+                        let observations = measurements
+                            .iter()
+                            .filter(|o| o.experiment == ei && o.included)
+                            .count();
+                        responses = responses.checked_add(free.checked_mul(observations)?)?;
+                        if order >= DerivativeOrder::Second {
+                            // Aliased fit columns can admit both triangular sides.
+                            hessian = hessian.checked_add(free.checked_mul(free)?)?;
+                            products = products.checked_add(observations.checked_mul(
+                                free.min(columns).checked_mul(free.min(columns))?,
+                            )?)?;
+                        }
+                    }
+                }
+            }
+            let gram = if order >= DerivativeOrder::Second {
+                products.min(columns.checked_mul(columns)?).min(limit)
+            } else {
+                0
+            };
+            let hessian = if order >= DerivativeOrder::Second {
+                hessian.checked_add(gram)?.min(limit)
+            } else {
+                0
+            };
+            // The established 256-byte typed sparse allowance covers entry/refill
+            // maps, growing mapping Vecs, canonical CSC, transpose and Gram arrays.
+            // Source metadata/column offsets are separately charged by finish().
+            responses
+                .min(limit)
+                .checked_add(constraints.min(limit))?
+                .checked_add(hessian)?
+                .checked_add(gram)?
+                .checked_mul(256)
+        };
+        extent().ok_or_else(|| ProblemError::memory("fit source construction extent"))
+    }
     pub(super) fn retained_bytes(&self) -> usize {
         size_of::<Self>()
             + self.responses.retained_bytes()

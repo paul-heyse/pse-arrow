@@ -108,8 +108,36 @@ other's artifacts — ADR-0122). Remove a worktree with `git worktree remove <pa
 - Python: `just py-unit` observes the installed extension (`doctor.py --extension-kind`) and
   uses the native environment for the linked build; `just py-test` and the native suites
   require a serving canonical server (`--store`) at `$PSE_SURREAL_STATE`.
+  `just py-test` defaults to unit and component tests with sixteen pytest workers.
+  An explicit selection such as `just py-test -m integration` keeps the ordinary
+  process allocation and excludes tests marked `managed_primary`.
+  `just py-test --managed-primary-route -m integration` runs that managed subset
+  in a fresh observer process with pytest distribution disabled; its native work
+  belongs to the configured primary's sixteen lanes. File, keyword and marker
+  selections still apply. This convenience route does not require a JUnit report;
+  `just native-python <output> --managed-primary-route` owns the native receipt route.
 - `just codegen-check` checks every generated output, including the native stub against the
   installed extension (rebuild it with `just py-sync` after a Rust API change).
+
+For managed durable studies, select the reference execution profile and an already
+built linked worker when creating state:
+
+```bash
+export PSE_SURREAL_STATE=/absolute/path/to/private/reference-state
+scripts/pse-env --native -- cargo build -p xtask --bin pse-worker --locked --features native-solvers
+just surreal setup --interpretation pse.substrate.v1 --execution-profile plan28-reference \
+  --worker-executable "$PWD/target/debug/pse-worker"
+just surreal start
+just canonical-init "$PSE_SURREAL_STATE"
+```
+
+The setup records the selected worker bytes and the exact reference allocation.
+A rebuilt or differently selected worker requires offline receiver readmission.
+Existing legacy state requires quiescing and draining its workers, stopping the
+server, then `just surreal reconfigure --execution-profile plan28-reference
+--worker-executable "$PWD/target/debug/pse-worker"` before restarting. The
+[local substrate guide](surreal-substrate.md) owns state selection and lifecycle;
+ordinary canonical consumers do not require the managed study profile.
 
 ## Bundles, logs and preflight
 

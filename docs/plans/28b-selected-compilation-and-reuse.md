@@ -3,7 +3,7 @@ title: Selected compilation and durable reuse
 status: in-progress
 date: 2026-10-05
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -219,6 +219,41 @@ and retains unchanged authored bytes without duplicating scientific admission. [
 supplies actual role association; B3 integrates it rather than maintaining another capture rule.
 N4/T5/L4 consumer closure precedes E3. Earlier B package Outcomes remain at their named scope.
 
+## Parallel selected-preparation composition
+
+B6 consumes [A4](28a-canonical-substrate-and-revisions.md#parallel-canonical-protection-and-contention)
+and [N8](28f-shared-numerical-preparation.md#parallel-admission-and-native-lifetimes) to correct
+Parallel F01/F02 preparation composition. Its baseline is `84a1caf`: `checked_selection`
+protects each call before dependency recheck/selection and later selected-admission flights.
+`CanonicalBodyRetention` may publish durable reachability even on a memory hit. Those are
+necessary effects whose equivalent operation/lifetime scope should be assessed, not removed
+because numerical preparation is immutable.
+
+Where A4 selects it, share an immutable protection owner only for compatible exact
+problem/revision/interpretation and its actual consumer lifetime. Preserve separate complete
+positive/absent/membership dependency receipts and per-case starts/results. Partial or failed
+selection never becomes a completed shared receipt. Releasing/cancelling one caller cannot
+release protection still consumed by another, extend an expired pin or qualify publication
+from stale preparation. Keep the owner alive through issued native work/drain where required,
+and admit product roots before its final release.
+
+Use existing selected/artifact flights and publication acknowledgment semantics when reducing
+equivalent work. Product identity currently consumes the selected protection/dependencies;
+changing that identity is not an incidental cache-key edit and returns to A4/R0 if needed.
+A compatible mathematical artifact does not by itself establish canonical reachability for a
+new revision. B6 does not introduce a second publication checker or merge scientific outcomes.
+
+Replace full worker-capacity charges on affected nested-provider/rebind preparation with
+N8's admitted actual/conservative extent and bounded waiting behavior. Keep fresh private
+compiler workspaces and private mutable provider/evaluator workers. Pure unchanged-value
+checks stay outside unnecessary native jobs. A genuinely required whole-scope check remains
+explicit. Migrate ordinary preparation, studies, initialization and demanded analysis consumers,
+not only the conformance fixtures.
+
+| Package | Inputs and delivered behavior | Migration, deletion and focused acceptance | Status |
+|---|---|---|---|
+| B6 — Parallel selected preparation | A4's working protection/publication slice where changed; N8 temporary admission. Compose exact selection/reachability effects at their valid reuse lifetime and move affected preparation/rebind callers to demand-based admission. | Remove displaced per-call equivalent protection/publication work only when replacement semantics are demonstrated; preserve receipts/eligibility. Test sixteen small consumers, mixed compatible/incompatible demands, changed revision/absence/provider, cancelled shared waiter, expiry, retained pressure and original scientific results. | A4 retains protection/identity and paces staging; N8 callers migrated with targeted demand controls; N4 and E3 acceptance pending. |
+
 ## Work packages
 
 | Package | Prerequisite and delivered behavior | Consumer migration and deletion | Status |
@@ -263,6 +298,12 @@ Do not claim a compile-time or solve-time gain from these structural controls. E
 quantitative comparison; B4 may conclude that some dense library input is necessary.
 
 ## Checkpoint and next step
+
+B6 is integrated with A4 staging pacing and N8 source-demand admission. Existing protection,
+publication and scientific identity contracts remain authoritative. Flat rebind and selected
+construction controls pass; unknown control/provider factories retain conservative entry.
+Actual managed receiving and assembled E3 qualification remain pending. Earlier B1–B5 passes
+and persisted replay evidence below retain their original scope.
 
 B5's local/strict admission and versioned product interpretation are integrated after L5's
 recorded decision route. Both use the existing protected scientific reconstruction checker;

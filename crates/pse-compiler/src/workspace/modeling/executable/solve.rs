@@ -336,6 +336,50 @@ impl PreparedModeling {
     }
 }
 impl PreparedCase {
+    /// Known metadata copied by binding comparison and a product-sharing rebind.
+    pub fn rebind_binding_allocation_bound(&self, values: &CaseValues) -> Result<usize> {
+        values
+            .scalars
+            .len()
+            .checked_add(self.derived.values.len())
+            .and_then(|n| n.checked_add(self.plan.structure().parameters().len()))
+            .and_then(|n| n.checked_add(self.plan.structure().variables().len()))
+            .and_then(|n| n.checked_mul(512))
+            .and_then(|n| n.checked_add(2 * size_of::<Self>() + 4096))
+            .ok_or_else(|| {
+                CompileError::from(MathError::Limit("rebind binding construction extent"))
+            })
+    }
+    /// Preconstruction envelope when only the flat arithmetic projection and bounded
+    /// binding metadata can rebuild. Other source realizations retain conservative entry.
+    pub fn rebind_allocation_bound(&self, values: &CaseValues) -> Result<Option<usize>> {
+        if self.derivation.has_enclosure() {
+            return Ok(None);
+        }
+        let Some(projection) = self
+            .plan
+            .rebind_projection_allocation_bound(self.class_proof_work)?
+        else {
+            return Ok(None);
+        };
+        let values = values
+            .scalars
+            .len()
+            .checked_add(self.plan.structure().parameters().len())
+            .and_then(|n| n.checked_add(self.plan.structure().variables().len()))
+            .and_then(|n| n.checked_mul(512))
+            .ok_or_else(|| {
+                CompileError::from(MathError::Limit("rebind binding construction extent"))
+            })?;
+        Ok(Some(
+            projection
+                .checked_add(values)
+                .and_then(|n| n.checked_add(2 * size_of::<Self>() + 4096))
+                .ok_or_else(|| {
+                    CompileError::from(MathError::Limit("rebind construction extent"))
+                })?,
+        ))
+    }
     /// Payload allocated by a value rebind, excluding shared mathematics and provenance.
     pub fn rebind_allocation_bytes(&self, previous: &Self) -> usize {
         let mut bytes = 2 * size_of::<Self>() + 1024;

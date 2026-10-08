@@ -102,11 +102,19 @@ impl PreparedExperiments {
             .filter(|n| *n > 0)
             .ok_or_else(|| contract("fit preparation memory allowance"))?
             .min(profile.max_cells);
+        let layout_demand = sparse::Layout::construction_allocation_bound(
+            &experiments,
+            &measurements,
+            &parameter_columns,
+            vars.len(),
+            order,
+            layout_limit,
+        )
+        .map_err(crate::math::MathRuntimeError::from)?;
         reservation
             .try_grow(
-                layout_limit
-                    .checked_mul(256)
-                    .and_then(|n| n.checked_add(metadata_bytes))
+                layout_demand
+                    .checked_add(metadata_bytes)
                     .ok_or_else(|| contract("fit preparation memory allowance"))?,
             )
             .map_err(crate::math::MathRuntimeError::from)?;

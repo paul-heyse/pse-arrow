@@ -196,7 +196,7 @@ async fn compiled_factorable_pricing_retains_separate_demanded_callbacks() {
         fixture::runtime_on(
             1 << 30,
             crate::math::MathPolicy {
-                worker_bytes: 8 << 20,
+                worker_bytes: 16usize << 30,
                 workspace_bytes: 16 << 20,
                 foreign_bytes: 256 << 20,
                 ..Default::default()
@@ -711,12 +711,38 @@ async fn auto_linear_retains_established_coefficient_readiness() {
 
 #[tokio::test]
 async fn explicit_coefficient_cone_retains_representation_and_paired_proof() {
-    let prepared = prepare(
+    let (package, root, runtime) = package_with_runtime(
         LINEAR,
-        SolveIntent::Optimize,
-        SolverSelection::Explicit(Backend::Clarabel),
+        fixture::runtime_on(
+            512 << 20,
+            crate::math::MathPolicy {
+                worker_bytes: 16usize << 30,
+                workspace_bytes: 16 << 20,
+                foreign_bytes: 1 << 20,
+                ..Default::default()
+            },
+        ),
     )
     .await;
+    let prepared = package
+        .prepare_solve(
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Bindings::default(),
+            Limits::default(),
+            ModelingCaseBindings::default(),
+            DerivativeOrder::First,
+            fixture::compiler_profile(),
+            SolverProfile {
+                intent: SolveIntent::Optimize,
+                selection: SolverSelection::Explicit(Backend::Clarabel),
+                ..Default::default()
+            },
+            NumericalInputs::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
     let case = ready(&prepared.solve);
     assert_eq!(prepared.solve.route(), Route::Native(Backend::Clarabel));
     assert_eq!(
@@ -731,6 +757,30 @@ async fn explicit_coefficient_cone_retains_representation_and_paired_proof() {
         case.prepared.prepared.plan.columns().len()
     );
     assert!(lowered.problem.validate(&lowered.evidence).is_ok());
+    let coefficients = case
+        .prepared
+        .prepared
+        .coefficients
+        .as_ref()
+        .unwrap()
+        .clone();
+    let allowance = runtime.shared.math().policy.worker_bytes;
+    let demand = coefficients
+        .numerical_convexity_allocation_bound(allowance)
+        .unwrap();
+    assert!(demand < 1 << 20);
+    let scales = vec![1.0; coefficients.hessian.ncols()];
+    let evidence = runtime
+        .shared
+        .math()
+        .job(1, demand, FlightCancellation::default(), move |flag| {
+            coefficients
+                .numerical_convexity(1.0, &scales, 1.0, 1e-12, 1e-12, allowance, &flag)
+                .map_err(Into::into)
+        })
+        .await
+        .unwrap();
+    assert!(evidence.accepted());
 }
 
 #[tokio::test]

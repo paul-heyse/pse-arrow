@@ -9,10 +9,7 @@ use pse_ids::SemanticId;
 use pse_model::HeapUsage;
 use pse_model::lineage::Solved;
 use pse_modeling::{Bindings, DeclarationId, InstanceId, Limits};
-use std::{
-    collections::BTreeMap,
-    sync::{Arc, atomic::AtomicBool},
-};
+use std::{collections::BTreeMap, sync::Arc};
 /// A source revision retains its reservation through all dependent jobs.
 #[derive(Clone, Debug)]
 pub struct ModelingRevision {
@@ -242,89 +239,104 @@ impl MathService {
             return Ok(external);
         }
         let control = FlightCancellation::default();
-        let operation =
-            self.job_retained(1, self.policy.worker_bytes, control.clone(), move |flag| {
-                #[cfg(feature = "solver-kinsol")]
-                let solver: Arc<dyn pse_math::implicit::InnerSolver> =
-                    Arc::new(pse_backend_native::implicit::Kinsol);
+        let mut demand = 0usize;
+        for item in &inner {
+            let Some(construction) = item
+                .admitted
+                .reconstruction_allocation_bound(&item.configurations, profile.evaluation)?
+            else {
+                // Unknown control/provider populations retain the existing conservative
+                // admission. They cannot qualify for source-bounded small-pool entry.
+                demand = self.policy.worker_bytes;
+                break;
+            };
+            demand = demand
+                .checked_add(construction)
+                .ok_or(MathRuntimeError::Limit("inner construction extent"))?;
+        }
+        if demand > self.policy.worker_bytes {
+            return Err(MathRuntimeError::Limit("inner construction capacity"));
+        }
+        // Opaque native Rational/optimizer construction retains the separate foreign
+        // allowance. A generous worker capacity does not amplify known source demand.
+        let operation = self.job_retained(1, demand, control.clone(), move |flag| {
+            #[cfg(feature = "solver-kinsol")]
+            let solver: Arc<dyn pse_math::implicit::InnerSolver> =
+                Arc::new(pse_backend_native::implicit::Kinsol);
+            #[cfg(not(feature = "solver-kinsol"))]
+            let solver: Arc<dyn pse_math::implicit::InnerSolver> = Arc::new(MissingInnerSolver);
+            #[cfg(feature = "solver-root-isolation")]
+            let verifier: Option<Arc<dyn pse_math::implicit::SelectionVerifier>> =
+                Some(Arc::new(pse_backend_native::root_isolation::Ibex));
+            #[cfg(not(feature = "solver-root-isolation"))]
+            let verifier: Option<Arc<dyn pse_math::implicit::SelectionVerifier>> = None;
+            // Inputs are in dependency order. Propagate the actual consumer demands
+            // backwards before compiling any provider, including the inner adapter's
+            // residual minimum and explicitly authored partial derivatives.
+            for item in inner.iter().rev() {
+                let key = item.admitted.descriptor.spec().key();
+                let requested = provider_demands
+                    .get(&key)
+                    .copied()
+                    .unwrap_or(pse_kernels::DerivativeOrder::Value);
+                let requirements = item.admitted.requirements(
+                    requested,
+                    solver.minimum_order(),
+                    verifier.as_deref(),
+                    &accelerators,
+                    &flag,
+                    profile.evaluation,
+                )?;
+                for (dependency, required) in item.admitted.provider_demands(requirements)? {
+                    provider_demands
+                        .entry(dependency)
+                        .and_modify(|order| *order = (*order).max(required))
+                        .or_insert(required);
+                }
+            }
+            let mut factories = Vec::new();
+            let mut retained = 0usize;
+            for item in inner {
+                let source_key = item.admitted.descriptor.spec().key();
+                let requested_output = provider_demands
+                    .get(&source_key)
+                    .copied()
+                    .unwrap_or(pse_kernels::DerivativeOrder::Value);
                 #[cfg(not(feature = "solver-kinsol"))]
-                let solver: Arc<dyn pse_math::implicit::InnerSolver> = Arc::new(MissingInnerSolver);
-                #[cfg(feature = "solver-root-isolation")]
-                let verifier: Option<
-                    Arc<dyn pse_math::implicit::SelectionVerifier>,
-                > = Some(Arc::new(pse_backend_native::root_isolation::Ibex));
-                #[cfg(not(feature = "solver-root-isolation"))]
-                let verifier: Option<
-                    Arc<dyn pse_math::implicit::SelectionVerifier>,
-                > = None;
-                // Inputs are in dependency order. Propagate the actual consumer demands
-                // backwards before compiling any provider, including the inner adapter's
-                // residual minimum and explicitly authored partial derivatives.
-                for item in inner.iter().rev() {
-                    let key = item.admitted.descriptor.spec().key();
-                    let requested = provider_demands
-                        .get(&key)
-                        .copied()
-                        .unwrap_or(pse_kernels::DerivativeOrder::Value);
-                    let requirements = item.admitted.requirements(
-                        requested,
-                        solver.minimum_order(),
-                        verifier.as_deref(),
-                        &accelerators,
-                        &flag,
-                        profile.evaluation,
-                    )?;
-                    for (dependency, required) in item.admitted.provider_demands(requirements)? {
-                        provider_demands
-                            .entry(dependency)
-                            .and_modify(|order| *order = (*order).max(required))
-                            .or_insert(required);
-                    }
+                if item.admitted.algorithm == pse_compiler::workspace::ImplicitAlgorithm::Native {
+                    return Err(MathRuntimeError::Infrastructure(
+                        "nested realization requires the KINSOL capability".into(),
+                    ));
                 }
-                let mut factories = Vec::new();
-                let mut retained = 0usize;
-                for item in inner {
-                    let source_key = item.admitted.descriptor.spec().key();
-                    let requested_output = provider_demands
-                        .get(&source_key)
-                        .copied()
-                        .unwrap_or(pse_kernels::DerivativeOrder::Value);
-                    #[cfg(not(feature = "solver-kinsol"))]
-                    if item.admitted.algorithm == pse_compiler::workspace::ImplicitAlgorithm::Native
-                    {
-                        return Err(MathRuntimeError::Infrastructure(
-                            "nested realization requires the KINSOL capability".into(),
-                        ));
-                    }
-                    let factory = item.admitted.reconstruction_factory(
-                        item.configurations,
-                        pse_compiler::workspace::ImplicitCapabilities {
-                            solver: solver.clone(),
-                            verifier: verifier.clone(),
-                            accelerators: &accelerators,
-                        },
-                        requested_output,
-                        flag.clone(),
-                        profile.evaluation,
-                    )?;
-                    retained = retained
-                        .checked_add(factory.retained_bytes()?)
-                        .ok_or(MathRuntimeError::Limit("inner program extent"))?;
-                    let dependencies = item
-                        .admitted
-                        .bodies()
-                        .flat_map(|b| b.math().providers())
-                        .map(pse_kernels::ProviderSpec::key)
-                        .collect::<Vec<_>>();
-                    let descriptor = item
-                        .admitted
-                        .descriptor
-                        .restrict_order(requested_output)
-                        .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
-                    factories.push((source_key, descriptor, factory, dependencies));
-                }
-                Ok((factories, retained))
-            });
+                let factory = item.admitted.reconstruction_factory(
+                    item.configurations,
+                    pse_compiler::workspace::ImplicitCapabilities {
+                        solver: solver.clone(),
+                        verifier: verifier.clone(),
+                        accelerators: &accelerators,
+                    },
+                    requested_output,
+                    flag.clone(),
+                    profile.evaluation,
+                )?;
+                retained = retained
+                    .checked_add(factory.retained_bytes()?)
+                    .ok_or(MathRuntimeError::Limit("inner program extent"))?;
+                let dependencies = item
+                    .admitted
+                    .bodies()
+                    .flat_map(|b| b.math().providers())
+                    .map(pse_kernels::ProviderSpec::key)
+                    .collect::<Vec<_>>();
+                let descriptor = item
+                    .admitted
+                    .descriptor
+                    .restrict_order(requested_output)
+                    .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
+                factories.push((source_key, descriptor, factory, dependencies));
+            }
+            Ok((factories, retained))
+        });
         tokio::pin!(operation);
         let (factories, owner) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         let mut registrations = external;
@@ -365,15 +377,26 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<ModelingTermEvidence, MathRuntimeError> {
         let control = FlightCancellation::default();
-        let bytes = self.policy.worker_bytes;
+        // Charge construction, simultaneous earlier reports and the transported input.
+        // Summing per-row peaks is conservative: actual findings share one work allowance.
+        let bytes = terms.values().try_fold(0usize, |bytes, values| {
+            let peak = pse_math::diagnostics::term_allocation_bound(values, policy)?;
+            bytes
+                .checked_add(peak)
+                .and_then(|bytes| {
+                    bytes.checked_add(values.capacity().checked_mul(size_of::<f64>())?)
+                })
+                .and_then(|bytes| bytes.checked_add(256))
+                .ok_or(MathRuntimeError::Limit(
+                    "term diagnostic construction extent",
+                ))
+        })?;
+        if bytes > self.policy.worker_bytes {
+            return Err(MathRuntimeError::Limit(
+                "term diagnostic construction extent",
+            ));
+        }
         let operation = self.job_retained(1, bytes, control.clone(), move |flag| {
-            let input_bytes = terms
-                .values()
-                .try_fold(0usize, |n, v| n.checked_add(v.len().checked_mul(32)?))
-                .ok_or(MathRuntimeError::Limit("term diagnostic input extent"))?;
-            if input_bytes > bytes / 2 {
-                return Err(MathRuntimeError::Limit("term diagnostic input extent"));
-            }
             let count = terms.len();
             let mut remaining = policy.combinations;
             let mut findings = policy.findings;
@@ -597,9 +620,9 @@ impl MathService {
         self.count(|p| &p.views);
         self.own_preparation(owned)
     }
-    /// Value-only rebind of a prepared view (A6). Nothing runs when no value the derived
-    /// realization parameters (ADR-0104) or the value-dependent products consumed changed;
-    /// otherwise only those are rebuilt, on an admitted worker, and the structure, its
+    /// Value-only rebind of a prepared view (A6). No value-dependent product is rebuilt
+    /// when its consumed values and derived realization parameters are unchanged.
+    /// Comparison metadata and changed products use bounded admission; the structure, its
     /// derivation rules and its programs stay shared.
     ///
     /// # Errors
@@ -611,36 +634,83 @@ impl MathService {
         values: pse_math::binding::CaseValues,
         driver: &crate::CancelSource,
     ) -> Result<super::Preparation, MathRuntimeError> {
+        self.rebind_scoped(prepared, values, driver, None).await
+    }
+    async fn rebind_scoped(
+        self: &Arc<Self>,
+        prepared: &super::Preparation,
+        values: pse_math::binding::CaseValues,
+        driver: &crate::CancelSource,
+        deadline: Option<std::time::Instant>,
+    ) -> Result<super::Preparation, MathRuntimeError> {
+        enum Comparison {
+            Unchanged,
+            Sharing(pse_compiler::workspace::PreparedCase),
+            Rebuild(pse_math::binding::CaseValues),
+        }
+        // Both phases share the enclosing clock or one admission-only cutoff.
+        // A comparison needing Derived::complete or frozen-value validation copies
+        // metadata only after bounded population/CPU/pool admission.
+        let cutoff = self.admission_deadline(deadline)?;
         let compiled = prepared.prepared.clone();
-        if compiled.values_match(&values) {
-            self.count(|p| &p.shared);
-            // Derived realization parameters are unchanged (ADR-0104); they complete the
-            // values the recorded assumptions are compared with.
-            let completed = compiled.derived.complete(&values);
-            if compiled
-                .coefficient_values
-                .iter()
-                .all(|(id, bits)| completed.scalars.get(id).map(|v| v.to_bits()) == Some(*bits))
-            {
-                compiled
-                    .plan
-                    .structure()
-                    .validate_frozen_values(&completed)?;
-                return Ok(prepared.clone());
-            }
-            // Every product is shared; only the recorded fixed and parameter values follow
-            // the new values, which needs no worker.
-            let rebound = compiled.rebind(&values, &Arc::new(AtomicBool::new(false)))?;
-            let bytes = rebound.rebind_allocation_bytes(&compiled);
-            return Ok(Self::own_rebind(
-                prepared,
-                rebound,
-                self.reserve("math:rebind", bytes)?,
+        let binding_demand = compiled.rebind_binding_allocation_bound(&values)?;
+        if binding_demand > self.policy.worker_bytes {
+            return Err(MathRuntimeError::Limit(
+                "rebind binding construction capacity",
             ));
         }
         let control = FlightCancellation::default();
+        let entry = self.admit_entry(1, binding_demand, &control, deadline, Some(cutoff))?;
+        let comparison = self.job_retained_on_entry(
+            1,
+            binding_demand,
+            control.clone(),
+            deadline,
+            entry,
+            move |flag| {
+                if compiled.values_match(&values) {
+                    let completed = compiled.derived.complete(&values);
+                    if compiled.coefficient_values.iter().all(|(id, bits)| {
+                        completed.scalars.get(id).map(|v| v.to_bits()) == Some(*bits)
+                    }) {
+                        compiled
+                            .plan
+                            .structure()
+                            .validate_frozen_values(&completed)?;
+                        return Ok((Comparison::Unchanged, 0));
+                    }
+                    let rebound = compiled.rebind(&values, &flag)?;
+                    let bytes = rebound.rebind_allocation_bytes(&compiled);
+                    return Ok((Comparison::Sharing(rebound), bytes));
+                }
+                Ok((Comparison::Rebuild(values), 0))
+            },
+        );
+        tokio::pin!(comparison);
+        let (comparison, lease) = tokio::select! {result=&mut comparison=>result?,()=driver.cancelled()=>{control.cancel();let _=comparison.await;return Err(MathRuntimeError::Cancelled);}};
+        let values = match comparison {
+            Comparison::Unchanged => {
+                self.count(|p| &p.shared);
+                return Ok(prepared.clone());
+            }
+            Comparison::Sharing(rebound) => {
+                self.count(|p| &p.shared);
+                return Ok(Self::own_rebind(prepared, rebound, lease));
+            }
+            Comparison::Rebuild(values) => values,
+        };
+        drop(lease);
+        let compiled = prepared.prepared.clone();
+        let demand = compiled
+            .rebind_allocation_bound(&values)?
+            .unwrap_or(self.policy.worker_bytes);
+        if demand > self.policy.worker_bytes {
+            return Err(MathRuntimeError::Limit("rebind construction capacity"));
+        }
+        let control = FlightCancellation::default();
+        let entry = self.admit_entry(1, demand, &control, deadline, Some(cutoff))?;
         let operation =
-            self.job_retained(1, self.policy.worker_bytes, control.clone(), move |flag| {
+            self.job_retained_on_entry(1, demand, control.clone(), deadline, entry, move |flag| {
                 let rebound = compiled.rebind(&values, &flag)?;
                 let bytes = rebound.rebind_allocation_bytes(&compiled);
                 Ok((rebound, bytes))
@@ -659,7 +729,19 @@ impl MathService {
         driver: &crate::CancelSource,
         scope: pse_kernels::ExecutionScope,
     ) -> Result<super::Preparation, MathRuntimeError> {
-        Self::within_task(&scope, driver, self.rebind(prepared, values, driver)).await
+        // This direct job owns its original deadline and completion drain. A
+        // shared-loader waiter may abandon a loader; a rebind must await its own
+        // admitted operation so deadline refusal has released the population ticket.
+        scope
+            .check()
+            .map_err(pse_backend_native::ProblemError::Provider)?;
+        let result = self
+            .rebind_scoped(prepared, values, driver, scope.deadline())
+            .await?;
+        scope
+            .check()
+            .map_err(pse_backend_native::ProblemError::Provider)?;
+        Ok(result)
     }
     /// Own immutable generated declarations and their package data documents under the
     /// deployment pool.

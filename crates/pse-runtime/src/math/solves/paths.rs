@@ -159,7 +159,16 @@ impl MathService {
         let checked = second.clone();
         let check_scope = scope.clone();
         let control = FlightCancellation::default();
-        let operation=self.job_retained_scoped(1,self.policy.workspace_bytes,control.clone(),scope.deadline(),move |_| {
+        let demand = base
+            .assembly
+            .support_upgrade_allocation_bound(pse_math::jets::EvaluationLimits::default())?
+            .unwrap_or(self.policy.workspace_bytes);
+        if demand > self.policy.worker_bytes {
+            return Err(MathRuntimeError::Limit(
+                "path curvature construction capacity",
+            ));
+        }
+        let operation=self.job_retained_scoped(1,demand,control.clone(),scope.deadline(),move |_| {
             check_scope.check().map_err(ProblemError::Provider)?;
             if !checked.assembly.is_derivative_projection_of(&base.assembly,&quantities,check_scope.cancellation())? {return Err(ProblemError::Contract("path curvature differs from frozen original formulas, guards, quantities or physical maps".into()).into());}
             check_scope.check().map_err(ProblemError::Provider)?;
@@ -2891,7 +2900,11 @@ impl MathService {
             let actual=native::assembled::contract(&assembly);let n=coordinates.len();
             let unknowns=actual.variables[..n].iter().map(|v|pse_math::implicit::Unknown {id:v.id,lower:v.lower,upper:v.upper}).collect::<Vec<_>>();
             let control=FlightCancellation::default();let projection_scope=scope.clone();let limit=self.policy.worker_bytes/256;
-            let projection=self.job_retained_scoped(1,self.policy.worker_bytes,control.clone(),scope.deadline(),move |_| {
+            let demand = assembly.factorable_allocation_bound(&pse_math::factorable::FactorableRequest::default(), limit)?
+                .map(|bytes| n.checked_mul(4 * size_of::<pse_math::factorable::Node>() + 4 * size_of::<usize>()).and_then(|extra| bytes.checked_add(extra)).ok_or(MathRuntimeError::Limit("path isolation construction extent")))
+                .transpose()?.unwrap_or(self.policy.worker_bytes);
+            if demand > self.policy.worker_bytes { return Err(MathRuntimeError::Limit("path isolation construction capacity")); }
+            let projection=self.job_retained_scoped(1,demand,control.clone(),scope.deadline(),move |_| {
                 projection_scope.check().map_err(ProblemError::Provider)?;
                 let (identity,program)=assembly.root_path_isolation_program(&values,parameter,interval,limit,projection_scope.cancellation()).map_err(|e|match e {pse_math::factorable::FactorableError::Math(cause)=>ProblemError::Math(cause),cause=>ProblemError::Math(pse_math::MathError::Typed {retained:size_of_val(&cause),cause:pse_model::diagnostic::DiagnosticCause::new(cause)})})?.ok_or_else(||ProblemError::Unsupported("compiled path source cannot furnish exact First guards and a finite complete root domain".into()))?;
                 projection_scope.check().map_err(ProblemError::Provider)?;let bytes=program.retained_bytes();Ok(((identity,Arc::new(program)),bytes))

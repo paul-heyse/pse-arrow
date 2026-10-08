@@ -93,7 +93,7 @@ smallvec = { version = "1", default-features = false, features = ["const_new"] }
 sqlparser = { version = "0.62", features = ["visitor"] }
 subtle = { version = "2" }
 syn-7b89eefb6aaa9bf3 = { package = "syn", version = "3", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
-tokio = { version = "1", features = ["io-util", "macros", "rt-multi-thread", "signal", "sync", "time"] }
+tokio = { version = "1", features = ["io-util", "macros", "process", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["compat", "io", "rt"] }
 tracing = { version = "0.1", features = ["release_max_level_debug"] }
 tracing-core = { version = "0.1" }

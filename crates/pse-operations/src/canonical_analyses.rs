@@ -221,7 +221,7 @@ impl CanonicalStore {
                 selected.push(row);
             }
             let row = wire::encode_canonical_analyses(header)?;
-            protected_query(|| {
+            protected_query("canonical_analyses::persist_analysis", || {
                 Ok(self
                     .db
                     .query("RETURN fn::pse_analysis_v1::begin($row,$sources,$inputs);")
@@ -262,7 +262,7 @@ impl CanonicalStore {
                 .collect::<Result<Vec<_>, _>>()?;
             self.append_analysis(&header.key, vec![], encoded).await?;
         }
-        let mut response = protected_query(|| {
+        let mut response = protected_query("canonical_analyses::persist_analysis", || {
             Ok(self
                 .db
                 .query("RETURN fn::pse_analysis_v1::activate($key);")
@@ -281,7 +281,7 @@ impl CanonicalStore {
         nodes: Vec<Object>,
         edges: Vec<Object>,
     ) -> Result<(), CanonicalError> {
-        protected_query(|| {
+        protected_query("canonical_analyses::append_analysis", || {
             Ok(self
                 .db
                 .query("RETURN fn::pse_analysis_v1::append($key,$nodes,$edges);")
@@ -295,7 +295,7 @@ impl CanonicalStore {
     /// Exact active header; incomplete or explicitly withdrawn graphs refuse reads.
     pub async fn analysis(&self, key: &str) -> Result<Analysis, CanonicalError> {
         identity(key)?;
-        let mut result=protected_query(||Ok(self.db.query("LET $row=fn::pse_analysis_v1::available($key); IF !$row.active { THROW 'analysis graph incomplete'; }; RETURN $row;").bind(("key",key.to_owned())))).await?;
+        let mut result=protected_query("canonical_analyses::analysis", ||Ok(self.db.query("LET $row=fn::pse_analysis_v1::available($key); IF !$row.active { THROW 'analysis graph incomplete'; }; RETURN $row;").bind(("key",key.to_owned())))).await?;
         let index = result.num_statements().saturating_sub(1);
         Ok(wire::decode_canonical_analyses(
             result
@@ -334,7 +334,7 @@ impl CanonicalStore {
         kind: &str,
     ) -> Result<Vec<Object>, CanonicalError> {
         identity(key)?;
-        let mut response = protected_query(|| {
+        let mut response = protected_query("canonical_analyses::analysis_page", || {
             Ok(self
                 .db
                 .query("RETURN fn::pse_analysis_v1::read($key,$after,$kind);")

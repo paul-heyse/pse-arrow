@@ -44,30 +44,21 @@ impl MathService {
         selection: ModelingFlowSelection,
         driver: &crate::CancelSource,
     ) -> Result<PreparedFlow, MathRuntimeError> {
+        let demand = model.flow_allocation_bound(&selection, &quantities)?;
+        if demand > self.policy.workspace_bytes {
+            return Err(MathRuntimeError::Limit("flow construction capacity"));
+        }
         let control = FlightCancellation::default();
-        let operation = self.job_retained(
-            1,
-            self.policy.workspace_bytes,
-            control.clone(),
-            move |flag| {
-                if flag.load(std::sync::atomic::Ordering::Relaxed) {
-                    return Err(MathRuntimeError::Cancelled);
-                }
-                let graph = Arc::new(model.flow_graph(&selection, &quantities)?);
-                let d = graph.declaration();
-                let bytes = d
-                    .nodes
-                    .iter()
-                    .map(|n| size_of_val(n) + size_of_val(n.ports.as_slice()))
-                    .sum::<usize>()
-                    + d.connections
-                        .iter()
-                        .map(|c| size_of_val(c) + size_of_val(c.bindings.as_slice()))
-                        .sum::<usize>()
-                    + size_of_val(d.decisions.as_slice());
-                Ok((graph, bytes))
-            },
-        );
+        let operation = self.job_retained(1, demand, control.clone(), move |flag| {
+            if flag.load(std::sync::atomic::Ordering::Relaxed) {
+                return Err(MathRuntimeError::Cancelled);
+            }
+            let graph = Arc::new(model.flow_graph(&selection, &quantities)?);
+            let bytes = graph
+                .retained_allocation_bound()
+                .map_err(pse_compiler::workspace::CompileError::from)?;
+            Ok((graph, bytes))
+        });
         tokio::pin!(operation);
         let (graph, lease) = tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         let owner = self.shared_product(
@@ -113,16 +104,28 @@ impl MathService {
             .and_then(|v| v.checked_add(controls.report_allowance().ok()?))
             .ok_or(MathRuntimeError::Limit("tear result allowance"))?;
         let owner = self.reserve("math:tear-results", bytes)?;
-        let worker_bytes = controls
-            .threads
-            .saturating_sub(1)
-            .checked_mul(self.policy.stack_bytes)
-            .and_then(|v| v.checked_add(self.policy.worker_bytes))
-            .ok_or(MathRuntimeError::Limit("tear worker stack allowance"))?;
+        let worker_bytes = if method == TearMethod::UnweightedHeuristic || d.connections.is_empty()
+        {
+            flow.graph
+                .tear_allocation_bound()
+                .map_err(pse_compiler::workspace::CompileError::from)?
+        } else {
+            tears::construction_allocation_bound(&flow.graph)?
+        };
+        if worker_bytes > self.policy.worker_bytes {
+            return Err(MathRuntimeError::Limit("tear construction capacity"));
+        }
         let cancel = FlightCancellation::default();
         let deadline = std::time::Instant::now()
             .checked_add(controls.time_limit)
             .ok_or(MathRuntimeError::Limit("tear task deadline"))?;
+        let entry = self.admit_entry(
+            controls.threads,
+            worker_bytes,
+            &cancel,
+            Some(deadline),
+            None,
+        )?;
         let scope = pse_kernels::ExecutionScope::new(cancel.flag(), Some(deadline));
         let control = cancel.clone();
         let progress = Arc::new(Progress::new(controls.history));
@@ -131,11 +134,12 @@ impl MathService {
         let (tx, receiver) = tokio::sync::oneshot::channel();
         tokio::spawn(async move {
             let result = service
-                .job_scoped(
+                .job_scoped_on_entry(
                     controls.threads,
                     worker_bytes,
                     control,
                     Some(deadline),
+                    entry,
                     move |flag| {
                         let mut execution = Execution::within(flag, &controls, scope.clone())?;
                         execution.progress = events;
@@ -384,5 +388,157 @@ mod tests {
         assert!(result.selected.is_some());
         assert!(result.attempt.is_none());
         assert_eq!(service.cpu.available_permits(), 2);
+    }
+}
+
+#[cfg(test)]
+mod demand_tests {
+    use super::*;
+    #[tokio::test(flavor = "current_thread")]
+    async fn tear_submission_burst_owns_ticket_before_spawning_attempt() {
+        use pse_structural::{
+            flowsheet::{Declaration, FlowGraph, Node},
+            projection::GraphLimits,
+        };
+        let (service, _cache) = super::super::tests::service_with_policy(
+            256 << 20,
+            super::super::MathPolicy {
+                jobs: 32,
+                foreign_bytes: 1 << 20,
+                ..Default::default()
+            },
+        );
+        let registry = pse_quantity::QuantityRegistryBuilder::new()
+            .build()
+            .unwrap();
+        let graph = Arc::new(
+            FlowGraph::admit(
+                Declaration {
+                    nodes: vec![Node {
+                        id: SemanticId::from_bytes([1; 16]),
+                        ports: vec![],
+                    }],
+                    connections: vec![],
+                    decisions: vec![],
+                },
+                &registry,
+                GraphLimits { nodes: 1, edges: 0 },
+            )
+            .unwrap(),
+        );
+        let lease = service
+            .reserve("flow:burst-source", graph.tear_allocation_bound().unwrap())
+            .unwrap();
+        let owner = service
+            .shared_product(vec![92], graph.clone(), lease, vec![])
+            .unwrap();
+        let flow = PreparedFlow {
+            graph,
+            _owner: owner,
+        };
+        let baseline = service.pool.reserved();
+        let cpu = service.cpu.clone().acquire_many_owned(2).await.unwrap();
+        let mut handles = Vec::new();
+        for _ in 0..32 {
+            handles.push(
+                service
+                    .select_tears(
+                        flow.clone(),
+                        TearMethod::UnweightedHeuristic,
+                        Controls::default(),
+                    )
+                    .unwrap(),
+            );
+        }
+        assert_eq!(service.jobs.available_permits(), 0);
+        assert!(matches!(
+            service.select_tears(
+                flow.clone(),
+                TearMethod::UnweightedHeuristic,
+                Controls::default()
+            ),
+            Err(MathRuntimeError::Limit("native jobs"))
+        ));
+        for handle in &handles {
+            handle.cancel();
+        }
+        for handle in handles {
+            assert!(matches!(
+                handle.finish().await,
+                Err(MathRuntimeError::Cancelled)
+            ));
+        }
+        assert_eq!(service.jobs.available_permits(), 32);
+        assert_eq!(service.pool.reserved(), baseline);
+        drop(cpu);
+        assert_eq!(service.cpu.available_permits(), 2);
+        let result = service
+            .select_tears(flow, TearMethod::UnweightedHeuristic, Controls::default())
+            .unwrap()
+            .finish()
+            .await
+            .unwrap();
+        assert_eq!(result.selected.as_ref().unwrap().order.len(), 1);
+        drop(result);
+        assert_eq!(service.pool.reserved(), 0);
+    }
+    #[tokio::test]
+    async fn heuristic_flow_uses_source_demand_under_generous_worker_capacity() {
+        use pse_structural::{
+            flowsheet::{Declaration, FlowGraph, Node},
+            projection::GraphLimits,
+        };
+        let (service, _cache) = super::super::tests::service_with_policy(
+            256 << 20,
+            super::super::MathPolicy {
+                worker_bytes: 16usize << 30,
+                foreign_bytes: 1 << 20,
+                ..Default::default()
+            },
+        );
+        let registry = pse_quantity::QuantityRegistryBuilder::new()
+            .build()
+            .unwrap();
+        let graph = Arc::new(
+            FlowGraph::admit(
+                Declaration {
+                    nodes: vec![
+                        Node {
+                            id: SemanticId::from_bytes([1; 16]),
+                            ports: vec![],
+                        },
+                        Node {
+                            id: SemanticId::from_bytes([2; 16]),
+                            ports: vec![],
+                        },
+                    ],
+                    connections: vec![],
+                    decisions: vec![],
+                },
+                &registry,
+                GraphLimits { nodes: 8, edges: 8 },
+            )
+            .unwrap(),
+        );
+        let lease = service
+            .reserve("flow:test-source", graph.tear_allocation_bound().unwrap())
+            .unwrap();
+        let owner = service
+            .shared_product(vec![91], graph.clone(), lease, vec![])
+            .unwrap();
+        let flow = PreparedFlow {
+            graph,
+            _owner: owner,
+        };
+        let result = service
+            .select_tears(flow, TearMethod::UnweightedHeuristic, Controls::default())
+            .unwrap()
+            .finish()
+            .await
+            .unwrap();
+        assert_eq!(result.selected.as_ref().unwrap().order.len(), 2);
+        assert!(result.attempt.is_none());
+        drop(result);
+        assert_eq!(service.pool.reserved(), 0);
     }
 }

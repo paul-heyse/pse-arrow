@@ -202,7 +202,6 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
     let submission = Submission {
         cancel: cancellation.clone(),
         progress: Arc::new(Progress::new(2)),
-        queue: false,
         admitted: None,
         deadline: scope.deadline(),
     };

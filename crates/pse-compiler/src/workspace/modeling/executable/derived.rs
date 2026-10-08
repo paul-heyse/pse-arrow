@@ -97,6 +97,10 @@ impl Derived {
     }
 }
 impl Derivation {
+    /// Enclosure rebuilding has a distinct projection lifetime/population.
+    pub(super) fn has_enclosure(&self) -> bool {
+        self.enclosure.is_some()
+    }
     /// Resolve the derived parameters of `model` against a bound `structure`: a free
     /// variable's case bound is structural and must be finite; a fixed variable's value and
     /// every big-M enclosure are taken per binding ([`Self::derive`]).

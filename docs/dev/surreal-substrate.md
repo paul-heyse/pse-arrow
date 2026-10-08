@@ -90,6 +90,20 @@ workers and a server allocation below 512 MiB. Runtime composition consumes the 
 worker count and per-worker allocation. The helper launches native processes within those
 fixed capped slots and refuses excess admission.
 
+The selected Plan 28 parallel deployment uses `--execution-profile plan28-reference`
+and an explicit absolute `--worker-executable`. Its capacities are read from the
+reference manifest and materialized under one finite systemd parent. See
+[28h's selected deployment](../plans/28h-native-setup-and-artifact-identity.md#parallel-deployment-and-supported-native-placement)
+for the adopted placement. One managed primary owns the shared runtime; public durable
+studies observe it from the separate bounded observer process. Readiness verifies the
+actual executable, database, process and cgroup, with role-specific producer association
+when explicitly selected; it is not proof of native overlap or scientific success.
+
+Reference role launches set inherited scheduler affinity to the selected sixteen physical
+cores before any worker threads start. Readiness reads the actual process and thread masks.
+The supervisor also checks cpuset readback where delegated; user managers without that
+controller use process affinity together with the same finite cgroup CPU quota and memory caps.
+
 Change an existing owned allocation while admission is quiesced and the server is
 stopped:
 
@@ -102,7 +116,7 @@ just surreal reconfigure --memory-mib 32768 --server-memory-mib 16384 \
 just surreal start
 ```
 
-`reconfigure` accepts the three memory options above. Omitted values preserve the
+For the ordinary finite-slot profile, `reconfigure` accepts the three memory options above. Omitted values preserve the
 saved allocation exactly; setup's defaults apply only to new state. The supervisor
 verifies the stopped server's cgroup and every existing worker group is empty under
 the lifecycle lock, validates the complete joint budget, then atomically replaces
@@ -115,6 +129,16 @@ preserves worker count and unit names, endpoint, interpretation, release,
 credentials and database contents. It leaves the server stopped and admission
 closed. The next explicit `start` consumes the new server budget and derived
 settings; subsequent managed workers consume the new per-worker budget.
+
+Select or readmit the reference profile through the same quiesce/drain/stop sequence,
+then `just surreal reconfigure --execution-profile plan28-reference
+--worker-executable /absolute/path/to/pse-worker`, followed by explicit `start`.
+Memory overrides cannot accompany this profile selection. Offline readmission observes
+the current supervisor and receiver bytes and preserves the database, endpoint,
+credentials and interpretation. A changed executable or supervisor cannot silently
+inherit a live primary's recorded association. Use `just py-test --managed-primary-route`
+for managed Python consumers, or the explicit managed partition of the native assessment;
+ordinary test processes retain their separate finite budgets.
 
 The supervisor creates a transient systemd **user service** with `MemoryMax` equal to
 the server allocation, `MemorySwapMax=0`, `TasksMax=128`, `KillMode=control-group` and

@@ -126,6 +126,8 @@ pub struct ModelingResultData {
     pub checks: Vec<ModelingCheck>,
     pub reports: Vec<ModelingReport>,
     pub run_id: RunId,
+    /// Actual zero-based original attempt supplied by the completion owner.
+    pub(in crate::workflow) original_attempt: usize,
     runtime: Runtime,
     /// Projection of `completion`; never decided separately.
     pub accepted: bool,
@@ -986,6 +988,7 @@ impl ModelingResult {
             runtime: prepared.source.runtime.clone(),
             prepared,
             run_id,
+            original_attempt: attempt,
             outcome,
             values: point.values,
             checks: point.checks,

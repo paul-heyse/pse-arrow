@@ -91,7 +91,24 @@ pub struct CanonicalOptions {
     pub password: String,
     /// Finite managed native-worker allocation read from the owning supervisor profile.
     pub native: NativeAllocation,
+    /// Explicit verified interpreter, supervisor and worker for managed primary startup.
+    pub primary_receiver: Option<ManagedPrimaryReceiver>,
     state_path: PathBuf,
+}
+/// Materialized executable association for the managed study receiver.
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ManagedPrimaryReceiver {
+    /// Interpreter selected by the owning supervisor environment.
+    pub supervisor_executable: PathBuf,
+    /// Supervisor entry point selected at profile construction.
+    pub supervisor_script: PathBuf,
+    /// Exact linked worker selected at profile construction.
+    pub worker_executable: PathBuf,
+    /// Supervisor file SHA-256 association, verified at launch.
+    pub supervisor_sha256: String,
+    /// Linked worker file SHA-256 association, verified at launch and readiness.
+    pub worker_sha256: String,
 }
 /// The application profile's separately capped native-worker slots.
 #[derive(Clone, Copy, Debug, serde::Deserialize)]
@@ -100,6 +117,72 @@ pub struct NativeAllocation {
     pub native_workers: usize,
     /// Hard process memory cap for each worker.
     pub native_worker_memory_bytes: usize,
+    /// Optional materialized shared-runtime execution profile.
+    #[serde(default)]
+    pub execution: Option<NativeExecutionAllocation>,
+}
+/// Finite runtime allocation materialized by the existing deployment supervisor.
+#[derive(Clone, Copy, Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NativeExecutionAllocation {
+    /// Shared application pool capacity, distinct from the process cap.
+    pub pool_memory_bytes: usize,
+    /// Maximum aggregate numeric capacity of one case worker.
+    pub worker_bytes: usize,
+    /// Shared CPU permits for all case and inner native work.
+    pub cpu_threads: usize,
+    /// Maximum ordinary concurrent case lanes in the primary group.
+    pub case_lanes: usize,
+    /// Total pending, executing and retained session population.
+    pub math_jobs: usize,
+    /// Ordinary optimizer team width.
+    pub compiler_cores: usize,
+    /// Admission-only clock where no enclosing deadline exists.
+    pub admission_wait_ms: u64,
+    /// Explicit process headroom policy; not a measured resident-memory bound.
+    pub process_headroom_bytes: usize,
+    /// Separately placed observer allocation without native assistance.
+    pub observer_memory_bytes: usize,
+}
+impl NativeAllocation {
+    /// Validate the selected finite profile without inferring process RSS from pool capacity.
+    /// # Errors
+    /// Invalid populations or a runtime allocation that exceeds the process cap.
+    pub fn validate(&self) -> Result<(), CanonicalError> {
+        if !(1..=32).contains(&self.native_workers) || self.native_worker_memory_bytes == 0 {
+            return Err(CanonicalError::Configuration(
+                "finite native-worker allocation required".into(),
+            ));
+        }
+        if let Some(profile) = self.execution {
+            if self.native_workers != 1
+                || profile.pool_memory_bytes == 0
+                || profile.worker_bytes == 0
+                || profile.worker_bytes > profile.pool_memory_bytes
+                || profile.cpu_threads == 0
+                || profile.case_lanes == 0
+                || profile.case_lanes > profile.cpu_threads
+                || profile
+                    .case_lanes
+                    .checked_mul(2)
+                    .is_none_or(|population| population > profile.math_jobs)
+                || profile.compiler_cores == 0
+                || profile.compiler_cores > profile.cpu_threads
+                || profile.admission_wait_ms == 0
+                || profile.process_headroom_bytes == 0
+                || profile.observer_memory_bytes == 0
+                || profile
+                    .pool_memory_bytes
+                    .checked_add(profile.process_headroom_bytes)
+                    .is_none_or(|bytes| bytes > self.native_worker_memory_bytes)
+            {
+                return Err(CanonicalError::Configuration(
+                    "shared execution profile exceeds the managed allocation".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 impl std::fmt::Debug for CanonicalOptions {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -123,6 +206,8 @@ impl CanonicalOptions {
             max_message_bytes: usize,
             credentials_file: String,
             resources: NativeAllocation,
+            #[serde(default)]
+            primary_receiver: Option<ManagedPrimaryReceiver>,
         }
         #[derive(serde::Deserialize)]
         #[serde(deny_unknown_fields)]
@@ -192,12 +277,20 @@ impl CanonicalOptions {
                 "unsupported protocol bound".into(),
             ));
         }
-        if !(1..=32).contains(&deployment.resources.native_workers)
-            || deployment.resources.native_worker_memory_bytes == 0
-        {
-            return Err(CanonicalError::Configuration(
-                "finite native-worker allocation required".into(),
-            ));
+        deployment.resources.validate()?;
+        if let Some(receiver) = &deployment.primary_receiver {
+            let digest = |value: &str| {
+                value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+            };
+            if deployment.resources.execution.is_none()
+                || !receiver.supervisor_executable.is_absolute()
+                || !receiver.supervisor_script.is_absolute()
+                || !receiver.worker_executable.is_absolute()
+                || !digest(&receiver.supervisor_sha256)
+                || !digest(&receiver.worker_sha256)
+            {
+                return Err(CanonicalError::Configuration("managed primary requires an execution profile and exact executable association".into()));
+            }
         }
         let credentials: Credentials =
             serde_json::from_slice(&read(Path::new(&deployment.credentials_file))?)
@@ -209,6 +302,7 @@ impl CanonicalOptions {
             username: credentials.username,
             password: credentials.password,
             native: deployment.resources,
+            primary_receiver: deployment.primary_receiver,
             state_path: state.to_owned(),
         })
     }
@@ -245,10 +339,34 @@ impl ProtectedSelection {
     }
 }
 
+/// Local pacing of independent short staging decisions sharing one server guard.
+/// The server's guarded predicates and generations remain the distributed authority.
+#[derive(Default)]
+struct StagingTurns {
+    problems: std::sync::Mutex<
+        std::collections::BTreeMap<String, std::sync::Weak<tokio::sync::Mutex<()>>>,
+    >,
+}
+impl StagingTurns {
+    fn gate(&self, problem: &str) -> Result<Arc<tokio::sync::Mutex<()>>, CanonicalError> {
+        let mut problems = self.problems.lock().map_err(|_| {
+            CanonicalError::Configuration("staging admission owner poisoned".into())
+        })?;
+        problems.retain(|_, gate| gate.strong_count() != 0);
+        if let Some(gate) = problems.get(problem).and_then(std::sync::Weak::upgrade) {
+            return Ok(gate);
+        }
+        let gate = Arc::new(tokio::sync::Mutex::new(()));
+        problems.insert(problem.to_owned(), Arc::downgrade(&gate));
+        Ok(gate)
+    }
+}
+
 #[derive(Clone)]
 /// Thin remote client; clones share its bounded transport.
 pub struct CanonicalStore {
     pub(crate) db: Arc<Surreal<Client>>,
+    staging_turns: Arc<StagingTurns>,
     #[cfg(any(test, feature = "test-support"))]
     fixture_lifetime: Option<Arc<crate::testing::FixtureLifetime>>,
     #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
@@ -266,6 +384,44 @@ impl std::fmt::Debug for CanonicalStore {
     }
 }
 impl CanonicalStore {
+    /// State selected by this authenticated deployment handle.
+    pub fn deployment_state(&self) -> &Path {
+        &self.state_path
+    }
+    /// Re-read the validated managed native allocation at its existing owner.
+    /// # Errors
+    /// Invalid or unavailable owning deployment configuration.
+    pub fn native_allocation(&self) -> Result<NativeAllocation, CanonicalError> {
+        Ok(CanonicalOptions::from_state(&self.state_path)?.native)
+    }
+    /// Re-read the selected executable association for the managed primary receiver.
+    /// # Errors
+    /// Invalid or unavailable owning deployment configuration.
+    pub fn managed_primary_receiver(
+        &self,
+    ) -> Result<Option<ManagedPrimaryReceiver>, CanonicalError> {
+        Ok(CanonicalOptions::from_state(&self.state_path)?.primary_receiver)
+    }
+    /// One owner-local staging turn covers only a bounded RPC, never hydration or
+    /// scientific work. Its original request clock includes queueing; dropping a
+    /// waiter or request releases local ownership without inferring remote completion.
+    pub(crate) async fn staging_query<F>(
+        &self,
+        problem: &str,
+        future: F,
+    ) -> Result<surrealdb::IndexedResults, CanonicalError>
+    where
+        F: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
+    {
+        let gate = self.staging_turns.gate(problem)?;
+        tokio::time::timeout(REQUEST_TIMEOUT, async {
+            let _turn = gate.lock_owned().await;
+            bounded_query(future).await
+        })
+        .await
+        .map_err(|_| CanonicalError::Timeout)?
+    }
+
     /// Exact configured canonical database selected by this deployment handle.
     pub fn database(&self) -> &str {
         &self.database
@@ -309,6 +465,7 @@ impl CanonicalStore {
         let activation_db = connect_client(address, options, ACTIVATION_QUERY_TIMEOUT).await?;
         Ok(Self {
             db,
+            staging_turns: Arc::default(),
             #[cfg(any(test, feature = "test-support"))]
             fixture_lifetime: None,
             #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
@@ -485,6 +642,7 @@ impl CanonicalStore {
                     conflict_backoff(attempt).await;
                     continue;
                 }
+                operation_failed("canonical::activate_source_stage", &error);
                 return Err(error);
             }
             let revision = self.revision(&stage.operation).await?;
@@ -533,7 +691,7 @@ impl CanonicalStore {
             ));
         }
         let key = uuid::Uuid::new_v4().to_string();
-        let mut response = protected_query(|| Ok(self.db.query(r#"BEGIN;
+        let mut response = protected_query("canonical::protect", || Ok(self.db.query(r#"BEGIN;
             SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE;
             LET $revision = SELECT * FROM ONLY type::record('canonical_revisions', $revision);
             IF $revision = NONE OR $revision.problem != $problem { THROW 'revision unavailable'; };
@@ -559,7 +717,7 @@ impl CanonicalStore {
         if names.len() > 256 {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = protected_query(|| Ok(self.db.query(format!("{}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND scope = $scope AND name IN $names AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nCOMMIT;", PROTECTED_BEGIN))
+        let mut response = protected_query("canonical::select_names", || Ok(self.db.query(format!("{}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND scope = $scope AND name IN $names AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nCOMMIT;", PROTECTED_BEGIN))
             .bind(("problem", selection.revision.problem.clone())).bind(("revision", selection.revision.key.clone())).bind(("protection", selection.key.clone())).bind(("scope", scope.to_owned())).bind(("names", names.to_vec())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision.sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
@@ -652,6 +810,7 @@ impl CanonicalStore {
                         conflict_backoff(attempt).await;
                         continue;
                     }
+                    operation_failed("canonical::admit_product", &error);
                     return Err(error);
                 }
             }
@@ -667,7 +826,7 @@ impl CanonicalStore {
         // Admission can reuse a previously rooted exact product rather than create
         // the proposed publication key. Settle both branches after a lost response,
         // without requiring a still-live preparation pin or admitting anything new.
-        let mut response = protected_query(|| Ok(self.db.query("BEGIN; SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; LET $saved = SELECT key FROM canonical_products WHERE problem = $problem AND request = $product.request AND payload = $product.payload AND dependencies = $product.dependencies AND producer = $product.producer AND interpretation = $product.interpretation AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key ORDER BY key LIMIT 1; RETURN IF array::len($saved) = 0 { NONE } ELSE { $saved[0].key }; COMMIT;")
+        let mut response = protected_query("canonical::product_acknowledged", || Ok(self.db.query("BEGIN; SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; LET $saved = SELECT key FROM canonical_products WHERE problem = $problem AND request = $product.request AND payload = $product.payload AND dependencies = $product.dependencies AND producer = $product.producer AND interpretation = $product.interpretation AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key ORDER BY key LIMIT 1; RETURN IF array::len($saved) = 0 { NONE } ELSE { $saved[0].key }; COMMIT;")
             .bind(("problem", product.problem.clone())).bind(("product", wire::encode_canonical_products(product)?)))).await?;
         let value = response.take::<Value>(response.num_statements().saturating_sub(2))?;
         if matches!(value, Value::None) {
@@ -678,7 +837,7 @@ impl CanonicalStore {
     /// End a selection protection under its retention conflict guard.
     pub async fn release(&self, selection: &ProtectedSelection) -> Result<(), CanonicalError> {
         // Quiescing scientific writes must still let in-flight readers drain.
-        protected_query(|| Ok(self.db.query("BEGIN; SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; UPDATE type::record('canonical_protections', $protection) SET released = true; UPSERT type::record('canonical_guards', 'retention:' + $problem) SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec; COMMIT;")
+        protected_query("canonical::release", || Ok(self.db.query("BEGIN; SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; UPDATE type::record('canonical_protections', $protection) SET released = true; UPSERT type::record('canonical_guards', 'retention:' + $problem) SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec; COMMIT;")
             .bind(("problem", selection.revision.problem.clone())).bind(("protection", selection.key.clone())))).await?;
         Ok(())
     }
@@ -788,6 +947,7 @@ async fn connect_client(
 /// conflict. Every attempt rechecks the live pin and reclamation guard; no
 /// scientific decision or partial response is retained across attempts.
 pub(crate) async fn protected_query<F, Q>(
+    operation: &'static str,
     mut build: F,
 ) -> Result<surrealdb::IndexedResults, CanonicalError>
 where
@@ -804,12 +964,33 @@ where
             {
                 conflict_backoff(attempt).await;
             }
-            result => return result,
+            result => {
+                if let Err(error) = &result {
+                    operation_failed(operation, error);
+                }
+                return result;
+            }
         }
     }
     Err(CanonicalError::Configuration(
         "guarded operation retries exhausted".into(),
     ))
+}
+
+/// Attribute an escaping failure without altering its typed cause or retry authority.
+/// Labels are supplied by callers; bindings and query text are never logged.
+pub(crate) fn operation_failed(operation: &'static str, error: &CanonicalError) {
+    tracing::warn!(operation, error = %error, "canonical operation failed");
+    #[cfg(feature = "canonical-tests")]
+    {
+        #[allow(
+            clippy::print_stderr,
+            reason = "explicit canonical qualification captures final operation attribution without requiring a tracing subscriber"
+        )]
+        {
+            eprintln!("canonical operation {operation} failed: {error}");
+        }
+    }
 }
 
 // Short guarded decisions contend on one problem's retention guard. Pacing and
@@ -986,6 +1167,52 @@ UPSERT $retention_guard SET key = 'retention:' + $problem, generation = (generat
 COMMIT;
 "#;
 
+#[cfg(test)]
+mod staging_turn_unit {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "local ownership controls fail on unexpected admission errors"
+    )]
+    use super::*;
+
+    #[tokio::test]
+    async fn staging_turns_share_one_problem_and_release_cancelled_waiters() {
+        let turns = StagingTurns::default();
+        let gate = turns.gate("problem").unwrap();
+        assert!(Arc::ptr_eq(&gate, &turns.gate("problem").unwrap()));
+        let held = gate.clone().lock_owned().await;
+        let mut cancelled = Box::pin(gate.clone().lock_owned());
+        std::future::poll_fn(|context| {
+            assert!(cancelled.as_mut().poll(context).is_pending());
+            std::task::Poll::Ready(())
+        })
+        .await;
+        let mut following = Box::pin(gate.clone().lock_owned());
+        std::future::poll_fn(|context| {
+            assert!(following.as_mut().poll(context).is_pending());
+            std::task::Poll::Ready(())
+        })
+        .await;
+        let independent = turns.gate("independent").unwrap();
+        let independent_held = independent.clone().try_lock_owned().unwrap();
+        drop(cancelled);
+        drop(held);
+        let following = tokio::time::timeout(std::time::Duration::from_secs(1), following)
+            .await
+            .unwrap();
+        drop(following);
+        drop(gate);
+        drop(independent_held);
+        drop(independent);
+        let _next = turns.gate("next").unwrap();
+        assert_eq!(
+            turns.problems.lock().unwrap().len(),
+            1,
+            "dead problem keys must not accumulate in the local owner"
+        );
+    }
+}
+
 #[cfg(all(test, feature = "canonical-tests"))]
 mod canonical_server_unit {
     #![allow(
@@ -1023,7 +1250,7 @@ mod canonical_server_unit {
         let (store, _) = initialization_fixture().await;
         store.create().await.unwrap();
         let attempts = std::sync::atomic::AtomicUsize::new(0);
-        let mut response = protected_query(|| {
+        let mut response = protected_query("canonical::protected_decision_retries_only_definite_conflicts_and_preserves_final_error", || {
             let attempt = attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let store = &store;
             Ok(async move {
@@ -1045,7 +1272,7 @@ mod canonical_server_unit {
             "complete decision"
         );
         attempts.store(0, std::sync::atomic::Ordering::SeqCst);
-        let result = protected_query(|| {
+        let result = protected_query("canonical::protected_decision_retries_only_definite_conflicts_and_preserves_final_error", || {
             attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             Ok(async {
                 Err(surrealdb::Error::query(
@@ -1067,7 +1294,7 @@ mod canonical_server_unit {
             surrealdb::types::QueryError::NotExecuted,
         ] {
             attempts.store(0, std::sync::atomic::Ordering::SeqCst);
-            let result = protected_query(|| {
+            let result = protected_query("canonical::protected_decision_retries_only_definite_conflicts_and_preserves_final_error", || {
                 attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 let kind = kind.clone();
                 Ok(async move { Err(surrealdb::Error::query("uncertain protection".into(), kind)) })

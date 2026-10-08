@@ -435,7 +435,7 @@ impl CanonicalStore {
         }
         let object = wire::encode_canonical_studies(&row)?;
         self.ensure_writes()?;
-        protected_query(|| {
+        protected_query("canonical_studies::create_study", || {
             Ok(self
                 .db
                 .query("RETURN fn::pse_study_v1::create($row);")
@@ -615,7 +615,7 @@ impl CanonicalStore {
     }
 
     async fn send_study_activation(&self, key: &str) -> Result<Study, CanonicalError> {
-        let mut response = protected_query(|| {
+        let mut response = protected_query("canonical_studies::send_study_activation", || {
             Ok(self
                 .db
                 .query("RETURN fn::pse_study_v1::activate($study);")
@@ -680,7 +680,7 @@ impl CanonicalStore {
         points: &[Object],
         edges: &[Object],
     ) -> Result<(), CanonicalError> {
-        protected_query(|| {
+        protected_query("canonical_studies::append_study_batch", || {
             Ok(self
                 .db
                 .query("RETURN fn::pse_study_v1::append($study,$points,$edges);")
@@ -855,7 +855,7 @@ impl CanonicalStore {
             wire::INTERPRETATION,
         ))?;
         self.ensure_writes()?;
-        let response=protected_query(||Ok(self.db.query("RETURN fn::pse_study_v1::claim($study,$generation,$point,$expected,$start,$operation,$request,$claim_request,$attempt,$worker,$lifetime,$facts);").bind(("study",scope.study.clone())).bind(("generation",codec::encode_uint(scope.generation)?)).bind(("point",scope.point.key.clone())).bind(("expected",expected.clone())).bind(("start",Bytes::from(start_bytes.clone()))).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("claim_request",Bytes::from(claim_request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)).bind(("facts",Bytes::from(facts.clone()))))).await;
+        let response=protected_query("canonical_studies::claim_study_point", ||Ok(self.db.query("RETURN fn::pse_study_v1::claim($study,$generation,$point,$expected,$start,$operation,$request,$claim_request,$attempt,$worker,$lifetime,$facts);").bind(("study",scope.study.clone())).bind(("generation",codec::encode_uint(scope.generation)?)).bind(("point",scope.point.key.clone())).bind(("expected",expected.clone())).bind(("start",Bytes::from(start_bytes.clone()))).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("claim_request",Bytes::from(claim_request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)).bind(("facts",Bytes::from(facts.clone()))))).await;
         let response = response.and_then(|mut response| {
             Ok(wire::decode_canonical_attempts(
                 response
@@ -976,7 +976,7 @@ impl CanonicalStore {
         let facts = encode(&facts)?;
         let outcome = encode(&outcome)?;
         self.ensure_writes()?;
-        let mut result=protected_query(||Ok(self.db.query("RETURN fn::pse_study_v1::settle($study,$generation,$cancelled,$point,$expected,$facts,$outcome);").bind(("study",scope.study.clone())).bind(("generation",codec::encode_uint(scope.generation)?)).bind(("cancelled",scope.cancelled)).bind(("point",scope.point.key.clone())).bind(("expected",expected.clone())).bind(("facts",Bytes::from(facts.clone()))).bind(("outcome",Bytes::from(outcome.clone()))))).await?;
+        let mut result=protected_query("canonical_studies::refuse_study_point", ||Ok(self.db.query("RETURN fn::pse_study_v1::settle($study,$generation,$cancelled,$point,$expected,$facts,$outcome);").bind(("study",scope.study.clone())).bind(("generation",codec::encode_uint(scope.generation)?)).bind(("cancelled",scope.cancelled)).bind(("point",scope.point.key.clone())).bind(("expected",expected.clone())).bind(("facts",Bytes::from(facts.clone()))).bind(("outcome",Bytes::from(outcome.clone()))))).await?;
         Ok(wire::decode_canonical_study_points(
             result
                 .take::<Option<Object>>(0)?
@@ -1001,7 +1001,7 @@ impl CanonicalStore {
         admission: &StudyDispatchAdmission<'_>,
     ) -> Result<StudyPoint, CanonicalError> {
         let claim = admission.claim;
-        let result=protected_query(||Ok(self.db.query("RETURN fn::pse_study_v1::started($study,$point,$revision,$run,$attempt,$generation,$operation,$request,$facts);").bind(("study",claim.point.study.clone())).bind(("point",claim.point.key.clone())).bind(("revision",codec::encode_uint(claim.point.revision)?)).bind(("run",claim.fence.run().to_owned())).bind(("attempt",claim.fence.attempt().to_owned())).bind(("generation",codec::encode_uint(claim.fence.generation())?)).bind(("operation",admission.operation.clone())).bind(("request",Bytes::from(admission.request.clone()))).bind(("facts",Bytes::from(admission.facts.clone()))))).await;
+        let result=protected_query("canonical_studies::send_study_started", ||Ok(self.db.query("RETURN fn::pse_study_v1::started($study,$point,$revision,$run,$attempt,$generation,$operation,$request,$facts);").bind(("study",claim.point.study.clone())).bind(("point",claim.point.key.clone())).bind(("revision",codec::encode_uint(claim.point.revision)?)).bind(("run",claim.fence.run().to_owned())).bind(("attempt",claim.fence.attempt().to_owned())).bind(("generation",codec::encode_uint(claim.fence.generation())?)).bind(("operation",admission.operation.clone())).bind(("request",Bytes::from(admission.request.clone()))).bind(("facts",Bytes::from(admission.facts.clone()))))).await;
         let mut result = result?;
         Ok(wire::decode_canonical_study_points(
             result
@@ -1039,7 +1039,7 @@ impl CanonicalStore {
                 }
                 // Fence the readback against cancellation, replacement and expiry;
                 // do not repeat the start transition or authorize another dispatch.
-                let mut response = protected_query(|| Ok(self.db.query(
+                let mut response = protected_query("canonical_studies::finish_study_started", || Ok(self.db.query(
                     "BEGIN; fn::pse_execution_v1::fence($run,$attempt,$generation); SELECT * FROM ONLY type::record('canonical_study_points',$point); COMMIT;"
                 ).bind(("run", claim.fence.run().to_owned()))
                     .bind(("attempt", claim.fence.attempt().to_owned()))
@@ -1122,7 +1122,7 @@ impl CanonicalStore {
             wire::INTERPRETATION,
         ))?;
         self.ensure_writes()?;
-        let result=protected_query(||Ok(self.db.query("RETURN fn::pse_study_v1::finalize($study,$operation,$request,$attempt,$worker,$lifetime);").bind(("study",study.key.clone())).bind(("operation",operation.clone())).bind(("request",Bytes::from(request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)))).await;
+        let result=protected_query("canonical_studies::begin_study_finalization", ||Ok(self.db.query("RETURN fn::pse_study_v1::finalize($study,$operation,$request,$attempt,$worker,$lifetime);").bind(("study",study.key.clone())).bind(("operation",operation.clone())).bind(("request",Bytes::from(request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)))).await;
         let result = result.and_then(|mut result| {
             result
                 .take::<Option<Object>>(0)?
@@ -1202,7 +1202,7 @@ impl CanonicalStore {
         let outcome = encode(outcome)?;
         bounded(&outcome, 128 * 1024)?;
         self.ensure_writes()?;
-        let mut response=protected_query(||Ok(self.db.query("RETURN fn::pse_study_v1::observe($point,$revision,$attempt,$facts,$outcome,$settled);").bind(("point",point.key.clone())).bind(("revision",codec::encode_uint(point.revision)?)).bind(("attempt",point.attempt.clone())).bind(("facts",Bytes::from(facts.clone()))).bind(("outcome",Bytes::from(outcome.clone()))).bind(("settled",settled)))).await?;
+        let mut response=protected_query("canonical_studies::observe_study_point", ||Ok(self.db.query("RETURN fn::pse_study_v1::observe($point,$revision,$attempt,$facts,$outcome,$settled);").bind(("point",point.key.clone())).bind(("revision",codec::encode_uint(point.revision)?)).bind(("attempt",point.attempt.clone())).bind(("facts",Bytes::from(facts.clone()))).bind(("outcome",Bytes::from(outcome.clone()))).bind(("settled",settled)))).await?;
         Ok(wire::decode_canonical_study_points(
             response
                 .take::<Option<Object>>(0)?
@@ -1212,7 +1212,7 @@ impl CanonicalStore {
     /// Revoke future claims; supervisor still cancels/drains each assigned native attempt.
     pub async fn cancel_study(&self, key: &str) -> Result<Study, CanonicalError> {
         self.ensure_writes()?;
-        let result = protected_query(|| {
+        let result = protected_query("canonical_studies::cancel_study", || {
             Ok(self
                 .db
                 .query("RETURN fn::pse_study_v1::cancel($study);")
@@ -1254,7 +1254,7 @@ impl CanonicalStore {
     /// Conclude only after native scoped observations settle every admitted occurrence.
     pub async fn conclude_study(&self, key: &str) -> Result<Study, CanonicalError> {
         self.ensure_writes()?;
-        let mut result = protected_query(|| {
+        let mut result = protected_query("canonical_studies::conclude_study", || {
             Ok(self
                 .db
                 .query("RETURN fn::pse_study_v1::conclude($study);")

@@ -7,6 +7,7 @@ use super::{
     ModelingPackage, PreparedStudyOperation, RunReport, RunRequest, RunResult, StudyDefinition,
     WorkflowError,
 };
+use futures_util::{FutureExt, StreamExt};
 use pse_diagnostics::{DiagnosticRule, DiagnosticStage};
 use pse_model::diagnostic::{BoundaryClass, BoundaryDiagnostic, Observation};
 use pse_model::generated::{
@@ -78,7 +79,10 @@ pub struct StudyReport {
     pub results: Vec<Option<StudyOccurrenceResult>>,
     /// Shared conclusion preserves lifecycle separately from scientific availability.
     pub decision: StudyDecision,
-    /// Existing preparation/session reuse remains owned by the mathematical service.
+    /// Preparations performed in the calling process during this operation.
+    /// Ephemeral execution includes its numerical work; a durable observer does not
+    /// count work performed by the managed primary. These are observations, not
+    /// cross-process execution or reuse evidence.
     pub preparations: crate::math::PreparationCounts,
     pub(in crate::workflow) runtime: super::Runtime,
     pub(in crate::workflow) _owner: Arc<pse_columnar::AllocationLease>,
@@ -129,6 +133,7 @@ impl ModelingPackage {
             ));
         }
         let operations = self.runtime.operations()?;
+        self.runtime.ensure_managed_primary(cancel).await?;
         let sources =
             super::study::creation_effect(cancel, operations.sources(&definition.physical)).await?;
         let handle = self
@@ -145,9 +150,7 @@ impl ModelingPackage {
             if handle.result().await?.is_some() {
                 break;
             }
-            if matches!(self.runtime.work_once().await?, super::Processed::Idle) {
-                tokio::select! {_=tokio::time::sleep(std::time::Duration::from_millis(10))=>{},()=cancel.cancelled()=>{}}
-            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
         let bytes = definition
             .points
@@ -245,6 +248,14 @@ impl ModelingPackage {
         {
             return Err(super::contract("bounded study extent"));
         }
+        // Existing operation preparation can own a worker while entering the native
+        // sequence. Refuse before issuance unless both population owners can coexist.
+        if !definition.points.is_empty() && self.runtime.shared.budget().math.jobs < 2 {
+            return Err(crate::math::MathRuntimeError::Limit(
+                "study preparation and native sequence population",
+            )
+            .into());
+        }
         let graph = definition.graph();
         let admitted =
             pse_operations::study_policy::AdmittedStudy::new(&graph).map_err(policy_error)?;
@@ -264,7 +275,6 @@ impl ModelingPackage {
             .shared
             .math()
             .reserve("study:occurrence-outcomes", bytes)?;
-        let mut prepared: Vec<Option<PreparedStudyOperation>> = vec![None; definition.points.len()];
         for point in &definition.points {
             if point.binding_hash != point.binding.identity() {
                 return Err(study_error(
@@ -328,458 +338,268 @@ impl ModelingPackage {
             })
             .collect();
         let mut results: Vec<Option<Arc<RunResult>>> = vec![None; graph.points.len()];
-        let mut staged = Staged::open(&self.runtime, None)?;
-        let mut cancellation_scoped = false;
+        let width = self
+            .runtime
+            .shared
+            .math()
+            .cores()
+            .min(self.runtime.shared.budget().math.jobs / 2)
+            .max(1);
+        let work_cancel = crate::CancelSource::new();
+        let mut pending: futures_util::stream::FuturesUnordered<
+            futures_util::future::BoxFuture<'_, LaneCompletion>,
+        > = futures_util::stream::FuturesUnordered::new();
+        let mut inflight = BTreeSet::new();
+        let mut ready = BTreeMap::<usize, ReadyOperation>::new();
+        let mut retained = BTreeMap::<usize, Staged>::new();
+        // A single continuation successor may inherit private native state. Fan-out
+        // consumers retain their exact result seeds but receive independent sessions.
+        let mut successors = BTreeMap::<usize, Vec<usize>>::new();
+        for (index, point) in graph.points.iter().enumerate() {
+            if let StartPolicy::Continuation(edge) = &point.start {
+                successors
+                    .entry(positions[&edge.predecessor])
+                    .or_default()
+                    .push(index);
+            }
+        }
+        let mut completed = Vec::new();
         let (decision, preparations) = crate::math::counted(async {
             loop {
-                if cancel.token().is_cancelled() && !cancellation_scoped {
+                if cancel.token().is_cancelled() && !work_cancel.token().is_cancelled() {
+                    work_cancel.cancel();
                     frontier.extend(0..facts.len());
-                    cancellation_scoped = true;
                 }
-                if frontier.is_empty() {
-                    break admitted
-                        .decision(&facts, cancel.token().is_cancelled())
-                        .map_err(policy_error);
+                // Poll every issued future; immediately available completions need no
+                // frontier-wide barrier and can expose a real native batch together.
+                while let Some(Some(value)) = pending.next().now_or_never() {
+                    completed.push(value);
                 }
-                let pending = frontier.iter().take(64).copied().collect::<Vec<_>>();
-                for index in &pending {
-                    frontier.remove(index);
-                }
-                for &index in &pending {
-                    let point = &graph.points[index];
-                    let preliminary = scoped_action(
-                        &admitted,
-                        point.key,
-                        &facts,
-                        &positions,
-                        cancel.token().is_cancelled(),
-                    )?;
-                    if prepared[index].is_some()
-                        || !matches!(
-                            preliminary.kind,
-                            ActionKind::Start(_)
-                                | ActionKind::Wait(WaitReason::SeedResolution { .. })
-                        )
-                    {
-                        continue;
-                    }
-                    let definition = &definition.points[index];
-                    match self
-                        .prepare_bound_operation(&definition.operation, &definition.binding, cancel)
-                        .await
-                        .and_then(|operation| {
-                            if operation.seed_need() == point.seed_need {
-                                Ok(operation)
-                            } else {
-                                Err(study_error(
-                                    DiagnosticRule::StudySeedIncompatible,
-                                    "declared seed need differs from operation-owned admission",
-                                ))
-                            }
-                        }) {
-                        Ok(operation) => prepared[index] = Some(operation),
-                        Err(error) => {
-                            let diagnostic = error
-                                .boundary_diagnostic()
-                                .with_revision(definition.operation.source.revision.as_id());
-                            let cancelled = diagnostic.class == BoundaryClass::Cancelled;
-                            facts[index].revision += 1;
-                            facts[index].lifecycle = if cancelled {
-                                StudyPointState::Cancelled
-                            } else {
-                                StudyPointState::Failed
-                            };
-                            facts[index].retry_failure = Some(RetryFailure::Deterministic);
-                            outcomes[index].lifecycle = facts[index].lifecycle;
-                            outcomes[index].diagnostic = Some(diagnostic.clone());
-                            if !cancelled {
-                                outcomes[index].attempts.push(PointAttemptOutcome {
-                                    attempt_id: None,
-                                    lifecycle: Some(
-                                        pse_model::generated::enums::AttemptState::Failed,
-                                    ),
-                                    diagnostic: Some(diagnostic),
-                                    scientific: ScientificFacts::default(),
-                                    start: None,
-                                    effect: EffectState::Absent,
-                                });
-                            }
-                            if let Some(children) = dependents.get(&point.key) {
-                                frontier.extend(children);
-                            }
-                        }
-                    }
-                }
-                // Seed acquisition is an adapter fact. Policy alone decides permission/fallback.
-                for &index in &pending {
-                    let point = &graph.points[index];
-                    let action = scoped_action(
-                        &admitted,
-                        point.key,
-                        &facts,
-                        &positions,
-                        cancel.token().is_cancelled(),
-                    )?;
-                    if !matches!(
-                        action.kind,
-                        ActionKind::Start(_) | ActionKind::Wait(WaitReason::SeedResolution { .. })
-                    ) {
-                        continue;
-                    }
-                    let Some(preparation) = prepared[index].as_ref() else {
-                        continue;
-                    };
-                    facts[index].seed = match &point.start {
-                        StartPolicy::Continuation(edge) => {
-                            let predecessor = positions[&edge.predecessor];
-                            Some(SeedFact {
-                                role: edge.role,
-                                availability: memory_seed(
-                                    preparation,
-                                    results[predecessor].as_deref(),
-                                ),
-                            })
-                        }
-                        StartPolicy::Explicit { role, .. } => Some(SeedFact {
-                            role: *role,
-                            availability: SeedAvailability::Absent,
-                        }),
-                        StartPolicy::Fresh => None,
-                    };
-                }
-                let actions = pending
-                    .iter()
-                    .map(|&index| {
-                        scoped_action(
-                            &admitted,
-                            graph.points[index].key,
-                            &facts,
-                            &positions,
-                            cancel.token().is_cancelled(),
-                        )
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                // The mathematical owner's batch consumes the already-admitted preparations.
-                // Only fresh starts can share a batch; selected continuation seeds stay explicit.
-                let batch_indices: Vec<_> = actions
-                    .iter()
-                    .filter_map(|action| {
-                        let index = positions[&action.occurrence];
-                        if matches!(
-                            action.kind,
-                            ActionKind::Start(
-                                StartProvenance::Fresh | StartProvenance::FreshFallback { .. }
-                            )
-                        ) && matches!(
-                            prepared[index],
-                            Some(PreparedStudyOperation::DeclaredCase(_))
-                        ) {
-                            Some(index)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                let mut batched = BTreeMap::new();
-                if batch_indices.len() > 1 {
-                    let preparations: Vec<_> = batch_indices
-                        .iter()
-                        .filter_map(|index| match &prepared[*index] {
-                            Some(PreparedStudyOperation::DeclaredCase(case)) => {
-                                Some(case.as_ref().clone())
-                            }
-                            _ => None,
-                        })
-                        .collect();
-                    let solved = staged
-                        .batch(&preparations, Obligations::Final, cancel)
-                        .await;
-                    for ((index, preparation), result) in
-                        batch_indices.into_iter().zip(preparations).zip(solved)
-                    {
-                        let run_id = pse_operations::mint_id();
-                        let request = RunRequest::Modeling(vec![preparation]);
-                        let report = result.map(|result| RunReport::Modeling(vec![result]));
-                        let result =
-                            RunResult::joined(run_id, self.runtime.clone(), request, None, report)
-                                .finished(None, cancel.token().is_cancelled())
-                                .await;
-                        batched.insert(index, Ok(Arc::new(result)));
-                    }
-                }
-                let mut changed = false;
-                for action in &actions {
-                    let index = positions[&action.occurrence];
-                    if facts[index].revision != action.expected_revision {
-                        continue;
-                    }
-                    match &action.kind {
-                        ActionKind::Wait(_) => {}
-                        ActionKind::Reconcile => {
-                            return Err(WorkflowError::Internal(
-                                "an ephemeral study has no publication effect to reconcile".into(),
-                            ));
-                        }
-                        ActionKind::Cancel => {
-                            changed = true;
-                            facts[index].revision += 1;
-                            facts[index].lifecycle = StudyPointState::Cancelled;
-                            outcomes[index].lifecycle = StudyPointState::Cancelled;
-                            outcomes[index].diagnostic = Some(
-                                WorkflowError::from(crate::math::MathRuntimeError::Cancelled)
-                                    .boundary_diagnostic(),
-                            );
-                        }
-                        ActionKind::Refuse(refusal) => {
-                            changed = true;
-                            facts[index].revision += 1;
-                            facts[index].lifecycle = StudyPointState::Failed;
-                            outcomes[index].lifecycle = StudyPointState::Failed;
-                            let mut diagnostic = policy_refusal(refusal);
-                            if let Some(cause) = outcomes[index].diagnostic.take() {
-                                diagnostic.causes.push(cause);
-                            }
-                            outcomes[index].diagnostic = Some(diagnostic);
-                        }
-                        ActionKind::Start(start) => {
-                            changed = true;
-                            facts[index].revision += 1;
-                            facts[index].attempt_count += 1;
-                            let mut operation = prepared[index].clone().ok_or_else(|| {
-                                WorkflowError::Internal(
-                                    "policy started an unavailable operation".into(),
-                                )
-                            })?;
-                            if let (
-                                StartProvenance::Continuation { predecessor, .. },
-                                PreparedStudyOperation::DeclaredCase(target),
-                            ) = (start, &mut operation)
-                            {
-                                let previous = results[positions[predecessor]]
-                                    .as_deref()
-                                    .and_then(primal_seed)
-                                    .ok_or_else(|| {
-                                        WorkflowError::Internal(
-                                            "policy selected a missing admitted seed".into(),
-                                        )
-                                    })?;
-                                let predecessor_result = results[positions[predecessor]].as_deref();
-                                let predicted = if target
-                                    .solve
-                                    .composition_request()
-                                    .recovery
-                                    .contains(&pse_model::strategy::StartOrigin::Predicted)
-                                    && target.solve.numerical_strategy().start.policy
-                                        != pse_backend_native::solve::StartPolicy::Explicit
-                                {
-                                    if let Some(RunReport::Modeling(points)) =
-                                        predecessor_result.and_then(|result| result.report().ok())
-                                        && let [point] = points.as_slice()
-                                    {
-                                        let deadline = std::time::Instant::now()
-                                            .checked_add(target.solve.time_limit())
-                                            .ok_or_else(|| {
-                                                super::contract("study target deadline extent")
-                                            })?;
-                                        let scope =
-                                            target.solve.task_scope().unwrap_or_else(|| {
-                                                pse_kernels::ExecutionScope::new(
-                                                    Arc::default(),
-                                                    Some(deadline),
-                                                )
-                                            });
-                                        let mut execution =
-                                            pse_backend_native::solve::Execution::within(
-                                                scope.cancellation().clone(),
-                                                &pse_backend_native::solve::Controls::default(),
-                                                scope.clone(),
-                                            )
-                                            .map_err(crate::math::MathRuntimeError::from)?;
-                                        let branch = target.solve.composition_request().branch;
-                                        target.solve = self
-                                            .runtime
-                                            .native()
-                                            .admit_proposal_task(
-                                                target.solve.clone(),
-                                                scope.clone(),
-                                            )
-                                            .map_err(crate::math::MathRuntimeError::from)?;
-                                        execution.work_admission =
-                                            target.solve.task_admission().map(
-                                                |owner| -> Arc<
-                                                    dyn pse_backend_native::solve::WorkAdmission,
-                                                > {
-                                                    owner
-                                                },
-                                            );
-                                        let older = if let StartPolicy::Continuation(edge) =
-                                            &graph.points[positions[predecessor]].start
-                                        {
-                                            results[positions[&edge.predecessor]]
-                                                .as_deref()
-                                                .and_then(|result| result.report().ok())
-                                                .and_then(|report| match report {
-                                                    RunReport::Modeling(points)
-                                                        if points.len() == 1 =>
-                                                    {
-                                                        points.first()
-                                                    }
-                                                    _ => None,
-                                                })
-                                        } else {
-                                            None
-                                        };
-                                        let proposal = point.available_prediction(
-                                            older, target, branch, &execution,
-                                        );
-                                        match proposal {
-                                            Ok(proposal) => {
-                                                let screened = self
-                                                    .runtime
-                                                    .native()
-                                                    .screen_start(
-                                                        target.solve.clone(),
-                                                        proposal,
-                                                        branch,
-                                                        scope,
-                                                        cancel,
-                                                    )
-                                                    .await?;
-                                                Some(
-                                                    target
-                                                        .solve
-                                                        .clone()
-                                                        .with_screened_start(&screened)
-                                                        .map_err(
-                                                            crate::math::MathRuntimeError::from,
-                                                        )?,
-                                                )
-                                            }
-                                            Err(error)
-                                                if matches!(
-                                                    error.boundary_diagnostic().class,
-                                                    BoundaryClass::Unsupported
-                                                        | BoundaryClass::Incompatible
-                                                        | BoundaryClass::Numerical
-                                                ) =>
-                                            {
-                                                None
-                                            }
-                                            Err(error) => return Err(error),
-                                        }
-                                    } else {
-                                        None
+                while !completed.is_empty() {
+                    let completion = completed.remove(0);
+                    match completion {
+                        LaneCompletion::Prepared { index, operation, mut staged } => {
+                            inflight.remove(&index);
+                            match operation {
+                                Ok(operation) => {
+                                    ready.insert(index, ReadyOperation { operation, staged });
+                                    frontier.insert(index);
+                                }
+                                Err(error) => {
+                                    if let Some(staged) = staged.take() { staged.close().await; }
+                                    record_preparation_failure(index, &error, definition,
+                                        &mut facts, &mut outcomes);
+                                    if matches!(error.boundary_diagnostic().class,
+                                        BoundaryClass::Infrastructure | BoundaryClass::Internal) {
+                                        return Err(error);
                                     }
-                                } else {
-                                    None
-                                };
-                                if let Some(solve) = predicted {
-                                    target.solve = solve;
-                                } else if target.solve.numerical_strategy().start.policy
-                                    != pse_backend_native::solve::StartPolicy::Explicit
-                                {
-                                    **target = target.as_ref().clone().with_start(previous)?;
+                                    if let Some(children) = dependents.get(&graph.points[index].key) {
+                                        frontier.extend(children);
+                                    }
                                 }
                             }
-                            let result = if let Some(result) = batched.remove(&index) {
-                                result
-                            } else {
-                                execute(
-                                    self,
-                                    &mut staged,
-                                    operation,
-                                    facts[index].attempt_count - 1,
-                                    cancel,
-                                )
-                                .await
-                            };
-                            let (scientific, diagnostic) = match &result {
-                                Ok(result) => (
-                                    super::study_operations::scientific_facts(result),
-                                    result_diagnostic(result).map(|diagnostic| {
-                                        diagnostic.with_revision(
-                                            definition.points[index]
-                                                .operation
-                                                .source
-                                                .revision
-                                                .as_id(),
-                                        )
-                                    }),
-                                ),
-                                Err(error) => (
-                                    ScientificFacts::default(),
-                                    Some(error.boundary_diagnostic().with_revision(
-                                        definition.points[index].operation.source.revision.as_id(),
-                                    )),
-                                ),
-                            };
-                            let cancelled = cancel.token().is_cancelled()
-                                || diagnostic
-                                    .as_ref()
-                                    .is_some_and(|d| d.class == BoundaryClass::Cancelled);
-                            let lifecycle = if cancelled {
-                                StudyPointState::Cancelled
-                            } else if result.as_ref().is_ok_and(|result| result.report().is_ok()) {
-                                StudyPointState::Completed
-                            } else {
-                                StudyPointState::Failed
-                            };
-                            facts[index].lifecycle = lifecycle;
-                            facts[index].scientific = scientific.clone();
-                            // Mathematical attempts have no external publication effect; deterministic scientific failures do not retry automatically.
-                            facts[index].retry_failure = Some(RetryFailure::Deterministic);
-                            outcomes[index].lifecycle = lifecycle;
-                            outcomes[index].scientific = scientific.clone();
-                            outcomes[index].diagnostic = diagnostic.clone();
-                            outcomes[index].start = Some(start.clone());
-                            outcomes[index].attempts.push(PointAttemptOutcome {
-                                attempt_id: None,
-                                lifecycle: Some(if cancelled {
-                                    pse_model::generated::enums::AttemptState::Cancelled
-                                } else if result
-                                    .as_ref()
-                                    .is_ok_and(|result| result.report().is_ok())
-                                {
-                                    if scientific.usable {
-                                        pse_model::generated::enums::AttemptState::Completed
-                                    } else {
-                                        pse_model::generated::enums::AttemptState::Partial
-                                    }
-                                } else {
-                                    pse_model::generated::enums::AttemptState::Failed
-                                }),
-                                scientific,
-                                diagnostic,
-                                start: Some(start.clone()),
-                                effect: EffectState::Absent,
-                            });
-                            if let Ok(result) = result {
-                                results[index] = Some(result);
+                        }
+                        LaneCompletion::Executed { points, mut staged } => {
+                            let only = (points.len() == 1).then(|| points[0].index);
+                            for point in points {
+                                let index = point.index;
+                                inflight.remove(&index);
+                                if let Some(error) = record_execution(point, definition,
+                                    &work_cancel, &mut facts, &mut outcomes, &mut results) {
+                                    if let Some(staged) = staged.take() { staged.close().await; }
+                                    return Err(error);
+                                }
+                                if let Some(children) = dependents.get(&graph.points[index].key) {
+                                    frontier.extend(children);
+                                }
+                                if pse_operations::study_policy::may_retry(&graph.points[index],
+                                    &facts[index], work_cancel.token().is_cancelled()) {
+                                    frontier.insert(index);
+                                }
+                            }
+                            if let Some(staged) = staged {
+                                let reusable = only.and_then(|index| {
+                                    successors.get(&index).filter(|children| children.len() == 1)
+                                        .map(|children| (index, children[0]))
+                                });
+                                if let Some((index, child)) = reusable {
+                                    let action = match scoped_action(&admitted, graph.points[child].key,
+                                        &facts, &positions, work_cancel.token().is_cancelled()) {
+                                        Ok(action) => action,
+                                        Err(error) => { staged.close().await; return Err(error); }
+                                    };
+                                    if matches!(action.kind, ActionKind::Start(_)
+                                        | ActionKind::Wait(WaitReason::SeedResolution { .. })) {
+                                        retained.insert(index, staged);
+                                    } else { staged.close().await; }
+                                } else { staged.close().await; }
                             }
                         }
                     }
-                    if facts[index].revision != action.expected_revision {
-                        if let Some(children) = dependents.get(&action.occurrence) {
-                            frontier.extend(children);
+                }
+                // Continuations with an available private owner get first opportunity
+                // to replace that same lane rather than add idle native population.
+                let mut candidates = retained.keys().filter_map(|index| successors.get(index))
+                    .flatten().filter(|index| frontier.contains(index)).copied().collect::<Vec<_>>();
+                let remaining = frontier.iter().filter(|index| !candidates.contains(index))
+                    .copied().collect::<Vec<_>>();
+                candidates.extend(remaining);
+                let mut starts = Vec::new();
+                for index in candidates {
+                    if inflight.contains(&index) { frontier.remove(&index); continue; }
+                    let point = &graph.points[index];
+                    if let Some(preparation) = ready.get(&index) {
+                        facts[index].seed = match &point.start {
+                            StartPolicy::Continuation(edge) => Some(SeedFact {
+                                role: edge.role,
+                                availability: memory_seed(&preparation.operation,
+                                    results[positions[&edge.predecessor]].as_deref()),
+                            }),
+                            StartPolicy::Explicit { role, .. } => Some(SeedFact {
+                                role: *role, availability: SeedAvailability::Absent,
+                            }),
+                            StartPolicy::Fresh => None,
+                        };
+                    }
+                    let action = scoped_action(&admitted, point.key, &facts, &positions,
+                        work_cancel.token().is_cancelled())?;
+                    match action.kind {
+                        ActionKind::Start(start) if ready.contains_key(&index) => {
+                            frontier.remove(&index);
+                            starts.push((index, start));
                         }
-                        if pse_operations::study_policy::may_retry(
-                            &graph.points[index],
-                            &facts[index],
-                            cancel.token().is_cancelled(),
-                        ) {
-                            frontier.insert(index);
+                        ActionKind::Start(_) | ActionKind::Wait(WaitReason::SeedResolution { .. }) => {
+                            let parent = match &point.start {
+                                StartPolicy::Continuation(edge) => Some(positions[&edge.predecessor]),
+                                _ => None,
+                            };
+                            let replaces = parent.is_some_and(|parent| retained.contains_key(&parent));
+                            if !replaces && inflight.len() + ready.len() + retained.len() >= width {
+                                continue;
+                            }
+                            let staged = parent.and_then(|parent| retained.remove(&parent));
+                            let requested = &definition.points[index];
+                            let child_cancel = &work_cancel;
+                            inflight.insert(index);
+                            frontier.remove(&index);
+                            pending.push(async move {
+                                let operation = self.prepare_bound_operation(&requested.operation,
+                                    &requested.binding, child_cancel).await.and_then(|operation| {
+                                    if operation.seed_need() == point.seed_need { Ok(operation) }
+                                    else { Err(study_error(DiagnosticRule::StudySeedIncompatible,
+                                        "declared seed need differs from operation-owned admission")) }
+                                });
+                                LaneCompletion::Prepared { index, operation, staged }
+                            }.boxed());
+                        }
+                        ActionKind::Wait(_) => { frontier.remove(&index); }
+                        ActionKind::Reconcile => return Err(WorkflowError::Internal(
+                            "an ephemeral study has no publication effect to reconcile".into())),
+                        kind @ (ActionKind::Cancel | ActionKind::Refuse(_)) => {
+                            frontier.remove(&index);
+                            if let Some(mut preparation) = ready.remove(&index) {
+                                if let Some(staged) = preparation.staged.take() { staged.close().await; }
+                            }
+                            facts[index].revision += 1;
+                            if let ActionKind::Refuse(refusal) = kind {
+                                facts[index].lifecycle = StudyPointState::Failed;
+                                outcomes[index].lifecycle = StudyPointState::Failed;
+                                let mut diagnostic = policy_refusal(&refusal);
+                                if let Some(cause) = outcomes[index].diagnostic.take() {
+                                    diagnostic.causes.push(cause);
+                                }
+                                outcomes[index].diagnostic = Some(diagnostic);
+                            } else {
+                                facts[index].lifecycle = StudyPointState::Cancelled;
+                                outcomes[index].lifecycle = StudyPointState::Cancelled;
+                                outcomes[index].diagnostic = Some(WorkflowError::from(
+                                    crate::math::MathRuntimeError::Cancelled).boundary_diagnostic());
+                            }
+                            if let Some(children) = dependents.get(&point.key) { frontier.extend(children); }
                         }
                     }
                 }
-                if !changed && frontier.is_empty() {
-                    break admitted
-                        .decision(&facts, cancel.token().is_cancelled())
+                // Group only already-ready fresh steps whose owning adapter supports
+                // batching. All other cases execute in independent sequence futures.
+                let mut groups = Vec::<(Option<pse_backend_native::solve::Backend>, Vec<(usize, StartProvenance)>)>::new();
+                for (index, start) in starts {
+                    let batching = if matches!(start, StartProvenance::Fresh
+                        | StartProvenance::FreshFallback { .. }) && !successors.contains_key(&index) {
+                        match ready.get(&index) {
+                            Some(ReadyOperation { operation: PreparedStudyOperation::DeclaredCase(case),
+                                staged: None }) => case.solve.batch_backend(),
+                            _ => None,
+                        }
+                    } else { None };
+                    if let Some(backend) = batching {
+                        if let Some((_, group)) = groups.iter_mut().find(|(owner, _)| *owner == Some(backend)) {
+                            group.push((index, start)); continue;
+                        }
+                    }
+                    groups.push((batching, vec![(index, start)]));
+                }
+                for (_, group) in groups {
+                    let mut members = Vec::new();
+                    for (index, start) in group {
+                        let preparation = ready.remove(&index).ok_or_else(||
+                            WorkflowError::Internal("study ready operation absent".into()))?;
+                        facts[index].revision += 1;
+                        facts[index].attempt_count += 1;
+                        facts[index].lifecycle = StudyPointState::Assigned;
+                        inflight.insert(index);
+                        let (previous, older) = match &start {
+                            StartProvenance::Continuation { predecessor, .. } => {
+                                let parent = positions[predecessor];
+                                let older = match &graph.points[parent].start {
+                                    StartPolicy::Continuation(edge) => results[positions[&edge.predecessor]].clone(),
+                                    _ => None,
+                                };
+                                (results[parent].clone(), older)
+                            }
+                            _ => (None, None),
+                        };
+                        members.push(LaneMember { index, start,
+                            attempt: facts[index].attempt_count - 1, preparation, previous, older });
+                    }
+                    let child_cancel = &work_cancel;
+                    pending.push(execute_lane(self, members, child_cancel).boxed());
+                }
+                if pending.is_empty() {
+                    if !frontier.is_empty() { continue; }
+                    // The pure policy owns blocked, terminal and cancelled conclusions.
+                    break admitted.decision(&facts, work_cancel.token().is_cancelled())
                         .map_err(policy_error);
                 }
+                let next = tokio::select! {
+                    value = pending.next() => value,
+                    () = cancel.cancelled(), if !work_cancel.token().is_cancelled() => {
+                        work_cancel.cancel();
+                        frontier.extend(0..facts.len());
+                        continue;
+                    }
+                };
+                if let Some(value) = next { completed.push(value); }
             }
-        })
-        .await;
-        staged.close().await;
+        }).await;
+        // A fatal adapter error also stops issuance and drains every issued future.
+        // Native teardown stays owned through join; no return drops running lanes.
+        if decision.is_err() {
+            work_cancel.cancel();
+        }
+        for completion in completed {
+            completion.close().await;
+        }
+        while let Some(completion) = pending.next().await {
+            completion.close().await;
+        }
+        for (_, mut preparation) in ready {
+            if let Some(staged) = preparation.staged.take() {
+                staged.close().await;
+            }
+        }
+        for (_, staged) in retained {
+            staged.close().await;
+        }
         Ok(StudyReport {
             run_id,
             definition: definition.clone(),
@@ -794,6 +614,403 @@ impl ModelingPackage {
             _owner: owner,
         })
     }
+}
+
+struct ReadyOperation {
+    operation: PreparedStudyOperation,
+    staged: Option<Staged>,
+}
+struct LaneMember {
+    index: usize,
+    start: StartProvenance,
+    attempt: u32,
+    preparation: ReadyOperation,
+    previous: Option<Arc<RunResult>>,
+    older: Option<Arc<RunResult>>,
+}
+struct ExecutedPoint {
+    index: usize,
+    start: StartProvenance,
+    result: Result<Arc<RunResult>, WorkflowError>,
+}
+enum LaneCompletion {
+    Prepared {
+        index: usize,
+        operation: Result<PreparedStudyOperation, WorkflowError>,
+        staged: Option<Staged>,
+    },
+    Executed {
+        points: Vec<ExecutedPoint>,
+        staged: Option<Staged>,
+    },
+}
+impl LaneCompletion {
+    async fn close(self) {
+        let staged = match self {
+            Self::Prepared { staged, .. } | Self::Executed { staged, .. } => staged,
+        };
+        if let Some(staged) = staged {
+            staged.close().await;
+        }
+    }
+}
+
+async fn execute_lane(
+    package: &ModelingPackage,
+    mut members: Vec<LaneMember>,
+    cancel: &crate::CancelSource,
+) -> LaneCompletion {
+    if members.len() == 1 {
+        let mut member = members.remove(0);
+        let mut staged = member.preparation.staged.take();
+        let result = async {
+            if let (
+                StartProvenance::Continuation { .. },
+                PreparedStudyOperation::DeclaredCase(target),
+            ) = (&member.start, &mut member.preparation.operation)
+            {
+                let older = member
+                    .older
+                    .as_deref()
+                    .and_then(|result| result.report().ok())
+                    .and_then(|report| match report {
+                        RunReport::Modeling(points) if points.len() == 1 => points.first(),
+                        _ => None,
+                    });
+                continuation_start(package, target, member.previous.as_deref(), older, cancel)
+                    .await?;
+            }
+            match member.preparation.operation {
+                PreparedStudyOperation::DeclaredCase(case) => {
+                    if staged.is_none() {
+                        let deadline = case
+                            .solve
+                            .task_scope()
+                            .and_then(|scope| scope.deadline())
+                            .or_else(|| {
+                                std::time::Instant::now().checked_add(case.solve.time_limit())
+                            });
+                        staged = Some(
+                            Staged::open_queued(&package.runtime, None, cancel, deadline).await?,
+                        );
+                    }
+                    execute(
+                        package,
+                        staged.as_mut().ok_or_else(|| {
+                            WorkflowError::Internal("study native sequence absent".into())
+                        })?,
+                        PreparedStudyOperation::DeclaredCase(case),
+                        member.attempt,
+                        cancel,
+                    )
+                    .await
+                }
+                operation => {
+                    operation
+                        .start(&package.runtime, cancel)
+                        .await?
+                        .wait()
+                        .await
+                }
+            }
+        }
+        .await;
+        return LaneCompletion::Executed {
+            points: vec![ExecutedPoint {
+                index: member.index,
+                start: member.start,
+                result,
+            }],
+            staged,
+        };
+    }
+    let mut points = Vec::with_capacity(members.len());
+    let deadline = members
+        .iter()
+        .filter_map(|member| match &member.preparation.operation {
+            PreparedStudyOperation::DeclaredCase(case) => case
+                .solve
+                .task_scope()
+                .and_then(|scope| scope.deadline())
+                .or_else(|| std::time::Instant::now().checked_add(case.solve.time_limit())),
+            _ => None,
+        })
+        .min();
+    match Staged::open_queued(&package.runtime, None, cancel, deadline).await {
+        Ok(mut staged) => {
+            let preparations = members
+                .iter()
+                .filter_map(|member| match &member.preparation.operation {
+                    PreparedStudyOperation::DeclaredCase(case) => Some(case.as_ref().clone()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            let solved = staged
+                .batch(&preparations, Obligations::Final, cancel)
+                .await;
+            for ((member, preparation), result) in members.into_iter().zip(preparations).zip(solved)
+            {
+                let request = RunRequest::Modeling(vec![preparation]);
+                let report = result.map(|result| RunReport::Modeling(vec![result]));
+                let result = RunResult::joined(
+                    pse_operations::mint_id(),
+                    package.runtime.clone(),
+                    request,
+                    None,
+                    report,
+                )
+                .finished(None, cancel.token().is_cancelled())
+                .await;
+                points.push(ExecutedPoint {
+                    index: member.index,
+                    start: member.start,
+                    result: Ok(Arc::new(result)),
+                });
+            }
+            staged.close().await;
+        }
+        Err(error) => {
+            let error = Arc::new(error);
+            for member in members {
+                points.push(ExecutedPoint {
+                    index: member.index,
+                    start: member.start,
+                    result: Err(WorkflowError::Shared(error.clone())),
+                });
+            }
+        }
+    }
+    LaneCompletion::Executed {
+        points,
+        staged: None,
+    }
+}
+
+fn record_preparation_failure(
+    index: usize,
+    error: &WorkflowError,
+    definition: &StudyDefinition,
+    facts: &mut [PointFacts],
+    outcomes: &mut [PointOutcome],
+) {
+    let diagnostic = error
+        .boundary_diagnostic()
+        .with_revision(definition.points[index].operation.source.revision.as_id());
+    let cancelled = diagnostic.class == BoundaryClass::Cancelled;
+    facts[index].revision += 1;
+    facts[index].lifecycle = if cancelled {
+        StudyPointState::Cancelled
+    } else {
+        StudyPointState::Failed
+    };
+    facts[index].retry_failure = Some(RetryFailure::Deterministic);
+    outcomes[index].lifecycle = facts[index].lifecycle;
+    outcomes[index].diagnostic = Some(diagnostic.clone());
+    if !cancelled {
+        outcomes[index].attempts.push(PointAttemptOutcome {
+            attempt_id: None,
+            lifecycle: Some(pse_model::generated::enums::AttemptState::Failed),
+            diagnostic: Some(diagnostic),
+            scientific: ScientificFacts::default(),
+            start: None,
+            effect: EffectState::Absent,
+        });
+    }
+}
+
+fn record_execution(
+    point: ExecutedPoint,
+    definition: &StudyDefinition,
+    cancel: &crate::CancelSource,
+    facts: &mut [PointFacts],
+    outcomes: &mut [PointOutcome],
+    results: &mut [Option<Arc<RunResult>>],
+) -> Option<WorkflowError> {
+    let ExecutedPoint {
+        index,
+        start,
+        result,
+    } = point;
+    let (scientific, diagnostic) = match &result {
+        Ok(result) => (
+            super::study_operations::scientific_facts(result),
+            result_diagnostic(result).map(|diagnostic| {
+                diagnostic.with_revision(definition.points[index].operation.source.revision.as_id())
+            }),
+        ),
+        Err(error) => (
+            ScientificFacts::default(),
+            Some(
+                error
+                    .boundary_diagnostic()
+                    .with_revision(definition.points[index].operation.source.revision.as_id()),
+            ),
+        ),
+    };
+    let cancelled = cancel.token().is_cancelled()
+        || diagnostic
+            .as_ref()
+            .is_some_and(|diagnostic| diagnostic.class == BoundaryClass::Cancelled);
+    let completed = result.as_ref().is_ok_and(|result| result.report().is_ok());
+    let lifecycle = if cancelled {
+        StudyPointState::Cancelled
+    } else if completed {
+        StudyPointState::Completed
+    } else {
+        StudyPointState::Failed
+    };
+    facts[index].lifecycle = lifecycle;
+    facts[index].scientific = scientific.clone();
+    facts[index].retry_failure = Some(RetryFailure::Deterministic);
+    outcomes[index].lifecycle = lifecycle;
+    outcomes[index].scientific = scientific.clone();
+    outcomes[index].diagnostic = diagnostic.clone();
+    outcomes[index].start = Some(start.clone());
+    outcomes[index].attempts.push(PointAttemptOutcome {
+        attempt_id: None,
+        lifecycle: Some(if cancelled {
+            pse_model::generated::enums::AttemptState::Cancelled
+        } else if completed {
+            if scientific.usable {
+                pse_model::generated::enums::AttemptState::Completed
+            } else {
+                pse_model::generated::enums::AttemptState::Partial
+            }
+        } else {
+            pse_model::generated::enums::AttemptState::Failed
+        }),
+        scientific,
+        diagnostic,
+        start: Some(start),
+        effect: EffectState::Absent,
+    });
+    match result {
+        Ok(result) => {
+            let fatal = result
+                .report
+                .as_ref()
+                .err()
+                .or_else(|| result.completion.as_ref().err())
+                .filter(|error| {
+                    matches!(
+                        error.boundary_diagnostic().class,
+                        BoundaryClass::Infrastructure | BoundaryClass::Internal
+                    )
+                })
+                .map(|error| WorkflowError::Shared(error.clone()));
+            results[index] = Some(result);
+            fatal
+        }
+        Err(error)
+            if matches!(
+                error.boundary_diagnostic().class,
+                BoundaryClass::Infrastructure | BoundaryClass::Internal
+            ) =>
+        {
+            Some(error)
+        }
+        Err(_) => None,
+    }
+}
+
+pub(in crate::workflow) async fn continuation_start(
+    package: &ModelingPackage,
+    target: &mut Box<super::ModelingSolvePreparation>,
+    predecessor: Option<&RunResult>,
+    older: Option<&super::ModelingResult>,
+    cancel: &crate::CancelSource,
+) -> Result<(), WorkflowError> {
+    let predecessor_result = predecessor;
+    let predicted = if target
+        .solve
+        .composition_request()
+        .recovery
+        .contains(&pse_model::strategy::StartOrigin::Predicted)
+        && target.solve.numerical_strategy().start.policy
+            != pse_backend_native::solve::StartPolicy::Explicit
+    {
+        if let Some(RunReport::Modeling(points)) =
+            predecessor_result.and_then(|result| result.report().ok())
+            && let [point] = points.as_slice()
+        {
+            let deadline = std::time::Instant::now()
+                .checked_add(target.solve.time_limit())
+                .ok_or_else(|| super::contract("study target deadline extent"))?;
+            let scope = target.solve.task_scope().unwrap_or_else(|| {
+                pse_kernels::ExecutionScope::new(Arc::default(), Some(deadline))
+            });
+            let mut execution = pse_backend_native::solve::Execution::within(
+                scope.cancellation().clone(),
+                &pse_backend_native::solve::Controls::default(),
+                scope.clone(),
+            )
+            .map_err(crate::math::MathRuntimeError::from)?;
+            let branch = target.solve.composition_request().branch;
+            target.solve = package
+                .runtime
+                .native()
+                .admit_proposal_task(target.solve.clone(), scope.clone())
+                .map_err(crate::math::MathRuntimeError::from)?;
+            execution.work_admission = target
+                .solve
+                .task_admission()
+                .map(|owner| -> Arc<dyn pse_backend_native::solve::WorkAdmission> { owner });
+            let proposal = point.available_prediction(older, target, branch, &execution);
+            match proposal {
+                Ok(proposal) => {
+                    let screened = package
+                        .runtime
+                        .native()
+                        .screen_start(target.solve.clone(), proposal, branch, scope, cancel)
+                        .await?;
+                    Some(
+                        target
+                            .solve
+                            .clone()
+                            .with_screened_start(&screened)
+                            .map_err(crate::math::MathRuntimeError::from)?,
+                    )
+                }
+                Err(error)
+                    if matches!(
+                        error.boundary_diagnostic().class,
+                        BoundaryClass::Unsupported
+                            | BoundaryClass::Incompatible
+                            | BoundaryClass::Numerical
+                    ) =>
+                {
+                    None
+                }
+                Err(error) => return Err(error),
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    if let Some(solve) = predicted {
+        target.solve = solve;
+    } else if target.solve.numerical_strategy().start.policy
+        != pse_backend_native::solve::StartPolicy::Explicit
+    {
+        let source = predecessor.and_then(modeling_seed).ok_or_else(|| {
+            WorkflowError::Internal("policy selected a missing admitted seed".into())
+        })?;
+        let owner = package
+            .runtime
+            .native()
+            .reserve("study:continuation-seed", source.owned_extent()?)?;
+        let (seed, owner) = source.materialize(owner)?.into_owned()?;
+        target.solve = target
+            .solve
+            .clone()
+            .with_start_owned(seed, owner.clone())
+            .map_err(crate::math::MathRuntimeError::from)?;
+        target.profile.controls.start = pse_backend_native::solve::StartPolicy::Explicit;
+        target.stored_seed_owner = Some(owner);
+    }
+    Ok(())
 }
 
 async fn execute(
@@ -850,13 +1067,175 @@ fn scoped_action(
         .map_err(policy_error)
 }
 
-fn primal_seed(result: &RunResult) -> Option<pse_backend_native::solve::WarmStart> {
+/// Allocation-free view of a completion-permitted original seed.
+pub(in crate::workflow) struct CompletedModelingSeed<'a> {
+    point: &'a super::ModelingResult,
+    compatibility: &'a pse_backend_native::solve::Compatibility,
+}
+/// A materialized seed never loses its pre-allocation pool grant. In-memory
+/// consumers transfer that grant to the target preparation's existing seed owner.
+pub(in crate::workflow) struct LeasedModelingSeed<'a> {
+    seed: std::borrow::Cow<'a, pse_backend_native::solve::WarmStart>,
+    owner: Arc<pse_columnar::AllocationLease>,
+    owned_extent: usize,
+}
+impl LeasedModelingSeed<'_> {
+    pub(in crate::workflow) fn warm(&self) -> &pse_backend_native::solve::WarmStart {
+        &self.seed
+    }
+    fn into_owned(
+        self,
+    ) -> Result<
+        (
+            pse_backend_native::solve::WarmStart,
+            Arc<pse_columnar::AllocationLease>,
+        ),
+        WorkflowError,
+    > {
+        if self.owner.size() < self.owned_extent {
+            return Err(super::contract(
+                "owned seed copy was not admitted before allocation",
+            ));
+        }
+        Ok((self.seed.into_owned(), self.owner))
+    }
+}
+impl CompletedModelingSeed<'_> {
+    pub(in crate::workflow) fn compatibility(&self) -> &pse_backend_native::solve::Compatibility {
+        self.compatibility
+    }
+    /// Original producer bound for a copied native payload, or the exact primal
+    /// population for a complete original evaluation, before any numeric allocation.
+    pub(in crate::workflow) fn owned_extent(&self) -> Result<usize, WorkflowError> {
+        match &self.point.outcome {
+            crate::math::solves::Outcome::Native(native) => native
+                .completed_report_allowance()
+                .map_err(crate::math::MathRuntimeError::from)?
+                .map_or_else(
+                    || {
+                        self.point
+                            .prepared
+                            .solve
+                            .result_bytes()
+                            .map_err(WorkflowError::from)
+                    },
+                    Ok,
+                ),
+            crate::math::solves::Outcome::Constant(completed) => completed.coordinates.len()
+                .checked_mul(size_of::<f64>())
+                .and_then(|n| n.checked_add(size_of::<pse_backend_native::solve::WarmStart>()))
+                // PreparedSolve shares an Arc body, including strong/weak counts.
+                .and_then(|n| n.checked_add(2 * size_of::<usize>()))
+                .ok_or_else(|| super::contract("complete original primal seed extent")),
+            crate::math::solves::Outcome::Rejected(_) => {
+                Err(super::contract("rejected seed source"))
+            }
+        }
+    }
+    /// Scientific serialization extent, without constructing a primal or prediction.
+    pub(in crate::workflow) fn serialization_extent(&self) -> Result<usize, WorkflowError> {
+        match &self.point.outcome {
+            crate::math::solves::Outcome::Native(native) => super::durable::seed_extent(
+                &native
+                    .warm_start
+                    .as_ref()
+                    .ok_or_else(|| super::contract("native seed lost its payload"))?
+                    .payload,
+            ),
+            crate::math::solves::Outcome::Constant(completed) => {
+                super::durable::seed_values_extent(completed.coordinates.len())
+            }
+            crate::math::solves::Outcome::Rejected(_) => {
+                Err(super::contract("rejected seed source"))
+            }
+        }
+    }
+    pub(in crate::workflow) fn materialize(
+        &self,
+        owner: Arc<pse_columnar::AllocationLease>,
+    ) -> Result<LeasedModelingSeed<'_>, WorkflowError> {
+        let seed = match &self.point.outcome {
+            crate::math::solves::Outcome::Native(native) => std::borrow::Cow::Borrowed(
+                native
+                    .warm_start
+                    .as_ref()
+                    .ok_or_else(|| super::contract("native seed lost its payload"))?,
+            ),
+            crate::math::solves::Outcome::Constant(completed) => {
+                if owner.size() < self.owned_extent()? {
+                    return Err(super::contract(
+                        "complete original seed was not admitted before allocation",
+                    ));
+                }
+                let payload = pse_backend_native::execution::adapter(self.compatibility.backend)
+                    .primal_start(
+                        completed
+                            .coordinates
+                            .iter()
+                            .map(|(_, value)| *value)
+                            .collect(),
+                    )
+                    .map_err(crate::math::MathRuntimeError::from)?;
+                let seed = pse_backend_native::solve::WarmStart {
+                    origin: Some(pse_backend_native::solve::SeedOrigin {
+                        run: Some(self.point.run_id),
+                        attempt: self.point.original_attempt,
+                    }),
+                    compatibility: self.compatibility.clone(),
+                    payload,
+                };
+                let plan = &self.point.prepared.model.case.compiled().plan;
+                seed.validate_shape(plan.columns().len(), plan.structure().rows().len())
+                    .map_err(crate::math::MathRuntimeError::from)?;
+                std::borrow::Cow::Owned(seed)
+            }
+            crate::math::solves::Outcome::Rejected(_) => {
+                return Err(super::contract("rejected seed source"));
+            }
+        };
+        Ok(LeasedModelingSeed {
+            seed,
+            owner,
+            owned_extent: self.owned_extent()?,
+        })
+    }
+}
+/// Inspect permission, ordered original coverage and operation-owned compatibility
+/// without cloning a native payload or allocating a numeric vector.
+pub(in crate::workflow) fn completed_modeling_seed(
+    point: &super::ModelingResult,
+) -> Option<CompletedModelingSeed<'_>> {
+    if !point.completion.decision.permits_seed() {
+        return None;
+    }
+    let compatibility = match &point.outcome {
+        crate::math::solves::Outcome::Native(native) => &native.warm_start.as_ref()?.compatibility,
+        crate::math::solves::Outcome::Constant(completed) => {
+            let compatibility = point.prepared.solve.compatibility()?;
+            let columns = point.prepared.model.case.compiled().plan.columns();
+            if columns.is_empty()
+                || completed.coordinates.len() != columns.len()
+                || completed
+                    .coordinates
+                    .iter()
+                    .zip(columns)
+                    .any(|((id, value), column)| id != column || !value.is_finite())
+            {
+                return None;
+            }
+            compatibility
+        }
+        crate::math::solves::Outcome::Rejected(_) => return None,
+    };
+    Some(CompletedModelingSeed {
+        point,
+        compatibility,
+    })
+}
+fn modeling_seed(result: &RunResult) -> Option<CompletedModelingSeed<'_>> {
     match result.report().ok()? {
         RunReport::Modeling(points) => match points.as_slice() {
-            [point] => match &point.outcome {
-                crate::math::solves::Outcome::Native(native) => native.warm_start.clone(),
-                _ => None,
-            },
+            [point] => completed_modeling_seed(point),
             _ => None,
         },
         _ => None,
@@ -866,7 +1245,7 @@ fn memory_seed(target: &PreparedStudyOperation, previous: Option<&RunResult>) ->
     let Some(previous) = previous else {
         return SeedAvailability::Absent;
     };
-    let Some(seed) = primal_seed(previous) else {
+    let Some(seed) = modeling_seed(previous) else {
         return SeedAvailability::Absent;
     };
     let PreparedStudyOperation::DeclaredCase(target) = target else {
@@ -875,8 +1254,8 @@ fn memory_seed(target: &PreparedStudyOperation, previous: Option<&RunResult>) ->
     let Some(compatibility) = target.solve.compatibility() else {
         return SeedAvailability::Absent;
     };
-    if compatibility.layout != seed.compatibility.layout
-        || compatibility.backend != seed.compatibility.backend
+    if compatibility.layout != seed.compatibility().layout
+        || compatibility.backend != seed.compatibility().backend
     {
         return SeedAvailability::Incompatible;
     }

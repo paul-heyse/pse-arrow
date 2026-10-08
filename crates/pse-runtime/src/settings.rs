@@ -32,6 +32,7 @@ macro_rules! engine_settings_fields {
         math_stack_bytes: Option<usize>, "int | None", None => usize, $budget.math.stack_bytes;
         math_jobs: Option<usize>, "int | None", None => usize, $budget.math.jobs;
         math_flights: Option<usize>, "int | None", None => usize, $budget.math.flights;
+        math_admission_wait_ms: Option<u64>, "int | None", None => u128, $budget.math.admission_wait.as_millis();
     } };
 }
 macro_rules! input {
@@ -138,6 +139,10 @@ impl EngineSettingsInput {
                 stack_bytes: self.math_stack_bytes.unwrap_or(math_defaults.stack_bytes),
                 jobs: self.math_jobs.unwrap_or(math_defaults.jobs),
                 flights: self.math_flights.unwrap_or(math_defaults.flights),
+                admission_wait: self
+                    .math_admission_wait_ms
+                    .map(std::time::Duration::from_millis)
+                    .unwrap_or(math_defaults.admission_wait),
             },
             hashing_may_use_pool: self.hashing_may_use_pool,
             cache,
@@ -175,6 +180,7 @@ mod delta_boundary_unit {
             math_stack_bytes: None,
             math_jobs: None,
             math_flights: None,
+            math_admission_wait_ms: None,
         }
     }
     #[test]
@@ -194,6 +200,22 @@ mod delta_boundary_unit {
         );
         let mut settings = input();
         settings.math_flights = Some(0);
+        assert!(settings.resolve(None).is_err());
+    }
+    #[test]
+    fn admission_wait_preserves_finite_default_and_explicit_override() {
+        assert_eq!(
+            input().resolve(None).unwrap().math.admission_wait,
+            std::time::Duration::from_secs(30)
+        );
+        let mut settings = input();
+        settings.math_admission_wait_ms = Some(75);
+        assert_eq!(
+            settings.resolve(None).unwrap().math.admission_wait,
+            std::time::Duration::from_millis(75)
+        );
+        let mut settings = input();
+        settings.math_admission_wait_ms = Some(0);
         assert!(settings.resolve(None).is_err());
     }
     #[test]

@@ -3,7 +3,7 @@ title: Canonical substrate and immutable revisions
 status: in-progress
 date: 2026-10-05
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -37,10 +37,10 @@ scientific artifacts regenerated against the target.
 
 Select a supervised local SurrealDB server with **RocksDB**, authenticated loopback gRPC,
 and a thin Rust SDK using explicit `protocol-grpc`. The 3.3 API/source profile is the reviewed
-starting point; committed resolution records the implemented SDK version. Dependencies float
-normally. A held server/SDK version needs the repository's specific pin rationale rather
-than an indefinite pin merely because the investigation used 3.3.0. Qualify the actually
-selected pair and record it in the eventual Outcome.
+starting point; exact declarations and committed lockfiles record the implemented pair under
+the [dependency policy](../dev/dependency-policy.md). Holds retain their specific revisit
+rationale. Qualify the actually selected pair and record it in the eventual Outcome; this
+parallel extension does not require a dependency or server upgrade.
 
 Use `rocksdb://<application-state>/database?sync=every&versioned=false`. Domain revisions
 provide history, so database storage-version history is unnecessary. Current official docs
@@ -228,6 +228,47 @@ receives version-first admission and controlled regeneration through this owner.
 paths remain T0 decisions; an optional predicate or a returned-page cap alone does not prove
 examined-work efficiency. A's earlier Outcome retains its original evidence conditions.
 
+## Parallel canonical protection and contention
+
+The [parallel extension](28-surrealdb-unified-substrate.md#parallel-execution-integration)
+adds A4 for Parallel F01/S01/S03/S06. RC01 was accepted conditionally on 2026-10-08;
+its [decision route](28-surrealdb-unified-substrate.md#parallel-execution-rule-decisions-2026-10-08)
+precedes any selected guard-contract change. The source assessment at `84a1caf` establishes
+a broad per-problem retention conflict domain, not the SQL attribution of each failed case.
+
+`CanonicalStore::protect` creates a fresh protection and updates `retention:$problem`.
+Protected queries validate the exact live pin/revision and register that same guard; release,
+staging/product admission, root retirement and reclamation can update it. Equivalent publication
+already has immutable acknowledgment/stage convergence. A4 must not assume that another client,
+a wider retry cap or a second coalescing layer is the missing mechanism.
+
+First classify the returning operation/retry owner in the failed complete-case control where
+needed to choose a correction. Inspect consumed predicates and writers for the implicated
+protect/read/release, stage, activation or product operation. Keep scientific work and bulk
+staging outside the short atomic decision. Stop investigation with a selected safe correction
+and its targeted controls; if attribution finds another cause, repair that actual owner and
+retain the topology with an explicit reason. A continuing complete-route failure leaves F01
+open irrespective of that local decision.
+
+Compare existing-contract sharing/coalescing before introducing finer guards. Sharing requires
+an exact revision/interpretation, adequate lifetime and independent complete dependency receipts;
+B6 owns its runtime composition. If a finer topology is selected, every matching writer must
+update the named guard in the same transaction. Preserve pin acquisition versus reclaim,
+release/expiry, root/product admission versus reclaim, current-head and reclaimed-range checks,
+absent-name/set premises, and cross-problem shared immutable-version protection. Ordinary snapshot
+reads cannot replace the predicate fence merely because the record exists. Use registry/codegen
+for changed declarations; do not hand-edit generated queries or add a second store path.
+
+Retain the distinct recovery units. Protected decisions retry their whole transaction on definite
+typed conflict. Product/source admission settles the exact immutable operation acknowledgment
+before replay. Staging's connection/internal-error replay is justified by its own immutable
+request and fresh generation fences, not a universal rollback assumption. Preserve statement-level
+error inspection and complete gRPC statement termination.
+
+| Package | Prerequisite and delivered behavior | Migration, deletion and targeted acceptance | Status |
+|---|---|---|---|
+| A4 — Parallel protection/publication decision | Confirmed RC01; existing A1–A3 guards and actual failed route. Attribute decisive operation/retry scope, select the smallest safe correction, route changed contract, implement the canonical slice consumed by B6/T7. | Migrate all writers/readers of changed guards together; delete replaced guard/query paths after callers and controls move. Exercise sixteen complete cases with original checks/order; race acquire/read/release/expiry, admission/root retirement and reclaim, absent/set edits, shared versions and exact lost-ack settlement. Reader-only stress or increased retries is insufficient. | Scheduled; attribution and selected mechanism remain unresolved. |
+
 ## Work packages
 
 | Package | Prerequisite and delivered behavior | Consumer migration and deletion | Status |
@@ -264,6 +305,15 @@ against concurrent retention, interrupted export and bounded orphan reclamation.
 target backup and compare its selected exact values and operation identities before writes.
 
 ## Checkpoint and next step
+
+A4's operation attribution located the sixteen-worker failure at `stage_small_edits`.
+The integrated correction paces bounded same-owner staging RPCs per problem; it preserves
+independent-client transaction guards, closed-stage replay, shared-version reclamation and
+stale-generation fencing. Its concurrent staging controls and the two existing sixteen-worker
+scientific controls pass. This supports the selected local correction, without claiming a
+distributed staging mutex or changing source/product protection. B6/T7 caller reconciliation
+and connected read/reclamation acceptance remain before E3. The selected store is preserved;
+the reference campaign remains stopped.
 
 A1–A3 functional mechanisms are implemented: supervised authenticated RocksDB/gRPC,
 generated exact codecs/schema identity, closed payload manifests and leased staging,

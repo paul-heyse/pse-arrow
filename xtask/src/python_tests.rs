@@ -7,22 +7,9 @@ use anyhow::{Context, Result, ensure};
 use std::{path::Path, process::Command};
 
 fn arguments(extra: &[String]) -> Vec<String> {
-    // Pytest uses testpaths only when no positional file/directory/node is given.
-    // Its own parser handles option values and any installed plugin's options.
-    let mut args = [
-        "-m",
-        "pytest",
-        "--maxfail=0",
-        "--continue-on-collection-errors",
-        "-m",
-        "unit or component",
-        "-n",
-        "auto",
-        "-o",
-        "testpaths=python/pse/tests",
-    ]
-    .map(str::to_owned)
-    .to_vec();
+    // One Python owner selects categories, process allocation and worker count.
+    // Keep option values and positional targets intact across this frontdoor.
+    let mut args = ["-m", "scripts.python_tests"].map(str::to_owned).to_vec();
     args.extend_from_slice(extra);
     args
 }
@@ -47,13 +34,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn python_selection_defaults_are_not_positional_targets() {
-        let args = arguments(&[]);
-        assert!(
-            args.windows(2)
-                .any(|pair| pair == ["-o", "testpaths=python/pse/tests"])
-        );
-        assert!(!args.iter().any(|arg| arg == "python/pse/tests"));
+    fn python_selection_uses_one_partition_and_placement_owner() {
+        assert_eq!(arguments(&[]), ["-m", "scripts.python_tests"]);
+        let extra = ["--managed-primary-route", "-m", "integration"].map(str::to_owned);
+        let args = arguments(&extra);
+        assert_eq!(&args[2..], extra.as_slice());
     }
 
     #[test]

@@ -669,7 +669,7 @@ class ValidationTests(unittest.TestCase):
         )
         self.assertFalse(receipt["complete"])
 
-    def test_scope_runs_python_once_and_keeps_strict_checks(self) -> None:
+    def test_scope_partitions_python_budgets_and_keeps_strict_checks(self) -> None:
         names = [g.name for g in comprehensive()]
         self.assertEqual(len(names), len(set(names)))
         self.assertTrue(
@@ -677,6 +677,7 @@ class ValidationTests(unittest.TestCase):
                 "feature-absence",
                 "native-test",
                 "native-python",
+                "managed-python",
                 "clippy-default",
                 "clippy-no-default",
             }
@@ -697,6 +698,23 @@ class ValidationTests(unittest.TestCase):
             ],
             [],
         )
+
+    def test_managed_python_uses_native_recipe_with_distinct_reports_and_same_contract(
+        self,
+    ) -> None:
+        for profile in ("dev", "producer"):
+            gates = {gate.name: gate for gate in comprehensive(profile)}
+            ordinary, managed = gates["native-python"], gates["managed-python"]
+            self.assertEqual(managed.recipe, "native-python")
+            self.assertEqual(managed.dependencies, ordinary.dependencies)
+            self.assertEqual(managed.input_scope, ordinary.input_scope)
+            self.assertEqual(managed.mode, ordinary.mode)
+            self.assertNotEqual(managed.report, ordinary.report)
+            self.assertIn("--managed-primary-route", managed.args)
+            self.assertNotIn("--managed-primary-route", ordinary.args)
+            self.assertEqual(
+                "--producer-deployment" in managed.args, profile == "producer"
+            )
 
     def test_python_producer_profile_keeps_native_dev_graph(self) -> None:
         gates = {gate.name: gate for gate in comprehensive("producer")}
@@ -815,6 +833,7 @@ class ValidationTests(unittest.TestCase):
             ("python-deployment-association", "native-deployment-association"),
             ("python-deployment-association", "native-test"),
             ("python-deployment-association", "native-python"),
+            ("python-deployment-association", "managed-python"),
         ):
             self.assertLess(positions[prerequisite], positions[consumer])
             self.assertIn(prerequisite, gates[positions[consumer]].dependencies)

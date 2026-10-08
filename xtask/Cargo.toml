@@ -23,6 +23,7 @@ workspace = true
 native-solvers = ["package-fixtures", "pse-runtime/native-solvers"]
 default = ["package-fixtures"]
 canonical-tools = ["dep:pse-operations", "dep:pse-model"]
+canonical-tests = ["package-fixtures", "pse-runtime/canonical-tests"]
 thermodynamic-oracles = [
   "dep:feos",
   "dep:feos-core",
@@ -81,7 +82,7 @@ semver.workspace = true
 tokio = { workspace = true, features = ["signal"] }
 # `codegen --check` regenerates into a scratch directory and diffs both ways (ADR-0051).
 tempfile.workspace = true
-# python/pse/contracts/GENERATED.sha256 only; identity hashing is blake3 in pse-ids.
+# Generated contracts and selected producer-file observations; semantic identity uses blake3.
 sha2.workspace = true
 # Introspect the actual compiled PyO3 boundary; no handwritten API replica.
 pyo3-introspection.workspace = true

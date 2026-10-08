@@ -109,6 +109,13 @@ impl BackendExecution for PounceConvex {
             assessment.refuse(cause);
         }
     }
+    fn scope_threads(&self, threads: usize) -> usize {
+        if cfg!(feature = "pounce") && threads > 1 {
+            threads
+        } else {
+            0
+        }
+    }
     fn scope(
         &self,
         threads: usize,

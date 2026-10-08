@@ -373,7 +373,7 @@ class StudyReport:
 
     @property
     def preparations(self) -> PreparationCounts:
-        """The study's own structural preparations and value rebinds."""
+        """Caller-process preparation counts; excludes an external primary worker."""
         return codec.decode_json(self._handle.preparations, PreparationCounts)
 
     def result(self, index: int) -> RunResult | StoredResult | None:

@@ -181,6 +181,17 @@ async fn declared_native_profiles_execute_actual_rungs_under_one_original_contra
 }
 #[tokio::test]
 async fn explicit_cone_request_runs_without_an_algebraic_compiler_flag() {
+    check_explicit_cone(runtime(), false).await;
+}
+#[tokio::test]
+async fn explicit_cone_source_demand_preserves_original_result_under_retained_pressure() {
+    check_explicit_cone(
+        crate::workflow::tests::runtime_with_workspace(256 << 20),
+        true,
+    )
+    .await;
+}
+async fn check_explicit_cone(runtime: Runtime, retained_pressure: bool) {
     let physical = physical();
     let q = physical.quantities.neutral_dimensionless().unwrap();
     let unit = physical.quantities.quantity_type(q).unwrap().canonical_unit;
@@ -200,7 +211,30 @@ async fn explicit_cone_request_runs_without_an_algebraic_compiler_flag() {
         cones: vec![native::conic::Cone::Nonnegative { dimension: 1 }],
         objective_constant: 3.0,
     };
-    let prepared = runtime()
+    let demand = request.construction_allocation_bound().unwrap();
+    assert!(demand < runtime.shared.budget().math.workspace_bytes);
+    let pool = runtime.shared.pool();
+    let math = &runtime.shared.budget().math;
+    let fixed = math.stack_bytes + math.foreign_bytes + math.inner_session_bytes;
+    // The source proof and later structural matching have distinct actual
+    // construction peaks; include matching's real stack without charging the
+    // generous configured source workspace maximum.
+    let free = fixed
+        .checked_add(demand)
+        .unwrap()
+        .checked_add(64 << 20)
+        .unwrap();
+    let pressure = retained_pressure.then(|| {
+        assert!(free < fixed + math.workspace_bytes);
+        runtime
+            .native()
+            .reserve(
+                "cone source demand pressure",
+                runtime.shared.budget().memory_limit_bytes.get() - pool.reserved() - free,
+            )
+            .unwrap()
+    });
+    let prepared = runtime
         .prepare_conic(request, &physical, profile(SolveIntent::Optimize))
         .await
         .unwrap();
@@ -208,6 +242,7 @@ async fn explicit_cone_request_runs_without_an_algebraic_compiler_flag() {
         prepared.solve().route(),
         native::routing::Route::Native(Backend::Clarabel)
     );
+    drop(pressure);
     let result = prepared.start().unwrap().finish().await.unwrap();
     let Outcome::Native(report) = &result.outcome else {
         panic!("{:?}", result.outcome)

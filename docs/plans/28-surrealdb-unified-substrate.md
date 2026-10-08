@@ -2,7 +2,7 @@
 title: SurrealDB unified simulation substrate
 status: in-progress
 date: 2026-10-05
-adrs: [ADR-0164]
+adrs: [ADR-0164, ADR-0166]
 review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
@@ -157,6 +157,25 @@ Missing compatibility refuses preparation reuse, not historical results or ordin
 No strict source/compiler campaign, environment copy, forced rebuild or general change-impact
 classifier becomes an ordinary restart prerequisite.
 
+### Parallel-execution rule decisions, 2026-10-08
+
+The maintainer explicitly accepted all four rule impacts from the
+[parallel-execution review](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#11-rule-impacts-and-disposition)
+on **2026-10-08**, before this plan-authoring extension. These review-qualified decisions
+are distinct from every earlier RC01–RC04. Operator acceptance does not change ADR status,
+implement a correction or establish concurrent qualification.
+
+| Item | Confirmed decision and consequence | Decision/design route before dependent implementation |
+|---|---|---|
+| [Parallel RC01](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#rc01) | **Accept, conditional:** allow a changed retention-guard topology only with preserved protection, reclamation, publication and acknowledgment guarantees. Sharing/coalescing within the present contract remains eligible. | A4 first selects the safe correction. Amend proposed ADR-0164 and blueprint §20.4–§20.6 if its named protection/commit contract changes; supersede an accepted record instead. Then B6/T7 consume the working contract. No speculative topology amendment is required before the investigation. |
+| [Parallel RC02](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#rc02) | **Accept:** bounded waiting may replace immediate refusal for temporary preparation contention. Preserve original clocks/cancellation and individually oversized refusal. | N8 owns admission behavior and its consumed B6/C6 routes. Amend the enduring blueprint §14.3.2 explanation before dependent behavior where it changes; an implementation correction within existing contracts needs no new ADR. |
+| [Parallel RC03](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#rc03) | **Accept:** revise supported backend thread/process strategies and deployment budgets to coordinate case workers, internal teams and process-global constraints. | N10 selects native strategies; L7 supplies the managed deployment envelope; C7 consumes it. Route actual binding/contract changes under R0 before their implementation. Existing typed solver selections remain eligible without a default change by assumption. |
+| [Parallel RC04](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#rc04) | **Accept:** replace generic in-turn independent study execution with bounded concurrent sequences or a fitting native batch, preserving dependencies and occurrences. | C6/C7 own ephemeral/durable composition, consuming N8/N9/N10/L7. Amend enduring workflow/execution descriptions where their realization changes; use the ADR route only when the selected design changes a governed contract. |
+
+F04's additional persistent-team accounting implements the existing native-stack admission
+contract; N9 needs no rule exception. Material newly discovered rule impacts return for an
+explicit decision; these four accepted directions do not need reconfirmation.
+
 ## Completion-audit reconciliation and capability decisions
 
 The [completion audit](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md)
@@ -298,7 +317,7 @@ them. Its four supporting corrections and accepted replay target fit B/C/E/N/T/L
 companion is needed. Its review-qualified F01–F05 are different from the completion audit's
 F01–F05. This coordinator owns their dispositions, including the opportunities below.
 
-The current foundation at `dacc9c33225990984ddbd1d356e797389f02fef3` has checked selected
+The enhancement review examined the foundation at `dacc9c33225990984ddbd1d356e797389f02fef3`, with checked selected
 admission, bounded operations, retained native owners and immutable installations. Stored-study
 creation still rebuilds declared admission per point; dynamic workers rebuild program-fixed
 layouts; IDAS jump elimination repeats factorization of the same sample matrix; sealed receipt
@@ -326,6 +345,65 @@ evaluator trust/ABI, native checkpoint continuation and storage streaming remain
 questions. Additional Context7/exact-release research or bounded observations are needed only
 for an unsettled consequential contract, not a feature census or another full design review.
 
+## Parallel-execution integration
+
+**Proposed target, 2026-10-08:** reliable sixteen-worker independent end-to-end execution,
+including ordinary ephemeral and durable studies, under a finite coordinated deployment.
+The authoring baseline is committed `84a1caf17656f00f38b22e703c7cbc2b63a44d2d`; the
+review examined its `fbbf718`-based predecessor working tree. Its existing two-test native
+selection failed on the composed canonical route. No new product run is supplied by this
+planning extension, and the reference campaign remains stopped.
+
+Keep four different kinds of concurrency explicit: Cargo/build jobs; Nextest/Python test
+workers; application case workers; and library/internal native teams. Sixteen configured
+test processes do not establish sixteen application cases. The target allows independent
+ready cases to progress concurrently where their operations permit it; it does not demand
+sixteen maximum-sized allocations or sixteen simultaneous process-constrained native calls.
+Native constraints require an examined supported execution strategy, not silently reduced
+application width. L7 must reconcile host/effective process limits, the capped command scope,
+server/native child allocations and test placement rather than summing independent defaults.
+
+Preserve the implemented foundations: authored scientific authority and physical interpretation;
+shared immutable selected admissions/artifacts; private compiler generations, evaluator/provider
+workers and native mutable state; original-model assessment; exact occurrence/start lineage;
+bounded progress/result transport; protected history; and native cancellation followed by drain.
+Salsa workspace mutexes are private. A transport change or another executor alone does not
+resolve shared store guards, admission demand or single-sequence study dispatch.
+
+### Packages, readiness and investigation decisions
+
+The existing companions own both their local design and package progress. This coordinator
+owns cross-plan dependencies and the finding ledger. No new companion, generic scheduler,
+second retry authority or resource-estimation framework is required by this extension.
+
+| Package/owner | Delivered capability or decision | Dependent work and readiness |
+|---|---|---|
+| [A4](28a-canonical-substrate-and-revisions.md#parallel-canonical-protection-and-contention) | Attribute decisive store failures where needed; select and implement the smallest safe protection/publication correction. | A bounded decision supplies exact predicates, writer coverage and acknowledgment semantics. B6/T7 require its working correction where their consumed contract changes, not merely an agreed schema. |
+| [B6](28b-selected-compilation-and-reuse.md#parallel-selected-preparation-composition) and [T7](28g-bulk-data-operations.md#parallel-protected-operation-composition) | Compose protected selection, immutable preparation and publication without unnecessary equivalent work/crossings. | Consume applicable A4 slices and N8 admission. Preserve distinct selections, roots and effect receipts; demonstrate actual ordinary callers. |
+| [N8/N9](28f-shared-numerical-preparation.md#parallel-admission-and-native-lifetimes) | Demand-based temporary admission with bounded waiting; persistent native-team extent owned through teardown. | These corrections can proceed independently of store attribution. B6/C6 consume their tested lifetimes and refusal/cancellation behavior. |
+| [N10](28f-shared-numerical-preparation.md#parallel-admission-and-native-lifetimes) then [L7](28h-native-setup-and-artifact-identity.md#parallel-deployment-and-supported-native-placement) | Select backend coexistence/exclusion/team strategies, then a realizable aggregate local deployment and test placement. | N10's strategy selection can run alongside A4/N8/N9. L7 fixes profile values before C7 deployment; no fresh full budget per child process. |
+| [C6/C7](28c-durable-execution-and-studies.md#parallel-study-frontiers-and-durable-workers) | Concurrent independent study sequences and adequately deployed durable workers, preserving genuine chain dependencies and native bulk semantics. | Targeted integration needs working protection/admission/native slices and L7 for managed processes. Source-policy design can start earlier; no entire-document barrier or separate policy authority. |
+| D1/D2 and N4/T5/L4 reconciliation | Migrate affected result/analysis and scientific/tooling consumers and delete displaced mechanisms with their replacement controls. | Extend the existing closure responsibilities to B6/C6/C7/N8–N10/T7/L7. Prior closure excludes these new consumers until reconciled. |
+| [E3/E4/E5](28e-rebuild-retirement-and-qualification.md#parallel-extension-acceptance-and-campaign-restart) | Composed correctness/recovery, applicable measurements and assembled assessment. | All selected functional scope and targeted controls precede campaign restart; previous passes, reader-only stress and document adoption are insufficient. |
+
+A4 and N10 investigations finish with a selected supported design, its evidence limits and any
+actual decision/design amendment. A reasoned retained mechanism can close an investigation;
+it cannot close F01/F03 if the required complete operation still fails or its native strategy
+is unresolved. Missing backend safety/feature premises constrain that combination, not unrelated
+corrections. Quantitative gains remain Proposed until E4 measures comparable operations.
+
+The review's library matrix and alternatives guide N10/L7. Refresh pinned source and Context7
+only for consequential unknowns. Distinguish Symbolica optimizer cores from numeric workers,
+faer global/team behavior from explicit sequential callers, Tokio orchestration from admitted
+CPU work, Rayon teams from native process constraints, and DataFusion pool reservation from
+physical allocation enforcement. Library-owned execution is eligible if it removes supervision
+machinery while preserving thread affinity, retained ownership, cancellation and join.
+
+A new provider or model composes through existing scientific admission and private workers.
+A backend/factorization substitution changes its native strategy and acceptance conditions,
+not study policy. These variation axes must remain local; no compatibility production path is
+retained after the replacement's callers and targeted controls are complete.
+
 ## Execution sequence and readiness
 
 **R0 — Record the approved target through the decision/design route.** Allocate proposal(s)
@@ -343,7 +421,7 @@ Then implement actual slices of the target:
 | A1 then A2 early slice | Supervised store, exact codec, immutable identities, named guards and preparation protection/root admission. | B1, C1, D1 declarations and E1 regeneration. B1 need not wait for complete A3 authoring. |
 | B1 then B2; C1 then D1 | Shared kernel, persisted descriptions with working ordinary-solve reconstruction; terminal envelope and actual minimal reader. | C2 durable execution. Agreement on types alone is not this prerequisite. |
 | A3, B3, C2, D2 | Runnable revision edits, protected reads, numerical products, sealed runs and native/Arrow consumers. | C3 studies and D3 analysis; A3/C4/D2 jointly complete retention/read lifecycle. |
-| C3/C4, D3 and B4 decision | Full study/recovery/analysis consumers and decided evaluator-layout obligation. | E3 after E1/E2 retirement completes. |
+| C3/C4, D3 and B4 decision, plus the parallel extension | Full study/recovery/analysis consumers, decided evaluator layout and working A4/B6/T7/N8–N10/C6/C7/L7 with affected consumer closure. | E3 after E1/E2 retirement and [parallel readiness](28e-rebuild-retirement-and-qualification.md#parallel-extension-acceptance-and-campaign-restart) complete. |
 | E3 then E4 then E5 | Required correctness/recovery/static evidence, measurements and assembled assessment. | Closure at enduring architecture and finding owners. |
 
 B4's library-signature investigation and E2's build/codegen fixes can proceed independently
@@ -457,20 +535,23 @@ findings have distinct correction obligations; a higher worker count, retry coun
 does not settle them. The precise SQL responsible for each observed transaction conflict and
 the supported mixed-backend execution strategy remain consequential questions.
 
-| Finding | Review scenarios | Disposition | Proposed work owner | Required evidence or question |
+| Finding | Review scenarios | Disposition | Work owner | Required evidence or question |
 |---|---|---|---|---|
-| [Parallel F01](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f01) | S01/S03/S06 | Open | A/B/G canonical protection, selection and publication; E3 | Reliable sixteen complete cases and original report/result meaning; protected reclamation and uncertain-acknowledgment safety. Select the correction with adequate operation attribution; RC01 is conditional and unconfirmed. |
-| [Parallel F02](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f02) | S02/S03 | Open | B/F math preparation and admission; E3 | Small nested-provider/rebind work completes under the finite pool without maximum-capacity reservation amplification; retain oversized refusal, clocks, cancellation and bounded progress under retained pressure. RC02 depends on whether admission behavior changes. |
-| [Parallel F03](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f03) | S04 | Open | Coordinator; C/F/H native execution/deployment; E3 | Explicit supported independent-instance, internal-team and process strategies, with exclusion/waiting, cancellation, teardown and aggregate CPU/memory scope. RC03 is unconfirmed; no deadlock or universal backend concurrency is claimed. |
-| [Parallel F04](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f04) | S05 | Open | C/F native session/scope ownership; E3 | Additional POUNCE team stacks reserved before creation, retained while the team exists and released after scope teardown/join; finite refusal before creation. This is existing-contract accounting, not an RSS claim or a new allocator contract. |
-| [Parallel F05](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f05) | S07/S03 | Open | C study execution; F native/preparation integration; E3 | One ordinary study executes sixteen independent non-batching cases concurrently with exact occurrences, starts, result placement and original scientific checks; retain dependent sequence order, failed-point isolation, bounded admission and cancel/drain. Select/account for durable worker deployment; RC04 is unconfirmed. |
+| [Parallel F01](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f01) | S01/S03/S06 | In progress; targeted foundations pass, public managed/E3 acceptance pending | A4; B6; T7; E3 | Reliable sixteen complete cases and original report/result meaning; protected reclamation and uncertain-acknowledgment safety. Select the correction with adequate operation attribution; RC01 is accepted conditionally; A4 selects the actual route. |
+| [Parallel F02](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f02) | S02/S03 | In progress; targeted foundations pass, public managed/E3 acceptance pending | N8; B6; E3 | Small nested-provider/rebind work completes under the finite pool without maximum-capacity reservation amplification; retain oversized refusal, clocks, cancellation and bounded progress under retained pressure. RC02 is accepted; N8 owns the changed behavior. |
+| [Parallel F03](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f03) | S04 | In progress; targeted foundations pass, public managed/E3 acceptance pending | N10; L7; C7; E3 | Explicit supported independent-instance, internal-team and process strategies, with exclusion/waiting, cancellation, teardown and aggregate CPU/memory scope. RC03 is accepted; no deadlock or universal backend concurrency is claimed. |
+| [Parallel F04](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f04) | S05 | In progress; targeted foundations pass, public managed/E3 acceptance pending | N9; C6/C7; E3 | Additional POUNCE team stacks reserved before creation, retained while the team exists and released after scope teardown/join; finite refusal before creation. This is existing-contract accounting, not an RSS claim or a new allocator contract. |
+| [Parallel F05](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f05) | S07/S03 | In progress; targeted foundations pass, public managed/E3 acceptance pending | C6/C7; N8–N10; L7; E3 | One ordinary study executes sixteen independent non-batching cases concurrently with exact occurrences, starts, result placement and original scientific checks; retain dependent sequence order, failed-point isolation, bounded admission and cancel/drain. Select/account for durable worker deployment; RC04 is accepted; C6/C7 own the realization. |
 
-These are proposed correction owners, not new execution packets or correction evidence.
-The review's [rule impacts](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#11-rule-impacts-and-disposition)
-remain pending the selected design and maintainer confirmation where required. No accepted
-ADR or authoritative architecture section is changed by the review. This coordinator keeps
-the single finding ledger; [28e](28e-rebuild-retirement-and-qualification.md#parallel-execution-review-handoff-2026-10-08)
-owns campaign resumption and later qualification evidence.
+The selected A4 staging correction, N8 demand admission, N9 team accounting, N10 exclusion
+coordination and C6/C7 dispatchers are integrated. Their targeted controls establish only
+their exercised mechanisms; public managed receiving journeys and E3/E4/E5 remain required.
+The [confirmed decisions](#parallel-execution-rule-decisions-2026-10-08) replace the earlier
+unconfirmed handoff. Selected contract changes still require their decision/design route;
+no accepted ADR or architecture section is changed by plan publication. This coordinator
+keeps the single finding ledger; companions own package progress and
+[28e](28e-rebuild-retirement-and-qualification.md#parallel-extension-acceptance-and-campaign-restart)
+owns campaign restart and later qualification evidence.
 
 ## Verification
 
@@ -491,17 +572,36 @@ mechanism, and justified distinct contracts and conditional retained-design deci
 
 ## Current checkpoint
 
-Implementation is authorized on the current `fbbf718dc175dea773c468db1f14deba88f7042d`
-foundation. C5, N5–N7, L6, L5/B5 and T6 are integrated into the working tree.
+Execution started from committed `84a1caf17656f00f38b22e703c7cbc2b63a44d2d`, preserving the
+existing Plan 28 documentation edits. R0's parallel contract is recorded in proposed
+ADR-0166 and architecture revision 136 before its dependent changes. The selected realization
+is one shared runtime with sixteen ordinary case lanes, thirty-two total population slots,
+one-thread ordinary native teams and one managed primary process. Observers provide no
+additional native assistance. The 128 GiB reference pool and 16 GiB worker capacity remain.
 
-At the maintainer's request, execution is interrupted for the
-[parallel-execution review](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md).
-The review is published with five open findings and conditional rule impacts above.
-Its preferred direction is to correct canonical conflict scope, temporary preparation
-admission and native team lifetimes, compose independent study frontier execution, and
-establish the supported backend and durable worker deployment strategies. Implementation and campaign resumption follow the selected correction and its
-applicable decision route; the stopped campaign remains stopped. The paragraphs below
-retain the implementation handoff and earlier evidence without establishing parallel acceptance.
+A4 now attributes conflicts to their actual protected operation and paces bounded same-owner
+staging RPCs without changing server guards, generations or replay identity. The two existing
+sixteen-worker scientific controls pass after this correction. N8's common-pool release
+observation, bounded population and original-clock admission, N9's actual team-stack ownership,
+and N10's native exclusion waiting are integrated with focused mechanism controls. Nested arithmetic construction now uses source-issued initial demand and extends the same
+reservation for actual optimized numeric payload before allocation. Original operation/scratch
+limits remain authoritative; opaque library storage retains a conservative allowance. C6's completion-driven dispatcher and C7's bounded worker
+group are integrated, with targeted sixteen-entry, cancellation/drain, continuation and low-population refusal
+controls passing. L7's typed profile, managed startup and receiving placement are integrated;
+actual external-primary controls and Python process partitioning remain in progress. Existing source-protection and scientific checks remain.
+
+Next: complete producer construction bounds, public study and managed-receiver controls;
+reconcile B6/T7/N4/T5/L4 and the connected serving consumers; then perform E3/E4/E5. The campaign
+remains stopped. The selected finite deployment caps and ancestor CPU/memory placement must fit before full
+reference qualification; no smaller pool substitutes for it. Available memory is recorded
+without requiring the whole maximum envelope to be free up front, as confirmed by the
+maintainer. Caps are ceilings rather than physical reservations. Earlier enhancement evidence below retains
+its original scope and does not qualify this extension.
+
+### Earlier implementation handoff
+
+The following handoff predates the newly scheduled parallel packages; its completed controls
+and consumer reconciliation retain that original scope.
 
 Native mechanism controls and installed Python default reopening/loader controls pass.
 Independent implementation review exposed originating body-cache producer association

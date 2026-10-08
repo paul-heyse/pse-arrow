@@ -467,6 +467,27 @@ impl PreparedSupport {
             owner: self.owner.clone(),
         })
     }
+    /// Initial selected numeric construction population. The compact body contains
+    /// only demanded outputs/coordinates and their scalar requirements. Bounding
+    /// all input axes through Second also covers a First directional layout.
+    /// Positive optimized excess grows the installed runtime owner before floats.
+    pub fn compilation_allocation_bound(
+        &self,
+        limits: EvaluationLimits,
+    ) -> Result<Option<usize>, MathError> {
+        let Some(body) = self
+            .body()
+            .arithmetic_compilation_allocation_bound(limits)?
+        else {
+            return Ok(None);
+        };
+        Ok(Some(
+            self.retained_bytes()
+                .checked_mul(2)
+                .and_then(|support| body.checked_add(support))
+                .ok_or(MathError::Limit("selected compilation construction extent"))?,
+        ))
+    }
     /// Compile numerical products after independent selected-closure capability admission.
     pub fn compile(
         &self,
@@ -1171,6 +1192,121 @@ impl PreparedBody {
             }),
             owner: None,
         })
+    }
+    /// Whether projection visits only arithmetic blocks and scalar domain requirements.
+    /// Requirements inspect already computed slots; branch/provider regions introduce
+    /// additional populations and retain conservative construction admission.
+    pub fn is_flat_arithmetic(&self) -> bool {
+        self.stages
+            .iter()
+            .all(|stage| matches!(stage, Stage::Block { .. } | Stage::Require { .. }))
+    }
+    /// Initial construction reservation for compiling every output at all input axes up
+    /// to second order. This does not request higher scientific capability: it bounds
+    /// the factory's value/first/second products before selecting its actual order.
+    /// The runtime owner reserves positive optimized payload excess before allocation.
+    /// Control/provider lowering retains its separately admitted opaque allowance.
+    pub fn arithmetic_compilation_allocation_bound(
+        &self,
+        limits: EvaluationLimits,
+    ) -> Result<Option<usize>, MathError> {
+        if !self.is_flat_arithmetic() {
+            return Ok(None);
+        }
+        let overflow = || MathError::Limit("arithmetic compilation extent");
+        let add = |a: usize, b: usize| a.checked_add(b).ok_or_else(overflow);
+        let mul = |a: usize, b: usize| a.checked_mul(b).ok_or_else(overflow);
+        let n = self.inputs;
+        let mut numeric = 0usize;
+        let mut instructions = 0usize;
+        let mut descriptors = 0usize;
+        for order in [
+            DerivativeOrder::Value,
+            DerivativeOrder::First,
+            DerivativeOrder::Second,
+        ] {
+            let first = if order >= DerivativeOrder::First {
+                n
+            } else {
+                0
+            };
+            let second = if order >= DerivativeOrder::Second {
+                mul(n, add(n, 1)?)? / 2
+            } else {
+                0
+            };
+            let width = add(add(1, first)?, second)?;
+            let dense = if order >= DerivativeOrder::Second {
+                mul(n, n)?
+            } else {
+                0
+            };
+            let mut entries = add(
+                mul(self.slots, width)?,
+                mul(self.outputs.len(), add(add(1, first)?, dense)?)?,
+            )?;
+            // Full/local layouts, coordinate maps, component maps and the sparse
+            // zero-component (parameter,component) list coexist during a block build.
+            let layout = mul(
+                width,
+                add(
+                    mul(n, size_of::<usize>())?,
+                    2 * size_of::<Vec<usize>>() + 4 * size_of::<usize>(),
+                )?,
+            )?;
+            descriptors = add(descriptors, layout)?;
+            for stage in &self.stages {
+                let Stage::Block {
+                    expressions,
+                    outputs,
+                    ..
+                } = stage
+                else {
+                    // Require compiles one descriptor for an existing slot; no numeric
+                    // evaluator or Taylor expansion is constructed at this stage.
+                    descriptors = add(descriptors, size_of::<CompiledStage>())?;
+                    continue;
+                };
+                let block = library::evaluator_construction(expressions, self.slots, n, order)?;
+                entries = add(
+                    entries,
+                    add(
+                        block.entries,
+                        mul(add(add(self.slots, outputs.len())?, 1)?, width)?,
+                    )?,
+                )?;
+                instructions = add(instructions, block.instructions)?;
+                descriptors = add(
+                    descriptors,
+                    add(
+                        layout,
+                        mul(mul(self.slots, width)?, 4 * size_of::<usize>())?,
+                    )?,
+                )?;
+            }
+            numeric = add(numeric, mul(entries, size_of::<f64>())?)?;
+        }
+        // The existing scratch guard independently bounds retained numeric programs
+        // and worker/output buffers. Use it only as a checked upper alternative to
+        // the source population, never as the initial construction demand.
+        numeric = numeric.min(limits.scratch_bytes);
+        let support_width = add(add(1, n)?, mul(n, n)?)?;
+        let support_population = mul(
+            mul(
+                add(add(self.slots, self.inputs)?, self.outputs.len())?,
+                support_width,
+            )?,
+            4,
+        )?;
+        let support = mul(support_population.min(self.remaining_occurrences), 256)?;
+        let source = mul(self.retained_bytes(), 4)?;
+        // Two numeric populations cover retained programs plus construction/cache
+        // copies; source container copies and known instruction indices are separate.
+        let bytes = add(
+            add(add(mul(numeric, 2)?, instructions)?, descriptors)?,
+            add(add(source, support)?, 4096)?,
+        )?;
+        Ok(Some(bytes))
     }
     /// Number of formal inputs.
     pub fn input_count(&self) -> usize {
@@ -3844,6 +3980,92 @@ mod compact_tests {
         )
     }
 
+    #[test]
+    fn arithmetic_constructor_demand_uses_source_not_generous_scratch_capacity() {
+        crate::initialize().unwrap();
+        let x = library::formal(0).unwrap();
+        let y = library::formal(1).unwrap();
+        let body = PreparedBody::new(
+            2,
+            3,
+            vec![2],
+            vec![Stage::Block {
+                expressions: vec![&y - &x - Atom::num(1)],
+                outputs: vec![2],
+                source: SemanticId::NIL,
+            }],
+            DerivativeOrder::Second,
+        )
+        .unwrap();
+        let reference = EvaluationLimits {
+            derivative_components: 1_000_000,
+            operations: 100_000_000,
+            scratch_bytes: 4usize << 30,
+            provider_calls: 1_000_000,
+        };
+        let bound = body
+            .arithmetic_compilation_allocation_bound(reference)
+            .unwrap()
+            .unwrap();
+        assert!(bound < 1 << 20);
+        assert_eq!(
+            bound,
+            body.arithmetic_compilation_allocation_bound(EvaluationLimits {
+                scratch_bytes: 16usize << 30,
+                ..reference
+            })
+            .unwrap()
+            .unwrap()
+        );
+        let unguarded_program = body
+            .compile(
+                &[0],
+                &[0, 1],
+                DerivativeOrder::Second,
+                Optimization::default(),
+                reference,
+                &Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        assert!(unguarded_program.retained_bytes() + unguarded_program.worker_bytes() < bound);
+        // A scalar Require checks an existing slot and adds bounded descriptors;
+        // it does not turn an ordinary arithmetic body into an opaque provider.
+        let guarded = analytic_body(4096);
+        let guarded_bound = guarded
+            .arithmetic_compilation_allocation_bound(reference)
+            .unwrap()
+            .unwrap();
+        let guarded_program = compiled(&guarded, &[X, Y], DerivativeOrder::First);
+        assert!(guarded_program.retained_bytes() + guarded_program.worker_bytes() < guarded_bound);
+    }
+
+    #[test]
+    fn selected_artifact_demand_uses_compact_source_with_original_four_gib_scratch() {
+        let body = analytic_body(4096);
+        let cancel = Arc::new(AtomicBool::new(false));
+        let support = body
+            .prepare_support(&[0], &[X, Y], DerivativeOrder::First, &cancel)
+            .unwrap();
+        let limits = EvaluationLimits {
+            derivative_components: 1_000_000,
+            operations: 100_000_000,
+            scratch_bytes: 4usize << 30,
+            provider_calls: 1_000_000,
+        };
+        let demand = support
+            .compilation_allocation_bound(limits)
+            .unwrap()
+            .unwrap();
+        assert!(demand < 1 << 20);
+        let program = support
+            .compile(Optimization::default(), limits, &cancel)
+            .unwrap();
+        assert!(program.retained_bytes() + program.worker_bytes() < demand);
+        let mut worker = program.worker();
+        let result = eval(&mut worker, &[2., 3., 1.], DerivativeOrder::First).unwrap();
+        assert_eq!(result.values, [22.]);
+        assert_eq!(result.jacobian, [13., 6.]);
+    }
     #[test]
     fn compact_sparse_analytic_derivatives_reordering_and_unused_axis() {
         let body = analytic_body(4096);

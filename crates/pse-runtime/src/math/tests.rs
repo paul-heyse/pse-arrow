@@ -33,7 +33,26 @@ fn service_with(
     Arc<MathService>,
     Arc<pse_engine::cache_service::NativeCacheService>,
 ) {
-    let pool: Arc<dyn MemoryPool> = Arc::new(FairSpillPool::new(pool));
+    service_with_policy(
+        pool,
+        MathPolicy {
+            foreign_bytes: foreign,
+            worker_bytes: 8 << 20,
+            workspace_bytes: 16 << 20,
+            ..MathPolicy::default()
+        },
+    )
+}
+pub(super) fn service_with_policy(
+    pool: usize,
+    policy: MathPolicy,
+) -> (
+    Arc<MathService>,
+    Arc<pse_engine::cache_service::NativeCacheService>,
+) {
+    let pool: Arc<dyn MemoryPool> = Arc::new(pse_engine::resources::ReleaseNotifyingPool::new(
+        Arc::new(FairSpillPool::new(pool)),
+    ));
     let native = pse_engine::cache_service::NativeCacheService::new(
         pse_engine::cache_service::CacheBudget::disabled(1024),
         &pool,
@@ -43,12 +62,7 @@ fn service_with(
         pool,
         Arc::new(tokio::sync::Semaphore::new(2)),
         2,
-        MathPolicy {
-            foreign_bytes: foreign,
-            worker_bytes: 8 << 20,
-            workspace_bytes: 16 << 20,
-            ..MathPolicy::default()
-        },
+        policy,
         &native,
     );
     (service, native)
@@ -285,4 +299,467 @@ fn worker_budget_releases_dropped_capacity() {
     assert_eq!(budget.used(), 60);
     drop(b);
     assert_eq!(budget.used(), 0);
+}
+
+#[tokio::test]
+async fn admission_pool_pressure_releases_cpu_and_uses_one_population_ticket() {
+    let (s, _) = service_with_policy(
+        256 << 20,
+        MathPolicy {
+            jobs: 1,
+            ..Default::default()
+        },
+    );
+    let held = MemoryConsumer::new("query-or-escaped-result").register(&s.pool);
+    held.try_grow(256 << 20).unwrap();
+    let called = Arc::new(AtomicBool::new(false));
+    let entered = called.clone();
+    let service = s.clone();
+    let task = tokio::spawn(async move {
+        service
+            .job_retained(1, 0, FlightCancellation::default(), move |_| {
+                entered.store(true, Ordering::Release);
+                Ok((42, 0))
+            })
+            .await
+    });
+    tokio::time::timeout(std::time::Duration::from_secs(1), async {
+        while s.jobs.available_permits() != 0 {
+            tokio::task::yield_now().await;
+        }
+        // CPU acquisition/reservation runs in the detached supervisor.
+        tokio::task::yield_now().await;
+    })
+    .await
+    .unwrap();
+    assert!(!called.load(Ordering::Acquire));
+    assert_eq!(s.cpu.available_permits(), 2);
+    let refused = s
+        .job_retained(1, 0, FlightCancellation::default(), |_| Ok(((), 0)))
+        .await;
+    assert!(matches!(
+        refused,
+        Err(MathRuntimeError::Limit("native jobs"))
+    ));
+    held.free();
+    let (answer, lease) = tokio::time::timeout(std::time::Duration::from_secs(1), task)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert_eq!(answer, 42);
+    drop(lease);
+    assert_eq!(s.jobs.available_permits(), 1);
+    assert_eq!(s.pool.reserved(), 0);
+}
+#[tokio::test]
+async fn admission_only_deadline_expires_on_pressure_without_dispatch() {
+    let (s, _) = service_with_policy(
+        256 << 20,
+        MathPolicy {
+            admission_wait: std::time::Duration::from_millis(20),
+            ..Default::default()
+        },
+    );
+    let held = MemoryConsumer::new("retained-pressure").register(&s.pool);
+    held.try_grow(256 << 20).unwrap();
+    let called = Arc::new(AtomicBool::new(false));
+    let entered = called.clone();
+    let control = FlightCancellation::default();
+    let result = s
+        .job_retained(1, 0, control.clone(), move |_| {
+            entered.store(true, Ordering::Release);
+            Ok(((), 0))
+        })
+        .await;
+    assert!(matches!(
+        result,
+        Err(MathRuntimeError::Solve(
+            pse_backend_native::ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                ..
+            }
+        ))
+    ));
+    assert!(!called.load(Ordering::Acquire));
+    assert!(!control.flag().load(Ordering::Acquire));
+    assert_eq!(s.cpu.available_permits(), 2);
+    assert_eq!(s.jobs.available_permits(), s.policy.jobs);
+    assert_eq!(s.pool.reserved(), 256 << 20);
+}
+#[tokio::test]
+async fn admission_only_clock_does_not_reclassify_completed_unscoped_work() {
+    let (s, _) = service_with_policy(
+        256 << 20,
+        MathPolicy {
+            admission_wait: std::time::Duration::from_millis(20),
+            ..Default::default()
+        },
+    );
+    let (answer, lease) = s
+        .job_retained(1, 0, FlightCancellation::default(), |_| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            Ok((42, 0))
+        })
+        .await
+        .unwrap();
+    assert_eq!(answer, 42);
+    drop(lease);
+    assert_eq!(s.pool.reserved(), 0);
+}
+#[tokio::test]
+async fn admission_cancellation_during_pressure_releases_ticket_without_dispatch() {
+    let s = service();
+    let held = MemoryConsumer::new("retained-pressure").register(&s.pool);
+    held.try_grow(512 << 20).unwrap();
+    let control = FlightCancellation::default();
+    let called = Arc::new(AtomicBool::new(false));
+    let entered = called.clone();
+    let service = s.clone();
+    let cancel = control.clone();
+    let task = tokio::spawn(async move {
+        service
+            .job_retained(1, 0, cancel, move |_| {
+                entered.store(true, Ordering::Release);
+                Ok(((), 0))
+            })
+            .await
+    });
+    while s.jobs.available_permits() == s.policy.jobs {
+        tokio::task::yield_now().await;
+    }
+    control.cancel();
+    assert!(matches!(
+        task.await.unwrap(),
+        Err(MathRuntimeError::Cancelled)
+    ));
+    assert!(!called.load(Ordering::Acquire));
+    assert_eq!(s.cpu.available_permits(), 2);
+    assert_eq!(s.jobs.available_permits(), s.policy.jobs);
+    assert_eq!(s.pool.reserved(), 512 << 20);
+}
+#[tokio::test]
+async fn admission_oversized_extent_refuses_before_ticket_and_dispatch() {
+    let s = service();
+    let called = Arc::new(AtomicBool::new(false));
+    let entered = called.clone();
+    let result = s
+        .job_retained(1, 512 << 20, FlightCancellation::default(), move |_| {
+            entered.store(true, Ordering::Release);
+            Ok(((), 0))
+        })
+        .await;
+    assert!(matches!(
+        result,
+        Err(MathRuntimeError::Limit(
+            "native entry exceeds deployment memory"
+        ))
+    ));
+    assert!(!called.load(Ordering::Acquire));
+    assert_eq!(s.jobs.available_permits(), s.policy.jobs);
+    assert_eq!(s.pool.reserved(), 0);
+}
+#[tokio::test]
+async fn term_diagnostics_admit_small_demand_under_generous_worker_capacity() {
+    let (s, _) = service_with_policy(
+        256 << 20,
+        MathPolicy {
+            worker_bytes: 16usize << 30,
+            ..Default::default()
+        },
+    );
+    let terms = BTreeMap::from([(pse_ids::SemanticId::NIL, vec![1.0, -1.0])]);
+    let policy = pse_math::diagnostics::TermPolicy {
+        zero: 1e-12,
+        mismatch: 1e6,
+        cancellation: 1e-8,
+        maximum_terms: 32,
+        combinations: 100_000,
+        findings: 100_000,
+    };
+    let report = s
+        .modeling_term_diagnostics(terms, policy, &crate::CancelSource::new())
+        .await
+        .unwrap();
+    assert!(s.pool.reserved() < 1 << 20);
+    drop(report);
+    assert_eq!(s.pool.reserved(), 0);
+}
+
+#[cfg(all(
+    feature = "canonical-tests",
+    feature = "solver-kinsol",
+    feature = "solver-root-isolation"
+))]
+#[tokio::test]
+async fn nested_preparation_admits_small_sources_with_generous_worker_capacity() {
+    use crate::workflow::tests as fixture;
+    let runtime = fixture::runtime_on(
+        256 << 20,
+        MathPolicy {
+            worker_bytes: 16usize << 30,
+            workspace_bytes: 16 << 20,
+            foreign_bytes: 1 << 20,
+            ..Default::default()
+        },
+    );
+    let rows = pse_authoring::language::parse(
+        "package p {def Root {param p:Scalar=2;implicit a {var y:Scalar;eq ey:y==p+1;annotation start y(2.5);annotation bounds y(1,8);}realize ra on a using nested;}}",
+        pse_ids::SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    ).unwrap();
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let package = runtime
+        .modeling_package(rows, fixture::physical())
+        .await
+        .unwrap();
+    let mut solver = fixture::profile();
+    solver.presolve = pse_backend_native::presolve::Policy::Off;
+    let mut compiler = fixture::compiler_profile();
+    // Preserve the original reference compiler's generous evaluation allowances
+    // (packages/reference/conformance.toml), including its 4 GiB scratch ceiling.
+    compiler.evaluation = pse_math::jets::EvaluationLimits {
+        derivative_components: 1_000_000,
+        operations: 100_000_000,
+        scratch_bytes: 4usize << 30,
+        provider_calls: 1_000_000,
+    };
+    let prepared = package
+        .prepare_solve(
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            pse_kernels::DerivativeOrder::First,
+            compiler,
+            solver,
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(prepared.model.case.compiled().plan.columns().len(), 1);
+}
+
+#[cfg(all(feature = "canonical-tests", feature = "solver-kinsol"))]
+#[tokio::test]
+async fn general_rebind_admits_small_projection_with_generous_worker_capacity() {
+    use crate::workflow::tests as fixture;
+    let runtime = fixture::runtime_on(
+        512 << 20,
+        MathPolicy {
+            worker_bytes: 16usize << 30,
+            workspace_bytes: 16 << 20,
+            foreign_bytes: 1 << 20,
+            ..Default::default()
+        },
+    );
+    let rows = pse_authoring::language::parse(
+        "package p {def Root {param p:Scalar=1;var x:Scalar;eq a:x*p==1;annotation start x(1);}}",
+        pse_ids::SemanticId::NIL,
+        pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    )
+    .unwrap();
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let package = runtime
+        .modeling_package(rows, fixture::physical())
+        .await
+        .unwrap();
+    let prepared = package
+        .prepare_solve(
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            pse_kernels::DerivativeOrder::First,
+            fixture::compiler_profile(),
+            fixture::profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let p = prepared
+        .model
+        .model
+        .compiled()
+        .model
+        .symbols
+        .values()
+        .find(|symbol| symbol.lineage.path == "p" || symbol.lineage.path.ends_with(".p"))
+        .unwrap()
+        .id;
+    let mut changed = prepared.model.values.clone();
+    changed.scalars.insert(p, 2.0);
+    assert!(!prepared.model.case.compiled().values_match(&changed));
+    let bound = prepared
+        .model
+        .case
+        .compiled()
+        .rebind_allocation_bound(&changed)
+        .unwrap()
+        .unwrap();
+    assert!(bound < 512 << 20);
+    let (limited, _) = service_with_policy(
+        512 << 20,
+        MathPolicy {
+            worker_bytes: bound - 1,
+            foreign_bytes: 1 << 20,
+            workspace_bytes: 16 << 20,
+            ..Default::default()
+        },
+    );
+    assert!(matches!(
+        limited
+            .rebind(
+                &prepared.model.case,
+                changed.clone(),
+                &crate::CancelSource::new()
+            )
+            .await,
+        Err(MathRuntimeError::Limit("rebind construction capacity"))
+    ));
+    assert_eq!(limited.pool.reserved(), 0);
+    assert_eq!(limited.cpu.available_permits(), 2);
+    let math = runtime.shared.math();
+    // Leave less construction capacity than the old workspace-sized entry, while
+    // preserving the full original stack/session/foreign allowance. Support is
+    // prepared here; actual numerical programs remain deferred artifact flights.
+    let demand = prepared
+        .model
+        .case
+        .compiled()
+        .support_upgrade_allocation_bound()
+        .unwrap()
+        .unwrap();
+    assert!(demand < 8 << 20);
+    let baseline_before_upgrade = math.pool.reserved();
+    let free = math.policy.stack_bytes
+        + math.policy.inner_session_bytes
+        + math.policy.foreign_bytes
+        + (8 << 20);
+    let pressure = MemoryConsumer::new("test:source-upgrade-pressure").register(&math.pool);
+    pressure
+        .try_grow((512 << 20) - baseline_before_upgrade - free)
+        .unwrap();
+    let stronger = math
+        .prepare_order(
+            prepared.model.case.clone(),
+            pse_kernels::DerivativeOrder::Second,
+            FlightCancellation::default(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        stronger.compiled().plan.order(),
+        pse_kernels::DerivativeOrder::Second
+    );
+    let directional = math.prepare_directional_actions(stronger).await.unwrap();
+    assert!(directional.compiled().plan.has_directional_actions());
+    assert_eq!(
+        directional.compiled().plan.structure().key(),
+        prepared.model.case.compiled().plan.structure().key()
+    );
+    drop(directional);
+    drop(pressure);
+    let baseline = math.pool.reserved();
+    let hold = || {
+        let reservation = MemoryConsumer::new("test:rebind-pressure").register(&math.pool);
+        reservation.try_grow((512 << 20) - baseline).unwrap();
+        reservation
+    };
+    // Even unchanged sharing needs bounded metadata comparison. Pressure retains
+    // one population ticket and releases CPU, then a pool release wakes admission.
+    let pressure = hold();
+    let driver = crate::CancelSource::new();
+    let sharing = math.rebind(&prepared.model.case, prepared.model.values.clone(), &driver);
+    tokio::pin!(sharing);
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(20), &mut sharing)
+            .await
+            .is_err()
+    );
+    assert_eq!(math.jobs.available_permits(), math.policy.jobs - 1);
+    assert_eq!(math.cpu.available_permits(), math.cores);
+    drop(pressure);
+    let shared = sharing.await.unwrap();
+    assert!(Arc::ptr_eq(
+        &shared.compiled().plan,
+        &prepared.model.case.compiled().plan
+    ));
+    drop(shared);
+    assert_eq!(math.pool.reserved(), baseline);
+
+    let pressure = hold();
+    let driver = crate::CancelSource::new();
+    let cancelled = math.rebind(&prepared.model.case, changed.clone(), &driver);
+    tokio::pin!(cancelled);
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(20), &mut cancelled)
+            .await
+            .is_err()
+    );
+    driver.cancel();
+    assert!(matches!(cancelled.await, Err(MathRuntimeError::Cancelled)));
+    assert_eq!(math.jobs.available_permits(), math.policy.jobs);
+    assert_eq!(math.cpu.available_permits(), math.cores);
+    drop(pressure);
+    assert_eq!(math.pool.reserved(), baseline);
+
+    let pressure = hold();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(20);
+    let scope = pse_kernels::ExecutionScope::new(Arc::new(AtomicBool::new(false)), Some(deadline));
+    let refused = math
+        .rebind_within(
+            &prepared.model.case,
+            changed.clone(),
+            &crate::CancelSource::new(),
+            scope,
+        )
+        .await;
+    assert!(matches!(
+        &refused,
+        Err(MathRuntimeError::Solve(
+            pse_backend_native::ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                ..
+            } | pse_backend_native::ProblemError::Provider(pse_kernels::ProviderError::Deadline)
+        ))
+    ));
+    drop(refused);
+    assert_eq!(math.jobs.available_permits(), math.policy.jobs);
+    assert_eq!(math.cpu.available_permits(), math.cores);
+    drop(pressure);
+    assert_eq!(math.pool.reserved(), baseline);
+
+    let pressure = hold();
+    let driver = crate::CancelSource::new();
+    let rebuilding = math.rebind(&prepared.model.case, changed, &driver);
+    tokio::pin!(rebuilding);
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(20), &mut rebuilding)
+            .await
+            .is_err()
+    );
+    drop(pressure);
+    let rebound = rebuilding.await.unwrap();
+    assert!(Arc::ptr_eq(
+        &rebound.compiled().plan,
+        &prepared.model.case.compiled().plan
+    ));
+    assert!(!pse_math::SharedAllocation::ptr_eq(
+        &rebound.compiled().presolve,
+        &prepared.model.case.compiled().presolve
+    ));
 }

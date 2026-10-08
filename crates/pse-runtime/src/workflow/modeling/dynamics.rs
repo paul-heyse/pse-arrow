@@ -152,6 +152,30 @@ struct TrajectorySnapshot {
     _owner: Arc<pse_columnar::AllocationLease>,
     tables: Mutex<Option<Arc<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>>>>,
 }
+fn trajectory_diagnostic_report_allocation_bound(
+    policy: pse_backend_native::derivative_diagnostics::Policy,
+    coordinates: usize,
+    rows: [usize; 4],
+    samples: usize,
+) -> Result<usize, WorkflowError> {
+    let mut bytes = 1024usize;
+    for (_, rows) in rows
+        .into_iter()
+        .enumerate()
+        .filter(|(index, rows)| *index < 2 || *rows > 0)
+    {
+        bytes = bytes
+            .checked_add(
+                policy
+                    .construction_allocation_bound(coordinates, rows)
+                    .map_err(crate::math::MathRuntimeError::from)?,
+            )
+            .ok_or_else(|| contract("dynamic diagnostic report extent"))?;
+    }
+    bytes
+        .checked_mul(samples)
+        .ok_or_else(|| contract("dynamic diagnostic report extent"))
+}
 impl ModelingTrajectory {
     /// Unique identity of this completed attempt.
     pub fn run_id(&self) -> RunId {
@@ -238,18 +262,65 @@ impl ModelingTrajectory {
         WorkflowError,
     > {
         let trajectory = self.clone();
-        let bytes = policy
-            .allowance()
-            .map_err(crate::math::MathRuntimeError::from)?
-            .checked_add(
-                self.inner
-                    .report
-                    .samples
-                    .len()
-                    .checked_mul(1024)
-                    .ok_or_else(|| contract("derivative sample extent"))?,
+        let prepared = &self.inner.prepared;
+        let signature = &prepared.contract;
+        let coordinates = signature
+            .states
+            .len()
+            .checked_add(signature.parameters.len())
+            .ok_or_else(|| contract("dynamic diagnostic coordinate extent"))?;
+        let rows = signature
+            .states
+            .len()
+            .max(signature.outputs.len())
+            .max(signature.quadratures.len())
+            .max(signature.balances.len());
+        let diagnostics = policy
+            .construction_allocation_bound(coordinates, rows)
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let capacity = prepared.runtime.shared.budget().math.worker_bytes;
+        let allowances = crate::workflow::dynamics::allowance_bytes(
+            &prepared.state_allowances,
+            &prepared.output_allowances,
+        )
+        .ok_or_else(|| contract("dynamic diagnostic allowance extent"))?;
+        let workers = crate::workflow::dynamics::DynamicProgram::worker_allocation_bound(
+            signature,
+            &prepared.programs,
+            &prepared.coordinates,
+            prepared.modes.iter().map(|m| &m.context),
+            &prepared.layout,
+            allowances,
+        )
+        .map_err(crate::math::MathRuntimeError::from)?;
+        // Failed summaries can retain every sampled comparison across all
+        // functions and samples. The actual dimension allowance includes bounded
+        // library lines and their summary/join copies, independently of accuracy.
+        let samples = trajectory_diagnostic_report_allocation_bound(
+            policy,
+            coordinates,
+            [
+                signature.states.len(),
+                signature.outputs.len(),
+                signature.quadratures.len(),
+                signature.balances.len(),
+            ],
+            self.inner.report.samples.len(),
+        )?;
+        // The opaque fallback covers the entire diagnostic entry, including
+        // metadata; known worker extents add the actual diagnostic/sample arrays.
+        let bytes = workers.map_or(Ok(capacity), |bytes| {
+            bytes
+                .checked_add(diagnostics)
+                .and_then(|bytes| bytes.checked_add(samples))
+                .ok_or_else(|| contract("dynamic diagnostic worker extent"))
+        })?;
+        if bytes > capacity {
+            return Err(crate::math::MathRuntimeError::Limit(
+                "dynamic diagnostic construction capacity",
             )
-            .ok_or_else(|| contract("derivative sample extent"))?;
+            .into());
+        }
         let handle = self.inner.prepared.runtime.shared.math().submit(1, bytes, move |flag, _| {
             let execution = pse_backend_native::solve::Execution::new(flag.clone(), &controls);
             let scope = execution.scope()?;
@@ -5965,5 +6036,49 @@ mod tests {
                 assert!((end - 2. * (1. - 1.25f64.powi(-4))).abs() < 1e-7);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod diagnostic_admission_tests {
+    use super::*;
+    #[test]
+    fn trajectory_diagnostic_reports_charge_each_function_and_retained_sample() {
+        let policy = pse_backend_native::derivative_diagnostics::Policy {
+            perturbation: 1e-6,
+            relative_tolerance: 1e-4,
+            maximum_cells: 100_000_000,
+        };
+        // One state/one output each owes two derivative cells (gradient included),
+        // and all five samples can retain both summaries at once.
+        assert_eq!(
+            trajectory_diagnostic_report_allocation_bound(policy, 1, [1, 1, 0, 0], 5).unwrap(),
+            5 * 5 * 1024
+        );
+        assert_eq!(
+            trajectory_diagnostic_report_allocation_bound(policy, 1, [1, 1, 2, 3], 5).unwrap(),
+            5 * 12 * 1024
+        );
+        assert_eq!(
+            trajectory_diagnostic_report_allocation_bound(
+                pse_backend_native::derivative_diagnostics::Policy {
+                    maximum_cells: 4,
+                    ..policy
+                },
+                1,
+                [1, 1, 0, 0],
+                5
+            )
+            .unwrap(),
+            5 * 5 * 1024
+        );
+        assert!(
+            trajectory_diagnostic_report_allocation_bound(policy, 1, [1, 1, 0, 0], usize::MAX)
+                .is_err()
+        );
+        assert!(
+            trajectory_diagnostic_report_allocation_bound(policy, 1, [1, usize::MAX, 0, 0], 1)
+                .is_err()
+        );
     }
 }

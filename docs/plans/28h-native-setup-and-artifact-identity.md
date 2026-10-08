@@ -3,7 +3,7 @@ title: Native setup lifetime and artifact identity
 status: in-progress
 date: 2026-10-07
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md]
+review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md]
 scenario_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#4-revealing-scenarios]
 ---
 
@@ -194,6 +194,82 @@ L6 can proceed independently of L5/B5. L5 is bounded source/contract investigati
 its working observation slice; an unresolved context cannot mint a token merely to unblock tests.
 Unrelated code/environment changes never automatically trigger strict capture or invalidate history.
 
+## Parallel deployment and supported native placement
+
+L7 consumes [N10's native strategy](28f-shared-numerical-preparation.md#parallel-admission-and-native-lifetimes)
+and the accepted Parallel RC03/RC04 directions. It supplies one supported finite local
+placement to [C7](28c-durable-execution-and-studies.md#parallel-study-frontiers-and-durable-workers)
+and E3. The `84a1caf` supervisor validates server plus managed-worker memory allocations and
+applies worker MemoryMax. SharedRuntime creates CPU/memory admission within each runtime;
+neither this nor sixteen independent process defaults is aggregate deployment coordination.
+
+First select the primary durable concurrency realization with C7 using N10's actual backend
+constraints. Existing sequential worker processes are a fitting isolation option; one shared
+runtime with bounded concurrent calls is eligible where native coexistence permits. Compare
+artifact reconstruction, IPC/progress, retained state, exclusion waiting and lifetime costs,
+not just process counts. Do not introduce a host-wide broker or another executor solely to
+name the budget. Reuse existing server/worker scopes, recipe profiles and typed resource owners.
+
+Before C7 activation, record the actual selected numeric profile at the existing configuration
+owner and verify it can be materialized by the supervisor/runtime. These decisions are L7's
+explicit prerequisite deliverable, not implementation defaults inferred from the review:
+
+| Profile premise | Required selected value/behavior |
+|---|---|
+| Application width and native capacity | Sixteen independent ready case workers; effective aggregate native CPU ceiling, per-process case capacity and admitted optimizer/internal team widths. Ordinary cases start with one-thread inner execution; larger selected teams draw from the same allocation. |
+| Placement | Managed process count and role/backend assignment, foreground assistance allocation, parent placement and applicable CPU quota/cpuset/runtime limits. Processes that require isolation do not each receive an independent sixteen-core default. |
+| Memory | Finite parent/deployment cap; server cache/process allocation; each foreground/native child's pool and process cap; caches, temporary preparation, live/idle sessions, teams and retained outputs. Memory-pool limits and configured ceilings are not measured RSS guarantees. |
+| Other finite resources | Job/waiter limits, progress/transport queues, selected batch extents, spill/disk and original task/admission clocks at their existing owners. Idle session slots and active temporary work remain distinct. |
+| Tooling/test placement | Cargo build jobs, Nextest/xdist outer workers and tests containing inner case teams. Retain exclusive sixteen-slot parallel controls and bounded memory-heavy groups; account for server and test/runtime processes together. |
+| Receiving lifecycle | Actual managed/foreground/Python receiver construction consumes L5/B5 compatibility and selected native settings; process replacement retains immutable receipts, cancellation/drain and child cleanup. |
+
+Reconcile effective host/affinity/quota and the command's capped scope, including whether a
+server or surviving worker belongs to another scope. A sum of server/child allocations within
+one supervisor is not sufficient if the foreground runtime or selected tests are outside it.
+Choose explicit fixed profile partitions or existing scoped admission where they suffice;
+provide an aggregate argument and refusal when the supported placement cannot fit. Do not
+silently raise the 128 GiB reference pool, per-worker capacity or command cap to hide F02,
+reduce case width to substitute for the required target, or equate configured maxima with
+simultaneous demand. N8 supplies safe preparation demand and bounded progress.
+
+Keep native team/environment controls scoped to the owning operation. Distinguish private
+solver instances from MKL/OpenMP/Rayon teams and process-global scheduler state. A changed
+factorization/profile is qualified under its original scientific checks and actual linked
+availability; no unmeasured default switch follows from Ipopt's alternate linear solvers.
+Configuration/provenance consumers must observe the selected settings without creating a
+second artifact identity or repeating immutable provider validation for every point.
+
+The selected reference realization preserves the declaration in
+`packages/reference/conformance.toml`: pool 128 GiB, worker capacity 16 GiB,
+16 CPU/case lanes, 32 population tickets and one construction core. One primary process
+has a 140 GiB cap including 12 GiB operational headroom; the server has 16 GiB and the
+single observer 4 GiB, under one 160 GiB slice with sixteen physical CPUs and CPUQuota
+1600%. Observers perform admission/inspection and do not assist native execution. The
+receiver consumes exact typed profile values and startup validates kernel placement,
+actual executable bytes, database and its sustained runtime. These checks establish
+identity/placement, not sixteen active numerical owners or an RSS guarantee.
+
+The maintainer confirmed available memory need not equal the entire configured ceiling.
+Physical host capacity and effective ancestor limits remain finite prerequisites; available
+and currently owned memory are observations. Qualification monitors actual use. Ordinary
+Python inspection and managed studies have distinct process budgets, so the managed
+journeys use a separate observer process while ordinary tests retain sixteen outer workers.
+The primary role receives only its explicitly selected worker producer receipt. Reuse
+compares the actual receiver's environment and startup receipt-byte observation; a changed
+path or file cannot inherit a live receiver's association. Readiness does not establish
+native overlap. The durable thermodynamic campaign also enters the observer before loading
+the linked extension and reports caller counters separately from primary execution.
+Native generation handoff preserves the existing operation owner across those scopes.
+
+| Package | Inputs and delivered behavior | Migration, deletion and focused acceptance | Status |
+|---|---|---|---|
+| L7 — Supported aggregate deployment | N10 supported combinations; C7 occurrence/worker realization; existing supervisor/scopes and L5/B5 receivers. Select numeric CPU/memory/job/team placement and implement its existing config/launch enforcement. | Move server/native/foreground/Python and selected test/measurement roots together. Remove replaced duplicate per-process/full-budget assumptions where controls prove replacement. Test materialized limits/readback, insufficient envelope refusal, actual sixteen-case placement, inner-team selection, restart/reconstruction, abrupt parent/child loss and cancellation/drain. | Implemented placement/profile and targeted supervisor controls; actual receiving journeys and L4/E3/E4 remain. |
+
+L4's consumer reconciliation now includes L7's settings, launch and receiving roots. Existing
+strict/local artifact qualification remains distinct; L7 introduces no mandatory full rebuild,
+source-copy campaign or remote/distributed capacity scheduler. E4 measures actual selected
+placement only after corresponding functional evidence and reports its conditions.
+
 ## Consumer scope and packages
 
 Inspect all recipe environment roots and their callers, native caches/build scripts, bootstrap/
@@ -210,13 +286,14 @@ remain when it supplies a different guarantee.
 | L1 — Scoped verified setup | L0's installation lifetime and capability request. Implement the common setup owner, immutable generation publication and operation-scoped reuse. | Migrate native scripts, build/test/Python/worker/measurement consumers. Add a bounded `native-setup-unit` recipe since current tooling recipes do not select these lifecycle units alone. Test unchanged nested use, input changes, corruption/missing files, explicit-prefix refusal/readmission, concurrent builders/readers, surviving children after parent exit and cancellation/drain. Delete repeated same-lifetime validation and obsolete broad setup paths. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
 | L2 — Provider discovery and build locality | Working L1 and relevant native/Cargo input association. Perform actual HiGHS/compiler/archive discovery only where the current selected closure needs it. | Migrate pipeline setup and remaining generator/build consumers; unchanged outputs keep bytes/mtimes and stale outputs disappear through the generator. Test cache hit/miss and changed provider/flags/target; never infer eligibility from existence alone. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
 | L3 — Artifact and outer observation | L0's recorded decision route and actual producer tooling; compatible L1/L2 input observations. Implement separated identities and actual role association. | Migrate `pse-buildinfo`, producer capture/deployment, runtime qualification, worker/Python admission and assessment reuse together. Test unrelated/relevant edits, dirty root/native changes, wrong roles, replaced artifacts and actual imported extension. Delete replaced all-tree compiled identity and equality assumptions. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
-| L4 — Tooling consumer closure | L1–L3, working L5/B5 composition and L6, and all confirmed related variants. Reconcile coordinator coverage and execute current affected code through ordinary Cargo freshness. | No displaced environment/capture mechanism remains; E3 receives actual local replay observations and E4 receives setup/build cases. Strict deployment qualification remains separate optional scope at E, not repeated here. | Consumer source reconciliation complete; assembled E3/E4 acceptance pending. |
+| L4 — Tooling consumer closure | L1–L3, working L5/B5 composition, L6 and L7's selected deployment/receiving consumer migration. Reconcile coordinator coverage and every confirmed applicable caller. | No displaced environment/capture mechanism remains; E3 receives actual local replay observations and E4 receives setup/build cases. Strict deployment qualification remains separate optional scope at E, not repeated here. | Prior L1–L6 source reconciliation complete; parallel consumer source reconciliation complete; assembled E3/E4 pending. |
 
 L1/L2 can proceed independently of bulk result corrections. L3 cannot remove the old guarantee
 before actual replacement association works. Scope executor files narrowly; root owns manifest/
 recipe/generator declarations and shared qualification integration. Use existing checkout,
 pinned toolchain and Cargo target ownership; never clean or share target trees to manufacture
-cache comparisons. No dependency/toolchain/server-profile change is planned by default.
+cache comparisons. No dependency/toolchain change is planned by default. L7 owns any selected server/worker
+profile change; existing profile values are not changed by document adoption.
 
 ## Verification and evidence limits
 
@@ -240,6 +317,18 @@ under comparable checkout/toolchain/cache conditions. Target-only observations c
 claim when no comparable historical baseline exists.
 
 ## Checkpoint
+
+Reference roles start with inherited scheduler affinity before creating children or native
+threads; readiness checks the actual leader and every live thread. When the user manager
+delegates cpuset, its effective CPU set is checked too. Missing cpuset delegation uses this
+verified process-affinity route, while the shared cgroup still enforces the finite CPU quota
+and memory ceiling. An unimplemented `AllowedCPUs` property alone establishes nothing.
+
+L7 implements the selected one-primary reference realization on `84a1caf` plus the working
+tree, consuming N10 and supplying C7/E3. The supervisor derives capacities from the reference
+manifest and checks actual receiver and cgroup readback. Script controls pass; live placement,
+primary-only native overlap and original public scientific journeys precede E3 acceptance.
+Earlier L0–L6 setup, artifact and receiver evidence retains its original scope.
 
 L6 now materializes receipt bytes into a writable sibling and atomically replaces changed
 Cargo outputs. Repeated content preserves modification time and repairs legacy sealed output

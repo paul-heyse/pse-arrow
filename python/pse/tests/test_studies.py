@@ -30,7 +30,8 @@ from pse.contracts.enums import (
     StudyState,
 )
 from pse.contracts.identities import DeclarationId
-from pse.tests.study_fixtures import assignment, physical_ids, point, request
+from pse.tests.study_fixtures import assignment, physical_ids, point
+from pse.tests.study_fixtures import request as study_request
 
 #: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
@@ -101,10 +102,11 @@ def _physical_ids(quantity: str, unit: str) -> tuple[str, str]:
 
 
 @pytest.mark.integration
+@pytest.mark.managed_primary
 def test_study_repeated_bindings_retain_distinct_occurrences_and_owned_results(
-    inspection_settings: pse.EngineSettings, canonical_substrate: str
+    managed_observer_settings: pse.EngineSettings, canonical_substrate: str
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = pse.Runtime(managed_observer_settings, substrate=canonical_substrate)
     package, case = _package(runtime)
     settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT,
@@ -112,7 +114,7 @@ def test_study_repeated_bindings_retain_distinct_occurrences_and_owned_results(
         presolve=PresolvePolicyKind.OFF,
     )
     definition = package.admit_study(
-        request(point(case, settings, 7), point(case, settings, 11))
+        study_request(point(case, settings, 7), point(case, settings, 11))
     )
     assert definition.points[0].binding_hash == definition.points[1].binding_hash
     assert [item.policy.key for item in definition.points] == [7, 11]
@@ -158,10 +160,11 @@ def test_study_repeated_bindings_retain_distinct_occurrences_and_owned_results(
 
 
 @pytest.mark.integration
+@pytest.mark.managed_primary
 def test_study_unusable_predecessor_retains_refusal_without_dispatch(
-    inspection_settings: pse.EngineSettings, canonical_substrate: str
+    managed_observer_settings: pse.EngineSettings, canonical_substrate: str
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = pse.Runtime(managed_observer_settings, substrate=canonical_substrate)
     package, case = _package(runtime)
     settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT,
@@ -170,7 +173,7 @@ def test_study_unusable_predecessor_retains_refusal_without_dispatch(
     )
     scalar, one = _physical_ids("Scalar", "dimensionless")
     definition = package.admit_study(
-        request(
+        study_request(
             point(case, settings, 3, assignments=(assignment("a", -1.0, scalar, one),)),
             point(case, settings, 9, predecessor=3),
             point(case, settings, 17),
@@ -220,14 +223,14 @@ def test_study_binding_identity_uses_admitted_member_and_physical_value(
     )
     scalar, one = _physical_ids("Scalar", "dimensionless")
     by_path = package.admit_study(
-        request(
+        study_request(
             point(case, settings, 2, assignments=(assignment("a", 9.0, scalar, one),))
         )
     )
     entries = by_path.points[0].binding.entries
     (member,) = entries
     by_member = package.admit_study(
-        request(
+        study_request(
             point(
                 case,
                 settings,
@@ -260,7 +263,7 @@ def test_study_physical_mismatch_preserves_full_boundary_envelope(
     length, metre = _physical_ids("Length", "m")
     with pytest.raises(pse.InspectionError) as raised:
         package.admit_study(
-            request(
+            study_request(
                 point(
                     case,
                     settings,
@@ -424,7 +427,7 @@ def test_study_request_excludes_owner_seed_capability(
 ) -> None:
     runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
     _package_owner, case = _package(runtime)
-    document = codec.encode_json(request(point(case, pse.SolveSettings(), 0)))
+    document = codec.encode_json(study_request(point(case, pse.SolveSettings(), 0)))
     wire = msgspec.json.decode(document, type=dict[str, object])
     points = msgspec.convert(wire["points"], type=list[dict[str, object]])
     policy = msgspec.convert(points[0]["policy"], type=dict[str, object])
@@ -451,7 +454,7 @@ def test_durable_study_retains_exact_results(
     )
     scalar, one = _physical_ids("Scalar", "dimensionless")
     definition = package.admit_study(
-        request(
+        study_request(
             point(case, settings, 0),
             point(
                 case,
@@ -536,7 +539,7 @@ def test_durable_study_cancel_and_its_refusals(
     )
     scalar, one = _physical_ids("Scalar", "dimensionless")
     definition = package.admit_study(
-        request(
+        study_request(
             point(case, settings, 0),
             point(
                 case,
@@ -570,11 +573,25 @@ def test_durable_study_cancel_and_its_refusals(
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize(
+    "ephemeral",
+    [
+        pytest.param(True, id="ephemeral-preparation"),
+        pytest.param(
+            False, marks=pytest.mark.managed_primary, id="managed-durable-science"
+        ),
+    ],
+)
 def test_flash_sweep_prepares_structure_once(
-    inspection_settings: pse.EngineSettings, canonical_substrate: str
+    request: pytest.FixtureRequest,
+    canonical_substrate: str,
+    ephemeral: bool,
 ) -> None:
     """A feed-temperature sweep of the BT ideal flash changes values only (CT-S08)."""
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    fixture = "inspection_settings" if ephemeral else "managed_observer_settings"
+    settings = request.getfixturevalue(fixture)
+    assert isinstance(settings, pse.EngineSettings)
+    runtime = pse.Runtime(settings, substrate=canonical_substrate, ephemeral=ephemeral)
     reference = Path(__file__).resolve().parents[3] / "packages/reference"
 
     def documents(path: Path) -> dict[str, str | bytes]:
@@ -624,7 +641,7 @@ def test_flash_sweep_prepares_structure_once(
         reference / "physical/materials/physical.yaml", "Temperature", "K"
     )
     definition = package.admit_study(
-        request(
+        study_request(
             *(
                 point(
                     case,
@@ -685,20 +702,32 @@ def test_flash_sweep_prepares_structure_once(
         )
     # Each point solved its own feed temperature ...
     assert values[0] != values[-1]
-    # Structural admission prepares no solver view. Ready execution freezes at
-    # most one shared view and admits every point's actual numerical values.
     preparations = study.preparations
-    assert preparations.views <= 1, preparations
-    assert preparations.views + preparations.rebuilt + preparations.shared >= len(
-        temperatures
-    ), preparations
+    if ephemeral:
+        # Structural admission prepares no solver view. Ready execution freezes at
+        # most one shared view and admits every point's actual numerical values.
+        # This same scientific sweep independently measures preparation in its owner.
+        assert preparations.views <= 1, preparations
+        assert preparations.views + preparations.rebuilt + preparations.shared >= len(
+            temperatures
+        ), preparations
+    else:
+        # These counters observe the caller process. The separate ephemeral mode
+        # proves reuse; zero here does not measure preparation in the primary worker.
+        assert (
+            preparations.views,
+            preparations.rebuilt,
+            preparations.shared,
+            preparations.observations,
+        ) == (0, 0, 0, 0), preparations
 
 
 @pytest.mark.integration
+@pytest.mark.managed_primary
 def test_fresh_capped_study_preserves_individual_automatic_execution(
-    inspection_settings: pse.EngineSettings, canonical_substrate: str
+    managed_observer_settings: pse.EngineSettings, canonical_substrate: str
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = pse.Runtime(managed_observer_settings, substrate=canonical_substrate)
     package, case = _package(runtime)
     native = pse.PounceSettings()
     settings = pse.SolveSettings(
@@ -717,10 +746,10 @@ def test_fresh_capped_study_preserves_individual_automatic_execution(
             limits=WorkLimits(attempts=4, evaluations=500),
         ),
     )
-    alone = package.study(package.admit_study(request(point(case, settings, 3))))
+    alone = package.study(package.admit_study(study_request(point(case, settings, 3))))
     paired = package.study(
         package.admit_study(
-            request(point(case, settings, 7), point(case, settings, 11))
+            study_request(point(case, settings, 7), point(case, settings, 11))
         )
     )
     assert alone.outcome(0).scientific.usable, codec.encode_json(
@@ -747,7 +776,9 @@ def test_fresh_capped_study_preserves_individual_automatic_execution(
             ),
         ),
     )
-    refused = package.study(package.admit_study(request(point(case, unsupported, 13))))
+    refused = package.study(
+        package.admit_study(study_request(point(case, unsupported, 13)))
+    )
     outcome = refused.outcome(0)
     assert not outcome.scientific.usable
     assert not outcome.scientific.seed_permission
@@ -756,10 +787,11 @@ def test_fresh_capped_study_preserves_individual_automatic_execution(
 
 
 @pytest.mark.integration
+@pytest.mark.managed_primary
 def test_capped_related_root_study_charges_prediction_and_screening(
-    inspection_settings: pse.EngineSettings, canonical_substrate: str
+    managed_observer_settings: pse.EngineSettings, canonical_substrate: str
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = pse.Runtime(managed_observer_settings, substrate=canonical_substrate)
     package, case = _package(
         runtime, source=SOURCE.replace("    annotation bounds x(0,10);\n", "")
     )
@@ -779,7 +811,7 @@ def test_capped_related_root_study_charges_prediction_and_screening(
     scalar, one = _physical_ids("Scalar", "dimensionless")
     study = package.study(
         package.admit_study(
-            request(
+            study_request(
                 point(case, settings, 0),
                 point(
                     case,

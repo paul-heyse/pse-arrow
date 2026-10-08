@@ -55,6 +55,81 @@ impl std::fmt::Debug for OriginalObserverWrapper {
 }
 struct OriginalObserverWrapper(OriginalObserver);
 impl CausalMap {
+    /// Known propagation/tear containers and conservative full source support before
+    /// constructing a causal map. Every original port may depend on every tear column;
+    /// symbolic CSC construction retains input pairs, sorting maps and final indices.
+    /// Unit evaluator storage is charged separately by the caller's WorkerBudget.
+    pub fn construction_allocation_bound(
+        graph: &FlowGraph,
+        n: usize,
+        fixed: usize,
+    ) -> Result<usize, ProblemError> {
+        let overflow = || ProblemError::Contract("causal construction extent overflow".into());
+        let d = graph.declaration();
+        let ports = d.nodes.iter().try_fold(0usize, |total, node| {
+            total.checked_add(node.ports.len()).ok_or_else(overflow)
+        })?;
+        let bindings = d.connections.iter().try_fold(0usize, |total, edge| {
+            total.checked_add(edge.bindings.len()).ok_or_else(overflow)
+        })?;
+        let coordinates = ports
+            .checked_add(bindings)
+            .and_then(|v| v.checked_add(fixed))
+            .ok_or_else(overflow)?;
+        let support = coordinates
+            .checked_add(1)
+            .and_then(|v| v.checked_mul(n.checked_add(1)?))
+            .ok_or_else(overflow)?;
+        let matrix = n.checked_mul(n).ok_or_else(overflow)?;
+        let mut bytes = graph
+            .tear_allocation_bound()
+            .map_err(|e| ProblemError::Contract(e.to_string()))?;
+        for (count, width) in [
+            (
+                d.nodes.len(),
+                11 * size_of::<(SemanticId, Vec<Binding>)>()
+                    + 16 * size_of::<usize>()
+                    + size_of::<Box<dyn CausalUnit>>(),
+            ),
+            (
+                bindings,
+                11 * size_of::<(SemanticId, Binding)>()
+                    + 16 * size_of::<usize>()
+                    + 2 * size_of::<Binding>(),
+            ),
+            (
+                coordinates,
+                11 * size_of::<(SemanticId, BTreeSet<usize>)>() + 16 * size_of::<usize>(),
+            ),
+            // Concurrent support sets plus candidate union; one full BTree node
+            // per source/column pair covers sparsely occupied leaves and splits.
+            (support, 11 * size_of::<usize>() + 16 * size_of::<usize>()),
+            (
+                matrix,
+                size_of::<faer::sparse::Pair<usize, usize>>() + 8 * size_of::<usize>(),
+            ),
+            (
+                n.checked_add(1).ok_or_else(overflow)?,
+                4 * size_of::<usize>(),
+            ),
+        ] {
+            bytes = count
+                .checked_mul(2)
+                .and_then(|v| v.checked_add(4))
+                .and_then(|v| v.checked_mul(width))
+                .and_then(|v| bytes.checked_add(v))
+                .ok_or_else(overflow)?;
+        }
+        // Each Binding is cloned into the propagation/tear partition and again
+        // into the final ordered tear Vec while the partition map still exists.
+        graph
+            .binding_payload_bytes()
+            .map_err(|e| ProblemError::Contract(e.to_string()))?
+            .checked_mul(2)
+            .and_then(|v| bytes.checked_add(v))
+            .and_then(|v| v.checked_add(size_of::<Self>()))
+            .ok_or_else(overflow)
+    }
     /// Assess complete original reconstruction only at independent final tear
     /// validation. An unsuccessful sweep never publishes a partial local state.
     pub fn with_original_observer(mut self, observer: OriginalObserver) -> Self {

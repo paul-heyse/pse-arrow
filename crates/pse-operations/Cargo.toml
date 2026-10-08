@@ -24,6 +24,7 @@ test-support = []
 canonical-tests = []
 
 [dependencies]
+tracing.workspace = true
 petgraph.workspace = true
 pse-diagnostics.workspace = true
 pse-ids.workspace = true

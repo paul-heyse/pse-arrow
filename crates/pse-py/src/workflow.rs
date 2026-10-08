@@ -780,11 +780,17 @@ impl NativeRuntime {
         })
     }
     /// Serve native ready points and finalization until idle or the finite action limit.
-    #[pyo3(signature = (*, maximum_actions=None))]
-    fn work(&self, py: Python<'_>, maximum_actions: Option<usize>) -> PyResult<usize> {
+    #[pyo3(signature = (*, maximum_actions=None, maximum_in_flight=None))]
+    fn work(
+        &self,
+        py: Python<'_>,
+        maximum_actions: Option<usize>,
+        maximum_in_flight: Option<usize>,
+    ) -> PyResult<usize> {
         let stop = CancelSource::new();
         let settings = native::WorkerSettings {
             maximum_actions,
+            maximum_in_flight,
             until_idle: true,
             ..native::WorkerSettings::default()
         };

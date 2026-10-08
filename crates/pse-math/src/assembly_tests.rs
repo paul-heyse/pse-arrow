@@ -232,6 +232,14 @@ fn numerical_convexity_distinguishes_psd_indefinite_and_inconclusive() {
         c.numerical_convexity(1.0, &[1.0, 1.0], 1.0, 1e-12, 1e-12, bytes, &cancel)
             .unwrap()
     };
+    let demand = c
+        .numerical_convexity_allocation_bound(16usize << 30)
+        .unwrap();
+    assert!(demand < 1 << 20);
+    assert_eq!(
+        c.numerical_convexity_allocation_bound(1).unwrap(),
+        2 * size_of::<f64>() + size_of::<ConvexityEvidence>()
+    );
     let negative = assess(&c, 1 << 20);
     assert!(matches!(
         negative.assessment(),
@@ -2122,4 +2130,63 @@ fn demanded_directional_case_actions_apply_affine_physical_gather_scales_once_pe
         .unwrap();
     assert_eq!(output, expected);
     assert!((output[0] + 2.0).abs() < 1e-12);
+}
+
+#[test]
+fn flat_factorable_construction_counts_source_and_refuses_opaque_expansion_premise() {
+    let (assembly, values) = fixture(true, false);
+    let limit = (16usize << 30) / 256;
+    let mut request = crate::factorable::FactorableRequest::default();
+    let demand = assembly
+        .factorable_allocation_bound(&request, limit)
+        .unwrap()
+        .unwrap();
+    assert!(demand < 1 << 20);
+    let program = assembly
+        .factorable_program(&values, &request, limit, &Arc::new(AtomicBool::new(false)))
+        .unwrap();
+    assert!(program.bytes() <= demand);
+    request.envelopes.insert(
+        pse_kernels::ProviderKey(ContentHash::from_bytes([9; 32])),
+        vec![(0.0, 1.0)],
+    );
+    assert_eq!(
+        assembly
+            .factorable_allocation_bound(&request, limit)
+            .unwrap(),
+        None
+    );
+}
+
+#[test]
+fn support_upgrade_extent_covers_original_sparse_duplicate_contributions() {
+    let (assembly, _) = fixture(true, false);
+    let cancel = Arc::new(AtomicBool::new(false));
+    let value = CasePlan::prepare(
+        Arc::new(assembly.structure().clone()),
+        assembly.bodies().clone(),
+        &standard_registry().unwrap(),
+        DerivativeOrder::Value,
+        assembly.limits(),
+        &cancel,
+    )
+    .unwrap();
+    let evaluation = EvaluationLimits {
+        derivative_components: 1_000_000,
+        operations: 100_000_000,
+        scratch_bytes: 4usize << 30,
+        provider_calls: 1_000_000,
+    };
+    let demand = value
+        .support_upgrade_allocation_bound(evaluation)
+        .unwrap()
+        .unwrap();
+    assert!(demand < 4 << 20);
+    let stronger = value
+        .prepare_order(DerivativeOrder::Second, &cancel)
+        .unwrap();
+    assert!(stronger.retained_bytes() < demand);
+    let directional = value.with_directional_actions(&cancel).unwrap();
+    assert!(directional.has_directional_actions());
+    assert!(directional.retained_bytes() < demand);
 }

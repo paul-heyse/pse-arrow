@@ -3,7 +3,7 @@ title: Shared numerical projections and preparation
 status: in-progress
 date: 2026-10-07
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md]
+review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md]
 scenario_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#4-revealing-scenarios]
 ---
 
@@ -213,6 +213,114 @@ owners if changed. N7 consumes N5 when using its migrated workers, but its deman
 settled earlier. N4 closes C5/N5–N7 and every confirmed comparable consumer before E3; no separate
 N-only full campaign is added. E4 distinguishes removed construction from whole-operation gain.
 
+## Parallel admission and native lifetimes
+
+The [parallel extension](28-surrealdb-unified-substrate.md#parallel-execution-integration)
+adds N8/N9/N10 for Parallel F02/F04/F03. Its accepted RC02/RC03 directions are recorded at
+the coordinator; this companion owns the shared runtime/native design and package progress.
+The focused source assessment at `84a1caf` preserves current scientific policy, private workers,
+existing adapter safety guards and the one shared DataFusion pool. No new probe or benchmark
+qualifies these directions.
+
+### N8 — Temporary preparation demand and bounded entry
+
+Keep `MathPolicy::worker_bytes` as a maximum allowed extent. In `math/modeling.rs`, nested
+provider construction, diagnostics and general rebind use that maximum as immediate job demand.
+Inspect each constructor's temporary and escaping allocations, propagated derivative demand,
+selected structure and value-dependent rebuilding before replacing that charge. Final
+`retained_bytes()` alone is not a pre-construction bound. Use a safe operation-specific bound
+or incremental reserve-before-allocation at the owning builder; opaque preparation retains a
+conservative bound until a tighter safe contract exists. Do not add a generic estimator or
+replace one maximum with another name. B6 migrates the actual modeling/preparation callers.
+
+Add bounded waiting at asynchronous stage entry for temporary contention. `EngineResources`
+already supplies the pool shared by queries, caches, compiler/math and retained results. Keep
+that actual pool as capacity authority and attach release notification through its existing
+pool composition; a wakeup only permits another actual reservation attempt, not a grant from
+an independent byte counter. All relevant release paths, including caches, queries and escaped
+result owners, must reach that notification. Register the wakeup before checking capacity so a
+release cannot be missed. Coalesce notifications, bound waiter storage/count, and avoid spinning.
+
+The selected ingress owns one population ticket before spawning synchronous submissions;
+direct asynchronous jobs acquire it on first poll. A failed reservation releases
+undispatched CPU before waiting while retaining that ticket, so pending work remains inside
+the finite population. Retained session owners keep their own leases and population tickets.
+Reacquire CPU and the actual pool reservation coherently without partial byte grants or
+an outside waiter queue. Preserve the same absolute task deadline and cancellation owner
+across every attempt; no timeout refresh or new scientific retry. For entry points without a
+finite enclosing clock, define a finite admission-only wait bound at MathPolicy's owner before
+introducing waiting there. The bound never extends an enclosing deadline. Individually oversized
+work refuses before dispatch. Unchanged retained pressure ends in deadline or a typed bounded
+refusal, not indefinite waiting. Use existing eviction only where its contract permits;
+unrelated escaped results/caches are not cleared to manufacture progress.
+
+Do not make synchronous allocation growth inside a running native worker wait while it owns
+CPU, native locks or state needed for another worker's progress. Its existing reserve/refuse
+behavior stays unless a separate supported safety argument is established. Cancellation before
+dispatch removes the waiter; after dispatch, original native drain/retained transfer still applies.
+
+### N9 — Persistent team scope extent
+
+`NativeSession::session_on` reserves the session-thread stack; `serve` retains adapter scopes
+across idle receive. Extend the existing adapter scope seam with the narrow known additional
+stack extent needed before entry. Reserve it before team creation and retain its lease until
+that scope is destroyed; the session's original owner survives its thread join.
+
+Charge actual scopes entered. `execution::scoped` deduplicates by backend, then recursively
+enters scopes. Both POUNCE and POUNCE-convex call `with_threads`, so an extended scope containing
+both can create multiple teams. The initial correction charges each actual team's checked
+thread-count × configured-stack extent. Coalescing a shared pool owner is eligible only after
+nested execution and retained-state semantics are established. Serial/no-team scopes retain
+the simpler path. Keep fixed foreign allowances separate; these explicit stack reservations
+are not a process-RSS guarantee.
+
+Failed entry, arithmetic overflow, replacement, panic and cancellation destroy the matching
+team before releasing its lease. Idle scopes keep their charge even when request CPU permits
+have been released. Replace the one-stack assumption only on affected retained-team paths;
+retain correct one-shot accounting and native thread affinity.
+
+### N10 — Backend strategy and exclusion decision
+
+The review's [library matrix and alternatives](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#8-library-fit-and-alternatives)
+are the starting evidence. Select one-thread inner execution for ordinary independent cases
+as the initial strategy; larger explicitly selected teams consume the same effective case CPU
+budget. Symbolica optimization/construction cores are separate admitted work. Confirm effective
+faer features/global parallelism in implicit and Diffsol factor paths, rather than assuming an
+explicit sequential context governs all factors.
+
+Record for each supported backend/profile: independent-instance guarantees, internal team
+selection, process-global guards, retained-state lifetime, supported mixed use, waiting/cancellation
+and teardown. Cover KINSOL/IDAS contexts, Diffsol/faer, POUNCE teams, Clarabel's QDLDL/MKL route,
+SCIP's linked thread-safe/TPI build and deterministic portfolio, PETSc process exclusion,
+HiGHS retained readers/Uno scheduler reset, and Ipopt MUMPS/SPRAL/PardisoMkl. Existing typed
+factorization choices remain eligible; availability proves neither throughput nor scientific
+parallel equivalence. Preserve selected environment/threading premises and original assessment.
+
+Settle how exclusion admission waits before occupying general compute permits while the real
+native guard and destruction stay on their owning thread. Do not transfer a thread-bound guard,
+remove safety exclusion, or invent an independent authority beside it. Explicitly settle release
+or isolation of idle retained HiGHS state when Uno needs entry; the same-session adapter already
+clears retained state, and no current cross-session deadlock is claimed. Bound waiting and preserve
+original clocks, CPU ownership after dispatch and drain after cancellation.
+
+For process-constrained/incompatible mixtures, compare existing managed-process isolation with
+in-process exclusion; prefer existing isolation when it meets the workload without a complicated
+retained-state arbitration protocol. N10 ends with selected supported combinations and consumed
+contracts. L7 then fixes numeric process/team budgets; unsupported premises constrain that
+combination, not unrelated N8/N9 work. Tokio/Rayon alternatives earn adoption only by reducing
+machinery while preserving these lifetimes; an async poller is not CPU/native admission.
+
+| Package | Inputs and delivered behavior | Migration, deletion and targeted acceptance | Status |
+|---|---|---|---|
+| N8 — Demand and temporary entry | Accepted RC02; constructor allocation bounds and common EngineResources pool. Implement safe demand admission, bounded waiter/release notification and original clocks. | Move affected preparation/diagnostic/rebind consumers with B6; remove max-capacity-as-demand and obsolete entry waits after controls. Test generous caps/small work, construction peaks, real query/cache/result releases, missed-wakeup races, bounded waiters, retained pressure, oversized refusal, cancellation and deadline without dispatch. | Integrated admission and known-source producers; synchronous burst controls pass. Known class/order, fitting and trajectory-diagnostic producers are integrated; final targeted and live deployment controls precede consumer acceptance. |
+| N9 — Actual persistent teams | Existing session/adapter scope contracts; known stack extent and N9 scope ownership. Reserve every actually created team before entry through teardown. | Migrate POUNCE/POUNCE-convex retained scopes, including nested/extended scopes; replace mismatched accounting. Test one/multiple teams, idle retention, repeated/switching scopes, refusal before creation, overflow, failed entry/panic/cancel and final join release. | Integrated actual-team stack ownership; focused lifetime controls pass. Composed E3/E4 remains; no RSS claim. |
+| N10 — Native coexistence strategy | Accepted RC03; pinned capabilities, actual guards and effective feature/thread settings. Select supported instance/team/process combinations and exclusion admission. | Move affected runtime/native admission and supply L7/C6/C7. Preserve existing safety guards; remove displaced coordination only after mixed retained-state, wait/cancel/deadline and teardown controls. Record unknown combinations and observable reopen conditions. | Integrated actual HiGHS/PETSc guard waiting and serial faer context; focused exclusion/cancellation controls pass. MUMPS retains its opaque guarded section; composed E3 remains. |
+
+N8/N9 can proceed alongside A4. N10's decision is independent where inputs are settled;
+its selected combinations may consume N9's tested scope accounting. N4 extends numerical
+consumer reconciliation to B6/C6/C7/N8–N10 and all actual ordinary/analysis consumers before E3.
+Source reconciliation previously completed for N1–N7 does not qualify the new extension.
+
 ## Work packages and dependencies
 
 | Package | Inputs and delivered behavior | Migration, deletion and focused acceptance | Status |
@@ -221,7 +329,7 @@ N-only full campaign is added. E4 distinguishes removed construction from whole-
 | N1 — Ordered projections | PE01 and N0's relevant correspondence decisions. Implement common checked projection mechanics and owner-specific prepared maps. | Migrate policy/quality/goals, preflight, trajectory and all confirmed related consumers together with their maps. Delete displaced repeated joins/helpers and tests specific to removed mechanisms. Check kind/ID collisions, duplicate/missing/refused entries, reordered inventories, fixed composite coordinates and sample alignment. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
 | N2 — Checked preparation reuse | B1/B2 and existing protection/retention; settle complete reusable selected-input identity. | Move durable ready occurrences and every confirmed ordinary/analysis consumer off repeated unchanged hydration/generic admission. Test fresh/reused equivalence, A/B/A, value/structural edits, absence/shadowing/provider changes, protection expiry, eviction and cancelled flights. Remove replaced hydration/admission caches only after callers move. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
 | N3 — Compatible numerical owners | Applicable N0 session/factor/Taylor decisions and working N1/N2 slices where consumed. | Extend actual existing library owners; migrate fitting/profile/shooting/implicit/dynamic consumers selected by N0. Delete superseded factor/workspace construction paths. Check current-point results, changed compatibility, singular/nonfinite recovery, owning-thread drain and released allocations. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
-| N4 — Numerical consumer closure | N1/N2, adopted N3, working C5/N5/N6 and N7's settled demand/cache contract and migration. Reconcile the coordinator's numerical capability rows and actual callers. | Every confirmed variant uses the shared target or has a reasoned distinct contract. Exercise a new analysis composition and changed provider/layout to show where customization belongs; hand functional scope to E3/E4. | Consumer source reconciliation complete; assembled E3/E4 acceptance pending. |
+| N4 — Numerical consumer closure | N1/N2, adopted N3, working C5/N5/N6/N7, and the parallel B6/C6/C7/N8–N10 consumer migration. Reconcile coordinator coverage and every confirmed applicable caller. | Every confirmed variant uses the shared target or has a reasoned distinct contract. Exercise a new analysis composition and changed provider/layout to show where customization belongs; hand functional scope to E3/E4. | N1–N10 source reconciliation integrated, including explicit conservative variants below; final targeted/live controls and assembled E3/E4 pending. |
 
 N1 and N2 are independent after their own inputs are settled. Library investigations need
 not delay the established projection correction. A native owner can migrate incrementally,
@@ -255,6 +363,45 @@ production measurement mode with the same physical decision basis; label forced-
 overhead separately. No speedup, full conformance or completed implementation is claimed here.
 
 ## Checkpoint
+
+N8's release-notifying common pool, one bounded population ticket, oversized refusal,
+CPU release while waiting for memory and original-clock admission are integrated. Term demand
+and eligible flat rebind construction use producer bounds. Selected artifacts retain the
+original scratch ceiling while admitting compact source demand; optimized numeric growth
+extends the same reservation before export. First block binding, flow/tear construction
+and known declared-root factories use source demand. Class/affine discovery, support-order
+upgrades, path curvature/isolation, QP class production and explicit cone preparation are
+integrated. Conditional initialization counts schedule/support and matching populations;
+value-dependent block bindings have separate demand rather than repeated full-parent bounds.
+Fitting counts source sparse response/constraint/Hessian/Gram construction. Trajectory diagnostics
+count whole-program workers and guards, actual diagnostic dimensions and every retained
+function/sample report. Final targeted controls precede live deployment and assembled acceptance.
+Opaque symbolic storage remains a separate conservative allowance, without an RSS claim.
+N9 accounts for actual additional adapter-team stacks before scope construction and retains
+their leases through idle ownership and owning-thread teardown. Diffsol's serial context is
+consumed by its faer factor. N10 waits on the actual HiGHS/PETSc exclusion guards after releasing
+CPU, then reacquires the same CPU allocation before native entry; idle HiGHS state is relinquished
+on its owning thread where Uno needs scheduler ownership. Required reuse remains truthful.
+Focused primitive admission, team lifetime, native wait/cancellation and rebind controls pass;
+public study, selected managed placement and assembled acceptance remain separate. The
+coordinator owns whole-finding status. Existing N1–N7 evidence retains its original scope.
+
+N4 retains explicit conservative entries for recognized-cone symbolic recognition/epigraph
+expansion and SOS polynomial/moment construction. Generic factorable graph cardinality does not
+bound their intermediate polynomial populations or library SDP scratch. Their original scientific
+limits and whole-entry allowances remain; reopen when those producer owners supply construction
+bounds or reserve before each expansion in the same pool. Implicit/provider-envelope factorable
+exports and provider-bearing dynamic modes similarly require a producer-issued population/lifetime
+contract before replacing conservative entry. These are supported distinct contracts, not claims
+that every backend or foreign heap has a source-sized bound. Actual retained workspace capacity
+remains charged by its existing owner. The surrogate actor retains its workspace/stacks through
+join; no generic transfer of runtime admission callbacks across arbitrary actor threads is claimed.
+
+Continuation seed inspection allocates no numeric payload. Converted seeds reserve before
+materialization, share immutable payloads and retain their grant in both modeling and bare
+prepared-solve owners. Durable encoding retains the same grant through publication and separately
+includes materialized primal and encoding populations. Actual completion attempt and original
+coordinate coverage govern provenance and permission; replacement starts release displaced owners.
 
 N5 retains admitted mode-chain/support/refill/matrix templates; workers clone private mutable
 values and keep provider/guard state private. Frozen state/output allowance projections are

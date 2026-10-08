@@ -87,19 +87,38 @@ impl WorkflowRuntime {
         workers: NonZeroUsize,
         math: pse_runtime::math::MathPolicy,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        Self::with_budget(workers, math, workflow_budget::MEMORY_LIMIT_BYTES)
+    }
+    /// Reference campaign: one 128 GiB shared pool, sixteen CPU permits and
+    /// thirty-two total preparation/session slots. Ordinary fixtures are unchanged.
+    pub(crate) fn parallel_reference() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        Self::with_budget(
+            NonZeroUsize::new(16).ok_or("sixteen positive CPU permits")?,
+            pse_runtime::math::MathPolicy {
+                jobs: 32,
+                ..Default::default()
+            },
+            workflow_budget::PARALLEL_REFERENCE_MEMORY_BYTES,
+        )
+    }
+    fn with_budget(
+        workers: NonZeroUsize,
+        math: pse_runtime::math::MathPolicy,
+        memory_limit_bytes: usize,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let registry = pse_schema::shared_registry()?;
         let spill = tempfile::tempdir()?;
         let threads = ThreadBudget {
             pool_threads: workers,
             target_partitions: workers,
         };
-        let mut cache = pse_runtime::CacheBudget::for_memory(workflow_budget::MEMORY_LIMIT_BYTES);
+        let mut cache = pse_runtime::CacheBudget::for_memory(memory_limit_bytes);
         cache.concurrent_queries =
             NonZeroUsize::new(workers.get().min(2)).ok_or("positive queries")?;
         cache.concurrent_outputs =
             NonZeroUsize::new(workers.get().min(4)).ok_or("positive outputs")?;
         let runtime = SharedRuntime::build(ResourceBudget {
-            memory_limit_bytes: NonZeroUsize::new(workflow_budget::MEMORY_LIMIT_BYTES)
+            memory_limit_bytes: NonZeroUsize::new(memory_limit_bytes)
                 .ok_or("positive memory limit")?,
             spill_dir: spill.path().to_path_buf(),
             max_temp_dir_bytes: 1 << 30,

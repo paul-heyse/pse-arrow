@@ -221,3 +221,32 @@ def inspection_settings(tmp_path_factory: pytest.TempPathFactory) -> EngineSetti
             inspection_bytes=4 << 20,
         ),
     )
+
+
+@pytest.fixture(scope="session")
+def managed_observer_settings(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> EngineSettings:
+    """Read and admit studies within the managed profile's observer allocation.
+
+    Durable study execution validates the configured reference profile and receiver
+    through the normal runtime; its native work belongs to the primary process.
+    """
+    return EngineSettings(
+        memory_limit_bytes=2 << 30,
+        threads=2,
+        target_partitions=1,
+        spill_dir=str(tmp_path_factory.mktemp("managed-observer-spill")),
+        max_spill_bytes=1 << 30,
+        batch_size=7,
+        math_workspace_bytes=64 << 20,
+        math_worker_bytes=256 << 20,
+        math_artifact_bytes=128 << 20,
+        cache=CacheSettings(
+            working_bytes=128 << 20,
+            metadata_bytes=8 << 20,
+            concurrent_loads=2,
+            inflight_bytes=32 << 20,
+            inspection_bytes=4 << 20,
+        ),
+    )

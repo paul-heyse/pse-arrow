@@ -243,7 +243,11 @@ pub struct PreparedSolve {
     route: Route,
     snapshot: execution::Snapshot,
     compatibility: Option<Compatibility>,
-    explicit_start: Option<WarmStart>,
+    // Cloning a preparation shares the immutable seed; a native owning boundary
+    // makes its admitted working copy only after its result/worker grant exists.
+    explicit_start: Option<Arc<WarmStart>>,
+    /// A converted or decoded seed retains its grant even in a bare solve clone.
+    _explicit_start_owner: Option<Arc<dyn pse_columnar::PayloadOwner>>,
     /// Actual original-screened proposal, retaining its producer and entry permissions.
     proposal_start: Option<super::prediction::Screened>,
     /// Already available source-bound mathematical products eligible for automatic use.
@@ -1200,7 +1204,7 @@ impl PreparedSolve {
             return Ok(start.proposal().values().map(|(_, value)| value).collect());
         }
         let seed = match self.profile.controls.start {
-            StartPolicy::Explicit => self.explicit_start.as_ref(),
+            StartPolicy::Explicit => self.explicit_start.as_deref(),
             StartPolicy::PreviousAccepted => previous.map(|p| &p.seed),
             StartPolicy::NoPriorStart => None,
         };
@@ -1639,6 +1643,10 @@ impl PreparedSolve {
             payload,
         })
     }
+    #[cfg(all(test, feature = "solver-kinsol"))]
+    pub(crate) fn explicit_seed(&self) -> Option<&Arc<WarmStart>> {
+        self.explicit_start.as_ref()
+    }
     /// All contextual alternatives, distinct from the linked adapter inventory.
     pub fn eligibility(&self) -> &[routing::Eligibility] {
         self.route_decision
@@ -1667,9 +1675,21 @@ impl PreparedSolve {
         };
         seed.validate_shape(n, m)?;
         self.profile.controls.start = StartPolicy::Explicit;
-        self.explicit_start = Some(seed);
+        self.explicit_start = Some(Arc::new(seed));
+        self._explicit_start_owner = None;
         self.proposal_start = None;
         Ok(self)
+    }
+    /// Keep an existing conversion/decode grant at the same owner as the shared
+    /// explicit seed. Scientific validation and start policy remain with with_start.
+    pub(crate) fn with_start_owned(
+        self,
+        seed: WarmStart,
+        owner: Arc<dyn pse_columnar::PayloadOwner>,
+    ) -> Result<Self, ProblemError> {
+        let mut prepared = self.with_start(seed)?;
+        prepared._explicit_start_owner = Some(owner);
+        Ok(prepared)
     }
     /// Attach the availability of the profile's parametric sensitivity program:
     /// the case's plan with the requested parameters appended as coordinates
@@ -2065,6 +2085,29 @@ impl PreparedSolve {
             },
         )
     }
+    /// Existing native batching eligibility, shared by orchestration and dispatch.
+    /// Admission still checks every member independently before using the batch.
+    pub(crate) fn batch_backend(&self) -> Option<Backend> {
+        let Route::Native(backend) = self.route else {
+            return None;
+        };
+        let adapter = execution::adapter(backend);
+        let coefficients = matches!(
+            &self.representation,
+            Representation::Algebraic(case)
+                if case.prepared.prepared.coefficients.is_some()
+                    && case.recognized.is_none()
+                    && case.sensitivity.is_none()
+        );
+        (adapter.capability().batch
+            && coefficients
+            && matches!(
+                adapter.representation(),
+                execution::Representation::Coefficients | execution::Representation::Cone
+            ))
+        .then_some(backend)
+    }
+
     /// The adapter whose scope this step's native state lives in.
     pub(crate) fn backend(&self) -> Option<Backend> {
         match self.route {
@@ -2367,17 +2410,18 @@ impl MathService {
         ) {
             let source = prepared.prepared.clone();
             let bound_values = values.clone();
+            let demand = source
+                .class_allocation_bound(&bound_values)?
+                .unwrap_or(self.policy.workspace_bytes);
+            if demand > self.policy.worker_bytes {
+                return Err(MathRuntimeError::Limit("class construction capacity"));
+            }
             let product = self
-                .job_retained(
-                    1,
-                    self.policy.workspace_bytes,
-                    FlightCancellation::default(),
-                    move |flag| {
-                        let product = source.prepare_class(&bound_values, &flag)?;
-                        let bytes = product.retained_bytes();
-                        Ok((product, bytes))
-                    },
-                )
+                .job_retained(1, demand, FlightCancellation::default(), move |flag| {
+                    let product = source.prepare_class(&bound_values, &flag)?;
+                    let bytes = product.retained_bytes();
+                    Ok((product, bytes))
+                })
                 .await?;
             self.own_preparation(product)?
         } else {
@@ -2411,17 +2455,18 @@ impl MathService {
             && result.prepared.presolve.affine.iter().any(Option::is_none)
         {
             let source = result.prepared.clone();
+            let demand = source
+                .class_allocation_bound(&values)?
+                .unwrap_or(self.policy.workspace_bytes);
+            if demand > self.policy.worker_bytes {
+                return Err(MathRuntimeError::Limit("affine row construction capacity"));
+            }
             let product = self
-                .job_retained(
-                    1,
-                    self.policy.workspace_bytes,
-                    FlightCancellation::default(),
-                    move |flag| {
-                        let product = source.prepare_affine_rows(&values, &flag)?;
-                        let bytes = product.retained_bytes();
-                        Ok((product, bytes))
-                    },
-                )
+                .job_retained(1, demand, FlightCancellation::default(), move |flag| {
+                    let product = source.prepare_affine_rows(&values, &flag)?;
+                    let bytes = product.retained_bytes();
+                    Ok((product, bytes))
+                })
                 .await?;
             result = self.own_preparation(product)?;
         }
@@ -2557,8 +2602,14 @@ impl MathService {
                 let coordinates = normalization.clone();
                 let sign = plan.structure().objective().map_or(1.0, |o| o.sense.sign());
                 let bytes = self.policy.worker_bytes;
+                let demand = coefficients.numerical_convexity_allocation_bound(bytes)?;
+                if demand > bytes {
+                    return Err(MathRuntimeError::Limit(
+                        "numerical convexity construction capacity",
+                    ));
+                }
                 let evidence = self
-                    .job(1, bytes, FlightCancellation::default(), move |flag| {
+                    .job(1, demand, FlightCancellation::default(), move |flag| {
                         Ok(coefficients.numerical_convexity(
                             sign,
                             &coordinates.variables,
@@ -2741,23 +2792,24 @@ impl MathService {
                         envelopes,
                         ..Default::default()
                     };
+                    let demand = plan
+                        .factorable_allocation_bound(&request, limit)?
+                        .unwrap_or(self.policy.worker_bytes);
+                    if demand > self.policy.worker_bytes {
+                        return Err(MathRuntimeError::Limit("factorable construction capacity"));
+                    }
                     let program = self
-                        .job(
-                            1,
-                            self.policy.worker_bytes,
-                            FlightCancellation::default(),
-                            move |flag| {
-                                let program = plan
-                                    .factorable_program(&values, &request, limit, &flag)
-                                    .map_err(|e| match e {
-                                        pse_math::factorable::FactorableError::Math(e) => {
-                                            ProblemError::Math(e)
-                                        }
-                                        other => ProblemError::Unsupported(other.to_string()),
-                                    })?;
-                                Ok(program)
-                            },
-                        )
+                        .job(1, demand, FlightCancellation::default(), move |flag| {
+                            let program = plan
+                                .factorable_program(&values, &request, limit, &flag)
+                                .map_err(|e| match e {
+                                    pse_math::factorable::FactorableError::Math(e) => {
+                                        ProblemError::Math(e)
+                                    }
+                                    other => ProblemError::Unsupported(other.to_string()),
+                                })?;
+                            Ok(program)
+                        })
                         .await?;
                     let owner = self.reserve("math:factorable-program", program.bytes())?;
 
@@ -2791,80 +2843,78 @@ impl MathService {
                 if let Some(problem) = &coefficient_problem {
                     let source = problem.clone();
                     let evidence = certificate.clone();
+                    let demand = native::ConicProblem::coefficient_allocation_bound(&source)?;
+                    if demand > self.policy.worker_bytes {
+                        return Err(MathRuntimeError::Limit(
+                            "coefficient cone construction capacity",
+                        ));
+                    }
                     let (lowered, lease) = self
-                        .job_retained(
-                            1,
-                            self.policy.workspace_bytes,
-                            FlightCancellation::default(),
-                            move |flag| {
-                                if flag.load(std::sync::atomic::Ordering::Relaxed) {
-                                    return Err(ProblemError::Cancelled.into());
-                                }
-                                let lowered = native::ConicProblem::from_coefficients(
-                                    &source,
-                                    evidence.as_deref(),
-                                )?;
-                                let cone = &lowered.problem;
-                                let extent =
-                                    [&cone.quadratic, &cone.constraints]
-                                        .iter()
-                                        .try_fold(
-                                            size_of::<native::conic::Lowered>(),
-                                            |bytes, matrix| {
-                                                bytes
-                                                    .checked_add(
-                                                        matrix
-                                                            .values
-                                                            .capacity()
-                                                            .checked_mul(size_of::<f64>())?,
-                                                    )?
-                                                    .checked_add(
-                                                        (matrix.column_starts.capacity()
-                                                            + matrix.row_indices.capacity())
-                                                        .checked_mul(size_of::<usize>())?,
-                                                    )
-                                            },
+                        .job_retained(1, demand, FlightCancellation::default(), move |flag| {
+                            if flag.load(std::sync::atomic::Ordering::Relaxed) {
+                                return Err(ProblemError::Cancelled.into());
+                            }
+                            let lowered = native::ConicProblem::from_coefficients(
+                                &source,
+                                evidence.as_deref(),
+                            )?;
+                            let cone = &lowered.problem;
+                            let extent = [&cone.quadratic, &cone.constraints]
+                                .iter()
+                                .try_fold(size_of::<native::conic::Lowered>(), |bytes, matrix| {
+                                    bytes
+                                        .checked_add(
+                                            matrix
+                                                .values
+                                                .capacity()
+                                                .checked_mul(size_of::<f64>())?,
+                                        )?
+                                        .checked_add(
+                                            (matrix.column_starts.capacity()
+                                                + matrix.row_indices.capacity())
+                                            .checked_mul(size_of::<usize>())?,
                                         )
-                                        .and_then(|bytes| {
-                                            bytes.checked_add(
-                                                (cone.objective.capacity() + cone.rhs.capacity())
-                                                    .checked_mul(size_of::<f64>())?,
-                                            )
-                                        })
-                                        .and_then(|bytes| {
-                                            bytes.checked_add(
-                                                cone.cones
-                                                    .capacity()
-                                                    .checked_mul(size_of::<native::conic::Cone>())?,
-                                            )
-                                        })
-                                        .and_then(|bytes| {
-                                            bytes.checked_add(
-                                                cone.contract
-                                                    .variables
-                                                    .capacity()
-                                                    .checked_mul(size_of::<native::Variable>())?,
-                                            )
-                                        })
-                                        .and_then(|bytes| {
-                                            bytes.checked_add(
-                                                cone.contract
-                                                    .rows
-                                                    .capacity()
-                                                    .checked_mul(size_of::<pse_ids::SemanticId>())?,
-                                            )
-                                        })
-                                        .and_then(|bytes| {
-                                            bytes.checked_add(lowered.rows.capacity().checked_mul(
-                                                size_of::<native::conic::LoweredRow>(),
-                                            )?)
-                                        })
-                                        .ok_or(MathRuntimeError::Limit(
-                                            "coefficient cone extent",
-                                        ))?;
-                                Ok((lowered, extent))
-                            },
-                        )
+                                })
+                                .and_then(|bytes| {
+                                    bytes.checked_add(
+                                        (cone.objective.capacity() + cone.rhs.capacity())
+                                            .checked_mul(size_of::<f64>())?,
+                                    )
+                                })
+                                .and_then(|bytes| {
+                                    bytes.checked_add(
+                                        cone.cones
+                                            .capacity()
+                                            .checked_mul(size_of::<native::conic::Cone>())?,
+                                    )
+                                })
+                                .and_then(|bytes| {
+                                    bytes.checked_add(
+                                        cone.contract
+                                            .variables
+                                            .capacity()
+                                            .checked_mul(size_of::<native::Variable>())?,
+                                    )
+                                })
+                                .and_then(|bytes| {
+                                    bytes.checked_add(
+                                        cone.contract
+                                            .rows
+                                            .capacity()
+                                            .checked_mul(size_of::<pse_ids::SemanticId>())?,
+                                    )
+                                })
+                                .and_then(|bytes| {
+                                    bytes.checked_add(
+                                        lowered
+                                            .rows
+                                            .capacity()
+                                            .checked_mul(size_of::<native::conic::LoweredRow>())?,
+                                    )
+                                })
+                                .ok_or(MathRuntimeError::Limit("coefficient cone extent"))?;
+                            Ok((lowered, extent))
+                        })
                         .await?;
                     coefficient_cone = Some((Arc::new(lowered), lease));
                 } else if f.convexity.cone() {
@@ -3011,16 +3061,17 @@ impl MathService {
             let program = program.clone();
             let intent = profile.intent;
             let controls = profile.controls.clone();
+            let demand = execution::factorable_resolve_allocation_bound(&program)?;
+            if demand > self.policy.worker_bytes {
+                return Err(MathRuntimeError::Limit(
+                    "factorable callback-order construction capacity",
+                ));
+            }
             let order = self
-                .job(
-                    1,
-                    self.policy.worker_bytes,
-                    FlightCancellation::default(),
-                    move |_| {
-                        execution::factorable_resolve_order(&program, intent, &controls)
-                            .map_err(Into::into)
-                    },
-                )
+                .job(1, demand, FlightCancellation::default(), move |_| {
+                    execution::factorable_resolve_order(&program, intent, &controls)
+                        .map_err(Into::into)
+                })
                 .await?;
             if let Some(order) = order {
                 let callbacks = self
@@ -3060,6 +3111,7 @@ impl MathService {
             route,
             compatibility: stamp,
             explicit_start: None,
+            _explicit_start_owner: None,
             proposal_start: None,
             automatic_products: Vec::new(),
             automatic_owner: None,
@@ -3267,6 +3319,7 @@ impl MathService {
             route,
             compatibility: Some(stamp),
             explicit_start: None,
+            _explicit_start_owner: None,
             proposal_start: None,
             automatic_products: Vec::new(),
             automatic_owner: None,
@@ -3319,12 +3372,15 @@ impl MathService {
         let owner = self.reserve("math:prepared-conic", bytes)?;
         let admitted = problem.clone();
         let proof = certificate.clone();
-        self.job(
-            1,
-            self.policy.worker_bytes,
-            FlightCancellation::default(),
-            move |_| admitted.validate(proof.as_ref()).map_err(Into::into),
-        )
+        let demand = admitted.validation_allocation_bound()?;
+        if demand > self.policy.worker_bytes {
+            return Err(MathRuntimeError::Limit(
+                "conic validation construction capacity",
+            ));
+        }
+        self.job(1, demand, FlightCancellation::default(), move |_| {
+            admitted.validate(proof.as_ref()).map_err(Into::into)
+        })
         .await?;
         let ids: Vec<_> = problem.contract.variables.iter().map(|v| v.id).collect();
         let normalization = native::transport::cone_normalization(&problem, &numerics)?;
@@ -3505,6 +3561,7 @@ impl MathService {
             route,
             compatibility: Some(stamp),
             explicit_start: None,
+            _explicit_start_owner: None,
             proposal_start: None,
             automatic_products: Vec::new(),
             automatic_owner: None,
@@ -3648,26 +3705,7 @@ impl MathService {
                 Err(refused) => outcomes[i] = Some(Ok((refused, None))),
             }
         }
-        let batching = |a: &Admitted| {
-            let Route::Native(backend) = a.step.route else {
-                return None;
-            };
-            let adapter = execution::adapter(backend);
-            let coefficients = matches!(
-                &a.step.representation,
-                Representation::Algebraic(case)
-                    if case.prepared.prepared.coefficients.is_some()
-                        && case.recognized.is_none()
-                        && case.sensitivity.is_none()
-            );
-            (adapter.capability().batch
-                && coefficients
-                && matches!(
-                    adapter.representation(),
-                    execution::Representation::Coefficients | execution::Representation::Cone
-                ))
-            .then_some(backend)
-        };
+        let batching = |a: &Admitted| a.step.batch_backend();
         let shared = admitted
             .first()
             .and_then(|(_, _, _, a)| batching(a))
@@ -3741,11 +3779,11 @@ impl MathService {
             retained.clear();
         }
         let (chosen, previous_attempt) = if step.proposal_start.is_some() {
-            (step.explicit_start.clone(), None)
+            (step.explicit_start.as_deref().cloned(), None)
         } else {
             match controls.start {
                 StartPolicy::NoPriorStart => (None, None),
-                StartPolicy::Explicit => match step.explicit_start.clone() {
+                StartPolicy::Explicit => match step.explicit_start.as_deref().cloned() {
                     Some(seed) => (Some(seed), None),
                     None => {
                         return Err(Outcome::Rejected(Arc::new(

@@ -405,7 +405,7 @@ pub fn analyze(
                 }
                 None => {
                     report.sessions += 1;
-                    highs::Session::new(&p, None, stamp)?
+                    highs::Session::new(&p, None, stamp, &execution)?
                 }
             };
             let t = Tolerances {

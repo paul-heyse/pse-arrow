@@ -21,6 +21,34 @@ use std::sync::{
     mpsc,
 };
 
+#[cfg(any(test, feature = "canonical-tests"))]
+type NativeEntry = Arc<dyn Fn(&AtomicBool) + Send + Sync>;
+#[cfg(any(test, feature = "canonical-tests"))]
+tokio::task_local! { static NATIVE_ENTRY: NativeEntry; }
+#[cfg(feature = "canonical-tests")]
+static RECEIVER_ENTRY: std::sync::OnceLock<NativeEntry> = std::sync::OnceLock::new();
+/// Install one qualified receiver observer before any scientific work is issued.
+/// The process association spans spawned run owners; local controls take precedence.
+///
+/// # Errors
+/// An existing installation belongs to the process's original qualification controller.
+#[cfg(feature = "canonical-tests")]
+#[doc(hidden)]
+pub fn install_qualified_native_entry(
+    observer: Arc<dyn Fn(&AtomicBool) + Send + Sync>,
+) -> Result<(), MathRuntimeError> {
+    RECEIVER_ENTRY.set(observer).map_err(|_| {
+        MathRuntimeError::Infrastructure("native qualification observer already installed".into())
+    })
+}
+/// Observe actual admitted native session entries for composition controls. The
+/// callback crosses into the owner thread; it must cooperate with the stop flag.
+#[cfg(any(test, feature = "canonical-tests"))]
+#[doc(hidden)]
+pub async fn observed_native_entry<T>(observer: NativeEntry, work: impl Future<Output = T>) -> T {
+    NATIVE_ENTRY.scope(observer, work).await
+}
+
 struct AccuracySignal<T> {
     original_satisfied: bool,
     goals: Vec<pse_math::engineering_accuracy::GoalResult>,
@@ -187,15 +215,75 @@ impl StepRetention {
 
 /// One step's work on the session thread; it reports its own result.
 type Work = Box<dyn FnOnce(Result<&mut Retained, ProblemError>) + Send>;
+/// The same runtime CPU allowance may be relinquished only during native exclusion
+/// admission. It stays on the native owner thread and is reacquired against the
+/// actual execution clock before the guarded native operation begins.
+#[derive(Clone, Debug)]
+pub(super) struct ComputeOwner {
+    cpu: Arc<tokio::sync::Semaphore>,
+    cores: u32,
+    permit: Arc<std::sync::Mutex<Option<tokio::sync::OwnedSemaphorePermit>>>,
+    runtime: tokio::runtime::Handle,
+}
+impl ComputeOwner {
+    pub(super) fn new(
+        cpu: Arc<tokio::sync::Semaphore>,
+        cores: u32,
+        permit: tokio::sync::OwnedSemaphorePermit,
+        runtime: tokio::runtime::Handle,
+    ) -> Self {
+        Self {
+            cpu,
+            cores,
+            permit: Arc::new(std::sync::Mutex::new(Some(permit))),
+            runtime,
+        }
+    }
+}
+impl execution::ComputeAdmission for ComputeOwner {
+    fn pause(&mut self) {
+        self.permit
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take();
+    }
+    fn resume(
+        &mut self,
+        execution: &pse_backend_native::solve::Execution,
+    ) -> Result<(), ProblemError> {
+        execution.check()?;
+        if self
+            .permit
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .is_some()
+        {
+            return Ok(());
+        }
+        let permit = self.runtime.block_on(async {
+            let acquire = self.cpu.clone().acquire_many_owned(self.cores);
+            tokio::pin!(acquire);
+            loop {
+                execution.check()?;
+                tokio::select! {
+                    permit = &mut acquire => return permit.map_err(|_| ProblemError::internal("CPU admission closed")),
+                    () = tokio::time::sleep(std::time::Duration::from_millis(10)) => {}
+                }
+            }
+        })?;
+        *self
+            .permit
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(permit);
+        execution.check()
+    }
+}
 struct Request {
     /// Admitted native threads of this step, which size adapter scopes.
     threads: usize,
     /// Adapter whose scope the step's native state must live in.
     backends: Vec<Backend>,
     work: Work,
-    /// Successful dispatch transfers CPU admission to the native request, including
-    /// scope entry and required state cleanup. A waiter never owns dispatched capacity.
-    _permits: tokio::sync::OwnedSemaphorePermit,
 }
 /// Adapter scopes currently entered on the session thread.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -224,7 +312,8 @@ impl Scope {
 /// Serve steps until the session closes. Native state is built and torn down inside the
 /// scopes of the adapters that own it; a step needing another scope ends the current one
 /// (dropping retained state there) and re-enters with the extended set.
-fn serve(receiver: &std::sync::Mutex<mpsc::Receiver<Request>>, stack: usize) {
+fn serve(receiver: &std::sync::Mutex<mpsc::Receiver<Request>>, service: &MathService) {
+    let stack = service.policy.stack_bytes;
     let mut pending: Option<Request> = None;
     let mut scope = Scope {
         backends: Vec::new(),
@@ -237,25 +326,56 @@ fn serve(receiver: &std::sync::Mutex<mpsc::Receiver<Request>>, stack: usize) {
             .map(|b| execution::adapter(*b))
             .collect();
         let entered = scope.clone();
-        let exit = execution::scoped(&adapters, scope.threads, stack, || {
-            let mut retained = Retained::default();
-            loop {
-                let request = match pending.take() {
-                    Some(request) => request,
-                    // Only this thread receives; the lock lends the receiver to the scope.
-                    None => match receiver.lock().map(|r| r.recv()) {
-                        Ok(Ok(request)) => request,
-                        Ok(Err(_)) | Err(_) => return Ok::<_, ProblemError>(None),
-                    },
-                };
-                if !entered.admits(&request) {
-                    let next = entered.extended(&request);
-                    pending = Some(request);
-                    return Ok(Some(next));
+        // These scopes survive while the session is idle. Backend identity deduplication
+        // does not merge separately created nested teams. Hold their stack allowance
+        // outside `scoped`, whose scoped pools join all threads before it returns.
+        let team_owner =
+            execution::scope_stack_bytes(&adapters, scope.threads, stack).and_then(|bytes| {
+                service
+                    .reserve("math:native-scope-stacks", bytes)
+                    .map_err(MathRuntimeError::into_problem)
+            });
+        let exit = match team_owner {
+            Ok(_team_owner) => execution::scoped(&adapters, scope.threads, stack, || {
+                let mut retained = Retained::default();
+                loop {
+                    let request = match pending.take() {
+                        Some(request) => request,
+                        // Only this thread receives; the lock lends the receiver to the scope.
+                        None => match receiver.lock().map(|r| {
+                            if retained.backend() == Some(Backend::Highs) {
+                                r.recv_timeout(std::time::Duration::from_millis(10))
+                            } else {
+                                r.recv().map_err(|_| mpsc::RecvTimeoutError::Disconnected)
+                            }
+                        }) {
+                            Ok(Ok(request)) => request,
+                            Ok(Err(mpsc::RecvTimeoutError::Timeout)) => {
+                                if execution::scheduler_waiting() {
+                                    retained.relinquish_scheduler();
+                                }
+                                continue;
+                            }
+                            Ok(Err(mpsc::RecvTimeoutError::Disconnected)) | Err(_) => {
+                                return Ok::<_, ProblemError>(None);
+                            }
+                        },
+                    };
+                    if !entered.admits(&request) {
+                        let next = entered.extended(&request);
+                        pending = Some(request);
+                        return Ok(Some(next));
+                    }
+                    // A ready next request must not indefinitely retain the previous
+                    // step's idle reader ahead of an already waiting Uno owner.
+                    if execution::scheduler_waiting() {
+                        retained.relinquish_scheduler();
+                    }
+                    (request.work)(Ok(&mut retained));
                 }
-                (request.work)(Ok(&mut retained));
-            }
-        });
+            }),
+            Err(error) => Err(error),
+        };
         match exit {
             Ok(None) => return,
             Ok(Some(next)) => scope = next,
@@ -313,38 +433,61 @@ impl MathService {
             .map_err(|_| MathRuntimeError::Limit("native jobs"))?;
         self.session_on(slot)
     }
-    /// Open a native session for durable work: wait for a job slot instead of refusing
-    /// (ADR-0112 Outcome 14). The attempt stays queued while it waits.
+    /// Open a native session for durable work. One population ticket bounds its wait
+    /// for memory; no admission waiter sits outside the deployment's job limit.
     ///
     /// # Errors
     /// Pool capacity, a closed admission, or the thread could not start.
     pub(crate) async fn open_session_queued(
         self: &Arc<Self>,
+        cancel: &crate::CancelSource,
+        deadline: Option<std::time::Instant>,
     ) -> Result<NativeSession, MathRuntimeError> {
         let slot = self
             .jobs
             .clone()
-            .acquire_owned()
-            .await
-            .map_err(|_| MathRuntimeError::Limit("native job admission closed"))?;
-        self.session_on(slot)
+            .try_acquire_owned()
+            .map_err(|_| MathRuntimeError::Limit("native jobs"))?;
+        let bytes = self.session_bytes()?;
+        let control = pse_columnar::flight::FlightCancellation::default();
+        let lease = tokio::select! {
+            lease = self.reserve_entry("math:native-session", bytes, &control, deadline) => lease?,
+            () = cancel.cancelled() => {
+                control.cancel();
+                return Err(MathRuntimeError::Cancelled);
+            }
+        };
+        cancel
+            .checkpoint()
+            .map_err(|_| MathRuntimeError::Cancelled)?;
+        self.session_on_reserved(slot, lease)
+    }
+    fn session_bytes(&self) -> Result<usize, MathRuntimeError> {
+        // The session thread's inner-solve session cache is held within its lease (I14);
+        // its workers draw from the pool as they are built.
+        self.policy
+            .stack_bytes
+            .checked_add(self.policy.foreign_bytes)
+            .and_then(|n| n.checked_add(self.policy.inner_session_bytes))
+            .ok_or(MathRuntimeError::Limit("native allowance overflow"))
     }
     fn session_on(
         self: &Arc<Self>,
         slot: tokio::sync::OwnedSemaphorePermit,
     ) -> Result<NativeSession, MathRuntimeError> {
-        // The session thread's inner-solve session cache is held within its lease (I14);
-        // its workers draw from the pool as they are built.
-        let sessions = self.policy.inner_session_bytes;
-        let bytes = self
-            .policy
-            .stack_bytes
-            .checked_add(self.policy.foreign_bytes)
-            .and_then(|n| n.checked_add(sessions))
-            .ok_or(MathRuntimeError::Limit("native allowance overflow"))?;
+        let bytes = self.session_bytes()?;
         let lease = self.reserve("math:native-session", bytes)?;
+        self.session_on_reserved(slot, lease)
+    }
+    fn session_on_reserved(
+        self: &Arc<Self>,
+        slot: tokio::sync::OwnedSemaphorePermit,
+        lease: Arc<pse_columnar::AllocationLease>,
+    ) -> Result<NativeSession, MathRuntimeError> {
+        let sessions = self.policy.inner_session_bytes;
         let (sender, receiver) = mpsc::channel::<Request>();
         let stack = self.policy.stack_bytes;
+        let service = self.clone();
         let thread = std::thread::Builder::new()
             .name("pse-math".into())
             .stack_size(stack)
@@ -353,7 +496,7 @@ impl MathService {
                 pse_backend_native::implicit::budget_sessions(sessions);
                 #[cfg(not(feature = "solver-kinsol"))]
                 let _ = sessions;
-                serve(&std::sync::Mutex::new(receiver), stack)
+                serve(&std::sync::Mutex::new(receiver), &service)
             })
             .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
         let (joined, receiver) = tokio::sync::oneshot::channel();
@@ -464,11 +607,9 @@ impl NativeSession {
             .sender
             .as_ref()
             .ok_or_else(|| MathRuntimeError::Infrastructure("closed native session".into()))?;
+        let admission_deadline = self.service.admission_deadline(deadline)?;
         let expires = async {
-            match deadline {
-                Some(at) => tokio::time::sleep_until(at.into()).await,
-                None => std::future::pending::<()>().await,
-            }
+            tokio::time::sleep_until(admission_deadline.into()).await;
         };
         let task_stop = async {
             match &enclosing {
@@ -491,7 +632,7 @@ impl NativeSession {
             },
             () = expires => return Err(ProblemError::Limit {
                 kind:pse_backend_native::LimitKind::Time,
-                detail:"task deadline while waiting for native CPU admission".into(),
+                detail:"native CPU admission deadline".into(),
             }.into()),
             error=task_stop=>return Err(ProblemError::Provider(error).into()),
         };
@@ -502,13 +643,27 @@ impl NativeSession {
         let mut stop = Stop(Some(flag.clone()));
         let budget = self.budget.clone();
         let (reply, result) = tokio::sync::oneshot::channel();
+        let compute = ComputeOwner::new(
+            self.service.cpu.clone(),
+            cores as u32,
+            permits,
+            tokio::runtime::Handle::current(),
+        );
+        #[cfg(any(test, feature = "canonical-tests"))]
+        let entry = NATIVE_ENTRY.try_with(Arc::clone).ok();
+        #[cfg(feature = "canonical-tests")]
+        let entry = entry.or_else(|| RECEIVER_ENTRY.get().cloned());
         let request = Request {
             threads: cores,
             backends,
             work: Box::new(move |retained| {
-                let outcome = match retained {
+                let outcome = execution::compute_scoped(Box::new(compute), || match retained {
                     Ok(retained) => {
                         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                            #[cfg(any(test, feature = "canonical-tests"))]
+                            if let Some(entry) = entry {
+                                entry(&flag);
+                            }
                             work(retained, &flag, &budget)
                         })) {
                             Ok(outcome) => outcome,
@@ -522,10 +677,9 @@ impl NativeSession {
                         }
                     }
                     Err(error) => Err(error.into()),
-                };
+                });
                 let _ = reply.send(outcome);
             }),
-            _permits: permits,
         };
         if sender.send(request).is_err() {
             stop.0 = None;
@@ -2663,6 +2817,167 @@ mod admission_tests {
         ));
         assert_eq!(service.cpu.available_permits(), service.cores);
         session.close().await;
+    }
+    #[tokio::test]
+    async fn compute_owner_wait_uses_original_clock_and_shared_permit() {
+        use execution::ComputeAdmission;
+        let service = super::super::tests::service();
+        let permit = service.cpu.clone().acquire_owned().await.unwrap();
+        let owner = ComputeOwner::new(
+            service.cpu.clone(),
+            1,
+            permit,
+            tokio::runtime::Handle::current(),
+        );
+        let retained = owner.clone();
+        let (ready, waiting) = tokio::sync::oneshot::channel();
+        let gate = Gate::new();
+        let held = gate.0.clone();
+        let thread = std::thread::spawn(move || {
+            let mut owner = owner;
+            owner.pause();
+            ready.send(()).unwrap();
+            wait_gate(&held);
+            let controls = pse_backend_native::solve::Controls {
+                time_limit: std::time::Duration::from_millis(20),
+                ..Default::default()
+            };
+            owner.resume(&pse_backend_native::solve::Execution::new(
+                Arc::default(),
+                &controls,
+            ))
+        });
+        waiting.await.unwrap();
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        let occupied = service
+            .cpu
+            .clone()
+            .acquire_many_owned(service.cores as u32)
+            .await
+            .unwrap();
+        gate.release();
+        let result = tokio::task::spawn_blocking(move || thread.join().unwrap())
+            .await
+            .unwrap();
+        assert!(matches!(
+            result,
+            Err(ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                ..
+            })
+        ));
+        assert_eq!(service.cpu.available_permits(), 0);
+        drop(occupied);
+        drop(retained);
+        assert_eq!(service.cpu.available_permits(), service.cores);
+    }
+    #[cfg(feature = "solver-pounce")]
+    #[tokio::test]
+    async fn persistent_scope_stacks_survive_idle_and_nested_scope_replacement() {
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let session = service.open_session().unwrap();
+        let base = service.pool.reserved();
+        let cancel = crate::CancelSource::new();
+        session
+            .run(2, Some(Backend::Pounce), &cancel, |_, _, _| Ok(()))
+            .await
+            .unwrap();
+        assert_eq!(
+            service.pool.reserved(),
+            base + 2 * service.policy.stack_bytes
+        );
+        session
+            .run(2, Some(Backend::PounceConvex), &cancel, |_, _, _| Ok(()))
+            .await
+            .unwrap();
+        assert_eq!(
+            service.pool.reserved(),
+            base + 4 * service.policy.stack_bytes
+        );
+        session
+            .run(1, Some(Backend::Pounce), &cancel, |_, _, _| Ok(()))
+            .await
+            .unwrap();
+        assert_eq!(service.pool.reserved(), base);
+        session.close().await;
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+    #[cfg(feature = "solver-pounce")]
+    #[tokio::test]
+    async fn persistent_scope_refuses_before_creation_and_restores_session() {
+        use datafusion::execution::memory_pool::MemoryConsumer;
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let session = service.open_session().unwrap();
+        let base = service.pool.reserved();
+        let datafusion::execution::memory_pool::MemoryLimit::Finite(capacity) =
+            service.pool.memory_limit()
+        else {
+            panic!("scope control requires its finite pool");
+        };
+        let held = MemoryConsumer::new("scope-refusal-control").register(&service.pool);
+        held.try_grow(capacity - base).unwrap();
+        let entered = Arc::new(AtomicBool::new(false));
+        let observed = entered.clone();
+        let cancel = crate::CancelSource::new();
+        assert!(
+            session
+                .run(2, Some(Backend::Pounce), &cancel, move |_, _, _| {
+                    observed.store(true, Ordering::Release);
+                    Ok(())
+                })
+                .await
+                .is_err()
+        );
+        assert!(!entered.load(Ordering::Acquire));
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        drop(held);
+        session
+            .run(2, Some(Backend::Pounce), &cancel, |_, _, _| Ok(()))
+            .await
+            .unwrap();
+        session.close().await;
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+    #[cfg(feature = "solver-pounce")]
+    #[tokio::test]
+    async fn persistent_scope_stacks_survive_cancel_panic_and_owning_join() {
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let session = service.open_session().unwrap();
+        let base = service.pool.reserved();
+        let entered = Arc::new(tokio::sync::Notify::new());
+        let seen = entered.clone();
+        let gate = Gate::new();
+        let held = gate.0.clone();
+        let cancel = crate::CancelSource::new();
+        let mut waiting =
+            Box::pin(
+                session.run::<()>(2, Some(Backend::Pounce), &cancel, move |_, flag, _| {
+                    seen.notify_one();
+                    wait_gate(&held);
+                    assert!(flag.load(Ordering::Acquire));
+                    panic!("persistent team panic after cancellation");
+                }),
+            );
+        assert!(futures_util::poll!(waiting.as_mut()).is_pending());
+        entered.notified().await;
+        cancel.cancel();
+        assert!(futures_util::poll!(waiting.as_mut()).is_pending());
+        assert_eq!(
+            service.pool.reserved(),
+            base + 2 * service.policy.stack_bytes
+        );
+        assert_eq!(service.cpu.available_permits(), 0);
+        gate.release();
+        assert!(matches!(waiting.await, Err(MathRuntimeError::Panic(_))));
+        assert_eq!(
+            service.pool.reserved(),
+            base + 2 * service.policy.stack_bytes
+        );
+        session.close().await;
+        assert_eq!(service.pool.reserved(), baseline);
     }
     #[tokio::test]
     async fn supplied_task_scope_keeps_owner_and_normal_completion_does_not_cancel() {

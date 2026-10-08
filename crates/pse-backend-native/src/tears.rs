@@ -24,6 +24,60 @@ fn id(frame: Frame, source: SemanticId) -> SemanticId {
     h.id(&source);
     h.finish_id()
 }
+/// Known native MILP construction arrays plus the independent graph witness.
+/// HiGHS opaque storage remains the execution's foreign allocation allowance.
+pub fn construction_allocation_bound(graph: &FlowGraph) -> Result<usize, ProblemError> {
+    let d = graph.declaration();
+    let overflow = || ProblemError::Contract("tear construction extent overflow".into());
+    let variables = d
+        .nodes
+        .len()
+        .checked_add(d.decisions.len())
+        .ok_or_else(overflow)?;
+    let entries = d.connections.len().checked_mul(3).ok_or_else(overflow)?;
+    let mut bytes = graph
+        .tear_allocation_bound()
+        .map_err(|e| ProblemError::Contract(e.to_string()))?;
+    for (count, width) in [
+        (
+            variables,
+            size_of::<Variable>() + size_of::<ModelingVariableDomain>() + 3 * size_of::<f64>(),
+        ),
+        (
+            d.nodes.len(),
+            11 * size_of::<(SemanticId, usize)>() + 16 * size_of::<usize>(),
+        ),
+        (
+            d.decisions.len(),
+            11 * size_of::<(SemanticId, usize)>() + 16 * size_of::<usize>(),
+        ),
+        (
+            d.connections.len(),
+            size_of::<SemanticId>() + size_of::<(f64, f64)>() + 2 * size_of::<f64>(),
+        ),
+        // Triplet input, faer sorted/deduplicated source, CSC output and permutations.
+        (
+            entries,
+            size_of::<faer::sparse::Triplet<usize, usize, f64>>()
+                + 8 * size_of::<usize>()
+                + 2 * size_of::<f64>(),
+        ),
+        (
+            variables.checked_add(1).ok_or_else(overflow)?,
+            4 * size_of::<usize>(),
+        ),
+    ] {
+        bytes = count
+            .checked_mul(2)
+            .and_then(|n| n.checked_add(4))
+            .and_then(|n| n.checked_mul(width))
+            .and_then(|n| bytes.checked_add(n))
+            .ok_or_else(overflow)?;
+    }
+    bytes
+        .checked_add(size_of::<TearProblem>() + size_of::<CoefficientProblem>())
+        .ok_or_else(overflow)
+}
 /// `r_u + 1 <= r_v + |V| t_group(edge)` for every connection occurrence.
 /// This formulation has linear model size and does not enumerate cycles.
 pub fn compile(graph: &FlowGraph) -> Result<TearProblem, ProblemError> {
@@ -179,7 +233,7 @@ pub fn solve(
         data: graph.key(),
         backend: Backend::Highs,
     };
-    let mut session = crate::highs::Session::new(&p.problem, None, compatibility)?;
+    let mut session = crate::highs::Session::new(&p.problem, None, compatibility, &execution)?;
     // The tear MILP is a 0/1 problem of this analysis, not of a model: its feasibility
     // budget is the default policy's integrality budget.
     let policy = pse_model::numerics::NumericalPolicy::default();
@@ -288,6 +342,17 @@ mod tests {
             },
         )
         .unwrap()
+    }
+    #[test]
+    fn tear_milp_source_demand_preserves_actual_tiny_projection() {
+        let graph = graph(&[(0, 1, 0), (1, 2, 1), (2, 0, 2)]);
+        let demand = construction_allocation_bound(&graph).unwrap();
+        assert!(demand < 1 << 20);
+        let problem = compile(&graph).unwrap();
+        assert_eq!(problem.problem.contract.variables.len(), 6);
+        assert_eq!(problem.problem.constraints.nrows(), 3);
+        assert_eq!(problem.problem.constraints.compute_nnz(), 9);
+        assert!(demand > 9 * size_of::<faer::sparse::Triplet<usize, usize, f64>>());
     }
     #[test]
     fn exhaustive_tiny_milp_feasibility_matches_independent_dag_witness() {

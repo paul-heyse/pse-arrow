@@ -8,12 +8,18 @@ use super::{
 use crate::authoring_driver::document::{
     OwnedDocumentSet, load_package_documents_owned, package_checksum,
 };
+use futures_util::{StreamExt, stream::FuturesUnordered};
 use pse_ids::{ContentHash, SemanticId};
 use pse_model::generated::{
     enums::AttemptState,
     identities::{AttemptId, RunId},
 };
-use std::{collections::BTreeMap, sync::Arc, time::Duration};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::{Arc, Mutex},
+    time::Duration,
+};
+use tokio::io::{AsyncRead, AsyncReadExt};
 
 /// Exact canonical physical source receipt, separate from compiler physical context identity.
 #[derive(
@@ -67,6 +73,8 @@ pub struct WorkerSettings {
     pub recovery: Duration,
     /// Optional maximum number of processed actions.
     pub maximum_actions: Option<usize>,
+    /// Maximum concurrent case lanes; defaults to the runtime CPU and population allocation.
+    pub maximum_in_flight: Option<usize>,
     /// Finish when a complete scoped discovery pass has no work.
     pub until_idle: bool,
 }
@@ -76,8 +84,72 @@ impl Default for WorkerSettings {
             poll: Duration::from_millis(500),
             recovery: Duration::from_secs(30),
             maximum_actions: None,
+            maximum_in_flight: None,
             until_idle: false,
         }
+    }
+}
+/// Local preparation ownership only. Canonical claims remain the distributed authority.
+#[derive(Default)]
+struct CandidateGroup(Arc<Mutex<BTreeSet<String>>>);
+struct CandidateTurn {
+    group: Arc<Mutex<BTreeSet<String>>>,
+    key: String,
+}
+impl CandidateGroup {
+    fn acquire(&self, key: &str) -> Option<CandidateTurn> {
+        let mut active = self
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if !active.insert(key.to_owned()) {
+            return None;
+        }
+        Some(CandidateTurn {
+            group: self.0.clone(),
+            key: key.to_owned(),
+        })
+    }
+}
+impl Drop for CandidateTurn {
+    fn drop(&mut self) {
+        self.group
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(&self.key);
+    }
+}
+async fn receiver_output(stream: impl AsyncRead + Unpin) -> Result<Vec<u8>, WorkflowError> {
+    let mut bytes = Vec::new();
+    stream
+        .take(64 * 1024 + 1)
+        .read_to_end(&mut bytes)
+        .await
+        .map_err(|error| contract(format!("managed primary response: {error}")))?;
+    if bytes.len() > 64 * 1024 {
+        return Err(contract(
+            "managed primary readiness response exceeds its bound",
+        ));
+    }
+    Ok(bytes)
+}
+#[cfg(test)]
+mod receiver_tests {
+    use super::*;
+    #[tokio::test]
+    async fn primary_response_bound_refuses_a_stream_without_an_end() {
+        let result = tokio::time::timeout(
+            Duration::from_secs(1),
+            receiver_output(tokio::io::repeat(0)),
+        )
+        .await
+        .unwrap();
+        assert!(result.is_err());
+    }
+    #[tokio::test]
+    async fn primary_response_retains_exact_bounded_readiness_bytes() {
+        let bytes = b"{\"ready\":true}";
+        assert_eq!(receiver_output(bytes.as_slice()).await.unwrap(), bytes);
     }
 }
 fn operations(runtime: &Runtime) -> Result<&Operations, WorkflowError> {
@@ -441,6 +513,90 @@ impl Operations {
 }
 
 impl Runtime {
+    /// Activate or reuse the deployment's one verified primary group. The receiving
+    /// observer has no native assistance lane and must fit its separate placement.
+    pub(super) async fn ensure_managed_primary(
+        &self,
+        cancel: &crate::CancelSource,
+    ) -> Result<(), WorkflowError> {
+        if cancel.token().is_cancelled() {
+            return Err(crate::math::MathRuntimeError::Cancelled.into());
+        }
+        let store = operations(self)?.store();
+        let allocation = store.native_allocation()?;
+        let profile = allocation
+            .execution
+            .ok_or_else(|| contract("durable study requires a managed execution profile"))?;
+        if self.shared.budget().memory_limit_bytes.get() > profile.observer_memory_bytes {
+            return Err(contract(
+                "durable observer pool exceeds its managed observer allocation",
+            ));
+        }
+        let receiver = store.managed_primary_receiver()?.ok_or_else(|| {
+            contract("durable study requires a configured managed primary receiver")
+        })?;
+        if cancel.token().is_cancelled() {
+            return Err(crate::math::MathRuntimeError::Cancelled.into());
+        }
+        let mut command = tokio::process::Command::new(&receiver.supervisor_executable);
+        command
+            .arg(&receiver.supervisor_script)
+            .arg("ensure-primary")
+            .arg("--state")
+            .arg(store.deployment_state())
+            .arg("--canonical-database")
+            .arg(store.database())
+            .arg("--observer-pid")
+            .arg(std::process::id().to_string())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .kill_on_drop(true);
+        let mut child = command
+            .spawn()
+            .map_err(|error| contract(format!("managed primary startup: {error}")))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| contract("managed primary output pipe absent"))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| contract("managed primary error pipe absent"))?;
+        let response = async {
+            tokio::try_join!(
+                async {
+                    child
+                        .wait()
+                        .await
+                        .map_err(|error| contract(format!("managed primary startup: {error}")))
+                },
+                receiver_output(stdout),
+                receiver_output(stderr),
+            )
+        };
+        let (status, stdout, stderr) = tokio::select! {
+            output = tokio::time::timeout(Duration::from_millis(profile.admission_wait_ms), response) =>
+                output.map_err(|_| contract("managed primary readiness deadline expired"))?
+                    ?,
+            () = cancel.cancelled() => return Err(crate::math::MathRuntimeError::Cancelled.into()),
+        };
+        if !status.success() {
+            return Err(contract(format!(
+                "managed primary startup: {}",
+                String::from_utf8_lossy(&stderr)
+            )));
+        }
+        #[derive(serde::Deserialize)]
+        struct Ready {
+            ready: bool,
+        }
+        let ready: Ready = serde_json::from_slice(&stdout)
+            .map_err(|error| contract(format!("managed primary readiness: {error}")))?;
+        if !ready.ready {
+            return Err(contract("managed primary is not ready"));
+        }
+        Ok(())
+    }
     /// Claim a structurally ready candidate under its exact consumed revisions.
     pub async fn work_once(&self) -> Result<Processed, WorkflowError> {
         Ok(self.work_once_with_result().await?.0)
@@ -449,11 +605,14 @@ impl Runtime {
     pub async fn work_once_with_result(
         &self,
     ) -> Result<(Processed, Option<Arc<super::RunResult>>), WorkflowError> {
-        self.work_once_scoped(true).await
+        self.work_once_scoped(true, None, &crate::CancelSource::new())
+            .await
     }
     async fn work_once_scoped(
         &self,
         recovery: bool,
+        group: Option<&CandidateGroup>,
+        cancel: &crate::CancelSource,
     ) -> Result<(Processed, Option<Arc<super::RunResult>>), WorkflowError> {
         use pse_model::study::{ActionKind, SeedAvailability, SeedFact, StartPolicy, WaitReason};
         let operations = operations(self)?;
@@ -466,6 +625,9 @@ impl Runtime {
         }
         let mut after = None;
         loop {
+            if cancel.token().is_cancelled() {
+                return Ok((Processed::Idle, None));
+            }
             let studies = operations.store().study_page(after.as_deref()).await?;
             if studies.is_empty() {
                 return Ok((Processed::Idle, None));
@@ -501,6 +663,16 @@ impl Runtime {
                     }
                     for candidate in page {
                         point_after = Some(candidate.ordinal);
+                        if cancel.token().is_cancelled() {
+                            return Ok((Processed::Idle, None));
+                        }
+                        let _turn = match group {
+                            Some(group) => match group.acquire(&candidate.key) {
+                                Some(turn) => Some(turn),
+                                None => continue,
+                            },
+                            None => None,
+                        };
                         let scope = operations.store().study_scope(&candidate.key).await?;
                         let policy = scope.point().policy()?;
                         let unresolved = match &policy.start {
@@ -530,7 +702,6 @@ impl Runtime {
                             }
                             ActionKind::Wait(_) | ActionKind::Reconcile => continue,
                         }
-                        let cancel = crate::CancelSource::new();
                         let mut prepared = self.prepare_study_candidate(&scope, &cancel).await?;
                         let action = scope.action(prepared.seed.clone())?;
                         if !matches!(action.kind, ActionKind::Start(_)) {
@@ -660,14 +831,41 @@ impl Runtime {
                         ));
                     }
                 }
+                let final_key = format!("finalize:{}", study.key);
+                let _turn = match group {
+                    Some(group) => match group.acquire(&final_key) {
+                        Some(turn) => Some(turn),
+                        None => continue,
+                    },
+                    None => None,
+                };
                 if self.finalize_canonical_study(&study.key).await? {
                     return Ok((Processed::Finalized { study: study.key }, None));
                 }
             }
         }
     }
-    /// Serve bounded candidate pages until stopped; completed native owners are released
-    /// between iterations and only the processed count remains live.
+    async fn group_lane(
+        &self,
+        recovery: bool,
+        group: &CandidateGroup,
+        stop: &crate::CancelSource,
+    ) -> Result<Processed, WorkflowError> {
+        let cancel = crate::CancelSource::new();
+        let work = self.work_once_scoped(recovery, Some(group), &cancel);
+        tokio::pin!(work);
+        let result = tokio::select! {
+            result = &mut work => result,
+            () = stop.cancelled() => {
+                cancel.cancel();
+                // Issued canonical effects and native owners must finish their own drain.
+                work.await
+            }
+        };
+        Ok(result?.0)
+    }
+    /// Serve one bounded group on the shared runtime, draining every issued lane on stop
+    /// or failure. Completed native owners are released as each lane finishes.
     pub async fn serve(
         &self,
         settings: WorkerSettings,
@@ -680,6 +878,18 @@ impl Runtime {
         }
         let mut count = 0_usize;
         let mut last_recovery = None;
+        let allocation = self
+            .shared
+            .math()
+            .cores()
+            .min(self.shared.budget().math.jobs / 2)
+            .max(1);
+        let width = settings.maximum_in_flight.unwrap_or(allocation);
+        if width == 0 || width > allocation {
+            return Err(contract("worker case lanes exceed the runtime allocation"));
+        }
+        let group = CandidateGroup::default();
+        let drain = crate::CancelSource::new();
         while !stop.token().is_cancelled()
             && settings.maximum_actions.is_none_or(|limit| count < limit)
         {
@@ -688,16 +898,65 @@ impl Runtime {
             if recovery {
                 last_recovery = Some(tokio::time::Instant::now());
             }
-            match self.work_once_scoped(recovery).await?.0 {
-                Processed::Idle if settings.until_idle => break,
-                Processed::Idle => {
-                    tokio::select! {_=tokio::time::sleep(settings.poll)=>{},()=stop.cancelled()=>{}}
+            let mut pending = FuturesUnordered::new();
+            let initial = settings
+                .maximum_actions
+                .map_or(width, |limit| width.min(limit - count));
+            for lane in 0..initial {
+                pending.push(self.group_lane(recovery && lane == 0, &group, &drain));
+            }
+            let mut idle = false;
+            let mut progressed = false;
+            let mut failure = None;
+            while !pending.is_empty() {
+                let result = tokio::select! {
+                    result = pending.next() => result,
+                    () = stop.cancelled(), if !drain.token().is_cancelled() => {
+                        drain.cancel();
+                        continue;
+                    }
+                };
+                match result {
+                    Some(Ok(Processed::Idle)) => idle = true,
+                    Some(Ok(_)) => {
+                        progressed = true;
+                        match count.checked_add(1) {
+                            Some(next) => count = next,
+                            None => {
+                                failure.get_or_insert_with(|| {
+                                    contract("worker processed count overflow")
+                                });
+                                drain.cancel();
+                            }
+                        }
+                    }
+                    Some(Err(error)) => {
+                        if failure.is_none() {
+                            failure = Some(error);
+                        }
+                        drain.cancel();
+                    }
+                    None => break,
                 }
-                _ => {
-                    count = count
-                        .checked_add(1)
-                        .ok_or_else(|| contract("worker processed count overflow"))?;
+                if !idle
+                    && !drain.token().is_cancelled()
+                    && settings.maximum_actions.is_none_or(|limit| {
+                        count
+                            .checked_add(pending.len())
+                            .is_some_and(|issued| issued < limit)
+                    })
+                {
+                    pending.push(self.group_lane(false, &group, &drain));
                 }
+            }
+            if let Some(error) = failure {
+                return Err(error);
+            }
+            if !progressed {
+                if settings.until_idle {
+                    break;
+                }
+                tokio::select! {_=tokio::time::sleep(settings.poll)=>{},()=stop.cancelled()=>{}}
             }
         }
         Ok(count)

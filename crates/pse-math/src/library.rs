@@ -198,7 +198,7 @@ fn exact_evaluator(
 }
 
 mod admission;
-pub(crate) use admission::bounded_evaluator;
+pub(crate) use admission::{bounded_evaluator, evaluator_construction};
 
 /// Reusable function symbols for Symbolica-generated provider lifts, one per formal slot.
 pub(crate) fn function(slot: usize, arguments: &[Atom]) -> Result<Atom, MathError> {
@@ -231,7 +231,7 @@ pub(crate) fn storage(evaluator: &ExpressionEvaluator<f64>) -> Result<Storage, M
             .ok_or(MathError::Limit("evaluator instruction extent"))?,
     })
 }
-fn instruction_bytes(export: &ExportedInstructions<f64>) -> Option<usize> {
+fn instruction_bytes<T>(export: &ExportedInstructions<T>) -> Option<usize> {
     let listed = size_of_val(export.instructions.as_slice())
         .checked_add(export.output_count.checked_mul(size_of::<usize>())?)?;
     let arguments = export.instructions.iter().try_fold(listed, |bytes, i| {

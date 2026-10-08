@@ -158,7 +158,7 @@ impl BackendExecution for Highs {
                 |session: &mut highs::Session| {
                     Ok(session.update(problem, certificate, stamp.clone()).is_ok())
                 },
-                || highs::Session::new(problem, certificate, stamp.clone()),
+                || highs::Session::new(problem, certificate, stamp.clone(), &input.execution),
             )?;
             if let Some(start) = &settings.sparse_start {
                 let start = start

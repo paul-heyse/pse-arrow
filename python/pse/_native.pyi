@@ -143,6 +143,7 @@ class EngineSettings:
         math_stack_bytes: int | None = ...,
         math_jobs: int | None = ...,
         math_flights: int | None = ...,
+        math_admission_wait_ms: int | None = ...,
         cache: CacheSettings | None = None,
     ) -> EngineSettings: ...
     @property
@@ -155,6 +156,8 @@ class EngineSettings:
     def concurrent_queries(self, /) -> int: ...
     @property
     def hashing_may_use_pool(self, /) -> bool: ...
+    @property
+    def math_admission_wait_ms(self, /) -> int: ...
     @property
     def math_artifact_bytes(self, /) -> int: ...
     @property
@@ -670,7 +673,13 @@ class NativeRuntime:
         controls: bytes | None = None,
     ) -> NativeRunHandle: ...
     def study(self, /, study_id: str) -> NativeStudyHandle: ...
-    def work(self, /, *, maximum_actions: int | None = None) -> int: ...
+    def work(
+        self,
+        /,
+        *,
+        maximum_actions: int | None = None,
+        maximum_in_flight: int | None = None,
+    ) -> int: ...
 
 @final
 class NativeStart:

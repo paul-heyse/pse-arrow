@@ -210,6 +210,66 @@ impl DynamicProgram {
                     .unwrap_or(usize::MAX),
             )
     }
+    /// Source-issued fresh whole-program worker storage, before even cloning
+    /// the owning DynamicProgram. Provider factories without a population
+    /// contract retain a conservative caller-owned entry.
+    pub(crate) fn worker_allocation_bound<'a>(
+        contract: &native::Contract,
+        programs: &[FunctionProgram],
+        coordinates: &DynamicCoordinates,
+        modes: impl Iterator<Item = &'a DynamicMode> + Clone,
+        layout: &DynamicLayout,
+        allowances: usize,
+    ) -> Result<Option<usize>, ProblemError> {
+        if modes.clone().any(|mode| !mode.providers.is_empty()) {
+            return Ok(None);
+        }
+        let extent = || -> Option<usize> {
+            let mut cells = contract
+                .states
+                .len()
+                .checked_add(contract.parameters.len())?
+                .checked_add(contract.outputs.len())?
+                .checked_add(contract.quadratures.len())?
+                .checked_add(coordinates.state.len())?
+                .checked_add(coordinates.parameters.len())?;
+            cells = contract
+                .events
+                .iter()
+                .try_fold(cells, |n, e| n.checked_add(e.len()))?;
+            cells = contract.balances.iter().try_fold(cells, |n, b| {
+                n.checked_add(3)?.checked_add(b.transfers.len())
+            })?;
+            cells = modes.clone().try_fold(cells, |n, m| {
+                n.checked_add(m.values.scalars.len())?.checked_add(
+                    m.guard
+                        .as_ref()
+                        .map_or(0, |g| g.checks.len() + g.rows.len()),
+                )
+            })?;
+            let metadata = cells
+                .checked_mul(512)?
+                .checked_add(size_of::<Self>())?
+                .checked_add(programs.len().checked_mul(size_of::<FunctionProgram>())?)?
+                .checked_add(allowances)?;
+            let buffers = programs.iter().try_fold(layout.worker_bytes(), |n, p| {
+                n.checked_add(p.case.assembly.numeric_worker_bytes())
+            })?;
+            let buffers = modes.clone().try_fold(buffers, |n, m| {
+                n.checked_add(
+                    m.guard
+                        .as_ref()
+                        .map_or(0, |g| g.case.assembly.numeric_worker_bytes()),
+                )
+            })?;
+            // program() and worker() each clone mode/contract/coordinate metadata;
+            // compiled program owners and immutable layout stay shared.
+            buffers.checked_add(metadata.checked_mul(2)?)
+        };
+        extent()
+            .map(Some)
+            .ok_or_else(|| ProblemError::memory("dynamic worker construction extent"))
+    }
     pub(crate) fn worker(
         &self,
         scope: pse_kernels::ExecutionScope,

@@ -50,6 +50,64 @@ pub struct ConicRequest {
     /// Original objective constant.
     pub objective_constant: f64,
 }
+impl ConicRequest {
+    /// Actual copied source arrays, native validation and exact Gram containers.
+    /// The existing four-MiB opaque certificate allowance remains separate from
+    /// these known populations and is not a measured foreign-heap bound.
+    fn construction_allocation_bound(&self) -> Result<usize, MathRuntimeError> {
+        let extent = || -> Option<usize> {
+            let n = self.variables.len();
+            let ports = n.checked_add(self.rows.len())?.checked_add(1)?;
+            let sparse =
+                [&self.quadratic, &self.constraints]
+                    .iter()
+                    .try_fold(0usize, |bytes, matrix| {
+                        bytes
+                            .checked_add(
+                                matrix
+                                    .column_starts
+                                    .len()
+                                    .checked_add(matrix.row_indices.len())?
+                                    .checked_mul(size_of::<usize>())?,
+                            )?
+                            .checked_add(matrix.values.len().checked_mul(size_of::<f64>())?)
+                    })?;
+            let alpha = self.cones.iter().try_fold(0usize, |count, cone| {
+                count.checked_add(match cone {
+                    native::conic::Cone::GeneralizedPower { alpha, .. } => alpha.len(),
+                    _ => 0,
+                })
+            })?;
+            let source = sparse
+                .checked_add(
+                    self.objective
+                        .len()
+                        .checked_add(self.rhs.len())?
+                        .checked_add(alpha)?
+                        .checked_mul(size_of::<f64>())?,
+                )?
+                .checked_add(
+                    self.cones
+                        .len()
+                        .checked_mul(size_of::<native::conic::Cone>())?,
+                )?;
+            let symmetric = self
+                .quadratic
+                .values
+                .len()
+                .checked_mul(16 * (size_of::<usize>() + size_of::<f64>()))?
+                .checked_add(n.checked_add(1)?.checked_mul(4 * size_of::<usize>())?)?;
+            source
+                .checked_mul(2)?
+                .checked_add(ports.checked_mul(1024)?)?
+                .checked_add(symmetric)?
+                .checked_add(native::GramCertificate::construction_allocation_bound(n).ok()?)?
+                .checked_add(4 << 20)
+        };
+        extent().ok_or(MathRuntimeError::Limit("explicit cone construction extent"))
+    }
+}
+
 /// Prepared explicit cone analysis, retaining the declared request and resolved policy.
 #[derive(Clone, Debug)]
 pub struct PreparedConic {
@@ -81,44 +139,95 @@ impl Runtime {
         profile: SolverProfile,
     ) -> Result<PreparedConic, WorkflowError> {
         use pse_model::generated::enums::NumericalTarget;
-        let bytes = serde_json::to_vec(&request).map_err(|e| contract(e.to_string()))?;
-        if bytes.len() > self.shared.budget().math.workspace_bytes / 4 {
-            return Err(contract("cone request exceeds workspace allowance"));
+        // Preserve the original encoded-size ceiling without first allocating a
+        // full request encoding. Identity still uses the canonical serde framer.
+        struct EncodingExtent {
+            bytes: usize,
+            limit: usize,
+        }
+        impl std::io::Write for EncodingExtent {
+            fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+                self.bytes = self
+                    .bytes
+                    .checked_add(bytes.len())
+                    .filter(|n| *n <= self.limit)
+                    .ok_or_else(|| {
+                        std::io::Error::other("cone request exceeds workspace allowance")
+                    })?;
+                Ok(bytes.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let mut encoding = EncodingExtent {
+            bytes: 0,
+            limit: self.shared.budget().math.workspace_bytes / 4,
+        };
+        serde_json::to_writer(&mut encoding, &request).map_err(|e| contract(e.to_string()))?;
+        let mut policy_encoding = EncodingExtent {
+            bytes: 0,
+            limit: usize::MAX,
+        };
+        serde_json::to_writer(&mut policy_encoding, &profile.numerics)
+            .map_err(|e| contract(e.to_string()))?;
+        // Resolution can retain policy-owned provenance in each selected target
+        // alongside its validation copies. Count its actual encoded population,
+        // using the existing conservative scientific decoding envelope.
+        let policy_extent = request
+            .variables
+            .len()
+            .checked_add(request.rows.len())
+            .and_then(|n| n.checked_add(2))
+            .and_then(|n| n.checked_mul(policy_encoding.bytes))
+            .and_then(|n| n.checked_mul(16))
+            .ok_or(MathRuntimeError::Limit(
+                "cone numerical policy construction extent",
+            ))?;
+        let demand = request
+            .construction_allocation_bound()?
+            .checked_add(policy_extent)
+            .ok_or(MathRuntimeError::Limit("explicit cone construction extent"))?;
+        if demand > self.shared.budget().math.worker_bytes {
+            return Err(MathRuntimeError::Limit("explicit cone construction capacity").into());
         }
         // Identity of the pse-owned request encoding, independent of any library's serde.
         let identity = pse_ids::document::of(pse_ids::Frame::ExplicitConicV5, &request)
             .map_err(|e| contract(e.to_string()))?;
-        let target = |p: &AnalysisPort, kind| pse_math::numerics::TargetSpec {
-            id: p.symbol_id,
-            kind,
-            quantity: p.quantity_id.into(),
-            unit: p.unit_id.into(),
-            integer: false,
-            declared_tolerance: None,
-        };
         if request.objective_port.symbol_id != SemanticId::NIL {
             return Err(contract("cone objective identity must be NIL"));
         }
-        let targets: Vec<_> = request
-            .variables
-            .iter()
-            .map(|p| target(p, NumericalTarget::Variable))
-            .chain(request.rows.iter().map(|p| target(p, NumericalTarget::Row)))
-            .chain([target(&request.objective_port, NumericalTarget::Objective)])
-            .collect();
-        let numerics = Arc::new(
-            pse_math::numerics::resolve(&physical.quantities, &targets, &[], &profile.numerics)
-                .map_err(super::math)?,
-        );
+        let quantities = physical.quantities.clone();
         let request = Arc::new(request);
         let source = request.clone();
         let allowance = self.shared.budget().math.workspace_bytes;
-        let ((problem, proof), owner) = self
+        let ((problem, proof, numerics, profile), owner) = self
             .native()
-            .submit(1, allowance, move |flag, _| {
+            .submit(1, demand, move |flag, _| {
                 if flag.load(std::sync::atomic::Ordering::Relaxed) {
                     return Err(MathRuntimeError::Cancelled);
                 }
+                let target = |p: &AnalysisPort, kind| pse_math::numerics::TargetSpec {
+                    id: p.symbol_id,
+                    kind,
+                    quantity: p.quantity_id.into(),
+                    unit: p.unit_id.into(),
+                    integer: false,
+                    declared_tolerance: None,
+                };
+                let targets: Vec<_> = source
+                    .variables
+                    .iter()
+                    .map(|p| target(p, NumericalTarget::Variable))
+                    .chain(source.rows.iter().map(|p| target(p, NumericalTarget::Row)))
+                    .chain([target(&source.objective_port, NumericalTarget::Objective)])
+                    .collect();
+                let numerics = Arc::new(pse_math::numerics::resolve(
+                    &quantities,
+                    &targets,
+                    &[],
+                    &profile.numerics,
+                )?);
                 let n = source.variables.len();
                 let problem = native::ConicProblem {
                     contract: native::OracleContract {
@@ -183,7 +292,10 @@ impl Runtime {
                     )
                     .and_then(|n| n.checked_add(4 << 20))
                     .ok_or(MathRuntimeError::Limit("conic retained extent"))?;
-                Ok(((Arc::new(problem), Arc::new(proof)), retained))
+                Ok((
+                    (Arc::new(problem), Arc::new(proof), numerics, profile),
+                    retained.max(demand),
+                ))
             })?
             .finish()
             .await?;

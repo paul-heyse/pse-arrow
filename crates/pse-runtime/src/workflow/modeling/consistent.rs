@@ -267,7 +267,6 @@ impl ModelingSimulation {
         let submission = Submission {
             cancel: cancellation,
             progress: Arc::new(Progress::new(controls.history)),
-            queue: false,
             admitted: None,
             deadline: scope.deadline(),
         };

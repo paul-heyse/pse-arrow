@@ -33,7 +33,12 @@ use pse_engine::cache_service::CacheComponent;
 use pse_kernels::{Provider, ProviderKey};
 use pse_math::assembly::{CaseAssembly, CaseWorker};
 pub(crate) use staged::NativeSession;
+#[cfg(all(test, not(feature = "canonical-tests")))]
+pub(crate) use staged::observed_native_entry;
 pub(crate) use staged::{SessionDisposition, StepRetention};
+#[cfg(feature = "canonical-tests")]
+#[doc(hidden)]
+pub use staged::{install_qualified_native_entry, observed_native_entry};
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex, atomic::AtomicUsize},
@@ -58,6 +63,9 @@ pub struct MathPolicy {
     pub stack_bytes: usize,
     /// Maximum admitted native jobs, including admission waiters.
     pub jobs: usize,
+    /// Finite admission-only wait when the caller supplies no task deadline.
+    /// It does not limit execution after dispatch or renew an enclosing task clock.
+    pub admission_wait: std::time::Duration,
     /// Maximum distinct live artifact keys and waiters per key.
     pub flights: usize,
 }
@@ -71,6 +79,7 @@ impl Default for MathPolicy {
             workspace_bytes: 4 << 30,
             stack_bytes: pse_structural::incidence::MATCHING_STACK,
             jobs: 4,
+            admission_wait: std::time::Duration::from_secs(30),
             flights: 128,
         }
     }
@@ -93,6 +102,10 @@ impl MathPolicy {
             self.flights,
         ]
         .contains(&0)
+            || self.admission_wait.is_zero()
+            || std::time::Instant::now()
+                .checked_add(self.admission_wait)
+                .is_none()
             || self.stack_bytes < pse_structural::incidence::MATCHING_STACK
         {
             return Err(crate::RuntimeError::ConfigInvalid {
@@ -299,6 +312,7 @@ const WITHIN_WORKSPACE: usize = 0;
 /// Deployment-owned mathematics service registered with native cache reporting/invalidation.
 pub struct MathService {
     pool: Arc<dyn MemoryPool>,
+    released: Arc<tokio::sync::Notify>,
     cpu: Arc<tokio::sync::Semaphore>,
     cores: usize,
     policy: MathPolicy,
@@ -471,8 +485,20 @@ impl MathService {
         policy: MathPolicy,
         native: &Arc<pse_engine::cache_service::NativeCacheService>,
     ) -> Arc<Self> {
+        // Production assembly installs this outer wrapper before queries and caches.
+        // Isolated compiler fixtures may supply a bare pool; wrap their math consumers too.
+        let (pool, released): (Arc<dyn MemoryPool>, _) =
+            match pool.downcast_ref::<pse_engine::resources::ReleaseNotifyingPool>() {
+                Some(notifying) => (pool.clone(), notifying.released()),
+                None => {
+                    let notifying = pse_engine::resources::ReleaseNotifyingPool::new(pool);
+                    let released = notifying.released();
+                    (Arc::new(notifying), released)
+                }
+            };
         let service = Arc::new(Self {
             pool,
+            released,
             cpu,
             cores,
             jobs: Arc::new(tokio::sync::Semaphore::new(policy.jobs)),
