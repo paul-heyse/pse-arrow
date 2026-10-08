@@ -183,6 +183,9 @@ impl ModelingPackage {
         }
         let names = modes.iter().map(|m| m.name.clone()).collect::<Vec<_>>();
         let mut prepared = None::<ModelingSimulation>;
+        let mut state_allowances = Vec::with_capacity(modes.len());
+        let mut output_allowances = Vec::with_capacity(modes.len());
+        let mut replaced_allowance_bytes = 0usize;
         let mut identity = FramedHasher::new(pse_ids::Frame::ModelingDynamicModesV1);
         for (index, mode) in modes.iter().enumerate() {
             // A mode's facts select its `when` variants and stage overrides.
@@ -211,6 +214,19 @@ impl ModelingPackage {
                     cancel,
                 )
                 .await?;
+            if modes.len() > 1 {
+                replaced_allowance_bytes = replaced_allowance_bytes
+                    .checked_add(
+                        crate::workflow::dynamics::allowance_bytes(
+                            &next.state_allowances,
+                            &next.output_allowances,
+                        )
+                        .ok_or_else(|| contract("dynamic mode allowance storage extent"))?,
+                    )
+                    .ok_or_else(|| contract("dynamic mode allowance storage extent"))?;
+                state_allowances.extend(next.state_allowances.iter().cloned());
+                output_allowances.extend(next.output_allowances.iter().cloned());
+            }
             identity.hash(&next.key);
             if let Some(result) = &mut prepared {
                 let physical_ports = |model: &ModelingPreparation| {
@@ -309,12 +325,37 @@ impl ModelingPackage {
             }
         }
         let mut result = prepared.ok_or_else(|| contract("dynamic mode absent"))?;
+        // Composition is the only owner that changes the admitted mode order. Freeze
+        // its allowances once; program and worker access only clone these Arc handles.
+        if modes.len() > 1 {
+            result.state_allowances = state_allowances.into();
+            result.output_allowances = output_allowances.into();
+            result.bytes = result
+                .bytes
+                .checked_sub(replaced_allowance_bytes)
+                .and_then(|bytes| {
+                    bytes.checked_add(crate::workflow::dynamics::allowance_bytes(
+                        &result.state_allowances,
+                        &result.output_allowances,
+                    )?)
+                })
+                .ok_or_else(|| contract("dynamic mode allowance storage extent"))?;
+        }
         result.key = identity.finish_hash();
         result.contract.identity = result.key;
         result
             .profile
             .validate(&result.contract, &result.parameters)
             .map_err(|e| WorkflowError::Math(e.into()))?;
+        // Mode identities/support change when the admitted modes are composed.
+        result.layout = Arc::new(
+            crate::workflow::dynamics::DynamicLayout::new(
+                &result.programs,
+                &result.coordinates,
+                result.profile.max_cells,
+            )
+            .map_err(|e| WorkflowError::Math(e.into()))?,
+        );
         Ok(result)
     }
 }

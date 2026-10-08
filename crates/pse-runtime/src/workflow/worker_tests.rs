@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Exact bounded canonical source ingress used by native study workers.
+#![allow(
+    clippy::unreachable,
+    reason = "canonical document worker fixtures require durable operation ownership"
+)]
 #[cfg(feature = "canonical-tests")]
 use super::*;
 use std::{collections::BTreeMap, path::Path};

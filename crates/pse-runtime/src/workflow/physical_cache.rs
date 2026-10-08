@@ -379,6 +379,10 @@ impl Runtime {
 
 #[cfg(all(test, feature = "canonical-tests"))]
 mod physical_admission_cache_unit {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "canonical cache fixtures require successful durable source admission before exercising owner reuse"
+    )]
     use super::super::{Durability, durable_tests::durable_runtime, worker_tests::sources};
     use super::*;
 

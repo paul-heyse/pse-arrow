@@ -95,6 +95,8 @@ def test_conformance_runs_the_declared_reference_set(
     text = f"""
 [settings]
 memory_limit_bytes = {16 << 30}
+threads = 16
+math_jobs = 16
 maximum_checks = 32
 
 [[runs]]

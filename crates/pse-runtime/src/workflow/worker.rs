@@ -726,7 +726,10 @@ impl Runtime {
         &self,
         bundles: &[BTreeMap<String, Vec<u8>>],
         physical: super::PhysicalContext,
+        cancel: &crate::CancelSource,
     ) -> Result<super::ModelingPackage, WorkflowError> {
+        let token = cancel.token();
+        token.checkpoint().map_err(pse_engine::EngineError::from)?;
         // Source bytes and load order define the complete immutable admission closure.
         // The cache owns only admitted values; every attempt has its own mutable workspace.
         let service = self.shared.math();
@@ -739,6 +742,7 @@ impl Runtime {
             .u64(Arc::as_ptr(&self.sessions) as usize as u64)
             .u64(Arc::as_ptr(&self.registry) as usize as u64);
         for sources in bundles {
+            token.checkpoint().map_err(pse_engine::EngineError::from)?;
             framed.hash(&package_checksum(sources));
         }
         match &physical.package {
@@ -757,7 +761,6 @@ impl Runtime {
         }
         let validation = self.sessions.validation_context(&self.registry)?;
         let pool = self.shared.pool();
-        let token = pse_columnar::CancellationToken::new();
         let bundles = bundles
             .iter()
             .map(|sources| {
@@ -772,7 +775,12 @@ impl Runtime {
             })
             .collect::<Result<Vec<_>, _>>()?;
         let documents = OwnedDocumentSet::try_from_bundles(bundles, &pool, &token)?;
-        let package = self.modeling_from_documents(&documents, physical).await?;
+        token.checkpoint().map_err(pse_engine::EngineError::from)?;
+        // This publishes the canonical source revision; await its owner completely.
+        let package = self
+            .modeling_from_documents(&documents, physical, cancel)
+            .await?;
+        token.checkpoint().map_err(pse_engine::EngineError::from)?;
         service
             .modeling_cache
             .retain_package(generation, identity, package.admission()?);

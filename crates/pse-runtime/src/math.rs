@@ -529,7 +529,7 @@ impl MathService {
         mut limits: WorkspaceLimits,
         store: Arc<pse_operations::canonical::CanonicalStore>,
         read: Arc<Mutex<pse_operations::canonical_selection::SelectedRead>>,
-        producer: Option<portable::QualifiedProducer>,
+        producer: Option<portable::ReplayAdmission>,
         outer_build: pse_ids::ContentHash,
         cancelled: Arc<std::sync::atomic::AtomicBool>,
     ) -> Result<Workspace, MathRuntimeError> {

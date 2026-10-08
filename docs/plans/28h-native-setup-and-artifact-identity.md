@@ -187,8 +187,8 @@ weaken the sealed generation, clean Cargo targets or rebuild providers to repair
 
 | Package | Delivered contract and dependent consumers | Focused acceptance | Status |
 |---|---|---|---|
-| L5 — Local replay observation and decision route | Settle and document Linux actual runtime closure/stability; route accepted enhancement RC01; supply independently minted versioned local admission to B5 and actual worker/Python roots. Unknown consumed premises refuse reuse only. | Same effective deployment across restart, receiving role/artifact substitution, mapped-library/configuration changes, late/deleted mappings, missing checkout/context and explicit strict/local separation. The observation-to-use premise must be established, not a caller assertion. | Scheduled; closure/lifetime implementation decision precedes B5. |
-| L6 — Writable build derivation | Consume immutable root-isolation receipt into Cargo-owned exact output, with idempotent repeat/changed-byte replacement. E2 receives a repeatable native build route. | Disposable read-only source; repeat unchanged bytes/mtime, changed receipt, existing mode-444 output and untouched source; then affected native build/test recipe. | Scheduled ordinary adapter correction. |
+| L5 — Local replay observation and decision route | Settle and document Linux actual runtime closure/stability; route accepted enhancement RC01; supply independently minted versioned local admission to B5 and actual worker/Python roots. Unknown consumed premises refuse reuse only. | Same effective deployment across restart, receiving role/artifact substitution, mapped-library/configuration changes, late/deleted mappings, missing checkout/context and explicit strict/local separation. The observation-to-use premise must be established, not a caller assertion. | Implemented; independently observed scoped controls pass; assembled E3/E4 pending. |
+| L6 — Writable build derivation | Consume immutable root-isolation receipt into Cargo-owned exact output, with idempotent repeat/changed-byte replacement. E2 receives a repeatable native build route. | Disposable read-only source; repeat unchanged bytes/mtime, changed receipt, existing mode-444 output and untouched source; then affected native build/test recipe. | Implemented and targeted-tested; affected native/Python builds execute. |
 
 L6 can proceed independently of L5/B5. L5 is bounded source/contract investigation followed by
 its working observation slice; an unresolved context cannot mint a token merely to unblock tests.
@@ -210,7 +210,7 @@ remain when it supplies a different guarantee.
 | L1 — Scoped verified setup | L0's installation lifetime and capability request. Implement the common setup owner, immutable generation publication and operation-scoped reuse. | Migrate native scripts, build/test/Python/worker/measurement consumers. Add a bounded `native-setup-unit` recipe since current tooling recipes do not select these lifecycle units alone. Test unchanged nested use, input changes, corruption/missing files, explicit-prefix refusal/readmission, concurrent builders/readers, surviving children after parent exit and cancellation/drain. Delete repeated same-lifetime validation and obsolete broad setup paths. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
 | L2 — Provider discovery and build locality | Working L1 and relevant native/Cargo input association. Perform actual HiGHS/compiler/archive discovery only where the current selected closure needs it. | Migrate pipeline setup and remaining generator/build consumers; unchanged outputs keep bytes/mtimes and stale outputs disappear through the generator. Test cache hit/miss and changed provider/flags/target; never infer eligibility from existence alone. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
 | L3 — Artifact and outer observation | L0's recorded decision route and actual producer tooling; compatible L1/L2 input observations. Implement separated identities and actual role association. | Migrate `pse-buildinfo`, producer capture/deployment, runtime qualification, worker/Python admission and assessment reuse together. Test unrelated/relevant edits, dirty root/native changes, wrong roles, replaced artifacts and actual imported extension. Delete replaced all-tree compiled identity and equality assumptions. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
-| L4 — Tooling consumer closure | L1–L3, working L5/B5 composition and L6, and all confirmed related variants. Reconcile coordinator coverage and execute current affected code through ordinary Cargo freshness. | No displaced environment/capture mechanism remains; E3 receives actual local replay observations and E4 receives setup/build cases. Strict deployment qualification remains separate optional scope at E, not repeated here. | Earlier migrations implemented; expanded consumer closure and E3/E4 acceptance pending. |
+| L4 — Tooling consumer closure | L1–L3, working L5/B5 composition and L6, and all confirmed related variants. Reconcile coordinator coverage and execute current affected code through ordinary Cargo freshness. | No displaced environment/capture mechanism remains; E3 receives actual local replay observations and E4 receives setup/build cases. Strict deployment qualification remains separate optional scope at E, not repeated here. | Consumer source reconciliation complete; assembled E3/E4 acceptance pending. |
 
 L1/L2 can proceed independently of bulk result corrections. L3 cannot remove the old guarantee
 before actual replacement association works. Scope executor files narrowly; root owns manifest/
@@ -241,11 +241,26 @@ claim when no comparable historical baseline exists.
 
 ## Checkpoint
 
-The enhancement review schedules L5/L6 on the implemented installation/association foundations.
-Local replay admission is not implemented yet. Fix L6's derived-output boundary first for the
-affected native route; settle L5's complete runtime closure before B5 depends on it. L4 consumer
-reconciliation and E3/E4 now include these actual consumers; earlier positive controls retain
-their original scope. No strict artifact campaign is required by document adoption.
+L6 now materializes receipt bytes into a writable sibling and atomically replaces changed
+Cargo outputs. Repeated content preserves modification time and repairs legacy sealed output
+permissions without altering the sealed source. Its focused native mechanism control passes;
+the assembled native route remains E3 scope. L5's decision route is recorded in proposed
+ADR-0164 and architecture revision135. Independently observed local/strict admissions and
+bounded synchronous reconstruction are integrated; actual default worker/Python receivers have
+positive quiet-reconstruction and fresh-miss controls. L4 consumer source reconciliation is
+complete, with assembled E3/E4 acceptance pending. Mathematical initialization completes before
+local context observation so license/NSS startup loading does not invalidate its own admission.
+The supported glibc 2.39 scope warms the owning module's
+TLS before taking the loader write lock; callback construction uses only that existing
+module's immutable mathematical code. No imports, newly loaded-module TLS, provider callbacks,
+thread creation or loader-thread waits run under the lock. E3/E4 include actual composition;
+earlier controls retain their original scope, and strict artifact qualification remains optional.
+Its Rust association control is explicitly ignored in ordinary selection and selected exactly
+by the producer assessment; its Python association uses `--producer-deployment`. These opt-ins
+retain failure on absent captures. The ordinary campaign keeps producer-fixture scientific
+controls active. Build locality instrumentation now includes no-op, relevant compiler edits and
+unrelated documentation edits in an isolated source snapshot. Sufficient free storage is now
+available under the existing launch floor; measurements remain queued behind functional qualification.
 
 L0 recorded confirmed RC01 in proposed ADR-0164 and architecture revision132 before dependent
 changes. Formal ADR acceptance remains separate. L1 implements an actual operation scope begun

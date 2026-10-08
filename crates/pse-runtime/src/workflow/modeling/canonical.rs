@@ -2250,6 +2250,10 @@ impl ModelingPackage {
 
 #[cfg(all(test, feature = "canonical-tests"))]
 mod tests {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "namespace inventory fixtures require valid authored declarations and their expected identities"
+    )]
     use super::*;
     fn parse(source: &str) -> Vec<Declaration> {
         pse_authoring::language::parse(

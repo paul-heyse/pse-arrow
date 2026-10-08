@@ -27,6 +27,9 @@ pub const PAYLOAD_BYTES: usize = 3 * 1024 * 1024;
 pub const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 const ACTIVATION_QUERY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 const ACTIVATION_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(90);
+// A finite contention window for sixteen clients sharing one retention guard.
+// This does not change any RPC deadline or permit replay after uncertain completion.
+const GUARDED_ATTEMPTS: u32 = 32;
 
 /// Canonical protocol and guarded-operation failures.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
@@ -35,7 +38,7 @@ pub enum CanonicalError {
     #[error("canonical store configuration: {0}")]
     /// Invalid deployment or operation configuration.
     Configuration(String),
-    #[error("canonical store driver: {0}")]
+    #[error("canonical store driver: {0} (query domain: {domain:?})", domain = .0.query_details())]
     /// Protocol/database failure retaining its native typed cause.
     Driver(#[from] surrealdb::Error),
     #[error(transparent)]
@@ -317,6 +320,42 @@ impl CanonicalStore {
     }
     /// Explicit schema creation; ordinary opening never mutates an unknown schema.
     pub async fn create(&self) -> Result<(), CanonicalError> {
+        self.initialize_with(|| self.submit_initialization()).await
+    }
+    async fn initialize_with<F, Q>(&self, mut submit: F) -> Result<(), CanonicalError>
+    where
+        F: FnMut() -> Q,
+        Q: Future<Output = Result<surrealdb::IndexedResults, CanonicalError>>,
+    {
+        for attempt in 0..8 {
+            self.ensure_writes()?;
+            if !self.initialization_required().await? {
+                return self.open().await;
+            }
+            // Only an acknowledged transaction rejection allows a fresh complete
+            // installation decision. Lost responses and cancellation stay uncertain.
+            match submit().await.and_then(complete_response) {
+                Err(CanonicalError::Driver(error))
+                    if matches!(
+                        error.query_details(),
+                        Some(surrealdb::types::QueryError::TransactionConflict)
+                    ) && attempt < 7 =>
+                {
+                    // Desynchronize independent databases sharing physical history.
+                    let jitter = u64::from(uuid::Uuid::new_v4().as_bytes()[0] % 16);
+                    tokio::time::sleep(std::time::Duration::from_millis((1 << attempt) + jitter))
+                        .await;
+                }
+                Err(error) => return Err(error),
+                // Readback failure after an acknowledged commit never replays DDL.
+                Ok(_) => return self.open().await,
+            }
+        }
+        Err(CanonicalError::Configuration(
+            "initialization retry extent".into(),
+        ))
+    }
+    async fn initialization_required(&self) -> Result<bool, CanonicalError> {
         self.ensure_writes()?;
         // Refuse an unmarked partial database rather than declaring imported records ready.
         let mut inventory = bounded_query(self.db.query("INFO FOR DB;")).await?;
@@ -328,7 +367,7 @@ impl CanonicalStore {
         };
         if let Some(Value::Object(tables)) = info.get("tables") {
             if tables.contains_key("canonical_interpretations") {
-                return self.open().await;
+                return Ok(false);
             }
             if tables.keys().any(|name| name.starts_with("canonical_")) {
                 return Err(CanonicalError::Configuration(
@@ -336,8 +375,7 @@ impl CanonicalStore {
                 ));
             }
         }
-        let response = self.submit_initialization().await;
-        self.finish_initialization(response).await
+        Ok(true)
     }
     async fn submit_initialization(&self) -> Result<surrealdb::IndexedResults, CanonicalError> {
         self.ensure_writes()?;
@@ -352,15 +390,6 @@ impl CanonicalStore {
             .await
             .map_err(|_| CanonicalError::Timeout)
             .and_then(|response| response.map_err(CanonicalError::from))
-    }
-    // Acknowledgment is necessary even if a marker is readable after a lost response.
-    // The caller may explicitly open after uncertainty; initialization never retries DDL.
-    async fn finish_initialization(
-        &self,
-        response: Result<surrealdb::IndexedResults, CanonicalError>,
-    ) -> Result<(), CanonicalError> {
-        complete_response(response?)?;
-        self.open().await
     }
     /// Read and verify the installed interpretation without DDL.
     pub async fn open(&self) -> Result<(), CanonicalError> {
@@ -417,7 +446,7 @@ impl CanonicalStore {
         &self,
         stage: &crate::canonical_staging::ClosedStage,
     ) -> Result<Revision, CanonicalError> {
-        for attempt in 0..8 {
+        for attempt in 0..GUARDED_ATTEMPTS {
             self.ensure_writes()?;
             let query = self
                 .activation_db
@@ -451,9 +480,9 @@ impl CanonicalStore {
                     };
                 }
                 if matches!(&error, CanonicalError::Driver(error) if matches!(error.query_details(), Some(surrealdb::types::QueryError::TransactionConflict)))
-                    && attempt < 7
+                    && attempt + 1 < GUARDED_ATTEMPTS
                 {
-                    tokio::task::yield_now().await;
+                    conflict_backoff(attempt).await;
                     continue;
                 }
                 return Err(error);
@@ -564,7 +593,7 @@ impl CanonicalStore {
         {
             return Err(CanonicalError::PayloadLimit);
         }
-        for attempt in 0..8 {
+        for attempt in 0..GUARDED_ATTEMPTS {
             self.ensure_writes()?;
             let result = request(
                 self.db
@@ -618,9 +647,9 @@ impl CanonicalStore {
                         return Ok(key);
                     }
                     if matches!(&error, CanonicalError::Driver(error) if matches!(error.query_details(), Some(surrealdb::types::QueryError::TransactionConflict)))
-                        && attempt < 7
+                        && attempt + 1 < GUARDED_ATTEMPTS
                     {
-                        tokio::task::yield_now().await;
+                        conflict_backoff(attempt).await;
                         continue;
                     }
                     return Err(error);
@@ -765,15 +794,15 @@ where
     F: FnMut() -> Result<Q, CanonicalError>,
     Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
 {
-    for attempt in 0..8 {
+    for attempt in 0..GUARDED_ATTEMPTS {
         match bounded_query(build()?).await {
             Err(CanonicalError::Driver(error))
                 if matches!(
                     error.query_details(),
                     Some(surrealdb::types::QueryError::TransactionConflict)
-                ) && attempt < 7 =>
+                ) && attempt + 1 < GUARDED_ATTEMPTS =>
             {
-                tokio::time::sleep(std::time::Duration::from_millis(1 << attempt)).await;
+                conflict_backoff(attempt).await;
             }
             result => return result,
         }
@@ -781,6 +810,17 @@ where
     Err(CanonicalError::Configuration(
         "guarded operation retries exhausted".into(),
     ))
+}
+
+// Short guarded decisions contend on one problem's retention guard. Pacing and
+// jitter keep sixteen independent readers from repeatedly colliding; each owner
+// still retries only a definite typed rejection and rebuilds its complete decision.
+async fn conflict_backoff(attempt: u32) {
+    let jitter = u64::from(uuid::Uuid::new_v4().as_bytes()[0] % 64);
+    tokio::time::sleep(std::time::Duration::from_millis(
+        (10_u64 << attempt.min(4)) + jitter,
+    ))
+    .await;
 }
 
 pub(crate) fn checked(
@@ -948,6 +988,11 @@ COMMIT;
 
 #[cfg(all(test, feature = "canonical-tests"))]
 mod canonical_server_unit {
+    #![allow(
+        clippy::expect_used,
+        clippy::unwrap_used,
+        reason = "isolated server fixtures and assertions fail the test on unexpected results"
+    )]
     use super::*;
     use surrealdb::types::Number;
     fn version(key: &str, logical: &str, payload: &[u8]) -> ObjectVersion {
@@ -965,6 +1010,182 @@ mod canonical_server_unit {
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_init_{}", uuid::Uuid::new_v4().simple());
         (CanonicalStore::connect(&options).await.unwrap(), options)
+    }
+    fn rejected_initialization() -> CanonicalError {
+        surrealdb::Error::query(
+            "definitely rejected installation".into(),
+            surrealdb::types::QueryError::TransactionConflict,
+        )
+        .into()
+    }
+    #[tokio::test]
+    async fn protected_decision_retries_only_definite_conflicts_and_preserves_final_error() {
+        let (store, _) = initialization_fixture().await;
+        store.create().await.unwrap();
+        let attempts = std::sync::atomic::AtomicUsize::new(0);
+        let mut response = protected_query(|| {
+            let attempt = attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let store = &store;
+            Ok(async move {
+                if attempt < 2 {
+                    Err(surrealdb::Error::query(
+                        "definite protection rejection".into(),
+                        surrealdb::types::QueryError::TransactionConflict,
+                    ))
+                } else {
+                    store.db.query("RETURN 'complete decision';").await
+                }
+            })
+        })
+        .await
+        .unwrap();
+        assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 3);
+        assert_eq!(
+            crate::canonical_codec::decode_string(response.take::<Value>(0).unwrap()).unwrap(),
+            "complete decision"
+        );
+        attempts.store(0, std::sync::atomic::Ordering::SeqCst);
+        let result = protected_query(|| {
+            attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(async {
+                Err(surrealdb::Error::query(
+                    "final definite rejection".into(),
+                    surrealdb::types::QueryError::TransactionConflict,
+                ))
+            })
+        })
+        .await;
+        assert_eq!(
+            attempts.load(std::sync::atomic::Ordering::SeqCst),
+            GUARDED_ATTEMPTS as usize
+        );
+        assert!(
+            matches!(result, Err(CanonicalError::Driver(error)) if matches!(error.query_details(), Some(surrealdb::types::QueryError::TransactionConflict)))
+        );
+        for kind in [
+            surrealdb::types::QueryError::Cancelled,
+            surrealdb::types::QueryError::NotExecuted,
+        ] {
+            attempts.store(0, std::sync::atomic::Ordering::SeqCst);
+            let result = protected_query(|| {
+                attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let kind = kind.clone();
+                Ok(async move { Err(surrealdb::Error::query("uncertain protection".into(), kind)) })
+            })
+            .await;
+            assert!(result.is_err());
+            assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 1);
+        }
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn initialization_rejected_transaction_rebuilds_complete_schema() {
+        let (store, _) = initialization_fixture().await;
+        let attempts = std::sync::atomic::AtomicUsize::new(0);
+        store
+            .initialize_with(|| async {
+                if attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst) < 2 {
+                    Err(rejected_initialization())
+                } else {
+                    store.submit_initialization().await
+                }
+            })
+            .await
+            .unwrap();
+        assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 3);
+        store.open().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn initialization_retries_rejected_atomic_installation_and_preserves_inventory() {
+        let (store, _) = initialization_fixture().await;
+        let attempts = std::sync::atomic::AtomicUsize::new(0);
+        store
+            .initialize_with(|| async {
+                let attempt = attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                if attempt == 0 {
+                    assert!(store.initialization_required().await?);
+                    // A separate initializer commits while this transaction is
+                    // definitively rejected. The next inventory must recognize it.
+                    complete_response(store.submit_initialization().await?)?;
+                    Err(rejected_initialization())
+                } else {
+                    panic!("fresh inventory must recognize another initializer")
+                }
+            })
+            .await
+            .unwrap();
+        assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 1);
+        store.open().await.unwrap();
+        // A different creator's acknowledged installation is recognized by the
+        // next inventory; this creator must not submit another schema transaction.
+        store
+            .initialize_with(|| async { panic!("installed schema must not be replayed") })
+            .await
+            .unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn initialization_exhaustion_preserves_typed_rejection_and_uncertainty_is_not_retried() {
+        let (store, _) = initialization_fixture().await;
+        let attempts = std::sync::atomic::AtomicUsize::new(0);
+        let result = store
+            .initialize_with(|| async {
+                attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                Err(rejected_initialization())
+            })
+            .await;
+        assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 8);
+        assert!(
+            matches!(result, Err(CanonicalError::Driver(error)) if matches!(error.query_details(), Some(surrealdb::types::QueryError::TransactionConflict)))
+        );
+        attempts.store(0, std::sync::atomic::Ordering::SeqCst);
+        let result = store
+            .initialize_with(|| async {
+                attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                Err(CanonicalError::Timeout)
+            })
+            .await;
+        assert!(matches!(result, Err(CanonicalError::Timeout)));
+        assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert!(store.initialization_required().await.unwrap());
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test(flavor = "multi_thread", worker_threads = 16)]
+    async fn initialization_sixteen_independent_databases_complete_in_parallel() {
+        let barrier = Arc::new(tokio::sync::Barrier::new(16));
+        let mut jobs = tokio::task::JoinSet::new();
+        for _ in 0..16 {
+            let barrier = barrier.clone();
+            jobs.spawn(async move {
+                let (store, _) = initialization_fixture().await;
+                barrier.wait().await;
+                let result = store.create().await;
+                (store, result)
+            });
+        }
+        let mut outcomes = Vec::new();
+        while let Some(outcome) = jobs.join_next().await {
+            outcomes.push(outcome.unwrap());
+        }
+        assert_eq!(outcomes.len(), 16);
+        // Drain every issued initializer before cleanup or surfacing a failure.
+        let mut failures = Vec::new();
+        for (store, result) in outcomes {
+            match result {
+                Ok(()) => {
+                    if let Err(error) = store.open().await {
+                        failures.push(error.to_string());
+                    }
+                }
+                Err(error) => failures.push(error.to_string()),
+            }
+            store.remove_isolated_fixture().await.unwrap();
+        }
+        assert!(
+            failures.is_empty(),
+            "parallel initialization failures: {failures:?}"
+        );
     }
     #[tokio::test]
     async fn initialization_uses_atomic_transition_client_for_complete_schema() {
@@ -989,49 +1210,49 @@ mod canonical_server_unit {
     async fn initialization_requires_complete_response_and_verified_marker() {
         let (store, _) = initialization_fixture().await;
         // Use an actual SDK zero-statement response, not a fabricated response value.
-        let empty = request(store.db.query("")).await;
         assert!(matches!(
-            store.finish_initialization(empty).await,
+            store.initialize_with(|| request(store.db.query(""))).await,
             Err(CanonicalError::IncompleteResponse)
         ));
         assert!(store.open().await.is_err());
         store.create().await.unwrap();
         store.open().await.unwrap();
         store.create().await.unwrap();
-        let empty = request(store.db.query("")).await;
-        assert!(
-            matches!(
-                store.finish_initialization(empty).await,
-                Err(CanonicalError::IncompleteResponse)
-            ),
-            "a readable marker does not replace a missing acknowledgment"
-        );
-        bounded_query(
-            store.db.query(
-                "UPDATE canonical_interpretations:current SET schema_digest='unknown-reader';",
-            ),
-        )
-        .await
-        .unwrap();
-        let complete = request(store.db.query("RETURN true;")).await;
+        store.remove_isolated_fixture().await.unwrap();
+        let (store, _) = initialization_fixture().await;
+        let attempts = std::sync::atomic::AtomicUsize::new(0);
         assert!(matches!(
-            store.finish_initialization(complete).await,
+            store.initialize_with(|| async {
+                attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let complete = store.submit_initialization().await?;
+                bounded_query(store.db.query("UPDATE canonical_interpretations:current SET schema_digest='unknown-reader';")).await?;
+                Ok(complete)
+            }).await,
             Err(CanonicalError::Interpretation { .. })
         ));
+        assert_eq!(
+            attempts.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "readback failure after acknowledged installation must not replay DDL"
+        );
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
     async fn initialization_lost_ack_is_uncertain_without_ddl_replay() {
         let (store, _) = initialization_fixture().await;
-        let completed = store.submit_initialization().await.unwrap();
-        complete_response(completed).unwrap();
+        let attempts = std::sync::atomic::AtomicUsize::new(0);
         // Commit occurred, but the caller lost its acknowledgment at this boundary.
         assert!(matches!(
             store
-                .finish_initialization(Err(CanonicalError::Timeout))
+                .initialize_with(|| async {
+                    attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    complete_response(store.submit_initialization().await?)?;
+                    Err(CanonicalError::Timeout)
+                })
                 .await,
             Err(CanonicalError::Timeout)
         ));
+        assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 1);
         store.open().await.unwrap();
         store.remove_isolated_fixture().await.unwrap();
     }
@@ -1046,14 +1267,17 @@ mod canonical_server_unit {
             .await
             .unwrap();
         let delayed = initialization_statement().replacen("BEGIN;", "BEGIN; SLEEP 1s;", 1);
-        let response = request(
-            short
-                .query(delayed)
-                .bind(("interpretation", wire::INTERPRETATION))
-                .bind(("schema_digest", wire::SCHEMA_DIGEST)),
-        )
-        .await;
-        assert!(store.finish_initialization(response).await.is_err());
+        let response = store
+            .initialize_with(|| {
+                request(
+                    short
+                        .query(delayed.clone())
+                        .bind(("interpretation", wire::INTERPRETATION))
+                        .bind(("schema_digest", wire::SCHEMA_DIGEST)),
+                )
+            })
+            .await;
+        assert!(response.is_err());
         assert!(store.open().await.is_err());
         store.remove_isolated_fixture().await.unwrap();
     }

@@ -7,6 +7,7 @@ use crate::math::{
     MathRuntimeError,
     solves::{NumericalInputs, SolverProfile},
 };
+use futures_util::StreamExt;
 use pse_compiler::workspace::{ModelingCaseBindings, ModelingHint, ModelingOutput, Profile};
 use pse_kernels::DerivativeOrder;
 use pse_model::generated::enums::{
@@ -17,6 +18,12 @@ use pse_model::generated::identities::RunId;
 pub use pse_model::generated::runtime::modeling_conformance::Row as ModelingConformanceCheck;
 use pse_modeling::annotation::AnnotationValue;
 use std::{collections::BTreeSet, sync::Arc};
+
+#[cfg(test)]
+tokio::task_local! {
+    static CONFORMANCE_TEST_PROBE: Arc<tests::FixtureProbe>;
+    static CONFORMANCE_TEST_FIXTURE: DeclarationId;
+}
 
 /// The authored fixture data of a test declaration, if any.
 fn authored_fixture(
@@ -153,7 +160,7 @@ pub struct ModelingConformancePolicy {
 pub struct ModelingConformanceReport {
     /// Run identity of the conformance execution.
     pub run_id: RunId,
-    /// Recorded checks, in execution order.
+    /// Recorded checks, in fixture discovery order.
     pub checks: Vec<ModelingConformanceCheck>,
     /// Demanded pure-point evidence retains complete typed authorization and input lineage.
     pub applicability: BTreeMap<DeclarationId, Vec<pse_model::applicability::Observation>>,
@@ -183,6 +190,29 @@ pub struct ModelingConformanceReport {
     pub(super) pool: Arc<dyn pse_columnar::MemoryPool>,
     validation: Arc<pse_relations::validate::ValidationContext>,
     _owner: pse_columnar::MemoryReservation,
+    _fixture_owners: Vec<pse_columnar::MemoryReservation>,
+}
+struct FixtureReport {
+    report: ModelingConformanceReport,
+    covered: BTreeSet<DeclarationId>,
+    base_bytes: usize,
+}
+impl FixtureReport {
+    /// Completed fixtures retain their actual vectors, not a full per-run check cap.
+    /// This releases unused capacity before an out-of-order result enters the buffer.
+    fn compact(&mut self) {
+        let old = self.report.checks.capacity() * size_of::<ModelingConformanceCheck>()
+            + self.report.failures.capacity()
+                * size_of::<pse_model::diagnostic::BoundaryDiagnostic>();
+        self.report.checks.shrink_to_fit();
+        self.report.failures.shrink_to_fit();
+        let retained = self.report.checks.capacity() * size_of::<ModelingConformanceCheck>()
+            + self.report.failures.capacity()
+                * size_of::<pse_model::diagnostic::BoundaryDiagnostic>();
+        let released = old.saturating_sub(retained);
+        self.report._owner.shrink(released);
+        self.base_bytes -= released;
+    }
 }
 impl ModelingConformanceReport {
     pub(super) fn new(
@@ -236,7 +266,57 @@ impl ModelingConformanceReport {
             pool,
             validation,
             _owner: owner,
+            _fixture_owners: Vec::new(),
         })
+    }
+    /// Move exact fixture evidence without duplicating its pool charge. The global
+    /// reservation already owns the check vectors and discovery inventory; only the
+    /// fixture's variable payload reservation survives this transfer.
+    fn merge_fixture(&mut self, mut local: Self, base_bytes: usize, cap: usize) {
+        let payload_bytes = local._owner.size().saturating_sub(base_bytes);
+        self._fixture_owners.push(local._owner.split(payload_bytes));
+        self.complete &= local.complete;
+        for (fixture, status) in local.fixture_statuses {
+            self.note_status(fixture, status);
+        }
+        self.applicability.append(&mut local.applicability);
+        self.admissions.append(&mut local.admissions);
+        self.results.append(&mut local.results);
+        self.initializations.append(&mut local.initializations);
+        self.trajectories.append(&mut local.trajectories);
+        self.units.append(&mut local.units);
+        self.releases.append(&mut local.releases);
+        let mut failures = local.failures.into_iter().enumerate().peekable();
+        for mut check in local.checks {
+            let diagnostic = check.failure_ordinal.and_then(|ordinal| {
+                while failures
+                    .peek()
+                    .is_some_and(|(index, _)| (*index as i64) < ordinal)
+                {
+                    failures.next();
+                }
+                if failures
+                    .peek()
+                    .is_some_and(|(index, _)| (*index as i64) == ordinal)
+                {
+                    failures.next().map(|(_, failure)| failure)
+                } else {
+                    None
+                }
+            });
+            if self.checks.len() >= cap {
+                self.complete = false;
+                self.note_status(check.fixture_id, Status::Inconclusive);
+                continue;
+            }
+            check.run_id = self.run_id;
+            check.failure_ordinal = diagnostic.map(|failure| {
+                let ordinal = self.failures.len() as i64;
+                self.failures.push(failure);
+                ordinal
+            });
+            self.checks.push(check);
+        }
     }
     fn note_status(&mut self, fixture: DeclarationId, status: Status) {
         let rank = |s| match s {
@@ -1064,33 +1144,167 @@ impl ModelingPackage {
                 cap,
             );
         }
-        for (index, (row, policy)) in fixtures.iter().zip(policies).enumerate() {
-            // A fixture-local resource refusal makes the report incomplete, but does
-            // not prevent independent fixtures from running within the remaining bounds.
-            if index >= policy.maximum_fixtures
-                || cancel.token().is_cancelled()
-                || report.checks.len() >= cap
+        // Active fixtures continuously reuse available slots. Completed fixtures keep
+        // compact, pool-owned reports until their discovery prefix can be merged.
+        let width = self
+            .runtime
+            .shared
+            .math()
+            .cores()
+            .min(self.runtime.shared.budget().math.jobs)
+            .max(1);
+        let limit = fixtures.len().min(policy.maximum_fixtures);
+        let work_cancel = crate::CancelSource::new();
+        let run_id = report.run_id;
+        let mut pending = futures_util::stream::FuturesUnordered::new();
+        let mut completed = BTreeMap::new();
+        let mut known_checks = 0usize;
+        let mut issued = 0;
+        let mut settled = 0;
+        let mut fatal = None;
+        loop {
+            if cancel.token().is_cancelled() {
+                work_cancel.cancel();
+            }
+            while fatal.is_none()
+                && !work_cancel.token().is_cancelled()
+                && issued < limit
+                && pending.len() < width
+                && known_checks < cap
             {
-                report.complete = false;
-                for row in &fixtures[index..] {
-                    report.record_fixture(
-                        row.declaration_id,
-                        Kind::Preparation,
-                        Status::Unattempted,
-                        "fixture was not attempted",
-                        None,
-                        cap,
-                    );
-                }
+                let index = issued;
+                let row = fixtures[index];
+                let fixture_policy = &policies[issued];
+                let child_cancel = &work_cancel;
+                #[cfg(test)]
+                let probe = CONFORMANCE_TEST_PROBE.try_with(Arc::clone).ok();
+                pending.push(async move {
+                    #[cfg(not(test))]
+                    let outcome = self
+                        .conform_fixture(row, fixture_policy, child_cancel, run_id)
+                        .await;
+                    #[cfg(test)]
+                    let outcome = if let Some(probe) = probe {
+                        CONFORMANCE_TEST_PROBE
+                            .scope(
+                                probe,
+                                CONFORMANCE_TEST_FIXTURE.scope(
+                                    row.declaration_id,
+                                    self.conform_fixture(row, fixture_policy, child_cancel, run_id),
+                                ),
+                            )
+                            .await
+                    } else {
+                        self.conform_fixture(row, fixture_policy, child_cancel, run_id)
+                            .await
+                    };
+                    (index, row.declaration_id, outcome)
+                });
+                issued += 1;
+            }
+            if pending.is_empty() {
                 break;
             }
+            let next = tokio::select! {
+                completed = pending.next() => completed,
+                _ = cancel.cancelled(), if !work_cancel.token().is_cancelled() => {
+                    work_cancel.cancel();
+                    continue;
+                }
+            };
+            if let Some((index, fixture, mut outcome)) = next {
+                use pse_model::diagnostic::BoundaryClass as C;
+                match &mut outcome {
+                    Ok(local) => {
+                        local.compact();
+                        known_checks = known_checks.saturating_add(local.report.checks.len());
+                    }
+                    Err(error) => {
+                        known_checks = known_checks.saturating_add(1);
+                        if !matches!(
+                            error.boundary_diagnostic().class,
+                            C::Cancelled | C::ResourceLimit
+                        ) {
+                            // Stop issuing immediately, even if an earlier fixture has
+                            // not settled. Retain and poll all already issued futures.
+                            work_cancel.cancel();
+                        }
+                    }
+                }
+                completed.insert(index, (fixture, outcome));
+                while let Some((fixture, outcome)) = completed.remove(&settled) {
+                    settled += 1;
+                    match outcome {
+                        Ok(local) => {
+                            covered.extend(local.covered);
+                            report.merge_fixture(local.report, local.base_bytes, cap);
+                        }
+                        Err(error) => {
+                            if matches!(
+                                error.boundary_diagnostic().class,
+                                C::Cancelled | C::ResourceLimit
+                            ) {
+                                report.failed(fixture, Kind::Preparation, &error, None, None, cap);
+                            } else if fatal.is_none() {
+                                // The first fatal cause in discovery order is stable
+                                // even when several futures fail out of order.
+                                fatal = Some(error);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // Never abandon an issued fixture: the queue is empty before either return.
+        if let Some(error) = fatal {
+            return Err(error);
+        }
+        if issued < fixtures.len() {
+            report.complete = false;
+            for row in &fixtures[issued..] {
+                report.record_fixture(
+                    row.declaration_id,
+                    Kind::Preparation,
+                    Status::Unattempted,
+                    "fixture was not attempted",
+                    None,
+                    cap,
+                );
+            }
+        }
+        report.coverage(&source_rows, &covered, cap);
+        if cancel.token().is_cancelled() {
+            report.complete = false;
+        }
+        Ok(report)
+    }
+    /// One independent fixture owns its preparations, native jobs and retained report.
+    async fn conform_fixture(
+        &self,
+        row: &Declaration,
+        policy: &ModelingConformancePolicy,
+        cancel: &crate::CancelSource,
+        run_id: RunId,
+    ) -> Result<FixtureReport, WorkflowError> {
+        let cap = policy.maximum_checks;
+        let mut report = ModelingConformanceReport::new(
+            self.runtime.registry.clone(),
+            self.runtime.shared.pool(),
+            self.runtime.validation_context()?,
+            &[row.declaration_id],
+            cap,
+        )?;
+        report.run_id = run_id;
+        let base_bytes = report._owner.size();
+        let mut covered = BTreeSet::new();
+        'fixture: {
             let fixture = row.declaration_id;
 
             let revision = match self.selected_revision(fixture, cancel).await {
                 Ok(revision) => revision,
                 Err(error) => {
                     report.failed(fixture, Kind::Preparation, &error, None, None, cap);
-                    continue;
+                    break 'fixture;
                 }
             };
             let oracle = revision.oracle(fixture);
@@ -1110,7 +1324,7 @@ impl ModelingPackage {
                 // Expected failures are resolved within the admitted fixture model.
                 Err(error) => {
                     report.failed(fixture, Kind::Preparation, &error, None, oracle, cap);
-                    continue;
+                    break 'fixture;
                 }
             };
             let model = admitted.model.clone();
@@ -1144,7 +1358,7 @@ impl ModelingPackage {
                     )
                     .await;
                 report.pure_result(fixture, model.compiled(), checked, cap);
-                continue;
+                break 'fixture;
             }
             // A shooting fixture solves the shooting problem it declares (ADR-0110 Outcome 5):
             // its schedules held free are the controls and the model's objective level is
@@ -1186,7 +1400,7 @@ impl ModelingPackage {
                     oracle,
                     cap,
                 );
-                continue;
+                break 'fixture;
             }
             if matches!(&admitted.procedure, DeclaredProcedure::Integrate(_)) {
                 match self.conform_integrated(&admitted, cancel).await {
@@ -1204,7 +1418,7 @@ impl ModelingPackage {
                                 report.model_checks(fixture, trajectory.checks(), oracle, cap);
                             }
                             report.trajectories.insert(fixture, trajectory);
-                            continue;
+                            break 'fixture;
                         }
                         report.record_fixture(fixture, Kind::DegreesOfFreedom,
                             if expected == 0 { Status::Passed } else { Status::Failed },
@@ -1324,7 +1538,7 @@ impl ModelingPackage {
                         cap,
                     ),
                 }
-                continue;
+                break 'fixture;
             }
             let mut seed = BTreeMap::new();
             let mut initialized = None;
@@ -1369,7 +1583,7 @@ impl ModelingPackage {
                                 cap,
                             );
                             if !observed {
-                                continue;
+                                break 'fixture;
                             }
                             // An expected initialization failure leaves the specification
                             // intact (PS-08): the failed attempts commit nothing, and the
@@ -1403,7 +1617,7 @@ impl ModelingPackage {
                             oracle,
                             cap,
                         );
-                        continue;
+                        break 'fixture;
                     }
                 }
             }
@@ -1442,7 +1656,7 @@ impl ModelingPackage {
                         oracle,
                         cap,
                     );
-                    continue;
+                    break 'fixture;
                 }
             };
             report.record_fixture(
@@ -1473,7 +1687,7 @@ impl ModelingPackage {
                         oracle,
                         cap,
                     );
-                    continue;
+                    break 'fixture;
                 }
             };
             // An unresolved or refused route has no selected assessment. Each candidate
@@ -1649,7 +1863,7 @@ impl ModelingPackage {
             }
             if cancel.token().is_cancelled() {
                 report.complete = false;
-                break;
+                break 'fixture;
             }
             let solved = if let Some(result) = initialized {
                 Ok(result)
@@ -1673,7 +1887,7 @@ impl ModelingPackage {
                                     oracle,
                                     cap,
                                 );
-                                continue;
+                                break 'fixture;
                             }
                         }
                         self.solve_case(prepared, policy.compiler, cancel).await
@@ -1711,7 +1925,7 @@ impl ModelingPackage {
                         if expected_failure.is_none() {
                             report.model_checks(fixture, &result.checks, oracle, cap);
                         }
-                        continue;
+                        break 'fixture;
                     }
                     report.record_fixture(
                         fixture,
@@ -1780,11 +1994,17 @@ impl ModelingPackage {
                 ),
             }
         }
-        report.coverage(&source_rows, &covered, cap);
-        if cancel.token().is_cancelled() {
-            report.complete = false;
+        #[cfg(test)]
+        if let Ok(probe) = CONFORMANCE_TEST_PROBE.try_with(Arc::clone) {
+            if probe.finished(row.declaration_id, &report) {
+                return Err(contract("controlled fixture report refusal"));
+            }
         }
-        Ok(report)
+        Ok(FixtureReport {
+            report,
+            covered,
+            base_bytes,
+        })
     }
     /// Numerical diagnostics at a fixture's accepted solution, under its bindings, case and
     /// the run's diagnostic thresholds: the solved values replace the specification's
@@ -1929,6 +2149,11 @@ impl ModelingPackage {
         let assembly =
             crate::math::MathService::within_task(&scope, cancel, service.assemble(prepared))
                 .await?;
+        #[cfg(test)]
+        let probe = CONFORMANCE_TEST_PROBE
+            .try_with(Arc::clone)
+            .ok()
+            .zip(CONFORMANCE_TEST_FIXTURE.try_with(|id| *id).ok());
         Ok(service
             .with_owned_worker(
                 assembly,
@@ -1936,6 +2161,10 @@ impl ModelingPackage {
                 cancel,
                 Some((scope.clone(), control)),
                 move |worker| {
+                    #[cfg(test)]
+                    if let Some((probe, fixture)) = probe {
+                        probe.native_worker(fixture, worker.cancellation());
+                    }
                     let execution = pse_backend_native::solve::Execution::within(
                         worker.cancellation().clone(),
                         &controls,
@@ -2066,6 +2295,833 @@ fn range_rejected(error: &WorkflowError, source: SemanticId) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::workflow::Durability;
+    #[derive(Clone, Default, Debug)]
+    struct ProbeState {
+        entered: BTreeSet<DeclarationId>,
+        native_threads: Vec<std::thread::ThreadId>,
+        active: usize,
+        maximum: usize,
+        released: BTreeSet<DeclarationId>,
+        cancelled: BTreeSet<DeclarationId>,
+        finished: Vec<DeclarationId>,
+        refused: BTreeMap<DeclarationId, String>,
+        expected: BTreeSet<DeclarationId>,
+        open: bool,
+        fatal_fixture: Option<DeclarationId>,
+    }
+    #[derive(Default, Debug)]
+    pub(super) struct FixtureProbe {
+        state: Mutex<ProbeState>,
+        wake: std::sync::Condvar,
+    }
+    impl FixtureProbe {
+        fn for_fixtures(fixtures: &[DeclarationId]) -> Arc<Self> {
+            let probe = Arc::new(Self::default());
+            probe
+                .state
+                .lock()
+                .unwrap()
+                .expected
+                .extend(fixtures.iter().copied());
+            probe
+        }
+        fn state_snapshot(&self) -> ProbeState {
+            self.state
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .clone()
+        }
+        fn snapshot(&self) -> String {
+            let state = self.state_snapshot();
+            let missing = state
+                .expected
+                .difference(&state.entered)
+                .map(ToString::to_string)
+                .collect::<Vec<_>>();
+            format!(
+                "active={} maximum={} entered={} finished={} cancellation_observed={} missing_native_entries=[{}]; refusals=[{}]",
+                state.active,
+                state.maximum,
+                state.entered.len(),
+                state.finished.len(),
+                state.cancelled.len(),
+                missing.join(","),
+                state
+                    .refused
+                    .values()
+                    .take(4)
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            )
+        }
+        // Called after admission and actual CaseWorker construction, on its native
+        // thread. The deliberately late exit exercises the production join owner.
+        pub(super) fn native_worker(
+            &self,
+            fixture: DeclarationId,
+            cancelled: &Arc<std::sync::atomic::AtomicBool>,
+        ) {
+            use std::sync::atomic::Ordering;
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+            let mut state = self.state.lock().unwrap();
+            if !state.entered.insert(fixture) {
+                drop(state);
+                panic!("one diagnostic worker per authored fixture");
+            }
+            state.native_threads.push(std::thread::current().id());
+            state.active += 1;
+            state.maximum = state.maximum.max(state.active);
+            while !state.open && !state.released.contains(&fixture) {
+                if cancelled.load(Ordering::Acquire) {
+                    state.cancelled.insert(fixture);
+                }
+                if std::time::Instant::now() >= deadline {
+                    state.open = true;
+                    state.active -= 1;
+                    self.wake.notify_all();
+                    drop(state);
+                    panic!("finite conformance worker probe timed out");
+                }
+                state = self
+                    .wake
+                    .wait_timeout(state, std::time::Duration::from_millis(5))
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .0;
+            }
+            state.active -= 1;
+        }
+        pub(super) fn finished(
+            &self,
+            fixture: DeclarationId,
+            report: &ModelingConformanceReport,
+        ) -> bool {
+            let mut state = self.state.lock().unwrap();
+            state.finished.push(fixture);
+            if !report.passed() {
+                state.refused.insert(fixture, report_summary(report));
+            }
+            // A controlled report failure follows successful science at the native
+            // boundary; it must never replace a real source/admission refusal.
+            state.fatal_fixture == Some(fixture)
+                && state.entered.contains(&fixture)
+                && report.passed()
+        }
+        fn release(&self, fixture: DeclarationId) {
+            self.state.lock().unwrap().released.insert(fixture);
+            self.wake.notify_all();
+        }
+        fn release_all(&self) {
+            // A failed assertion must still release every held native worker.
+            self.state
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .open = true;
+            self.wake.notify_all();
+        }
+        async fn wait(&self, condition: impl Fn(&ProbeState) -> bool) {
+            tokio::time::timeout(std::time::Duration::from_secs(20), async {
+                loop {
+                    if condition(&self.state.lock().unwrap()) {
+                        break;
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(2)).await;
+                }
+            })
+            .await
+            .unwrap_or_else(|_| {
+                panic!("conformance native boundary timed out: {}", self.snapshot())
+            });
+        }
+    }
+    fn diagnostic_leaves(cause: &pse_model::diagnostic::BoundaryDiagnostic) -> String {
+        fn collect(cause: &pse_model::diagnostic::BoundaryDiagnostic, leaves: &mut Vec<String>) {
+            if leaves.len() == 4 {
+                return;
+            }
+            if cause.causes.is_empty() {
+                let observations = cause
+                    .observations
+                    .iter()
+                    .take(4)
+                    .map(|(key, value)| {
+                        let value = format!("{value:?}").chars().take(200).collect::<String>();
+                        format!("{key}={value}")
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",");
+                leaves.push(format!(
+                    "code={} class={:?} stage={:?} rule={:?} observations=[{}]",
+                    cause.code, cause.class, cause.stage, cause.rule, observations
+                ));
+            } else {
+                for child in &cause.causes {
+                    collect(child, leaves);
+                    if leaves.len() == 4 {
+                        break;
+                    }
+                }
+            }
+        }
+        let mut leaves = Vec::new();
+        collect(cause, &mut leaves);
+        leaves.join(" | ")
+    }
+    fn report_summary(report: &ModelingConformanceReport) -> String {
+        let statuses = report.fixture_statuses.values();
+        let failed = statuses
+            .clone()
+            .filter(|status| **status == Status::Failed)
+            .count();
+        let inconclusive = statuses
+            .clone()
+            .filter(|status| **status == Status::Inconclusive)
+            .count();
+        let cancelled = statuses
+            .clone()
+            .filter(|status| **status == Status::Cancelled)
+            .count();
+        let unattempted = statuses
+            .filter(|status| **status == Status::Unattempted)
+            .count();
+        let refusals = report
+            .checks
+            .iter()
+            .filter(|check| !matches!(check.status, Status::Passed | Status::NotApplicable))
+            .take(4)
+            .map(|check| {
+                let message = check.message.chars().take(350).collect::<String>();
+                let cause = check
+                    .failure_ordinal
+                    .and_then(|ordinal| usize::try_from(ordinal).ok())
+                    .and_then(|ordinal| report.failures.get(ordinal))
+                    .map(|cause| format!("; leaves=[{}]", diagnostic_leaves(cause)))
+                    .unwrap_or_default();
+                format!(
+                    "{} {:?}/{:?}: {}{}",
+                    check.fixture_id, check.kind, check.status, message, cause
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("; ");
+        format!(
+            "complete={} fixtures={} checks={} results={} initializations={} failures={} failed={} inconclusive={} cancelled={} unattempted={}; [{}]",
+            report.complete,
+            report.fixture_statuses.len(),
+            report.checks.len(),
+            report.results.len(),
+            report.initializations.len(),
+            report.failures.len(),
+            failed,
+            inconclusive,
+            cancelled,
+            unattempted,
+            refusals
+        )
+    }
+    fn result_summary(result: &Result<ModelingConformanceReport, WorkflowError>) -> String {
+        match result {
+            Ok(report) => report_summary(report),
+            Err(error) => error.to_string(),
+        }
+    }
+    struct ProbeDrain(Arc<FixtureProbe>);
+    impl Drop for ProbeDrain {
+        fn drop(&mut self) {
+            self.0.release_all();
+        }
+    }
+    fn parallel_runtime(width: usize) -> Runtime {
+        // Match the reference execution's headroom: native session/worker owners
+        // coexist with selected-source, artifact and original-case preparation jobs.
+        // Active CPU work and fixture admission remain bounded by `width`.
+        parallel_runtime_with_jobs(width, width * 2)
+    }
+    fn parallel_runtime_with_jobs(width: usize, jobs: usize) -> Runtime {
+        use super::super::super::tests as fixture;
+        use std::num::NonZeroUsize;
+        let baseline = fixture::runtime();
+        let mut budget = baseline.shared.budget().clone();
+        budget.threads.pool_threads = NonZeroUsize::new(width).unwrap();
+        budget.memory_limit_bytes = NonZeroUsize::new(2 << 30).unwrap();
+        budget.math.jobs = jobs;
+        budget.math.artifact_bytes = 128 << 20;
+        let shared = crate::SharedRuntime::build(budget).unwrap();
+        let sessions = Arc::new(
+            shared
+                .session_factory(pse_engine::session::native_engine_profile())
+                .unwrap(),
+        );
+        Runtime::from_shared(
+            shared,
+            pse_schema::shared_registry().unwrap(),
+            sessions,
+            fixture::canonical_deployment(),
+        )
+        .with_durability(Durability::Ephemeral)
+    }
+    async fn parallel_package(source: &str, width: usize) -> ModelingPackage {
+        let rows = pse_authoring::language::parse(
+            source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        parallel_runtime(width)
+            .modeling_package(rows, super::super::super::tests::physical())
+            .await
+            .unwrap()
+    }
+    fn parallel_source(count: usize) -> String {
+        let mut source = "package p {def D {var x:Scalar; eq e:x*x==4; annotation start x(1); annotation bounds x(0.5,3);}".to_owned();
+        for index in 0..count {
+            source.push_str(&format!("test fixture{index} fixture {{dof 0; route steady; procedure solve;}} {{child root:D=D(); expect root.x==2 tolerance 1e-6;}}"));
+        }
+        source.push('}');
+        source
+    }
+    fn parallel_policy() -> ModelingConformancePolicy {
+        let mut policy = policy();
+        policy.maximum_fixtures = 32;
+        policy.maximum_checks = 4096;
+        policy
+    }
+    async fn discovery(package: &ModelingPackage) -> Vec<DeclarationId> {
+        package
+            .declarations()
+            .await
+            .unwrap()
+            .iter()
+            .filter(|row| row.value.kind == DeclarationKind::Test)
+            .map(|row| row.declaration_id)
+            .collect()
+    }
+    #[cfg(feature = "solver-kinsol")]
+    #[tokio::test]
+    async fn conformance_parallel_sixteen_native_workers_preserve_authored_results_and_order() {
+        let source = parallel_source(16);
+        let package = parallel_package(&source, 16).await;
+        let order = discovery(&package).await;
+        let probe = FixtureProbe::for_fixtures(&order);
+        let _drain = ProbeDrain(probe.clone());
+        let cancel = crate::CancelSource::new();
+        let run = CONFORMANCE_TEST_PROBE
+            .scope(probe.clone(), package.conform(parallel_policy(), &cancel));
+        let controls = async {
+            probe.wait(|state| state.active == 16).await;
+            {
+                let state = probe.state_snapshot();
+                assert_eq!(state.maximum, 16);
+                let distinct = state
+                    .native_threads
+                    .iter()
+                    .collect::<std::collections::HashSet<_>>();
+                assert_eq!(distinct.len(), 16, "sixteen actual admitted native threads");
+            }
+            // Force completion in the exact opposite order to discovery. The first
+            // fixture remains issued while every later fixture completes its science.
+            for (index, fixture) in order.iter().rev().enumerate() {
+                probe.release(*fixture);
+                probe.wait(|state| state.finished.len() == index + 1).await;
+            }
+        };
+        let (report, ()) = tokio::join!(run, controls);
+        let mut report = report.unwrap();
+        assert!(report.passed(), "{}", report_summary(&report));
+        assert_eq!(
+            probe.state_snapshot().finished,
+            order.iter().rev().copied().collect::<Vec<_>>()
+        );
+        let observed = report
+            .checks
+            .iter()
+            .filter(|check| check.fixture_id != NO_FIXTURE)
+            .map(|check| check.fixture_id)
+            .fold(Vec::new(), |mut groups, id| {
+                if groups.last() != Some(&id) {
+                    groups.push(id);
+                }
+                groups
+            });
+        assert_eq!(observed, order);
+        assert_eq!(
+            report
+                .checks
+                .iter()
+                .filter(|row| row.kind == Kind::Coverage)
+                .count(),
+            1
+        );
+        assert_eq!(report.results.len(), 16);
+        assert_eq!(report.admissions.len(), 16);
+        assert_eq!(report.units.len(), 16);
+        assert_eq!(report.fixture_statuses.len(), 16);
+        let serial = parallel_package(&source, 1)
+            .await
+            .conform(parallel_policy(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert!(serial.passed(), "{}", report_summary(&serial));
+        // Run identity is the sole execution-specific field of conformance rows.
+        for row in &mut report.checks {
+            row.run_id = serial.run_id;
+        }
+        assert!(pse_model::SemanticEq::semantic_eq(
+            &report.checks,
+            &serial.checks
+        ));
+        assert_eq!(report.fixture_statuses, serial.fixture_statuses);
+        assert_eq!(report.units, serial.units);
+        assert_eq!(report.releases, serial.releases);
+        for (fixture, result) in &report.results {
+            assert!(result.accepted);
+            assert_eq!(
+                result.values.scalars,
+                serial.results[fixture].values.scalars
+            );
+        }
+    }
+    #[cfg(feature = "solver-ipopt")]
+    #[tokio::test]
+    async fn conformance_parallel_sixteen_staged_initializers_keep_original_science_with_session_headroom()
+     {
+        use super::super::super::tests as fixture;
+        let mut source = "package p {interface Base {var x:Scalar; eq e:x==4; annotation start x(1); stage \"warm\" {override eq e:x==2;}} interface Derived extends Base {} def D:Derived {}".to_owned();
+        for index in 0..16 {
+            source.push_str(&format!("test initialized{index} fixture {{dof 0; route steady; procedure initialize; stages(\"warm\");}} {{child root:D=D; expect root.x==4 tolerance 1e-8;}}"));
+        }
+        source.push('}');
+        let rows = pse_authoring::language::parse(
+            &source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        // An idle staged session retains a native job slot during preparation and
+        // original-case validation. Sixteen sessions plus sixteen active operations
+        // need 32 job slots, while CPU permits still bound active work to 16.
+        let runtime = parallel_runtime_with_jobs(16, 32);
+        assert_eq!(runtime.shared.math().cores(), 16);
+        assert_eq!(runtime.shared.budget().math.jobs, 32);
+        let package = runtime
+            .modeling_package(rows.clone(), fixture::physical())
+            .await
+            .unwrap();
+        let mut policy = parallel_policy();
+        policy.solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
+            pse_backend_native::solve::Backend::Ipopt,
+        );
+        let mut report = package
+            .conform(policy.clone(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert!(report.passed(), "{}", report_summary(&report));
+        assert!(
+            report.failures.is_empty(),
+            "no native job admission refusals"
+        );
+        assert_eq!(report.initializations.len(), 16);
+        assert_eq!(report.results.len(), 16);
+        let serial_package = parallel_runtime_with_jobs(1, 32)
+            .modeling_package(rows, fixture::physical())
+            .await
+            .unwrap();
+        let serial = serial_package
+            .conform(policy, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert!(serial.passed(), "{}", report_summary(&serial));
+        for row in &mut report.checks {
+            row.run_id = serial.run_id;
+        }
+        assert!(pse_model::SemanticEq::semantic_eq(
+            &report.checks,
+            &serial.checks
+        ));
+        for (fixture, initialization) in &report.initializations {
+            assert!(initialization.completed);
+            assert!(initialization.committed.is_some());
+            assert_eq!(initialization.attempts.len(), 2);
+            assert!(
+                matches!(&initialization.attempts[0].step, ModelingInitializationStep::Stage(name) if name == "warm")
+            );
+            assert!(matches!(
+                initialization.attempts[1].step,
+                ModelingInitializationStep::Original
+            ));
+            for (actual, expected) in initialization
+                .attempts
+                .iter()
+                .zip(&serial.initializations[fixture].attempts)
+            {
+                let actual = actual.result.as_ref().unwrap();
+                let expected = expected.result.as_ref().unwrap();
+                assert!(actual.accepted);
+                assert_eq!(actual.values.scalars, expected.values.scalars);
+            }
+            assert_eq!(
+                report.results[fixture].run_id,
+                initialization.attempts[1].result.as_ref().unwrap().run_id
+            );
+            assert_eq!(
+                report.results[fixture].values.scalars,
+                serial.results[fixture].values.scalars
+            );
+        }
+    }
+    #[cfg(feature = "solver-kinsol")]
+    #[tokio::test]
+    async fn conformance_parallel_reuses_slots_while_first_fixture_is_still_running() {
+        let package = parallel_package(&parallel_source(20), 16).await;
+        let order = discovery(&package).await;
+        let probe = FixtureProbe::for_fixtures(&order);
+        let _drain = ProbeDrain(probe.clone());
+        let cancel = crate::CancelSource::new();
+        let run = CONFORMANCE_TEST_PROBE
+            .scope(probe.clone(), package.conform(parallel_policy(), &cancel));
+        let controls = async {
+            probe.wait(|state| state.active == 16).await;
+            for fixture in &order[1..16] {
+                probe.release(*fixture);
+            }
+            // Four fixtures beyond the original window must reach actual native
+            // worker admission while the first fixture's native worker is held.
+            probe
+                .wait(|state| state.entered.len() == 20 && state.finished.len() == 15)
+                .await;
+            let state = probe.state_snapshot();
+            assert_eq!(state.active, 5);
+            assert_eq!(state.maximum, 16);
+            assert!(!state.finished.contains(&order[0]));
+            for fixture in &order[16..] {
+                assert!(state.entered.contains(fixture));
+            }
+            drop(state);
+            probe.release_all();
+        };
+        let (report, ()) = tokio::join!(run, controls);
+        let report = report.unwrap();
+        assert!(report.passed(), "{}", report_summary(&report));
+        let mut groups = Vec::new();
+        for check in report
+            .checks
+            .iter()
+            .filter(|row| row.fixture_id != NO_FIXTURE)
+        {
+            if groups.last() != Some(&check.fixture_id) {
+                groups.push(check.fixture_id);
+            }
+        }
+        assert_eq!(groups, order);
+        assert_eq!(report.results.len(), 20);
+    }
+    #[cfg(feature = "solver-kinsol")]
+    #[tokio::test]
+    async fn conformance_parallel_cancellation_drains_admitted_workers_and_retains_inventory() {
+        let package = parallel_package(&parallel_source(20), 16).await;
+        let order = discovery(&package).await;
+        let pool = package.runtime.shared.pool();
+        let probe = FixtureProbe::for_fixtures(&order);
+        let _drain = ProbeDrain(probe.clone());
+        let cancel = crate::CancelSource::new();
+        let mut run = Box::pin(
+            CONFORMANCE_TEST_PROBE
+                .scope(probe.clone(), package.conform(parallel_policy(), &cancel)),
+        );
+        tokio::select! {
+            result = &mut run => panic!("conformance returned before all sixteen admitted workers: {}; {}", result_summary(&result), probe.snapshot()),
+            () = probe.wait(|state| state.active == 16) => {}
+        }
+        let initial = order[..16].iter().copied().collect::<BTreeSet<_>>();
+        assert_eq!(
+            probe.state_snapshot().entered,
+            initial,
+            "initial discovery prefix did not all reach native admission: {}",
+            probe.snapshot()
+        );
+        let held = pool.reserved();
+        assert!(held >= 16 * package.runtime.shared.budget().math.foreign_bytes);
+        cancel.cancel();
+        tokio::select! {
+            result = &mut run => panic!("cancel abandoned active native workers: {}; {}", result_summary(&result), probe.snapshot()),
+            () = probe.wait(|state| state.cancelled.len() == 16) => {}
+        }
+        assert_eq!(probe.state_snapshot().active, 16);
+        assert!(pool.reserved() >= 16 * package.runtime.shared.budget().math.foreign_bytes);
+        probe.release_all();
+        let report = run.await.unwrap();
+        assert!(!report.complete && !report.passed());
+        assert_eq!(probe.state_snapshot().active, 0);
+        assert_eq!(
+            probe.state_snapshot().finished.len(),
+            16,
+            "{}; {}",
+            report_summary(&report),
+            probe.snapshot()
+        );
+        assert_eq!(report.fixture_statuses.len(), 20);
+        for fixture in &order[..16] {
+            assert_eq!(report.fixture_statuses[fixture], Status::Cancelled);
+        }
+        for fixture in &order[16..] {
+            assert_eq!(report.fixture_statuses[fixture], Status::Unattempted);
+            assert!(!report.results.contains_key(fixture));
+        }
+        assert_eq!(report.failures.len(), 16);
+        for check in report
+            .checks
+            .iter()
+            .filter(|row| row.status == Status::Cancelled)
+        {
+            let diagnostic = &report.failures[check.failure_ordinal.unwrap() as usize];
+            assert_eq!(
+                diagnostic.class,
+                pse_model::diagnostic::BoundaryClass::Cancelled
+            );
+        }
+        assert!(
+            pool.reserved() < held,
+            "joined native job reservations are released"
+        );
+        drop(report);
+        drop(package);
+        assert_eq!(
+            pool.reserved(),
+            0,
+            "all source, report and worker owners drain"
+        );
+    }
+    #[cfg(feature = "solver-kinsol")]
+    #[tokio::test]
+    async fn conformance_parallel_fatal_fixture_drains_other_issued_workers() {
+        let package = parallel_package(&parallel_source(20), 16).await;
+        let order = discovery(&package).await;
+        let probe = FixtureProbe::for_fixtures(&order);
+        probe.state.lock().unwrap().fatal_fixture = Some(order[0]);
+        let _drain = ProbeDrain(probe.clone());
+        let cancel = crate::CancelSource::new();
+        let mut run = Box::pin(
+            CONFORMANCE_TEST_PROBE
+                .scope(probe.clone(), package.conform(parallel_policy(), &cancel)),
+        );
+        tokio::select! {
+            result = &mut run => panic!("conformance returned before all issued workers: {}; {}", result_summary(&result), probe.snapshot()),
+            () = probe.wait(|state| state.active == 16) => {}
+        }
+        let initial = order[..16].iter().copied().collect::<BTreeSet<_>>();
+        assert_eq!(
+            probe.state_snapshot().entered,
+            initial,
+            "initial discovery prefix did not all reach native admission: {}",
+            probe.snapshot()
+        );
+        probe.release(order[0]);
+        tokio::select! {
+            result = &mut run => panic!("fatal fixture abandoned remaining workers: {}; {}", result_summary(&result), probe.snapshot()),
+            () = probe.wait(|state| state.cancelled.len() == 15) => {}
+        }
+        assert!(
+            !cancel.token().is_cancelled(),
+            "internal failure does not cancel the caller's source"
+        );
+        assert_eq!(probe.state_snapshot().active, 15);
+        probe.release_all();
+        let error = run.await.unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("controlled fixture report refusal")
+        );
+        let state = probe.state_snapshot();
+        assert_eq!(state.active, 0);
+        assert_eq!(state.entered.len(), 16);
+        assert_eq!(state.finished.len(), 16);
+    }
+    #[test]
+    fn conformance_parallel_compact_reports_transfer_exact_payload_charge_and_failure_indices() {
+        use pse_columnar::MemoryPool;
+        use pse_model::{
+            HeapUsage,
+            diagnostic::{BoundaryClass, BoundaryDiagnostic, Observation},
+        };
+        let pool = Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
+        let registry = pse_schema::shared_registry().unwrap();
+        let validation = pse_relations::validate::ValidationContext::local(&registry).unwrap();
+        let ids = [
+            DeclarationId::from_bytes([41; 16]),
+            DeclarationId::from_bytes([42; 16]),
+        ];
+        let mut report = ModelingConformanceReport::new(
+            registry.clone(),
+            pool.clone(),
+            validation.clone(),
+            &ids,
+            100,
+        )
+        .unwrap();
+        let global_base = pool.reserved();
+        let mut retained = 0;
+        for (index, fixture) in ids.iter().enumerate() {
+            let mut local = ModelingConformanceReport::new(
+                registry.clone(),
+                pool.clone(),
+                validation.clone(),
+                &[*fixture],
+                100,
+            )
+            .unwrap();
+            let base_bytes = local._owner.size();
+            let message = "retained authored comparison".repeat(80);
+            local.record_fixture(*fixture, Kind::Check, Status::Failed, &message, None, 100);
+            let mut diagnostic = BoundaryDiagnostic::new(
+                BoundaryClass::InvalidModel,
+                pse_diagnostics::DiagnosticStage::Test,
+                [fixture.as_id()],
+                pse_diagnostics::DiagnosticRule::ModelingDiagnosticSamples,
+            );
+            diagnostic
+                .observations
+                .insert("detail".into(), Observation::Text("evidence".repeat(1000)));
+            let payload = message.len().max(128) + diagnostic.heap_bytes();
+            local.attach_failure(0, diagnostic);
+            let mut completed = FixtureReport {
+                report: local,
+                covered: BTreeSet::new(),
+                base_bytes,
+            };
+            let before = pool.reserved();
+            completed.compact();
+            assert!(pool.reserved() < before);
+            assert_eq!(
+                completed.report._owner.size(),
+                completed.base_bytes + payload
+            );
+            report.merge_fixture(completed.report, completed.base_bytes, 100);
+            retained += payload;
+            assert_eq!(pool.reserved(), global_base + retained);
+            assert_eq!(report.checks[index].failure_ordinal, Some(index as i64));
+            assert_eq!(report.checks[index].run_id, report.run_id);
+            assert_eq!(report.checks[index].message, message);
+        }
+        assert_eq!(report.failures.len(), 2);
+        drop(report);
+        assert_eq!(pool.reserved(), 0);
+    }
+    #[tokio::test]
+    async fn conformance_parallel_global_caps_preserve_unattempted_and_failed_fixtures() {
+        let source = "package p {fn positive(x:Scalar)->Scalar valid(x > 0)=x; test bad fixture {dof 0; route steady; procedure check;} {expect positive(-1)==1 tolerance 1e-12;} test good fixture {dof 0; route steady; procedure check;} {expect positive(2)==2 tolerance 1e-12;} test suffix fixture {dof 0; route steady; procedure check;} {expect positive(3)==3 tolerance 1e-12;}}";
+        let package = parallel_package(source, 16).await;
+        let order = discovery(&package).await;
+        let declarations = package.declarations().await.unwrap();
+        let id = |name| {
+            declarations
+                .iter()
+                .find(|row| row.name == name)
+                .unwrap()
+                .declaration_id
+        };
+        let full = package
+            .conform(parallel_policy(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert_eq!(
+            full.fixture_statuses[&id("bad")],
+            Status::Failed,
+            "{}",
+            report_summary(&full)
+        );
+        assert_eq!(
+            full.fixture_statuses[&id("good")],
+            Status::Passed,
+            "{}",
+            report_summary(&full)
+        );
+        assert_eq!(
+            full.fixture_statuses[&id("suffix")],
+            Status::Passed,
+            "{}",
+            report_summary(&full)
+        );
+        assert_eq!(full.failures.len(), 1, "{}", report_summary(&full));
+        assert_eq!(
+            full.failures[0].rule,
+            pse_diagnostics::DiagnosticRule::MathValidity,
+            "the bad fixture rejects its domain; {}",
+            report_summary(&full)
+        );
+        let mut policy = parallel_policy();
+        policy.maximum_fixtures = 2;
+        let report = package
+            .conform(policy.clone(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert!(!report.complete);
+        for fixture in &order[..2] {
+            assert_eq!(
+                report.fixture_statuses[fixture],
+                full.fixture_statuses[fixture],
+                "{}",
+                report_summary(&report)
+            );
+        }
+        assert_eq!(report.fixture_statuses[&order[2]], Status::Unattempted);
+        assert_eq!(
+            report.failures.len(),
+            usize::from(order[..2].contains(&id("bad")))
+        );
+        if let Some(failure) = report
+            .checks
+            .iter()
+            .find(|row| row.failure_ordinal.is_some())
+        {
+            assert_eq!(failure.fixture_id, id("bad"));
+            assert_eq!(failure.failure_ordinal, Some(0));
+        }
+        policy.maximum_fixtures = 3;
+        policy.maximum_checks = 1;
+        let capped = package
+            .conform(policy, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert_eq!(capped.checks.len(), 1);
+        assert!(!capped.complete);
+        assert_eq!(capped.fixture_statuses.len(), 3);
+        assert_eq!(capped.checks[0].fixture_id, order[0]);
+        assert_eq!(
+            capped.failures.len(),
+            usize::from(capped.checks[0].failure_ordinal.is_some())
+        );
+        if let Some(ordinal) = capped.checks[0].failure_ordinal {
+            assert_eq!(ordinal, 0);
+        }
+        assert_eq!(
+            capped.fixture_statuses[&order[2]],
+            Status::Inconclusive,
+            "{}",
+            report_summary(&capped)
+        );
+        let cancelled = crate::CancelSource::new();
+        cancelled.cancel();
+        let untouched = package
+            .conform(parallel_policy(), &cancelled)
+            .await
+            .unwrap();
+        assert!(!untouched.complete);
+        assert!(
+            untouched
+                .fixture_statuses
+                .values()
+                .all(|status| *status == Status::Unattempted)
+        );
+        assert!(
+            untouched.applicability.is_empty()
+                && untouched.results.is_empty()
+                && untouched.failures.is_empty()
+        );
+    }
     #[cfg(feature = "solver-kinsol")]
     #[derive(Debug)]
     struct ObservedNestedFactory {

@@ -2801,7 +2801,7 @@ async fn reference_flash_completed_blocks_discharge_reporting_allowance() {
         OwnedDocumentSet::try_from_bundles(packages.into_iter().map(load).collect(), &pool, &token)
             .unwrap();
     let package = runtime
-        .modeling_from_documents(&sources, physical)
+        .modeling_from_documents(&sources, physical, &crate::CancelSource::new())
         .await
         .unwrap();
     let root = package

@@ -9,7 +9,10 @@
 [settings]
 memory_limit_bytes = 137438953472 # 128 GiB pool
 math_worker_bytes = 17179869184 # 16 GiB aggregate case worker capacity
-threads = 1
+threads = 16
+# Sixteen active workers plus sixteen idle session owners during staged preparation.
+# The CPU semaphore still limits executing native work to sixteen cores.
+math_jobs = 32
 time_limit_seconds = 600
 intent = "root"
 presolve = "auto"
@@ -26,6 +29,7 @@ diagnostics = "diagnostics/idaes-2.13.json"
 class_proof_work = 100000000
 
 [settings.preparation.compiler.optimization]
+# Independent fixtures share the sixteen runtime CPU permits; each optimizer uses one.
 cores = 1
 horner_iterations = 10
 cpe_iterations = 10

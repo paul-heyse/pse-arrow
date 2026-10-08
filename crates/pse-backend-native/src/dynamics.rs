@@ -657,7 +657,8 @@ pub(crate) fn sample_jump(
     if output.nrows() != cotangent.len() || output.ncols() < differential.len() {
         return Err(ProblemError::internal("adjoint jump extent"));
     }
-    let eliminated = eliminate(differential, rhs, transposed_product(output, cotangent))?;
+    let eliminated = SampleElimination::new(differential, rhs, output.ncols())?
+        .solve(transposed_product(output, cotangent))?;
     Ok((eliminated.state, eliminated.parameters))
 }
 /// A total derivative over the state followed by the contract parameters after the
@@ -696,74 +697,135 @@ pub(crate) fn transposed_product(
 /// algebraic states. The first-order sample jump eliminates `g_zᵀc`; the second-order
 /// jump eliminates its tangent (ADR-0110 item 4).
 #[cfg(any(feature = "diffsol", feature = "idas"))]
-pub(crate) fn eliminate(
-    differential: &[bool],
-    rhs: Option<faer::sparse::SparseColMatRef<'_, usize, f64>>,
-    mut jump: Vec<f64>,
-) -> Result<Eliminated, ProblemError> {
-    use faer::linalg::solvers::Solve;
-    let n = differential.len();
-    let width = jump.len();
-    if width < n {
-        return Err(ProblemError::internal("adjoint jump extent"));
-    }
-    let mut multipliers = vec![0.0; n];
-    let algebraic = (0..n).filter(|i| !differential[*i]).collect::<Vec<_>>();
-    if !algebraic.is_empty() {
-        let f = rhs.ok_or_else(|| ProblemError::internal("adjoint jump constraint partials"))?;
-        if f.nrows() != n || f.ncols() != width {
-            return Err(ProblemError::internal("adjoint jump constraint extent"));
+pub(crate) struct SampleElimination<'a> {
+    n: usize,
+    width: usize,
+    algebraic: Vec<usize>,
+    rhs: Option<faer::sparse::SparseColMatRef<'a, usize, f64>>,
+    factor: Option<faer::sparse::linalg::solvers::Lu<usize, f64>>,
+    ready: bool,
+    #[cfg(test)]
+    factorizations: usize,
+}
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+impl<'a> SampleElimination<'a> {
+    pub(crate) fn new(
+        differential: &[bool],
+        rhs: Option<faer::sparse::SparseColMatRef<'a, usize, f64>>,
+        width: usize,
+    ) -> Result<Self, ProblemError> {
+        let n = differential.len();
+        if width < n {
+            return Err(ProblemError::internal("adjoint jump extent"));
         }
-        let mut slot = vec![None; n];
-        for (k, i) in algebraic.iter().enumerate() {
-            slot[*i] = Some(k);
-        }
-        // F_aaᵀ: the constraint rows' partials in the algebraic columns, transposed.
-        let mut triplets = Vec::new();
-        for column in &algebraic {
-            for k in f.col_range(*column) {
-                if let (Some(i), Some(j)) = (slot[f.row_idx()[k]], slot[*column]) {
-                    triplets.push(faer::sparse::Triplet::new(j, i, f.val()[k]));
+        let algebraic = (0..n).filter(|i| !differential[*i]).collect::<Vec<_>>();
+        let factor = if algebraic.is_empty() {
+            None
+        } else {
+            let f =
+                rhs.ok_or_else(|| ProblemError::internal("adjoint jump constraint partials"))?;
+            if f.nrows() != n || f.ncols() != width {
+                return Err(ProblemError::internal("adjoint jump constraint extent"));
+            }
+            if f.val().iter().any(|v| !v.is_finite()) {
+                return Err(ProblemError::numerical(
+                    "nonfinite adjoint constraint partials",
+                ));
+            }
+            let mut slot = vec![None; n];
+            for (k, i) in algebraic.iter().enumerate() {
+                slot[*i] = Some(k);
+            }
+            // F_aaᵀ: the constraint rows' partials in the algebraic columns, transposed.
+            let mut triplets = Vec::new();
+            for column in &algebraic {
+                for k in f.col_range(*column) {
+                    if let (Some(i), Some(j)) = (slot[f.row_idx()[k]], slot[*column]) {
+                        triplets.push(faer::sparse::Triplet::new(j, i, f.val()[k]));
+                    }
                 }
             }
-        }
-        let na = algebraic.len();
-        let transposed = faer::sparse::SparseColMat::try_new_from_triplets(na, na, &triplets)
-            .map_err(|e| ProblemError::memory(format!("adjoint jump constraint block: {e:?}")))?;
-        let symbolic = faer::sparse::linalg::solvers::SymbolicLu::try_new(transposed.symbolic())
-            .map_err(|e| ProblemError::numerical(format!("adjoint jump constraint LU: {e:?}")))?;
-        let lu =
-            faer::sparse::linalg::solvers::Lu::try_new_with_symbolic(symbolic, transposed.as_ref())
+            let na = algebraic.len();
+            let transposed = faer::sparse::SparseColMat::try_new_from_triplets(na, na, &triplets)
                 .map_err(|e| {
-                    ProblemError::numerical(format!("adjoint jump constraint LU: {e:?}"))
-                })?;
-        let mut w = algebraic.iter().map(|i| jump[*i]).collect::<Vec<_>>();
-        lu.solve_in_place(faer::MatMut::from_column_major_slice_mut(&mut w, na, 1));
-        if w.iter().any(|v| !v.is_finite()) {
+                ProblemError::memory(format!("adjoint jump constraint block: {e:?}"))
+            })?;
+            let symbolic = faer::sparse::linalg::solvers::SymbolicLu::try_new(
+                transposed.symbolic(),
+            )
+            .map_err(|e| ProblemError::numerical(format!("adjoint jump constraint LU: {e:?}")))?;
+            let factor = faer::sparse::linalg::solvers::Lu::try_new_with_symbolic(
+                symbolic,
+                transposed.as_ref(),
+            )
+            .map_err(|e| ProblemError::numerical(format!("adjoint jump constraint LU: {e:?}")))?;
+            Some(factor)
+        };
+        #[cfg(test)]
+        let factorizations = usize::from(factor.is_some());
+        Ok(Self {
+            n,
+            width,
+            algebraic,
+            rhs,
+            factor,
+            ready: true,
+            #[cfg(test)]
+            factorizations,
+        })
+    }
+    pub(crate) fn solve(&mut self, jump: Vec<f64>) -> Result<Eliminated, ProblemError> {
+        if !self.ready {
             return Err(ProblemError::numerical(
-                "singular algebraic block at an observed sample",
+                "sample elimination factor is invalid",
             ));
         }
-        for (k, i) in algebraic.iter().enumerate() {
-            multipliers[*i] = w[k];
+        let result = self.solve_ready(jump);
+        if result.is_err() {
+            self.ready = false;
+            self.factor = None;
         }
-        for (total, correction) in jump.iter_mut().zip(transposed_product(f, &multipliers)) {
-            *total -= correction;
-        }
-        for i in &algebraic {
-            jump[*i] = 0.0;
-        }
+        result
     }
-    if jump.iter().any(|v| !v.is_finite()) {
-        return Err(ProblemError::numerical("nonfinite adjoint jump"));
+    fn solve_ready(&self, mut jump: Vec<f64>) -> Result<Eliminated, ProblemError> {
+        use faer::linalg::solvers::Solve;
+        if jump.len() != self.width || jump.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::numerical("adjoint jump extent or values"));
+        }
+        let mut multipliers = vec![0.0; self.n];
+        if let Some(lu) = &self.factor {
+            let na = self.algebraic.len();
+            let mut w = self.algebraic.iter().map(|i| jump[*i]).collect::<Vec<_>>();
+            lu.solve_in_place(faer::MatMut::from_column_major_slice_mut(&mut w, na, 1));
+            if w.iter().any(|v| !v.is_finite()) {
+                return Err(ProblemError::numerical(
+                    "singular algebraic block at an observed sample",
+                ));
+            }
+            for (k, i) in self.algebraic.iter().enumerate() {
+                multipliers[*i] = w[k];
+            }
+            let f = self
+                .rhs
+                .ok_or_else(|| ProblemError::internal("adjoint constraint partials"))?;
+            for (total, correction) in jump.iter_mut().zip(transposed_product(f, &multipliers)) {
+                *total -= correction;
+            }
+            for i in &self.algebraic {
+                jump[*i] = 0.0;
+            }
+        }
+        if jump.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::numerical("nonfinite adjoint jump"));
+        }
+        let parameters = jump.split_off(self.n);
+        Ok(Eliminated {
+            state: jump,
+            parameters,
+            #[cfg(feature = "idas")]
+            multipliers,
+        })
     }
-    let parameters = jump.split_off(n);
-    Ok(Eliminated {
-        state: jump,
-        parameters,
-        #[cfg(feature = "idas")]
-        multipliers,
-    })
 }
 
 /// One compiled function role, not a second expression representation.
@@ -2443,3 +2505,53 @@ mod tests;
 
 #[cfg(test)]
 mod contextual_tests;
+
+#[cfg(all(test, any(feature = "diffsol", feature = "idas")))]
+mod sample_elimination_tests {
+    use super::*;
+    #[allow(
+        clippy::unwrap_used,
+        reason = "declared sparse test fixture must construct"
+    )]
+    fn matrix(z: f64) -> faer::sparse::SparseColMat<usize, f64> {
+        faer::sparse::SparseColMat::try_new_from_triplets(
+            2,
+            3,
+            &[
+                faer::sparse::Triplet::new(1, 0, 3.),
+                faer::sparse::Triplet::new(1, 1, z),
+                faer::sparse::Triplet::new(1, 2, 5.),
+            ],
+        )
+        .unwrap()
+    }
+    #[test]
+    fn sample_elimination_factors_once_for_distinct_rhs_and_refreshes_samples() {
+        let f = matrix(2.);
+        let mut owner = SampleElimination::new(&[true, false], Some(f.as_ref()), 3).unwrap();
+        let first = owner.solve(vec![7., 4., 11.]).unwrap();
+        assert_eq!(first.state, vec![1., 0.]);
+        assert_eq!(first.parameters, vec![1.]);
+        #[cfg(feature = "idas")]
+        assert_eq!(first.multipliers, vec![0., 2.]);
+        let second = owner.solve(vec![5., 2., 7.]).unwrap();
+        assert_eq!(second.state, vec![2., 0.]);
+        assert_eq!(second.parameters, vec![2.]);
+        assert_eq!(owner.factorizations, 1);
+        let changed = matrix(4.);
+        let mut next = SampleElimination::new(&[true, false], Some(changed.as_ref()), 3).unwrap();
+        assert_eq!(next.solve(vec![7., 4., 11.]).unwrap().parameters, vec![6.]);
+        assert!(owner.solve(vec![f64::NAN, 0., 0.]).is_err());
+        assert!(!owner.ready);
+        assert!(owner.solve(vec![7., 4., 11.]).is_err());
+        assert!(
+            SampleElimination::new(&[true, false], Some(matrix(f64::NAN).as_ref()), 3).is_err()
+        );
+        let zero = matrix(0.);
+        let result = SampleElimination::new(&[true, false], Some(zero.as_ref()), 3);
+        if let Ok(mut singular) = result {
+            assert!(singular.solve(vec![1., 1., 1.]).is_err());
+            assert!(!singular.ready);
+        }
+    }
+}

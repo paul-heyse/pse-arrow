@@ -4947,6 +4947,11 @@ mod native_tests {
 
 #[cfg(all(test, feature = "solver-kinsol"))]
 mod root_unavailable_tests {
+    #![allow(
+        clippy::unwrap_used,
+        clippy::unreachable,
+        reason = "root and contextual closure fixtures require valid setup and the explicitly selected annotation variant"
+    )]
     use super::*;
     use crate::math::settings::SensitivityRequest;
     use crate::workflow::tests as fixture;

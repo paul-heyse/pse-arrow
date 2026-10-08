@@ -116,7 +116,8 @@ async fn load(
         &rt.validation_context().unwrap(),
     )?;
     let documents = OwnedDocumentSet::try_from_bundles(vec![bundle], &pool, &token)?;
-    rt.modeling_from_documents(&documents, physical()).await
+    rt.modeling_from_documents(&documents, physical(), &crate::CancelSource::new())
+        .await
 }
 async fn refusal(rt: &Runtime, sources: &BTreeMap<String, Vec<u8>>) -> String {
     match load(rt, sources).await {
@@ -216,7 +217,11 @@ async fn worker_source_loader_preserves_binary_keyed_documents() {
     let documents = sources(text, bytes.clone());
     // This is the same package-from-sources entry the durable worker invokes.
     let loaded = rt
-        .package_from_sources(std::slice::from_ref(&documents), physical())
+        .package_from_sources(
+            std::slice::from_ref(&documents),
+            physical(),
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     let direct = load(&rt, &documents).await.unwrap();
@@ -616,4 +621,32 @@ async fn measured_parquet_attributes_use_admitted_quantities_uncertainty_and_ori
         .unwrap();
     assert_eq!(withheld.value, None);
     assert_eq!(withheld.standard_deviation, None);
+}
+
+#[tokio::test]
+async fn worker_source_loader_observes_precancelled_admission_on_cache_hits_and_misses() {
+    let rt = runtime();
+    let documents = sources(BANK, parquet(bank_columns()));
+    let cancel = crate::CancelSource::new();
+    cancel.cancel();
+    for cached in [false, true] {
+        if cached {
+            rt.package_from_sources(
+                std::slice::from_ref(&documents),
+                physical(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        }
+        let error = rt
+            .package_from_sources(std::slice::from_ref(&documents), physical(), &cancel)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.boundary_diagnostic().code,
+            pse_diagnostics::DiagnosticCode::RuntimeCancelled,
+            "caller cancellation precedes source admission; cached={cached}"
+        );
+    }
 }

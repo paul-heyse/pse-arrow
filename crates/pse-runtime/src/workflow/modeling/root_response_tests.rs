@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Public Root request, physical response publication and independent withholding.
+#![allow(
+    clippy::unwrap_used,
+    reason = "root response oracles require the original variable, primal response and numerical policy rows from their fixture"
+)]
 use super::results::{PortablePrediction, PredictionSample};
 use super::*;
 use crate::math::{settings::SensitivityRequest, solves::NumericalInputs};

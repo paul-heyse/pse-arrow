@@ -290,6 +290,9 @@ async fn run(
     observations: &mut observations::Observations,
 ) {
     match operation {
+        "curved-fit" | "curved-gradient" => {
+            curved_fit::run(owner, observations, operation == "curved-gradient").await;
+        }
         "conic" => cone(owner, observations).await,
         "recycle" => recycle(owner, observations).await,
         "sparse-fit" => sparse_fit(owner, size, observations).await,
@@ -436,7 +439,7 @@ async fn run(
                 let experiment = SemanticId::parse_hex("b39f24e05b7d5490904f6138b4d7e080").unwrap();
                 selected.simulations.insert(experiment.into(), integration);
             }
-            let result = package
+            let prepared = package
                 .prepare_fit(
                     fit,
                     selected,
@@ -445,12 +448,8 @@ async fn run(
                     &CancelSource::new(),
                 )
                 .await
-                .unwrap()
-                .start()
-                .unwrap()
-                .wait()
-                .await
                 .unwrap();
+            let result = prepared.start().unwrap().wait().await.unwrap();
             observations.run(&result);
             let RunReport::Fit(report) = result.report().unwrap() else {
                 panic!("missing fit")

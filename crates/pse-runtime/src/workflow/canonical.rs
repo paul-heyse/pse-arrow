@@ -3,7 +3,7 @@
 
 //! Deployment composition for the mandatory canonical scientific substrate.
 
-use crate::math::portable::QualifiedProducer;
+use crate::math::portable::ReplayAdmission;
 use pse_ids::ContentHash;
 use pse_operations::canonical::CanonicalStore;
 
@@ -22,7 +22,7 @@ pub struct OuterAttestation {
 pub struct CanonicalDeployment {
     store: CanonicalStore,
     attestation: OuterAttestation,
-    producer: Option<QualifiedProducer>,
+    producer: Option<ReplayAdmission>,
 }
 impl CanonicalDeployment {
     /// Attach an already opened, interpretation-checked canonical database.
@@ -30,7 +30,7 @@ impl CanonicalDeployment {
     pub fn new(
         store: CanonicalStore,
         attestation: OuterAttestation,
-        producer: Option<QualifiedProducer>,
+        producer: Option<ReplayAdmission>,
     ) -> Self {
         Self {
             store,
@@ -43,7 +43,7 @@ impl CanonicalDeployment {
         &self.store
     }
     /// Eligible relevant mathematical producer, when deployment inputs were qualified.
-    pub fn producer(&self) -> Option<&QualifiedProducer> {
+    pub fn producer(&self) -> Option<&ReplayAdmission> {
         self.producer.as_ref()
     }
     /// Complete executable provenance used by result lineage and publications.

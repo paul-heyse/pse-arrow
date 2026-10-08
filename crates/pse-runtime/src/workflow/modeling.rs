@@ -392,32 +392,36 @@ impl Runtime {
         &self,
         documents: &crate::authoring_driver::document::OwnedDocumentSet,
         physical: PhysicalContext,
+        cancel: &crate::CancelSource,
     ) -> Result<ModelingPackage, WorkflowError> {
+        let token = cancel.token();
+        token.checkpoint().map_err(pse_engine::EngineError::from)?;
         let validation = self.sessions.validation_context(&self.registry)?;
-        documents.validate_context(
-            &self.registry,
-            &validation,
-            &self.shared.pool(),
-            &pse_columnar::CancellationToken::new(),
-        )?;
+        documents.validate_context(&self.registry, &validation, &self.shared.pool(), &token)?;
         let (rows, scope, fits, sources, inventory, _input_lease) = document_inputs(
             documents,
             &self.registry,
             &physical,
             self.shared.budget().math.workspace_bytes,
             &self.shared.pool(),
-            &pse_columnar::CancellationToken::new(),
+            &token,
         )?;
-        self.persist_modeling(
-            rows,
-            physical,
-            scope,
-            inventory,
-            sources,
-            fits,
-            BTreeMap::new(),
-        )
-        .await
+        token.checkpoint().map_err(pse_engine::EngineError::from)?;
+        // Publication is an issued canonical effect; finish its owner before
+        // observing cancellation again. Pure validation uses the caller token.
+        let package = self
+            .persist_modeling(
+                rows,
+                physical,
+                scope,
+                inventory,
+                sources,
+                fits,
+                BTreeMap::new(),
+            )
+            .await?;
+        token.checkpoint().map_err(pse_engine::EngineError::from)?;
+        Ok(package)
     }
     /// Persist registry-generated rows without serializing through a text document.
     pub async fn modeling_package(
@@ -1117,7 +1121,7 @@ mod tests {
         );
         assert_eq!(small.reserved(), 0);
         let package = rt
-            .modeling_from_documents(&documents, physical)
+            .modeling_from_documents(&documents, physical, &crate::CancelSource::new())
             .await
             .unwrap();
         let original = package
@@ -1417,7 +1421,11 @@ mod import_tests {
         ] {
             let selected = async |manifest: &str| {
                 let package = rt
-                    .modeling_from_documents(&package(manifest, source), physical.clone())
+                    .modeling_from_documents(
+                        &package(manifest, source),
+                        physical.clone(),
+                        &crate::CancelSource::new(),
+                    )
                     .await?;
                 let root = package
                     .declarations()
@@ -1483,7 +1491,7 @@ mod import_tests {
             )
             .unwrap();
             let package = rt
-                .modeling_from_documents(&documents, physical.clone())
+                .modeling_from_documents(&documents, physical.clone(), &crate::CancelSource::new())
                 .await?;
             // Draft persistence is structural; these controls demand the authored
             // importing scope/function before checking its scientific obligations.
@@ -1586,7 +1594,7 @@ mod import_tests {
                 parts, &pool, &token,
             )
             .unwrap();
-            rt.modeling_from_documents(&documents, physical.clone())
+            rt.modeling_from_documents(&documents, physical.clone(), &crate::CancelSource::new())
                 .await
         };
         assert!(
@@ -1657,9 +1665,13 @@ mod import_tests {
             )
             .unwrap();
             assert_eq!(
-                rt.modeling_from_documents(&documents, physical.clone())
-                    .await
-                    .is_ok(),
+                rt.modeling_from_documents(
+                    &documents,
+                    physical.clone(),
+                    &crate::CancelSource::new()
+                )
+                .await
+                .is_ok(),
                 valid
             );
         }

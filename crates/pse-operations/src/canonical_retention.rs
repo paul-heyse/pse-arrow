@@ -304,6 +304,11 @@ COMMIT;"#;
 
 #[cfg(all(test, feature = "canonical-tests"))]
 mod canonical_server_unit {
+    #![allow(
+        clippy::expect_used,
+        clippy::unwrap_used,
+        reason = "isolated retention fixtures and assertions fail the test on unexpected results"
+    )]
     use super::*;
     use crate::canonical::checked;
     use crate::canonical::{CanonicalOptions, ObjectEdit};
@@ -605,10 +610,13 @@ mod canonical_server_unit {
             .await
             .unwrap();
         let mut tasks = tokio::task::JoinSet::new();
-        for _ in 0..4 {
+        let barrier = std::sync::Arc::new(tokio::sync::Barrier::new(16));
+        for _ in 0..16 {
             let store = store.clone();
             let revision = revision.clone();
+            let barrier = barrier.clone();
             tasks.spawn(async move {
+                barrier.wait().await;
                 for _ in 0..8 {
                     let pin = store
                         .protect(revision.clone(), Duration::from_secs(60))
@@ -639,10 +647,14 @@ mod canonical_server_unit {
                 }
             });
         }
+        let mut results = Vec::new();
         while let Some(result) = tasks.join_next().await {
-            result.unwrap();
+            results.push(result);
         }
         remove(&store, &database).await;
+        for result in results {
+            result.unwrap();
+        }
     }
 
     #[tokio::test]

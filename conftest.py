@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 """Repository-wide pytest plugins (plan §5).
 
-Three rules, each of which exists because its absence has produced a green run
+Four rules, each of which exists because its absence has produced a green run
 that proved nothing:
 
 1. **Marker discipline.** Every test carries exactly one of ``unit``,
@@ -15,6 +15,9 @@ that proved nothing:
    line saying so. With it, the environment is verified once per session and
    the session *fails* if the environment is wrong. It never skips: a parity
    suite that skips is indistinguishable from one that passes.
+4. **``--producer-deployment``.** Strict deployment capture controls are
+   deselected by default. Their operator-owned campaign opts in explicitly;
+   requested controls still fail when current captures are absent.
 
 Stdlib and pytest only: this file has to work before the project's own package
 is importable.
@@ -28,9 +31,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+import xdist
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Generator, Sequence
+
+    from xdist.workermanage import WorkerController
 
 #: Exactly one of these is required on every test item.
 REQUIRED_MARKERS = frozenset({"unit", "component", "integration", "performance"})
@@ -86,7 +92,7 @@ _require_native_libraries()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    """Register the two opt-in suite flags.
+    """Register the explicit suite opt-ins.
 
     Args:
         parser: The pytest option parser.
@@ -106,6 +112,16 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help=(
             "run the IDAES parity suite; requires the parity environment and "
             "FAILS (never skips) without it"
+        ),
+    )
+    parser.addoption(
+        "--producer-deployment",
+        action="store_true",
+        dest="producer_deployment",
+        default=False,
+        help=(
+            "run strict actual deployment capture controls; "
+            "fails without current captures"
         ),
     )
 
@@ -190,6 +206,31 @@ def _deselect_parity(config: pytest.Config, items: list[pytest.Item]) -> None:
     config.stash[_parity_deselected_key] = len(deselected)
 
 
+def _deselect_producer_deployment(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    """Leave strict capture controls out unless their operator campaign opts in.
+
+    Args:
+        config: The active configuration.
+        items: The collected items; modified in place.
+    """
+    if config.option.producer_deployment:
+        return
+    kept: list[pytest.Item] = []
+    deselected: list[pytest.Item] = []
+    for item in items:
+        (deselected if item.get_closest_marker("producer_deployment") else kept).append(
+            item
+        )
+    if not deselected:
+        return
+    config.hook.pytest_deselected(items=deselected)
+    items[:] = kept
+    config.stash[_producer_deployment_deselected_key] = len(deselected)
+
+
+_producer_deployment_deselected_key = pytest.StashKey[int]()
 _parity_deselected_key = pytest.StashKey[int]()
 _parity_uncollected_key = pytest.StashKey[bool]()
 #: The parity test tree. Its conftest imports IDAES, which only the parity environment
@@ -225,7 +266,7 @@ def pytest_collection_modifyitems(
     config: pytest.Config,
     items: list[pytest.Item],
 ) -> "Generator[None, object, object]":
-    """Enforce marker discipline, then deselect parity items when not opted in.
+    """Enforce marker discipline, then deselect controls without their opt-in.
 
     The marker check runs *before* mark-expression deselection so that running a
     subset never hides an unmarked test.
@@ -240,6 +281,7 @@ def pytest_collection_modifyitems(
     _check_markers(items)
     result = yield
     _deselect_parity(config, items)
+    _deselect_producer_deployment(config, items)
     return result
 
 
@@ -253,14 +295,38 @@ def pytest_collection_finish(session: pytest.Session) -> None:
     if path:
         for item in session.items:
             item.user_properties.append(("nodeid", item.nodeid))
-        # Node IDs cannot contain newlines; collection is a line-oriented inventory.
-        temporary = Path(path).with_suffix(f".{os.getpid()}.tmp")
-        temporary.write_text("\n".join(item.nodeid for item in session.items) + "\n")
-        temporary.replace(path)
+        if xdist.is_xdist_worker(session):
+            return
+        # collect-only stays local even when parallel execution is configured.
+        if session.config.getoption("collectonly") or not xdist.is_xdist_controller(
+            session
+        ):
+            _write_selected_inventory(path, [item.nodeid for item in session.items])
+
+
+_parallel_inventory_written_key = pytest.StashKey[bool]()
+
+
+def _write_selected_inventory(path: str, identities: "Sequence[str]") -> None:
+    """Persist one atomic collection inventory owned by the controller."""
+    temporary = Path(path).with_suffix(f".{os.getpid()}.tmp")
+    temporary.write_text("\n".join(identities) + "\n")
+    temporary.replace(path)
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_xdist_node_collection_finished(
+    node: "WorkerController", ids: "Sequence[str]"
+) -> None:
+    """Record the worker collection once; xdist verifies agreement across workers."""
+    path = os.environ.get("PSE_TEST_ENUMERATION")
+    if path and not node.config.stash.get(_parallel_inventory_written_key, False):
+        _write_selected_inventory(path, ids)
+        node.config.stash[_parallel_inventory_written_key] = True
 
 
 def pytest_report_collectionfinish(config: pytest.Config) -> list[str]:
-    """Say, in one line, that parity items were left out.
+    """Explain which explicit opt-in controls were left out.
 
     Args:
         config: The active configuration.
@@ -268,21 +334,25 @@ def pytest_report_collectionfinish(config: pytest.Config) -> list[str]:
     Returns:
         The lines to add to the collection summary.
     """
+    lines: list[str] = []
     count = config.stash.get(_parity_deselected_key, 0)
-    if not count:
-        if config.stash.get(_parity_uncollected_key, False):
-            return [
-                (
-                    "parity suite not collected: pass --parity "
-                    "(in the parity environment) to run it"
-                )
-            ]
-        return []
-    line = (
-        f"deselected {count} parity test(s): pass --parity to run them "
-        f"(needs idaes-pse=={PARITY_IDAES_VERSION} and ipopt on PATH)"
-    )
-    return [line]
+    if count:
+        lines.append(
+            f"deselected {count} parity test(s): pass --parity to run them "
+            f"(needs idaes-pse=={PARITY_IDAES_VERSION} and ipopt on PATH)"
+        )
+    elif config.stash.get(_parity_uncollected_key, False):
+        lines.append(
+            "parity suite not collected: pass --parity "
+            "(in the parity environment) to run it"
+        )
+    count = config.stash.get(_producer_deployment_deselected_key, 0)
+    if count:
+        lines.append(
+            f"deselected {count} producer deployment test(s): pass "
+            "--producer-deployment with current deployment captures to run them"
+        )
+    return lines
 
 
 def _parity_environment_problems() -> list[str]:

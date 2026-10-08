@@ -762,21 +762,22 @@ mod canonical_connected_results_server_unit {
             .await
             .unwrap();
         let batch = reader.next_batch().await.unwrap().unwrap();
-        let view = solve_metrics::View::try_from_batch_with_registry(
-            &runtime.registry,
-            &batch,
-            &validation,
-        )
-        .unwrap();
-        assert_eq!(
-            (0..view.len())
-                .map(|index| view.row(index).unwrap())
-                .collect::<Vec<_>>(),
-            expected
-        );
+        {
+            let view = solve_metrics::View::try_from_batch_with_registry(
+                &runtime.registry,
+                &batch,
+                &validation,
+            )
+            .unwrap();
+            assert_eq!(
+                (0..view.len())
+                    .map(|index| view.row(index).unwrap())
+                    .collect::<Vec<_>>(),
+                expected
+            );
+        }
         let escaped = batch.column_by_name("real").unwrap().clone();
         assert!(store.forget_run_results("decoded-owner").await.is_err());
-        drop(view);
         drop(reader);
         drop(batch);
         assert!(pool.reserved() > baseline);
@@ -885,7 +886,7 @@ mod canonical_connected_results_server_unit {
         }
         let parameters = parameters.finish().unwrap();
         super::super::result_projection::store_result_table(
-            &store,
+            store,
             &fence,
             fit_parameters::RELATION_ID,
             &parameters,
@@ -913,7 +914,7 @@ mod canonical_connected_results_server_unit {
         }
         let samples = samples.finish().unwrap();
         super::super::result_projection::store_result_table(
-            &store,
+            store,
             &fence,
             simulation_samples::RELATION_ID,
             &samples,

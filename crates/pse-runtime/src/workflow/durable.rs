@@ -1954,6 +1954,11 @@ fn reserve(
 
 #[cfg(all(test, feature = "canonical-tests"))]
 mod canonical_durable_codec {
+    #![allow(
+        clippy::unwrap_used,
+        clippy::unreachable,
+        reason = "canonical codec fixtures require durable setup and the exact root payload variant under test"
+    )]
     use super::*;
     use pse_backend_native::solve::Metric;
     use std::collections::BTreeMap;

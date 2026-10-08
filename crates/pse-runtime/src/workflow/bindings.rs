@@ -155,7 +155,7 @@ impl ModelingPackage {
             entries: BTreeMap::new(),
         };
         let seed_need = operation
-            .admit_binding_seed_need(self, &binding, cancel)
+            .admit_binding_seed_need(self, &binding, admission, cancel)
             .await?;
         Ok((binding, seed_need))
     }

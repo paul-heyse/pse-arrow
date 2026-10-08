@@ -210,6 +210,81 @@ impl IntegratedExperiment {
         )?;
         completed(report)
     }
+    /// Compose the frozen production state allowances through the current output's
+    /// exact partials. This is a physical comparison allowance, not a global error
+    /// enclosure inferred from the native integration controls.
+    pub(crate) fn prediction_allowances(
+        &self,
+        value: &dyn Fn(usize) -> f64,
+        execution: &Execution,
+        report: &native::dynamics::Report,
+    ) -> Result<Vec<Vec<f64>>, ProblemError> {
+        use native::dynamics::Oracle;
+        let parameters = self.bind(value);
+        let mut worker = self.program.worker(execution.scope()?)?;
+        report
+            .samples
+            .iter()
+            .map(|sample| {
+                let budgets = self
+                    .program
+                    .state_allowances
+                    .get(sample.mode)
+                    .ok_or_else(|| ProblemError::internal("fit prediction allowance mode"))?;
+                if budgets.len() != sample.state.len()
+                    || budgets.iter().any(|v| !v.is_finite() || *v < 0.)
+                {
+                    return Err(ProblemError::Contract(
+                        "fit prediction physical allowances".into(),
+                    ));
+                }
+                let evaluation = worker.evaluate(
+                    sample.mode,
+                    native::dynamics::Function::Output,
+                    sample.time,
+                    &sample.state,
+                    &self.profile.parameters_at(&parameters, sample.time),
+                    true,
+                )?;
+                let partials = evaluation
+                    .jacobian
+                    .ok_or_else(|| ProblemError::internal("fit prediction output partials"))?;
+                let mut allowances = vec![0.; sample.outputs.len()];
+                if partials.nrows() != allowances.len() || partials.ncols() < budgets.len() {
+                    return Err(ProblemError::internal("fit prediction partial extent"));
+                }
+                for (column, budget) in budgets.iter().enumerate() {
+                    for k in partials.col_range(column) {
+                        allowances[partials.row_idx()[k]] += partials.val()[k].abs() * budget;
+                    }
+                }
+                let declared = self
+                    .program
+                    .output_allowances
+                    .get(sample.mode)
+                    .ok_or_else(|| ProblemError::internal("fit output allowance mode"))?;
+                if declared.len() != allowances.len() {
+                    return Err(ProblemError::internal("fit output allowance extent"));
+                }
+                for (allowance, cap) in allowances.iter_mut().zip(declared) {
+                    if let Some(cap) = cap {
+                        if !cap.is_finite() || *cap < 0. {
+                            return Err(ProblemError::Contract(
+                                "fit declared output allowance".into(),
+                            ));
+                        }
+                        *allowance = allowance.min(*cap);
+                    }
+                }
+                if allowances.iter().any(|v| !v.is_finite()) {
+                    return Err(ProblemError::numerical(
+                        "nonfinite fit prediction allowance",
+                    ));
+                }
+                Ok(allowances)
+            })
+            .collect()
+    }
     /// One forward and one backward pass: the forward report and the gradient of the
     /// cotangent's functional with respect to each binding's consumer parameter, as
     /// `(parameter, value)` pairs. The checkpoints are charged against the attempt's

@@ -205,7 +205,7 @@ pub(crate) async fn seed_package_on(
         .await
         .unwrap();
     runtime
-        .modeling_from_documents(&documents, physical)
+        .modeling_from_documents(&documents, physical, &owner.cancellation)
         .await
         .unwrap()
 }

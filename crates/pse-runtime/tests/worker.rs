@@ -103,10 +103,16 @@ fn supervisor_python(code: &str) -> std::process::Command {
     command
 }
 fn managed_worker(database: &str) -> std::process::Command {
+    managed_worker_command(
+        database,
+        &std::env::var_os("PSE_WORKER_BINARY").expect("worker-test supplies its built worker"),
+    )
+}
+fn managed_worker_command(database: &str, executable: &std::ffi::OsStr) -> std::process::Command {
     let mut command = supervisor();
     command
         .args(["worker", "--worker-command"])
-        .arg(std::env::var_os("PSE_WORKER_BINARY").expect("worker-test supplies its built worker"))
+        .arg(executable)
         .args(["--canonical-database", database]);
     command
 }
@@ -251,7 +257,7 @@ async fn package(
         OwnedDocumentSet::try_from_bundles(vec![load(modeling)], &pool, &cancel).unwrap();
     (
         runtime
-            .modeling_from_documents(&modeling, context.clone())
+            .modeling_from_documents(&modeling, context.clone(), &CancelSource::new())
             .await
             .unwrap(),
         context,
@@ -507,13 +513,16 @@ async fn submit_single(
         .unwrap()
         .declaration_id;
     let handle = local
-        .start_study(StudyPlan {
-            sources: PackageSources {
-                physical,
-                modeling: vec![modeling],
+        .start_study(
+            StudyPlan {
+                sources: PackageSources {
+                    physical,
+                    modeling: vec![modeling],
+                },
+                points: vec![occurrence(case, 0, settings, attempt_limit)],
             },
-            points: vec![occurrence(case, 0, settings, attempt_limit)],
-        })
+            &CancelSource::new(),
+        )
         .await
         .unwrap();
     (package, case, handle)
@@ -600,6 +609,135 @@ async fn assert_value(local: &Runtime, run: &str, attempt: &str, wanted: f64) {
         variables, 1,
         "one original free scalar variable, excluding fixed parameters"
     );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one managed two-process journey keeps scientific assertions and optional fresh-miss cleanup together"
+)]
+async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
+    let _managed = ManagedWorkerCase::acquire();
+    let (shared, local) = runtime();
+    let (local, operations) =
+        bind_operations(&shared, local, "replay-enqueuer", LeasePolicy::default());
+    let expect_miss = std::env::var_os("PSE_WORKER_REPLAY_EXPECT_MISS").is_some();
+    let (physical, modeling) = if expect_miss {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+            % 1_000_000_000_000;
+        sources_of(&SQUARE.replace("x*x==4", &format!("x*x==4+{nonce}/1000000000000")))
+    } else {
+        sources()
+    };
+    let (package, _) = package(&shared, &local, &physical, &modeling).await;
+    let case = package
+        .declarations()
+        .await
+        .unwrap()
+        .iter()
+        .find(|d| d.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let actual =
+        std::env::var_os("PSE_WORKER_BINARY").expect("worker-test supplies its built worker");
+    let first = std::env::var_os("PSE_WORKER_REPLAY_FIRST_PROBE").unwrap_or_else(|| actual.clone());
+    assert!(
+        !expect_miss || std::env::var_os("PSE_WORKER_REPLAY_FIRST_PROBE").is_some(),
+        "fresh-miss diagnostic requires a first-worker probe"
+    );
+    // The receiving probe is optional; ordinary runs use the actual worker for both launches.
+    let receiving = std::env::var_os("PSE_WORKER_REPLAY_PROBE").unwrap_or_else(|| actual.clone());
+    let mut previous = None;
+    for (name, executable) in [
+        ("worker-replay-first", first),
+        ("worker-replay-receiver", receiving),
+    ] {
+        let handle = local
+            .start_study(
+                StudyPlan {
+                    sources: PackageSources {
+                        physical: physical.clone(),
+                        modeling: vec![modeling.clone()],
+                    },
+                    points: vec![occurrence(case, 0, settings(), 1)],
+                },
+                &CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let mut command = managed_worker_command(local.canonical_store().database(), &executable);
+        command.env_remove("PSE_PRODUCER_RECEIPT").args([
+            "--name",
+            name,
+            "--until-idle",
+            "--lease-seconds",
+            "30",
+            "--heartbeat-ms",
+            "200",
+            "--threads",
+            "2",
+        ]);
+        let exited = tokio::task::spawn_blocking(move || command.spawn().unwrap().wait().unwrap())
+            .await
+            .unwrap();
+        if expect_miss {
+            drop(_managed);
+            assert!(supervisor_python("from scripts import surreal_server as s; import os,pathlib; p=pathlib.Path(os.environ['PSE_SURREAL_STATE']); s.workers_drained(p,s.config_for(p))").status().unwrap().success());
+            drop(handle);
+            drop(package);
+            local
+                .canonical_store()
+                .remove_isolated_fixture()
+                .await
+                .unwrap();
+            assert_eq!(
+                exited.code(),
+                Some(42),
+                "fresh-admission hardware discriminator must fire"
+            );
+            return;
+        }
+        assert!(exited.success(), "{name}: {exited}");
+        let status = handle.status().await.unwrap();
+        assert_eq!(status.state, StudyState::Concluded);
+        assert_eq!(status.points.len(), 1);
+        let point = &status.points[0];
+        assert_eq!(point.state, StudyPointState::Completed);
+        let outcome = point.outcome.as_ref().unwrap();
+        assert!(outcome.scientific.usable);
+        assert_eq!(outcome.attempts.len(), 1);
+        let attempt = point.attempt.as_deref().unwrap();
+        let stored = operations
+            .store()
+            .canonical_attempt(attempt)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(stored.terminal);
+        assert_eq!(stored.outcome.as_deref(), Some("succeeded"));
+        assert_eq!(stored.worker, name);
+        assert_value(&local, &point.run, attempt, 2.).await;
+        let identity = (
+            handle.study_id().to_string(),
+            point.run.clone(),
+            attempt.to_owned(),
+        );
+        if let Some((study, run, attempt)) = previous {
+            assert_ne!(identity.0, study);
+            assert_ne!(identity.1, run);
+            assert_ne!(identity.2, attempt);
+        }
+        previous = Some(identity);
+    }
+    drop(package);
+    local
+        .canonical_store()
+        .remove_isolated_fixture()
+        .await
+        .unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -981,13 +1119,16 @@ async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
         })
         .collect();
     let handle = local
-        .start_study(StudyPlan {
-            sources: PackageSources {
-                physical,
-                modeling: vec![modeling],
+        .start_study(
+            StudyPlan {
+                sources: PackageSources {
+                    physical,
+                    modeling: vec![modeling],
+                },
+                points,
             },
-            points,
-        })
+            &CancelSource::new(),
+        )
         .await
         .unwrap();
     let mut children = ["worker-left", "worker-right"]

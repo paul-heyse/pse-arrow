@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Canonical scientific execution and exact historical reopening.
+#![allow(
+    clippy::unwrap_used,
+    clippy::unreachable,
+    reason = "durable execution fixtures require valid authored setup and durable operation ownership"
+)]
 use super::tests::{compiler_profile, physical, profile};
 use super::*;
 use pse_backend_native::solve::{Backend, ReusePolicy, SolverSelection};

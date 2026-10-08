@@ -221,6 +221,7 @@ def comprehensive(python_profile: str = "dev") -> list[Gate]:
                 "python-deployment-association",
                 (
                     "{output}/deployment-association",
+                    "--producer-deployment",
                     "python/pse/tests/test_canonical_results.py::test_canonical_eligible_deployment_receipt_reopens_original_scalar",
                 ),
                 report="{output}/deployment-association/native-python.xml",
@@ -228,6 +229,18 @@ def comprehensive(python_profile: str = "dev") -> list[Gate]:
                 recipe="native-python",
                 mode="python-native",
                 input_scope="python-product",
+            ),
+            replace(
+                native_gate("native-deployment-association"),
+                args=(
+                    "--profile",
+                    "local",
+                    "--run-ignored",
+                    "all",
+                    "-E",
+                    "test(=math::portable::canonical_deployment_tests::canonical_deployment_actual_receipts_enforce_selected_role)",
+                ),
+                dependencies=("python-deployment-association",),
             ),
         ]
         if deployment
@@ -282,7 +295,7 @@ def comprehensive(python_profile: str = "dev") -> list[Gate]:
         ),
         Gate(
             "native-python",
-            ("{output}",),
+            ("{output}", "--producer-deployment") if deployment else ("{output}",),
             "{output}/native-python.xml",
             dependencies=("py-sync-native", "python-deployment-association")
             if deployment

@@ -13,7 +13,7 @@ use std::sync::atomic::Ordering;
 enum Key {
     Package(AdmittedClosureHash),
     Selected(Arc<crate::workflow::modeling::SelectedRequest>),
-    Body(SemanticBodyHash),
+    Body(SemanticBodyHash, Option<String>),
     Solver(PreparedViewHash),
     Observation(PreparedViewHash),
     Parametric(PreparedViewHash),
@@ -24,6 +24,7 @@ impl CacheKey for Key {
             + 128
             + match self {
                 Self::Selected(request) => request.retained_bytes(),
+                Self::Body(_, producer) => producer.as_ref().map_or(0, String::capacity),
                 _ => 0,
             }
     }
@@ -238,6 +239,60 @@ pub(super) struct BodyRetention(pub std::sync::Weak<MathService>);
 // Cancellation can unwind admission. Published entries are immutable; lease transfer,
 // cache insertion and ownership tables use their own guarded operations and RAII.
 impl std::panic::RefUnwindSafe for BodyRetention {}
+impl BodyRetention {
+    // Clone the namespaced candidate before entering the loader scope. Cache locks
+    // must never be acquired from inside that scope; the canonical attachment
+    // checks current admission before exposing a candidate for mathematical use.
+    pub(super) fn get_for_producer(
+        &self,
+        key: SemanticBodyHash,
+        producer: Option<&portable::ReplayAdmission>,
+    ) -> Result<Option<Arc<pse_compiler::typed_math::AdmittedBody>>, pse_math::MathError> {
+        let Some(service) = self.0.upgrade() else {
+            return Ok(None);
+        };
+        Ok(
+            match service.modeling_cache.get(&Key::Body(
+                key,
+                producer.map(portable::ReplayAdmission::key),
+            )) {
+                Some(Product::Body(body)) => Some(body),
+                _ => None,
+            },
+        )
+    }
+    pub(super) fn retain_for_producer(
+        &self,
+        generation: u64,
+        key: SemanticBodyHash,
+        body: Arc<pse_compiler::typed_math::AdmittedBody>,
+        producer: Option<&portable::ReplayAdmission>,
+    ) -> Result<Arc<pse_compiler::typed_math::AdmittedBody>, pse_math::MathError> {
+        let Some(service) = self.0.upgrade() else {
+            return Ok(body);
+        };
+        // Tag this fill only while its exact admission is current. Commit no cache
+        // side effects until the scope's before/after validation has succeeded.
+        // A stale admission can still retain fresh mathematical output, but only
+        // in the ordinary unqualified namespace, never under its historical key.
+        let (body, namespace) = producer
+            .and_then(|producer| producer.with_current(|| (body.clone(), producer.key())))
+            .map_or_else(|| (body, None), |(body, key)| (body, Some(key)));
+        let owned =
+            service
+                .own_semantic_body(body)
+                .map_err(|error| pse_math::MathError::Typed {
+                    retained: size_of::<MathRuntimeError>(),
+                    cause: pse_model::diagnostic::DiagnosticCause::new(error),
+                })?;
+        service.modeling_cache.put(
+            generation,
+            Key::Body(key, namespace),
+            Product::Body(owned.clone()),
+        );
+        Ok(owned)
+    }
+}
 impl ModelingBodyRetention for BodyRetention {
     fn generation(&self) -> u64 {
         self.0
@@ -248,13 +303,7 @@ impl ModelingBodyRetention for BodyRetention {
         &self,
         key: SemanticBodyHash,
     ) -> Result<Option<Arc<pse_compiler::typed_math::AdmittedBody>>, pse_math::MathError> {
-        let Some(service) = self.0.upgrade() else {
-            return Ok(None);
-        };
-        Ok(match service.modeling_cache.get(&Key::Body(key)) {
-            Some(Product::Body(body)) => Some(body),
-            _ => None,
-        })
+        self.get_for_producer(key, None)
     }
     fn retain(
         &self,
@@ -262,20 +311,7 @@ impl ModelingBodyRetention for BodyRetention {
         key: SemanticBodyHash,
         body: Arc<pse_compiler::typed_math::AdmittedBody>,
     ) -> Result<Arc<pse_compiler::typed_math::AdmittedBody>, pse_math::MathError> {
-        let Some(service) = self.0.upgrade() else {
-            return Ok(body);
-        };
-        let owned =
-            service
-                .own_semantic_body(body)
-                .map_err(|error| pse_math::MathError::Typed {
-                    retained: size_of::<MathRuntimeError>(),
-                    cause: pse_model::diagnostic::DiagnosticCause::new(error),
-                })?;
-        service
-            .modeling_cache
-            .put(generation, Key::Body(key), Product::Body(owned.clone()));
-        Ok(owned)
+        self.retain_for_producer(generation, key, body, None)
     }
 }
 /// Protected selected-demand attachment; immutable math alone enters memory retention.
@@ -284,7 +320,7 @@ pub(super) struct CanonicalBodyRetention {
     pub(super) memory: BodyRetention,
     pub(super) store: Arc<pse_operations::canonical::CanonicalStore>,
     pub(super) read: Arc<Mutex<pse_operations::canonical_selection::SelectedRead>>,
-    pub(super) producer: Option<portable::QualifiedProducer>,
+    pub(super) producer: Option<portable::ReplayAdmission>,
     pub(super) outer_build: pse_ids::ContentHash,
     pub(super) inputs: CompilerContext,
     pub(super) cancelled: Arc<std::sync::atomic::AtomicBool>,
@@ -342,7 +378,18 @@ impl ModelingBodyRetention for CanonicalBodyRetention {
         if self.cancelled.load(Ordering::Relaxed) {
             return Err(pse_math::MathError::Cancelled);
         }
-        if let Some(body) = self.memory.get(key)? {
+        // A cache probe only clones an immutable candidate; no mathematical use
+        // escapes until admission is checked. Empty probes need no loader scope.
+        if let Some(candidate) = self.memory.get_for_producer(key, self.producer.as_ref())? {
+            let body = match &self.producer {
+                Some(admission) => {
+                    let Some(body) = admission.with_current(|| candidate) else {
+                        return Ok(None);
+                    };
+                    body
+                }
+                None => candidate,
+            };
             // A memory hit still makes this revision's durable reachability concrete.
             self.publish(&body)?;
             return Ok(Some(body));
@@ -370,8 +417,15 @@ impl ModelingBodyRetention for CanonicalBodyRetention {
             ),
         ))?;
         drop(read);
-        body.map(|body| self.memory.retain(self.generation(), key, Arc::new(body)))
-            .transpose()
+        body.map(|body| {
+            self.memory.retain_for_producer(
+                self.generation(),
+                key,
+                Arc::new(body),
+                self.producer.as_ref(),
+            )
+        })
+        .transpose()
     }
     fn retain(
         &self,
@@ -379,7 +433,9 @@ impl ModelingBodyRetention for CanonicalBodyRetention {
         key: SemanticBodyHash,
         body: Arc<pse_compiler::typed_math::AdmittedBody>,
     ) -> Result<Arc<pse_compiler::typed_math::AdmittedBody>, pse_math::MathError> {
-        let body = self.memory.retain(generation, key, body)?;
+        let body =
+            self.memory
+                .retain_for_producer(generation, key, body, self.producer.as_ref())?;
         self.publish(&body)?;
         Ok(body)
     }
@@ -405,7 +461,7 @@ impl CanonicalBodyRetention {
             pse_operations::canonical::REQUEST_TIMEOUT,
             async {
                 match &self.producer {
-                    Some(producer) => {
+                    Some(producer) if producer.is_current() => {
                         portable::publish_body(
                             &service,
                             &self.store,
@@ -416,7 +472,7 @@ impl CanonicalBodyRetention {
                         )
                         .await
                     }
-                    None => {
+                    _ => {
                         portable::publish_unqualified_body(
                             &service,
                             &self.store,

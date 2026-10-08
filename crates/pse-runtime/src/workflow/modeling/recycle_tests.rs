@@ -110,6 +110,10 @@ async fn reference_recycle_initialization_rejects_overheated_stage_without_commi
     reference_recycle_initialization("01a0f053f157702a825ee1acc5a50f11", false).await
 }
 
+#[allow(
+    clippy::print_stderr,
+    reason = "recycle qualification diagnostics retain stage, physical accuracy and solver observations for a failing scientific control"
+)]
 async fn reference_recycle_initialization(
     fixture: &str,
     expected_success: bool,

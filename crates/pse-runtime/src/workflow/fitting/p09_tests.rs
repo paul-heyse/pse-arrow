@@ -1634,3 +1634,144 @@ async fn exact_transient_fit_hessian_satisfies_production_action_basis() {
             && r.text.as_deref() == Some("idas_forward_over_adjoint")));
     }
 }
+
+/// The actual callback demand drives native passes and exact-bit point installation.
+#[tokio::test]
+async fn transient_fit_demand_cache_and_coherent_upgrade() {
+    let (package, mut selected) = source(true, 73.).await;
+    selected.derivatives = FitDerivatives::Gradient;
+    let (problem, _) = package
+        .prepare_fit_problem(
+            FitId::from(id(73)),
+            selected,
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    with_admitted_fit_oracle(problem.into(), move |oracle| {
+        let mut first = [0.];
+        oracle.gradient(&[2.5], &mut first).unwrap();
+        assert_eq!(oracle.transient_passes, (1, 1));
+        let report = oracle
+            .point
+            .as_ref()
+            .unwrap()
+            .trajectories
+            .values()
+            .next()
+            .unwrap()
+            .clone();
+        let mut repeated = [0.];
+        oracle.gradient(&[2.5], &mut repeated).unwrap();
+        assert_eq!(first, repeated);
+        assert_eq!(oracle.transient_passes, (1, 1));
+        assert!(Arc::ptr_eq(
+            &report,
+            oracle
+                .point
+                .as_ref()
+                .unwrap()
+                .trajectories
+                .values()
+                .next()
+                .unwrap()
+        ));
+        let earlier = oracle.objective(&[0.7]).unwrap();
+        assert_eq!(oracle.transient_passes, (2, 1));
+        assert!(oracle.point.as_ref().unwrap().adjoint.is_none());
+        let prior = oracle
+            .point
+            .as_ref()
+            .unwrap()
+            .trajectories
+            .values()
+            .next()
+            .unwrap()
+            .clone();
+        oracle.gradient(&[0.7], &mut repeated).unwrap();
+        assert_eq!(oracle.transient_passes, (3, 2));
+        assert!(!Arc::ptr_eq(
+            &prior,
+            oracle
+                .point
+                .as_ref()
+                .unwrap()
+                .trajectories
+                .values()
+                .next()
+                .unwrap()
+        ));
+        assert!(earlier.is_finite());
+        assert!(oracle.point.as_ref().unwrap().adjoint.is_some());
+        oracle.gradient(&[0.7], &mut first).unwrap();
+        assert_eq!(oracle.transient_passes, (3, 2));
+        // A materially inconsistent prior observation refuses the upgrade and leaves
+        // no derivative or mixed prediction cache installed.
+        oracle.objective(&[2.]).unwrap();
+        let old = oracle
+            .point
+            .as_mut()
+            .unwrap()
+            .trajectories
+            .values_mut()
+            .next()
+            .unwrap();
+        for sample in &mut Arc::get_mut(old)
+            .expect("the actual cached report has one owner")
+            .samples
+        {
+            for value in &mut sample.outputs {
+                *value += 100.;
+            }
+        }
+        assert!(oracle.gradient(&[2.], &mut first).is_err());
+        assert!(oracle.point.is_none());
+        oracle.gradient(&[2.], &mut first).unwrap();
+        assert!(oracle.point.as_ref().unwrap().adjoint.is_some());
+        // A nonfinite prediction in the actual earlier report also refuses atomically.
+        oracle.objective(&[1.5]).unwrap();
+        let old = oracle
+            .point
+            .as_mut()
+            .unwrap()
+            .trajectories
+            .values_mut()
+            .next()
+            .unwrap();
+        for sample in &mut Arc::get_mut(old)
+            .expect("the actual cached report has one owner")
+            .samples
+        {
+            sample.outputs.fill(f64::NAN);
+        }
+        assert!(oracle.gradient(&[1.5], &mut first).is_err());
+        assert!(oracle.point.is_none());
+        let memory = oracle.execution.memory.take();
+        oracle.objective(&[1.3]).unwrap();
+        assert!(oracle.gradient(&[1.3], &mut first).is_err());
+        assert!(oracle.point.is_none());
+        oracle.execution.memory = memory;
+        oracle.gradient(&[1.3], &mut first).unwrap();
+        // Signed zero has a distinct candidate key even with equal numerical values.
+        oracle.objective(&[0.]).unwrap();
+        let passes = oracle.transient_passes;
+        oracle.objective(&[-0.]).unwrap();
+        assert_eq!(oracle.transient_passes, (passes.0 + 1, passes.1));
+        oracle
+            .execution
+            .cancel
+            .store(true, std::sync::atomic::Ordering::Release);
+        assert!(oracle.gradient(&[-0.], &mut first).is_err());
+        assert!(oracle.point.is_none());
+        oracle
+            .execution
+            .cancel
+            .store(false, std::sync::atomic::Ordering::Release);
+        // Candidate bits participate in the key; invalid values retire the cache.
+        assert!(oracle.gradient(&[f64::NAN], &mut first).is_err());
+        assert!(oracle.point.is_none());
+    })
+    .await;
+}

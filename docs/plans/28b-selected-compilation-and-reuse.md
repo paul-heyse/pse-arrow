@@ -195,7 +195,7 @@ refusal semantics. No change forces rebuilding code or requalifying prior result
 
 | Package | Prerequisite and delivered behavior | Migration, deletion and focused acceptance | Status |
 |---|---|---|---|
-| B5 — Ordinary restart reconstruction | Accepted enhancement RC01 and working L5 observation/interpretation slice after its decision route. Publish/reconstruct compatible local products through the existing protected checker. | Migrate default worker and Python import/runtime admission, portable publication and retention together. Replace strict-only replay gating; retain explicit strict admission under its own guarantee. Prove actual restart reconstruction rather than fresh admission, independent artifact/role association, changed native/configuration and missing-context refusal, corruption handling, protection expiry and original dependency invalidation. | Scheduled; not implemented by plan authoring. |
+| B5 — Ordinary restart reconstruction | Accepted enhancement RC01 and working L5 observation/interpretation slice after its decision route. Publish/reconstruct compatible local products through the existing protected checker. | Migrate default worker and Python import/runtime admission, portable publication and retention together. Replace strict-only replay gating; retain explicit strict admission under its own guarantee. Prove actual restart reconstruction rather than fresh admission, independent artifact/role association, changed native/configuration and missing-context refusal, corruption handling, protection expiry and original dependency invalidation. | Implemented; persisted-hit, context/cache refusal and installed Python controls pass; assembled E3/E4 pending. |
 
 B5's receiving contract can be designed while C5/N5/N6 proceed. Its implementation cannot claim
 safe local replay until L5 establishes the supported effective context and stable observation-to-use
@@ -264,11 +264,14 @@ quantitative comparison; B4 may conclude that some dense library input is necess
 
 ## Checkpoint and next step
 
-The enhancement review adds scheduled B5 after L5; no default local replay is implemented yet.
-Existing checked selection and portable reconstruction are reused foundations. Record and implement
-the accepted decision route before replacing strict-only gating, then exercise real default restart
-consumers in E3. Earlier capture notes below describe the implemented strict route at their original
-scope; they do not make a producer-profile rebuild a blanket development prerequisite.
+B5's local/strict admission and versioned product interpretation are integrated after L5's
+recorded decision route. Both use the existing protected scientific reconstruction checker;
+unqualified historical publications are not promoted. Actual runtime reconnect controls
+distinguish local reconstruction from fresh admission. Worker/Python composition and the
+imported-extension concurrent-loader control are being verified before E3. Local artifact
+rehashing remains conservative and has no measured speed claim. Earlier capture notes below
+describe the strict route at their original scope; strict recapture remains optional development
+qualification rather than a blanket prerequisite.
 
 B1–B4 functional mechanisms are implemented. Checked batches and immutable typed rows
 retain the actual native validation owner. Same-owner readmission preserves existing

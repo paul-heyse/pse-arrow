@@ -73,6 +73,7 @@ async fn admitted(
                 .physical_from_sources(&physical, &cancel)
                 .await
                 .unwrap(),
+            &cancel,
         )
         .await
         .unwrap();
@@ -220,7 +221,7 @@ async fn canonical_study_cancel_preserves_distinct_unattempted_outcomes() {
         definition.points[1].binding_hash
     );
     let handle = runtime
-        .start_defined_study(sources.physical, definition)
+        .start_defined_study(sources.physical, definition, &crate::CancelSource::new())
         .await
         .unwrap();
     let receipt = handle.cancel().await.unwrap();
@@ -272,10 +273,13 @@ async fn canonical_study_plan_admits_physical_once_before_ready_occurrences() {
     .await;
     let before = pse_engine::cache_service::CacheComponent::report(runtime.physical_cache.as_ref());
     let handle = runtime
-        .start_study(StudyPlan {
-            sources,
-            points: authored.unwrap(),
-        })
+        .start_study(
+            StudyPlan {
+                sources,
+                points: authored.unwrap(),
+            },
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     let after = pse_engine::cache_service::CacheComponent::report(runtime.physical_cache.as_ref());
@@ -328,7 +332,7 @@ async fn canonical_study_equal_bindings_and_failed_usable_dependency() {
     );
     sources.modeling.clear();
     let handle = runtime
-        .start_defined_study(sources.physical, definition)
+        .start_defined_study(sources.physical, definition, &crate::CancelSource::new())
         .await
         .unwrap();
     let before =
@@ -374,7 +378,7 @@ async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
     .await;
     definition.points[0].policy.attempt_limit = 1;
     let handle = runtime
-        .start_defined_study(sources.physical, definition)
+        .start_defined_study(sources.physical, definition, &crate::CancelSource::new())
         .await
         .unwrap();
     let key = pse_operations::canonical_studies::point_key(
@@ -499,6 +503,7 @@ async fn related_definition(runtime: &Runtime) -> (ModelingPackage, StudyDefinit
                 .physical_from_sources(&physical, &cancel)
                 .await
                 .unwrap(),
+            &cancel,
         )
         .await
         .unwrap();
@@ -657,7 +662,7 @@ async fn canonical_study_explicit_missing_seed_refuses_without_native_attempt() 
     };
     let (physical, _) = sources(CASES);
     let handle = runtime
-        .start_defined_study(physical, definition)
+        .start_defined_study(physical, definition, &crate::CancelSource::new())
         .await
         .unwrap();
     loop {
@@ -696,7 +701,7 @@ async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_s
     definition.points.truncate(1);
     let (physical, _) = sources(CASES);
     let handle = runtime
-        .start_defined_study(physical, definition)
+        .start_defined_study(physical, definition, &crate::CancelSource::new())
         .await
         .unwrap();
     assert!(matches!(
@@ -799,7 +804,7 @@ async fn canonical_study_cancellation_after_summary_close_fences_success() {
     definition.points.truncate(1);
     let (physical, _) = sources(CASES);
     let handle = runtime
-        .start_defined_study(physical, definition)
+        .start_defined_study(physical, definition, &crate::CancelSource::new())
         .await
         .unwrap();
     assert!(matches!(
@@ -825,6 +830,8 @@ async fn canonical_study_cancellation_after_summary_close_fences_success() {
     let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
     handle.cancel().await.unwrap();
     assert!(
+        // SAFETY: this isolated negative fixture deliberately presents a stale success;
+        // cancellation must fence it before any scientific publication can be admitted.
         unsafe {
             store
                 .seal_attempt(
@@ -838,6 +845,8 @@ async fn canonical_study_cancellation_after_summary_close_fences_success() {
         .is_err()
     );
     assert!(
+        // SAFETY: the same cancelled summary fixture must refuse the stale owner's
+        // success assertion before admitting a study conclusion or exposing results.
         unsafe {
             store
                 .seal_study_summary(
@@ -863,4 +872,258 @@ async fn canonical_study_cancellation_after_summary_close_fences_success() {
         .unwrap();
     assert_eq!(parent.outcome.as_deref(), Some("cancelled"));
     assert!(handle.cancel().await.unwrap().already_concluded);
+}
+
+#[tokio::test]
+async fn study_creation_acquisition_observes_caller_cancellation() {
+    let cancel = crate::CancelSource::new();
+    let polled = std::cell::Cell::new(false);
+    let result = study::creation_input(&cancel, async {
+        polled.set(true);
+        cancel.cancel();
+        std::future::pending::<Result<(), WorkflowError>>().await
+    })
+    .await;
+    assert!(polled.get(), "cancellation was raised during acquisition");
+    assert_eq!(
+        result.unwrap_err().boundary_diagnostic().code,
+        pse_diagnostics::DiagnosticCode::RuntimeCancelled
+    );
+    let polled = std::cell::Cell::new(false);
+    let result = study::creation_input(&cancel, async {
+        polled.set(true);
+        Ok::<_, WorkflowError>(())
+    })
+    .await;
+    assert!(!polled.get(), "pre-cancelled acquisition never starts");
+    assert_eq!(
+        result.unwrap_err().boundary_diagnostic().code,
+        pse_diagnostics::DiagnosticCode::RuntimeCancelled
+    );
+}
+
+#[cfg(feature = "canonical-tests")]
+async fn stored_value_definition(runtime: &Runtime, count: u32) -> StudyDefinition {
+    let (_, admitted) = related_definition(runtime).await;
+    let first = &admitted.points[0];
+    StudyDefinition {
+        points: (0..count)
+            .map(|index| {
+                let mut next = first.clone();
+                next.policy.key = OccurrenceKey(index);
+                next.policy.start = StartPolicy::Fresh;
+                next.policy.dependencies.clear();
+                next.binding.entries.values_mut().next().unwrap().canonical =
+                    pse_model::scalars::FiniteBound::try_new(4.0 + f64::from(index % 20) * 0.01)
+                        .unwrap();
+                next.binding_hash = next.binding.identity();
+                next
+            })
+            .collect(),
+        ..admitted
+    }
+}
+
+#[cfg(feature = "canonical-tests")]
+#[tokio::test]
+async fn stored_study_creation_reuses_one_basis_for_thousand_value_occurrences() {
+    let runtime = durable_runtime();
+    let definition = stored_value_definition(&runtime, 1000).await;
+    assert_eq!(
+        definition.points[0].binding_hash,
+        definition.points[20].binding_hash
+    );
+    let (physical, _) = sources(CASES);
+    let (handle, constructions) = study_operations::counted_declared_admissions(
+        runtime.start_defined_study(physical, definition, &crate::CancelSource::new()),
+    )
+    .await;
+    let handle = handle.unwrap();
+    assert_eq!(
+        constructions, 1,
+        "actual stored readmission retains one declared basis"
+    );
+    let key = handle.study_id().to_string();
+    let header = runtime
+        .canonical_store()
+        .canonical_study(&key)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(header.active);
+    assert_eq!(header.point_count, 1000);
+    assert_eq!(header.next_ordinal, 1000);
+    let first = runtime
+        .canonical_store()
+        .canonical_study_point(&pse_operations::canonical_studies::point_key(
+            &key,
+            OccurrenceKey(0),
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    let repeated = runtime
+        .canonical_store()
+        .canonical_study_point(&pse_operations::canonical_studies::point_key(
+            &key,
+            OccurrenceKey(20),
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    let last = runtime
+        .canonical_store()
+        .canonical_study_point(&pse_operations::canonical_studies::point_key(
+            &key,
+            OccurrenceKey(999),
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(first.descriptor, repeated.descriptor);
+    assert_ne!(first.key, repeated.key);
+    assert_ne!(first.run, repeated.run);
+    assert_eq!(last.ordinal, 999);
+    assert!(!first.assigned && !repeated.assigned && !last.assigned);
+    handle.cancel().await.unwrap();
+}
+
+#[cfg(feature = "canonical-tests")]
+#[tokio::test]
+async fn stored_study_creation_rechecks_later_binding_source_and_seed_policy() {
+    let runtime = durable_runtime();
+    let original = stored_value_definition(&runtime, 2).await;
+    for fault in 0..5 {
+        let mut definition = original.clone();
+        let next = &mut definition.points[1];
+        match fault {
+            0 => next.binding.entries.values_mut().next().unwrap().parameter = false,
+            1 => next.binding.context = pse_ids::ContentHash::from_bytes([7; 32]),
+            2 => next.operation.source.physical_context = pse_ids::ContentHash::from_bytes([7; 32]),
+            3 => next.policy.seed_need = SeedNeed::NotNeeded,
+            _ => {
+                next.binding.entries.values_mut().next().unwrap().quantity =
+                    pse_ids::SemanticId::NIL
+            }
+        }
+        next.binding_hash = next.binding.identity();
+        let (physical, _) = sources(CASES);
+        let (result, constructions) = study_operations::counted_declared_admissions(
+            runtime.start_defined_study(physical, definition, &crate::CancelSource::new()),
+        )
+        .await;
+        assert!(
+            result.is_err(),
+            "later fault {fault} must be independently refused"
+        );
+        assert_eq!(
+            constructions, 1,
+            "fault {fault} cannot inherit admission from point zero"
+        );
+    }
+}
+
+#[cfg(feature = "canonical-tests")]
+#[tokio::test]
+async fn stored_study_creation_replaces_basis_for_changed_descriptor_and_target_layout() {
+    let runtime = durable_runtime();
+    let mut definition = stored_value_definition(&runtime, 4).await;
+    definition.points[1]
+        .operation
+        .preparation
+        .compiler
+        .class_proof_work += 1;
+    definition.points[2].binding.entries.clear();
+    definition.points[2].binding_hash = definition.points[2].binding.identity();
+    let (physical, _) = sources(CASES);
+    let (result, constructions) = study_operations::counted_declared_admissions(
+        runtime.start_defined_study(physical, definition, &crate::CancelSource::new()),
+    )
+    .await;
+    let handle = result.unwrap();
+    assert_eq!(
+        constructions, 4,
+        "each changed structural premise replaces the sole owner"
+    );
+    handle.cancel().await.unwrap();
+
+    let mut definition = stored_value_definition(&runtime, 2).await;
+    let OperationRequest::DeclaredCase(case) = &mut definition.points[1].operation.operation else {
+        panic!("declared case expected");
+    };
+    case.settings.controls.threads = 0;
+    let (physical, _) = sources(CASES);
+    let (result, constructions) = study_operations::counted_declared_admissions(
+        runtime.start_defined_study(physical, definition, &crate::CancelSource::new()),
+    )
+    .await;
+    assert!(result.is_err());
+    assert_eq!(
+        constructions, 2,
+        "changed invalid settings replace then fail admission"
+    );
+}
+
+#[cfg(feature = "canonical-tests")]
+#[tokio::test]
+async fn default_durable_study_refuses_precancelled_creation() {
+    let runtime = durable_runtime();
+    let (package, definition) = related_definition(&runtime).await;
+    let cancel = crate::CancelSource::new();
+    cancel.cancel();
+    let (result, constructions) =
+        study_operations::counted_declared_admissions(package.study(&definition, 3, &cancel)).await;
+    assert_eq!(
+        result.unwrap_err().boundary_diagnostic().code,
+        pse_diagnostics::DiagnosticCode::RuntimeCancelled
+    );
+    assert_eq!(
+        constructions, 0,
+        "default durable creation sees the caller's original scope"
+    );
+}
+
+#[cfg(feature = "canonical-tests")]
+#[tokio::test]
+async fn stored_study_creation_observes_cancellation_during_declared_admission() {
+    let runtime = durable_runtime();
+    let definition = stored_value_definition(&runtime, 1000).await;
+    let cancel = crate::CancelSource::new();
+    let (physical, _) = sources(CASES);
+    let (result, constructions) = study_operations::counted_declared_admissions(
+        study_operations::cancel_after_declared_admission(
+            runtime.start_defined_study(physical, definition, &cancel),
+            cancel.clone(),
+        ),
+    )
+    .await;
+    assert_eq!(
+        result.unwrap_err().boundary_diagnostic().code,
+        pse_diagnostics::DiagnosticCode::RuntimeCancelled
+    );
+    assert_eq!(
+        constructions, 1,
+        "cancellation stops after the first structural owner"
+    );
+}
+
+#[tokio::test]
+async fn study_creation_publication_awaits_issued_effect_before_cancellation() {
+    let cancel = crate::CancelSource::new();
+    let completed = std::cell::Cell::new(false);
+    let result = study::creation_effect(&cancel, async {
+        cancel.cancel();
+        tokio::task::yield_now().await;
+        completed.set(true);
+        Ok::<_, WorkflowError>(())
+    })
+    .await;
+    assert!(
+        completed.get(),
+        "issued publication future was completed through its owner"
+    );
+    assert_eq!(
+        result.unwrap_err().boundary_diagnostic().code,
+        pse_diagnostics::DiagnosticCode::RuntimeCancelled
+    );
 }

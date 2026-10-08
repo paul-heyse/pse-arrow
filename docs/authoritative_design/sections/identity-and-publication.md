@@ -182,6 +182,18 @@ refuse eligibility. Identity/receipt versions are admitted before their current 
 historical keys retain their original meaning. Incomplete deployment evidence permits normal
 admission and persistence but refuses cross-build scientific replay.
 
+Ordinary preparation can instead use a distinct versioned deployment-local admission:
+exact independently observed receiving role/artifact, interpreter, supported loaded ELF
+closure and effective reconstruction configuration. It requires no source/compiler receipt
+and confers no cross-build relevant-source qualification. On the controlled Linux/glibc
+2.39 profile, immutable reconstruction runs under the loader's write-lock callback scope,
+with context and loader-generation checks around construction. Unsupported loaders,
+unknown/JIT/deleted mappings or consumed context changes refuse reuse. Every retained
+retrieval revalidates its originating admission. Body retention separates opaque producer
+identities, and a stale admission cannot qualify a fresh fill; historical unqualified publications remain
+unqualified. The proposed ADR-0164 records the controlled mutation assumptions and
+explicitly separates strict producer qualification from this narrower guarantee.
+
 Product publication and scientific request have separate identities. A store-issued protected
 admission supplies a stable publication identity through transaction/acknowledgment retries.
 Already rooted exact descriptions are shared without changing their immutable origin. Explicit

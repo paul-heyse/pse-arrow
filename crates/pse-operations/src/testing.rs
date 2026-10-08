@@ -113,6 +113,11 @@ pub fn canonical_fixture_store()
 
 #[cfg(all(test, feature = "canonical-tests"))]
 mod canonical_server_unit {
+    #![allow(
+        clippy::unwrap_used,
+        clippy::panic,
+        reason = "fixture lifetime assertions require exact namespace responses and fail on unexpected results"
+    )]
     use super::*;
     use crate::canonical::{CanonicalOptions, CanonicalStore, bounded_query};
     use surrealdb::types::Value;

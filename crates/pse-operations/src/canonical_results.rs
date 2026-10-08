@@ -382,14 +382,36 @@ impl CanonicalStore {
         } else {
             "canonical_result_cells"
         };
-        let bounds = if dense {
-            "end>$start AND start<$end AND ($after=NONE OR start>$after) AND ($minimum=NONE OR coordinate_max.projection>=$minimum) AND ($maximum=NONE OR coordinate_min.projection<=$maximum)"
+        // SurrealDB 3.3 selects the first range on a compound index column.
+        // Resume from a cursor within the selected range; outside that window,
+        // keep the selected range first and apply the exact cursor as a residual.
+        let cursor_within_range = after.is_some_and(|cursor| cursor >= start && cursor < end);
+        let cursor = if cursor_within_range {
+            if dense {
+                "start>$after AND "
+            } else {
+                "row>$after AND "
+            }
         } else {
-            "row>=$start AND row<$end AND ($after=NONE OR row>$after) AND ($minimum=NONE OR projection.projection>=$minimum) AND ($maximum=NONE OR projection.projection<=$maximum) AND ($missing=NONE OR ($missing AND cell_kind='missing') OR (!$missing AND cell_kind='finite'))"
+            ""
+        };
+        let residual_cursor = if after.is_some() && !cursor_within_range {
+            if dense {
+                " AND start>$after"
+            } else {
+                " AND row>$after"
+            }
+        } else {
+            ""
+        };
+        let bounds = if dense {
+            "end>$start AND start<$end AND ($minimum=NONE OR coordinate_max.projection>=$minimum) AND ($maximum=NONE OR coordinate_min.projection<=$maximum)"
+        } else {
+            "row>=$start AND row<$end AND ($minimum=NONE OR projection.projection>=$minimum) AND ($maximum=NONE OR projection.projection<=$maximum) AND ($missing=NONE OR ($missing AND cell_kind='missing') OR (!$missing AND cell_kind='finite'))"
         };
         let order = if dense { "start" } else { "row" };
         let query = format!(
-            "{PROTECTED_BEGIN}\nLET $indexes=SELECT * FROM {table} WHERE result_set=$result_set AND output=$output AND partition=$partition AND {bounds} ORDER BY {order} LIMIT {PAGE};\nLET $blocks=SELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND key IN $indexes.batch ORDER BY ordinal LIMIT 65;\nRETURN {{indexes:$indexes,blocks:$blocks}};\nCOMMIT;"
+            "{PROTECTED_BEGIN}\nLET $indexes=SELECT * FROM {table} WHERE result_set=$result_set AND output=$output AND partition=$partition AND {cursor}{bounds}{residual_cursor} ORDER BY {order} LIMIT {PAGE};\nLET $blocks=SELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND key IN $indexes.batch ORDER BY ordinal LIMIT 65;\nRETURN {{indexes:$indexes,blocks:$blocks}};\nCOMMIT;"
         );
         let finite = |value: Option<f64>| {
             value
@@ -669,7 +691,15 @@ SELECT * FROM ONLY type::record('canonical_result_manifests',$manifest);\nCOMMIT
         if start > end {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response=protected_query(||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND output=$output AND partition=$partition AND ordinal<$count AND end>$start AND start<$end AND ($after=NONE OR ordinal>$after) ORDER BY ordinal LIMIT {PAGE};\nCOMMIT;"))
+        // SurrealDB 3.3 chooses the first range on a compound index column.
+        // Put the current cursor before the manifest's upper bound, preserving
+        // the same residual extent checks and ordered 64-row page.
+        let cursor = if after.is_some() {
+            "ordinal>$after AND "
+        } else {
+            ""
+        };
+        let mut response=protected_query(||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND output=$output AND partition=$partition AND {cursor}ordinal<$count AND end>$start AND start<$end ORDER BY ordinal LIMIT {PAGE};\nCOMMIT;"))
             .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone()))
             .bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?))
             .bind(("protection",read.owner.selection.key().to_owned()))
@@ -839,6 +869,12 @@ mod canonical_results_unit {
 #[cfg(all(test, feature = "canonical-tests"))]
 mod canonical_results_server_unit {
     #![allow(
+        clippy::expect_used,
+        clippy::unwrap_used,
+        clippy::panic,
+        reason = "isolated result fixtures assert expected outcomes and inject release-task panics"
+    )]
+    #![allow(
         unsafe_code,
         reason = "isolated fixtures explicitly classify their synthetic partial or failed observations"
     )]
@@ -956,7 +992,7 @@ mod canonical_results_server_unit {
             .unwrap();
         let set = result_set_key(first.attempt(), "scalars");
         let key = result_batch_key(first.attempt(), &set, 0);
-        let cells = vec![ResultCell {
+        let mut cells = vec![ResultCell {
             key: "negative-zero".into(),
             result_set: set.clone(),
             batch: key.clone(),
@@ -969,6 +1005,19 @@ mod canonical_results_server_unit {
             projection: Some(0.0),
             interpretation: wire::INTERPRETATION.into(),
         }];
+        cells.extend((1..130u64).map(|row| ResultCell {
+            key: format!("scalar-{row:03}"),
+            result_set: set.clone(),
+            batch: key.clone(),
+            output: "x".into(),
+            partition: "0".into(),
+            row,
+            coordinate: row.to_string(),
+            cell_kind: "finite".into(),
+            bits: Some((row as f64).to_bits().to_be_bytes().to_vec().into()),
+            projection: Some(row as f64),
+            interpretation: wire::INTERPRETATION.into(),
+        }));
         let payload = [1, 2, 3];
         let block = BlockMetadata {
             key: key.clone(),
@@ -978,8 +1027,8 @@ mod canonical_results_server_unit {
             partition: "0".into(),
             ordinal: 0,
             start: 0,
-            end: 1,
-            rows: 1,
+            end: 130,
+            rows: 130,
             columns: 1,
             coordinate_min: None,
             coordinate_max: None,
@@ -996,7 +1045,7 @@ mod canonical_results_server_unit {
                 "scalars",
                 0,
                 &payload,
-                1,
+                130,
                 &block,
                 &cells,
             )
@@ -1029,6 +1078,44 @@ mod canonical_results_server_unit {
             values.cells[0].bits.as_ref().unwrap().as_slice(),
             (-0.0f64).to_bits().to_be_bytes()
         );
+        // Scalar pages retain the selected range when the cursor precedes it,
+        // then resume exclusively within that range and exhaust after its end.
+        for (after, expected) in [
+            (Some(50), (80..90).collect::<Vec<_>>()),
+            (Some(80), (81..90).collect()),
+            (Some(85), (86..90).collect()),
+            (Some(90), vec![]),
+            (Some(95), vec![]),
+            (Some(500), vec![]),
+        ] {
+            let page = store
+                .result_output_page(
+                    &read, &set, "x", "0", 80, 90, after, false, None, None, None,
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                page.cells.iter().map(|cell| cell.row).collect::<Vec<_>>(),
+                expected
+            );
+        }
+        for (after, expected) in [
+            (None, (0..64).collect::<Vec<_>>()),
+            (Some(63), (64..128).collect()),
+            (Some(127), vec![128, 129]),
+            (Some(129), vec![]),
+        ] {
+            let page = store
+                .result_output_page(
+                    &read, &set, "x", "0", 0, 130, after, false, None, None, None,
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                page.cells.iter().map(|cell| cell.row).collect::<Vec<_>>(),
+                expected
+            );
+        }
         assert_eq!(read.attempt().outcome.as_deref(), Some("partial"));
         assert!(store.result_payload(&read, &set, 1).await.is_err());
         read.renew(Duration::from_secs(30)).await.unwrap();
@@ -1130,6 +1217,7 @@ mod canonical_results_server_unit {
         for ordinal in 0..3u64 {
             let payload = vec![ordinal as u8; 32];
             let key = result_batch_key(fence.attempt(), &set, ordinal);
+            let start = ordinal * 10 + if ordinal == 2 { 5 } else { 0 };
             let metadata = BlockMetadata {
                 key: key.clone(),
                 result_set: set.clone(),
@@ -1137,18 +1225,30 @@ mod canonical_results_server_unit {
                 output: "temperature".into(),
                 partition: "time".into(),
                 ordinal,
-                start: ordinal * 10,
-                end: (ordinal + 1) * 10,
+                start,
+                end: start + 10,
                 rows: 10,
                 columns: 2,
-                coordinate_min: Some((ordinal * 10) as f64),
-                coordinate_max: Some((ordinal * 10 + 9) as f64),
+                coordinate_min: Some(start as f64),
+                coordinate_max: Some((start + 9) as f64),
                 payload_bytes: payload.len() as u64,
                 payload_digest: crate::canonical_execution::result_payload_digest(&payload),
                 interpretation: wire::INTERPRETATION.into(),
             };
+            let outputs = [BlockOutput {
+                key: format!("dense-{ordinal}"),
+                batch: metadata.batch.clone(),
+                result_set: set.clone(),
+                output: "temperature".into(),
+                partition: "time".into(),
+                start,
+                end: start + 10,
+                coordinate_min: metadata.coordinate_min,
+                coordinate_max: metadata.coordinate_max,
+                interpretation: wire::INTERPRETATION.into(),
+            }];
             store
-                .append_result_block(
+                .append_result_block_indexes(
                     &fence,
                     &format!("write-{ordinal}"),
                     "trajectory",
@@ -1156,6 +1256,8 @@ mod canonical_results_server_unit {
                     &payload,
                     10,
                     &metadata,
+                    &[],
+                    &outputs,
                 )
                 .await
                 .unwrap();
@@ -1176,6 +1278,74 @@ mod canonical_results_server_unit {
             .unwrap();
         assert_eq!(page.len(), 1);
         assert_eq!(page[0].ordinal, 1);
+        let resumed = store
+            .result_block_page(&read, &set, "temperature", "time", 10, 20, Some(0))
+            .await
+            .unwrap();
+        assert_eq!(resumed, page);
+        assert!(
+            store
+                .result_block_page(&read, &set, "temperature", "time", 10, 20, Some(1))
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            store
+                .result_block_page(&read, &set, "temperature", "time", 20, 25, None)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        let tail = store
+            .result_block_page(&read, &set, "temperature", "time", 0, 35, Some(1))
+            .await
+            .unwrap();
+        assert_eq!(tail.iter().map(|m| m.ordinal).collect::<Vec<_>>(), vec![2]);
+        assert!(
+            store
+                .result_block_page(&read, &set, "temperature", "time", 0, 35, Some(2))
+                .await
+                .unwrap()
+                .is_empty()
+        );
+
+        for (start, end, after, expected) in [
+            (10, 20, None, vec![10]),
+            (10, 20, Some(9), vec![10]),
+            (10, 20, Some(10), vec![]),
+            (10, 20, Some(20), vec![]),
+            (10, 20, Some(100), vec![]),
+            (20, 25, None, vec![]),
+            (0, 35, Some(10), vec![25]),
+            (0, 35, Some(25), vec![]),
+        ] {
+            let output = store
+                .result_output_page(
+                    &read,
+                    &set,
+                    "temperature",
+                    "time",
+                    start,
+                    end,
+                    after,
+                    true,
+                    None,
+                    None,
+                    None,
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                output
+                    .outputs
+                    .iter()
+                    .map(|index| index.start)
+                    .collect::<Vec<_>>(),
+                expected
+            );
+            assert_eq!(output.blocks.len(), output.outputs.len());
+        }
         let blob = store.result_block(&read, page[0].clone()).await.unwrap();
         assert_eq!(blob.batch.payload.as_slice(), [1u8; 32]);
         assert!(

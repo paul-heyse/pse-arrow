@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 from unittest.mock import patch
 
-from scripts import build_environment, producer_deployment, surreal_server
+from scripts import build_environment, producer_deployment, pse_env, surreal_server
 from scripts import native_cache as cache
 from scripts import native_operation as operation
 from scripts import native_pipeline_cache as pipeline
@@ -42,6 +42,9 @@ class NativeOperationTests(unittest.TestCase):
         isolated = patch.dict(os.environ, environment, clear=True)
         isolated.start()
         self.addCleanup(isolated.stop)
+        self.fixture_units: set[str] = set()
+        self.fixture_parent_scope = operation.scope_owner()
+        self.fixture_parent_group = operation.process_group(os.getpid())
 
     def test_selected_library_paths_do_not_add_working_directory_search(self) -> None:
         for previous in (None, ""):
@@ -103,8 +106,57 @@ class NativeOperationTests(unittest.TestCase):
             },
             "PSE_NATIVE_CACHE": str(base),
             "PSE_NATIVE_CAPABILITIES": "",
-            "PSE_MEMORY_MAX": "off",
+            "PSE_MEMORY_MAX": "512M",
         }
+
+    def fixture_command(
+        self, command: list[str], environment: dict[str, str]
+    ) -> list[str]:
+        self.assert_parent_scope_unchanged()
+        # These zero-capability fixtures own disposable generations and may kill
+        # their entire scope. Compose a new fixture root through the placement
+        # owner; do not change the production policy that nested users stay put.
+        # Only command construction sees this test-isolation premise. The real
+        # child observes and validates its actual unit and invocation normally.
+        with patch.object(operation, "scope_owner", return_value=None):
+            prefix = pse_env.placement(environment, native=True)
+        self.assertTrue(prefix, "independent fixture requires the local user manager")
+        self.assertIn("MemoryMax=512M", prefix)
+        unit = next(
+            argument.removeprefix("--unit=")
+            for argument in prefix
+            if argument.startswith("--unit=")
+        )
+        if self.fixture_parent_scope is not None:
+            self.assertNotEqual(unit, self.fixture_parent_scope["unit"])
+        self.fixture_units.add(unit)
+        return [*prefix, *command]
+
+    def assert_parent_scope_unchanged(self) -> None:
+        self.assertEqual(
+            operation.process_group(os.getpid()), self.fixture_parent_group
+        )
+        self.assertEqual(operation.scope_owner(), self.fixture_parent_scope)
+
+    def assert_fixture_scope(
+        self, owner: Mapping[str, str], *, live: bool = True
+    ) -> None:
+        self.assert_parent_scope_unchanged()
+        self.assertIn(owner["unit"], self.fixture_units)
+        self.assertNotEqual(owner["group"], self.fixture_parent_group)
+        self.assertFalse(owner["group"].startswith(self.fixture_parent_group + "/"))
+        self.assertFalse(self.fixture_parent_group.startswith(owner["group"] + "/"))
+        if self.fixture_parent_scope is not None:
+            self.assertNotEqual(owner["unit"], self.fixture_parent_scope["unit"])
+            self.assertNotEqual(owner["group"], self.fixture_parent_scope["group"])
+            self.assertNotEqual(
+                owner["invocation"], self.fixture_parent_scope["invocation"]
+            )
+        if live:
+            observed = operation.unit_observation(owner["unit"])
+            self.assertEqual(observed["LoadState"], "loaded")
+            self.assertEqual(observed["ControlGroup"], owner["group"])
+            self.assertEqual(observed["InvocationID"], owner["invocation"])
 
     def test_child_fixture_environment_starts_independent_owner(self) -> None:
         with (
@@ -128,7 +180,67 @@ class NativeOperationTests(unittest.TestCase):
                 os.environ[operation.MARKER], "/outer/.operations/owner.json"
             )
 
+    def test_independent_fixture_command_preserves_nested_scope_policy(self) -> None:
+        owner = {
+            "unit": "pse-native-" + "a" * 32 + ".scope",
+            "group": "/parent",
+            "invocation": "b" * 32,
+        }
+        self.fixture_parent_scope = owner
+        self.fixture_parent_group = owner["group"]
+        with (
+            patch.object(operation, "scope_owner", return_value=owner),
+            patch.object(operation, "process_group", return_value=owner["group"]),
+            patch.object(pse_env, "manager_available", return_value=True),
+            patch.object(pse_env, "manager_environment", return_value={}),
+            patch.object(pse_env, "limits", return_value=[]),
+        ):
+            environment = self.fixture_environment(Path("/disposable-fixture"))
+            command = self.fixture_command(["fixture", "literal argument"], environment)
+            self.assertEqual(command[-2:], ["fixture", "literal argument"])
+            self.assertEqual(len(self.fixture_units), 1)
+            self.assertNotIn(owner["unit"], self.fixture_units)
+            self.assertEqual(operation.scope_owner(), owner)
+            self.assertEqual(pse_env.placement(environment, native=True), [])
+
+    def test_fixture_cleanup_refuses_enclosing_scope(self) -> None:
+        owner = {
+            "unit": "pse-native-" + "a" * 32 + ".scope",
+            "group": "/parent",
+            "invocation": "b" * 32,
+        }
+        self.fixture_parent_scope = owner
+        self.fixture_parent_group = owner["group"]
+        with (
+            patch.object(operation, "scope_owner", return_value=owner),
+            patch.object(operation, "process_group", return_value=owner["group"]),
+            patch.object(operation.subprocess, "run") as manager,
+        ):
+            with self.assertRaisesRegex(AssertionError, "only a minted fixture"):
+                self.kill_scope(owner["unit"])
+            manager.assert_not_called()
+
     def kill_scope(self, unit: str) -> None:
+        self.assert_parent_scope_unchanged()
+        self.assertIn(
+            unit, self.fixture_units, "only a minted fixture scope may be killed"
+        )
+        if self.fixture_parent_scope is not None:
+            self.assertNotEqual(unit, self.fixture_parent_scope["unit"])
+        observed = operation.unit_observation(unit)
+        if observed["LoadState"] == "not-found":
+            return  # A collected fixture has no remaining children to signal.
+        self.assertEqual(observed["LoadState"], "loaded")
+        if observed["ControlGroup"] == "":
+            return  # An inactive fixture no longer owns a cgroup to signal.
+        self.assert_fixture_scope(
+            {
+                "unit": unit,
+                "group": observed["ControlGroup"],
+                "invocation": observed["InvocationID"],
+            },
+            live=False,
+        )
         subprocess.run(
             [
                 "systemctl",
@@ -696,19 +808,26 @@ class NativeOperationTests(unittest.TestCase):
                     "generations": [],
                 },
             )
+            environment = {
+                **self.fixture_environment(base),
+                operation.MARKER: str(forged),
+            }
             result = subprocess.run(
-                [
-                    str(cache.ROOT / "scripts/pse-env"),
-                    "--native=",
-                    "--",
-                    str(cache.ROOT / ".venv/bin/python"),
-                    "-c",
-                    'from scripts import native_operation as n; import sys,json; print(json.dumps({"record":str(n.owner_record()),"args":sys.argv[1:]}))',
-                    "space ; literal",
-                    "$literal",
-                ],
+                self.fixture_command(
+                    [
+                        str(cache.ROOT / "scripts/pse-env"),
+                        "--native=",
+                        "--",
+                        str(cache.ROOT / ".venv/bin/python"),
+                        "-c",
+                        'from scripts import native_operation as n; import sys,json; print(json.dumps({"record":str(n.owner_record()),"scope":n.scope_owner(),"args":sys.argv[1:]}))',
+                        "space ; literal",
+                        "$literal",
+                    ],
+                    environment,
+                ),
                 cwd=cache.ROOT,
-                env={**self.fixture_environment(base), operation.MARKER: str(forged)},
+                env=environment,
                 check=True,
                 capture_output=True,
                 text=True,
@@ -718,6 +837,8 @@ class NativeOperationTests(unittest.TestCase):
             self.assertNotEqual(observed["record"], str(forged))
             self.assertEqual(Path(observed["record"]).parent, base / ".operations")
             self.assertEqual(observed["args"], ["space ; literal", "$literal"])
+            self.assertIsNotNone(observed["scope"])
+            self.assert_fixture_scope(observed["scope"], live=False)
 
     def test_snapshot_without_venv_uses_selected_operation_interpreter(self) -> None:
         from scripts import pse_env  # noqa: PLC0415 -- the boundary that selects it
@@ -738,6 +859,7 @@ class NativeOperationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
             state = base / "disposable-state"
+            self.fixture_units.add(surreal_server.worker_unit(state, 0))
             child_program = """import json, sys, time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -769,19 +891,23 @@ n.write_json(base/'launcher-ready.json',{'scope':n.scope_owner(),'generation':st
 while worker.poll() is None: time.sleep(.02)
 """
             log = (base / "fixture.log").open("w")
+            environment = self.fixture_environment(base)
             process = subprocess.Popen(
-                [
-                    str(cache.ROOT / "scripts/pse-env"),
-                    "--native",
-                    "--",
-                    sys.executable,
-                    "-c",
-                    launcher,
-                    str(base),
-                    child_program,
-                ],
+                self.fixture_command(
+                    [
+                        str(cache.ROOT / "scripts/pse-env"),
+                        "--native",
+                        "--",
+                        sys.executable,
+                        "-c",
+                        launcher,
+                        str(base),
+                        child_program,
+                    ],
+                    environment,
+                ),
                 cwd=cache.ROOT,
-                env=self.fixture_environment(base),
+                env=environment,
                 stdout=log,
                 stderr=log,
             )
@@ -797,6 +923,9 @@ while worker.poll() is None: time.sleep(.02)
                 self.assertEqual(
                     worker["scope"]["unit"], surreal_server.worker_unit(state, 0)
                 )
+                self.assert_fixture_scope(parent["scope"])
+                self.assert_fixture_scope(worker["scope"])
+                self.assertNotEqual(parent["scope"]["unit"], worker["scope"]["unit"])
                 self.assertEqual(worker["original"], "original archive")
                 handoff = operation._record(Path(parent["handoff"]))  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
                 self.assertEqual(handoff["scope"], worker["scope"])
@@ -815,29 +944,39 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
-from scripts import native_cache as c
+from scripts import native_cache as c, native_operation as n
 def builder(stage,work):
  (stage/'lib').mkdir(); (stage/'lib/a').write_text('original archive')
-print(json.dumps(str(c.prepare(Path(sys.argv[1]),'fixture',{'id':1},('lib/a',),builder))))
+generation=c.prepare(Path(sys.argv[1]),'fixture',{'id':1},('lib/a',),builder)
+print(json.dumps({'generation':str(generation),'scope':n.scope_owner()}))
 """
+                environment = self.fixture_environment(base)
                 admitted = subprocess.run(
-                    [
-                        str(cache.ROOT / "scripts/pse-env"),
-                        "--native",
-                        "--",
-                        sys.executable,
-                        "-c",
-                        repair,
-                        str(base),
-                    ],
+                    self.fixture_command(
+                        [
+                            str(cache.ROOT / "scripts/pse-env"),
+                            "--native",
+                            "--",
+                            sys.executable,
+                            "-c",
+                            repair,
+                            str(base),
+                        ],
+                        environment,
+                    ),
                     cwd=cache.ROOT,
-                    env=self.fixture_environment(base),
+                    env=environment,
                     check=True,
                     capture_output=True,
                     text=True,
                     timeout=20,
                 )
-                replacement = Path(json.loads(admitted.stdout))
+                repaired = json.loads(admitted.stdout)
+                self.assertIsNotNone(repaired["scope"])
+                self.assert_fixture_scope(repaired["scope"], live=False)
+                self.assertNotEqual(repaired["scope"]["unit"], parent["scope"]["unit"])
+                self.assertNotEqual(repaired["scope"]["unit"], worker["scope"]["unit"])
+                replacement = Path(repaired["generation"])
                 self.assertNotEqual(generation, replacement)
                 self.assertTrue(cache.valid(replacement, {"id": 1}, ("lib/a",)))
                 self.assertEqual(cache.collect(base, "fixture", {"id": 1}), [])
@@ -846,6 +985,7 @@ print(json.dumps(str(c.prepare(Path(sys.argv[1]),'fixture',{'id':1},('lib/a',),b
                 self.assertEqual(
                     cache.collect(base, "fixture", {"id": 1}), [generation]
                 )
+                self.assert_parent_scope_unchanged()
             finally:
                 (base / "stop").touch()
                 for owner in (worker, parent):
@@ -872,19 +1012,23 @@ record=n._record(n.current()); n.write_json(base/'cancel-ready.json',{'record':r
 time.sleep(30)
 """
             log = (base / "cancel.log").open("w")
+            environment = self.fixture_environment(base)
             process = subprocess.Popen(
-                [
-                    str(cache.ROOT / "scripts/pse-env"),
-                    "--native",
-                    "--",
-                    sys.executable,
-                    "-c",
-                    program,
-                    str(base),
-                    daemon,
-                ],
+                self.fixture_command(
+                    [
+                        str(cache.ROOT / "scripts/pse-env"),
+                        "--native",
+                        "--",
+                        sys.executable,
+                        "-c",
+                        program,
+                        str(base),
+                        daemon,
+                    ],
+                    environment,
+                ),
                 cwd=cache.ROOT,
-                env=self.fixture_environment(base),
+                env=environment,
                 stdout=log,
                 stderr=log,
             )
@@ -893,11 +1037,16 @@ time.sleep(30)
                 observed = self.await_file(base / "cancel-ready.json", process)
                 record = observed["record"]
                 self.assertIsNotNone(record["scope"])
+                self.assert_fixture_scope(record["scope"])
                 self.assertEqual(observed["group"], record["scope"]["group"])
+                self.assertEqual(
+                    operation.process_group(record["pid"]), record["scope"]["group"]
+                )
                 os.kill(record["pid"], signal.SIGTERM)
                 process.wait(timeout=15)
                 self.await_drain(record)
                 self.assertFalse(operation.populated(record["scope"]["group"]))
+                self.assert_parent_scope_unchanged()
             finally:
                 if observed and observed["record"].get("scope"):
                     self.kill_scope(observed["record"]["scope"]["unit"])

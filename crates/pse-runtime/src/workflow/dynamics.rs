@@ -149,7 +149,26 @@ pub(crate) struct DynamicProgram {
     pub programs: Arc<[FunctionProgram]>,
     pub coordinates: DynamicCoordinates,
     pub modes: Vec<DynamicMode>,
-    pub max_cells: usize,
+    pub layout: Arc<DynamicLayout>,
+    /// Frozen production state allowances in native coordinates, by mode.
+    pub state_allowances: Arc<[Vec<f64>]>,
+    /// Existing declared output decision budgets, when the physical policy supplies one.
+    pub output_allowances: Arc<[Vec<Option<f64>>]>,
+}
+/// Retained immutable allowance arrays, including the two Arc allocation headers.
+pub(crate) fn allowance_bytes(state: &[Vec<f64>], output: &[Vec<Option<f64>>]) -> Option<usize> {
+    state
+        .iter()
+        .try_fold(size_of::<usize>() * 4, |bytes, values| {
+            bytes
+                .checked_add(size_of::<Vec<f64>>())?
+                .checked_add(values.capacity().checked_mul(size_of::<f64>())?)
+        })?
+        .checked_add(output.iter().try_fold(0usize, |bytes, values| {
+            bytes
+                .checked_add(size_of::<Vec<Option<f64>>>())?
+                .checked_add(values.capacity().checked_mul(size_of::<Option<f64>>())?)
+        })?)
 }
 impl DynamicProgram {
     /// Conservative owned metadata allowance; compiled functions keep their own leases.
@@ -182,7 +201,14 @@ impl DynamicProgram {
                     })
                     .sum::<usize>(),
             );
-        cells.saturating_mul(512).saturating_add(size_of::<Self>())
+        cells
+            .saturating_mul(512)
+            .saturating_add(size_of::<Self>())
+            .saturating_add(self.layout.retained_bytes())
+            .saturating_add(
+                allowance_bytes(&self.state_allowances, &self.output_allowances)
+                    .unwrap_or(usize::MAX),
+            )
     }
     pub(crate) fn worker(
         &self,
@@ -193,7 +219,7 @@ impl DynamicProgram {
             &self.programs,
             self.coordinates.clone(),
             &self.modes,
-            self.max_cells,
+            self.layout.clone(),
             scope,
         )
     }
@@ -220,32 +246,57 @@ pub(crate) struct DynamicCoordinates {
     pub state: Vec<CoordinateBinding>,
     pub parameters: Vec<CoordinateBinding>,
 }
-impl DynamicWorker {
+/// Program-fixed coordinate chains, support and canonical sparse templates.
+#[derive(Debug)]
+pub(crate) struct DynamicLayout {
+    chain: Vec<f64>,
+    functions: BTreeMap<(usize, Function), Arc<FunctionLayout>>,
+}
+#[derive(Debug)]
+struct FunctionLayout {
+    jacobian: pse_math::sparse::AssemblyMatrix,
+    refill: Vec<(usize, pse_math::index::Addend, f64)>,
+    pairs: Vec<native::SupportEntry>,
+}
+impl DynamicLayout {
     pub(crate) fn new(
-        contract: native::Contract,
         programs: &[FunctionProgram],
-        coordinates: DynamicCoordinates,
-        modes: &[DynamicMode],
+        coordinates: &DynamicCoordinates,
         max_cells: usize,
-        scope: pse_kernels::ExecutionScope,
     ) -> Result<Self, ProblemError> {
-        scope.check().map_err(ProblemError::Provider)?;
-        if modes.len() != contract.events.len() {
-            return Err(ProblemError::Internal("dynamic mode extent".into()));
-        }
         let chain = coordinates
             .state
             .iter()
             .chain(&coordinates.parameters)
             .map(|c| c.scale)
             .collect::<Vec<_>>();
+        if chain.len() > max_cells
+            || max_cells > isize::MAX as usize
+            || chain.iter().any(|v| !v.is_finite() || *v <= 0.)
+        {
+            return Err(ProblemError::Contract(
+                "dynamic coordinate extent or scale".into(),
+            ));
+        }
         let mut functions = BTreeMap::new();
         for program in programs.iter() {
-            let mode = modes
-                .get(program.mode)
-                .ok_or_else(|| ProblemError::Internal("dynamic function mode absent".into()))?;
-            let providers = provider_workers(&mode.providers, &scope)?;
             let source = program.case.assembly.jacobian_pattern();
+            if source.ncols() != chain.len()
+                || program.rows.len() != program.scales.len()
+                || program.rows.len() != program.offsets.len()
+                || program.rows.iter().any(|r| *r >= source.nrows())
+                || program.constants.keys().any(|r| *r >= program.rows.len())
+                || program
+                    .scales
+                    .iter()
+                    .chain(&program.offsets)
+                    .chain(program.constants.values())
+                    .any(|v| !v.is_finite())
+            {
+                return Err(ProblemError::Contract(
+                    "dynamic function layout extent or values".into(),
+                ));
+            }
             // The dynamic oracle's support: `(row, coordinate)` entries over the
             // function's rows and the state followed by the parameters.
             let mut pairs = Vec::new();
@@ -274,6 +325,67 @@ impl DynamicWorker {
                 &pairs,
                 max_cells,
             )?;
+            if functions
+                .insert(
+                    (program.mode, program.function),
+                    Arc::new(FunctionLayout {
+                        jacobian,
+                        refill,
+                        pairs,
+                    }),
+                )
+                .is_some()
+            {
+                return Err(ProblemError::internal("duplicate dynamic function"));
+            }
+        }
+        Ok(Self { chain, functions })
+    }
+    pub(crate) fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            + self.chain.capacity() * size_of::<f64>()
+            + self
+                .functions
+                .values()
+                .map(|f| {
+                    size_of::<FunctionLayout>()
+                        + f.jacobian.retained_bytes()
+                        + f.refill.capacity() * size_of::<(usize, pse_math::index::Addend, f64)>()
+                        + f.pairs.capacity() * size_of::<native::SupportEntry>()
+                        + 128
+                })
+                .sum::<usize>()
+    }
+    pub(crate) fn worker_bytes(&self) -> usize {
+        self.functions
+            .values()
+            .map(|f| f.jacobian.retained_bytes())
+            .sum()
+    }
+}
+impl DynamicWorker {
+    fn new(
+        contract: native::Contract,
+        programs: &[FunctionProgram],
+        coordinates: DynamicCoordinates,
+        modes: &[DynamicMode],
+        layout: Arc<DynamicLayout>,
+        scope: pse_kernels::ExecutionScope,
+    ) -> Result<Self, ProblemError> {
+        scope.check().map_err(ProblemError::Provider)?;
+        if modes.len() != contract.events.len() {
+            return Err(ProblemError::Internal("dynamic mode extent".into()));
+        }
+        let mut functions = BTreeMap::new();
+        for program in programs {
+            let mode = modes
+                .get(program.mode)
+                .ok_or_else(|| ProblemError::internal("dynamic function mode absent"))?;
+            let function_layout = layout
+                .functions
+                .get(&(program.mode, program.function))
+                .ok_or_else(|| ProblemError::internal("dynamic function layout absent"))?
+                .clone();
             functions.insert(
                 (program.mode, program.function),
                 FunctionWorker {
@@ -281,10 +393,9 @@ impl DynamicWorker {
                     worker: program
                         .case
                         .assembly
-                        .worker_scoped(providers, scope.clone()),
-                    jacobian,
-                    refill,
-                    pairs,
+                        .worker_scoped(provider_workers(&mode.providers, &scope)?, scope.clone()),
+                    jacobian: function_layout.jacobian.clone(),
+                    layout: function_layout,
                     cache: None,
                     #[cfg(test)]
                     evaluations: 0,
@@ -318,6 +429,7 @@ impl DynamicWorker {
             contract,
             coordinates,
             functions,
+            layout,
             scope,
         })
     }
@@ -327,8 +439,7 @@ struct FunctionWorker {
     program: FunctionProgram,
     worker: CaseWorker,
     jacobian: pse_math::sparse::AssemblyMatrix,
-    refill: Vec<(usize, pse_math::index::Addend, f64)>,
-    pairs: Vec<native::SupportEntry>,
+    layout: Arc<FunctionLayout>,
     // Mode/function and provider/build identity are fixed by this worker. Every
     // varying time/state/parameter bit participates, including signed zero.
     cache: Option<(Vec<u64>, native::Evaluation)>,
@@ -346,9 +457,24 @@ pub(crate) struct DynamicWorker {
     contract: native::Contract,
     coordinates: DynamicCoordinates,
     functions: BTreeMap<(usize, Function), FunctionWorker>,
+    layout: Arc<DynamicLayout>,
     scope: pse_kernels::ExecutionScope,
 }
 impl DynamicWorker {
+    #[cfg(test)]
+    pub(crate) fn assert_independent_layout(&self, other: &Self) {
+        assert!(Arc::ptr_eq(&self.layout, &other.layout));
+        for (key, f) in &self.functions {
+            let g = &other.functions[key];
+            assert!(Arc::ptr_eq(&f.layout, &g.layout));
+            if !f.jacobian.matrix().val().is_empty() {
+                assert_ne!(
+                    f.jacobian.matrix().val().as_ptr(),
+                    g.jacobian.matrix().val().as_ptr()
+                );
+            }
+        }
+    }
     /// Bind one trial point into the mode's physical values and validate the mode's range
     /// obligations for every role but the initial values.
     fn bind(
@@ -456,7 +582,7 @@ impl Oracle for DynamicWorker {
     fn support(&self, mode: usize, function: Function) -> Vec<native::SupportEntry> {
         self.functions
             .get(&(mode, function))
-            .map_or_else(Vec::new, |w| w.pairs.clone())
+            .map_or_else(Vec::new, |w| w.layout.pairs.clone())
     }
     fn evaluate(
         &mut self,
@@ -521,7 +647,7 @@ impl Oracle for DynamicWorker {
         let jacobian = if derivatives {
             let source = function.worker.jacobian(&context.values)?;
             function.jacobian.clear();
-            for &(local, target, scale) in &function.refill {
+            for &(local, target, scale) in &function.layout.refill {
                 function.jacobian.add(target, source.val()[local] * scale)?;
             }
             Some(function.jacobian.matrix().clone())
@@ -555,13 +681,7 @@ impl Oracle for DynamicWorker {
             ));
         }
         self.bind(mode, function, time, state, parameters)?;
-        let chain = self
-            .coordinates
-            .state
-            .iter()
-            .chain(&self.coordinates.parameters)
-            .map(|c| c.scale)
-            .collect::<Vec<_>>();
+        let chain = &self.layout.chain;
         let worker = self
             .functions
             .get_mut(&(mode, function))

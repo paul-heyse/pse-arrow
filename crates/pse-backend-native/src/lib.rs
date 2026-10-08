@@ -3,6 +3,9 @@
 
 //! Class-specific native problem contracts. Execution adapters are supplied by Plan 14 M11–M17.
 pub mod assembled;
+#[cfg(test)]
+#[path = "../build_receipt.rs"]
+mod build_receipt;
 pub mod callback;
 mod certificate;
 pub mod conditioning;

@@ -70,6 +70,42 @@ Versioned generated SurrealQL functions execute bounded structural transitions a
 
 ### Consequences
 
+The maintainer separately accepted the remaining-enhancement review's RC01 on
+2026-10-07. Ordinary preparation may reuse a versioned deployment-local product
+without a source/compiler qualification receipt. Its opaque admission independently
+observes the receiving worker or imported Python artifact, actual interpreter where
+applicable, complete supported executable-backed ELF mappings and effective loader/runtime
+configuration. The local guarantee requires exact deployed compatibility; it does not
+claim relevant-source compatibility across rebuilds. Explicit `QualifiedProducer`
+admission retains its stronger, separate reviewed-capture guarantee. Historical
+unqualified products are never promoted by interpretation changes.
+
+For the controlled Linux/glibc 2.39 profile, synchronous immutable reconstruction runs
+inside `dl_iterate_phdr`'s loader write-lock scope. Mapping publication/removal is
+excluded; loader-generation counters and independently observed bytes/configuration are
+checked around construction. The callback cannot import code, wait for a loader thread,
+perform asynchronous work or invoke caller/provider callbacks. Panic containment keeps
+unwinding out of the C boundary. The owning executable/imported module TLS is
+materialized before taking the loader write lock; construction touches no newly loaded
+module TLS. Every retained retrieval revalidates its originating admission; qualified
+body-cache entries are separated by that opaque producer identity, and stale admission
+cannot qualify a fresh fill.
+Reconstruction produces immutable mathematics and provider descriptions, with no loaded
+provider handles; later evaluator/native use retains its separate scientific admission
+and managed-generation lifetime. No long-lived cache object holds the loader lock.
+Anonymous executable code, JIT, deleted/replaced or unidentified mappings, unsupported
+loaders and unknown consumed configuration refuse reuse. Direct executable-map mutation,
+concurrent configuration mutation and arbitrary privileged file writes are outside this
+controlled profile and require readmission. Ordinary scientific admission and history
+remain available after any refusal.
+
+The scoped loader premise is supported by the glibc 2.39
+[iteration](https://github.com/bminor/glibc/blob/glibc-2.39/elf/dl-iteratephdr.c),
+[namespace publication](https://github.com/bminor/glibc/blob/glibc-2.39/elf/dl-object.c)
+[removal](https://github.com/bminor/glibc/blob/glibc-2.39/elf/dl-close.c) and
+[TLS allocation](https://github.com/bminor/glibc/blob/glibc-2.39/elf/dl-tls.c) owners.
+This is a bounded supported profile, not a general plugin or deployment attestation API.
+
 Storage, authoring, compilation and execution/result consumers migrate together. Immutable portable products require exact interpretation and reconstruction compatibility; a validated flag or current default is insufficient. Selected coordinate layouts include guards, branches, nested scopes and providers as well as arithmetic outputs. Offline backup quiesces and drains managed work before copying a stopped coherent database; restore checks interpretation before writes.
 
 ### Compensating controls

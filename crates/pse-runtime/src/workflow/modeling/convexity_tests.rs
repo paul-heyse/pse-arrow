@@ -3,6 +3,10 @@
 //! Convexity as a compiler fact through the real pipeline (ADR-0121): recognized cone
 //! programs route to Clarabel automatically, and numerical PSD evidence stays a
 //! qualification of the one request that states it.
+#![allow(
+    clippy::unreachable,
+    reason = "convexity fixtures require the explicitly selected optimization result variant"
+)]
 use super::*;
 use crate::math::solves::{ConvexityPolicy, NumericalInputs, Outcome, SolverProfile};
 use crate::workflow::tests as fixture;

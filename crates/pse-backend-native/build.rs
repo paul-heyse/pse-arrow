@@ -21,12 +21,15 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+mod build_receipt;
+
 const MKL: &str = "mkl-dynamic-lp64-gomp";
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-env-changed=IPOPT_DIR");
     println!("cargo:rerun-if-env-changed=PKG_CONFIG_PATH");
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=build_receipt.rs");
     println!("cargo:rerun-if-env-changed=PSE_ROOT_ISOLATION_DIR");
     if env::var_os("CARGO_FEATURE_ROOT_ISOLATION").is_some() {
         root_isolation()?;
@@ -92,7 +95,7 @@ fn root_isolation() -> Result<(), Box<dyn Error>> {
     let manifest = prefix.join(".complete.json");
     println!("cargo:rerun-if-changed={}", manifest.display());
     let out = PathBuf::from(env::var_os("OUT_DIR").ok_or("OUT_DIR unset")?);
-    fs::copy(manifest, out.join("root-isolation-manifest.json"))?;
+    build_receipt::materialize(&manifest, &out.join("root-isolation-manifest.json"))?;
     let pc = prefix.join("share/pkgconfig/ibex.pc");
     println!("cargo:rerun-if-changed={}", pc.display());
     println!("cargo:rerun-if-changed=native/root_isolation.cpp");

@@ -456,6 +456,9 @@ minversion = "9.1"
 testpaths = ["python/pse/tests"]
 python_files = ["test_*.py"]
 addopts = [
+  "-n",
+  "16",
+  "--dist=worksteal",
   "--strict-markers",
   "--strict-config",
   "--import-mode=importlib",
@@ -478,6 +481,7 @@ markers = [
   "integration: long-running end-to-end",
   "performance: opt-in with --performance; never collected otherwise",
   "parity: needs the parity environment (IDAES 2.13.0 + ipopt on PATH); deselected without --parity, FAILS (never skips) with it",
+  "producer_deployment: strict actual deployment captures; deselected without --producer-deployment, fails without current captures when opted in",
 ]
 
 [tool.coverage.run]

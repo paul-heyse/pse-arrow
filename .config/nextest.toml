@@ -4,17 +4,17 @@
 # `cargo nextest run` with `cargo test --doc --workspace --locked`.
 
 [test-groups]
-# Ipopt + MUMPS solves are memory-heavy and spawn their own rayon/tokio threads
-# (blueprint §18.8 thread budget).
-solver = { max-threads = 2 }
+# Independent solver tests use the sixteen-worker test budget. Native BLAS/OpenMP
+# teams remain one thread each; memory-heavy authored journeys have their own group.
+solver = { max-threads = 16 }
 # Each engineering workflow has its own 64 GiB ceiling and two workers.
 # At most two such processes run together (128 GiB aggregate declared ceiling).
 engineering = { max-threads = 4 }
 # Canonical consumers on the one selected supervised server. Each fixture owns an
 # isolated UUID database, so database-only tests share the server (threads-required 1);
-# the cap matches the server's four runtime worker threads. Tests that own server-wide
-# resources or depend on sub-second timing take all four slots (threads-required 4).
-store = { max-threads = 4 }
+# sixteen clients can share the server's four runtime threads. Tests that own
+# server-wide resources or depend on sub-second timing take all sixteen slots.
+store = { max-threads = 16 }
 
 [profile.default]
 fail-fast = false
@@ -44,8 +44,11 @@ success-output = "never"
 #   deadlines, 250-300 ms claims and fences, 1 s leases, 32 x 10 ms polls).
 filter = """
 (package(pse-runtime) & binary(worker))
+| (package(pse-runtime) & test(conformance_parallel_))
 | (package(pse-operations) & (
     test(=testing::canonical_server_unit::fixture_connections_preserve_external_and_deployment_databases)
+    | test(=canonical::canonical_server_unit::initialization_sixteen_independent_databases_complete_in_parallel)
+    | test(=canonical_retention::canonical_server_unit::concurrent_protected_reads_and_lease_changes_retry_complete_transactions)
     | test(/^canonical::canonical_server_unit::(initialization_cancellation_cannot_establish_success|query_cancellation_cannot_establish_empty_success|initialization_uses_atomic_transition_client_for_complete_schema)$/)
     | test(=canonical_execution::canonical_execution_server_unit::canonical_execution_expiry_cancellation_and_truthful_recovery)
     | test(=canonical_retention::canonical_server_unit::expired_selection_cannot_read_or_resurrect_reclaimed_history)
@@ -54,7 +57,7 @@ filter = """
 | (package(pse-runtime) & test(/^workflow::study_tests::(canonical_study_summary_live_owner_and_expired_writer_rebuild_without_science|canonical_study_cancellation_after_summary_close_fences_success)$/))
 """
 test-group = "store"
-threads-required = 4
+threads-required = 16
 
 [[profile.default.overrides]]
 # Memory-heavy engineering journeys: conformance acceptances own a 64 GiB workflow pool
@@ -73,7 +76,7 @@ threads-required = 2
 [[profile.default.overrides]]
 filter = '(package(pse-backend-native) & test(/^(kinsol|ipopt|uno|petsc|root_isolation|dynamics|highs|clarabel_tests|restart_tests|scip_tests|l1_tests|pounce_convex_tests|measurement_tests)::/)) | test(/(^|::)solve_/)'
 test-group = "solver"
-threads-required = 2
+threads-required = 1
 slow-timeout = { period = "300s", terminate-after = 2 }
 
 [[profile.default.overrides]]

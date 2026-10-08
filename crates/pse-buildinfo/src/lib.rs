@@ -20,12 +20,16 @@ pub const RUSTC_VERSION: &str = env!("PSE_RUSTC_VERSION");
 /// Cargo profile the extension was compiled with (`debug`, `release`, `dist`, ...).
 pub const PROFILE: &str = env!("PSE_PROFILE");
 
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
+mod loader_scope;
+
 #[path = "../identity.rs"]
 pub mod identity;
 pub use identity::{
-    DEPLOYMENT_RECEIPT_VERSION, DeploymentAssociation, FileObservation, OuterObservation,
-    loaded_module_path, observe_deployment, observe_outer, verify_loaded_module,
-    verify_receipt_artifact, workspace_root,
+    DEPLOYMENT_RECEIPT_VERSION, DeploymentAssociation, FileObservation, LOCAL_RUNTIME_VERSION,
+    LocalRuntimeObservation, LocalRuntimeRole, OuterObservation, loaded_module_path,
+    observe_deployment, observe_outer, verify_loaded_module, verify_receipt_artifact,
+    with_local_runtime_scope, workspace_root,
 };
 
 /// Build provenance of the compiled product, projected without recomputing its identity.

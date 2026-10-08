@@ -4,6 +4,7 @@
 #![allow(
     clippy::unwrap_used,
     clippy::panic,
+    clippy::unreachable,
     reason = "native admission controls fail on invalid setup or unexpected operation variants"
 )]
 use super::super::{

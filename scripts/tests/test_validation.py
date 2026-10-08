@@ -18,7 +18,7 @@ import threading
 import time
 import tomllib
 import unittest
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -599,6 +599,14 @@ class ValidationTests(unittest.TestCase):
                     "testcases": {
                         "one": {"filter-match": {"status": "matches"}},
                         "two": {"filter-match": {"status": "mismatch"}},
+                        "selected-ignored": {
+                            "ignored": True,
+                            "filter-match": {"status": "matches"},
+                        },
+                        "unselected-ignored": {
+                            "ignored": True,
+                            "filter-match": {"status": "mismatch", "reason": "ignored"},
+                        },
                     },
                 }
             }
@@ -607,7 +615,10 @@ class ValidationTests(unittest.TestCase):
             validation_receipts.native_selection(
                 "compiler output\n" + json.dumps(record)
             ),
-            [{"class": "crate", "name": "one"}],
+            [
+                {"class": "crate", "name": "one"},
+                {"class": "crate", "name": "selected-ignored"},
+            ],
         )
         with self.assertRaises(ValueError):
             validation_receipts.native_selection("truncated")
@@ -704,6 +715,95 @@ class ValidationTests(unittest.TestCase):
             next(g for g in comprehensive() if g.name == "native-test").profile,
         )
 
+    def test_strict_deployment_controls_have_only_the_explicit_producer_route(
+        self,
+    ) -> None:
+        development = {gate.name: gate for gate in comprehensive()}
+        producer = {gate.name: gate for gate in comprehensive("producer")}
+        self.assertNotIn("native-deployment-association", development)
+        strict = producer["native-deployment-association"]
+        self.assertEqual(strict.recipe, "native-test")
+        self.assertEqual(strict.profile, "local")
+        self.assertEqual(strict.input_scope, "rust-product")
+        self.assertEqual(strict.mode, "native-force-validate")
+        self.assertFalse(strict.enumerate_native)
+        self.assertEqual(strict.dependencies, ("python-deployment-association",))
+        self.assertEqual(
+            strict.args,
+            (
+                "--profile",
+                "local",
+                "--run-ignored",
+                "all",
+                "-E",
+                "test(=math::portable::canonical_deployment_tests::canonical_deployment_actual_receipts_enforce_selected_role)",
+            ),
+        )
+        for gates in (development, producer):
+            self.assertNotIn("--run-ignored", gates["native-test"].args)
+            self.assertIn("producer-fixture", gates["native-test"].dependencies)
+        self.assertNotIn("--producer-deployment", development["native-python"].args)
+        for name in ("python-deployment-association", "native-python"):
+            self.assertIn("--producer-deployment", producer[name].args)
+
+    def test_strict_native_gate_uses_its_runner_inventory_without_outer_execution(
+        self,
+    ) -> None:
+        strict = next(
+            gate
+            for gate in comprehensive("producer")
+            if gate.name == "native-deployment-association"
+        )
+        name = (
+            "math::portable::canonical_deployment_tests::"
+            "canonical_deployment_actual_receipts_enforce_selected_role"
+        )
+        inventory = {
+            "rust-suites": {
+                "runtime": {
+                    "binary-id": "pse-runtime",
+                    "testcases": {
+                        name: {
+                            "ignored": True,
+                            "filter-match": {"status": "matches"},
+                        }
+                    },
+                }
+            }
+        }
+        execute = validation.execute
+
+        def child(
+            root: Path,
+            output: Path,
+            gate_name: str,
+            command: list[str],
+            environment: dict[str, str],
+        ) -> dict:
+            self.assertEqual(command, ["just", "native-test", *strict.args])
+            result = execute(
+                root, output, gate_name, [sys.executable, "-c", "pass"], environment
+            )
+            Path(environment["PSE_NATIVE_SELECTION"]).write_text(json.dumps(inventory))
+            return result
+
+        with patch.object(validation, "execute", side_effect=child) as called:
+            # This synthetic runner supplies no native artifact or scientific report;
+            # it must not qualify, but its single invocation must consume its inventory.
+            self.assertEqual(
+                validation.run_gates(
+                    self.root,
+                    self.output,
+                    [replace(strict, dependencies=(), report=None)],
+                    capture=False,
+                ),
+                1,
+            )
+            called.assert_called_once()
+        record = json.loads((self.output / "checks.json").read_text())["checks"][0]
+        self.assertEqual(record["selected"], [{"class": "pse-runtime", "name": name}])
+        self.assertEqual(record["status"], "failed")
+
     def test_producer_deployment_is_ordered_after_install_before_consumers(
         self,
     ) -> None:
@@ -712,6 +812,7 @@ class ValidationTests(unittest.TestCase):
         for prerequisite, consumer in (
             ("py-sync-native", "producer-deployment"),
             ("producer-deployment", "python-deployment-association"),
+            ("python-deployment-association", "native-deployment-association"),
             ("python-deployment-association", "native-test"),
             ("python-deployment-association", "native-python"),
         ):

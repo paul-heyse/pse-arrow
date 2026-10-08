@@ -3,7 +3,7 @@ title: SurrealDB unified simulation substrate
 status: in-progress
 date: 2026-10-05
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -385,6 +385,9 @@ deletion; static hygiene and assembled integration wait for all functional scope
 This is the only current disposition table for the adopted unified-substrate and efficiency
 findings, the completion audit and the [2026-10-07 production efficiency review](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md).
 It also owns the [remaining-design enhancement review](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md).
+The [parallel-execution review](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md)
+has the open dispositions below; its recommendations and conditional rule impacts are not
+adopted merely by publication.
 A scheduled package or accepted rule is not resolution. Links identify local evidence owners;
 resolve only when correction and relevant acceptance actually exist. US/EF/F scenario IDs
 refer to their originating reviews; PE scenario IDs refer to the new review. The PE entries
@@ -431,18 +434,43 @@ earlier completion audit. All corrections are scheduled, not resolved by documen
 
 | Finding or obligation | Review scenario | Disposition | Work owner | Required evidence or settling decision |
 |---|---|---|---|---|
-| [Enhancement F01](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#f01) | S01/S06 | Scheduled | C5; N2/N4; E3 | Actual stored/default study basis reuse, every binding/seed role checked, distinct occurrences, changed premises and creation cancellation. |
-| [Enhancement F02](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#f02) | S02 | Scheduled | L5; B5; E3 | Accepted RC01 route, independently established effective deployment context and actual default worker/Python restart reconstruction; absent/changed premises refuse reuse only. |
-| [Enhancement F03](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#f03) | S03 | Scheduled | L6; E2 | Repeated exact receipt materialization, changed bytes and existing read-only destination; sealed generation stays unchanged; affected native route executes. |
-| [Enhancement F04](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#f04) | S04 | Scheduled | N6; N4; E3 | One current sample factor for distinct directions, current-value refactorization, first/second-order production-basis checks and failed-factor recovery. |
-| [Enhancement F05](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#f05) | S05 | Scheduled | N5; N4; E3 | Shared admitted layout, private concurrent scratch, changed coordinate/support premises and extent/refusal controls across actual consumers. |
-| [Transient fitting demand](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#library-fit-and-remaining-investigations) | S05 | Scheduled | N7; N4 | Gradient-first combined report/derivative, cheap objective-only route, coherent value-first cache upgrade; no assumed checkpoint continuation. |
-| [Selected storage access paths](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#library-fit-and-remaining-investigations) | S07 | Scheduled | T6; T5; D1/D2 | Current bound source/result/analysis queries under selective/empty/skewed inputs; adopted correction or supported retained design, preserving protected byte-bounded completion. |
+| [Enhancement F01](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#f01) | S01/S06 | Implemented; focused controls pass, E3/E4 pending | C5; N2/N4; E3 | Actual stored/default study basis reuse, every binding/seed role checked, distinct occurrences, changed premises and creation cancellation. |
+| [Enhancement F02](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#f02) | S02 | Implemented; scoped controls pass, E3/E4 pending | L5; B5; E3 | Accepted RC01 route, independently established effective deployment context and actual default worker/Python restart reconstruction; absent/changed premises refuse reuse only. |
+| [Enhancement F03](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#f03) | S03 | Implemented and targeted-tested | L6; E2 | Repeated exact receipt materialization, changed bytes and existing read-only destination; sealed generation stays unchanged; affected native route executes. |
+| [Enhancement F04](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#f04) | S04 | Implemented; focused factor control passes, E3/E4 pending | N6; N4; E3 | One current sample factor for distinct directions, current-value refactorization, first/second-order production-basis checks and failed-factor recovery. |
+| [Enhancement F05](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#f05) | S05 | Implemented; focused integration controls pass, E3/E4 pending | N5; N4; E3 | Shared admitted layout, private concurrent scratch, changed coordinate/support premises and extent/refusal controls across actual consumers. |
+| [Transient fitting demand](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#library-fit-and-remaining-investigations) | S05 | Adopted and implemented; demand/coherence controls pass, E3/E4 pending | N7; N4 | Gradient-first combined report/derivative, cheap objective-only route, coherent value-first cache upgrade; no assumed checkpoint continuation. |
+| [Selected storage access paths](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md#library-fit-and-remaining-investigations) | S07 | Investigation complete; cursor correction targeted-tested, E3/E4 pending | T6; T5; D1/D2 | Current bound source/result/analysis queries under selective/empty/skewed inputs; adopted correction or supported retained design, preserving protected byte-bounded completion. |
 
 Other preparation work is included in B3/C3: ready-attempt preparation/product sharing,
 bounded Salsa diversity and native lifetimes. General SIMD/JIT/WASM, distributed deployment
 and optional generic tools are outside required scope unless a concrete consumer need changes
 the contract. Material new decisions return to their owner through existing governance.
+
+### Parallel-execution review dispositions
+
+The [2026-10-08 review](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md)
+assesses reliable sixteen-worker independent end-to-end execution on the current tree and
+returns **Revise**. It preserves scientific authority, immutable preparation sharing, private
+compiler/evaluator/provider state, original-model assessment and native drain. The source-backed
+findings have distinct correction obligations; a higher worker count, retry count or budget
+does not settle them. The precise SQL responsible for each observed transaction conflict and
+the supported mixed-backend execution strategy remain consequential questions.
+
+| Finding | Review scenarios | Disposition | Proposed work owner | Required evidence or question |
+|---|---|---|---|---|
+| [Parallel F01](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f01) | S01/S03/S06 | Open | A/B/G canonical protection, selection and publication; E3 | Reliable sixteen complete cases and original report/result meaning; protected reclamation and uncertain-acknowledgment safety. Select the correction with adequate operation attribution; RC01 is conditional and unconfirmed. |
+| [Parallel F02](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f02) | S02/S03 | Open | B/F math preparation and admission; E3 | Small nested-provider/rebind work completes under the finite pool without maximum-capacity reservation amplification; retain oversized refusal, clocks, cancellation and bounded progress under retained pressure. RC02 depends on whether admission behavior changes. |
+| [Parallel F03](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f03) | S04 | Open | Coordinator; C/F/H native execution/deployment; E3 | Explicit supported independent-instance, internal-team and process strategies, with exclusion/waiting, cancellation, teardown and aggregate CPU/memory scope. RC03 is unconfirmed; no deadlock or universal backend concurrency is claimed. |
+| [Parallel F04](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f04) | S05 | Open | C/F native session/scope ownership; E3 | Additional POUNCE team stacks reserved before creation, retained while the team exists and released after scope teardown/join; finite refusal before creation. This is existing-contract accounting, not an RSS claim or a new allocator contract. |
+| [Parallel F05](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f05) | S07/S03 | Open | C study execution; F native/preparation integration; E3 | One ordinary study executes sixteen independent non-batching cases concurrently with exact occurrences, starts, result placement and original scientific checks; retain dependent sequence order, failed-point isolation, bounded admission and cancel/drain. Select/account for durable worker deployment; RC04 is unconfirmed. |
+
+These are proposed correction owners, not new execution packets or correction evidence.
+The review's [rule impacts](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#11-rule-impacts-and-disposition)
+remain pending the selected design and maintainer confirmation where required. No accepted
+ADR or authoritative architecture section is changed by the review. This coordinator keeps
+the single finding ledger; [28e](28e-rebuild-retirement-and-qualification.md#parallel-execution-review-handoff-2026-10-08)
+owns campaign resumption and later qualification evidence.
 
 ## Verification
 
@@ -463,14 +491,56 @@ mechanism, and justified distinct contracts and conditional retained-design deci
 
 ## Current checkpoint
 
-The enhancement review is integrated on the `dacc9c33225990984ddbd1d356e797389f02fef3`
-foundation. RC01 is accepted; L5/B5's decision route and implementation remain pending.
-C5, N5–N7, T6 and L6 are new scheduled scope, not already qualified extensions of earlier
-package passes. E owns the interrupted stable assessment and affected diagnostic route.
-Next restore receipt derivation and obtain actual Python failures; perform C5/N5/N6 and
-decision-ready N7/T6 work; settle and implement L5/B5 before ordinary restart acceptance.
-The corresponding functional scope precedes E3, applicable E4 and E5. Earlier checkpoint
-notes below retain their original evidence and are superseded as current execution directions.
+Implementation is authorized on the current `fbbf718dc175dea773c468db1f14deba88f7042d`
+foundation. C5, N5–N7, L6, L5/B5 and T6 are integrated into the working tree.
+
+At the maintainer's request, execution is interrupted for the
+[parallel-execution review](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md).
+The review is published with five open findings and conditional rule impacts above.
+Its preferred direction is to correct canonical conflict scope, temporary preparation
+admission and native team lifetimes, compose independent study frontier execution, and
+establish the supported backend and durable worker deployment strategies. Implementation and campaign resumption follow the selected correction and its
+applicable decision route; the stopped campaign remains stopped. The paragraphs below
+retain the implementation handoff and earlier evidence without establishing parallel acceptance.
+
+Native mechanism controls and installed Python default reopening/loader controls pass.
+Independent implementation review exposed originating body-cache producer association
+and cancelled direct-store retry membership gaps; their focused repairs pass. L5's accepted enhancement
+RC01 is recorded in proposed ADR-0164 and architecture revision135 before dependent code.
+Its controlled Linux/glibc reconstruction scope observes actual artifacts/configuration and
+owns no native provider handles after immutable construction. Strict qualification remains
+separate. T6 completed populated current-schema access-path investigation, adopting
+result cursor corrections and recording reasoned retained source/numeric/analysis choices.
+Query-plan candidate counts are not disk-fetch or latency claims. E owns the affected
+Python accuracy diagnostic and the sole assembled campaign. Functional consumer reconciliation
+and the three added benchmark smoke controls are complete. E3's first composed development
+attempt exposed an enclosing-scope cancellation fixture defect; independent fixture controls
+now pass. The assembled review's repeated allowance-projection correction is integrated,
+with affected numerical checks before E3 resumes. Actual fresh managed-worker and imported-Python
+receivers now demonstrate quiet persisted reconstruction without producer receipts; receiving
+hardware probes leave executable bytes intact and have positive fresh-miss controls. Shared
+mathematical initialization precedes local loader observation, including license/NSS startup
+effects. Qualification also corrected first-order implicit scratch sizing without increasing
+budgets and separated optional strict capture controls from the development campaign.
+The overlapping native assessment was interrupted after canonical initialization conflicts.
+The maintainer subsequently requires sixteen parallel workers as functional scope and
+directed stopping the one-worker reference campaign. That owned process is stopped;
+the replacement must prove concurrent fixture execution, deterministic complete reports
+and cancellation settlement before the reference campaign restarts with sixteen runtime
+workers. Thirty-two native admission slots accommodate sixteen idle staged sessions plus
+their preparation/validation operations; active native execution still has sixteen CPU
+permits. Ordinary solver, canonical and Python tests also use sixteen workers;
+memory-heavy workflows retain finite aggregate admission. Definite initialization conflict
+recovery belongs to the atomic installation owner, without retrying uncertain delivery.
+Protected source decisions and publication retain their guards, exact identities and
+acknowledgment recovery while definite conflicts receive bounded, jittered pacing.
+The actual sixteen-reader protection/read/release control passes; the enclosing parallel
+fixture controls and rebuilt reference campaign remain prerequisites for assembled E3.
+Earlier static prerequisites retain their original scope; the subsequent parallel source
+and configuration changes require affected checks at functional scope end. E4 build measurements retain the
+unchanged 50 GiB free-space floor; sufficient storage is now available. Applicable E4 measurements and
+E5 acceptance follow positive functional qualification. Earlier checkpoint notes
+below retain their original evidence and are superseded as current execution directions.
 
 The earlier correction baseline was `5260a3e9a`, recording the continuation from
 `219338742` without changing its reviewed product bytes. At the maintainer's request, the current qualification runner was

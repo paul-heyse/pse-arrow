@@ -17,6 +17,99 @@ from scripts import build_measurements, native_operation, validation
 
 
 class BuildMeasurementTests(unittest.TestCase):
+    @staticmethod
+    def build_source_fixture(root: Path) -> dict[str, str]:
+        files = {
+            "crates/pse-compiler/src/physical_identity.rs": "h.u64(v.to_bits());\n",
+            "crates/pse-compiler/src/lib.rs": "// Original public API.\n",
+            "docs/dev/documentation.md": "Original documentation.\r\n",
+        }
+        for name, content in files.items():
+            path = root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content)
+        return files
+
+    def test_three_edit_cycles_observe_only_snapshot_mutations_and_restoration(
+        self,
+    ) -> None:
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(validation, "SOURCE_PATHS", (".",)),
+        ):
+            root = Path(directory) / "original"
+            root.mkdir()
+            self.build_source_fixture(root)
+            subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
+            subprocess.run(["git", "add", "--all"], cwd=root, check=True)
+            index = (root / ".git/index").read_bytes()
+            original = validation.sources(root)
+            output = Path(directory) / "output"
+            output.mkdir()
+            source = build_measurements.snapshot(root, output)
+            calls = []
+            edits = {
+                "private-edit": "crates/pse-compiler/src/physical_identity.rs",
+                "public-edit": "crates/pse-compiler/src/lib.rs",
+                "unrelated-edit": "docs/dev/documentation.md",
+            }
+
+            def sample(name: str) -> None:
+                current = validation.sources(source)
+                changed = {path for path in current if current[path] != original[path]}
+                expected = {
+                    path for kind, path in edits.items() if name.startswith(kind + "-")
+                }
+                self.assertEqual(changed, expected, name)
+                self.assertEqual(validation.sources(root), original)
+                calls.append(name)
+
+            build_measurements.build_phases(source, 3, sample, screen=False)
+            expected = ["cold"]
+            for repetition in range(3):
+                expected.extend(
+                    f"{kind}-{repetition}"
+                    for kind in (
+                        "warm",
+                        "private-edit",
+                        "restore-private",
+                        "public-edit",
+                        "restore-public",
+                        "unrelated-edit",
+                        "restore-unrelated",
+                    )
+                )
+            self.assertEqual(calls, expected)
+            self.assertEqual(validation.sources(source), original)
+            self.assertEqual(validation.sources(root), original)
+            self.assertEqual((root / ".git/index").read_bytes(), index)
+
+    def test_unrelated_edit_is_restored_when_measurement_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory)
+            files = self.build_source_fixture(source)
+
+            def sample(name: str) -> None:
+                if name == "unrelated-edit-0":
+                    self.assertNotEqual(
+                        (source / "docs/dev/documentation.md").read_bytes(),
+                        files["docs/dev/documentation.md"].encode(),
+                    )
+                    raise RuntimeError("retained failed build")
+
+            with self.assertRaisesRegex(RuntimeError, "retained failed build"):
+                build_measurements.build_phases(source, 3, sample, screen=False)
+            for name, original in files.items():
+                self.assertEqual((source / name).read_bytes(), original.encode())
+
+    def test_screen_mode_has_only_cold_and_three_warm_observations(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            calls = []
+            build_measurements.build_phases(
+                Path(directory), 3, calls.append, screen=True
+            )
+        self.assertEqual(calls, ["cold", "warm-0", "warm-1", "warm-2"])
+
     def test_default_target_does_not_prepare_unconsumed_native_capabilities(
         self,
     ) -> None:

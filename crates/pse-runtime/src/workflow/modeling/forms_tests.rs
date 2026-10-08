@@ -130,7 +130,7 @@ fn objective_accuracy(result: &ModelingResult) -> ObjectiveAccuracy {
             let relative = accuracy.gap_relative;
             assert!(primal.is_finite());
             assert!(error.is_finite() && error >= 0. && error <= relative);
-            assert!(relative.is_finite() && relative >= 0. && relative < 1.);
+            assert!(relative.is_finite() && (0. ..1.).contains(&relative));
             let metric_allowance = relative * (1. + 2. * primal.abs()) / (1. - relative) * scale;
             (
                 preparation.objective_accuracy().max(metric_allowance),

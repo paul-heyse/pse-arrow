@@ -135,6 +135,7 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
                 Some(bench),
             ),
             physical,
+            &owner.cancellation,
         )
         .await
         .unwrap()

@@ -964,7 +964,17 @@ fn run<LS: LinearSolver<M>>(
             }};
         }
         let (event, state) = match (p.forward(), p.diffsol.method) {
-            (true, DiffsolMethod::Bdf) => segment!(problem.bdf_sens::<LS>(), sensitivities),
+            (true, DiffsolMethod::Bdf) => {
+                let solver = problem.bdf_sens::<LS>().map(|mut solver| {
+                    // Diffsol 0.16.2 leaves the forward sensitivity BDF coefficient
+                    // at zero in its constructor. Its public state mutation path
+                    // rebuilds both main and sensitivity coefficients before stepping,
+                    // using the already consistent state/rates and unchanged controls.
+                    let _ = solver.state_mut();
+                    solver
+                });
+                segment!(solver, sensitivities)
+            }
             (true, DiffsolMethod::TrBdf2) => {
                 segment!(problem.tr_bdf2_sens::<LS>(), sensitivities)
             }
@@ -1404,5 +1414,170 @@ fn copy_native(p: &diffsol::OdeSolverOptions<f64>) -> diffsol::OdeSolverOptions<
         threshold_to_update_rhs_jacobian: p.threshold_to_update_rhs_jacobian,
         pi_control_proportional: p.pi_control_proportional,
         pi_control_integral: p.pi_control_integral,
+    }
+}
+
+#[cfg(test)]
+mod forward_initialization_tests {
+    use super::*;
+
+    /// The public affine experiment, in canonical seconds: x'=rate, x(0)=2,
+    /// output=x. Exact sensitivities follow the elapsed input interval.
+    #[derive(Debug)]
+    struct Affine(Contract);
+    impl Affine {
+        fn new() -> Self {
+            let id = |n| SemanticId::from_bytes([n; 16]);
+            Self(Contract {
+                identity: ContentHash::from_bytes([81; 32]),
+                states: vec![id(82)],
+                differential: vec![true],
+                parameters: vec![id(83)],
+                outputs: vec![id(84)],
+                events: vec![vec![]],
+                quadratures: vec![],
+                balances: vec![],
+                signs: vec![],
+                derivatives: pse_kernels::DerivativeOrder::First,
+            })
+        }
+    }
+    impl Oracle for Affine {
+        fn contract(&self) -> &Contract {
+            &self.0
+        }
+        fn support(&self, _: usize, function: Function) -> Vec<SupportEntry> {
+            entries(match function {
+                Function::Rhs => vec![(0, 1)],
+                Function::Output => vec![(0, 0)],
+                _ => vec![],
+            })
+        }
+        fn evaluate(
+            &mut self,
+            _: usize,
+            function: Function,
+            _: f64,
+            state: &[f64],
+            parameters: &[f64],
+            derivatives: bool,
+        ) -> Result<Evaluation, ProblemError> {
+            let (values, partials) = match function {
+                Function::Initial => (vec![2.0], vec![]),
+                Function::Rhs => (vec![parameters[0]], vec![(0, 1, 1.0)]),
+                Function::Output => (vec![state[0]], vec![(0, 0, 1.0)]),
+                _ => (vec![], vec![]),
+            };
+            let jacobian = derivatives.then(|| {
+                faer::sparse::SparseColMat::try_new_from_triplets(
+                    values.len(),
+                    2,
+                    &partials
+                        .into_iter()
+                        .map(|(row, col, value)| faer::sparse::Triplet::new(row, col, value))
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap()
+            });
+            Ok(Evaluation { values, jacobian })
+        }
+    }
+    fn affine_profile(linear: DiffsolLinear) -> Profile {
+        Profile {
+            method: Method::Diffsol,
+            samples: vec![0.0, 0.0005, 0.5, 1.0],
+            atol: vec![0.001],
+            rtol: 0.001,
+            initial_step: 1e-4,
+            parameter_scales: vec![1.0],
+            sensitivity: DynamicSensitivity::Forward,
+            diffsol: DiffsolSettings {
+                linear,
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+    #[test]
+    fn affine_bdf_forward_response_respects_physical_allowance_at_public_controls() {
+        // This empirical affine control compares a half-scale parameter effect
+        // against the public state's frozen physical budget. The native local
+        // integration tolerances are inputs, not a derivative-error certificate.
+        let (delta, budget) = (0.5, 0.001);
+        for linear in [DiffsolLinear::FaerLu, DiffsolLinear::Klu] {
+            for rate in [1.0, 3.0] {
+                let report = integrate(
+                    &mut Affine::new(),
+                    &affine_profile(linear),
+                    &[rate],
+                    Arc::default(),
+                )
+                .unwrap();
+                assert_eq!(
+                    report.termination,
+                    Termination::Completed,
+                    "{:?}",
+                    report.error
+                );
+                assert_eq!(report.samples.len(), 4);
+                for sample in &report.samples {
+                    assert!(
+                        (sample.state[0] - (2.0 + rate * sample.time)).abs() <= budget,
+                        "{linear:?}: {sample:?}"
+                    );
+                    assert!(
+                        (delta * sample.state_sensitivities[0] - delta * sample.time).abs()
+                            <= budget,
+                        "{linear:?}: {sample:?}"
+                    );
+                    assert!(
+                        (delta * sample.output_sensitivities[0] - delta * sample.time).abs()
+                            <= budget,
+                        "{linear:?}: {sample:?}"
+                    );
+                }
+            }
+        }
+    }
+    #[test]
+    fn affine_bdf_forward_response_reinitializes_each_scheduled_segment() {
+        let (delta, budget) = (0.5, 0.001);
+        for linear in [DiffsolLinear::FaerLu, DiffsolLinear::Klu] {
+            let mut profile = affine_profile(linear);
+            profile.schedule = vec![ScheduledInput {
+                parameter: 0,
+                times: vec![0.5],
+            }];
+            let report =
+                integrate(&mut Affine::new(), &profile, &[3.0, 1.0], Arc::default()).unwrap();
+            assert_eq!(
+                report.termination,
+                Termination::Completed,
+                "{:?}",
+                report.error
+            );
+            assert_eq!(report.samples.len(), 4);
+            for sample in &report.samples {
+                let intervals = [sample.time.min(0.5), (sample.time - 0.5).max(0.0)];
+                assert!(
+                    (sample.state[0] - (2.0 + 3.0 * intervals[0] + intervals[1])).abs() <= budget,
+                    "{linear:?}: {sample:?}"
+                );
+                assert_eq!(sample.state_sensitivities.len(), 2);
+                assert_eq!(sample.output_sensitivities.len(), 2);
+                for (column, duration) in intervals.into_iter().enumerate() {
+                    assert!(
+                        (delta * sample.state_sensitivities[column] - delta * duration).abs()
+                            <= budget,
+                        "{linear:?}: {sample:?}"
+                    );
+                    assert!(
+                        (delta * sample.output_sensitivities[column] - delta * duration).abs()
+                            <= budget,
+                        "{linear:?}: {sample:?}"
+                    );
+                }
+            }
+        }
     }
 }

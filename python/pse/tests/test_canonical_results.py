@@ -2,9 +2,13 @@
 # Copyright (c) 2026 Paul Heyse
 """Exact canonical identities, bounded result streams and local IPC export."""
 
+import ctypes
 import hashlib
 import os
+import shlex
+import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import msgspec
@@ -164,6 +168,7 @@ def test_canonical_result_selection_and_progress_reopen(
 
 
 @pytest.mark.integration
+@pytest.mark.producer_deployment
 def test_canonical_eligible_deployment_receipt_reopens_original_scalar(
     inspection_settings: pse.EngineSettings,
     canonical_substrate: str,
@@ -287,3 +292,186 @@ def test_canonical_eligible_deployment_receipt_reopens_original_scalar(
     # Public Python observes actual deployment admission, immutable reopening and
     # unchanged outputs. Strict native recipe controls separately distinguish
     # persisted reconstruction from fresh semantic admission; no timing claim.
+
+
+@pytest.mark.integration
+def test_canonical_default_no_receipt_reopens_scalar_with_sibling_loader(
+    inspection_settings: pse.EngineSettings,
+    canonical_substrate: str,
+    tmp_path: Path,
+) -> None:
+    # Bound the complete native preparation, not just Thread.join: a TLS/loader
+    # lock inversion on the receiving thread must not hang the enclosing suite.
+    child_marker = "PSE_TEST_DEFAULT_REPLAY_LOADER_CHILD"
+    if os.environ.get(child_marker) != "1":
+        # The child is this one control, not the enclosing campaign collector.
+        # Preserve artifact checks without overwriting the parent's selection.
+        child_environment = {
+            key: value
+            for key, value in os.environ.items()
+            if key != "PSE_TEST_ENUMERATION"
+        }
+        child_environment[child_marker] = "1"
+        command = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                f"{Path(__file__).resolve()}::{test_canonical_default_no_receipt_reopens_scalar_with_sibling_loader.__name__}",
+                "-q",
+                "-s",
+            ],
+            env=child_environment,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=240,
+        )
+        assert command.returncode == 0, command.stdout + command.stderr
+        return
+
+    # Python can already retain system DSOs such as libutil. A private C fixture
+    # with TLS guarantees genuine namespace/TLS publication and balanced removal.
+    source = tmp_path / "native-loader-control.c"
+    library = tmp_path / "native-loader-control.so"
+    source.write_text(
+        "_Thread_local int pse_loader_control_tls;\n"
+        "int pse_loader_control(void) { return ++pse_loader_control_tls; }\n"
+    )
+    compiler = shlex.split(os.environ.get("CC", "cc"))
+    assert compiler, "the native environment must supply a C compiler"
+    compiled = subprocess.run(
+        [*compiler, "-std=c11", "-shared", "-fPIC", str(source), "-o", str(library)],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert compiled.returncode == 0, compiled.stdout + compiled.stderr
+    library_path = str(library.resolve())
+    library_bytes = os.fsencode(library_path)
+
+    # ctypes/threading are imported before either receiving Runtime observes its
+    # real imported-extension/native context. CDLL releases the GIL during calls.
+    loader = ctypes.CDLL(None)
+    dlopen = loader.dlopen
+    dlopen.argtypes = [ctypes.c_char_p, ctypes.c_int]
+    dlopen.restype = ctypes.c_void_p
+    dlclose = loader.dlclose
+    dlclose.argtypes = [ctypes.c_void_p]
+    dlclose.restype = ctypes.c_int
+
+    def loader_cycle() -> None:
+        mappings = Path("/proc/self/maps")
+        assert library_path not in mappings.read_text(), (
+            "control requires a new namespace publication, not a retained handle"
+        )
+        handle = dlopen(library_bytes, os.RTLD_NOW | os.RTLD_LOCAL)
+        assert handle, "the private native loader control must load"
+        try:
+            assert library_path in mappings.read_text()
+        finally:
+            assert dlclose(handle) == 0
+        assert library_path not in mappings.read_text(), (
+            "balanced dlclose must remove the control's actual mapped artifact"
+        )
+
+    loader_cycle()
+    # No producer argument: ordinary imported Python chooses its supported local
+    # admission independently, even if an optional strict campaign is configured.
+    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    package, case = _package(runtime)
+    revision = package.canonical_revision
+    prepared = package.prepare_solve(case, _settings())
+    first = prepared.start().wait()
+    assert first.usable
+    run, attempt = first.canonical_run_key, first.canonical_attempt_key
+    assert run is not None
+    assert attempt is not None
+    original = pa.table(first.table("runtime.solve_variables"))
+    (variable,) = [row for row in original.to_pylist() if not row["parameter"]]
+    (binding,) = [row for row in original.to_pylist() if row["parameter"]]
+    assert binding["fixed"] is True
+    assert binding["value"] == 4.0
+    allowance = variable["tolerance"]
+    assert allowance > 0.0
+    assert abs(variable["value"] - 2.0) <= allowance
+    original_checks = pa.table(first.table("runtime.modeling_checks"))
+    assert original_checks.num_rows > 0
+    assert all(row["satisfied"] for row in original_checks.to_pylist())
+    del first, prepared, package
+    runtime.clear_program_cache()
+    del runtime
+
+    receiving = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    recreated = receiving.modeling_revision(revision, _physical(receiving))
+    assert recreated.canonical_revision == revision
+    started = threading.Event()
+    stop = threading.Event()
+    failures: list[Exception] = []
+    completed_cycles = 0
+
+    def sibling_loader() -> None:
+        nonlocal completed_cycles
+        try:
+            while not stop.is_set():
+                loader_cycle()
+                completed_cycles += 1
+                started.set()
+                stop.wait(0.001)
+        except (AssertionError, OSError) as error:
+            failures.append(error)
+            started.set()
+
+    sibling = threading.Thread(target=sibling_loader, daemon=True)
+    sibling.start()
+    try:
+        assert started.wait(5), "sibling loader did not begin its actual glibc work"
+        assert not failures, failures
+        # A changing loader context may conservatively choose fresh preparation.
+        # Either path must construct owned mathematical values without deadlock.
+        concurrent = recreated.prepare_solve(case, _settings())
+    finally:
+        stop.set()
+        sibling.join(timeout=10)
+    assert not sibling.is_alive(), "sibling loader did not drain after preparation"
+    assert not failures, failures
+    assert completed_cycles > 0
+    loader_cycle()  # Loader remains usable after bounded native preparation.
+    following = concurrent.start().wait()
+    assert following.usable
+    (following_variable,) = [
+        row
+        for row in pa.table(following.table("runtime.solve_variables")).to_pylist()
+        if not row["parameter"]
+    ]
+    assert abs(following_variable["value"] - 2.0) <= allowance
+    del following, concurrent, recreated
+    receiving.clear_program_cache()
+    del receiving
+
+    # Quiet reopening after loader activity verifies the ordinary composed path
+    # and exact retained historical members; it makes no timing/replay-only claim.
+    reopened = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    assert pa.table(reopened.results(run, attempt, "runtime.solve_variables")).equals(
+        original
+    )
+    assert pa.table(reopened.results(run, attempt, "runtime.modeling_checks")).equals(
+        original_checks
+    )
+    quiet = reopened.modeling_revision(revision, _physical(reopened))
+    assert quiet.canonical_revision == revision
+    result = quiet.prepare_solve(case, _settings()).start().wait()
+    assert result.usable
+    (quiet_variable,) = [
+        row
+        for row in pa.table(result.table("runtime.solve_variables")).to_pylist()
+        if not row["parameter"]
+    ]
+    assert abs(quiet_variable["value"] - 2.0) <= allowance
+    quiet_checks = pa.table(result.table("runtime.modeling_checks")).to_pylist()
+    assert quiet_checks
+    assert all(row["satisfied"] for row in quiet_checks)
+    # RefuseFreshAdmission in the native persisted replay control separately proves
+    # reconstruction versus fresh admission. This is imported-Python composition,
+    # dynamic TLS/loader concurrency, scientific output and historical retention.

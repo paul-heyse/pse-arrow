@@ -3,6 +3,9 @@
 
 //! Executable-owned canonical configuration and complete outer attestation.
 
+// A concrete synchronous code address in this actual worker composition module.
+fn local_code_anchor() {}
+
 pub(super) async fn open(
     database: Option<&str>,
 ) -> Result<pse_runtime::workflow::CanonicalDeployment, String> {
@@ -25,7 +28,8 @@ pub(super) async fn open(
         source: outer.source,
         build: outer.build,
     };
-    let producer = std::env::var_os("PSE_PRODUCER_RECEIPT").map(|path| {
+    let receipt = std::env::var_os("PSE_PRODUCER_RECEIPT");
+    let strict = receipt.as_ref().map(|path| {
         let bytes = std::fs::read(path).map_err(|error| error.to_string())?;
         let artifact = pse_buildinfo::verify_receipt_artifact(&bytes, &actual).map_err(|error| error.to_string())?;
         // SAFETY: the operator selects the reviewed actual capture; current_exe
@@ -34,6 +38,28 @@ pub(super) async fn open(
         unsafe { pse_runtime::math::portable::QualifiedProducer::from_deployment_receipt(&bytes, &artifact.sha256, pse_runtime::math::portable::ExpectedProducerTarget::WORKER) }
             .map_err(|error| error.to_string())
     }).transpose()?.flatten();
+    let producer = if receipt.is_some() {
+        strict.map(Into::into)
+    } else {
+        // SAFETY: the controlled worker's own code observes its receiving artifact.
+        // Reconstruction is immutable Rust math without caller/plugin/provider
+        // callbacks or direct executable-map mutation. Native operations retain
+        // their separate managed-generation lifetime; unknown context is a miss.
+        #[allow(
+            unsafe_code,
+            reason = "ADR-0164 controlled worker deployment-local reconstruction admission"
+        )]
+        // SAFETY: this actual worker module supplies its own observed code address;
+        // reconstruction follows the controlled immutable contract described above.
+        unsafe {
+            pse_runtime::math::portable::ReplayAdmission::observe_local(
+                pse_runtime::math::portable::ExpectedProducerTarget::WORKER,
+                local_code_anchor as *const () as usize,
+                std::sync::Arc::new(|| Ok(Vec::new())),
+            )
+        }
+        .ok()
+    };
     Ok(pse_runtime::workflow::CanonicalDeployment::new(
         store,
         attestation,

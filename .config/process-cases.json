@@ -280,6 +280,34 @@
       ]
     },
     {
+      "id": "fit-gradient-cold-1",
+      "operation": "curved-gradient",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "variables": [
+        2
+      ],
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ]
+    },
+    {
+      "id": "fit-curved-second-cold-1",
+      "operation": "curved-fit",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "variables": [
+        2
+      ],
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ]
+    },
+    {
       "id": "results-cold-1",
       "operation": "results",
       "reuse": "cold",
@@ -427,10 +455,15 @@
       "reuse": "publish-chain",
       "blocks": 128,
       "threads": 1,
-      "variables": [128],
+      "variables": [
+        128
+      ],
       "result_reads": 3,
       "physical_padding_bytes": 0,
-      "functional_scopes": ["process", "lifecycle"],
+      "functional_scopes": [
+        "process",
+        "lifecycle"
+      ],
       "samples": 31
     },
     {
@@ -439,10 +472,15 @@
       "reuse": "publish-chain",
       "blocks": 80,
       "threads": 1,
-      "variables": [80],
+      "variables": [
+        80
+      ],
       "result_reads": 3,
       "physical_padding_bytes": 0,
-      "functional_scopes": ["process", "lifecycle"],
+      "functional_scopes": [
+        "process",
+        "lifecycle"
+      ],
       "samples": 15
     },
     {
@@ -451,10 +489,15 @@
       "reuse": "publish-chain",
       "blocks": 128,
       "threads": 1,
-      "variables": [128],
+      "variables": [
+        128
+      ],
       "result_reads": 3,
       "physical_padding_bytes": 1048576,
-      "functional_scopes": ["process", "lifecycle"],
+      "functional_scopes": [
+        "process",
+        "lifecycle"
+      ],
       "samples": 31
     },
     {

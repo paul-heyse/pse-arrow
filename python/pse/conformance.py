@@ -58,6 +58,8 @@ class RunSettings(
     memory_limit_bytes: int
     #: Forwarded engine capacity; absence retains the Rust deployment default.
     math_worker_bytes: int | None = None
+    #: Maximum admitted native jobs, forwarded to the shared engine owner.
+    math_jobs: int | None = None
     threads: int = 1
     time_limit_seconds: float = 600
     intent: NativeSolveIntent = NativeSolveIntent.ROOT
@@ -229,6 +231,7 @@ def run_once(
         engine = EngineSettings(
             memory_limit_bytes=settings.memory_limit_bytes,
             math_worker_bytes=settings.math_worker_bytes,
+            math_jobs=settings.math_jobs,
             threads=settings.threads,
             spill_dir=spill,
             max_spill_bytes=1 << 30,

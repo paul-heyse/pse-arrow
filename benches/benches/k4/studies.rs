@@ -228,13 +228,14 @@ pub(super) fn measure(
                 let started=Instant::now();
                 let owner=WorkflowRuntime::with_threads(NonZeroUsize::new(1).unwrap()).unwrap();
                 let runtime=runtime(&owner);
+                let cancel=CancelSource::new();
                 let database_setup=started.elapsed();
                 let sources=support::sources(support::SOURCE);
                 phases.reset();
                 let before=owner.runtime.math().preparations();
                 let started=Instant::now();
                 let physical=support::physical(&runtime,&owner,&sources).await;
-                let package=runtime.modeling_from_documents(&support::admitted_documents(&owner,&sources.modeling),physical.clone()).await.unwrap();
+                let package=runtime.modeling_from_documents(&support::admitted_documents(&owner,&sources.modeling),physical.clone(),&cancel).await.unwrap();
                 let definition=definition(&package,&sources,&physical).await;
                 let admission=started.elapsed();
                 let admission_counts=support::counts(before,owner.runtime.math().preparations());
@@ -248,7 +249,7 @@ pub(super) fn measure(
                 let mut worker_passes=Vec::new();
                 let (elapsed,submission,submission_counts,worker_counts,result_read_seconds,outcomes,metrics) = if durable_mode {
                     let start=Instant::now();
-                    let handle=runtime.start_defined_study(sources.physical.clone(),definition.clone()).await.unwrap();
+                    let handle=runtime.start_defined_study(sources.physical.clone(),definition.clone(),&cancel).await.unwrap();
                     let submission=start.elapsed();
                     let submission_counts=support::counts(before,owner.runtime.math().preparations());
                     let worker_before=owner.runtime.math().preparations();
@@ -281,7 +282,7 @@ pub(super) fn measure(
                     let metrics=persisted(&runtime,&owner,&retained.points,&mut numerical).await;
                     (elapsed,submission,submission_counts,worker_counts,read.elapsed().as_secs_f64(),outcomes,metrics)
                 } else {
-                    let report=package.study(&definition,8,&CancelSource::new()).await.unwrap();
+                    let report=package.study(&definition,8,&cancel).await.unwrap();
                     let elapsed=started.elapsed();
                     check(&report.outcomes);
                     let read=Instant::now();

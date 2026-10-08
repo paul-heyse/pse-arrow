@@ -604,10 +604,10 @@ mod canonical_analyses_server_unit {
         let saved = store
             .persist_analysis(
                 &grouped,
-                &[revision.clone()],
+                std::slice::from_ref(&revision),
                 &[],
                 &nodes,
-                &[dependent.clone()],
+                std::slice::from_ref(&dependent),
             )
             .await
             .unwrap();

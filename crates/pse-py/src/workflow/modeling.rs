@@ -92,7 +92,7 @@ pub(super) fn from_documents(
                 )?;
             runtime
                 .inner
-                .modeling_from_documents(&owned, physical.inner.clone())
+                .modeling_from_documents(&owned, physical.inner.clone(), &cancel)
                 .await
         },
         || cancel.cancel(),
@@ -731,13 +731,16 @@ impl NativeModelingPackage {
                 "a durable study requires the shared physical source prerequisite",
             )
         })?;
+        let cancel = CancelSource::new();
         let inner = blocking(
             py,
             &runtime.owner,
-            runtime
-                .inner
-                .start_defined_study(physical_sources.as_ref().clone(), definition),
-            || {},
+            runtime.inner.start_defined_study(
+                physical_sources.as_ref().clone(),
+                definition,
+                &cancel,
+            ),
+            || cancel.cancel(),
         )?;
         Ok(NativeStudyHandle {
             owner: runtime.owner.clone(),

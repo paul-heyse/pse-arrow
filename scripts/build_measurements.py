@@ -20,8 +20,12 @@ import threading
 import time
 import tomllib
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts import build_environment, native_operation, validation
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def snapshot(root: Path, output: Path) -> Path:
@@ -393,6 +397,48 @@ def edit_body(source: Path) -> tuple[Path, str]:
     return private, original
 
 
+def build_phases(
+    source: Path,
+    repetitions: int,
+    sample: Callable[[str], None],
+    *,
+    screen: bool,
+) -> None:
+    """Observe each isolated edit and restoration using the same selected build."""
+    sample("cold")
+    for repetition in range(repetitions):
+        sample(f"warm-{repetition}")
+        if screen:
+            continue
+        private, original = edit_body(source)
+        try:
+            sample(f"private-edit-{repetition}")
+        finally:
+            private.write_text(original)
+        sample(f"restore-private-{repetition}")
+        public = source / "crates/pse-compiler/src/lib.rs"
+        original = public.read_text()
+        try:
+            public.write_text(
+                original
+                + "\n/// Build measurement marker.\npub const BUILD_MEASUREMENT: usize = 1;\n"
+            )
+            sample(f"public-edit-{repetition}")
+        finally:
+            public.write_text(original)
+        sample(f"restore-public-{repetition}")
+        unrelated = source / "docs/dev/documentation.md"
+        original_bytes = unrelated.read_bytes()
+        try:
+            unrelated.write_bytes(
+                original_bytes + b"\n<!-- Build measurement unrelated edit. -->\n"
+            )
+            sample(f"unrelated-edit-{repetition}")
+        finally:
+            unrelated.write_bytes(original_bytes)
+        sample(f"restore-unrelated-{repetition}")
+
+
 def profile_override(source: Path, level: int | None) -> None:
     """Apply candidate policy only in the snapshot, including nested just/maturin."""
     if level is None:
@@ -604,28 +650,7 @@ def main() -> None:
             owned_cache=args.cold_cache,
         )
 
-    sample("cold")
-    for repetition in range(args.repetitions):
-        sample(f"warm-{repetition}")
-        if args.screen:
-            continue
-        private, original = edit_body(source)
-        try:
-            sample(f"private-edit-{repetition}")
-        finally:
-            private.write_text(original)
-        sample(f"restore-private-{repetition}")
-        public = source / "crates/pse-compiler/src/lib.rs"
-        original = public.read_text()
-        try:
-            public.write_text(
-                original
-                + "\n/// Build measurement marker.\npub const BUILD_MEASUREMENT: usize = 1;\n"
-            )
-            sample(f"public-edit-{repetition}")
-        finally:
-            public.write_text(original)
-        sample(f"restore-public-{repetition}")
+    build_phases(source, args.repetitions, sample, screen=args.screen)
     if args.execute:
         execution = []
         command = [
@@ -695,7 +720,7 @@ def main() -> None:
         (output / "original-source.json").read_text()
     )
     statistics_by_kind = {}
-    for kind in ("warm", "private-edit", "public-edit"):
+    for kind in ("warm", "private-edit", "public-edit", "unrelated-edit"):
         values = [
             receipt["wall_seconds"]
             for name, receipt in receipts.items()

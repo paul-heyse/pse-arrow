@@ -324,6 +324,7 @@ async fn canonical_package_admission_preserves_source_identity_and_accelerators_
         .package_from_sources(
             std::slice::from_ref(&texts),
             super::super::tests::physical(),
+            &crate::CancelSource::new(),
         )
         .await
         .unwrap();
@@ -331,6 +332,7 @@ async fn canonical_package_admission_preserves_source_identity_and_accelerators_
         .package_from_sources(
             std::slice::from_ref(&texts),
             super::super::tests::physical(),
+            &crate::CancelSource::new(),
         )
         .await
         .unwrap();
@@ -346,6 +348,7 @@ async fn canonical_package_admission_preserves_source_identity_and_accelerators_
         .package_from_sources(
             std::slice::from_ref(&texts),
             super::super::tests::physical(),
+            &crate::CancelSource::new(),
         )
         .await
         .unwrap();
@@ -362,6 +365,7 @@ async fn canonical_package_admission_preserves_source_identity_and_accelerators_
         .package_from_sources(
             std::slice::from_ref(&texts),
             super::super::tests::physical(),
+            &crate::CancelSource::new(),
         )
         .await
         .unwrap();

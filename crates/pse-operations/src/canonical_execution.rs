@@ -92,6 +92,11 @@ pub struct RunRequest {
     unsafe_code,
     reason = "controlled fixture scientific admission asserts outcomes without pointer or ABI operations"
 )]
+#[allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    reason = "isolated execution fixtures and assertions fail the test on unexpected results"
+)]
 mod canonical_execution_server_unit {
     use super::*;
     use crate::canonical::{CanonicalOptions, checked};
@@ -224,7 +229,13 @@ mod canonical_execution_server_unit {
             })
             .collect::<Vec<_>>();
         store
-            .create_study("cancel-study", &request("study-summary"), &[9], &points)
+            .create_study(
+                "cancel-study",
+                &request("study-summary"),
+                &[9],
+                &points,
+                &|| false,
+            )
             .await
             .unwrap();
         let mut claims = Vec::new();
@@ -264,6 +275,7 @@ mod canonical_execution_server_unit {
                 .is_err()
         );
         assert!(
+            // SAFETY: the isolated fixture owns these synthetic observations; this cancelled stale capability must refuse success.
             unsafe {
                 store
                     .seal_attempt(&manifest, "stale-success", TerminalClass::Succeeded, &[9])
@@ -272,6 +284,7 @@ mod canonical_execution_server_unit {
             .is_err()
         );
         assert!(
+            // SAFETY: the fixture supplies its actual cancellation; this stale capability must still be refused.
             unsafe {
                 store
                     .seal_attempt(&manifest, "stale-cancel", TerminalClass::Cancelled, &[9])
@@ -306,6 +319,7 @@ mod canonical_execution_server_unit {
                     .cancelled
             );
             let manifest = store.reconcile_closed_attempt(&recovery).await.unwrap();
+            // SAFETY: the fixture owns the reconciled synthetic observations and supplies their actual cancellation.
             let attempt = unsafe {
                 store
                     .seal_attempt(
@@ -343,6 +357,7 @@ mod canonical_execution_server_unit {
             .await
             .unwrap();
         let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        // SAFETY: this fixture writer owns the exact reconciled observations and supplies the test-selected terminal class.
         unsafe {
             store
                 .seal_attempt(&manifest, operation, outcome, &[9])
@@ -412,6 +427,7 @@ mod canonical_execution_server_unit {
         let descriptors = decode_result_descriptors(manifest.row()).unwrap();
         assert_eq!(descriptors[0].batch_count, 1);
         assert_eq!(descriptors[0].row_count, 2);
+        // SAFETY: the fixture admits exactly its two synthetic values as partial with its fixed completion.
         let terminal = unsafe {
             store
                 .seal_attempt(&manifest, "seal", TerminalClass::Partial, &[8])
@@ -420,6 +436,7 @@ mod canonical_execution_server_unit {
         .unwrap();
         assert_eq!(
             terminal,
+            // SAFETY: this is an exact replay of the fixture-owned partial observations and completion.
             unsafe {
                 store
                     .seal_attempt(&manifest, "seal", TerminalClass::Partial, &[8])
@@ -428,6 +445,7 @@ mod canonical_execution_server_unit {
             .unwrap()
         );
         assert!(
+            // SAFETY: the fixture owns these synthetic observations; changing its admitted class must be refused.
             unsafe {
                 store
                     .seal_attempt(&manifest, "seal", TerminalClass::Succeeded, &[8])
@@ -436,6 +454,7 @@ mod canonical_execution_server_unit {
             .is_err()
         );
         assert!(
+            // SAFETY: the fixture owns these synthetic observations; changing its admitted completion must be refused.
             unsafe {
                 store
                     .seal_attempt(&manifest, "seal", TerminalClass::Partial, &[9])
@@ -561,6 +580,7 @@ mod canonical_execution_server_unit {
             .unwrap();
         let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
         assert!(
+            // SAFETY: the fixture owns the expired synthetic attempt; recovered failure observations must refuse success.
             unsafe {
                 store
                     .seal_attempt(&manifest, "false-success", TerminalClass::Succeeded, &[])
@@ -568,6 +588,7 @@ mod canonical_execution_server_unit {
             }
             .is_err()
         );
+        // SAFETY: the fixture owns the recovered diagnostic observation and admits its actual failed outcome.
         let failed = unsafe {
             store
                 .seal_attempt(&manifest, "failed", TerminalClass::Failed, &[7])
@@ -598,6 +619,7 @@ mod canonical_execution_server_unit {
             .await
             .unwrap();
         assert!(
+            // SAFETY: the fixture owns these synthetic observations; cancellation must refuse this stale success candidate.
             unsafe {
                 store
                     .seal_attempt(&stale_manifest, "stale-seal", TerminalClass::Succeeded, &[])
@@ -611,6 +633,7 @@ mod canonical_execution_server_unit {
             .unwrap();
         let manifest = store.reconcile_closed_attempt(&recovered).await.unwrap();
         assert!(
+            // SAFETY: the fixture owns the recovered attempt; its actual cancellation must refuse a failed candidate.
             unsafe {
                 store
                     .seal_attempt(&manifest, "ignored-cancel", TerminalClass::Failed, &[])
@@ -618,6 +641,7 @@ mod canonical_execution_server_unit {
             }
             .is_err()
         );
+        // SAFETY: the fixture owns the reconciled synthetic observation and admits its actual cancellation.
         let terminal = unsafe {
             store
                 .seal_attempt(&manifest, "cancel-seal", TerminalClass::Cancelled, &[1])
@@ -733,6 +757,7 @@ mod canonical_execution_server_unit {
             let seal = format!("seal-race-op-{index}");
             let cancel = format!("cancel-race-op-{index}");
             let (sealed, cancelled) = tokio::join!(
+                // SAFETY: the fixture owns this empty synthetic success; cancellation races only its durable admission.
                 unsafe { store.seal_attempt(&manifest, &seal, TerminalClass::Succeeded, &[]) },
                 store.cancel_run(&key, &cancel)
             );
@@ -751,6 +776,7 @@ mod canonical_execution_server_unit {
                     .await
                     .unwrap();
                 let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+                // SAFETY: cancellation won the race and the fixture admits the exact recovered empty attempt as cancelled.
                 let final_outcome = unsafe {
                     store
                         .seal_attempt(
@@ -1050,92 +1076,112 @@ fn decode_run_summary(mut row: Object) -> Result<RunSummary, CanonicalError> {
     })
 }
 
+// One owning encoding for immutable run meaning, shared by publication and
+// effect-free retry checks. Mutable attempt/cancellation state is excluded.
+fn run_request_receipt(
+    request: &RunRequest,
+) -> Result<(CanonicalRun, Vec<Object>), CanonicalError> {
+    identity(&request.key)?;
+    identity(&request.revision.key)?;
+    identity(&request.revision.problem)?;
+    bounded(&request.request, crate::canonical::PAYLOAD_BYTES)?;
+    bounded(&request.source_selection, crate::canonical::PAYLOAD_BYTES)?;
+    bounded(&request.attestation, EXECUTION_METADATA_BYTES)?;
+    let row = CanonicalRun {
+        key: request.key.clone(),
+        problem: request.revision.problem.clone(),
+        revision: request.revision.key.clone(),
+        source_sequence: request.revision.sequence,
+        sequence: 0,
+        request: request.request.clone().into(),
+        source_selection: request.source_selection.clone().into(),
+        attestation: request.attestation.clone().into(),
+        interpretation: wire::INTERPRETATION.into(),
+        current_generation: 0,
+        current_attempt: None,
+        cancelled: false,
+        terminal_attempt: None,
+        terminal_class: None,
+    };
+    let mut selected = request
+        .sources
+        .iter()
+        .filter(|source| source.key != request.revision.key)
+        .collect::<Vec<_>>();
+    if selected.len() > 64 {
+        return Err(CanonicalError::PayloadLimit);
+    }
+    selected.sort_by(|left, right| left.key.cmp(&right.key));
+    let mut sources = Vec::with_capacity(selected.len());
+    let mut previous = None;
+    for source in selected {
+        identity(&source.key)?;
+        identity(&source.problem)?;
+        if previous == Some(source.key.as_str()) {
+            return Err(CanonicalError::Configuration(
+                "duplicate retained source".into(),
+            ));
+        }
+        previous = Some(source.key.as_str());
+        let key = hash(
+            "canonical.execution.run-source.v1",
+            &[
+                request.key.as_bytes(),
+                source.problem.as_bytes(),
+                source.key.as_bytes(),
+            ],
+        );
+        let mut header = Object::new();
+        header.insert("key", Value::String(key));
+        header.insert("revision", Value::String(source.key.clone()));
+        header.insert("problem", Value::String(source.problem.clone()));
+        header.insert("sequence", canonical_codec::encode_uint(source.sequence)?);
+        header.insert(
+            "interpretation",
+            Value::String(source.interpretation.clone()),
+        );
+        sources.push(header);
+    }
+    // Retain the exact source list in the immutable receipt; no later caller can
+    // replay a semantic run identity with a different physical/model selection.
+    let selections = request
+        .sources
+        .iter()
+        .map(|source| {
+            (
+                &source.problem,
+                &source.key,
+                source.sequence,
+                &source.interpretation,
+            )
+        })
+        .collect::<Vec<_>>();
+    let mut row = row;
+    row.source_selection = serde_json::to_vec(&(1_u8, &request.source_selection, selections))
+        .map_err(|error| CanonicalError::Configuration(error.to_string()))?
+        .into();
+    bounded(
+        row.source_selection.as_slice(),
+        crate::canonical::PAYLOAD_BYTES,
+    )?;
+    Ok((row, sources))
+}
+
+fn same_run_receipt(expected: &CanonicalRun, saved: &CanonicalRun) -> bool {
+    saved.key == expected.key
+        && saved.problem == expected.problem
+        && saved.revision == expected.revision
+        && saved.source_sequence == expected.source_sequence
+        && saved.request == expected.request
+        && saved.source_selection == expected.source_selection
+        && saved.attestation == expected.attestation
+        && saved.interpretation == expected.interpretation
+}
+
 impl CanonicalStore {
     /// Retain selected inputs and provenance atomically before native execution.
     pub async fn begin_run(&self, request: &RunRequest) -> Result<CanonicalRun, CanonicalError> {
-        identity(&request.key)?;
-        identity(&request.revision.key)?;
-        identity(&request.revision.problem)?;
-        bounded(&request.request, crate::canonical::PAYLOAD_BYTES)?;
-        bounded(&request.source_selection, crate::canonical::PAYLOAD_BYTES)?;
-        bounded(&request.attestation, EXECUTION_METADATA_BYTES)?;
-        let row = CanonicalRun {
-            key: request.key.clone(),
-            problem: request.revision.problem.clone(),
-            revision: request.revision.key.clone(),
-            source_sequence: request.revision.sequence,
-            sequence: 0,
-            request: request.request.clone().into(),
-            source_selection: request.source_selection.clone().into(),
-            attestation: request.attestation.clone().into(),
-            interpretation: wire::INTERPRETATION.into(),
-            current_generation: 0,
-            current_attempt: None,
-            cancelled: false,
-            terminal_attempt: None,
-            terminal_class: None,
-        };
-        let mut selected = request
-            .sources
-            .iter()
-            .filter(|source| source.key != request.revision.key)
-            .collect::<Vec<_>>();
-        if selected.len() > 64 {
-            return Err(CanonicalError::PayloadLimit);
-        }
-        selected.sort_by(|left, right| left.key.cmp(&right.key));
-        let mut sources = Vec::with_capacity(selected.len());
-        let mut previous = None;
-        for source in selected {
-            identity(&source.key)?;
-            identity(&source.problem)?;
-            if previous == Some(source.key.as_str()) {
-                return Err(CanonicalError::Configuration(
-                    "duplicate retained source".into(),
-                ));
-            }
-            previous = Some(source.key.as_str());
-            let key = hash(
-                "canonical.execution.run-source.v1",
-                &[
-                    request.key.as_bytes(),
-                    source.problem.as_bytes(),
-                    source.key.as_bytes(),
-                ],
-            );
-            let mut header = Object::new();
-            header.insert("key", Value::String(key));
-            header.insert("revision", Value::String(source.key.clone()));
-            header.insert("problem", Value::String(source.problem.clone()));
-            header.insert("sequence", canonical_codec::encode_uint(source.sequence)?);
-            header.insert(
-                "interpretation",
-                Value::String(source.interpretation.clone()),
-            );
-            sources.push(header);
-        }
-        // Retain the exact source list in the immutable receipt; no later caller can
-        // replay a semantic run identity with a different physical/model selection.
-        let selections = request
-            .sources
-            .iter()
-            .map(|source| {
-                (
-                    &source.problem,
-                    &source.key,
-                    source.sequence,
-                    &source.interpretation,
-                )
-            })
-            .collect::<Vec<_>>();
-        let mut row = row;
-        row.source_selection = serde_json::to_vec(&(1_u8, &request.source_selection, selections))
-            .map_err(|error| CanonicalError::Configuration(error.to_string()))?
-            .into();
-        bounded(
-            row.source_selection.as_slice(),
-            crate::canonical::PAYLOAD_BYTES,
-        )?;
+        let (row, sources) = run_request_receipt(request)?;
         let encoded = wire::encode_canonical_runs(&row)?;
         self.ensure_writes()?;
         let response = protected_query(|| {
@@ -1153,14 +1199,7 @@ impl CanonicalStore {
                     .ok_or(CanonicalError::IncompleteResponse)?,
             )?),
             Err(error) => match self.canonical_run(&row.key).await {
-                Ok(Some(saved))
-                    if saved.request == row.request
-                        && saved.problem == row.problem
-                        && saved.revision == row.revision
-                        && saved.source_selection == row.source_selection
-                        && saved.attestation == row.attestation
-                        && saved.interpretation == row.interpretation =>
-                {
+                Ok(Some(saved)) if same_run_receipt(&row, &saved) => {
                     self.ensure_execution_retained(&row.key).await?;
                     Ok(saved)
                 }
@@ -1168,6 +1207,21 @@ impl CanonicalStore {
                 _ => Err(error),
             },
         }
+    }
+    /// Check the complete immutable run receipt without publication or retention effects.
+    pub(crate) async fn check_execution_run_identity(
+        &self,
+        request: &RunRequest,
+    ) -> Result<(), CanonicalError> {
+        let (expected, _) = run_request_receipt(request)?;
+        let saved = self
+            .canonical_run(&expected.key)
+            .await?
+            .ok_or(CanonicalError::OperationReused)?;
+        if !same_run_receipt(&expected, &saved) {
+            return Err(CanonicalError::OperationReused);
+        }
+        Ok(())
     }
     /// Bounded semantic ordering over one problem's recorded execution sequence.
     pub async fn execution_run_page(

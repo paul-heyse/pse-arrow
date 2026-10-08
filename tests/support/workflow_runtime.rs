@@ -23,6 +23,7 @@ pub(crate) struct WorkflowRuntime {
     pub registry: Arc<pse_schema::Registry>,
     pub sessions: Arc<EngineFactory>,
     pub cancel: CancellationToken,
+    pub cancellation: pse_runtime::CancelSource,
     pub runtime: Arc<SharedRuntime>,
     _spill: tempfile::TempDir,
     fixture_stores: Mutex<Vec<pse_operations::canonical::CanonicalStore>>,
@@ -110,11 +111,13 @@ impl WorkflowRuntime {
             hashing_may_use_pool: false,
         })?;
         let sessions = Arc::new(runtime.session_factory(native_engine_profile())?);
+        let cancellation = pse_runtime::CancelSource::new();
         Ok(Self {
             registry,
             sessions,
             runtime,
-            cancel: CancellationToken::new(),
+            cancel: cancellation.token(),
+            cancellation,
             _spill: spill,
             fixture_stores: Mutex::new(Vec::new()),
         })

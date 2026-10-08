@@ -29,6 +29,46 @@ use std::{
     time::Duration,
 };
 
+/// Observe interpreter configuration outside the bounded Rust reconstruction scope.
+/// No Python callback or import runs while the native loader lock is held.
+fn local_python_configuration(anchor: usize) -> std::io::Result<Vec<u8>> {
+    Python::attach(|py| -> PyResult<Vec<u8>> {
+        let sys = py.import("sys")?;
+        let module = sys.getattr("modules")?.get_item("pse._native")?;
+        let imported: std::path::PathBuf = module.getattr("__file__")?.extract()?;
+        let actual = pse_buildinfo::loaded_module_path(anchor)
+            .map_err(|error| pyo3::exceptions::PyRuntimeError::new_err(error.to_string()))?;
+        let imported = imported
+            .canonicalize()
+            .map_err(|error| pyo3::exceptions::PyRuntimeError::new_err(error.to_string()))?;
+        let actual = actual
+            .canonicalize()
+            .map_err(|error| pyo3::exceptions::PyRuntimeError::new_err(error.to_string()))?;
+        if imported != actual {
+            return Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "imported native module changed",
+            ));
+        }
+        let mut configuration = std::collections::BTreeMap::<String, String>::new();
+        for name in [
+            "version",
+            "executable",
+            "prefix",
+            "base_prefix",
+            "exec_prefix",
+            "base_exec_prefix",
+            "flags",
+            "_xoptions",
+        ] {
+            configuration.insert(name.into(), sys.getattr(name)?.repr()?.to_str()?.into());
+        }
+        let paths: Vec<String> = sys.getattr("path")?.extract()?;
+        serde_json::to_vec(&(configuration, paths, imported))
+            .map_err(|error| pyo3::exceptions::PyRuntimeError::new_err(error.to_string()))
+    })
+    .map_err(|error| std::io::Error::other(error.to_string()))
+}
+
 /// Compact exact persisted graph; every page uses the runtime's retained pool.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
@@ -413,7 +453,7 @@ impl NativeRuntime {
             },
             || {},
         )?;
-        let producer = producer.map(|path| {
+        let strict = producer.map(|path| {
             let bytes = std::fs::read(path).map_err(|e| invalid(py, e.to_string()))?;
             let artifact = pse_buildinfo::verify_receipt_artifact(&bytes, &actual).map_err(|error| invalid(py,error.to_string()))?;
             #[allow(unsafe_code, reason = "ADR-0164 controlled deployment qualification; no unsafe memory operation")]
@@ -422,6 +462,29 @@ impl NativeRuntime {
             unsafe { pse_runtime::math::portable::QualifiedProducer::from_deployment_receipt(&bytes, &artifact.sha256, pse_runtime::math::portable::ExpectedProducerTarget::PYTHON) }
                 .map_err(|e| errors::diagnostic(py, &e))
         }).transpose()?.flatten();
+        let producer = if producer.is_some() {
+            strict.map(Into::into)
+        } else {
+            let anchor = Self::new as *const () as usize;
+            // SAFETY: this actual imported Rust composition root observes its own
+            // interpreter/module context. Reconstruction is immutable Rust math,
+            // with no Python/plugin/provider callbacks or uncontrolled executable
+            // mutation; later native use has its separate generation owner.
+            #[allow(
+                unsafe_code,
+                reason = "ADR-0164 controlled Python deployment-local reconstruction admission"
+            )]
+            // SAFETY: the actual imported composition root and effective interpreter
+            // are observed under the controlled reconstruction contract above.
+            unsafe {
+                pse_runtime::math::portable::ReplayAdmission::observe_local(
+                    pse_runtime::math::portable::ExpectedProducerTarget::PYTHON,
+                    anchor,
+                    Arc::new(move || local_python_configuration(anchor)),
+                )
+            }
+            .ok()
+        };
         let inner = native::Runtime::from_shared(
             owner.shared.clone(),
             owner.registry.clone(),

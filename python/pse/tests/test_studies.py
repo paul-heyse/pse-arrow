@@ -151,8 +151,9 @@ def test_study_repeated_bindings_retain_distinct_occurrences_and_owned_results(
     rows = pa.table(history).to_pylist()
     assert [row["point_index"] for row in rows] == [7, 11]
     assert all(row["usable"] and len(row["attempts"]) == 1 for row in rows)
-    variables = pa.table(values).to_pylist()
-    _assert_scalar_root(pa.table(values), 2.0)
+    retained_values = pa.table(values)
+    variables = retained_values.to_pylist()
+    _assert_scalar_root(retained_values, 2.0)
     assert [row["value"] for row in variables if row["parameter"]] == [4.0]
 
 

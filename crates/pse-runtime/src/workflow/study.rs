@@ -50,6 +50,46 @@ struct StudyPrediction {
     original: crate::math::solves::PreparedSolve,
 }
 
+fn creation_checkpoint(cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
+    cancel
+        .token()
+        .checkpoint()
+        .map_err(pse_engine::EngineError::from)?;
+    Ok(())
+}
+
+// Only input-only acquisition may be interrupted this way. Publication and
+// protection owners settle their issued effects through creation_effect instead.
+pub(in crate::workflow) async fn creation_input<T, E: Into<WorkflowError>>(
+    cancel: &crate::CancelSource,
+    work: impl Future<Output = Result<T, E>>,
+) -> Result<T, WorkflowError> {
+    creation_checkpoint(cancel)?;
+    tokio::select! {
+        biased;
+        () = cancel.cancelled() => {
+            creation_checkpoint(cancel)?;
+            Err(contract("creation cancellation wake without cancellation"))
+        }
+        result = work => {
+            creation_checkpoint(cancel)?;
+            result.map_err(Into::into)
+        }
+    }
+}
+
+// Publication and source-protection owners perform issued effects before this
+// checkpoint. Their futures must not be dropped when the caller asks to stop.
+pub(in crate::workflow) async fn creation_effect<T, E: Into<WorkflowError>>(
+    cancel: &crate::CancelSource,
+    work: impl Future<Output = Result<T, E>>,
+) -> Result<T, WorkflowError> {
+    creation_checkpoint(cancel)?;
+    let result = work.await.map_err(Into::into)?;
+    creation_checkpoint(cancel)?;
+    Ok(result)
+}
+
 fn document(value: &impl serde::Serialize) -> Result<Vec<u8>, WorkflowError> {
     serde_json::to_vec(value).map_err(|error| contract(error.to_string()))
 }
@@ -88,20 +128,26 @@ impl Runtime {
     }
 
     /// Admit authored ingress once and retain one canonical study before preparing ready occurrences.
-    pub async fn start_study(&self, plan: StudyPlan) -> Result<StudyHandle, WorkflowError> {
+    pub async fn start_study(
+        &self,
+        plan: StudyPlan,
+        cancel: &crate::CancelSource,
+    ) -> Result<StudyHandle, WorkflowError> {
         let operations = self.operations()?;
-        let physical = operations.put_sources(&plan.sources.physical).await?;
-        let cancel = crate::CancelSource::new();
-        let package = self
-            .package_from_sources(
-                &plan.sources.modeling,
-                self.physical_source(&physical, &cancel).await?,
-            )
-            .await?;
-        let definition = package
-            .admit_study_points(physical, &plan.points, &cancel)
-            .await?;
-        self.start_defined_study(plan.sources.physical, definition)
+        let physical =
+            creation_effect(cancel, operations.put_sources(&plan.sources.physical)).await?;
+        let context = creation_effect(cancel, self.physical_source(&physical, cancel)).await?;
+        let package = creation_effect(
+            cancel,
+            self.package_from_sources(&plan.sources.modeling, context, cancel),
+        )
+        .await?;
+        let definition = creation_effect(
+            cancel,
+            package.admit_study_points(physical, &plan.points, cancel),
+        )
+        .await?;
+        self.start_defined_study(plan.sources.physical, definition, cancel)
             .await
     }
 
@@ -110,9 +156,11 @@ impl Runtime {
         &self,
         physical_sources: BTreeMap<String, Vec<u8>>,
         definition: StudyDefinition,
+        cancel: &crate::CancelSource,
     ) -> Result<StudyHandle, WorkflowError> {
+        creation_checkpoint(cancel)?;
         let operations = self.operations()?;
-        let physical = operations.put_sources(&physical_sources).await?;
+        let physical = creation_effect(cancel, operations.put_sources(&physical_sources)).await?;
         if physical != definition.physical {
             return Err(contract("study physical source identity differs"));
         }
@@ -120,29 +168,37 @@ impl Runtime {
         if definition.points.is_empty() || definition.points.len() > MAXIMUM_STUDY_POINTS {
             return Err(contract("bounded admitted study extent"));
         }
-        let revision = self
-            .canonical_store()
-            .revision(&definition.modeling_revision)
-            .await?
-            .ok_or_else(|| contract("canonical study revision absent"))?;
-        let cancel = crate::CancelSource::new();
-        let package = self
-            .modeling_revision(
-                revision.clone(),
-                self.physical_source(&physical, &cancel).await?,
-                BTreeMap::new(),
-            )
-            .await?;
+        let revision = creation_input(
+            cancel,
+            self.canonical_store()
+                .revision(&definition.modeling_revision),
+        )
+        .await?
+        .ok_or_else(|| contract("canonical study revision absent"))?;
+        let context = creation_effect(cancel, self.physical_source(&physical, cancel)).await?;
+        let package = creation_effect(
+            cancel,
+            self.modeling_revision(revision.clone(), context, BTreeMap::new()),
+        )
+        .await?;
         // Immutable scientific entry admission is complete before any claim. This
         // checks bindings and seed roles without constructing native solve views.
+        let mut admission = None;
         for point in &definition.points {
+            creation_checkpoint(cancel)?;
             if point.binding.identity() != point.binding_hash {
                 return Err(contract("study binding content differs"));
             }
-            if point
-                .operation
-                .admit_binding_seed_need(&package, &point.binding, &cancel)
-                .await?
+            if creation_effect(
+                cancel,
+                point.operation.admit_binding_seed_need(
+                    &package,
+                    &point.binding,
+                    &mut admission,
+                    cancel,
+                ),
+            )
+            .await?
                 != point.policy.seed_need
             {
                 return Err(contract(
@@ -150,15 +206,16 @@ impl Runtime {
                 ));
             }
         }
+        drop(admission);
+        creation_checkpoint(cancel)?;
         let study_id: StudyId = pse_operations::mint_id();
         let run_id: RunId = pse_operations::mint_id();
         let key = study_id.to_string();
         let run = format!("run:{run_id}");
-        let physical_revision = self
-            .canonical_store()
-            .revision(&physical.revision)
-            .await?
-            .ok_or_else(|| contract("canonical physical source absent"))?;
+        let physical_revision =
+            creation_input(cancel, self.canonical_store().revision(&physical.revision))
+                .await?
+                .ok_or_else(|| contract("canonical physical source absent"))?;
         let attestation = self.canonical.attestation();
         let attestation = document(&(attestation.source, attestation.build))?;
         let source_selection = document(&(1_u8, &definition.modeling_revision, &physical))?;
@@ -184,6 +241,7 @@ impl Runtime {
             .points
             .iter()
             .map(|point| {
+                creation_checkpoint(cancel)?;
                 let point_run: RunId = pse_operations::mint_id();
                 let descriptor = document(&(&point.operation, point.binding_hash, &point.binding))?;
                 Ok(NewOccurrence {
@@ -210,9 +268,21 @@ impl Runtime {
                 })
             })
             .collect::<Result<Vec<_>, WorkflowError>>()?;
-        self.canonical_store()
-            .create_study(&key, &request, &metadata, &points)
+        let activated = self
+            .canonical_store()
+            .create_study(&key, &request, &metadata, &points, &|| {
+                cancel.token().is_cancelled()
+            })
             .await?;
+        if activated.is_none() {
+            creation_checkpoint(cancel)?;
+            return Err(contract("inactive study creation was interrupted"));
+        }
+        // Catch cancellation after the owner's final observation and before handing
+        // an active handle to the caller. Never interrupt the durable cancel write.
+        if cancel.token().is_cancelled() {
+            self.canonical_store().cancel_study(&key).await?;
+        }
         Ok(self.study(study_id))
     }
 
@@ -1332,7 +1402,7 @@ impl super::ModelingPackage {
             super::LeasePolicy::default(),
             self.runtime.shared.pool(),
         );
-        let physical = operations.put_sources(sources).await?;
+        let physical = creation_effect(cancel, operations.put_sources(sources)).await?;
         self.admit_study_points(physical, points, cancel).await
     }
     /// Admit operations and physical bindings before either executor schedules an occurrence.

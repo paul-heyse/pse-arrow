@@ -209,13 +209,17 @@ impl Problem {
         let symbolic = lu::factorize_symbolic_lu(pattern.as_ref(), Default::default())
             .map_err(|e| MathError::Library(e.to_string()))?;
         let parallel = faer::get_global_parallelism();
-        let rhs = inputs
-            .checked_add(1)
-            .and_then(|next| inputs.checked_mul(next))
-            .map(|n| n / 2)
-            .ok_or(MathError::Limit("implicit factor RHS extent"))?
-            .max(inputs)
-            .max(1);
+        let rhs = match body.compiled_order() {
+            DerivativeOrder::Value => 1,
+            DerivativeOrder::First => inputs.max(1),
+            DerivativeOrder::Second => inputs
+                .checked_add(1)
+                .and_then(|next| inputs.checked_mul(next))
+                .map(|n| n / 2)
+                .ok_or(MathError::Limit("implicit factor RHS extent"))?
+                .max(inputs)
+                .max(1),
+        };
         let scratch = symbolic
             .factorize_numeric_lu_scratch::<f64>(parallel, Default::default())
             .or(symbolic.solve_in_place_scratch::<f64>(rhs, parallel));

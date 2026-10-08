@@ -171,7 +171,7 @@ iteration remain outside database transactions.
 
 | Package | Decision and delivered scope | Acceptance and subsequent work | Status |
 |---|---|---|---|
-| T6 — Selected access paths | Source-backed assessment of bound source/result/analysis families; resolve only consequential query/streaming questions with current release documentation or bounded plan observations. Record adopted correction versus retained design, supported selection/extent, consumer and reopen trigger. | Selective/empty/skewed exact selection, interpretation/order, protected retirement/expiry, byte admission and final completion. Implement confirmed repeated-work corrections with their actual callers and generated declarations; delete displaced paths. T5/D1/D2 consume that scope; E4 measures any gain. | Scheduled investigation; no current access-path defect or speedup is assumed. |
+| T6 — Selected access paths | Source-backed assessment of bound source/result/analysis families; resolve only consequential query/streaming questions with current release documentation or bounded plan observations. Record adopted correction versus retained design, supported selection/extent, consumer and reopen trigger. | Selective/empty/skewed exact selection, interpretation/order, protected retirement/expiry, byte admission and final completion. Implement confirmed repeated-work corrections with their actual callers and generated declarations; delete displaced paths. T5/D1/D2 consume that scope; E4 measures any gain. | Investigation complete; result cursor correction and protected paging controls pass; retained choices and triggers recorded; E3/E4 pending. |
 
 T6 must record a reasoned outcome before T5 closure. A retained design needs an observable trigger
 such as a newly supported predicate/extent or measured disproportionate acquisition; it is not an
@@ -188,7 +188,7 @@ for unrelated query questions.
 | T2 — Compact exact append acknowledgment | Working current append ownership and settled sufficient request/descriptor identity; independent of increasing block size. | Change generator and actual Rust callers together. Test successful first/repeated effects, mismatched descriptor, changed request and committed lost-ack recovery. Remove full payload success echo/readback comparisons only after the replacements establish their guarantees. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
 | T3 — Composed protected acquisition | A3 protection plus exact result descriptors and reservation planning; independent of T1/T2 except changed stored-bound compatibility. | Migrate connected and direct block readers, grouped physical source reopening, and applicable recovery metadata consumers. Test retirement/expiry/cancellation, selected ordering, missing/changed blocks and final statement failure. Delete replaced singleton metadata/payload chains. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
 | T4 — Source and analysis effect grouping | T0's source-stage and node/edge decisions; working shared admission/grouping slices. | Migrate source package publication, unchanged-byte authoring reuse and applicable analysis publication. Test interrupted stages, exact final revision visibility, changed replay, endpoint ordering and activation completeness. Delete redundant revisions/copies/loops only where no required consumer remains. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
-| T5 — Data consumer closure | T1–T4, completed T6 decision and working adopted access-path/provider corrections. Reconcile all data capability rows and actual callers. | All confirmed variants consume the shared target; justified distinct effects remain explicit. Compose complete source→solve→retained result→selected analysis/Arrow journeys in E3, then measure in E4. | Earlier migrations implemented; expanded consumer closure and E3/E4 acceptance pending. |
+| T5 — Data consumer closure | T1–T4, completed T6 decision and working adopted access-path/provider corrections. Reconcile all data capability rows and actual callers. | All confirmed variants consume the shared target; justified distinct effects remain explicit. Compose complete source→solve→retained result→selected analysis/Arrow journeys in E3, then measure in E4. | Consumer source reconciliation complete; assembled E3/E4 acceptance pending. |
 
 T1/T2/T3 can proceed independently once their own contracts are available. Acknowledgment
 correctness and read correctness remain separate obligations even if larger blocks reduce
@@ -218,10 +218,20 @@ do not impose bit-identical independently solved scientific outcomes.
 
 ## Checkpoint
 
-The enhancement review schedules T6 on the implemented byte-admission and compact operation
-foundations. T5's final consumer closure includes T6's adopted changes or reasoned retained design;
-earlier focused controls do not establish current query scaling. Follow source/contracts first,
-then only decision-changing plan observations. E3/E4 remain the composed behavior/measurement owners.
+T6's populated current-v2 SurrealDB 3.3 investigations retain bounded source/numeric/analysis
+paths and their complete projections. A proposed supplier compound index did not improve the
+chosen correlated path, and globally forcing numeric/start indexes caused counterexamples.
+The adopted block-page correction puts an explicit resume lower bound before the immutable
+upper bound: the selected 1000-block fixture emits 10 index candidates instead of 1000 for
+the same late resumed block, and after-last emits zero. Its actual protected paging control
+passes. Scalar/dense pages use the resume bound first only inside the selected interval, preserving
+the stronger selected range for preceding or disjoint cursors. The 24 equivalence cases
+and actual protected scalar/dense ingestion/paging controls pass; selective late-page
+fixtures emit 10 rather than 1000 candidates. Terminal and disjoint counterexamples keep
+their bounded original projections. Candidate
+counts are not disk-fetch, latency or scientific qualification claims; E3/E4 own composed
+behavior and measurements. Reopen retained source/numeric choices when a supported selective
+journey demonstrates examined/returned growth that a premise-preserving alternative improves.
 
 T0–T4 functional source and focused actual-server controls are implemented. T5 reconciles
 confirmed consumers with the shared publication/acquisition owners; enclosing assembled

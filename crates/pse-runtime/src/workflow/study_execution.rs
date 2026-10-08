@@ -129,10 +129,11 @@ impl ModelingPackage {
             ));
         }
         let operations = self.runtime.operations()?;
-        let sources = operations.sources(&definition.physical).await?;
+        let sources =
+            super::study::creation_effect(cancel, operations.sources(&definition.physical)).await?;
         let handle = self
             .runtime
-            .start_defined_study((**sources).clone(), definition.clone())
+            .start_defined_study((**sources).clone(), definition.clone(), cancel)
             .await?;
         drop(sources);
         let mut cancellation_recorded = false;

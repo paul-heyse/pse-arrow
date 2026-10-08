@@ -346,11 +346,40 @@ pub enum PreparedStudyOperation {
     Horizon(Box<Horizon>),
 }
 
+#[cfg(test)]
+tokio::task_local! {
+    static DECLARED_ADMISSIONS: std::cell::Cell<usize>;
+    static DECLARED_ADMISSION_OBSERVER: Box<dyn Fn() + Send + Sync>;
+}
+
+#[cfg(all(test, feature = "canonical-tests"))]
+pub(in crate::workflow) async fn counted_declared_admissions<T>(
+    work: impl Future<Output = T>,
+) -> (T, usize) {
+    DECLARED_ADMISSIONS
+        .scope(std::cell::Cell::new(0), async {
+            let result = work.await;
+            (result, DECLARED_ADMISSIONS.with(std::cell::Cell::get))
+        })
+        .await
+}
+
+#[cfg(all(test, feature = "canonical-tests"))]
+pub(in crate::workflow) async fn cancel_after_declared_admission<T>(
+    work: impl Future<Output = T>,
+    cancel: CancelSource,
+) -> T {
+    DECLARED_ADMISSION_OBSERVER
+        .scope(Box::new(move || cancel.cancel()), work)
+        .await
+}
+
 /// One operation's structural admission retained only while adjacent study points
 /// use exactly the same descriptor and path demand. Point values are never retained.
 pub(in crate::workflow) struct DeclaredStudyAdmission {
     operation: ContentHash,
     paths: Vec<String>,
+    members: Vec<SemanticId>,
     case: DeclarationId,
     route: ModelingAnalysisRoute,
     pub(in crate::workflow) execution: super::DeclaredExecution,
@@ -376,8 +405,18 @@ impl DeclaredStudyAdmission {
         paths.dedup();
         Ok((descriptor, paths))
     }
+    pub(in crate::workflow) fn binding_key(
+        operation: &StudyOperation,
+        binding: &super::AdmittedBinding,
+    ) -> Result<(ContentHash, Vec<String>, Vec<SemanticId>), WorkflowError> {
+        let (descriptor, paths) = Self::key(operation, &super::PointOverlay::default())?;
+        Ok((descriptor, paths, binding.entries.keys().copied().collect()))
+    }
     pub(in crate::workflow) fn matches(&self, key: &(ContentHash, Vec<String>)) -> bool {
-        self.operation == key.0 && self.paths == key.1
+        self.operation == key.0 && self.paths == key.1 && self.members.is_empty()
+    }
+    fn matches_binding(&self, key: &(ContentHash, Vec<String>, Vec<SemanticId>)) -> bool {
+        self.operation == key.0 && self.paths == key.1 && self.members == key.2
     }
     pub(in crate::workflow) async fn prepare(
         package: &ModelingPackage,
@@ -385,6 +424,8 @@ impl DeclaredStudyAdmission {
         key: (ContentHash, Vec<String>),
         cancel: &CancelSource,
     ) -> Result<Self, WorkflowError> {
+        #[cfg(test)]
+        let _ = DECLARED_ADMISSIONS.try_with(|count| count.set(count.get() + 1));
         let OperationRequest::DeclaredCase(case) = &operation.operation else {
             return Err(super::contract(
                 "declared admission requires a declared case",
@@ -420,9 +461,12 @@ impl DeclaredStudyAdmission {
                     .await?,
             )
         };
+        #[cfg(test)]
+        let _ = DECLARED_ADMISSION_OBSERVER.try_with(|observer| observer());
         Ok(Self {
             operation: key.0,
             paths: key.1,
+            members: Vec::new(),
             case: case.case,
             route: case.route,
             execution,
@@ -492,22 +536,56 @@ impl StudyOperation {
     /// Admit seed consumption from the compiler's bound variable structure without
     /// constructing evaluators, numerical sessions or solver preparation for every
     /// occurrence. The ready attempt rechecks this against actual solve admission.
-    pub(crate) async fn admit_binding_seed_need(
+    pub(in crate::workflow) async fn admit_binding_seed_need(
         &self,
         package: &ModelingPackage,
         binding: &super::AdmittedBinding,
+        admission: &mut Option<DeclaredStudyAdmission>,
         cancel: &CancelSource,
     ) -> Result<SeedNeed, WorkflowError> {
-        self.source.check(package)?;
+        cancel
+            .token()
+            .checkpoint()
+            .map_err(pse_engine::EngineError::from)?;
+        if let Err(error) = self.source.check(package) {
+            *admission = None;
+            return Err(error);
+        }
         let OperationRequest::DeclaredCase(_) = &self.operation else {
+            *admission = None;
+            if binding.revision != package.revision.identity()
+                || binding.context != package.physical.identity()
+                || !binding.entries.is_empty()
+            {
+                return Err(refusal(
+                    DiagnosticRule::StudyBindingRevision,
+                    BoundaryClass::Incompatible,
+                    [],
+                    "nondeclared study binding differs",
+                ));
+            }
             if let OperationRequest::Fit(fit) = &self.operation {
                 fit.settings.profile()?;
             }
             return Ok(SeedNeed::NotNeeded);
         };
-        let key = DeclaredStudyAdmission::key(self, &super::PointOverlay::default())?;
-        let mut admission = DeclaredStudyAdmission::prepare(package, self, key, cancel).await?;
-        admission.admit_binding_seed_need(package, binding)
+        let key = DeclaredStudyAdmission::binding_key(self, binding)?;
+        if !admission
+            .as_ref()
+            .is_some_and(|basis| basis.matches_binding(&key))
+        {
+            // The descriptor includes source/context, case, route and all settings.
+            // Changed target membership replaces the structural owner; values do not.
+            *admission = None;
+            let mut basis =
+                DeclaredStudyAdmission::prepare(package, self, (key.0, key.1), cancel).await?;
+            basis.members = key.2;
+            *admission = Some(basis);
+        }
+        admission
+            .as_mut()
+            .ok_or_else(|| super::contract("missing stored study admission"))?
+            .admit_binding_seed_need(package, binding)
     }
     /// Admit raw horizon quantities once; replay validates these canonical entries only.
     pub(crate) async fn admit_horizon_values(

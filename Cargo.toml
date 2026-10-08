@@ -56,6 +56,7 @@ publish = false
 
 [workspace.dependencies]
 allocation-counter = "=0.8.1"
+libc = "=0.2.190"
 # ---- internal (path deps; `version` is added when publish flips to true) ----
 pse-codegen = { path = "crates/pse-codegen" }
 pse-model = { path = "crates/pse-model" }
@@ -452,6 +453,7 @@ unsafe-allowlist = [
   "pse-ids",            # ADR-0164: sealed scientific reconstruction trust permit.
   "pse-runtime",        # ADR-0164: admitted kernel completion and qualified stored reconstruction.
   "pse-math",           # ADR-0088: immutable linked GMP/MPFR version strings only.
+  "pse-buildinfo",      # ADR-0164: bounded glibc loader callbacks with panic containment.
   "pse-ipopt-sys",
   "pse-uno-sys",        # ADR-0157: shielded Uno project ABI.
   "pse-petsc-sys",      # ADR-0157: MPIUNI real-double project ABI.

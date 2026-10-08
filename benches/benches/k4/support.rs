@@ -92,7 +92,11 @@ pub(super) async fn package(
 ) -> ModelingPackage {
     let physical = physical(runtime, owner, sources).await;
     runtime
-        .modeling_from_documents(&admitted_documents(owner, &sources.modeling), physical)
+        .modeling_from_documents(
+            &admitted_documents(owner, &sources.modeling),
+            physical,
+            &owner.cancellation,
+        )
         .await
         .unwrap()
 }

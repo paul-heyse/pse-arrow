@@ -2907,11 +2907,12 @@ impl Session<'_> {
             None
         };
         let differential = self.callback.contract.differential.clone();
-        let first = eliminate(
+        let mut elimination = SampleElimination::new(
             &differential,
             rhs.as_ref().map(|j| j.as_ref()),
-            transposed_product(output.as_ref(), cotangent),
+            output.ncols(),
         )?;
+        let first = elimination.solve(transposed_product(output.as_ref(), cotangent))?;
         let directions = self.backward_mut()?.directions.clone();
         for (index, (state, sum)) in states.iter_mut().zip(sums.iter_mut()).enumerate() {
             for (a, d) in state.iter_mut().zip(&first.state) {
@@ -2954,7 +2955,7 @@ impl Session<'_> {
                     *total -= c;
                 }
             }
-            let tangent = eliminate(&differential, rhs.as_ref().map(|j| j.as_ref()), v)?;
+            let tangent = elimination.solve(v)?;
             for (a, d) in state[n..].iter_mut().zip(&tangent.state) {
                 *a += d;
             }

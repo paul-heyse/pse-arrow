@@ -5972,6 +5972,7 @@ dependencies = [
 name = "pse-buildinfo"
 version = "0.0.1"
 dependencies = [
+ "libc",
  "pse-ids",
  "schemars",
  "serde",

@@ -36,6 +36,57 @@ pub(in crate::workflow) struct AuthoredIntegrationControls {
     pub(in crate::workflow) profile: native::Profile,
     pub(in crate::workflow) provisional_quadratures: BTreeSet<SemanticId>,
 }
+/// Freeze the admitted policy in native state and physical output order. Output aliases
+/// retain the first matching target in source-policy order, including across target kinds.
+fn frozen_allowances(
+    numerics: &pse_model::numerics::ResolvedNumericalPolicy,
+    access: &pse_math::numerics::TargetAccess<'_>,
+    coordinates: &DynamicCoordinates,
+    outputs: &[SemanticId],
+) -> Result<(Vec<f64>, Vec<Option<f64>>), WorkflowError> {
+    let state = coordinates
+        .state
+        .iter()
+        .map(|coordinate| {
+            let allowance = access
+                .get(NumericalTarget::Variable, coordinate.id)
+                .map_err(math)?
+                .budget
+                / coordinate.scale;
+            if !allowance.is_finite() || allowance < 0. {
+                return Err(contract("dynamic normalized state allowance invalid"));
+            }
+            Ok(allowance)
+        })
+        .collect::<Result<Vec<_>, WorkflowError>>()?;
+    let output_positions =
+        pse_math::index::CheckedInventory::new(outputs, |id| *id).map_err(math)?;
+    let mut output = vec![None; outputs.len()];
+    for target in &numerics.targets {
+        if !matches!(
+            target.kind,
+            NumericalTarget::Variable | NumericalTarget::Observable | NumericalTarget::Closure
+        ) {
+            continue;
+        }
+        let target = access.get(target.kind, target.id).map_err(math)?;
+        for id in [
+            target.id,
+            ModelingOutput::Member(target.id).row_id(),
+            ModelingOutput::Inventory(target.id).row_id(),
+        ] {
+            if let Some(position) = output_positions.position(&id)
+                && output[position].is_none()
+            {
+                if !target.budget.is_finite() || target.budget < 0. {
+                    return Err(contract("dynamic physical output allowance invalid"));
+                }
+                output[position] = Some(target.budget);
+            }
+        }
+    }
+    Ok((state, output))
+}
 /// Immutable generated simulation. No authored state/RHS declaration is introduced.
 #[derive(Clone, Debug)]
 pub struct ModelingSimulation {
@@ -53,6 +104,9 @@ pub struct ModelingSimulation {
     pub(in crate::workflow) runtime: Runtime,
     pub(in crate::workflow) source: ModelingPackage,
     programs: Arc<[FunctionProgram]>,
+    layout: Arc<crate::workflow::dynamics::DynamicLayout>,
+    state_allowances: Arc<[Vec<f64>]>,
+    output_allowances: Arc<[Vec<Option<f64>>]>,
     coordinates: DynamicCoordinates,
     pub(in crate::workflow) parameters: Vec<f64>,
     key: ContentHash,
@@ -380,7 +434,9 @@ impl ModelingSimulation {
                 .iter()
                 .map(|m| m.context.clone())
                 .collect::<Vec<_>>(),
-            max_cells: self.profile.max_cells,
+            layout: self.layout.clone(),
+            state_allowances: self.state_allowances.clone(),
+            output_allowances: self.output_allowances.clone(),
         }
     }
     /// The shooting request an authored `procedure shooting` fixture of `instance` declares
@@ -1645,6 +1701,10 @@ impl ModelingPackage {
                 })
                 .collect(),
         };
+        let (state_allowances, output_allowances) =
+            frozen_allowances(&numerics, &target_access, &coordinates, &outputs)?;
+        let state_allowances: Arc<[Vec<f64>]> = vec![state_allowances].into();
+        let output_allowances: Arc<[Vec<Option<f64>>]> = vec![output_allowances].into();
         let derivative_coordinates = states
             .iter()
             .chain(&parameters)
@@ -2237,6 +2297,24 @@ impl ModelingPackage {
                     .ok_or_else(|| contract_error("dynamic projection storage"))?,
             )
             .ok_or_else(|| contract_error("dynamic projection storage"))?;
+        let layout = Arc::new(
+            crate::workflow::dynamics::DynamicLayout::new(
+                &programs,
+                &coordinates,
+                profile.max_cells,
+            )
+            .map_err(|e| WorkflowError::Math(e.into()))?,
+        );
+        let bytes = bytes
+            .checked_add(layout.retained_bytes())
+            .and_then(|n| n.checked_add(layout.worker_bytes()))
+            .ok_or_else(|| contract_error("dynamic derivative layout storage"))?;
+        let bytes = bytes
+            .checked_add(
+                crate::workflow::dynamics::allowance_bytes(&state_allowances, &output_allowances)
+                    .ok_or_else(|| contract_error("dynamic allowance storage extent"))?,
+            )
+            .ok_or_else(|| contract_error("dynamic allowance storage extent"))?;
         Ok(ModelingSimulation {
             solved: model.solved(),
             quantities: self.quantities.clone(),
@@ -2264,6 +2342,9 @@ impl ModelingPackage {
             runtime: self.runtime.clone(),
             source: self.clone(),
             programs: programs.into(),
+            layout,
+            state_allowances,
+            output_allowances,
             coordinates,
             parameters: parameter_values,
             key,
@@ -4365,6 +4446,59 @@ mod tests {
         };
         let prepared = simulate(evented, profile.clone()).await.unwrap();
         assert_eq!(prepared.mode_names().collect::<Vec<_>>(), ["rise", "coast"]);
+        let program = prepared.program();
+        assert_eq!(program.state_allowances.len(), 2);
+        assert_eq!(program.output_allowances.len(), 2);
+        for (index, mode) in prepared.modes.iter().enumerate() {
+            let states = prepared
+                .coordinates
+                .state
+                .iter()
+                .map(|coordinate| {
+                    mode.numerics
+                        .targets
+                        .iter()
+                        .find(|target| {
+                            target.kind == NumericalTarget::Variable && target.id == coordinate.id
+                        })
+                        .unwrap()
+                        .budget
+                        / coordinate.scale
+                })
+                .collect::<Vec<_>>();
+            let outputs = prepared
+                .contract
+                .outputs
+                .iter()
+                .map(|output| {
+                    mode.numerics
+                        .targets
+                        .iter()
+                        .find(|target| {
+                            matches!(
+                                target.kind,
+                                NumericalTarget::Variable
+                                    | NumericalTarget::Observable
+                                    | NumericalTarget::Closure
+                            ) && (target.id == *output
+                                || ModelingOutput::Member(target.id).row_id() == *output
+                                || ModelingOutput::Inventory(target.id).row_id() == *output)
+                        })
+                        .map(|target| target.budget)
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(program.state_allowances[index], states);
+            assert_eq!(program.output_allowances[index], outputs);
+        }
+        let again = prepared.program();
+        assert!(Arc::ptr_eq(
+            &program.state_allowances,
+            &again.state_allowances
+        ));
+        assert!(Arc::ptr_eq(
+            &program.output_allowances,
+            &again.output_allowances
+        ));
         let result = prepared.run(&cancel).await.unwrap();
         assert!(
             result.accepted(),
@@ -5187,6 +5321,106 @@ mod tests {
             .unwrap();
         assert_eq!(prepared.contract.states.len(), 1);
         assert_eq!(prepared.coordinates.state[0].scale, 10.);
+        let program = prepared.program();
+        let another_program = prepared.program();
+        assert!(Arc::ptr_eq(
+            &prepared.state_allowances,
+            &program.state_allowances
+        ));
+        assert!(Arc::ptr_eq(
+            &program.state_allowances,
+            &another_program.state_allowances
+        ));
+        assert!(Arc::ptr_eq(
+            &prepared.output_allowances,
+            &program.output_allowances
+        ));
+        assert!(Arc::ptr_eq(
+            &program.output_allowances,
+            &another_program.output_allowances
+        ));
+        let state_target = prepared.modes[0]
+            .numerics
+            .targets
+            .iter()
+            .find(|target| {
+                target.kind == NumericalTarget::Variable
+                    && target.id == prepared.coordinates.state[0].id
+            })
+            .unwrap();
+        assert_eq!(program.state_allowances[0][0], state_target.budget / 10.);
+        let retained = crate::workflow::dynamics::allowance_bytes(
+            &program.state_allowances,
+            &program.output_allowances,
+        )
+        .unwrap();
+        assert!(prepared.bytes >= retained);
+        let mut without_allowances = program.clone();
+        without_allowances.state_allowances = Arc::from([]);
+        without_allowances.output_allowances = Arc::from([]);
+        let empty = crate::workflow::dynamics::allowance_bytes(&[], &[]).unwrap();
+        assert_eq!(
+            program.metadata_bytes() - without_allowances.metadata_bytes(),
+            retained - empty
+        );
+        // Cross-kind/direct aliases preserve source-policy order. Absent output
+        // budgets remain optional, and an absent state budget refuses admission.
+        let mut policy = (*prepared.modes[0].numerics).clone();
+        let mut closure = state_target.clone();
+        closure.kind = NumericalTarget::Closure;
+        closure.budget = state_target.budget * 0.5;
+        policy.targets.insert(0, closure.clone());
+        let mut observable = state_target.clone();
+        observable.kind = NumericalTarget::Observable;
+        observable.id = prepared.contract.outputs[0];
+        observable.budget = state_target.budget * 0.25;
+        policy.targets.push(observable.clone());
+        let outputs = [
+            prepared.contract.outputs[0],
+            ModelingOutput::Inventory(state_target.id).row_id(),
+            SemanticId::NIL,
+        ];
+        let access = pse_math::numerics::TargetAccess::new(&policy).unwrap();
+        let (states, budgets) =
+            frozen_allowances(&policy, &access, &prepared.coordinates, &outputs).unwrap();
+        assert_eq!(states, program.state_allowances[0]);
+        assert_eq!(budgets, [Some(closure.budget), Some(closure.budget), None]);
+        policy.targets.pop();
+        policy.targets.insert(0, observable.clone());
+        let access = pse_math::numerics::TargetAccess::new(&policy).unwrap();
+        let (_, budgets) =
+            frozen_allowances(&policy, &access, &prepared.coordinates, &outputs).unwrap();
+        assert_eq!(
+            budgets,
+            [Some(observable.budget), Some(closure.budget), None]
+        );
+        policy.targets.retain(|target| {
+            target.kind != NumericalTarget::Variable || target.id != state_target.id
+        });
+        let access = pse_math::numerics::TargetAccess::new(&policy).unwrap();
+        assert!(frozen_allowances(&policy, &access, &prepared.coordinates, &outputs).is_err());
+        let scope = pse_kernels::ExecutionScope::new(
+            Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            None,
+        );
+        let mut first = prepared.worker(scope.clone()).unwrap();
+        let mut second = prepared.worker(scope).unwrap();
+        assert_eq!(Arc::strong_count(&prepared.state_allowances), 3);
+        assert_eq!(Arc::strong_count(&prepared.output_allowances), 3);
+        first.assert_independent_layout(&second);
+        let a = first
+            .evaluate(0, Function::Output, 0., &[0.1], prepared.parameters(), true)
+            .unwrap();
+        let b = second
+            .evaluate(0, Function::Output, 0., &[0.2], prepared.parameters(), true)
+            .unwrap();
+        assert_ne!(a.values, b.values);
+        let again = first
+            .evaluate(0, Function::Output, 0., &[0.1], prepared.parameters(), true)
+            .unwrap();
+        assert_eq!(a.values, again.values);
+        assert_eq!(a.jacobian.unwrap().val(), again.jacobian.unwrap().val());
+
         let named = |name: &str| {
             prepared
                 .model()

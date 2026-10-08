@@ -332,16 +332,67 @@ fn decode_point_outcome(
     bytes.map(|bytes| decode(bytes.as_slice())).transpose()
 }
 
+fn check_created_study(expected: &Study, observed: &Study) -> Result<(), CanonicalError> {
+    if expected.key != observed.key
+        || expected.run != observed.run
+        || expected.problem != observed.problem
+        || expected.revision != observed.revision
+        || expected.metadata != observed.metadata
+        || expected.interpretation != observed.interpretation
+        || expected.point_count != observed.point_count
+    {
+        return Err(CanonicalError::OperationReused);
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CreationBoundary {
+    BatchAppended,
+    BeforeActivation,
+    ActivationAcknowledged,
+}
+#[cfg(test)]
+tokio::task_local! {
+    static CREATION_OBSERVER: Box<dyn Fn(CreationBoundary) + Send + Sync>;
+}
+#[cfg(test)]
+fn creation_observed(boundary: CreationBoundary) {
+    let _ = CREATION_OBSERVER.try_with(|observer| observer(boundary));
+}
+
 impl CanonicalStore {
     /// Store admitted definitions in bounded batches, then atomically activate complete
     /// membership. Retrying exact identities settles ingestion without executing science.
+    /// The narrow caller probe introduces no runtime or data-boundary dependency.
+    /// `None` means cancellation stopped inactive ingestion. An activated study is
+    /// returned only after exact settlement and durable cancellation when requested.
     pub async fn create_study(
         &self,
         key: &str,
         run: &RunRequest,
         metadata: &[u8],
         points: &[NewOccurrence],
-    ) -> Result<Study, CanonicalError> {
+        cancelled: &(impl Fn() -> bool + Sync),
+    ) -> Result<Option<Study>, CanonicalError> {
+        let row = Study {
+            key: key.into(),
+            run: run.key.clone(),
+            problem: run.revision.problem.clone(),
+            revision: run.revision.key.clone(),
+            metadata: metadata.to_vec().into(),
+            interpretation: wire::INTERPRETATION.into(),
+            point_count: points.len() as u64,
+            next_ordinal: 0,
+            active: false,
+            cancelled: false,
+            generation: 0,
+            terminal: false,
+        };
+        if cancelled() {
+            return self.stop_study_creation(&row, run, points).await;
+        }
         if key.is_empty() || points.is_empty() || points.len() > 100_000 {
             return Err(CanonicalError::PayloadLimit);
         }
@@ -352,6 +403,9 @@ impl CanonicalStore {
         crate::study_policy::admit(&graph)
             .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
         for point in points {
+            if cancelled() {
+                return self.stop_study_creation(&row, run, points).await;
+            }
             bounded(&point.descriptor, 512 * 1024)?;
             bounded(&encode(&point.policy)?, 16 * 1024)?;
             let mut predecessors: BTreeSet<_> = point
@@ -372,21 +426,13 @@ impl CanonicalStore {
                 ));
             }
         }
+        if cancelled() {
+            return self.stop_study_creation(&row, run, points).await;
+        }
         self.begin_run(run).await?;
-        let row = Study {
-            key: key.into(),
-            run: run.key.clone(),
-            problem: run.revision.problem.clone(),
-            revision: run.revision.key.clone(),
-            metadata: metadata.to_vec().into(),
-            interpretation: wire::INTERPRETATION.into(),
-            point_count: points.len() as u64,
-            next_ordinal: 0,
-            active: false,
-            cancelled: false,
-            generation: 0,
-            terminal: false,
-        };
+        if cancelled() {
+            return self.stop_study_creation(&row, run, points).await;
+        }
         let object = wire::encode_canonical_studies(&row)?;
         self.ensure_writes()?;
         protected_query(|| {
@@ -396,12 +442,18 @@ impl CanonicalStore {
                 .bind(("row", object.clone())))
         })
         .await?;
+        if cancelled() {
+            return self.stop_study_creation(&row, run, points).await;
+        }
         // Bulk native insertion amortizes round trips while each transaction remains
         // bounded by both occurrence count and encoded descriptor/edge extent.
         let mut batch = Vec::new();
         let mut batch_edges = Vec::new();
         let mut extent = 0_usize;
         for (ordinal, point) in points.iter().enumerate() {
+            if cancelled() {
+                return self.stop_study_creation(&row, run, points).await;
+            }
             let key = point_key(&row.key, point.policy.key);
             let facts = PointFacts {
                 key: point.policy.key,
@@ -431,6 +483,9 @@ impl CanonicalStore {
                 start: None,
             };
             self.begin_run(&point.run).await?;
+            if cancelled() {
+                return self.stop_study_creation(&row, run, points).await;
+            }
             let mut edges = BTreeMap::new();
             for edge in &point.policy.dependencies {
                 edges.insert(
@@ -474,8 +529,16 @@ impl CanonicalStore {
                 + 4096
                 + edges.len() * 1024;
             if !batch.is_empty() && (batch.len() == 64 || extent + point_extent > 2 * 1024 * 1024) {
+                if cancelled() {
+                    return self.stop_study_creation(&row, run, points).await;
+                }
                 self.append_study_batch(&row.key, &batch, &batch_edges)
                     .await?;
+                #[cfg(test)]
+                creation_observed(CreationBoundary::BatchAppended);
+                if cancelled() {
+                    return self.stop_study_creation(&row, run, points).await;
+                }
                 batch.clear();
                 batch_edges.clear();
                 extent = 0;
@@ -485,14 +548,78 @@ impl CanonicalStore {
             batch_edges.extend(edges);
         }
         if !batch.is_empty() {
+            if cancelled() {
+                return self.stop_study_creation(&row, run, points).await;
+            }
             self.append_study_batch(&row.key, &batch, &batch_edges)
                 .await?;
+            #[cfg(test)]
+            creation_observed(CreationBoundary::BatchAppended);
         }
+        #[cfg(test)]
+        creation_observed(CreationBoundary::BeforeActivation);
+        if cancelled() {
+            return self.stop_study_creation(&row, run, points).await;
+        }
+        // Do not race this future against cancellation. Once issued, activation
+        // must be settled by exact immutable identity before the caller can leave.
+        let response = self.send_study_activation(&row.key).await;
+        self.finish_study_activation(&row, response, cancelled)
+            .await
+    }
+
+    async fn stop_study_creation(
+        &self,
+        expected: &Study,
+        run: &RunRequest,
+        points: &[NewOccurrence],
+    ) -> Result<Option<Study>, CanonicalError> {
+        let Some(study) = self.canonical_study(&expected.key).await? else {
+            return Ok(None);
+        };
+        check_created_study(expected, &study)?;
+        if !study.active {
+            return Ok(None);
+        }
+        if points.is_empty() || points.len() > 100_000 {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        if study.next_ordinal != study.point_count {
+            return Err(CanonicalError::IncompleteResponse);
+        }
+        // Prove every immutable member with bounded point/run reads before
+        // revoking this active study; checking a retry never publishes a run.
+        self.check_execution_run_identity(run).await?;
+        for (ordinal, point) in points.iter().enumerate() {
+            bounded(&point.descriptor, 512 * 1024)?;
+            let policy = encode(&point.policy)?;
+            bounded(&policy, 16 * 1024)?;
+            let key = point_key(&expected.key, point.policy.key);
+            let saved = self
+                .canonical_study_point(&key)
+                .await?
+                .ok_or(CanonicalError::OperationReused)?;
+            if saved.key != key
+                || saved.study != expected.key
+                || saved.ordinal != ordinal as u64
+                || saved.occurrence != u64::from(point.policy.key.0)
+                || saved.descriptor.as_slice() != point.descriptor
+                || saved.policy.as_slice() != policy
+                || saved.run != point.run.key
+            {
+                return Err(CanonicalError::OperationReused);
+            }
+            self.check_execution_run_identity(&point.run).await?;
+        }
+        self.cancel_study(&expected.key).await.map(Some)
+    }
+
+    async fn send_study_activation(&self, key: &str) -> Result<Study, CanonicalError> {
         let mut response = protected_query(|| {
             Ok(self
                 .db
                 .query("RETURN fn::pse_study_v1::activate($study);")
-                .bind(("study", row.key.clone())))
+                .bind(("study", key.to_owned())))
         })
         .await?;
         Ok(wire::decode_canonical_studies(
@@ -500,6 +627,51 @@ impl CanonicalStore {
                 .take::<Option<Object>>(0)?
                 .ok_or(CanonicalError::IncompleteResponse)?,
         )?)
+    }
+
+    // Activation has no fresh scientific operation: exact immutable membership
+    // and the native study guard are its authority. Cancellation touches that same
+    // guard and refuses a subsequently arriving activation of an inactive header.
+    async fn finish_study_activation(
+        &self,
+        expected: &Study,
+        response: Result<Study, CanonicalError>,
+        cancelled: &(impl Fn() -> bool + Sync),
+    ) -> Result<Option<Study>, CanonicalError> {
+        #[cfg(test)]
+        creation_observed(CreationBoundary::ActivationAcknowledged);
+        let study =
+            match response {
+                Ok(study) => study,
+                Err(error) => {
+                    if cancelled() {
+                        let study = self.cancel_study(&expected.key).await?;
+                        check_created_study(expected, &study)?;
+                        return Ok(study.active.then_some(study));
+                    }
+                    let study = self.canonical_study(&expected.key).await.map_err(|settlement| {
+                    CanonicalError::Configuration(format!(
+                        "study {} activation requires exact settlement: {error}; {settlement}",
+                        expected.key))
+                })?.ok_or(CanonicalError::IncompleteResponse)?;
+                    check_created_study(expected, &study)?;
+                    if !study.active {
+                        // An inactive read cannot prove an issued request did not commit.
+                        // Fence it before returning its original failure.
+                        self.cancel_study(&expected.key).await?;
+                        return Err(error);
+                    }
+                    study
+                }
+            };
+        check_created_study(expected, &study)?;
+        if !study.active || study.next_ordinal != study.point_count {
+            return Err(CanonicalError::IncompleteResponse);
+        }
+        if cancelled() {
+            return self.cancel_study(&expected.key).await.map(Some);
+        }
+        Ok(Some(study))
     }
 
     async fn append_study_batch(
@@ -1040,18 +1212,44 @@ impl CanonicalStore {
     /// Revoke future claims; supervisor still cancels/drains each assigned native attempt.
     pub async fn cancel_study(&self, key: &str) -> Result<Study, CanonicalError> {
         self.ensure_writes()?;
-        let mut result = protected_query(|| {
+        let result = protected_query(|| {
             Ok(self
                 .db
                 .query("RETURN fn::pse_study_v1::cancel($study);")
                 .bind(("study", key.to_owned())))
         })
-        .await?;
-        Ok(wire::decode_canonical_studies(
-            result
-                .take::<Option<Object>>(0)?
-                .ok_or(CanonicalError::IncompleteResponse)?,
-        )?)
+        .await;
+        let response = result.and_then(|mut result| {
+            Ok(wire::decode_canonical_studies(
+                result
+                    .take::<Option<Object>>(0)?
+                    .ok_or(CanonicalError::IncompleteResponse)?,
+            )?)
+        });
+        self.finish_study_cancel(key, response).await
+    }
+    async fn finish_study_cancel(
+        &self,
+        key: &str,
+        response: Result<Study, CanonicalError>,
+    ) -> Result<Study, CanonicalError> {
+        let study = match response {
+            Ok(study) => study,
+            Err(error) => self
+                .canonical_study(key)
+                .await
+                .map_err(|settlement| {
+                    CanonicalError::Configuration(format!(
+                        "study {key} cancellation requires exact settlement: {error}; {settlement}"
+                    ))
+                })?
+                .filter(|study| study.cancelled)
+                .ok_or(error)?,
+        };
+        if study.key != key || !study.cancelled {
+            return Err(CanonicalError::IncompleteResponse);
+        }
+        Ok(study)
     }
     /// Conclude only after native scoped observations settle every admitted occurrence.
     pub async fn conclude_study(&self, key: &str) -> Result<Study, CanonicalError> {
@@ -1133,6 +1331,12 @@ fn decode_scope_point(mut row: Object) -> Result<ScopedStudyPoint, CanonicalErro
     unsafe_code,
     reason = "controlled scientific fixture admission without pointer or ABI operations"
 )]
+#[allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    clippy::unreachable,
+    reason = "isolated study fixtures and exhaustive test oracles fail on unexpected results"
+)]
 mod canonical_studies_server_unit {
     use super::*;
     use crate::canonical::{CanonicalOptions, checked};
@@ -1199,6 +1403,7 @@ mod canonical_studies_server_unit {
             .await
             .unwrap();
         let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        // SAFETY: this fixture owns the exact empty attempt and admits a failed outcome with no effects.
         unsafe {
             store
                 .seal_attempt(&manifest, "seal-predecessor", TerminalClass::Failed, &[])
@@ -1206,6 +1411,7 @@ mod canonical_studies_server_unit {
         }
         .unwrap();
         let (facts, outcome) = observation(&claim.point, StudyPointState::Failed);
+        // SAFETY: the just-sealed failed receipt backs these exact fixture-owned observations and absent effect.
         unsafe {
             store
                 .observe_study_point(&claim.point, &facts, &outcome, true)
@@ -1223,6 +1429,7 @@ mod canonical_studies_server_unit {
                 &request(&revision, "parent"),
                 &[9],
                 &[occurrence(&revision, 0, vec![])],
+                &|| false,
             )
             .await
             .unwrap();
@@ -1433,6 +1640,7 @@ mod canonical_studies_server_unit {
                 &request(&revision, "parent"),
                 &[9],
                 &[occurrence(&revision, 0, vec![])],
+                &|| false,
             )
             .await
             .unwrap();
@@ -1479,7 +1687,13 @@ mod canonical_studies_server_unit {
         let mut point = occurrence(&revision, 0, vec![]);
         point.policy.attempt_limit = 2;
         store
-            .create_study("retry-start", &request(&revision, "parent"), &[9], &[point])
+            .create_study(
+                "retry-start",
+                &request(&revision, "parent"),
+                &[9],
+                &[point],
+                &|| false,
+            )
             .await
             .unwrap();
         let scope = store
@@ -1562,14 +1776,26 @@ mod canonical_studies_server_unit {
             occurrence(&revision, 3, vec![]),
         ];
         store
-            .create_study("study", &request(&revision, "study-run"), &[9], &points)
+            .create_study(
+                "study",
+                &request(&revision, "study-run"),
+                &[9],
+                &points,
+                &|| false,
+            )
             .await
             .unwrap();
         let replay = store
-            .create_study("study", &request(&revision, "study-run"), &[9], &points)
+            .create_study(
+                "study",
+                &request(&revision, "study-run"),
+                &[9],
+                &points,
+                &|| false,
+            )
             .await
             .unwrap();
-        assert!(replay.active);
+        assert!(replay.unwrap().active);
         let page = store.study_candidates("study", None).await.unwrap();
         assert_eq!(page.len(), 4);
         for (ordinal, point) in page.iter().enumerate() {
@@ -1677,6 +1903,513 @@ mod canonical_studies_server_unit {
                 .unwrap()
                 .cancelled()
         );
+        store
+            .db
+            .query(format!("REMOVE DATABASE {database};"))
+            .await
+            .and_then(checked)
+            .unwrap();
+    }
+
+    async fn inactive_complete_study(
+        store: &CanonicalStore,
+        revision: &crate::canonical::Revision,
+        key: &str,
+    ) -> Study {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let signal = cancelled.clone();
+        let result = CREATION_OBSERVER
+            .scope(
+                Box::new(move |boundary| {
+                    if boundary == CreationBoundary::BeforeActivation {
+                        signal.store(true, Ordering::SeqCst);
+                    }
+                }),
+                store.create_study(
+                    key,
+                    &request(revision, &format!("parent-{key}")),
+                    &[9],
+                    &[occurrence(revision, 0, vec![])],
+                    &|| cancelled.load(Ordering::SeqCst),
+                ),
+            )
+            .await
+            .unwrap();
+        assert!(result.is_none());
+        let study = store.canonical_study(key).await.unwrap().unwrap();
+        assert!(!study.active && !study.cancelled);
+        assert_eq!(study.next_ordinal, study.point_count);
+        study
+    }
+
+    #[tokio::test]
+    async fn study_creation_precancelled_has_no_published_header() {
+        let (store, database, revision) = fixture().await;
+        assert!(
+            store
+                .create_study(
+                    "precancelled",
+                    &request(&revision, "parent"),
+                    &[9],
+                    &[occurrence(&revision, 0, vec![])],
+                    &|| true
+                )
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            store
+                .canonical_study("precancelled")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(store.canonical_run("parent").await.unwrap().is_none());
+        assert!(store.canonical_run("point-run-0").await.unwrap().is_none());
+        store
+            .db
+            .query(format!("REMOVE DATABASE {database};"))
+            .await
+            .and_then(checked)
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn study_creation_cancellation_between_batches_stays_inactive() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
+        let (store, database, revision) = fixture().await;
+        let points = (0..100)
+            .map(|key| occurrence(&revision, key, vec![]))
+            .collect::<Vec<_>>();
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let signal = cancelled.clone();
+        let result = CREATION_OBSERVER
+            .scope(
+                Box::new(move |boundary| {
+                    if boundary == CreationBoundary::BatchAppended {
+                        signal.store(true, Ordering::SeqCst);
+                    }
+                }),
+                store.create_study(
+                    "partial",
+                    &request(&revision, "parent"),
+                    &[9],
+                    &points,
+                    &|| cancelled.load(Ordering::SeqCst),
+                ),
+            )
+            .await
+            .unwrap();
+        assert!(result.is_none());
+        let header = store.canonical_study("partial").await.unwrap().unwrap();
+        assert!(!header.active && !header.cancelled);
+        assert_eq!(header.next_ordinal, 64);
+        assert_eq!(header.point_count, 100);
+        assert!(
+            store
+                .study_scope(&point_key("partial", OccurrenceKey(0)))
+                .await
+                .is_err()
+        );
+        assert!(
+            store
+                .canonical_study_point(&point_key("partial", OccurrenceKey(64)))
+                .await
+                .unwrap()
+                .is_none()
+        );
+        store
+            .db
+            .query(format!("REMOVE DATABASE {database};"))
+            .await
+            .and_then(checked)
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn study_creation_cancellation_immediately_before_activation_stays_inactive() {
+        let (store, database, revision) = fixture().await;
+        let study = inactive_complete_study(&store, &revision, "before-activation").await;
+        assert!(!study.active && !study.cancelled);
+        assert!(
+            store
+                .study_scope(&point_key(&study.key, OccurrenceKey(0)))
+                .await
+                .is_err()
+        );
+        store
+            .db
+            .query(format!("REMOVE DATABASE {database};"))
+            .await
+            .and_then(checked)
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn study_creation_cancellation_after_acknowledged_activation_is_durable() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
+        let (store, database, revision) = fixture().await;
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let signal = cancelled.clone();
+        let study = CREATION_OBSERVER
+            .scope(
+                Box::new(move |boundary| {
+                    if boundary == CreationBoundary::ActivationAcknowledged {
+                        signal.store(true, Ordering::SeqCst);
+                    }
+                }),
+                store.create_study(
+                    "after-activation",
+                    &request(&revision, "parent"),
+                    &[9],
+                    &[occurrence(&revision, 0, vec![])],
+                    &|| cancelled.load(Ordering::SeqCst),
+                ),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(study.active && study.cancelled);
+        assert_eq!(study.generation, 1);
+        let scope = store
+            .study_scope(&point_key(&study.key, OccurrenceKey(0)))
+            .await
+            .unwrap();
+        assert!(scope.cancelled());
+        assert!(
+            store
+                .claim_study_point(
+                    &scope,
+                    None,
+                    "never-start",
+                    "worker",
+                    Duration::from_secs(60)
+                )
+                .await
+                .is_err()
+        );
+        assert!(
+            !store
+                .canonical_study_point(&scope.point().key)
+                .await
+                .unwrap()
+                .unwrap()
+                .assigned
+        );
+        store
+            .db
+            .query(format!("REMOVE DATABASE {database};"))
+            .await
+            .and_then(checked)
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn study_creation_issued_activation_lost_ack_settles_and_cancels_exact_identity() {
+        let (store, database, revision) = fixture().await;
+        let expected = inactive_complete_study(&store, &revision, "issued-activation").await;
+        let committed = store.send_study_activation(&expected.key).await.unwrap();
+        assert!(committed.active);
+        let cancelled = store
+            .finish_study_activation(&expected, Err(CanonicalError::Timeout), &|| true)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(cancelled.active && cancelled.cancelled);
+        assert_eq!(cancelled.key, expected.key);
+        assert_eq!(cancelled.run, expected.run);
+        assert_eq!(cancelled.next_ordinal, 1);
+        assert_eq!(cancelled.generation, 1);
+        assert!(store.send_study_activation(&expected.key).await.is_err());
+        // A lost cancel acknowledgement settles the same revoked generation.
+        let settled = store
+            .finish_study_cancel(&expected.key, Err(CanonicalError::Timeout))
+            .await
+            .unwrap();
+        assert_eq!(settled.generation, cancelled.generation);
+        store
+            .db
+            .query(format!("REMOVE DATABASE {database};"))
+            .await
+            .and_then(checked)
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn study_creation_uncertain_inactive_activation_is_fenced_before_return() {
+        let (store, database, revision) = fixture().await;
+        let expected = inactive_complete_study(&store, &revision, "uncertain-activation").await;
+        let result = store
+            .finish_study_activation(&expected, Err(CanonicalError::Timeout), &|| true)
+            .await
+            .unwrap();
+        assert!(result.is_none());
+        let fenced = store.canonical_study(&expected.key).await.unwrap().unwrap();
+        assert!(!fenced.active && fenced.cancelled);
+        // An issued request that arrives after this observation cannot expose work.
+        assert!(store.send_study_activation(&expected.key).await.is_err());
+        store
+            .db
+            .query(format!("REMOVE DATABASE {database};"))
+            .await
+            .and_then(checked)
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn study_creation_lost_ack_recovers_exact_active_membership_without_reingestion() {
+        let (store, database, revision) = fixture().await;
+        let expected = inactive_complete_study(&store, &revision, "lost-activation").await;
+        store.send_study_activation(&expected.key).await.unwrap();
+        let recovered = store
+            .finish_study_activation(&expected, Err(CanonicalError::Timeout), &|| false)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(recovered.active && !recovered.cancelled);
+        assert_eq!(recovered.generation, 0);
+        assert_eq!(recovered.next_ordinal, recovered.point_count);
+        let mut different = expected.clone();
+        different.metadata = vec![8].into();
+        assert!(matches!(
+            store
+                .finish_study_activation(&different, Err(CanonicalError::Timeout), &|| false)
+                .await,
+            Err(CanonicalError::OperationReused)
+        ));
+        store
+            .db
+            .query(format!("REMOVE DATABASE {database};"))
+            .await
+            .and_then(checked)
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn study_creation_cancelled_retry_settles_existing_active_identity() {
+        let (store, database, revision) = fixture().await;
+        let points = [occurrence(&revision, 0, vec![])];
+        let run = request(&revision, "parent-retry");
+        store
+            .create_study("active-retry", &run, &[9], &points, &|| false)
+            .await
+            .unwrap()
+            .unwrap();
+        let cancelled = store
+            .create_study("active-retry", &run, &[9], &points, &|| true)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(cancelled.active && cancelled.cancelled);
+        assert_eq!(cancelled.generation, 1);
+        let replay = store
+            .create_study("active-retry", &run, &[9], &points, &|| true)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(replay.generation, 1);
+        let other_run = request(&revision, "other-parent-retry");
+        let mut other_points = points.clone();
+        other_points[0].run.key = "other-point-retry".into();
+        store
+            .create_study("different-retry", &other_run, &[9], &other_points, &|| {
+                false
+            })
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(matches!(
+            store
+                .create_study("different-retry", &other_run, &[8], &other_points, &|| true)
+                .await,
+            Err(CanonicalError::OperationReused)
+        ));
+        assert!(
+            !store
+                .canonical_study("different-retry")
+                .await
+                .unwrap()
+                .unwrap()
+                .cancelled
+        );
+        store
+            .db
+            .query(format!("REMOVE DATABASE {database};"))
+            .await
+            .and_then(checked)
+            .unwrap();
+    }
+
+    async fn cancelled_retry_preserves_active_study(
+        store: &CanonicalStore,
+        key: &str,
+        run: &RunRequest,
+        points: &[NewOccurrence],
+    ) {
+        assert!(matches!(
+            store.create_study(key, run, &[9], points, &|| true).await,
+            Err(CanonicalError::OperationReused)
+        ));
+        let retained = store.canonical_study(key).await.unwrap().unwrap();
+        assert!(retained.active && !retained.cancelled);
+        assert_eq!(retained.generation, 0);
+        assert_eq!(retained.next_ordinal, retained.point_count);
+    }
+
+    #[tokio::test]
+    async fn study_creation_cancelled_retry_refuses_changed_later_descriptor() {
+        let (store, database, revision) = fixture().await;
+        let run = request(&revision, "descriptor-parent");
+        let points = [
+            occurrence(&revision, 0, vec![]),
+            occurrence(&revision, 1, vec![]),
+        ];
+        store
+            .create_study("descriptor-retry", &run, &[9], &points, &|| false)
+            .await
+            .unwrap()
+            .unwrap();
+        let mut changed = points.clone();
+        changed[1].descriptor.push(43);
+        cancelled_retry_preserves_active_study(&store, "descriptor-retry", &run, &changed).await;
+        let retained = store
+            .canonical_study_point(&point_key("descriptor-retry", OccurrenceKey(1)))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(retained.descriptor.as_slice(), points[1].descriptor);
+        let exact = store
+            .create_study("descriptor-retry", &run, &[9], &points, &|| true)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(exact.active && exact.cancelled);
+        store
+            .db
+            .query(format!("REMOVE DATABASE {database};"))
+            .await
+            .and_then(checked)
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn study_creation_cancelled_retry_refuses_changed_policy_and_membership() {
+        let (store, database, revision) = fixture().await;
+        let run = request(&revision, "policy-parent");
+        let points = [
+            occurrence(&revision, 0, vec![]),
+            occurrence(&revision, 1, vec![Dependency::Ordering(OccurrenceKey(0))]),
+        ];
+        store
+            .create_study("policy-retry", &run, &[9], &points, &|| false)
+            .await
+            .unwrap()
+            .unwrap();
+        for field in 0..6 {
+            let mut changed = points.clone();
+            match field {
+                0 => {
+                    changed[1].policy.dependencies =
+                        vec![Dependency::UsableResult(OccurrenceKey(0))]
+                }
+                1 => changed[1].policy.seed_need = SeedNeed::Required,
+                2 => {
+                    changed[1].policy.start =
+                        StartPolicy::Continuation(pse_model::study::SeedEdge {
+                            predecessor: OccurrenceKey(0),
+                            role: pse_model::study::SeedRole::PrimalSolution,
+                            permission: Default::default(),
+                            unavailable: Default::default(),
+                        })
+                }
+                3 => changed[1].policy.attempt_limit = 2,
+                4 => changed[1].policy.key = OccurrenceKey(2),
+                5 => changed.swap(0, 1),
+                _ => unreachable!(),
+            }
+            cancelled_retry_preserves_active_study(&store, "policy-retry", &run, &changed).await;
+        }
+        let retained = store
+            .canonical_study_point(&point_key("policy-retry", OccurrenceKey(1)))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(point_policy(&retained).unwrap(), points[1].policy);
+        store
+            .db
+            .query(format!("REMOVE DATABASE {database};"))
+            .await
+            .and_then(checked)
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn study_creation_cancelled_retry_refuses_changed_parent_and_point_run_receipts() {
+        let (store, database, revision) = fixture().await;
+        let run = request(&revision, "run-parent");
+        let points = [
+            occurrence(&revision, 0, vec![]),
+            occurrence(&revision, 1, vec![]),
+        ];
+        store
+            .create_study("run-retry", &run, &[9], &points, &|| false)
+            .await
+            .unwrap()
+            .unwrap();
+        for parent in [true, false] {
+            for field in 0..5 {
+                let mut changed_run = run.clone();
+                let mut changed_points = points.clone();
+                let request = if parent {
+                    &mut changed_run
+                } else {
+                    &mut changed_points[1].run
+                };
+                match field {
+                    0 => request.request.push(4),
+                    1 => request.source_selection.push(4),
+                    2 => request.attestation.push(4),
+                    3 => request.sources.push(revision.clone()),
+                    4 => request.revision.sequence += 1,
+                    _ => unreachable!(),
+                }
+                cancelled_retry_preserves_active_study(
+                    &store,
+                    "run-retry",
+                    &changed_run,
+                    &changed_points,
+                )
+                .await;
+            }
+        }
+        let mut changed = points.clone();
+        changed[1].run.key = "unpublished-retry-run".into();
+        cancelled_retry_preserves_active_study(&store, "run-retry", &run, &changed).await;
+        assert!(
+            store
+                .canonical_run("unpublished-retry-run")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let retained = store
+            .canonical_run(&points[1].run.key)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(retained.request.as_slice(), points[1].run.request);
+        assert_eq!(retained.attestation.as_slice(), points[1].run.attestation);
         store
             .db
             .query(format!("REMOVE DATABASE {database};"))

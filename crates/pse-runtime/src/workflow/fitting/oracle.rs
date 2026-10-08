@@ -38,6 +38,8 @@ pub(super) struct FitOracle {
     hessian: Option<AssemblyMatrix>,
     gram: Option<sparse::GramWorker>,
     point: Option<Point>,
+    #[cfg(all(test, feature = "solver-diffsol"))]
+    transient_passes: (usize, usize),
 }
 struct RankDiagnostic {
     responses: pse_columnar::Leased<Mat<f64>>,
@@ -85,28 +87,43 @@ impl FitOracle {
             hessian,
             gram,
             point: None,
+            #[cfg(all(test, feature = "solver-diffsol"))]
+            transient_passes: (0, 0),
         })
     }
     fn evaluate(&mut self, x: &[f64]) -> Result<&Point, ProblemError> {
+        self.evaluate_demand(x, false)
+    }
+    fn evaluate_demand(&mut self, x: &[f64], gradient: bool) -> Result<&Point, ProblemError> {
         if let Some(stop) = self.execution.stopped() {
+            self.point = None;
             return Err(ProblemError::stopped(stop, "fit evaluation deadline"));
         }
         let p = &self.prepared;
         let n = p.contract.variables.len();
         if x.len() != n || x.iter().any(|v| !v.is_finite()) {
+            self.point = None;
             return Err(ProblemError::numerical("fit trial coordinates"));
         }
-        if self
+        let gradient = gradient && self.derivatives == FitDerivatives::Gradient;
+        let same = self
             .point
             .as_ref()
-            .is_some_and(|v| v.x.iter().zip(x).all(|(a, b)| a.to_bits() == b.to_bits()))
-        {
+            .is_some_and(|v| v.x.iter().zip(x).all(|(a, b)| a.to_bits() == b.to_bits()));
+        if same && (!gradient || self.point.as_ref().is_some_and(|p| p.adjoint.is_some())) {
             return self
                 .point
                 .as_ref()
                 .ok_or_else(|| ProblemError::internal("fit point cache"));
         }
-        self.point = None;
+        // An upgrade is recomputed with checkpoints. Keep the earlier observation only
+        // for physical comparison; publish predictions and derivatives together.
+        #[cfg(feature = "solver-diffsol")]
+        let previous = self.point.take().filter(|_| same).map(|p| p.trajectories);
+        #[cfg(not(feature = "solver-diffsol"))]
+        {
+            self.point = None;
+        }
         let mut point = Point {
             x: x.to_vec(),
             predictions: vec![0.0; p.measurements.len()],
@@ -115,7 +132,7 @@ impl FitOracle {
             jacobian: p.layout.constraints.clone(),
             blocks: Vec::new(),
             trajectories: BTreeMap::new(),
-            adjoint: None,
+            adjoint: gradient.then(|| vec![0.; x.len()]),
         };
         for (ei, e) in p.experiments.iter().enumerate() {
             match e {
@@ -163,19 +180,90 @@ impl FitOracle {
                     }
                     #[cfg(feature = "solver-diffsol")]
                     {
-                        // A gradient-only fit integrates without sensitivities here; its
-                        // gradient is the adjoint product of `FitOracle::adjoint`.
                         let forward = self.derivatives == FitDerivatives::Responses
                             && s.profile.sensitivity != native::dynamics::DynamicSensitivity::None;
-                        let report = s.integrate(
-                            &|k| Self::value(p, x, k),
-                            &self.execution,
-                            if forward {
-                                native::dynamics::DynamicSensitivity::Forward
-                            } else {
-                                native::dynamics::DynamicSensitivity::None
-                            },
-                        )?;
+                        let combined = gradient
+                            && s.bindings
+                                .iter()
+                                .any(|b| p.parameter_columns[b.parameter].is_some());
+                        #[cfg(test)]
+                        {
+                            self.transient_passes.0 += 1;
+                            self.transient_passes.1 += usize::from(combined);
+                        }
+                        let report = if combined {
+                            let (report, contributions) = self.transient_gradient(p, ei, s, x)?;
+                            let total = point
+                                .adjoint
+                                .as_mut()
+                                .ok_or_else(|| ProblemError::internal("fit adjoint demand"))?;
+                            for (parameter, value) in contributions {
+                                if let Some(column) = p.parameter_columns[parameter] {
+                                    total[column.get()] += value;
+                                }
+                            }
+                            if let Some(previous) = &previous {
+                                let key = p.declaration.experiments[ei].experiment_id;
+                                let prior = previous.get(&key).ok_or_else(|| {
+                                    ProblemError::internal("fit prior trajectory")
+                                })?;
+                                let before = s.prediction_allowances(
+                                    &|k| Self::value(p, x, k),
+                                    &self.execution,
+                                    prior,
+                                )?;
+                                let after = s.prediction_allowances(
+                                    &|k| Self::value(p, x, k),
+                                    &self.execution,
+                                    &report,
+                                )?;
+                                for o in p
+                                    .measurements
+                                    .iter()
+                                    .filter(|o| o.experiment == ei && o.included)
+                                {
+                                    let sample = o.sample_index.ok_or_else(|| {
+                                        ProblemError::internal("fit upgrade sample")
+                                    })?;
+                                    let old = prior
+                                        .samples
+                                        .get(sample)
+                                        .and_then(|v| v.outputs.get(o.row))
+                                        .copied()
+                                        .ok_or_else(|| {
+                                            ProblemError::internal("fit prior prediction")
+                                        })?;
+                                    let new = report
+                                        .samples
+                                        .get(sample)
+                                        .and_then(|v| v.outputs.get(o.row))
+                                        .copied()
+                                        .ok_or_else(|| {
+                                            ProblemError::internal("fit upgraded prediction")
+                                        })?;
+                                    let allowance = before
+                                        .get(sample)
+                                        .and_then(|v| v.get(o.row))
+                                        .zip(after.get(sample).and_then(|v| v.get(o.row)))
+                                        .map(|(a, b)| a + b)
+                                        .ok_or_else(|| {
+                                            ProblemError::internal("fit upgrade allowance")
+                                        })?;
+                                    Self::admit_upgrade(old, new, allowance)?;
+                                }
+                            }
+                            report
+                        } else {
+                            s.integrate(
+                                &|k| Self::value(p, x, k),
+                                &self.execution,
+                                if forward {
+                                    native::dynamics::DynamicSensitivity::Forward
+                                } else {
+                                    native::dynamics::DynamicSensitivity::None
+                                },
+                            )?
+                        };
                         for (i, o) in p
                             .measurements
                             .iter()
@@ -226,6 +314,15 @@ impl FitOracle {
             }
         }
         if point
+            .adjoint
+            .as_ref()
+            .is_some_and(|v| v.iter().any(|v| !v.is_finite()))
+        {
+            return Err(ProblemError::numerical(
+                "nonfinite fit adjoint contribution",
+            ));
+        }
+        if point
             .predictions
             .iter()
             .chain(&point.constraints)
@@ -260,39 +357,19 @@ impl FitOracle {
         p.parameter_columns[parameter]
             .map_or(p.declaration.parameters[parameter].value, |c| x[c.get()])
     }
-    /// The transient experiments' part of the objective gradient by adjoint sensitivities
-    /// (ADR-0110 item 3), once per trial point.
-    fn adjoint(&mut self, x: &[f64]) -> Result<Vec<f64>, ProblemError> {
-        if let Some(gradient) = self.point.as_ref().and_then(|p| p.adjoint.clone()) {
-            return Ok(gradient);
+    #[cfg(feature = "solver-diffsol")]
+    fn admit_upgrade(before: f64, after: f64, allowance: f64) -> Result<(), ProblemError> {
+        if !before.is_finite()
+            || !after.is_finite()
+            || !allowance.is_finite()
+            || allowance < 0.
+            || (before - after).abs() > allowance
+        {
+            return Err(ProblemError::numerical(
+                "fit checkpointed prediction differs beyond its physical allowance",
+            ));
         }
-        let p = self.prepared.clone();
-        let mut total = vec![0.0; x.len()];
-        for (ei, e) in p.experiments.iter().enumerate() {
-            let Experiment::Transient(s) = e else {
-                continue;
-            };
-            if !p
-                .measurements
-                .iter()
-                .any(|o| o.experiment == ei && o.included)
-                || !s
-                    .bindings
-                    .iter()
-                    .any(|b| p.parameter_columns[b.parameter].is_some())
-            {
-                continue;
-            }
-            for (parameter, value) in self.transient_gradient(&p, ei, s, x)? {
-                if let Some(column) = p.parameter_columns[parameter] {
-                    total[column.get()] += value;
-                }
-            }
-        }
-        if let Some(point) = self.point.as_mut() {
-            point.adjoint = Some(total.clone());
-        }
-        Ok(total)
+        Ok(())
     }
     /// One transient experiment's gradient contributions from one forward and one backward
     /// pass, whose cotangent is the weighted residual of each included observation.
@@ -303,22 +380,11 @@ impl FitOracle {
         ei: usize,
         s: &IntegratedExperiment,
         x: &[f64],
-    ) -> Result<Vec<(usize, f64)>, ProblemError> {
+    ) -> Result<(native::dynamics::Report, Vec<(usize, f64)>), ProblemError> {
         let outputs = s.program.contract.outputs.len();
         let mut cotangent =
             |report: &native::dynamics::Report| Self::cotangent(p, ei, outputs, report);
         s.gradient(&|k| Self::value(p, x, k), &self.execution, &mut cotangent)
-            .map(|(_, contributions)| contributions)
-    }
-    #[cfg(not(feature = "solver-diffsol"))]
-    fn transient_gradient(
-        &self,
-        _: &FitProblem,
-        _: usize,
-        _: &IntegratedExperiment,
-        _: &[f64],
-    ) -> Result<Vec<(usize, f64)>, ProblemError> {
-        Err(ProblemError::unsupported("Diffsol not linked"))
     }
     #[cfg(feature = "solver-diffsol")]
     /// The cotangent of the fit objective's transient part: each included observation's
@@ -464,7 +530,7 @@ impl NlpOracle for FitOracle {
         Ok(())
     }
     fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        self.evaluate(x)?;
+        self.evaluate_demand(x, true)?;
         if out.len() != x.len() {
             return Err(ProblemError::internal("fit gradient extent"));
         }
@@ -498,7 +564,10 @@ impl NlpOracle for FitOracle {
         // A gradient-only fit's transient rows carry no responses; their part is the
         // adjoint product.
         let adjoint = if self.derivatives == FitDerivatives::Gradient {
-            self.adjoint(x)?
+            point
+                .adjoint
+                .clone()
+                .ok_or_else(|| ProblemError::internal("fit adjoint point"))?
         } else {
             vec![0.0; x.len()]
         };

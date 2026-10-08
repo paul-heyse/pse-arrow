@@ -3,7 +3,7 @@ title: Rebuild, retirement and integrated qualification
 status: in-progress
 date: 2026-10-05
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -232,6 +232,23 @@ it, including a future deployment/release qualification. Report that campaign's 
 and scope separately. Its absence does not block the current development campaign or plan
 closure; it limits claims about current strict deployment qualification.
 
+The strict controls have explicit selection owners: `assessment --python-profile producer`
+captures actual roles, opts into Python association with `--producer-deployment`, and selects
+only the ignored native association control with an exact filter. Ordinary Rust/Python selection
+does not require strict captures and retains the finite producer-fixture scientific controls.
+Selection inventories distinguish both routes; no ordinary result substitutes for strict
+association evidence.
+
+Current campaign sequencing keeps reference conformance and the full native/Python store-heavy
+suites separate. The overlapped native attempt exposed typed canonical initialization conflicts
+and was interrupted; it supplies no complete native acceptance. First-order implicit scratch
+now follows its compiled capability under unchanged entry/byte limits. Affected static
+prerequisites are complete, while original reference fixtures, both full native suites, applicable
+E4 measurements and final E5 acceptance retain their obligations. Build locality instrumentation
+includes unrelated snapshot-only documentation edits. The initial launch refused insufficient
+space before taking samples; sufficient storage is now available under the unchanged 50 GiB
+launch floor. Measurements remain queued behind functional qualification.
+
 ### Enhancement acceptance and affected diagnostics
 
 The [remaining-design enhancement review](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md)
@@ -452,12 +469,97 @@ generic search/MCP work needs a concrete new requirement; it is not hidden accep
 
 ## Checkpoint and next step
 
+The maintainer redirected execution to the
+[2026-10-08 parallel-execution review](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md).
+That review is complete and returns **Revise**; the
+[coordinator's open dispositions](28-surrealdb-unified-substrate.md#parallel-execution-review-dispositions)
+own the five findings and conditional rule decisions. The stopped reference campaign has
+not restarted. The immediate route is the selected architectural correction and applicable
+decision route, followed by its targeted complete-case controls; prior notes below retain
+their evidence scope and do not authorize resumption by themselves.
+
+The maintainer's current execution requirement is sixteen parallel workers, including
+actual concurrent reference fixtures. The former one-worker reference process has been
+stopped at the maintainer's direction. Restart follows implementation and targeted
+verification of bounded parallel fixture scheduling, deterministic report assembly,
+cancellation drain and shared admission. The reference configuration selects sixteen
+runtime CPU permits and thirty-two native admission slots, accommodating idle staged
+session owners alongside active preparation/validation. Each fixture optimizer uses one
+core. Ordinary solver, canonical and Python tests use sixteen workers; shared-server lifetime/timing controls
+remain exclusive and memory-heavy engineering jobs retain their aggregate bound.
+Typed definitive schema transaction rejection permits bounded complete-decision retry;
+unknown acknowledgment, cancellation and readback failure never authorize DDL replay.
+Protected source reads and lease changes retain complete guarded decisions; definite
+conflicts now receive bounded jittered pacing at that owner. Source activation and
+product admission preserve exact immutable acknowledgment settlement before the same
+conflict pacing. The actual sixteen-reader protection/read/release stress control passes;
+enclosing native fixture controls remain pending. An invalid zero tolerance in a newly
+invented cap-control fixture was corrected to the existing positive-tolerance contract;
+the reference campaign's science and tolerances are unchanged.
+This is additional functional scope, not a qualification pass or reduced scientific
+acceptance. Existing static observations require applicability review for these changes.
+
+The authorized remaining enhancements are integrated on `fbbf718` plus the current working
+tree. C5 stored creation, N5 layout retention, N6 sample factors, N7 demand/cache upgrades,
+L6 receipt materialization and L5/B5 default worker/Python composition have focused
+controls. T6 completed current-schema populated access-path investigations and adopted
+bounded result cursor corrections. Independent implementation review found two authority
+repairs: originating producer identity for retained body fills, and complete immutable
+occurrence validation on cancelled direct-store retries; both are integrated and their
+focused controls pass. The original Python stream-lifetime test consumed a one-shot stream
+twice and now retains its Arrow table once. The unchanged public Diffsol accuracy
+assertion exposed a library constructor defect; native affine/scheduled controls
+reproduce it before the adapter repair and pass afterwards without tighter tolerances.
+Focused cache and all eleven cancellation controls pass; both installed Python scientific
+journeys pass, with their standalone composite receipt refused because a nested collector
+overrode its parent inventory. The test now keeps that nested inventory separate; E3
+will verify complete campaign accounting. The first Gradient benchmark correctly refused
+the heat fixture's quadratures; the new case instead uses the sampled two-parameter curve,
+with the same global production policy as its exact-Hessian counterpart. All three new
+process case smoke controls pass. The first composed development attempt was interrupted
+by a real cancellation fixture reusing its enclosing scope. Its corrected independent
+fixture construction passes the full module inside a native scope. The independent
+assembled review also exposed repeated dynamic allowance joins; admission now freezes
+and shares those projections, with affected numerical controls preceding campaign
+resumption. Complete selected accounting and recovery/conformance/feature scope before E4. E4 adds
+`dynamic-rebind-4-1`, `fit-gradient-cold-1` and `fit-curved-second-cold-1` to the 25 explicit
+selectors to cover the new actual numerical consumers. Earlier reports below keep their
+original scope; they do not qualify the current extension.
+
+
 The enhancement review is now scheduled on `dacc9c3`; it does not change product code or qualify
 the target. The stable local assessment retained 37 passed entries (including reviewed transfers),
 three failures and one incomplete Python entry against zero. It has no terminal Python traceback
 or final reconciliation after interruption. Current next work is L6/affected diagnostics followed
 by complete C5/B5/N5–N7/T6/L5 functional scope, then composed E3, applicable E4 and E5. Earlier
 handoffs below retain their original evidence and do not mandate strict recapture/rebuilding.
+
+### Parallel-execution review handoff, 2026-10-08
+
+The review examined the current `fbbf718`-based working tree through independent source
+assessment and capability research, including the neo4j-surrealdb and numerical skills,
+Context7, pinned release source, upstream GitHub evidence and official documentation.
+No product tests, builds, measurements or campaigns were run for the review. Its
+[Verification](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#10-verification-and-uncertainty)
+names the existing failed two-test native selection, its force-validation/local profile and
+2 GiB fixture pool, separately from the 128 GiB reference profile. Typed transaction conflicts
+are established; exact failing SQL attribution, native ceilings and claimed performance
+benefits are not.
+
+E retains the campaign pause and evidence boundary. Campaign restart follows correction
+and targeted verification of the selected sixteen-case route: original scientific checks,
+deterministic complete reports, cancellation/drain, protected publication/reclamation and
+finite resource admission. Ordinary study qualification includes independent non-batching
+frontier cases with preserved continuation dependencies and occurrence semantics; conformance
+fixtures or a specialized native batch alone do not settle that route. Select/account for
+the durable managed-worker deployment. Backend-specific exclusion/process strategies must
+match the selected route; internal teams require matching lifetime accounting when selected. The
+review does not require sixteen maximum-sized jobs to fit simultaneously, reduce worker
+width as a substitute for the functional target, or weaken scientific tolerances.
+
+The coordinator records findings and decides the correction; this handoff adds no second
+ledger. Conditional RC01–RC04 remain unconfirmed. E3, applicable E4 measurements and E5
+acceptance remain incomplete. The existing implementation and scientific corpus are preserved.
 
 ### Efficiency review handoff, 2026-10-07
 
@@ -700,6 +802,24 @@ in the Outcome, and do not replace those remaining obligations.
 
 ## Outcome (recorded after implementation)
 
+**Tested (2026-10-08 parallel execution extension, baseline zero):**
+`just unit-package pse-operations 'test(/_server_unit::/)' --features
+pse-operations/canonical-tests --profile local` passed 73/73 in 186.188 seconds with
+sixteen ordinary store-test slots. The subsequent `initialization_` selection passed
+8/8 in 29.321 seconds, including sixteen concurrent isolated database installations,
+typed rejection recovery/exhaustion, fresh inventory after another creator, committed
+lost acknowledgment, cancellation and acknowledged-install readback refusal through
+the production loop. The changed native runtime compiled with `just check-package
+pse-runtime --features pse-runtime/native-solvers,pse-runtime/canonical-tests`;
+the original native `workflow::modeling::conformance::` selection passed 27/27 in
+66.497 seconds on the first scheduler revision. Subsequent continuous slot reuse and
+additional controls require their own execution. `python -m unittest
+scripts.tests.test_native_tests.PythonSelectionTests` passed 3/3, including sixteen
+overlapping pytest worker processes and exact controller inventory/JUnit identities.
+All ran through `scripts/pse-env`, with native checks using the linked environment
+and correctness Rust checks retaining relation force-validation. These focused
+observations do not establish restarted reference conformance or assembled E3/E4/E5.
+
 **Tested (2026-10-07 current continuation, baseline zero):** the serial local
 `just unit-native-package pse-tests-conformance pse-tests-conformance/native-acceptance`
 selection for flash, finite dynamic optimization, PR/PC-SAFT instability, native recovery,
@@ -744,6 +864,37 @@ closure checks refused its final candidate; no stage was committed. Closure-poli
 composition is under source diagnosis. This is focused evidence, not E3.
 
 ### What was built
+
+**Tested (2026-10-08 UTC, controlled Linux/glibc development artifacts, baseline zero):**
+the actual imported-Python quiet receiver reopened the persisted original revision and
+scientific outcome with exact historical rows, with zero fresh-retention hardware breakpoint
+hits and unchanged executable bytes. Its deliberate miss reached that breakpoint with expected
+exit 42. The actual managed-worker test ran the same authored case in two distinct fresh processes
+without producer receipts: the local-profile positive passed 1/1 in 225.472 s, and its deliberate
+miss control passed 1/1 in 15.387 s. Hardware observations verified file-backed executable mapped
+bytes before receiving admission; they are diagnostic branch evidence, not timing samples.
+Original probe artifacts and logs remain under `/tmp/plan28-python-replay-*-fixed.log` and
+`/tmp/plan28-worker-*-test.log`, with tested artifact hashes at
+`/tmp/plan28-actual-replay-artifacts.sha256`. These finite cases establish quiet default
+reconstruction for their observed effective contexts. Concurrent loader changes may correctly
+fall back to fresh preparation; no arbitrary model or deployment portability is claimed.
+
+**Tested (2026-10-08 UTC, affected qualification repairs, baseline zero):**
+`just check-package pse-math` and `just unit-package pse-math implicit` passed, with 27/27
+implicit tests under explicit force-validation and unchanged resource limits. The route/build
+script selection passed 104/104 after the runner-ownership correction;
+`just unit-consolidation-tools` passed 82/82.
+Actual pytest collection deselects the one strict association by default and collects it with
+`--producer-deployment`. Actual pinned full-feature Nextest collection selects exactly the
+ignored native association with its explicit opt-in; the same exact filter without the opt-in
+selects none. The native runner owns its list/run pair and fresh selected inventory; the outer
+collector does not execute a second enumeration. Full workspace all-targets Clippy under the native/canonical-test/
+native-acceptance feature graph passed with zero warnings. The scoped static assessment at
+`build/assessment/plan28-remaining-static-owned-20261008` completed 39/39 gates with zero
+unsuccessful checks and unchanged source; transferred positives retain their original provenance.
+It deliberately excludes full native Rust/Python suites and supplies no assembled E3 acceptance.
+The current configured-profile `just ready` passed without warnings. Build edit-locality controls
+are implemented and tested; their actual E4 measurements remain unmeasured.
 
 **Implemented:** owner-generated canonical schemas/contracts/fixtures, target-only worker
 and Python consumers, retirement of the PostgreSQL/Delta production mechanisms and crates,
@@ -864,6 +1015,22 @@ including admission of the exact assembled native gate and refusal of arbitrary
 dependency/selection edits. Full E3 and E4 remain pending.
 
 ### A mistake made and corrected
+
+Local replay admission originally preceded mathematical initialization. License startup then
+loaded NSS code and invalidated that admission, so an actual Python receiver silently took fresh
+preparation. Initialization now precedes common local observation, outside the loader lock;
+the corrected quiet receiver and deliberate miss distinguish both branches without modifying
+executable bytes. First-order implicit admission also reserved triangular second-order factor
+scratch. It now reserves only its compiled order, preserving the original resource ceilings.
+
+The composed native assessment was launched while reference conformance was still writing to
+the same physical canonical server. Sixty completed fixtures failed during initialization with
+typed transaction conflicts; the run was interrupted and retained as nonqualifying. Sequenced
+qualification must determine whether a production initialization correction is also necessary.
+The optional strict route initially requested outer enumeration although its native runner
+already owns list/run. That would execute the strict test during enumeration and lose selected
+accounting. The corrected route consumes one runner invocation and its fresh inventory; a new
+outer-collector control also confirms that synthetic inventory alone cannot qualify science.
 
 Package-wide numerical meaning was missing from both bounded source acquisition and the
 subsequent checked-package projection. Seeing constants in historical output checks did

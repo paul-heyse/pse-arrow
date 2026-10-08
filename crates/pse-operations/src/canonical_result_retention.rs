@@ -114,6 +114,12 @@ impl CanonicalStore {
     unsafe_code,
     reason = "controlled storage fixture supplies explicit scientific terminal classification"
 )]
+#[allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    clippy::panic,
+    reason = "isolated retention fixtures and bounded cleanup assertions fail the test on unexpected results"
+)]
 mod canonical_result_retention_server_unit {
     use super::*;
     use crate::{
@@ -174,6 +180,7 @@ mod canonical_result_retention_server_unit {
             .await
             .unwrap();
         let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        // SAFETY: the fixture owns these three synthetic batches and admits their partial classification and completion.
         unsafe {
             store
                 .seal_attempt(

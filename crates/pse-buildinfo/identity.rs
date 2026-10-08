@@ -570,6 +570,239 @@ pub fn loaded_module_path(anchor: usize) -> std::io::Result<std::path::PathBuf> 
     }
 }
 
+/// Interpretation of exact process-local replay observations; separate from receipts.
+pub const LOCAL_RUNTIME_VERSION: u32 = 1;
+
+/// Actual composition role, retained separately from the observed artifact bytes.
+#[derive(Clone, Copy, Debug, serde::Serialize, PartialEq, Eq)]
+pub enum LocalRuntimeRole {
+    /// Native supervised worker: the anchor must belong to the running executable.
+    Worker,
+    /// Imported native extension, with the actual running interpreter observed as well.
+    Python,
+}
+
+/// Independently observed Linux executable/native context. This is observation, not
+/// eligibility: a stable-use owner must protect the interval through reconstruction.
+/// It cannot be deserialized or assembled from claimed receipt filenames.
+#[derive(Clone, Debug, serde::Serialize, PartialEq, Eq)]
+pub struct LocalRuntimeObservation {
+    version: u32,
+    role: LocalRuntimeRole,
+    kernel_release: Vec<u8>,
+    kernel_version: Vec<u8>,
+    artifact: FileObservation,
+    executable: FileObservation,
+    loaded: Vec<FileObservation>,
+    loader_files: Vec<(std::path::PathBuf, Option<FileObservation>)>,
+    startup_environment: std::collections::BTreeMap<String, String>,
+    current_environment: std::collections::BTreeMap<String, String>,
+}
+impl LocalRuntimeObservation {
+    /// Observe the actual anchor, executable, every executable-backed ELF and effective
+    /// loader/runtime environment. Addresses/inodes establish association but do not enter
+    /// restart identity. Unknown executable mappings refuse this narrower guarantee.
+    pub fn capture(role: LocalRuntimeRole, anchor: usize) -> std::io::Result<Self> {
+        #[cfg(target_os = "linux")]
+        {
+            let before = executable_mapping_files(&fs::read_to_string("/proc/self/maps")?)?;
+            let artifact = FileObservation::capture(&loaded_module_path(anchor)?)?;
+            let executable = FileObservation::capture(&std::env::current_exe()?)?;
+            verify_loaded_module(&executable.canonical)?;
+            if role == LocalRuntimeRole::Worker && artifact.canonical != executable.canonical {
+                return Err(std::io::Error::other(
+                    "worker anchor belongs to another mapped module",
+                ));
+            }
+            let loaded = before
+                .iter()
+                .map(|path| {
+                    use std::io::Read;
+                    let mut magic = [0; 4];
+                    fs::File::open(path)?.read_exact(&mut magic)?;
+                    if magic != *b"\x7fELF" {
+                        return Err(std::io::Error::other(
+                            "executable mapping is not a supported ELF artifact",
+                        ));
+                    }
+                    verify_loaded_module(path)?;
+                    FileObservation::capture(path)
+                })
+                .collect::<std::io::Result<Vec<_>>>()?;
+            let mut loader_files = Vec::new();
+            for path in ["/etc/ld.so.cache", "/etc/ld.so.preload"] {
+                let path = std::path::PathBuf::from(path);
+                let observation = match fs::symlink_metadata(&path) {
+                    Ok(_) => Some(FileObservation::capture(&path)?),
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+                    Err(error) => return Err(error),
+                };
+                loader_files.push((path, observation));
+            }
+            let observation = Self {
+                version: LOCAL_RUNTIME_VERSION,
+                role,
+                // Kernel supplies vDSO/vsyscall executable context. These are actual
+                // process-visible kernel facts, not caller/platform receipt markers.
+                kernel_release: fs::read("/proc/sys/kernel/osrelease")?,
+                kernel_version: fs::read("/proc/sys/kernel/version")?,
+                artifact,
+                executable,
+                loaded,
+                loader_files,
+                startup_environment: runtime_environment(
+                    fs::read("/proc/self/environ")?
+                        .split(|byte| *byte == 0)
+                        .filter(|entry| !entry.is_empty())
+                        .map(|entry| entry.to_vec()),
+                )?,
+                current_environment: runtime_environment(std::env::vars_os().map(
+                    |(name, value)| {
+                        use std::os::unix::ffi::OsStrExt;
+                        let mut entry = name.as_bytes().to_vec();
+                        entry.push(b'=');
+                        entry.extend_from_slice(value.as_bytes());
+                        entry
+                    },
+                ))?,
+            };
+            if before != executable_mapping_files(&fs::read_to_string("/proc/self/maps")?)? {
+                return Err(std::io::Error::other(
+                    "loaded executable context changed during observation",
+                ));
+            }
+            for file in &observation.loaded {
+                file.verify()?;
+            }
+            Ok(observation)
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            let _ = (role, anchor);
+            Err(std::io::Error::other(
+                "local replay observations are supported only on Linux",
+            ))
+        }
+    }
+    /// Reobserve the complete context. This closes changed files/configuration and
+    /// persistent late loading, but does not by itself exclude transient late loading.
+    pub fn verify(&self, anchor: usize) -> std::io::Result<()> {
+        if Self::capture(self.role, anchor)? != *self {
+            return Err(std::io::Error::other("local runtime observation changed"));
+        }
+        Ok(())
+    }
+    /// Exact versioned context identity, without a checkout or compiler-source capture.
+    pub fn identity(&self) -> std::io::Result<pse_ids::ContentHash> {
+        Ok(digest(vec![(
+            "local-runtime-observation.v1".into(),
+            serde_json::to_vec(self).map_err(std::io::Error::other)?,
+        )]))
+    }
+}
+
+// A finite supported runtime configuration boundary, not arbitrary build environment.
+// Startup and current values both matter: glibc can consume a startup setting which a
+// Python host later removes from os.environ. Digests keep secret values out of records.
+fn runtime_environment(
+    entries: impl Iterator<Item = Vec<u8>>,
+) -> std::io::Result<std::collections::BTreeMap<String, String>> {
+    let mut result = std::collections::BTreeMap::new();
+    for entry in entries {
+        let Some(equal) = entry.iter().position(|byte| *byte == b'=') else {
+            return Err(std::io::Error::other("malformed runtime environment"));
+        };
+        let name = std::str::from_utf8(&entry[..equal]).map_err(std::io::Error::other)?;
+        if ([
+            "LD_",
+            "GLIBC_",
+            "OMP_",
+            "MKL_",
+            "KMP_",
+            "TBB_",
+            "SYMBOLICA_",
+            "NUMERICA_",
+            "PYTHON",
+        ]
+        .iter()
+        .any(|prefix| name.starts_with(prefix))
+            || matches!(name, "LANG" | "LC_ALL" | "LC_NUMERIC" | "TZ"))
+            && result
+                .insert(name.to_owned(), value_digest(&entry[equal + 1..]))
+                .is_some()
+        {
+            return Err(std::io::Error::other("duplicate runtime environment input"));
+        }
+    }
+    Ok(result)
+}
+
+fn executable_mapping_files(
+    maps: &str,
+) -> std::io::Result<std::collections::BTreeSet<std::path::PathBuf>> {
+    let mut files = std::collections::BTreeSet::new();
+    for line in maps.lines() {
+        let parts = line.split_whitespace().collect::<Vec<_>>();
+        if parts.len() < 5 {
+            return Err(std::io::Error::other("malformed Linux mapping"));
+        }
+        if !parts[1].contains('x') {
+            continue;
+        }
+        // vDSO/vsyscall are kernel-supplied code, governed by the platform support
+        // boundary. They have no file-backed artifact to hash and are not JIT code.
+        if parts.len() == 6 && matches!(parts[5], "[vdso]" | "[vsyscall]") {
+            continue;
+        }
+        if parts[1].contains('w')
+            || parts.len() != 6
+            || !parts[5].starts_with('/')
+            || parts[4] == "0"
+        {
+            return Err(std::io::Error::other(
+                "unknown, writable, deleted or ambiguous executable mapping",
+            ));
+        }
+        files.insert(std::path::PathBuf::from(parts[5]));
+    }
+    if files.is_empty() {
+        return Err(std::io::Error::other("no supported loaded ELF context"));
+    }
+    Ok(files)
+}
+
+/// Execute bounded synchronous observation/reconstruction while the supported glibc
+/// loader holds its loaded-object write lock. No guard escapes into cached bodies.
+/// Panics are caught inside the C callback and resumed after glibc releases its lock.
+/// Reentrant same-thread loading is refused using monotonic loader counters.
+///
+/// The supported controlled root excludes executable mmap/JIT, opaque plugins and
+/// concurrent runtime configuration changes. The operation must not import/load
+/// modules, invoke provider/plugin callbacks, spawn threads, or wait for work which
+/// can acquire a loader lock. Additional effective Python configuration is observed
+/// before/after this scope, so the GIL is never acquired under the loader lock.
+/// External/privileged file mutation is
+/// outside the existing generation-use contract; file/mapping checks detect ordinary
+/// stale deployments. This function itself does not mint scientific eligibility.
+pub fn with_local_runtime_scope<T>(
+    operation: impl FnOnce() -> std::io::Result<T>,
+) -> std::io::Result<T> {
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    {
+        linux_loader_scope::run(operation)
+    }
+    #[cfg(not(all(target_os = "linux", target_env = "gnu")))]
+    {
+        let _ = operation;
+        Err(std::io::Error::other(
+            "local replay requires the supported Linux glibc loader",
+        ))
+    }
+}
+
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
+use crate::loader_scope as linux_loader_scope;
+
 /// Deployment owners observe their artifact first, and revalidate reviewed
 /// consumed inputs whenever a receipt claims scientific eligibility.
 pub fn verify_receipt_artifact(bytes: &[u8], path: &Path) -> std::io::Result<FileObservation> {
@@ -678,6 +911,207 @@ pub(crate) fn digest(mut entries: Vec<(String, Vec<u8>)>) -> pse_ids::ContentHas
 #[cfg(test)]
 mod foundation_unit {
     use super::fs;
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    #[test]
+    #[allow(
+        unsafe_code,
+        reason = "isolated actual glibc sibling-load and current-module TLS ordering control"
+    )]
+    fn local_runtime_scope_releases_for_sibling_loading_after_owned_module_tls_use() {
+        use std::sync::mpsc;
+        let (start_tx, start_rx) = mpsc::channel();
+        let (started_tx, started_rx) = mpsc::channel();
+        let (done_tx, done_rx) = mpsc::channel();
+        // Thread/TLS allocation is outside the loader callback.
+        let sibling = std::thread::spawn(move || {
+            start_rx.recv().unwrap();
+            started_tx.send(()).unwrap(); // Acknowledgment precedes dlopen, never waits on loader.
+            // SAFETY: balanced system-library handle, no executable authority escapes.
+            let handle = unsafe {
+                libc::dlopen(c"libutil.so.1".as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL)
+            };
+            assert!(!handle.is_null());
+            // SAFETY: handle is the live, uniquely owned dlopen result above.
+            assert_eq!(unsafe { libc::dlclose(handle) }, 0);
+            done_tx.send(()).unwrap();
+        });
+        super::with_local_runtime_scope(|| {
+            start_tx.send(()).unwrap();
+            started_rx
+                .recv_timeout(std::time::Duration::from_secs(5))
+                .unwrap();
+            // Exercise a current owning-module TLS access while a sibling may be
+            // waiting in dlopen. No new thread/module/provider is used by this callback.
+            super::linux_loader_scope::touch_current_module_tls();
+            Ok(())
+        })
+        .unwrap();
+        // Wait/join happens after scope releases the glibc loaded-object lock.
+        done_rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
+        sibling.join().unwrap();
+        super::with_local_runtime_scope(|| {
+            super::linux_loader_scope::touch_current_module_tls();
+            Ok(())
+        })
+        .unwrap();
+    }
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    #[test]
+    fn local_runtime_scope_contains_panic_and_releases_loader_lock() {
+        let panic = std::panic::catch_unwind(|| {
+            super::with_local_runtime_scope::<()>(|| panic!("scope control"))
+        });
+        assert!(panic.is_err());
+        assert_eq!(super::with_local_runtime_scope(|| Ok(7)).unwrap(), 7);
+    }
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    #[test]
+    #[allow(
+        unsafe_code,
+        reason = "isolated actual glibc transient-load refusal control"
+    )]
+    fn local_runtime_scope_refuses_reentrant_load_and_unload_even_when_mapping_snapshot_matches() {
+        let before =
+            super::executable_mapping_files(&fs::read_to_string("/proc/self/maps").unwrap())
+                .unwrap();
+        assert!(
+            !before
+                .iter()
+                .any(|path| path.file_name().is_some_and(|name| name == "libutil.so.1")),
+            "control requires unloaded libutil"
+        );
+        let result = super::with_local_runtime_scope(|| {
+            // SAFETY: NUL-terminated system library name; handle is used only for
+            // balanced dlclose, never as arbitrary executable/data authority.
+            let handle = unsafe {
+                libc::dlopen(c"libutil.so.1".as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL)
+            };
+            assert!(
+                !handle.is_null(),
+                "supported glibc libutil control unavailable"
+            );
+            // SAFETY: this call closes exactly the non-null handle just opened.
+            assert_eq!(unsafe { libc::dlclose(handle) }, 0);
+            Ok(())
+        });
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("reentrant loading")
+        );
+        assert_eq!(
+            before,
+            super::executable_mapping_files(&fs::read_to_string("/proc/self/maps").unwrap())
+                .unwrap()
+        );
+        assert_eq!(super::with_local_runtime_scope(|| Ok(9)).unwrap(), 9);
+    }
+    #[test]
+    fn local_runtime_mapping_controls_refuse_unknown_writable_deleted_and_ambiguous_code() {
+        let supported = "1000-2000 r-xp 00000000 08:01 42 /lib/actual.so\n2000-3000 r--p 00001000 08:01 42 /lib/actual.so\n3000-4000 r-xp 00000000 00:00 0 [vdso]";
+        let expected =
+            std::collections::BTreeSet::from([std::path::PathBuf::from("/lib/actual.so")]);
+        assert_eq!(
+            super::executable_mapping_files(supported).unwrap(),
+            expected
+        );
+        for code in [
+            "1000-2000 r-xp 00000000 00:00 0",
+            "1000-2000 rwxp 00000000 08:01 42 /lib/actual.so",
+            "1000-2000 r-xp 00000000 08:01 42 /lib/actual.so (deleted)",
+            "1000-2000 r-xp 00000000 08:01 42 /lib/space name.so",
+            "1000-2000 r-xp 00000000 00:00 0 [anon:jit]",
+        ] {
+            assert!(super::executable_mapping_files(code).is_err(), "{code}");
+        }
+        assert!(super::executable_mapping_files("1000-2000 r-xp 00000000 00:00 0 [vdso]").is_err());
+    }
+    #[test]
+    fn local_runtime_environment_controls_include_startup_loader_and_runtime_values() {
+        let observe = |entries: &[&str]| {
+            super::runtime_environment(entries.iter().map(|entry| entry.as_bytes().to_vec()))
+                .unwrap()
+        };
+        let baseline = observe(&[
+            "LD_LIBRARY_PATH=/native",
+            "MKL_NUM_THREADS=2",
+            "PATH=/compiler",
+        ]);
+        assert_eq!(
+            baseline,
+            observe(&[
+                "PATH=/unrelated",
+                "MKL_NUM_THREADS=2",
+                "LD_LIBRARY_PATH=/native"
+            ])
+        );
+        assert_ne!(
+            baseline,
+            observe(&["LD_LIBRARY_PATH=/changed", "MKL_NUM_THREADS=2"])
+        );
+        assert_ne!(
+            baseline,
+            observe(&["LD_LIBRARY_PATH=/native", "MKL_NUM_THREADS=3"])
+        );
+        assert_ne!(baseline, observe(&["MKL_NUM_THREADS=2"]));
+        assert!(
+            super::runtime_environment(
+                [b"LD_PRELOAD=a".to_vec(), b"LD_PRELOAD=b".to_vec()].into_iter()
+            )
+            .is_err()
+        );
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn local_runtime_observation_binds_actual_anchor_role_and_loaded_bytes_without_checkout() {
+        fn anchor() {}
+        let anchor = anchor as *const () as usize;
+        let observation =
+            super::LocalRuntimeObservation::capture(super::LocalRuntimeRole::Worker, anchor)
+                .unwrap();
+        assert_eq!(observation.artifact, observation.executable);
+        assert!(
+            observation
+                .loaded
+                .iter()
+                .any(|file| file.canonical == observation.artifact.canonical)
+        );
+        assert_eq!(
+            observation.identity().unwrap(),
+            super::LocalRuntimeObservation::capture(super::LocalRuntimeRole::Worker, anchor)
+                .unwrap()
+                .identity()
+                .unwrap()
+        );
+        observation.verify(anchor).unwrap();
+        assert!(
+            super::LocalRuntimeObservation::capture(super::LocalRuntimeRole::Worker, 0).is_err()
+        );
+        let mut changed = observation.clone();
+        changed.role = super::LocalRuntimeRole::Python;
+        assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
+        changed = observation.clone();
+        changed.loaded[0].sha256 = "0".repeat(64);
+        assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
+        assert!(changed.verify(anchor).is_err());
+        changed = observation.clone();
+        changed.kernel_release.push(b'!');
+        assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
+        assert!(changed.verify(anchor).is_err());
+        changed = observation.clone();
+        changed.kernel_version.push(b'!');
+        assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
+        assert!(changed.verify(anchor).is_err());
+        changed = observation.clone();
+        changed
+            .current_environment
+            .insert("LD_PRELOAD".into(), "different".into());
+        assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
+        assert!(changed.verify(anchor).is_err());
+    }
     #[test]
     fn scientific_producer_payload_refuses_identity_substitution_and_preserves_projection() {
         let inputs = std::collections::BTreeMap::from([(

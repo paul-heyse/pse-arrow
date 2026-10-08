@@ -36,6 +36,7 @@ struct Manifest {
 struct Settings {
     memory_limit_bytes: usize,
     threads: usize,
+    math_jobs: usize,
     math_worker_bytes: usize,
     preparation: crate::workflow::PreparationSettings,
 }
@@ -83,8 +84,8 @@ async fn package(
             .ok_or_else(|| std::io::Error::other("positive reference execution allowance required"))
     };
     assert_eq!(
-        settings.threads, 1,
-        "this diagnostic runs native proofs serially"
+        settings.preparation.compiler.optimization.cores, 1,
+        "each diagnostic native proof uses one optimizer core"
     );
     let shared = crate::SharedRuntime::build(crate::ResourceBudget {
         memory_limit_bytes: positive(settings.memory_limit_bytes)?,
@@ -99,6 +100,7 @@ async fn package(
         cache: crate::CacheBudget::for_memory(settings.memory_limit_bytes),
         math: crate::math::MathPolicy {
             worker_bytes: settings.math_worker_bytes,
+            jobs: settings.math_jobs,
             ..Default::default()
         },
         hashing_may_use_pool: false,
@@ -142,7 +144,9 @@ async fn package(
         bundles, &pool, &token,
     )?;
     Ok((
-        runtime.modeling_from_documents(&closure, physical).await?,
+        runtime
+            .modeling_from_documents(&closure, physical, &crate::CancelSource::new())
+            .await?,
         spill,
     ))
 }
@@ -474,6 +478,10 @@ fn primitive(
     Ok((residual, eligibility))
 }
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "independent point oracle receives the exact root, compiled residual and eligibility, physical tolerances, derivative order and scope"
+)]
 fn qualified_point(
     root: &RootCase,
     residual: &CompiledBody,
@@ -667,6 +675,10 @@ fn root_conditions(
     }
 }
 
+#[allow(
+    clippy::panic,
+    reason = "selected-root fixture links must be direct authored aliases; other expressions invalidate the oracle setup"
+)]
 fn path_symbol(
     expression: &pse_authoring::dsl::Expr,
     names: &BTreeMap<String, SemanticId>,

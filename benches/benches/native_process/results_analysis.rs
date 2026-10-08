@@ -352,10 +352,12 @@ async fn prepare(
     let time_quantity = time.id.as_id();
     let time_unit = time.canonical_unit.as_id();
     let policy = pse_model::numerics::NumericalPolicy::default();
+    let cancel = CancelSource::new();
     let package = runtime
         .modeling_from_documents(
             &support::admitted_documents(owner, &sources.modeling),
             physical,
+            &cancel,
         )
         .await
         .unwrap();
@@ -370,7 +372,6 @@ async fn prepare(
         .declaration_id;
     mark(&mut phase_seconds, "modeling_source_publication", started);
     let started = Instant::now();
-    let cancel = CancelSource::new();
     let profile = native::Profile {
         method: native::Method::Diffsol,
         end: 2.0,

@@ -1728,6 +1728,11 @@ fn describe(
 
 #[cfg(all(test, feature = "canonical-tests"))]
 mod canonical_server_unit {
+    #![allow(
+        clippy::expect_used,
+        clippy::unwrap_used,
+        reason = "isolated staging fixtures and assertions fail the test on unexpected results"
+    )]
     use super::*;
     use crate::canonical::CanonicalOptions;
     use crate::canonical::checked;

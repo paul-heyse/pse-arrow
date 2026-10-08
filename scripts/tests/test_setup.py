@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import ast
 import contextlib
 import hashlib
 import importlib.util
@@ -17,13 +18,11 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
-from typing import TYPE_CHECKING
-from unittest.mock import patch
-
-if TYPE_CHECKING:
-    from types import ModuleType
+from types import ModuleType, SimpleNamespace
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -91,6 +90,131 @@ def tracked_skills() -> list[str]:
         check=False,
     ).stdout.split()
     return [name for name in names if f".codex/skills/{name}/SKILL.md" not in ignored]
+
+
+class ProducerDeploymentCollectionTests(unittest.TestCase):
+    def setUp(self) -> None:
+        # Exercise the real hooks without importing the native extension or pytest.
+        tree = ast.parse((ROOT / "conftest.py").read_text())
+        functions = {
+            "pytest_addoption",
+            "_marker_offences",
+            "_check_markers",
+            "_deselect_parity",
+            "_deselect_producer_deployment",
+            "pytest_collection_modifyitems",
+            "pytest_report_collectionfinish",
+        }
+        body: list[ast.stmt] = [
+            ast.ImportFrom(
+                module="__future__", names=[ast.alias(name="annotations")], level=0
+            )
+        ]
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef) and node.name in functions:
+                node.decorator_list = []
+                body.append(node)
+            elif isinstance(node, ast.Assign) and any(
+                isinstance(target, ast.Name) and target.id == "REQUIRED_MARKERS"
+                for target in node.targets
+            ):
+                body.append(node)
+        self.plugin = ModuleType("producer_collection_fixture")
+        self.plugin.__dict__.update(
+            {
+                "pytest": SimpleNamespace(UsageError=ValueError),
+                "_parity_deselected_key": object(),
+                "_parity_uncollected_key": object(),
+                "_producer_deployment_deselected_key": object(),
+            }
+        )
+        module = ast.fix_missing_locations(ast.Module(body=body, type_ignores=[]))
+        exec(compile(module, str(ROOT / "conftest.py"), "exec"), self.plugin.__dict__)  # noqa: S102 -- controlled local hook fixture
+
+    @staticmethod
+    def item(name: str, *markers: str) -> Mock:
+        item = Mock(nodeid=name)
+        item.iter_markers.return_value = [
+            SimpleNamespace(name=marker) for marker in markers
+        ]
+        item.get_closest_marker.side_effect = lambda marker: marker in markers
+        return item
+
+    @staticmethod
+    def config(*, producer: bool) -> SimpleNamespace:
+        return SimpleNamespace(
+            option=SimpleNamespace(parity=False, producer_deployment=producer),
+            hook=SimpleNamespace(pytest_deselected=Mock()),
+            stash={},
+        )
+
+    def test_default_deselects_strict_controls_and_opt_in_preserves_them(self) -> None:
+        for producer in (False, True):
+            with self.subTest(producer=producer):
+                ordinary = self.item("ordinary", "integration")
+                strict = self.item("strict", "integration", "producer_deployment")
+                items = [ordinary, strict]
+                config = self.config(producer=producer)
+                collection = self.plugin.pytest_collection_modifyitems(config, items)
+                next(collection)
+                with self.assertRaises(StopIteration):
+                    next(collection)
+                self.assertEqual(items, [ordinary, strict] if producer else [ordinary])
+                if producer:
+                    config.hook.pytest_deselected.assert_not_called()
+                else:
+                    config.hook.pytest_deselected.assert_called_once_with(
+                        items=[strict]
+                    )
+                    lines = self.plugin.pytest_report_collectionfinish(config)
+                    self.assertTrue(
+                        any("--producer-deployment" in line for line in lines)
+                    )
+
+    def test_strict_marker_never_bypasses_exactly_one_category(self) -> None:
+        for markers in (
+            ("producer_deployment",),
+            ("unit", "integration", "producer_deployment"),
+        ):
+            collection = self.plugin.pytest_collection_modifyitems(
+                self.config(producer=False), [self.item("invalid", *markers)]
+            )
+            with self.assertRaisesRegex(ValueError, "exactly one"):
+                next(collection)
+
+    def test_option_marker_and_strict_python_category_are_registered(self) -> None:
+        parser = Mock()
+        self.plugin.pytest_addoption(parser)
+        option = next(
+            call
+            for call in parser.addoption.call_args_list
+            if call.args == ("--producer-deployment",)
+        )
+        self.assertEqual(option.kwargs["action"], "store_true")
+        self.assertEqual(option.kwargs["dest"], "producer_deployment")
+        self.assertFalse(option.kwargs["default"])
+        config = tomllib.loads((ROOT / "pyproject.toml").read_text())
+        self.assertTrue(
+            any(
+                marker.startswith("producer_deployment:")
+                for marker in config["tool"]["pytest"]["ini_options"]["markers"]
+            )
+        )
+        tree = ast.parse(
+            (ROOT / "python/pse/tests/test_canonical_results.py").read_text()
+        )
+        test = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name
+            == "test_canonical_eligible_deployment_receipt_reopens_original_scalar"
+        )
+        markers = {
+            node.attr for node in test.decorator_list if isinstance(node, ast.Attribute)
+        }
+        self.assertEqual(markers & self.plugin.REQUIRED_MARKERS, {"integration"})
+        self.assertIn("producer_deployment", markers)
 
 
 class EditPolicyTests(unittest.TestCase):

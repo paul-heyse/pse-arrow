@@ -161,7 +161,7 @@ study may be silently abandoned; lost acknowledgment is not permission to repeat
 
 | Package | Delivered behavior and prerequisites | Migration, deletion and targeted acceptance | Status |
 |---|---|---|---|
-| C5 — Stored creation basis and cancellation | Working N2 selected admission and canonical inactive-ingestion/activation owners. Share compatible declared entry preparation, admit every binding/seed role and carry caller cancellation through creation/activation settlement. | Move actual stored, default durable, direct Rust and Python routes; delete per-point fresh declared preparation and detached creation cancellation. Test many value points, invalid later binding, changed descriptor/settings/layout/source, distinct occurrences, cancel during hydration/admission/batches, before activation, after issued/lost-ack activation and after acknowledged activation. Preserve fences, recorded starts, inactive cleanup and drain. | Scheduled; authoring-path passes do not close stored creation. |
+| C5 — Stored creation basis and cancellation | Working N2 selected admission and canonical inactive-ingestion/activation owners. Share compatible declared entry preparation, admit every binding/seed role and carry caller cancellation through creation/activation settlement. | Move actual stored, default durable, direct Rust and Python routes; delete per-point fresh declared preparation and detached creation cancellation. Test many value points, invalid later binding, changed descriptor/settings/layout/source, distinct occurrences, cancel during hydration/admission/batches, before activation, after issued/lost-ack activation and after acknowledged activation. Preserve fences, recorded starts, inactive cleanup and drain. | Implemented; actual stored-creation and cancellation controls pass; E3/E4 pending. |
 
 E3 includes the original thousand-point Python workload under production accuracy/resource premises.
 Construction-count controls demonstrate removal of repeated preparation; elapsed-time benefit needs
@@ -253,11 +253,13 @@ profile, beyond pure in-memory policy units.
 
 ## Checkpoint and next step
 
-C5 is newly scheduled by the enhancement review; previous authoring/admission controls do not
-close stored-definition readmission or creation-phase cancellation. Migrate the actual default
-durable route with its declared basis and caller scope, including activation acknowledgment
-settlement. N2/N4 and E3 consume that working behavior; earlier checkpoint evidence below keeps
-its original boundaries.
+C5 now shares a compatible declared basis on the actual stored-definition route and checks
+every binding/seed policy while preserving distinct occurrences. Caller cancellation reaches
+source validation and creation; issued source/protection/study effects settle before cancellation
+is reported. Exact activation and lost-acknowledgment controls fence the study identity, including
+idempotent retries of an already activated study. Focused runtime and canonical-server controls
+pass. Benchmark/public Python callers and original study journeys are being reconciled before
+N4/E3/E4 acceptance. Earlier checkpoint evidence below keeps its original boundaries.
 
 C1/C2/C3 now use canonical native lifecycle functions and protected exact result
 selections. Ordinary runs retain original Arrow blocks, diagnostics and qualified seeds;

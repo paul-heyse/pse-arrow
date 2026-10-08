@@ -557,6 +557,16 @@ proof fallback. Controlled deployment qualification and scientific publication/r
 explicit audited trust assertions; privileged storage or deployment configuration modification
 requires readmission. Reconstruction reserves decode scratch before parsing.
 
+Deployment-local replay uses the same scientific reconstruction checker under a bounded
+synchronous loader-exclusion scope. Its result owns immutable mathematical values and
+provider descriptions, with no loaded provider handles; the scope ends after construction.
+It performs no imports, asynchronous work or caller/provider callbacks inside the loader
+lock. Its owning module TLS is materialized before loader exclusion. Retained retrieval
+revalidates actual originating deployment compatibility before reuse; later
+mutable evaluators and native providers keep their separate scientific admission and
+managed-generation lifetime. Unknown premises refuse reuse while ordinary fresh admission
+remains available (ADR-0164; §5.3).
+
 Evaluators use compact selected formal coordinates, including actual guard/provider and nested
 scope requirements. Public formal identities remain stable; consumers gather through the same
 recorded mapping. Derivative direction axes retain their requested order. Mutable evaluator and

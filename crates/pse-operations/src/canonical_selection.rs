@@ -20,6 +20,16 @@ use surrealdb::types::Object;
 /// Reserved writer role for compiler-issued descriptions eligible for scientific replay.
 pub const SCIENTIFIC_PRODUCER_PREFIX: &str = "pse.qualified-math-producer.v1:";
 
+/// Reserved independently observed exact deployment-local replay admission.
+pub const LOCAL_RUNTIME_PRODUCER_PREFIX: &str = "pse.local-runtime.v1:";
+
+/// Both namespaces require the controlled scientific writer; generic safe publication
+/// cannot confer either guarantee from caller-selected producer bytes.
+pub fn is_replay_producer(producer: &str) -> bool {
+    producer.starts_with(SCIENTIFIC_PRODUCER_PREFIX)
+        || producer.starts_with(LOCAL_RUNTIME_PRODUCER_PREFIX)
+}
+
 /// Maximum exact inventories sharing one protected 64-membership response.
 pub const SELECTED_INVENTORY_BATCH: usize = 8;
 
@@ -946,7 +956,7 @@ impl CanonicalStore {
         read: &SelectedRead,
         product: Product,
     ) -> Result<String, CanonicalError> {
-        if product.producer.starts_with(SCIENTIFIC_PRODUCER_PREFIX) {
+        if is_replay_producer(&product.producer) {
             return Err(CanonicalError::Configuration(
                 "generic product publication cannot impersonate scientific admission".into(),
             ));
@@ -973,7 +983,7 @@ impl CanonicalStore {
         read: &SelectedRead,
         product: Product,
     ) -> Result<String, CanonicalError> {
-        if !product.producer.starts_with(SCIENTIFIC_PRODUCER_PREFIX) {
+        if !is_replay_producer(&product.producer) {
             return Err(CanonicalError::Configuration(
                 "scientific publication requires its reserved qualified producer".into(),
             ));
@@ -1317,6 +1327,11 @@ impl CanonicalStore {
 
 #[cfg(all(test, feature = "canonical-tests"))]
 mod canonical_server_unit {
+    #![allow(
+        clippy::expect_used,
+        clippy::unwrap_used,
+        reason = "isolated selection fixtures and assertions fail the test on unexpected results"
+    )]
     use super::*;
     use crate::canonical::{CanonicalOptions, ObjectEdit};
     use std::{path::Path, time::Duration};

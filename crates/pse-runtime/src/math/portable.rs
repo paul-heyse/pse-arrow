@@ -15,7 +15,7 @@ use pse_operations::{
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, atomic::AtomicBool};
 
-const INTERPRETATION: &str = "pse.runtime.admitted-body-product.v1";
+const INTERPRETATION: &str = "pse.runtime.admitted-body-product.v2";
 /// Refusals preserve scientific reconstruction and storage failures distinctly.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum PortableError {
@@ -267,6 +267,153 @@ impl QualifiedProducer {
         )
     }
 }
+/// Additional effective configuration observed by the actual composition root.
+/// It is called outside the loader scope, so Python can acquire the GIL without
+/// holding glibc's loader lock. The controlled root excludes concurrent mutation.
+pub type RuntimeConfigurationObserver = Arc<dyn Fn() -> std::io::Result<Vec<u8>> + Send + Sync>;
+
+/// Opaque exact local deployment compatibility, distinct from producer qualification.
+#[derive(Clone)]
+pub struct LocalReplay {
+    observation: pse_buildinfo::LocalRuntimeObservation,
+    anchor: usize,
+    configuration: RuntimeConfigurationObserver,
+    configuration_bytes: Vec<u8>,
+    identity: ContentHash,
+}
+impl std::fmt::Debug for LocalReplay {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("LocalReplay")
+            .field("identity", &self.identity)
+            .finish_non_exhaustive()
+    }
+}
+/// Versioned replay authority. Both guarantees use the same protected selection,
+/// concrete receipts and owning scientific reconstruction; neither decodes old
+/// unqualified publications into eligible products.
+#[derive(Clone, Debug)]
+pub enum ReplayAdmission {
+    /// Exact controlled Linux deployment compatibility, reobserved at each use.
+    Local(Arc<LocalReplay>),
+    /// Existing broader reviewed selected-producer qualification.
+    QualifiedProducer(QualifiedProducer),
+}
+impl From<QualifiedProducer> for ReplayAdmission {
+    fn from(value: QualifiedProducer) -> Self {
+        Self::QualifiedProducer(value)
+    }
+}
+impl ReplayAdmission {
+    /// Independently observe the receiving executable/imported module and mint the
+    /// local guarantee only within the supported bounded glibc reconstruction owner.
+    /// # Safety
+    /// The actual worker/Python composition root supplies its own code anchor and
+    /// reads actual effective configuration. The supported reconstruction path must
+    /// contain only immutable native mathematical construction: no Python imports,
+    /// provider/plugin callbacks, JIT/direct executable mappings, runtime mutation,
+    /// or work which waits for another thread to acquire the loader lock. Existing
+    /// native generation-use ownership protects managed artifacts; privileged or
+    /// external mutations are outside this controlled lifetime. Opaque contexts must
+    /// omit local admission and use fresh scientific preparation.
+    /// # Errors
+    /// Unsupported role/platform/loader, unidentified mappings or unavailable context.
+    #[allow(
+        unsafe_code,
+        reason = "ADR-0164 actual controlled composition-root local replay admission"
+    )]
+    pub unsafe fn observe_local(
+        target: ExpectedProducerTarget,
+        anchor: usize,
+        configuration: RuntimeConfigurationObserver,
+    ) -> Result<Self, PortableError> {
+        let role = if (target.package, target.target, target.kind) == ("xtask", "pse-worker", "bin")
+        {
+            pse_buildinfo::LocalRuntimeRole::Worker
+        } else if (target.package, target.target, target.kind) == ("pse-py", "_native", "cdylib") {
+            pse_buildinfo::LocalRuntimeRole::Python
+        } else {
+            return Err(PortableError::Qualification(
+                "unsupported local reconstruction role".into(),
+            ));
+        };
+        // Establish the process-global mathematical runtime before observing its
+        // loaded closure. License activation can resolve a hostname and load NSS
+        // modules; capturing first would make the first preparation invalidate
+        // its own admission. This effect must remain outside the loader scope.
+        pse_math::initialize()?;
+        let configuration_bytes =
+            configuration().map_err(|error| PortableError::Qualification(error.to_string()))?;
+        let observation = pse_buildinfo::with_local_runtime_scope(|| {
+            pse_buildinfo::LocalRuntimeObservation::capture(role, anchor)
+        })
+        .map_err(|error| PortableError::Qualification(error.to_string()))?;
+        if configuration().map_err(|error| PortableError::Qualification(error.to_string()))?
+            != configuration_bytes
+        {
+            return Err(PortableError::Qualification(
+                "effective runtime configuration changed during observation".into(),
+            ));
+        }
+        let mut hash = FramedHasher::new(Frame::BuildInputsV1);
+        hash.str("pse.local-runtime-replay.v1")
+            .hash(
+                &observation
+                    .identity()
+                    .map_err(|error| PortableError::Qualification(error.to_string()))?,
+            )
+            .part(&configuration_bytes);
+        Ok(Self::Local(Arc::new(LocalReplay {
+            observation,
+            anchor,
+            configuration,
+            configuration_bytes,
+            identity: hash.finish_hash(),
+        })))
+    }
+    /// The relevant key's identity; the guarantee namespace remains explicit.
+    pub fn identity(&self) -> ContentHash {
+        match self {
+            Self::Local(local) => local.identity,
+            Self::QualifiedProducer(producer) => producer.identity(),
+        }
+    }
+    pub(super) fn key(&self) -> String {
+        match self {
+            Self::Local(local) => format!(
+                "{}{}",
+                pse_operations::canonical_selection::LOCAL_RUNTIME_PRODUCER_PREFIX,
+                local.identity.to_hex()
+            ),
+            Self::QualifiedProducer(producer) => producer.key(),
+        }
+    }
+    /// Recheck a local context at every retained/replayed use. Unknown or changed
+    /// context is a cache miss; it does not bar fresh execution or historical reads.
+    pub fn is_current(&self) -> bool {
+        self.with_current(|| ()).is_some()
+    }
+    pub(super) fn with_current<T>(&self, operation: impl FnOnce() -> T) -> Option<T> {
+        let Self::Local(local) = self else {
+            return Some(operation());
+        };
+        if (local.configuration)().ok()? != local.configuration_bytes {
+            return None;
+        }
+        let result = pse_buildinfo::with_local_runtime_scope(|| {
+            local.observation.verify(local.anchor)?;
+            let result = operation();
+            local.observation.verify(local.anchor)?;
+            Ok(result)
+        })
+        .ok()?;
+        if (local.configuration)().ok()? != local.configuration_bytes {
+            return None;
+        }
+        Some(result)
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Envelope {
@@ -278,7 +425,7 @@ struct Envelope {
 }
 // Keep the compiler payload as opaque bytes. Nesting it as a JSON number array
 // would duplicate and expand the same semantic description at the transport boundary.
-const ENVELOPE_MAGIC: &[u8] = b"pse-admitted-body-product-v1\0";
+const ENVELOPE_MAGIC: &[u8] = b"pse-admitted-body-product-v2\0";
 // Framing metadata is bounded independently of the scientific recipe and storage wire blocks.
 const MAX_METADATA_BYTES: usize = 1024 * 1024;
 const MAX_PRODUCT_BYTES: usize = ENVELOPE_MAGIC.len()
@@ -421,7 +568,7 @@ pub async fn publish_body(
     service: &super::MathService,
     store: &CanonicalStore,
     read: &SelectedRead,
-    producer: &QualifiedProducer,
+    producer: &ReplayAdmission,
     body: &AdmittedBody,
     context: &CompilerContext,
 ) -> Result<PublishedBody, PortableError> {
@@ -492,13 +639,10 @@ async fn publish_with_producer_key(
         producer,
         interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
     };
-    let key = if product
-        .producer
-        .starts_with(pse_operations::canonical_selection::SCIENTIFIC_PRODUCER_PREFIX)
-    {
+    let key = if pse_operations::canonical_selection::is_replay_producer(&product.producer) {
         // SAFETY: encode accepts only an AdmittedBody with a private compiler seal
         // emitted by normal scientific admission or previously qualified replay.
-        // The caller's QualifiedProducer carries deployment eligibility; decoded DTOs
+        // The caller's opaque ReplayAdmission carries its explicit deployment guarantee; decoded DTOs
         // cannot obtain AdmittedBody or enter this reserved publication path.
         unsafe { store.publish_scientific_product(read, product) }.await?
     } else {
@@ -522,11 +666,14 @@ pub async fn reuse_body(
     service: &super::MathService,
     store: &CanonicalStore,
     read: &mut SelectedRead,
-    producer: &QualifiedProducer,
+    producer: &ReplayAdmission,
     identity: SemanticBodyHash,
     context: &CompilerContext,
     cancelled: &Arc<AtomicBool>,
 ) -> Result<Option<AdmittedBody>, PortableError> {
+    if !producer.is_current() {
+        return Ok(None);
+    }
     let physical = physical_identity(&context.quantities, &context.preconditions);
     let mut after = String::new();
     loop {
@@ -583,7 +730,14 @@ pub async fn reuse_body(
             )
         }
         .map_err(|e| PortableError::Qualification(e.to_string()))?;
-        let body = reconstruct_portable(&permit, &context.quantities, cancelled)?;
+        // Only immutable owned mathematical values leave this bounded loader scope.
+        // Provider workers/evaluators remain downstream fresh execution state.
+        let Some(body) =
+            producer.with_current(|| reconstruct_portable(&permit, &context.quantities, cancelled))
+        else {
+            return Ok(None);
+        };
+        let body = body?;
         if body.spec() != &envelope.spec {
             return Err(PortableError::Qualification(
                 "reconstructed body differs from qualified envelope specification".into(),
@@ -624,6 +778,74 @@ async fn qualify_candidate(
 #[cfg(test)]
 mod portable_frame_tests {
     use super::*;
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    #[test]
+    #[allow(
+        unsafe_code,
+        reason = "isolated actual native composition-root local admission controls"
+    )]
+    fn local_replay_admission_is_opaque_role_bound_and_revalidates_effective_configuration() {
+        fn anchor() {}
+        let anchor = anchor as *const () as usize;
+        let effective = Arc::new(std::sync::Mutex::new(
+            b"controlled-runtime-configuration".to_vec(),
+        ));
+        let current = effective.clone();
+        let observe: RuntimeConfigurationObserver =
+            Arc::new(move || Ok(current.lock().unwrap().clone()));
+        // SAFETY: isolated test binary supplies its actual code anchor/configuration;
+        // this control invokes no imports, JIT or provider callback within the scope.
+        let local = unsafe {
+            ReplayAdmission::observe_local(ExpectedProducerTarget::WORKER, anchor, observe.clone())
+        }
+        .unwrap();
+        assert!(matches!(local, ReplayAdmission::Local(_)));
+        assert!(local.is_current());
+        assert!(
+            local
+                .key()
+                .starts_with(pse_operations::canonical_selection::LOCAL_RUNTIME_PRODUCER_PREFIX)
+        );
+        let strict: ReplayAdmission = QualifiedProducer {
+            identity: local.identity(),
+        }
+        .into();
+        assert_ne!(local.key(), strict.key());
+        let old = effective.lock().unwrap().clone();
+        *effective.lock().unwrap() = b"changed-runtime-configuration".to_vec();
+        assert!(!local.is_current());
+        let polled = AtomicBool::new(false);
+        assert!(
+            local
+                .with_current(|| polled.store(true, std::sync::atomic::Ordering::Relaxed))
+                .is_none()
+        );
+        assert!(!polled.load(std::sync::atomic::Ordering::Relaxed));
+        // SAFETY: same controlled actual root, now independently observing changed configuration.
+        let changed = unsafe {
+            ReplayAdmission::observe_local(ExpectedProducerTarget::WORKER, anchor, observe.clone())
+        }
+        .unwrap();
+        assert_ne!(changed.key(), local.key());
+        *effective.lock().unwrap() = old;
+        assert!(local.is_current());
+        // SAFETY: actual observer input is unchanged; unsupported claimed role must refuse.
+        assert!(
+            // SAFETY: the same controlled observer is used to check role refusal.
+            unsafe {
+                ReplayAdmission::observe_local(
+                    ExpectedProducerTarget {
+                        package: "opaque-plugin",
+                        target: "foreign",
+                        kind: "lib",
+                    },
+                    anchor,
+                    observe,
+                )
+            }
+            .is_err()
+        );
+    }
     #[test]
     #[allow(
         unsafe_code,
@@ -752,6 +974,7 @@ mod canonical_deployment_tests {
     use super::*;
 
     #[test]
+    #[ignore = "operator-invoked strict deployment capture campaign"]
     #[allow(
         unsafe_code,
         reason = "actual controlled deployment captures qualified against independently observed role artifacts"
@@ -799,9 +1022,9 @@ mod canonical_deployment_tests {
                     .unwrap()
                     .expect("actual capture qualifies for its selected deployment role");
             assert_eq!(qualified.identity().to_hex(), receipt["identity"]);
-            // SAFETY: identical actual deployment premises; only the receiving
-            // executable role changes, so refusal exercises target association.
             assert!(
+                // SAFETY: these actual controlled captures and independently observed
+                // artifact bytes differ only in the expected receiving executable role.
                 unsafe { QualifiedProducer::from_deployment_receipt(&bytes, artifact, other) }
                     .unwrap()
                     .is_none()
@@ -812,6 +1035,11 @@ mod canonical_deployment_tests {
 
 #[cfg(all(test, feature = "canonical-tests"))]
 mod canonical_portable_body_tests {
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        reason = "portable replay fixtures fail immediately on invalid setup, poisoned capture locks or missing expected bodies"
+    )]
     use super::*;
     use pse_compiler::workspace::{CompilerWorkspace, ModelingBodyRetention, WorkspaceLimits};
     use pse_modeling::{Bindings, InstanceId, Limits, PhysicalScope};
@@ -824,7 +1052,7 @@ mod canonical_portable_body_tests {
     fn deployment_fixture(
         bytes: &[u8],
         artifact: &str,
-    ) -> Result<Option<QualifiedProducer>, PortableError> {
+    ) -> Result<Option<ReplayAdmission>, PortableError> {
         // SAFETY: isolated fixture supplies a complete controlled receipt and exact
         // fixture attestations; no production completeness is asserted by these tests.
         unsafe {
@@ -838,6 +1066,7 @@ mod canonical_portable_body_tests {
                 },
             )
         }
+        .map(|producer| producer.map(Into::into))
     }
     #[test]
     fn canonical_portable_body_errors_preserve_typed_identity() {
@@ -874,7 +1103,9 @@ mod canonical_portable_body_tests {
         let mut terms = vec![String::from("(x-x)"); 1024];
         while terms.len() > 1 {
             terms = terms
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|pair| format!("({}+{})", pair[0], pair[1]))
                 .collect();
         }
@@ -1164,10 +1395,159 @@ mod canonical_portable_body_tests {
     }
     // A named fixture qualification exercises consumer mechanics only. It makes no
     // claim that the real deployment's producer inputs have been completely qualified.
-    fn producer(byte: u8) -> QualifiedProducer {
+    fn producer(byte: u8) -> ReplayAdmission {
         QualifiedProducer {
             identity: ContentHash::from_bytes([byte; 32]),
         }
+        .into()
+    }
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    #[test]
+    #[allow(
+        unsafe_code,
+        reason = "actual controlled test root observes its mutable effective configuration rather than supplying a caller hash"
+    )]
+    fn canonical_portable_body_memory_namespaces_current_fills_and_clear_generation() {
+        use crate::math::retention::BodyRetention;
+        fn anchor() {}
+        let body = admitted(
+            context(),
+            "package p {def Root {var x:Scalar;eq residual:x==2;}}",
+        );
+        let identity = body.semantic_identity().unwrap();
+        let service = crate::math::tests::service();
+        let memory = BodyRetention(Arc::downgrade(&service));
+        let effective = Arc::new(Mutex::new(vec![1_u8]));
+        let observer: RuntimeConfigurationObserver = {
+            let effective = effective.clone();
+            Arc::new(move || Ok(effective.lock().unwrap().clone()))
+        };
+        let observe = || {
+            // SAFETY: this actual native test root owns the effective configuration
+            // above, serializes its mutation, and uses only immutable mathematical
+            // values in local scopes, with no imports or provider callbacks.
+            unsafe {
+                ReplayAdmission::observe_local(
+                    ExpectedProducerTarget::WORKER,
+                    anchor as *const () as usize,
+                    observer.clone(),
+                )
+            }
+            .unwrap()
+        };
+        let a = observe();
+        let same_a = observe();
+        assert_eq!(a.key(), same_a.key());
+        let retained_a = memory
+            .retain_for_producer(memory.generation(), identity, body.clone(), Some(&a))
+            .unwrap();
+        let candidate = memory
+            .get_for_producer(identity, Some(&same_a))
+            .unwrap()
+            .unwrap();
+        let hit_a = same_a.with_current(|| candidate).unwrap();
+        assert!(Arc::ptr_eq(&retained_a, &hit_a));
+        assert!(memory.get(identity).unwrap().is_none());
+
+        *effective.lock().unwrap() = vec![2];
+        let b = observe();
+        assert_ne!(a.key(), b.key());
+        assert!(
+            memory
+                .get_for_producer(identity, Some(&b))
+                .unwrap()
+                .is_none()
+        );
+        let retained_b = memory
+            .retain_for_producer(memory.generation(), identity, body.clone(), Some(&b))
+            .unwrap();
+        let candidate = memory
+            .get_for_producer(identity, Some(&b))
+            .unwrap()
+            .unwrap();
+        assert!(Arc::ptr_eq(
+            &retained_b,
+            &b.with_current(|| candidate).unwrap()
+        ));
+        assert!(!Arc::ptr_eq(&retained_a, &retained_b));
+        *effective.lock().unwrap() = vec![1];
+        let candidate = memory
+            .get_for_producer(identity, Some(&a))
+            .unwrap()
+            .unwrap();
+        assert!(Arc::ptr_eq(
+            &retained_a,
+            &a.with_current(|| candidate).unwrap()
+        ));
+
+        // A stale A attachment receives a fresh fill in B. Restoring A must never
+        // make that B fill eligible through A's old qualified memory namespace.
+        service.modeling_cache.clear();
+        *effective.lock().unwrap() = vec![2];
+        assert!(!a.is_current());
+        let stale_fill = memory
+            .retain_for_producer(memory.generation(), identity, body.clone(), Some(&a))
+            .unwrap();
+        assert!(
+            memory
+                .get_for_producer(identity, Some(&a))
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            memory
+                .get_for_producer(identity, Some(&b))
+                .unwrap()
+                .is_none()
+        );
+        assert!(Arc::ptr_eq(
+            &stale_fill,
+            &memory.get(identity).unwrap().unwrap()
+        ));
+        *effective.lock().unwrap() = vec![1];
+        assert!(a.is_current());
+        assert!(
+            memory
+                .get_for_producer(identity, Some(&a))
+                .unwrap()
+                .is_none()
+        );
+        let current_fill = memory
+            .retain_for_producer(memory.generation(), identity, body.clone(), Some(&a))
+            .unwrap();
+        let candidate = memory
+            .get_for_producer(identity, Some(&a))
+            .unwrap()
+            .unwrap();
+        assert!(Arc::ptr_eq(
+            &current_fill,
+            &a.with_current(|| candidate).unwrap()
+        ));
+        assert!(Arc::ptr_eq(
+            &stale_fill,
+            &memory.get(identity).unwrap().unwrap()
+        ));
+
+        let old_generation = memory.generation();
+        service.modeling_cache.clear();
+        assert!(memory.get(identity).unwrap().is_none());
+        assert!(
+            memory
+                .get_for_producer(identity, Some(&a))
+                .unwrap()
+                .is_none()
+        );
+        memory
+            .retain_for_producer(old_generation, identity, body.clone(), Some(&a))
+            .unwrap();
+        memory.retain(old_generation, identity, body).unwrap();
+        assert!(memory.get(identity).unwrap().is_none());
+        assert!(
+            memory
+                .get_for_producer(identity, Some(&a))
+                .unwrap()
+                .is_none()
+        );
     }
     #[derive(Debug)]
     struct RefuseFreshAdmission {
@@ -1202,6 +1582,35 @@ mod canonical_portable_body_tests {
     }
     #[tokio::test]
     async fn canonical_portable_body_normal_preparation_hits_before_admission_after_reconnect() {
+        normal_preparation_hits_before_admission_after_reconnect(false).await;
+    }
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    #[tokio::test]
+    async fn canonical_portable_body_no_receipt_local_replay_hits_before_admission_after_reconnect()
+    {
+        normal_preparation_hits_before_admission_after_reconnect(true).await;
+    }
+    #[allow(
+        unsafe_code,
+        reason = "controlled actual native reconstruction test observes no-receipt local deployment"
+    )]
+    fn restarted_admission(local: bool) -> ReplayAdmission {
+        if !local {
+            return producer(65);
+        }
+        fn anchor() {}
+        // SAFETY: this actual native test binary is a controlled immutable mathematical
+        // reconstruction root with no additional interpreter configuration or provider callbacks.
+        unsafe {
+            ReplayAdmission::observe_local(
+                ExpectedProducerTarget::WORKER,
+                anchor as *const () as usize,
+                Arc::new(|| Ok(Vec::new())),
+            )
+        }
+        .unwrap()
+    }
+    async fn normal_preparation_hits_before_admission_after_reconnect(local: bool) {
         let state = std::env::var("PSE_SURREAL_STATE").unwrap();
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!(
@@ -1227,6 +1636,9 @@ mod canonical_portable_body_tests {
             .await
             .unwrap();
         let context = context();
+        // Mint before constructing the expected body: actual composition roots
+        // also observe eligibility before their first compiler workspace.
+        let initial_admission = restarted_admission(local);
         let wanted = admitted(context.clone(), text).semantic_identity().unwrap();
         let mut selected = SelectedRead::new(
             store
@@ -1246,13 +1658,14 @@ mod canonical_portable_body_tests {
             .unwrap();
         let read = Arc::new(Mutex::new(selected));
         let service = crate::math::tests::service();
+        let initial_key = initial_admission.key();
         let workspace = service
             .canonical_workspace(
                 context.clone(),
                 WorkspaceLimits::default(),
                 store.clone(),
                 read.clone(),
-                Some(producer(65)),
+                Some(initial_admission),
                 ContentHash::from_bytes([66; 32]),
                 Arc::new(AtomicBool::new(false)),
             )
@@ -1306,13 +1719,15 @@ mod canonical_portable_body_tests {
             .unwrap();
         let read = Arc::new(Mutex::new(selected));
         let service = crate::math::tests::service();
+        let restarted_admission = restarted_admission(local);
+        assert_eq!(restarted_admission.key(), initial_key);
         let restored = Arc::new(Mutex::new(None));
         let attachment = RefuseFreshAdmission {
             inner: crate::math::retention::CanonicalBodyRetention {
                 memory: crate::math::retention::BodyRetention(Arc::downgrade(&service)),
                 store: store.clone(),
                 read: read.clone(),
-                producer: Some(producer(65)),
+                producer: Some(restarted_admission),
                 outer_build: ContentHash::from_bytes([66; 32]),
                 inputs: context.clone(),
                 cancelled: Arc::new(AtomicBool::new(false)),
