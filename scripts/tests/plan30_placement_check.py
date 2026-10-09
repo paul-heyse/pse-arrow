@@ -112,7 +112,7 @@ def worker(mode: str, directory: Path) -> int:
             [
                 sys.executable,
                 "-m",
-                "scripts.tests.test_plan30_placement",
+                "scripts.tests.plan30_placement_check",
                 "--worker",
                 "descendant",
                 str(directory),
@@ -129,7 +129,7 @@ def worker(mode: str, directory: Path) -> int:
             "--",
             sys.executable,
             "-m",
-            "scripts.tests.test_plan30_placement",
+            "scripts.tests.plan30_placement_check",
             "--worker",
             "nested",
             str(directory),
@@ -299,7 +299,7 @@ class Plan30PlacementTests(unittest.TestCase):
             self.command(
                 sys.executable,
                 "-m",
-                "scripts.tests.test_plan30_placement",
+                "scripts.tests.plan30_placement_check",
                 "--worker",
                 mode,
                 str(directory),

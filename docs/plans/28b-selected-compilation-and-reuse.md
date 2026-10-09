@@ -3,7 +3,7 @@ title: Selected compilation and durable reuse
 status: in-progress
 date: 2026-10-05
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md, docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md, docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md, docs/design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -288,6 +288,79 @@ Existing source selection/reconstruction primitives and an early J0-defined B7 i
 slice supply J1/I1 before full B7 migration. This breaks the apparent whole-package cycle:
 J1/I1 need those specific contracts, while B7's completed consumer adoption needs working J2
 and the applicable receiving implementation.
+
+<a id="b8-retained-supplier-topology"></a>
+
+## Graph/hash extension — B8 retained supplier topology
+
+This **Proposed** extension supplies the compiler portion of
+[Graph/hash F03](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#f03).
+The [coordinator](28-surrealdb-unified-substrate.md#graph-and-hashing-review-integration)
+owns the finding; [28f/N13](28f-shared-numerical-preparation.md#n13--demand-specific-supplier-registration)
+owns runtime registration integration. B7 is a working foundation, not a missing prerequisite
+to reimplement. Earlier baseline descriptions retain their original scope.
+
+### Foundation assessment and target
+
+Current `AdmittedModeling::implicit_order_for` constructs nodes and supplier edges from
+every implicit body's value-level output demands on each use. For selected rows it derives
+observation roots, traverses reversed dependencies, removes unrequested nodes and only then
+topologically sorts. Immutable admitted bodies and existing shared allocation owners make
+this topology suitable for preparation once. Fresh requested scope and numerical demand
+remain separate decisions. AP-07 supports retaining discovery; AP-04/G6 require preserving
+the distinctions that govern selection and execution.
+
+Prepare immutable supplier adjacency, stable identity-to-node correspondence and
+observation-to-root mappings with the admitted product. Use the existing petgraph traversal
+and topological algorithms first; a compact representation is eligible if it preserves the
+consumed relation and reduces total machinery. [28k/GH1](28k-graph-kernels-and-hashing-investigations.md#gh1)
+investigates broader layouts but does not block this correction. Supplier edges express
+dependency reachability, not physical connection occurrences; any deduplication must preserve
+this particular consumer's meaning rather than establish a universal graph policy.
+
+Construction supplies dependency discovery, not global acyclicity. Each request consumes
+its selected rows or full scope and produces suppliers before consumers, or the existing
+typed refusal. Preserve selection closure before cycle rejection: an unrequested cycle cannot
+reject a valid selected closure, while a full-scope request must still reject it. Do not
+precompute one globally accepted order and impose it on all requests. Likewise, preserve
+missing observation/body and provider-demand failures at the scope that currently requires
+them; eager preparation must not turn an unused row's failure into unconditional refusal.
+Keep observation-root discovery selection-local if preparing all roots would broaden failure
+scope. Adjacency can be shared without forcing that additional eager check.
+In particular, current implicit-body provider-demand discovery is inventory-wide and
+precedes selection filtering; preserve that obligation and its failures. Observation-body
+demand/root lookup is selection-local. Unrequested cycle rejection and unrequested
+observation failures must not be confused with those inventory-wide discovery obligations.
+
+The topology belongs to the actual admitted primary/original view and its immutable bodies;
+changed bodies, supplied systems or structural bindings produce the appropriate new product.
+Selected closure/order may remain transient. No cross-revision topology cache, graph hash,
+persisted runtime, public wire shape or second dependency authority is introduced.
+Construction and retained/transient containers use current source bounds and allocation
+owners, including escaping child aliases. Update retained-byte accounting before adoption;
+sharing an Arc does not exempt adjacency/index storage from its charge.
+
+### Package and proposed acceptance
+
+| Package | Prerequisites and delivered capability | Consumer boundary | Progress |
+|---|---|---|---|
+| B8 — Retained supplier topology | Working B7/J2 and compiler admitted-body/view owners. Build reusable dependency discovery and select closure/order under existing semantics. | All compiler `implicit_order`/`implicit_order_for` views, original views and N13 registration consumers; remove per-use graph/body-demand reconstruction after migration. | Proposed; not implemented. |
+
+Use independent small graphs with known predecessor relations/order constraints, including
+isolates, sibling/nested suppliers, reordered identities, empty/full selections, changed
+edges, an unrequested cycle and a selected cycle. Check original versus primary views and
+missing/unusable unselected observation bodies without broadening failure scope. Exercise
+inventory-wide implicit-demand failures separately from selection-local observation failures.
+Compare required supplier sets and ordering constraints, not arbitrary ordering among independent
+nodes. Verify retention through eviction/clear and escaping child views. A focused construction
+control should distinguish one prepared topology from repeated selection traversal.
+
+Compile `pse-compiler` and its affected runtime consumer; use narrow `just unit-package`
+controls with force-validation. B8's working selection API enables N13; agreeing its shape
+alone does not establish runtime integration or close F03. Delete the displaced construction
+path when callers migrate, retaining independent expected-graph and scientific checks.
+[28e](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance)
+owns assembled evidence; no timing gain or broader scientific qualification is asserted.
 
 ## Work packages
 

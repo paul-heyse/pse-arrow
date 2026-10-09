@@ -302,3 +302,48 @@ RESOURCE --receipt PATH --digest SHA256`; the exact original digest must match, 
 pins/drain still govern reclamation. Successful new report compaction preserves
 checks, selections, provenance and JSON receipts. Old reports and frozen worktrees
 are not cleanup candidates merely because they occupy space.
+
+## Typed scientific inspection
+
+Use an already admitted `pse.Runtime` and `ModelingPackage` for authored and scientific
+identities. This is distinct from raw native MCP inspection: constructing a runtime
+requires its existing deployment settings and qualified producer, and does not grant
+permission to initialize a missing database. The small authored Root fixture in
+[the modeling journey](../../python/pse/tests/test_modeling_run.py) and
+[the exact result/reopen journey](../../python/pse/tests/test_canonical_results.py)
+show supported package and run construction. With their `package`, `case`, `settings`,
+`runtime` and completed `result` already available:
+
+```python
+import pyarrow as pa
+
+inspection = package.inspect(case, settings)
+sources = package.source_tables()  # Explicit complete immutable source export.
+try:
+    source_rows = {identity: pa.table(stream).to_pylist()
+                   for identity, stream in sources.items()}
+finally:
+    for stream in sources.values():
+        stream.close()
+
+run = result.canonical_run_key
+attempt = result.canonical_attempt_key
+assert run is not None and attempt is not None
+records = []
+for read, key in ((runtime.run_record, run),
+                  (runtime.attempt_record, attempt),
+                  (runtime.result_manifest, attempt)):
+    stream = read(key)
+    try:
+        records.append(pa.table(stream).to_pylist())
+    finally:
+        stream.close()
+usage = runtime.resource_usage()  # Typed deployment resource report.
+```
+
+Keep run and attempt distinct and retain the exact keys with the observed records.
+Close streams on success or error; close the runtime when its owning workflow finishes.
+Source export intentionally materializes one package's inventory, not the whole database.
+These reads do not solve a model or establish scientific correctness. The
+[agent environment guide](agent-environment.md#runtime-capabilities) owns native MCP
+session opt-in and raw-context selection.

@@ -89,8 +89,12 @@ class CanonicalRecoveryProfileTests(unittest.TestCase):
                 )
             )
         )
-        self.worker.write_bytes(b"changed receiver bytes")
-        with self.assertRaisesRegex(server.SupervisorError, "receiver bytes changed"):
+        Path(config["primary_receiver"]["worker_executable"]).write_bytes(
+            b"changed receiver bytes"
+        )
+        with self.assertRaisesRegex(
+            server.SupervisorError, "Immutable supervisor/receiver closure changed"
+        ):
             recovery.profile_arguments(self.state)
 
     def test_numeric_profile_selection_retains_legacy_allocations_and_version(
@@ -111,12 +115,31 @@ class CanonicalRecoveryProfileTests(unittest.TestCase):
         )
         self.assertEqual(allocation, config["resources"])
 
-    def test_reference_server_reduction_is_refused_without_mutation(self) -> None:
+    def test_reduced_reference_recovery_profile_is_refused_without_mutation(
+        self,
+    ) -> None:
         config = self.initialized(True)
         saved = (self.state / "config.json").read_bytes()
         credentials = (self.state / "credentials.json").read_bytes()
-        with server.state_lock(self.state):
-            recovery.refuse_reference_reduction(self.state, config, 8192)
+        with (
+            server.state_lock(self.state),
+            patch.object(
+                server,
+                "reconfigure",
+                side_effect=AssertionError("recovery control mutated allocation"),
+            ),
+            patch.object(
+                recovery,
+                "reference_recovery_receiver",
+                wraps=recovery.reference_recovery_receiver,
+            ) as validate,
+        ):
+            recovery.refuse_reduced_recovery_profile(self.state, config, 8192)
+        validate.assert_called_once()
+        self.assertEqual(
+            validate.call_args.args[0]["resources"]["server_memory_bytes"],
+            8192 * server.MIB,
+        )
         self.assertEqual(config["resources"], server.reference_resources())
         self.assertEqual((self.state / "config.json").read_bytes(), saved)
         self.assertEqual((self.state / "credentials.json").read_bytes(), credentials)
@@ -127,16 +150,18 @@ class CanonicalRecoveryProfileTests(unittest.TestCase):
         def mutate_then_refuse(*_args: object) -> None:
             (self.state / "credentials.json").write_bytes(b"changed credentials")
             raise server.SupervisorError(
-                "Reference execution requires its exact shared memory envelope"
+                "Recovery requires the original exact reference allocation"
             )
 
         with (
-            patch.object(server, "reconfigure", side_effect=mutate_then_refuse),
+            patch.object(
+                recovery, "reference_recovery_receiver", side_effect=mutate_then_refuse
+            ),
             self.assertRaisesRegex(
                 server.SupervisorError, "mutated recovery state or credentials"
             ),
         ):
-            recovery.refuse_reference_reduction(self.state, config, 8192)
+            recovery.refuse_reduced_recovery_profile(self.state, config, 8192)
 
     def test_legacy_reconfiguration_still_accepts_lower_then_original_cap(self) -> None:
         config = self.initialized(False)

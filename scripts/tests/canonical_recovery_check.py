@@ -33,11 +33,7 @@ def profile_arguments(profile_state: Path | None) -> list[str]:
         raise server.SupervisorError("Invalid selected recovery profile")
     version = ["--version", f"v{release['version']}"]
     if allocation.get("execution") is not None:
-        if allocation != server.reference_resources():
-            raise server.SupervisorError(
-                "Recovery requires the original exact reference allocation"
-            )
-        receiver = server.checked_primary(selected)
+        receiver = reference_recovery_receiver(selected)
         return [
             "--execution-profile",
             "plan28-reference",
@@ -58,6 +54,15 @@ def profile_arguments(profile_state: Path | None) -> list[str]:
     ]
 
 
+def reference_recovery_receiver(config: dict[str, object]) -> dict[str, str]:
+    """Recovery selects the original reference allocation and frozen receiver."""
+    if config.get("resources") != server.reference_resources():
+        raise server.SupervisorError(
+            "Recovery requires the original exact reference allocation"
+        )
+    return server.checked_primary(config)
+
+
 def recovery_identity(config: dict[str, object]) -> dict[str, object]:
     return {
         key: value
@@ -66,31 +71,30 @@ def recovery_identity(config: dict[str, object]) -> dict[str, object]:
     }
 
 
-def refuse_reference_reduction(state: Path, config: dict, server_mib: int) -> None:
-    """Exact reference capacity is immutable; this is refusal, not reconfiguration."""
+def refuse_reduced_recovery_profile(state: Path, config: dict, server_mib: int) -> None:
+    """Reject budget-valid reduction for recovery without changing admitted state."""
     prior = server.config_for(state)
     saved = (state / "config.json").read_bytes()
     credentials = (state / "credentials.json").read_bytes()
+    allocation = config["resources"]
+    candidate = dict(config)
+    candidate["resources"] = server.resources(
+        server.integer(allocation["total_memory_bytes"]),
+        server_mib * server.MIB,
+        server.integer(allocation["native_workers"]),
+        server.integer(allocation["native_worker_memory_bytes"]),
+        allocation.get("execution"),
+    )
     try:
-        server.reconfigure(
-            state,
-            config,
-            server.parser().parse_args(
-                [
-                    "reconfigure",
-                    "--state",
-                    str(state),
-                    "--server-memory-mib",
-                    str(server_mib),
-                ]
-            ),
-        )
+        reference_recovery_receiver(candidate)
     except server.SupervisorError as error:
-        if "Reference execution requires" not in str(error):
+        if "Recovery requires the original exact reference allocation" not in str(
+            error
+        ):
             raise
     else:
         raise server.SupervisorError(
-            "Exact reference server-cap reduction was not refused"
+            "Reduced reference recovery profile was not refused"
         )
     if (
         config != prior
@@ -99,7 +103,7 @@ def refuse_reference_reduction(state: Path, config: dict, server_mib: int) -> No
         or (state / "credentials.json").read_bytes() != credentials
     ):
         raise server.SupervisorError(
-            "Refused reference reduction mutated recovery state or credentials"
+            "Refused reduced profile mutated recovery state or credentials"
         )
 
 
@@ -216,7 +220,7 @@ def journey(binary: Path, profile_state: Path | None = None) -> None:
             with server.state_lock(state):
                 server.stop(state, config, abrupt=True)
                 if reference:
-                    refuse_reference_reduction(state, config, lower_server_mib)
+                    refuse_reduced_recovery_profile(state, config, lower_server_mib)
             caps = (
                 (original_server_mib,)
                 if reference
@@ -326,7 +330,7 @@ def journey(binary: Path, profile_state: Path | None = None) -> None:
     print(
         "native canonical SIGKILL/reopen, "
         + (
-            "exact reference cap-reduction refusal with unchanged state and selected ancestor enforcement, "
+            "reduced reference recovery-profile refusal with unchanged state and selected ancestor enforcement, "
             if reference
             else "positive offline lower/original server-cap reconfiguration and kernel caps, "
         )
@@ -340,7 +344,7 @@ def main() -> None:
     parser.add_argument(
         "--profile-state",
         type=Path,
-        help="Copy released server, allocation and configured reference receiver. Exact reference tests cap-reduction refusal; numeric profiles exercise positive lower/original-cap reconfiguration.",
+        help="Copy released server, allocation and configured reference receiver. Exact reference tests reduced-profile recovery refusal; numeric profiles exercise positive lower/original-cap reconfiguration.",
     )
     args = parser.parse_args()
     journey(args.binary, args.profile_state)

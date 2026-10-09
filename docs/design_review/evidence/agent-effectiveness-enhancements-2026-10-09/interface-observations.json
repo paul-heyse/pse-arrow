@@ -1,0 +1,274 @@
+{
+  "baseline": "d0f2c41818a34539a910654dfea4760771603f45",
+  "utc_observed": "2026-10-09T11:04:03Z",
+  "mode": "read-only interfaces plus synthetic admission control",
+  "commands": {
+    "assessment_usage": {
+      "argv": [
+        "just",
+        "--usage",
+        "assessment"
+      ],
+      "exit": 0,
+      "elapsed_seconds": 0.0063,
+      "stdout": "Usage: just assessment [output] [args...]\n\nArguments:\n  [output] [default: \"\"]\n  [args...]\n",
+      "stderr": ""
+    },
+    "assessment_flag_shape": {
+      "argv": [
+        "just",
+        "assessment",
+        "--group",
+        "turn-end"
+      ],
+      "exit": 2,
+      "elapsed_seconds": 0.1502,
+      "stdout": "",
+      "stderr": "usage: python -m scripts.validation [-h]\n                                    [--group {adr-lint,ci-fast,ci-pr,clippy,codegen-check,codegen-contracts-check,deps-report,features-powerset,fmt-check,governance,hygiene,lint-repo,policy,quality,ready,turn-end} |\n                                    --functional-scope {admission,lifecycle,native,preparation,process}]\n                                    [--output OUTPUT] [--list] [--live]\n                                    [--preflight] [--reuse-from REUSE_FROM]\n                                    [--reuse REUSE] [--transfer TRANSFER]\n                                    [--change-reason CHANGE_REASON]\n                                    [--python-profile {dev,producer}]\npython -m scripts.validation: error: unrecognized arguments: turn-end\nerror: recipe `assessment` failed with exit code 2\n"
+    },
+    "assessment_list": {
+      "argv": [
+        "just",
+        "assessment-list",
+        "--group",
+        "turn-end"
+      ],
+      "exit": 0,
+      "elapsed_seconds": 0.1586,
+      "stdout": "{\n  \"checks\": [\n    {\n      \"name\": \"adr-index\",\n      \"args\": [],\n      \"report\": null,\n      \"dependencies\": [],\n      \"role\": \"required\",\n      \"phase\": \"functional\",\n      \"enumerate_native\": false,\n      \"recipe\": null,\n      \"mode\": \"\",\n      \"profile\": \"\",\n      \"input_scope\": \"tooling\"\n    },\n    {\n      \"name\": \"fmt\",\n      \"args\": [],\n      \"report\": null,\n      \"dependencies\": [],\n      \"role\": \"required\",\n      \"phase\": \"functional\",\n      \"enumerate_native\": false,\n      \"recipe\": null,\n      \"mode\": \"\",\n      \"profile\": \"\",\n      \"input_scope\": \"tooling\"\n    }\n  ],\n  \"exclusions\": {\n    \"other platforms and distribution\": \"This command qualifies the local pinned environment; remote CI, wheels and other hosts have separate commands.\",\n    \"release, coverage, feature powerset, alternate toolchains\": \"Available separately; not part of the default and native local profiles.\",\n    \"parity\": \"Run just parity separately when IDAES parity is in scope.\",\n    \"performance\": \"Run case-measure after functional qualification, with an explicit functional report.\",\n    \"reviews\": \"Architecture and scientific review are judgments recorded in the owning plan, not command-exit evidence.\",\n    \"scheduled register checks\": \"register-check is time-dependent; deterministic adr-lint uses register-lint.\",\n    \"dependency inventory\": \"deps-report is advisory; policy is separately available and strict.\"\n  }\n}\n",
+      "stderr": "\".venv/bin/python\" -m scripts.validation --list --group turn-end\n"
+    },
+    "codegen_check_dry_run": {
+      "argv": [
+        "just",
+        "--dry-run",
+        "codegen",
+        "--check"
+      ],
+      "exit": 0,
+      "elapsed_seconds": 0.0066,
+      "stdout": "",
+      "stderr": "# Contracts and the canonical schema first: the full generator's package loader\n# compiles against them, so a registry change never needs a separate bootstrap.\ncargo run --quiet -p xtask --no-default-features --locked -- codegen --only rust-contracts\ncargo run --quiet -p xtask --no-default-features --locked -- codegen --only surreal\nscripts/pse-env --native=compiler,solver -- cargo run --quiet -p xtask --features package-fixtures --locked -- codegen --check\ncargo hakari generate\ncargo hakari manage-deps --yes\n"
+    },
+    "select_direct_help": {
+      "argv": [
+        "/home/paul/pse-arrow/.venv/bin/python",
+        "scripts/select.py",
+        "--help"
+      ],
+      "exit": 1,
+      "elapsed_seconds": 0.0237,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"/home/paul/pse-arrow/scripts/select.py\", line 28, in <module>\n    from scripts.test_run import run_rust\nModuleNotFoundError: No module named 'scripts'\n"
+    },
+    "select_module_help": {
+      "argv": [
+        "/home/paul/pse-arrow/.venv/bin/python",
+        "-m",
+        "scripts.select",
+        "--help"
+      ],
+      "exit": 2,
+      "elapsed_seconds": 0.0405,
+      "stdout": "",
+      "stderr": "usage: select.py [--features F] unit <package> <filter> [args...] | workspace <filter> [args...]\n"
+    },
+    "surreal_quoted_state_dry_run": {
+      "argv": [
+        "just",
+        "--dry-run",
+        "surreal",
+        "status",
+        "--state",
+        "/tmp/pse review absent-state"
+      ],
+      "exit": 0,
+      "elapsed_seconds": 0.0087,
+      "stdout": "",
+      "stderr": "\".venv/bin/python\" scripts/surreal_server.py 'status' --state /tmp/pse review absent-state\n"
+    },
+    "surreal_quoted_state": {
+      "argv": [
+        "just",
+        "surreal",
+        "status",
+        "--state",
+        "/tmp/pse review absent-state"
+      ],
+      "exit": 2,
+      "elapsed_seconds": 0.1865,
+      "stdout": "",
+      "stderr": "\".venv/bin/python\" scripts/surreal_server.py 'status' --state /tmp/pse review absent-state\nusage: surreal_server.py [-h] [--state STATE] [--tool-root TOOL_ROOT]\n                         [--version VERSION] [--port PORT]\n                         [--resident | --no-resident]\n                         [--memory-mib MEMORY_MIB]\n                         [--server-memory-mib SERVER_MEMORY_MIB]\n                         [--native-workers NATIVE_WORKERS]\n                         [--native-worker-memory-mib NATIVE_WORKER_MEMORY_MIB]\n                         [--execution-profile {plan28-reference,functional,wide,timing,exclusive,exclusive-observer}]\n                         [--worker-executable WORKER_EXECUTABLE]\n                         [--observer-pid OBSERVER_PID]\n                         [--canonical-database CANONICAL_DATABASE]\n                         [--qualification-native-entry QUALIFICATION_NATIVE_ENTRY]\n                         [--interpretation INTERPRETATION] [--drained]\n                         [--destination DESTINATION] [--source SOURCE]\n                         [--check-command ...] [--worker-command ...]\n                         [--worker-capabilities WORKER_CAPABILITIES]\n                         [--observer-command ...]\n                         {setup,upgrade,readmit,ensure,recover,qualify-recovery,drain,reconfigure,start,status,quiesce,stop,kill,backup,restore,validate,worker,ensure-primary,observer,_serve}\nsurreal_server.py: error: unrecognized arguments: review absent-state\nerror: recipe `surreal` failed on line 105 with exit code 2\n"
+    }
+  },
+  "classification": {
+    "direct_cargo_check": "compile",
+    "just_shell_cargo_check": "functional",
+    "direct_activity": "functional"
+  },
+  "admission_fault_control": {
+    "exit": 125,
+    "admission_called": 1,
+    "observer_executed": 0,
+    "stdout": "",
+    "stderr": "pse-env: AdmissionError: synthetic capacity unavailable\n",
+    "scope": "synthetic unavailable capacity; no live capacity changed"
+  },
+  "activity_transport_fault_control": {
+    "exit": 0,
+    "observation": {
+      "units": [],
+      "build_processes": [],
+      "slice": "pse.slice",
+      "aggregate_limits": [
+        [
+          "pse.slice",
+          "171798691840"
+        ]
+      ]
+    },
+    "scope": "synthetic failed systemctl; no service state changed"
+  },
+  "control_development_note": "The first admission control cleared all PSE variables and stopped at the compiler-cache prerequisite before admission. The corrected control preserves unrelated environment prerequisites and removes only allocation/selection variables. That earlier attempt established no admission claim.",
+  "http_mcp": {
+    "endpoint": "http://127.0.0.1:18240/mcp",
+    "principal": "existing root VIEWER selection account",
+    "namespace": "pse",
+    "database": "canonical",
+    "requests": [
+      {
+        "method": "initialize",
+        "http_status": 200,
+        "rpc_error": null
+      },
+      {
+        "method": "notifications/initialized",
+        "http_status": 202,
+        "rpc_error": null
+      },
+      {
+        "method": "tools/list",
+        "http_status": 200,
+        "rpc_error": null
+      },
+      {
+        "method": "tools/call",
+        "http_status": 200,
+        "rpc_error": null
+      },
+      {
+        "method": "tools/call",
+        "http_status": 200,
+        "rpc_error": null
+      }
+    ],
+    "protocol_version": "2025-11-25",
+    "server_info": {
+      "name": "surrealdb",
+      "title": "SurrealDB",
+      "version": "3.3.0"
+    },
+    "tools": [
+      "create",
+      "delete",
+      "gql",
+      "graphql",
+      "info",
+      "insert",
+      "list",
+      "query",
+      "relate",
+      "run",
+      "select",
+      "update",
+      "upsert",
+      "use"
+    ],
+    "read_calls": {
+      "query": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "1"
+            }
+          ],
+          "structuredContent": {
+            "status": "ok",
+            "time_ms": 0.112986,
+            "truncated": false,
+            "value": 1
+          },
+          "isError": false
+        }
+      },
+      "list": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Error (NotFound): The database 'canonical' does not exist"
+            }
+          ],
+          "structuredContent": {
+            "error": "The database 'canonical' does not exist",
+            "kind": "NotFound"
+          },
+          "isError": true
+        }
+      }
+    }
+  },
+  "effective_cli_mcp": [
+    {
+      "name": "code-review",
+      "enabled": false,
+      "transport": "stdio"
+    },
+    {
+      "name": "codex_app",
+      "enabled": false,
+      "transport": "stdio"
+    },
+    {
+      "name": "context7",
+      "enabled": true,
+      "transport": "streamable_http"
+    },
+    {
+      "name": "cua_repl",
+      "enabled": true,
+      "transport": "stdio"
+    },
+    {
+      "name": "library-catalog",
+      "enabled": false,
+      "transport": "stdio"
+    },
+    {
+      "name": "node_repl",
+      "enabled": true,
+      "transport": "stdio"
+    },
+    {
+      "name": "openaiDeveloperDocs",
+      "enabled": true,
+      "transport": "streamable_http"
+    },
+    {
+      "name": "rust-analyzer",
+      "enabled": false,
+      "transport": "stdio"
+    }
+  ],
+  "negative_control_assertions": {
+    "expected_command_exits": true,
+    "select_import_error": true,
+    "observer_not_admitted": true,
+    "unavailable_is_reported_empty": true
+  }
+}

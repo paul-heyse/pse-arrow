@@ -85,7 +85,8 @@ manual qualification.
 | Command | What it does |
 |---|---|
 | `just assessment-list [--group <name>]` | Prints the declared gates as JSON (name, role, recipe, arguments, dependencies, mode, profile, input scope) and the explicit exclusions. Executes nothing. |
-| `just assessment [<output>] [flags]` | Runs every gate in `scripts/validation_scope.py::comprehensive` and continues after failures. The default output is a new `build/assessment/<UTC time>-<selection>-<pid>-<random>/`; pass `""` for it when adding flags. It first checks the selection's prerequisites (`--preflight`: solver prefix, canonical store) and exits 125 with a `pse-env:` line before native setup when one is missing. |
+| `just assessment [flags]` | Runs the selected gates (all comprehensive gates by default) and continues after failures. Use `--group ready` for that group and `--output build/assessment/example` for a fresh output directory. The default is a new `build/assessment/<UTC time>-<selection>-<pid>-<random>/`. The validation owner checks only the selected prerequisites and exits 125 before native setup when one is missing; nonnative groups need no native preparation. |
+| `just result RUN_PATH [--failures] [--gate NAME] [--tail N] [--json]` | Reads one version 5 checkpoint and identifies the concrete run, incompleteness, required coverage, baseline and reused origins. Reads at most 64 KiB from each selected log, with 20 lines by default for failures or an explicit gate; `--tail 0` disables tails. Executes no checks or cleanup. |
 
 The comprehensive scope runs these gates in order:
 
@@ -210,6 +211,13 @@ gate's process group, records it `interrupted` and the rest `not_run`, and exits
 The `audit-*` gates are advisory: findings do not fail `deps-report`, but a tool failure
 does. `policy` runs the same audits as required gates.
 
+Retrieve the printed immutable path with `just result build/assessment/<run> --failures`.
+`latest-<group>` is resolved once when reading. Reused evidence retains its original
+artifact/log paths and evidence kind; reading it does not establish a newly tested run.
+Missing records/files and unattempted declared gates remain explicit. A readable failed
+or incomplete assessment gives reader exit zero; this means only that it was read.
+Missing/malformed checkpoints give exit 1; usage or an unknown gate gives exit 2.
+
 ## Individual commands
 
 | Command | Scope |
@@ -253,8 +261,8 @@ scopes, and document admission explicitly requires the admission scope:
 | `native` | The explicit full linked workspace covering invocation |
 
 Obtain selected prerequisite evidence with, for example,
-`just assessment "" --functional-scope preparation`. For several workload groups, use
-`just assessment "" --functional-scope native` to cover them in one Rust invocation.
+`just assessment --functional-scope preparation`. For several workload groups, use
+`just assessment --functional-scope native` to cover them in one Rust invocation.
 Conservative named scopes can overlap; the explicit full native scope avoids repeating them.
 Selections specify recipes, graph/profile and framework filters, never individual-test
 manifests. Measurement accepts the exact declared invocation or the explicitly declared

@@ -3,7 +3,7 @@ title: Shared numerical projections and preparation
 status: in-progress
 date: 2026-10-07
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md, docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md]
+review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md, docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md, docs/design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md]
 scenario_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#4-revealing-scenarios]
 ---
 
@@ -347,6 +347,74 @@ N11 does not reopen every earlier numerical finding. It supplies functional cons
 for the new preparation scope; N4 retains its earlier coverage basis, and 28e owns affected
 assembled U02 evidence. Relevant library bulk/lifecycle alternatives remain eligible where
 they resolve an actual consumed-contract gap.
+
+<a id="graph-hash-flow-and-suppliers"></a>
+
+## Graph/hash extension — flow policy and supplier registration
+
+This **Proposed** extension uses the implemented N11/B7 exact-basis foundation.
+[Plan 28](28-surrealdb-unified-substrate.md#graph-and-hashing-review-integration) owns
+Graph/hash F02/F03 dispositions. The earlier baseline describes its original migration,
+not a reason to reconstruct the already shared preparation basis.
+
+### N12 — Indexed flow decision policy
+
+[Graph/hash F02](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#f02)
+arises in `FlowGraph::admit`: sorted tear decisions are linearly searched for every edge
+when constructing the forbidden-cycle witness graph. The existing physical binding checks,
+occurrence graph and independent cycle witness are suitable foundations. Replace only policy
+discovery with binary search over the already sorted unique decisions. This removes the
+nested full scan without another map/cache or hash change.
+
+Inputs remain the admitted declaration, registry and limits; outputs remain the same graph,
+physical bindings or typed refusal. Keep isolates, parallel connection occurrences, unused
+and missing decision rejection, canonical ordering and the complete forbidden-cycle witness.
+Preserve existing construction/resource admission. Graph/hash U01 is independent: N12 changes
+neither FlowProjectionV1 bytes nor equality. No global graph container migration is required.
+
+Extend `pse-structural` flowsheet controls for reordered decisions, many decision groups,
+parallel occurrences and every policy, including forbidden cycles with expected connection
+and decision identities. Existing physical affine-conversion and construction-limit controls
+remain. Source inspection establishes the absence of a per-edge full decision scan; any
+latency comparison requires measurement. Compile `pse-structural`, run its narrow unit filters,
+and remove the old scan without a retained compatibility branch.
+
+### N13 — Demand-specific supplier registration
+
+Consume [B8's working compiler topology](28b-selected-compilation-and-reuse.md#b8-retained-supplier-topology)
+at every `inner_registrations` entry, including observation selection, case preparation and
+derivative-demand upgrades. B8 owns immutable discovery; this package owns current demanded
+outputs/coordinates, derivative order, hints, policy, controls and fresh registrations.
+Automatic reduced suppliers and their actual derivative requirements remain current.
+
+Observation requests retain their selected closure; case requests retain their current
+full-scope ordering obligations. Do not narrow a case simply because a demanded-provider map
+is smaller, or replace actual derivative demands with B8's value-level topology. Value,
+First/Second and other consumed capabilities remain distinct. Each case/attempt receives
+private evaluator/factor state, current starts and original numerical/physical assessment.
+Topology reuse supplies no seed usability, scientific acceptance or publication authority.
+
+Extend the existing nested observation, sibling-hint, value-demand and composed second-derivative
+controls in runtime `workflow/modeling/implicit.rs`. Add selected/full-scope cycle cases,
+fresh-case state and repeated order upgrades. Independently specify expected supplier sets
+and actual provider-order requests; do not use the retained topology as its own oracle.
+Compile compiler/runtime consumers and use narrow runtime unit/native-unit filters as needed,
+with force-validation and the current native environment. After all callers use B8, delete
+displaced discovery/registration helpers and their mechanism-specific fixtures. Independent
+provider/scientific tests remain applicable.
+
+| Package | Working prerequisite | Completion boundary | Progress |
+|---|---|---|---|
+| N12 — Indexed flow policy | Existing admitted flowsheet contracts; independent of J3/B8/GH investigations. | Exact policy access replaces the nested scan; physical occurrence and witness outcomes preserved. | Proposed; not implemented. |
+| N13 — Supplier registration integration | B8 selection/order implementation plus existing N11/private numerical owners. | All confirmed registration variants use retained discovery; actual demand/state remain fresh; displaced path removed. | Proposed; not implemented. |
+
+[28k](28k-graph-kernels-and-hashing-investigations.md) owns broader compact-layout/hash
+investigations; its results are not prerequisites for these packages. Reuse 28f/N0's catalog
+invalidation question through GH3 rather than opening a competing investigation. Root
+coordinates shared compiler/runtime edits; logical independence does not authorize concurrent
+edits to the same product declaration. [28e](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance)
+owns affected assembled acceptance and later measurement. Package progress lives here;
+whole-finding closure stays at the coordinator.
 
 ## Work packages and dependencies
 

@@ -49,6 +49,15 @@ from scripts import native_operation as operation  # noqa: E402 -- same routing
 FAILURE = 125
 LOCAL = ".envrc.local"
 DEFAULT_SLICE = "pse.slice"
+RESOURCE_CLASSES = (
+    "light",
+    "compile",
+    "functional",
+    "wide",
+    "timing",
+    "reference",
+    "exclusive",
+)
 SOLVER_STACK = Path("/opt/pse-solvers")
 # Values configure() replaces to keep compiler supervision and checkout isolation.
 CONFIGURED = {
@@ -65,25 +74,27 @@ class BoundaryError(Exception):
     """This boundary, not the command, failed."""
 
 
-def local_keys(root: Path) -> dict[str, str]:
+def local_keys(root: Path, *, deadline: float | None = None) -> dict[str, str]:
     """Exported values of ``.envrc.local``, read in a clean shell and never printed."""
     path = root / LOCAL
     if not path.is_file():
         return {}
     clean = {"HOME": os.environ.get("HOME", "/"), "PATH": "/usr/bin:/bin"}
     script = '. "$1" >/dev/null 2>&1; env -0'
-    result = subprocess.run(
-        ["bash", "-c", script, "pse-env", str(path)],
-        check=False,
-        capture_output=True,
-        env=clean,
-        timeout=10,
-    )
-    if result.returncode:
+    command = ["bash", "-c", script, "pse-env", str(path)]
+    if deadline is None:
+        result = subprocess.run(
+            command, check=False, capture_output=True, env=clean, timeout=10
+        )
+        content = result.stdout.decode()
+        returncode = result.returncode
+    else:
+        controlled = host.control_run(command, env=clean, deadline=deadline)
+        returncode = controlled.returncode
+        content = controlled.stdout
+    if returncode:
         raise BoundaryError(f"{LOCAL} failed to load")
-    after = dict(
-        item.split("=", 1) for item in result.stdout.decode().split("\0") if "=" in item
-    )
+    after = dict(item.split("=", 1) for item in content.split("\0") if "=" in item)
     return {
         name: value
         for name, value in after.items()
@@ -103,12 +114,18 @@ def venv(root: Path, env: Mapping[str, str]) -> Path:
     return selected if selected.is_absolute() else root / selected
 
 
-def compose(
-    root: Path, caller: Mapping[str, str], local: Mapping[str, str] | None = None
+def base_environment(
+    root: Path,
+    caller: Mapping[str, str],
+    local: Mapping[str, str] | None = None,
+    *,
+    deadline: float | None = None,
 ) -> dict[str, str]:
     """The ordinary environment: caller, then local file, then repository defaults."""
     env = dict(caller)
-    for name, value in (local_keys(root) if local is None else local).items():
+    for name, value in (
+        local_keys(root, deadline=deadline) if local is None else local
+    ).items():
         env.setdefault(name, value)
     if "PSE_PYTHON" not in env:
         version = root / ".python-version"
@@ -129,6 +146,13 @@ def compose(
         env["PKG_CONFIG_PATH"] = prepend(
             str(SOLVER_STACK / "lib/pkgconfig"), env.get("PKG_CONFIG_PATH")
         )
+    return env
+
+
+def compose(
+    root: Path, caller: Mapping[str, str], local: Mapping[str, str] | None = None
+) -> dict[str, str]:
+    env = base_environment(root, caller, local)
     try:
         return build_environment.configure(root, env)
     except ValueError as error:
@@ -426,6 +450,80 @@ def placement(env: dict[str, str], *, native: bool) -> list[str]:
     ]
 
 
+def control_environment(
+    root: Path, caller: Mapping[str, str], *, deadline: float
+) -> dict[str, str]:
+    """Ordinary checkout defaults for a fixed helper, without compiler preparation."""
+    host.remaining(deadline, 1)
+    return base_environment(root, caller, deadline=deadline)
+
+
+def run_light_control(
+    command: Sequence[str], env: Mapping[str, str], *, deadline: float
+) -> subprocess.CompletedProcess[str]:
+    """Internal fixed-control launch; no native setup or service recovery effects.
+
+    The caller establishes its absolute deadline before environment composition and
+    passes only its fixed control child. This is deliberately not a pse-env CLI mode.
+    """
+    selected_env = dict(env)
+    allocation = host.inherit(selected_env, deadline=deadline)
+    owned = allocation is None
+    prefix = []
+    if owned:
+        selected_env.update(manager_environment())
+        probe = host.control_run(
+            ["systemctl", "--user", "show-environment"],
+            env=selected_env,
+            deadline=deadline,
+            maximum=5,
+        )
+        if probe.returncode:
+            raise BoundaryError("Control placement requires the systemd user manager")
+        allocation = host.acquire_light_control(
+            directory=host.root_path(selected_env), deadline=deadline
+        )
+        selected_env.update(allocation.environment())
+        try:
+            host.enforce_parent(allocation.profile, selected_env, deadline=deadline)
+            host.enforce_allocation(allocation, selected_env, deadline=deadline)
+            unit = f"pse-control-{uuid.uuid4().hex}.scope"
+            allocation.register(unit, deadline=deadline)
+            prefix = [
+                "systemd-run",
+                "--user",
+                "--scope",
+                "--quiet",
+                "--collect",
+                f"--unit={unit}",
+                f"--slice={host.allocation_slice(allocation)}",
+                "-p",
+                f"MemoryMax={allocation.profile.memory}",
+                "-p",
+                "MemorySwapMax=0",
+                "-p",
+                "AllowedCPUs="
+                + " ".join(map(str, host.cpu_set(allocation.profile.cores))),
+                "-p",
+                f"CPUQuota={len(allocation.profile.cores) * 100}%",
+                "--",
+            ]
+        except BaseException:
+            host.release_light_control(allocation, deadline=deadline)
+            raise
+    try:
+        return host.control_run(
+            [*prefix, *command], env=selected_env, deadline=deadline
+        )
+    finally:
+        if (
+            owned
+            and allocation is not None
+            and not host.release_light_control(allocation, deadline=deadline)
+        ):
+            raise BoundaryError("Control allocation retained until verified drain")
+
+
 def setup_python(root: Path, env: Mapping[str, str]) -> str:
     chosen = env.get("PSE_NATIVE_SETUP_PYTHON")
     if chosen:
@@ -655,15 +753,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--no-scope", action="store_true")
     parser.add_argument(
         "--resource-class",
-        choices=(
-            "light",
-            "compile",
-            "functional",
-            "wide",
-            "timing",
-            "reference",
-            "exclusive",
-        ),
+        choices=RESOURCE_CLASSES,
+    )
+    parser.add_argument(
+        "--recipe-default-class",
+        choices=RESOURCE_CLASSES,
+        help="launch class when neither an explicit option nor caller/local value selects one",
     )
     parser.add_argument("--bind-allocation", help=argparse.SUPPRESS)
     parser.add_argument(
@@ -701,7 +796,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             env["PSE_RESOURCE_CLASS"] = args.resource_class
         elif host.MARKER not in env:
             env.setdefault(
-                "PSE_RESOURCE_CLASS", host.classify(command, requested is not None)
+                "PSE_RESOURCE_CLASS",
+                args.recipe_default_class
+                or host.classify(command, requested is not None),
             )
         if args.bind_allocation:
             allocation = required_allocation(env, handoff=True)

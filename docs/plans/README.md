@@ -45,6 +45,16 @@ owns assembled target qualification and adoption of the applicable remaining sci
 campaign obligations from 25k/27. Earlier evidence and scientific finding dispositions keep
 their original owners; obsolete storage qualification is not a pivot prerequisite.
 
+The [graph and hashing integration](28-surrealdb-unified-substrate.md#graph-and-hashing-review-integration)
+routes the 2026-10-09 review through proposed J3 indexed description settlement,
+B8/N13 retained supplier topology and fresh registrations, and N12 flow-policy lookup.
+[28k](28k-graph-kernels-and-hashing-investigations.md) develops bounded graph placement,
+hash-role, complete-invalidation and framing/persistence investigations; GH3 links the existing
+N0 catalog decision rather than duplicating it. The coordinator owns the new Open findings,
+and [28e](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance)
+owns affected acceptance. This planning extension selects no rule changes or product execution
+and does not restart the paused qualification campaign.
+
 [Plan 29: Agent workspace effectiveness](29-agent-workspace-effectiveness.md) is done (2026-10-07): every command runs through `scripts/pse-env` (environment, capped scopes in `pse.slice`), with effect-based canonical test scheduling, composable selection (`just affected`), run logs and preflight, and compact agent instructions with mechanics in [the agent environment guide](../dev/agent-environment.md). Its Outcome records the historical evidence; the prospective AE-25/AE-26 follow-ups now route to Plan 30.
 
 [Plan 30: WebSocket RPC and the persistent agent environment](30-websocket-and-persistent-agent-environment.md)
@@ -163,6 +173,15 @@ decisions, and their records are retired to Git history (ADR-0096). A retired pl
 packet or review is not a backlog and creates no obligation. The most recent completed
 qualification basis is summarized in
 [§24.2](../authoritative_design/sections/operations-and-validation.md#section-24-2).
+
+## Latest completed plan
+
+[Plan 31: Agent effectiveness enhancements](31-agent-effectiveness-enhancements.md)
+records the completed tooling work, resolved F01–F05 and
+[qualification outcome](31-agent-effectiveness-enhancements.md#outcome). Enduring operation
+belongs to [the agent environment guide](../dev/agent-environment.md) and its linked guides.
+The highest-numbered plan is retained under ADR-0096; it is not active work. Semantic Rust
+search was excluded, and native SurrealDB MCP is opt-in per fresh Codex session.
 
 ## Workflow entrypoints
 

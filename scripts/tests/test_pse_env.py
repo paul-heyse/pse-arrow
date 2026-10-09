@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -31,6 +32,161 @@ class PseEnvTests(unittest.TestCase):
         configured = patch.object(pse_env.build_environment, "configure", identity)
         configured.start()
         self.addCleanup(configured.stop)
+
+    def test_recipe_class_precedence_before_placement_and_nested_ownership(
+        self,
+    ) -> None:
+        marker = {
+            pse_env.host.MARKER: "/owner/" + "a" * 32,
+            "PSE_RESOURCE_CLASS": "exclusive",
+        }
+        cases = [
+            ({}, {}, [], "compile"),
+            ({"PSE_RESOURCE_CLASS": "wide"}, {}, [], "wide"),
+            ({}, {"PSE_RESOURCE_CLASS": "timing"}, [], "timing"),
+            (
+                {"PSE_RESOURCE_CLASS": "wide"},
+                {},
+                ["--resource-class", "light"],
+                "light",
+            ),
+            (marker, {}, [], "exclusive"),
+        ]
+        for caller, local, options, expected in cases:
+            with (
+                self.subTest(expected=expected),
+                patch.dict(os.environ, caller, clear=True),
+                patch.object(pse_env, "ROOT", self.root),
+                patch.object(pse_env, "local_keys", return_value=local),
+                patch.object(pse_env.host, "inherit", return_value=None),
+                patch.object(pse_env, "unexecutable", return_value=None),
+                patch.object(pse_env, "placement", return_value=[]) as placement,
+                patch.object(pse_env, "execute", return_value=0),
+            ):
+                self.assertEqual(
+                    pse_env.main(
+                        [
+                            *options,
+                            "--recipe-default-class",
+                            "compile",
+                            "--",
+                            "bash",
+                            "-c",
+                            "cargo check",
+                        ]
+                    ),
+                    0,
+                )
+                self.assertEqual(
+                    placement.call_args.args[0]["PSE_RESOURCE_CLASS"], expected
+                )
+
+    def test_control_environment_does_not_prepare_compiler(self) -> None:
+        deadline = time.monotonic() + 1
+        with patch.object(
+            pse_env.build_environment,
+            "configure",
+            side_effect=AssertionError("compiler"),
+        ):
+            env = pse_env.control_environment(
+                self.root,
+                {"PATH": "/usr/bin", "PSE_TEST_OTHER": "caller"},
+                deadline=deadline,
+            )
+        self.assertEqual(env["PSE_TEST_OTHER"], "caller")
+        self.assertEqual(env["PSE_TEST_LICENSE"], "s3cret value")
+        self.assertIn(str(self.root / ".venv/bin"), env["PATH"])
+
+    def test_light_control_uses_one_deadline_without_scientific_recovery(self) -> None:
+        owner = MagicMock(spec=pse_env.host.Allocation)
+        owner.directory = self.root
+        owner.nonce = "a" * 32
+        owner.profile = pse_env.host.select("light")
+        owner.environment.return_value = {}
+        deadline = time.monotonic() + 0.5
+        with (
+            patch.object(pse_env.host, "inherit", return_value=None),
+            patch.object(
+                pse_env.host, "acquire_light_control", return_value=owner
+            ) as acquire,
+            patch.object(pse_env.host, "enforce_parent") as parent,
+            patch.object(pse_env.host, "enforce_allocation") as allocation,
+            patch.object(pse_env.host, "release_light_control") as release,
+            patch.object(
+                pse_env.host, "reconcile", side_effect=AssertionError("reconcile")
+            ),
+            patch.object(
+                pse_env, "compose", side_effect=AssertionError("compiler environment")
+            ),
+            patch.object(
+                pse_env.host,
+                "control_run",
+                side_effect=[
+                    subprocess.CompletedProcess([], 0),
+                    subprocess.CompletedProcess([], 0, "headers", ""),
+                ],
+            ) as run,
+        ):
+            result = pse_env.run_light_control(["fixed-helper"], {}, deadline=deadline)
+        self.assertEqual(result.stdout, "headers")
+        self.assertEqual(acquire.call_args.kwargs["deadline"], deadline)
+        self.assertEqual(parent.call_args.kwargs["deadline"], deadline)
+        self.assertEqual(allocation.call_args.kwargs["deadline"], deadline)
+        self.assertEqual(release.call_args.kwargs["deadline"], deadline)
+        self.assertEqual(run.call_args.kwargs["deadline"], deadline)
+        self.assertIn("--scope", run.call_args.args[0])
+        self.assertEqual(run.call_args.args[0][-1], "fixed-helper")
+
+    def test_nested_control_uses_verified_owner_without_new_admission(self) -> None:
+        owner = MagicMock(spec=pse_env.host.Allocation)
+        deadline = time.monotonic() + 0.5
+        with (
+            patch.object(pse_env.host, "inherit", return_value=owner) as inherit,
+            patch.object(
+                pse_env.host,
+                "acquire_light_control",
+                side_effect=AssertionError("new admission"),
+            ),
+            patch.object(
+                pse_env.host,
+                "release_light_control",
+                side_effect=AssertionError("release enclosing owner"),
+            ),
+            patch.object(
+                pse_env.host,
+                "control_run",
+                return_value=subprocess.CompletedProcess([], 0, "headers", ""),
+            ) as run,
+        ):
+            pse_env.run_light_control(["fixed-helper"], {}, deadline=deadline)
+        self.assertEqual(inherit.call_args.kwargs["deadline"], deadline)
+        self.assertEqual(run.call_args.args[0], ["fixed-helper"])
+
+    def test_control_does_not_return_output_when_cleanup_is_unverified(self) -> None:
+        owner = MagicMock(spec=pse_env.host.Allocation)
+        owner.directory = self.root
+        owner.nonce = "a" * 32
+        owner.profile = pse_env.host.select("light")
+        owner.environment.return_value = {}
+        with (
+            patch.object(pse_env.host, "inherit", return_value=None),
+            patch.object(pse_env.host, "acquire_light_control", return_value=owner),
+            patch.object(pse_env.host, "enforce_parent"),
+            patch.object(pse_env.host, "enforce_allocation"),
+            patch.object(pse_env.host, "release_light_control", return_value=False),
+            patch.object(
+                pse_env.host,
+                "control_run",
+                side_effect=[
+                    subprocess.CompletedProcess([], 0),
+                    subprocess.CompletedProcess([], 0, "secret output", ""),
+                ],
+            ),
+            self.assertRaisesRegex(pse_env.BoundaryError, "retained"),
+        ):
+            pse_env.run_light_control(
+                ["fixed-helper"], {}, deadline=time.monotonic() + 1
+            )
 
     def test_caller_wins_over_local_and_local_fills_the_rest(self) -> None:
         env = pse_env.compose(

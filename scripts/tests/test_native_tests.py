@@ -484,6 +484,7 @@ class PythonSelectionTests(unittest.TestCase):
         environment = dict(os.environ)
         environment.pop("PYTEST_ADDOPTS", None)
         environment["PSE_TEST_ENUMERATION"] = str(selected)
+        environment["PYTHONPATH"] = str(native_tests.ROOT)
         result = subprocess.run(
             [
                 sys.executable,
@@ -561,12 +562,16 @@ class ManagedPythonRouteTests(unittest.TestCase):
             ),
             patch.object(surreal_server, "observer", return_value=17) as placed,
             patch.object(
+                native_tests, "worker_binary", return_value=Path("/owned/worker")
+            ) as built,
+            patch.object(
                 native_tests,
                 "python_native_binary",
                 side_effect=AssertionError("parent loaded extension"),
             ),
         ):
             self.assertEqual(native_tests.main(), 17)
+        built.assert_called_once_with([], os.environ)
         placed.assert_called_once_with(
             Path("/owned/state"),
             [

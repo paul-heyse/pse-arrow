@@ -3,7 +3,7 @@ title: Rebuild, retirement and integrated qualification
 status: in-progress
 date: 2026-10-05
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md, docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md, docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md, docs/design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -307,7 +307,7 @@ the original PE example consumers are not the expanded completion boundary. Sour
 analysis activation and native installation reuse retain their distinct recovery/trust units.
 
 Use `just assessment-list` to confirm the current gate surface, then the selected assembled
-`just assessment <output>` with its development linked Python, `just seed-conformance` for the current reference manifest, and
+`just assessment --output <output>` with its development linked Python, `just seed-conformance` for the current reference manifest, and
 `just parity` scope named in the verification section. A standalone
 `just native-python <output>` is for a deliberately separate selected Python campaign
 or an affected rerun; do not execute the same integrated scope twice.
@@ -556,6 +556,46 @@ receiving observation, pure preparation, native execution and publication/result
 the existing SHA sample is not a complete test cost or a remedy's speedup. E4 retains its
 existing obligations, without a new mandatory matrix, SLA or instrumentation framework.
 Historical-result assessment remains ±10%; solver stopping and physical checks are unchanged.
+
+## Graph and hashing extension acceptance
+
+The [coordinator's proposed extension](28-surrealdb-unified-substrate.md#graph-and-hashing-review-integration)
+adds J3/B8/N12/N13 and bounded GH investigations. This document remains the sole assembled
+evidence owner; correction progress and investigation decisions stay at their companions.
+The narrowed original qualification continuation, historical Outcomes and paused E4/E5
+obligations retain their current authority. Planning the following acceptance does not run
+or authorize a new campaign.
+
+| Boundary | Proposed revealing acceptance after working correction |
+|---|---|
+| J3 inventory/settlement | Warm many-body primary/original views expose complete exact descriptions without repeated discovery. Changed reads, acknowledgment errors/absence, expiry, released roots and new admission preserve current outcomes; fresh lineage and escaped-owner charges remain. |
+| N12 physical flow | Reordered decision/connection declarations and parallel occurrences retain physical bindings, policies, typed refusals and an independently expected forbidden-cycle witness. Existing identity bytes are unchanged. |
+| B8/N13 supplier composition | Selected versus full scope, an unrequested cycle, nested/sibling providers and missing unselected observations preserve scope. Actual derivative upgrades, starts/policy and new mutable case state remain current across reused topology. |
+| Ownership/interruption | New retained/transient inventories and adjacency are admitted/accounted before allocation; aliases survive eviction/clear and charges last through drain. Caller cancellation and current effect clocks remain unchanged. |
+| Adopted later GH alternative | Only a separately selected working realization adds its relevant encoding/collision, complete negative/membership invalidation, topology, receiving or restart controls. An investigation decision alone is not product qualification. |
+
+Use targeted compile/unit controls during correction work, with force-validation and relevant
+native environment. Once the selected functional extension and its affected callers/deletions
+are complete, choose the relevant existing Rust/Python solve, initialization/recycle,
+nested-provider, analysis/mode and fitting/study journeys. Integrate them once under the
+authorized scope-end route with applicable static/manual checks; do not rerun whole campaigns
+per package or equate a focused mechanism pass with whole-product scientific acceptance.
+Independent expected identity/graph/physical facts must expose a wrong index or selected
+closure; the retained graph is not its own oracle. Keep case physical/derivative assessment
+and ordinary solver tolerances intact.
+
+Source reasoning can establish removal of nested scans and repeated immutable construction.
+Quantitative benefit remains **Proposed** until authorized paired complete-operation
+measurement: include cold index/topology construction, warm lookup/selection/current settlement,
+retained/transient state and recovery. Separate pure preparation, numerical execution and
+publication/serving; no smaller workload, changed accuracy threshold or bulk hash throughput
+stands in for the affected operation. Record actual source/artifact/profile/store, modes,
+commands, zero baseline and results. E4 keeps its existing measurement route; these proposals
+add no mandatory benchmark framework, SLA or unrequested campaign.
+
+Closure of each Graph/hash finding stays at the coordinator and consumes linked package plus
+affected acceptance evidence. Existing PA/U02 and earlier scientific findings keep their own
+obligations; the new review/plan neither resolves them nor reopens them without new evidence.
 
 ## WebSocket environment qualification handoff
 

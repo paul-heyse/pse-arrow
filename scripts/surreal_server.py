@@ -23,6 +23,7 @@ import re
 import secrets
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import tarfile
@@ -72,7 +73,9 @@ class SupervisorError(RuntimeError):
     """An actionable lifecycle error with no credential-bearing output."""
 
 
-def read_json(path: Path) -> dict[str, object]:
+def read_json(path: Path, *, deadline: float | None = None) -> dict[str, object]:
+    if deadline is not None:
+        return mcp_private_record(path, deadline)[0]
     value = json.loads(path.read_text())
     if not isinstance(value, dict):
         raise SupervisorError(f"Expected an object in {path.name}")
@@ -650,11 +653,11 @@ def receiver_context(state: Path, database: str | None) -> Path:
     return selected
 
 
-def service_directory(state: Path) -> Path:
+def service_directory(state: Path, *, deadline: float | None = None) -> Path:
     path = state / "config.json"
     if not path.is_file():
         return state
-    config = read_json(path)
+    config = read_json(path, deadline=deadline)
     selected = config.get("service_state")
     if selected is None:
         return state
@@ -717,13 +720,13 @@ def upgrade_profile(state: Path) -> dict[str, object]:
     return public_status(state, config_for(state))
 
 
-def config_for(state: Path) -> dict[str, object]:
+def config_for(state: Path, *, deadline: float | None = None) -> dict[str, object]:
     if (
         any(path.is_symlink() for path in (state, *state.parents))
         or (state / "config.json").is_symlink()
     ):
         raise SupervisorError("Owned state must not traverse symlinks")
-    config = read_json(state / "config.json")
+    config = read_json(state / "config.json", deadline=deadline)
     if config.get("owner") != OWNER or config.get("profile_version") != 2:
         raise SupervisorError("Not an owned, supported SurrealDB state directory")
     if config.get("websocket_max_message_bytes") != MESSAGE_BYTES:
@@ -2820,13 +2823,19 @@ def ready(state: Path, config: dict[str, object]) -> bool:
     return listener_ready(state, config) and protocol_ready(state, config)
 
 
-def owns_listener(state: Path, config: dict[str, object]) -> bool:
+def owns_listener(
+    state: Path, config: dict[str, object], *, deadline: float | None = None
+) -> bool:
     """Linux listener ownership, independent of another server's /health response."""
-    owner_state = service_directory(state)
+    owner_state = service_directory(state, deadline=deadline)
     if owner_state != state:
-        return owns_listener(owner_state, config_for(owner_state))
+        return owns_listener(
+            owner_state, config_for(owner_state, deadline=deadline), deadline=deadline
+        )
     try:
-        process = read_json(state / "server-process.json")
+        if deadline is not None:
+            remaining(deadline)
+        process = read_json(state / "server-process.json", deadline=deadline)
         if process.get("instance_id") != config["instance_id"]:
             return False
         pid = integer(process["pid"])
@@ -2834,9 +2843,9 @@ def owns_listener(state: Path, config: dict[str, object]) -> bool:
         if process.get("start") != native_operation.start_identity(pid):
             return False
         membership = (proc / "cgroup").read_text()
-        owner, launch = recorded_storage_owner(state, config)
+        owner, launch = recorded_storage_owner(state, config, deadline=deadline)
         placement = storage_placement(config, owner)
-        observed = storage_unit_observation(state)
+        observed = storage_unit_observation(state, deadline=deadline)
         binding = object_mapping(launch["binding"])
         relative = next(
             line.removeprefix("0::")
@@ -2873,10 +2882,12 @@ def owns_listener(state: Path, config: dict[str, object]) -> bool:
             for row in Path("/proc/net/tcp").read_text().splitlines()[1:]
             if row.split()[1] == address and row.split()[3] == "0A"
         }
-        return any(
+        matched = any(
             str(fd.readlink()) in {f"socket:[{inode}]" for inode in inodes}
             for fd in (proc / "fd").iterdir()
         )
+        if deadline is not None:
+            remaining(deadline)
     except (
         OSError,
         KeyError,
@@ -2886,6 +2897,7 @@ def owns_listener(state: Path, config: dict[str, object]) -> bool:
         host_admission.AdmissionError,
     ):
         return False
+    return matched
 
 
 def remaining(deadline: float) -> float:
@@ -2922,11 +2934,15 @@ def storage_placement(
     }
 
 
-def storage_launch(state: Path, config: dict[str, object]) -> dict[str, object]:
+def storage_launch(
+    state: Path, config: dict[str, object], *, deadline: float | None = None
+) -> dict[str, object]:
     """Require the exact immutable service selection associated with a launch."""
-    launch = read_json(state / "service-launch.json")
-    deadline = launch.get("deadline")
-    if not isinstance(deadline, (int, float)) or not math.isfinite(deadline):
+    launch = read_json(state / "service-launch.json", deadline=deadline)
+    launch_deadline = launch.get("deadline")
+    if not isinstance(launch_deadline, (int, float)) or not math.isfinite(
+        launch_deadline
+    ):
         raise SupervisorError("Storage launch lacks a finite admission clock")
     if (
         launch.get("generation") != config["instance_id"]
@@ -2943,14 +2959,21 @@ def storage_launch(state: Path, config: dict[str, object]) -> dict[str, object]:
 
 
 def recorded_storage_owner(
-    state: Path, config: dict[str, object]
+    state: Path, config: dict[str, object], *, deadline: float | None = None
 ) -> tuple[host_admission.Allocation, dict[str, object]]:
     """Read actual charged storage ownership without adopting the caller's lane."""
-    launch = storage_launch(state, config)
+    launch = storage_launch(state, config, deadline=deadline)
     path = Path(str(launch["allocation"]))
     if not re.fullmatch(r"[a-f0-9]{32}", path.name):
         raise SupervisorError("Invalid storage allocation marker")
-    with host_admission.allocation_metadata(path.parent) as ledger:
+    snapshot = (
+        contextlib.nullcontext(
+            host_admission.readonly_snapshot(path.parent, deadline=deadline)
+        )
+        if deadline is not None
+        else host_admission.allocation_metadata(path.parent)
+    )
+    with snapshot as ledger:
         record = ledger["owners"].get(path.name)
         if (
             record is None
@@ -2984,8 +3007,12 @@ def recorded_storage_owner(
     return host_admission.Allocation(path.parent, path.name, profile, deadline), launch
 
 
-def storage_unit_observation(state: Path) -> dict[str, str]:
+def storage_unit_observation(
+    state: Path, *, deadline: float | None = None
+) -> dict[str, str]:
     """Observe storage identity through the supervisor's remaining original clock."""
+    if deadline is not None:
+        return host_admission.control_unit_observation(unit_name(state), deadline)
     result = systemctl(
         "show",
         "--property=InvocationID",
@@ -4129,6 +4156,158 @@ def qualify_recovery(state: Path) -> dict[str, object]:
         _STARTUP.deadline = prior
 
 
+def mcp_private_record(path: Path, deadline: float) -> tuple[dict[str, object], str]:
+    """Read an existing private record without following links or repairing modes."""
+    remaining(deadline)
+    descriptor = os.open(
+        path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
+    )
+    with os.fdopen(descriptor, "rb") as stream:
+        information = os.fstat(stream.fileno())
+        if (
+            not stat.S_ISREG(information.st_mode)
+            or information.st_uid != os.getuid()
+            or stat.S_IMODE(information.st_mode) != 0o600
+            or information.st_size > 64 * 1024
+        ):
+            raise SupervisorError("MCP private record is unavailable")
+        raw = stream.read(64 * 1024 + 1)
+    remaining(deadline)
+    if len(raw) > 64 * 1024:
+        raise SupervisorError("MCP private record exceeds its bound")
+    value = object_mapping(json.loads(raw))
+    return value, hashlib.sha256(raw).hexdigest()
+
+
+def mcp_authorization(state: Path, endpoint: str, deadline: float) -> dict[str, str]:
+    """Return only the existing VIEWER header after observing the exact live owner."""
+    remaining(deadline)
+    state = lexical_absolute(state)
+    if any(path.is_symlink() for path in (state, *state.parents)):
+        raise SupervisorError("MCP state must not traverse links")
+    information = state.stat()
+    if (
+        not stat.S_ISDIR(information.st_mode)
+        or information.st_uid != os.getuid()
+        or stat.S_IMODE(information.st_mode) != 0o700
+    ):
+        raise SupervisorError("MCP state must already be private and owned")
+    config = config_for(state, deadline=deadline)
+    if (
+        endpoint != f"http://127.0.0.1:{integer(config['port'])}/mcp"
+        or config.get("service_state") is not None
+        or config.get("credentials_file") != str(state / "credentials.json")
+        or not owns_listener(state, config, deadline=deadline)
+    ):
+        raise SupervisorError("MCP endpoint does not match its live owned service")
+    credentials, credential_digest = mcp_private_record(
+        state / "credentials.json", deadline
+    )
+    proof, _ = mcp_private_record(state / "protocol-readiness.json", deadline)
+    observed = storage_unit_observation(state, deadline=deadline)
+    if (
+        proof.get("schema") != "native-ws-readiness-v1"
+        or proof.get("instance_id") != config["instance_id"]
+        or proof.get("invocation") != observed.get("InvocationID")
+        or proof.get("binary_sha256")
+        != object_mapping(config["server"]).get("binary_sha256")
+        or proof.get("credentials_sha256") != credential_digest
+        or credentials.get("selection_username") != "pse-selection"
+        or not isinstance(credentials.get("selection_password"), str)
+        or not credentials["selection_password"]
+    ):
+        raise SupervisorError("MCP VIEWER readiness identity is unavailable")
+    # Recheck live ownership and credential/config identity before releasing the header.
+    if (
+        config_for(state, deadline=deadline) != config
+        or mcp_private_record(state / "credentials.json", deadline)[1]
+        != credential_digest
+        or not owns_listener(state, config, deadline=deadline)
+    ):
+        raise SupervisorError("MCP service changed while reading credentials")
+    remaining(deadline)
+    token = base64.b64encode(
+        f"pse-selection:{credentials['selection_password']}".encode()
+    ).decode()
+    return {"Authorization": "Basic " + token}
+
+
+def mcp_headers_main(arguments: list[str]) -> int:
+    """Fixed, admitted control path with one eight-second clock and redacted errors."""
+    deadline = time.monotonic() + 8
+    child = arguments[0] == "_mcp-headers-child"
+    command = argparse.ArgumentParser(prog="surreal-server mcp-headers")
+    command.add_argument("--state", type=Path, required=True)
+    command.add_argument("--expected-endpoint", required=True)
+    if child:
+        command.add_argument("--deadline", type=float, required=True)
+    args = command.parse_args(arguments[1:])
+    if not re.fullmatch(r"http://127\.0\.0\.1:[0-9]{1,5}/mcp", args.expected_endpoint):
+        command.error(
+            "--expected-endpoint must be an explicit native loopback /mcp endpoint"
+        )
+    try:
+        from scripts import pse_env  # noqa: PLC0415 -- fixed control environment owner
+
+        if child:
+            if not math.isfinite(args.deadline) or args.deadline > deadline:
+                raise SupervisorError("Invalid fixed helper clock")  # noqa: TRY301 -- fixed boundary redacts every failure
+            deadline = args.deadline
+            remaining(deadline)
+            try:
+                owner = host_admission.inherit(os.environ, deadline=deadline)
+            except host_admission.AdmissionError:
+                owner = host_admission.verify_light_control_child(
+                    os.environ, deadline=deadline
+                )
+            if owner is None:
+                raise SupervisorError("Missing admitted fixed helper ownership")  # noqa: TRY301 -- fixed boundary redacts every failure
+            headers = mcp_authorization(args.state, args.expected_endpoint, deadline)
+        else:
+            environment = pse_env.control_environment(
+                SCRIPT.parents[1], os.environ, deadline=deadline
+            )
+            result = pse_env.run_light_control(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "_mcp-headers-child",
+                    "--state",
+                    str(args.state),
+                    "--expected-endpoint",
+                    args.expected_endpoint,
+                    "--deadline",
+                    str(deadline),
+                ],
+                environment,
+                deadline=deadline,
+            )
+            remaining(deadline)
+            if result.returncode:
+                raise SupervisorError("Fixed helper child failed")  # noqa: TRY301 -- fixed boundary redacts every failure
+            headers = json.loads(result.stdout)
+            if (
+                not isinstance(headers, dict)
+                or set(headers) != {"Authorization"}
+                or not isinstance(headers["Authorization"], str)
+                or not headers["Authorization"].startswith("Basic ")
+                or not base64.b64decode(headers["Authorization"][6:], validate=True)
+                .decode()
+                .startswith("pse-selection:")
+            ):
+                raise SupervisorError("Invalid fixed helper output")  # noqa: TRY301 -- fixed boundary redacts every failure
+    except Exception:
+        # Child output, HTTP errors and JSON parse errors can contain credentials.
+        # Failure must never echo any of them or return partial headers.
+        print(
+            "pse-env: MCP credentials unavailable; verify the existing owned service and private VIEWER readiness",
+            file=sys.stderr,
+        )
+        return 125
+    print(json.dumps(headers))
+    return 0
+
+
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument(
@@ -4343,8 +4522,12 @@ def dispatch(args: argparse.Namespace) -> int:
     return 0
 
 
-def main() -> int:
-    args = parser().parse_args()
+def main(argv: list[str] | None = None) -> int:
+    arguments = sys.argv[1:] if argv is None else argv
+    # Fixed credential retrieval must never reach general lifecycle dispatch.
+    if arguments and arguments[0] in {"mcp-headers", "_mcp-headers-child"}:
+        return mcp_headers_main(arguments)
+    args = parser().parse_args(arguments)
     try:
         return dispatch(args)
     except (

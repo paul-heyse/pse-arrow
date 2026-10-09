@@ -3,7 +3,7 @@ title: Pure preparation and explicit publication
 status: in-progress
 date: 2026-10-08
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md]
+review_sources: [docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md, docs/design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md]
 scenario_sources: [docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md#revealing-scenarios-and-complete-operations]
 ---
 
@@ -146,6 +146,72 @@ and block that dependent reuse package; do not mark the whole review disproved o
 J0 completes with selected pure/effect boundaries, complete basis identity, fresh attribution,
 full description discovery and canonical integration inputs. Document a chosen alternative
 and its observable revisit trigger. A type name or a solver-view hit counter is insufficient.
+
+<a id="j3-indexed-description-settlement"></a>
+
+## Graph/hash extension — J3 indexed description settlement
+
+This **Proposed** extension addresses [Graph/hash F01](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#f01).
+The [coordinator](28-surrealdb-unified-substrate.md#graph-and-hashing-review-integration)
+owns its disposition. The earlier baseline above describes the original preparation
+correction; current J1/J2/B7 complete-basis reuse is implemented. This extension removes
+residual identity discovery on that working path, rather than rebuilding its architecture.
+
+### Foundation assessment and target
+
+At `d0f2c41818a34539a910654dfea4760771603f45` plus the preserved working tree,
+`settle_preparation` iterates portable bodies and linearly searches `PreparedBasis.descriptions`
+for each identity. `PreparedModeling::portable_bodies` constructs a new ordered map over
+primary and original body inventories each time. Exact basis reuse, immutable descriptions,
+current `matches_read` and actual-store acknowledgment are suitable foundations. Under AP-07,
+the repeated immutable discovery should be removed without weakening those current effects.
+
+Retain a canonical, identity-ordered portable inventory once per immutable prepared view,
+including its primary and original products. Preserve the existing sealed-body identity and
+deduplication meaning; direct implicit bodies still have no invented portable identity.
+Derived original views must expose their own required inventory rather than reuse a parent's
+inventory indiscriminately. The compiler product supplies this view; J3 owns its integration
+with the runtime basis and description settlement. It does not wait for B8 supplier adjacency.
+
+Keep retained descriptions in canonical identity order and resolve matches by ordered lookup
+or a linear merge over the two inventories. Prefer this over adding a hash dependency or a
+second cache. An empty/partial description inventory remains valid: unmatched bodies follow
+the existing qualified publication path. Equivalent identities retain the existing exact
+read/encoding interpretation, not a new fingerprint-only equality contract.
+
+The resulting operation consumes the retained inventory/descriptions and the current read,
+then produces the exact settled descriptions or the existing typed failure. Matching reads,
+rooted acknowledgment, producer qualification when needed, expiry, cancellation and original
+deadline still apply on every use. An acknowledgment error cannot become absence. Shared
+bytes never retain permission, current source lineage or a publication flag.
+
+Reserve inventory/index construction through existing allocation owners before allocation,
+include their retained storage in product/basis accounting, and keep charges alive through
+escaping views, eviction and drain. Avoid independently charging shared mathematical payloads.
+There is no schema, persisted frame or Python API change.
+
+### Package and proposed acceptance
+
+| Package | Prerequisites and migration | Completion boundary | Progress |
+|---|---|---|---|
+| J3 — Indexed description settlement | Working J1/J2/B7; update compiler portable-view construction, runtime basis description attachment and every settlement caller together. | Canonical inventory and exact indexed access replace per-use map construction and nested description searches; current effects and owned storage remain. | Proposed; not implemented. |
+
+Extend focused compiler/runtime controls for primary/original inventory overlap, reordered
+bodies, partial/empty descriptions, many distinct warm bodies and changed read/dependencies.
+Use independently specified expected identity sets and exact description correspondence.
+Exercise acknowledgment error/absence, expired new admission versus recoverable committed
+acknowledgment, released roots, fresh attribution, cancellation and escaped-owner retention.
+Existing preparation deadline/cancellation and basis A/B/A controls remain applicable.
+Construction counts or direct structural inspection can establish removal of repeated discovery;
+do not assert elapsed-time thresholds or infer fewer required acknowledgments.
+
+Compile touched `pse-compiler`/`pse-runtime` packages and run narrow `just unit-package`
+filters with explicit force-validation supplied by the recipes. Move all callers, then delete
+the replaced discovery helpers and mechanism-specific tests/fixtures in the same package;
+retain independent scientific/current-effect checks. No legacy comparison path is retained.
+[28e](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance)
+owns affected assembled acceptance and any later benefit measurement. Source reasoning is
+not new product-test evidence. J3's progress lives here; finding status remains at Plan 28.
 
 ## Packages, integration and retirement
 

@@ -15,6 +15,28 @@ findings have one disposition owner in the relevant plan. A review stays here wh
 or a pending decision depends on it and then retires to Git history (ADR-0096); retained ADRs
 cite retired reviews as `git:<commit>:<path>`.
 
+The [graph compilation, reusable kernels and hashing review](reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md)
+assesses further graph preparation, fast hashing and their combined reuse/invalidation role.
+It recommends indexed description and tear-policy access plus retained implicit-provider
+topology, preserving existing exact preparation reuse and fresh execution effects.
+Its [Plan 28 integration](../plans/28-surrealdb-unified-substrate.md#graph-and-hashing-review-integration)
+owns the Open finding dispositions and links the proposed corrections at their existing
+companions. [28k](../plans/28k-graph-kernels-and-hashing-investigations.md) plans bounded
+graph/hash investigations; broader fingerprints and persistent graph products remain
+conditional alternatives. Plan publication does not authorize product execution or qualify
+the proposed corrections.
+
+The [agent effectiveness enhancement review](reviews/design_review_agent-effectiveness-enhancements_2026-10-09.md)
+assesses the personal Codex environment, recent activity, command interfaces,
+persistent SurrealDB inspection and optional Rust navigation. Its findings and
+candidate enhancement decisions and resolved findings belong to
+[Plan 31](../plans/31-agent-effectiveness-enhancements.md), including the accepted
+instruction changes, native MCP choice and exclusion of semantic Rust search. Its
+[supporting evidence](evidence/agent-effectiveness-enhancements-2026-10-09/README.md)
+distinguishes focused interface controls from product qualification. The completed plan
+records implementation and qualification; these newly authored inputs remain for the
+uncommitted handoff until an immutable Git archive exists, rather than as active work.
+
 The [unified SurrealDB simulation-substrate follow-up](reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md)
 examines canonical problem, dependency, run and result storage with durable runs by default,
 targeted compilation and connected pre/post-simulation queries. It reassesses every finding

@@ -22,8 +22,8 @@ def bindings(directory: Path) -> None:
     """Only service configuration is a stand-in: these controls own no database."""
     test_resources.registry = lambda: directory / "registry"
 
-    def configured(state: Path) -> dict[str, object]:
-        _ = state
+    def configured(state: Path, *, deadline: float | None = None) -> dict[str, object]:
+        _ = state, deadline
         return {
             "instance_id": "filesystem-control",
             "namespace": "pse",
@@ -46,7 +46,7 @@ import contextlib, json, os, time, uuid
 from pathlib import Path
 import pytest, xdist
 from scripts import native_operation, test_resources
-from scripts.tests.test_plan30_resources_actual import bindings
+from scripts.tests.plan30_resources_actual_check import bindings
 directory = Path(os.environ["PSE_C_CONTROL"])
 bindings(directory)
 
@@ -198,7 +198,7 @@ def test_b_later(request, index):
                 [
                     sys.executable,
                     "-m",
-                    "scripts.tests.test_plan30_resources_actual",
+                    "scripts.tests.plan30_resources_actual_check",
                     "--runner",
                     str(directory),
                     "nested or later",
@@ -289,7 +289,7 @@ def test_b_later(request, index):
                         [
                             sys.executable,
                             "-m",
-                            "scripts.tests.test_plan30_resources_actual",
+                            "scripts.tests.plan30_resources_actual_check",
                             "--runner",
                             str(directory),
                             "same_problem",
@@ -331,7 +331,7 @@ def test_b_later(request, index):
                     [
                         sys.executable,
                         "-m",
-                        "scripts.tests.test_plan30_resources_actual",
+                        "scripts.tests.plan30_resources_actual_check",
                         "--runner",
                         str(directory),
                         selection,
@@ -382,7 +382,7 @@ def test_b_later(request, index):
             [
                 sys.executable,
                 "-m",
-                "scripts.tests.test_plan30_resources_actual",
+                "scripts.tests.plan30_resources_actual_check",
                 "--finish-report",
                 str(directory),
                 resource,
@@ -397,7 +397,7 @@ def test_b_later(request, index):
                 [
                     sys.executable,
                     "-m",
-                    "scripts.tests.test_plan30_resources_actual",
+                    "scripts.tests.plan30_resources_actual_check",
                     "--borrow",
                     str(directory),
                     resource,
@@ -427,7 +427,7 @@ def test_b_later(request, index):
             [
                 sys.executable,
                 "-m",
-                "scripts.tests.test_plan30_resources_actual",
+                "scripts.tests.plan30_resources_actual_check",
                 "--cleanup-crash",
                 str(directory),
                 resource,

@@ -114,7 +114,7 @@ Compilation and targeted units support implementation. Formatting, lint and full
 integration checks run once all functional scope is implemented, or when the maintainer
 requests qualification.
 
-`just assessment <output>` collects the full local default/native/Python scope without
+`just assessment --output <output>` collects the full local default/native/Python scope without
 stopping at the first failure. `just native-test` and `just native-python <output>`
 are ordinary linked execution commands; `just py-sync-native` refreshes the extension.
 After functional qualification, `just case-measure <output> --functional-from <report>`

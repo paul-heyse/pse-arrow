@@ -17,6 +17,7 @@ import os
 import re
 import stat
 import subprocess
+import tempfile
 import time
 import tomllib
 import uuid
@@ -346,8 +347,178 @@ def protected(directory: Path) -> None:
         raise AdmissionError("Admission state must be owned with mode0700")
 
 
+def remaining(deadline: float | None, maximum: float) -> float:
+    """A shared absolute clock; ordinary calls retain their existing timeouts."""
+    if deadline is None:
+        return maximum
+    budget = min(maximum, deadline - time.monotonic())
+    if budget <= 0:
+        raise AdmissionError("Control operation deadline exhausted")
+    return budget
+
+
+def control_run(
+    command: Sequence[str],
+    *,
+    env: Mapping[str, str],
+    deadline: float,
+    maximum: float = 10,
+) -> subprocess.CompletedProcess[str]:
+    """Bound every process wait, including cancellation, without descendant pipe waits."""
+    remaining(deadline, maximum)
+    with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
+        child = subprocess.Popen(
+            command,
+            env=dict(env),
+            stdout=output,
+            stderr=errors,
+        )
+        try:
+            budget = remaining(deadline, maximum)
+            # Reserve part of this same clock for killing/reaping the direct
+            # client. The actual scope remains charged independently of it.
+            status = child.wait(timeout=budget - min(0.05, budget / 4))
+        except BaseException:
+            with contextlib.suppress(ProcessLookupError):
+                child.kill()
+            # The scope stays charged if its client or actual descendants outlive
+            # this clock. Never wait indefinitely for their output or their exit.
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                child.wait(timeout=max(0, deadline - time.monotonic()))
+            raise
+        output.seek(0)
+        errors.seek(0)
+        return subprocess.CompletedProcess(
+            command,
+            status,
+            output.read().decode(errors="replace"),
+            errors.read().decode(errors="replace"),
+        )
+
+
+def verify_light_control_child(
+    env: Mapping[str, str], *, deadline: float
+) -> Allocation:
+    """Bind only this fixed control child; persistent service ownership stays read-only."""
+    marker = env.get(MARKER, "")
+    path = Path(marker)
+    if not re.fullmatch(r"[a-f0-9]{32}", path.name):
+        raise AdmissionError("Missing fixed control ownership")
+    owner = readonly_snapshot(path.parent, deadline=deadline)["owners"].get(path.name)
+    if owner is None or owner["boot"] != boot() or owner["class"] != "light":
+        raise AdmissionError("Missing or stale fixed control ownership")
+    if not caller_alive(owner):
+        raise AdmissionError("Fixed control launch owner is no longer live")
+    group = operation.process_group(os.getpid())
+    for unit, binding in owner["units"].items():
+        if binding or not re.fullmatch(r"pse-control-[a-f0-9]{32}\.scope", unit):
+            continue
+        observed = control_unit_observation(unit, deadline)
+        control = observed["ControlGroup"]
+        if (
+            control
+            and (group == control or group.startswith(control + "/"))
+            and re.fullmatch(r"[a-f0-9]{32}", observed["InvocationID"])
+        ):
+            allocation = Allocation(
+                path.parent,
+                path.name,
+                Profile(
+                    owner["class"],
+                    owner["memory"],
+                    owner["lane"],
+                    owner["slots"],
+                    tuple(owner["cores"]),
+                    owner["exclusive"],
+                ),
+                owner["deadline"],
+            )
+            allocation.bind(unit, deadline=deadline)
+            return allocation
+    raise AdmissionError("Fixed control child is outside its registered actual scope")
+
+
+def lock_until(fd: int, kind: int, deadline: float | None) -> None:
+    if deadline is None:
+        fcntl.flock(fd, kind)
+        return
+    while True:
+        remaining(deadline, 1)
+        try:
+            fcntl.flock(fd, kind | fcntl.LOCK_NB)
+        except BlockingIOError:
+            time.sleep(remaining(deadline, 0.01))
+        else:
+            return
+
+
+def validate_ledger(record: object) -> MetadataLedger:
+    if (
+        not isinstance(record, dict)
+        or record.get("version") != 1
+        or not isinstance(record.get("owners"), dict)
+    ):
+        raise AdmissionError("Corrupt admission ledger; retain owners for inspection")
+    if any(not isinstance(row, dict) for row in record["owners"].values()):
+        raise AdmissionError("Corrupt admission owner; retain ledger for inspection")
+    return cast("MetadataLedger", record)
+
+
+def readonly_snapshot(
+    directory: Path | None = None, *, deadline: float
+) -> AllocationLedger:
+    """Detached existing ownership; never create, rewrite, reconcile or repair state."""
+    directory = root_path() if directory is None else directory
+    remaining(deadline, 1)
+    if any(path.is_symlink() for path in (directory, *directory.parents)):
+        raise AdmissionError("Admission state must not traverse symlinks")
+    information = directory.stat()
+    if (
+        not stat.S_ISDIR(information.st_mode)
+        or information.st_uid != os.getuid()
+        or stat.S_IMODE(information.st_mode) & 0o077
+    ):
+        raise AdmissionError("Admission state must be owned with mode0700")
+    fd = os.open(
+        directory / ".lock", os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
+    )
+    try:
+        validate_private_file(os.fstat(fd), "lock")
+        lock_until(fd, fcntl.LOCK_SH, deadline)
+        ledger_fd = os.open(
+            directory / "allocations.json",
+            os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK,
+        )
+        with os.fdopen(ledger_fd) as source:
+            validate_private_file(os.fstat(source.fileno()), "ledger")
+            ledger = validate_ledger(json.load(source))
+        for nonce, record in ledger["owners"].items():
+            if not re.fullmatch(r"[a-f0-9]{32}", nonce):
+                raise AdmissionError("Corrupt host allocation identity")
+            validate_allocation_record(record)
+        parked = ledger.get("parked_services", [])
+        if not isinstance(parked, list) or any(not isinstance(x, str) for x in parked):
+            raise AdmissionError("Corrupt parked service ownership")
+        remaining(deadline, 1)
+        return cast("AllocationLedger", ledger)
+    finally:
+        os.close(fd)
+
+
+def validate_private_file(information: os.stat_result, label: str) -> None:
+    if (
+        not stat.S_ISREG(information.st_mode)
+        or information.st_uid != os.getuid()
+        or information.st_mode & 0o077
+    ):
+        raise AdmissionError(f"Unsafe admission {label}")
+
+
 @contextlib.contextmanager
-def metadata(directory: Path) -> Generator[MetadataLedger, None, None]:
+def metadata(
+    directory: Path, *, deadline: float | None = None
+) -> Generator[MetadataLedger, None, None]:
+    remaining(deadline, 1)
     protected(directory)
     fd = os.open(
         directory / ".lock",
@@ -358,33 +529,39 @@ def metadata(directory: Path) -> Generator[MetadataLedger, None, None]:
         information = os.fstat(fd)
         if information.st_uid != os.getuid() or information.st_mode & 0o077:
             raise AdmissionError("Unsafe admission lock")
-        fcntl.flock(fd, fcntl.LOCK_EX)
+        if deadline is not None:
+            validate_private_file(information, "lock")
+        lock_until(fd, fcntl.LOCK_EX, deadline)
         path = directory / "allocations.json"
         if path.is_symlink():
             raise AdmissionError("Unsafe admission ledger")
-        record = (
-            json.loads(path.read_text())
-            if path.exists()
-            else {"version": 1, "owners": {}}
-        )
-        if record.get("version") != 1 or not isinstance(record.get("owners"), dict):
-            raise AdmissionError(
-                "Corrupt admission ledger; retain owners for inspection"
+        if deadline is not None and path.exists():
+            ledger_fd = os.open(
+                path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
             )
-        if any(not isinstance(row, dict) for row in record["owners"].values()):
-            raise AdmissionError(
-                "Corrupt admission owner; retain ledger for inspection"
+            with os.fdopen(ledger_fd) as source:
+                validate_private_file(os.fstat(source.fileno()), "ledger")
+                record = json.load(source)
+        else:
+            record = (
+                json.loads(path.read_text())
+                if path.exists()
+                else {"version": 1, "owners": {}}
             )
-        yield cast("MetadataLedger", record)
+        record = validate_ledger(record)
+        yield record
+        remaining(deadline, 1)
         operation.write_json(path, record)
     finally:
         os.close(fd)
 
 
 @contextlib.contextmanager
-def allocation_metadata(directory: Path) -> Generator[AllocationLedger, None, None]:
+def allocation_metadata(
+    directory: Path, *, deadline: float | None = None
+) -> Generator[AllocationLedger, None, None]:
     """Interpret only the host's private rows, preserving the shared lock boundary."""
-    with metadata(directory) as ledger:
+    with metadata(directory, deadline=deadline) as ledger:
         for record in ledger["owners"].values():
             validate_allocation_record(record)
         yield cast("AllocationLedger", ledger)
@@ -403,11 +580,17 @@ def validate_allocation_record(record: Mapping[str, object]) -> None:
     valid = valid and all(
         type(record.get(key)) is int for key in ("pid", "memory", "slots")
     )
+    valid = (
+        valid
+        and integer(record.get("memory", 0)) > 0
+        and integer(record.get("slots", 0)) > 0
+    )
     valid = valid and type(record.get("exclusive")) is bool
     cores = record.get("cores")
     valid = (
         valid
         and isinstance(cores, list)
+        and bool(cores)
         and all(type(core) is int and core >= 0 for core in cores)
     )
     deadline = record.get("deadline")
@@ -654,17 +837,17 @@ class Allocation:
             "PSE_RESOURCE_CLASS": self.profile.name,
         }
 
-    def register(self, unit: str) -> None:
+    def register(self, unit: str, *, deadline: float | None = None) -> None:
         if not re.fullmatch(r"[A-Za-z0-9_.:-]+\.(?:service|scope)", unit):
             raise AdmissionError("Invalid supervised unit")
-        with allocation_metadata(self.directory) as state:
+        with allocation_metadata(self.directory, deadline=deadline) as state:
             owner = state["owners"].get(self.nonce)
             if not isinstance(owner, dict):
                 raise AdmissionError("Allocation is no longer live")
             owner["units"].setdefault(unit, {})
 
-    def bind(self, unit: str) -> None:
-        observed = operation.unit_observation(unit)
+    def bind(self, unit: str, *, deadline: float | None = None) -> None:
+        observed = control_unit_observation(unit, deadline)
         group = operation.process_group(os.getpid())
         control = observed.get("ControlGroup", "")
         if (
@@ -673,10 +856,12 @@ class Allocation:
             or not re.fullmatch(r"[a-f0-9]{32}", observed.get("InvocationID", ""))
         ):
             raise AdmissionError("Child is not in the registered actual unit")
-        with allocation_metadata(self.directory) as state:
+        with allocation_metadata(self.directory, deadline=deadline) as state:
             owner = state["owners"].get(self.nonce)
             if not isinstance(owner, dict) or unit not in owner["units"]:
                 raise AdmissionError("Unit was not registered before launch")
+            if deadline is not None and owner["units"][unit]:
+                raise AdmissionError("Fixed control ownership was already bound")
             identity = group_identity(control)
             if identity is None:
                 raise AdmissionError(
@@ -710,15 +895,22 @@ class Allocation:
         return True
 
 
-def inherit(env: Mapping[str, str], *, handoff: bool = False) -> Allocation | None:
+def inherit(
+    env: Mapping[str, str], *, handoff: bool = False, deadline: float | None = None
+) -> Allocation | None:
     marker = env.get(MARKER)
     if not marker:
         return None
     path = Path(marker)
     if not re.fullmatch(r"[a-f0-9]{32}", path.name):
         raise AdmissionError("Invalid inherited allocation")
-    with allocation_metadata(path.parent) as state:
-        owner = state["owners"].get(path.name)
+    if deadline is None:
+        with allocation_metadata(path.parent) as state:
+            owner = state["owners"].get(path.name)
+    else:
+        owner = readonly_snapshot(path.parent, deadline=deadline)["owners"].get(
+            path.name
+        )
     if not isinstance(owner, dict) or owner["boot"] != boot():
         raise AdmissionError("Missing or stale inherited allocation")
     group = operation.process_group(os.getpid())
@@ -727,10 +919,17 @@ def inherit(env: Mapping[str, str], *, handoff: bool = False) -> Allocation | No
         if not isinstance(value, dict) or not value.get("group"):
             continue
         if group == value["group"] or group.startswith(value["group"] + "/"):
-            observed = operation.unit_observation(unit)
+            observed = control_unit_observation(unit, deadline)
             member = (
                 observed.get("InvocationID") == value.get("invocation")
                 and observed.get("ControlGroup") == value["group"]
+                and (
+                    deadline is None
+                    or (
+                        value.get("inode") is not None
+                        and group_identity(value["group"]) == value["inode"]
+                    )
+                )
             )
             if member:
                 break
@@ -752,6 +951,183 @@ def inherit(env: Mapping[str, str], *, handoff: bool = False) -> Allocation | No
         owner["exclusive"],
     )
     return Allocation(path.parent, path.name, profile, owner["deadline"])
+
+
+def control_manager_environment() -> dict[str, str]:
+    from scripts.pse_env import (  # noqa: PLC0415 -- reciprocal environment owner
+        manager_environment,
+    )
+
+    return {**os.environ, **manager_environment()}
+
+
+def control_unit_observation(unit: str, deadline: float | None) -> dict[str, str]:
+    if deadline is None:
+        return operation.unit_observation(unit)
+    result = control_run(
+        [
+            "systemctl",
+            "--user",
+            "show",
+            unit,
+            "--property=InvocationID",
+            "--property=ControlGroup",
+            "--property=LoadState",
+            "--property=ActiveState",
+        ],
+        env=control_manager_environment(),
+        deadline=deadline,
+    )
+    if result.returncode:
+        raise AdmissionError("Control unit observation unavailable")
+    fields = dict(
+        line.split("=", 1) for line in result.stdout.splitlines() if "=" in line
+    )
+    if not all(
+        key in fields
+        for key in ("LoadState", "ActiveState", "ControlGroup", "InvocationID")
+    ):
+        raise AdmissionError("Incomplete control unit observation")
+    return fields
+
+
+def acquire_light_control(*, directory: Path, deadline: float) -> Allocation:
+    """Ordinary light capacity, without recovery, parking or service reconciliation."""
+    profile = select("light")
+    reason = "capacity"
+    while time.monotonic() < deadline:
+        with allocation_metadata(directory, deadline=deadline) as state:
+            reason = conflict(profile, state["owners"])
+            if reason is None:
+                nonce = uuid.uuid4().hex
+                state["owners"][nonce] = {
+                    "boot": boot(),
+                    "pid": os.getpid(),
+                    "start": operation.start_identity(os.getpid()),
+                    "class": profile.name,
+                    "memory": profile.memory,
+                    "lane": profile.lane,
+                    "slots": profile.slots,
+                    "cores": list(profile.cores),
+                    "exclusive": profile.exclusive,
+                    "deadline": deadline,
+                    "units": {},
+                }
+                selected = Allocation(directory, nonce, profile, deadline)
+            else:
+                selected = None
+        if selected is not None:
+            return selected
+        time.sleep(remaining(deadline, 0.05))
+    raise AdmissionError(f"Control admission deadline exhausted: {reason}")
+
+
+def retire_light_control(
+    allocation: Allocation, owner: AllocationRecord, *, deadline: float
+) -> bool:
+    """Stop only verified empty control units and their empty originating slice."""
+    name = allocation_slice(allocation)
+    parent = control_unit_observation(name, deadline)
+    if parent["LoadState"] == "not-found" or (
+        parent["ActiveState"] in {"inactive", "failed"} and not parent["ControlGroup"]
+    ):
+        return all(
+            control_unit_observation(unit, deadline)["LoadState"] == "not-found"
+            for unit in owner["units"]
+        )
+    parent_group = parent["ControlGroup"]
+    if (
+        not parent_group
+        or Path(parent_group).name != name
+        or operation.populated(parent_group)
+    ):
+        return False
+    parent_inode = group_identity(parent_group)
+    if parent_inode is None:
+        return False
+    stop = []
+    for unit, binding in owner["units"].items():
+        observed = control_unit_observation(unit, deadline)
+        if observed["LoadState"] == "not-found":
+            continue
+        group = binding.get("group", "")
+        if not (
+            re.fullmatch(r"pse-control-[a-f0-9]{32}\.scope", unit)
+            and group.startswith(parent_group + "/")
+            and observed["ControlGroup"] == group
+            and observed["InvocationID"] == binding.get("invocation")
+            and group_identity(group) == binding.get("inode")
+            and not operation.populated(group)
+        ):
+            return False
+        stop.append(unit)
+    for unit in [*stop, name]:
+        if group_identity(parent_group) != parent_inode or operation.populated(
+            parent_group
+        ):
+            return False
+        result = control_run(
+            ["systemctl", "--user", "stop", unit],
+            env=control_manager_environment(),
+            deadline=deadline,
+            maximum=5,
+        )
+        if result.returncode:
+            return False
+    # Unit stop is synchronous; the kernel remains the proof if systemd retains
+    # empty metadata for a moment. A missing parent also proves destruction.
+    return group_identity(parent_group) is None or not operation.populated(parent_group)
+
+
+def release_light_control(allocation: Allocation, *, deadline: float) -> bool:
+    """Retain unknown/surviving scopes; never drain or resume scientific services."""
+    try:
+        owner = readonly_snapshot(allocation.directory, deadline=deadline)[
+            "owners"
+        ].get(allocation.nonce)
+        if owner is None:
+            return True
+        if owner.get("service") or owner.get("borrowed_services"):
+            return False
+        while True:
+            empty = True
+            for unit, identity in owner["units"].items():
+                observed = control_unit_observation(unit, deadline)
+                if identity.get("group"):
+                    group = identity["group"]
+                    inode = group_identity(group)
+                    if identity.get("inode") is not None and inode != identity["inode"]:
+                        continue  # Destruction proves the bound kernel lifetime ended.
+                    if (
+                        observed["LoadState"] != "not-found"
+                        and (
+                            observed["ControlGroup"] != group
+                            or observed["InvocationID"] != identity.get("invocation")
+                        )
+                    ) or operation.populated(group):
+                        empty = False
+                        break
+                elif observed["LoadState"] != "not-found" and (
+                    observed["ActiveState"] not in {"inactive", "failed"}
+                    or observed["ControlGroup"]
+                ):
+                    empty = False
+                    break
+            if empty:
+                break
+            # systemd-run can exit before the manager observes its scope empty.
+            # Wait only inside the original clock, keeping its charge until then.
+            time.sleep(remaining(deadline, 0.01))
+        if not retire_light_control(allocation, owner, deadline=deadline):
+            return False
+        with allocation_metadata(allocation.directory, deadline=deadline) as state:
+            if state["owners"].get(allocation.nonce) != owner:
+                return False
+            del state["owners"][allocation.nonce]
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return False
+    else:
+        return True
 
 
 def require_admission_time(deadline: float, message: str) -> None:
@@ -894,7 +1270,9 @@ def retire_empty_allocation(allocation: Allocation) -> None:
         surreal_server.systemctl("stop", name, check=False)
 
 
-def enforce_allocation(allocation: Allocation, env: Mapping[str, str]) -> None:
+def enforce_allocation(
+    allocation: Allocation, env: Mapping[str, str], *, deadline: float | None = None
+) -> None:
     """One finite ancestor charges sibling role units to their originating owner."""
     resident = settings("exclusive")
     overhead = (
@@ -921,14 +1299,19 @@ def enforce_allocation(allocation: Allocation, env: Mapping[str, str]) -> None:
             "AllowedCPUs=" + ",".join(map(str, cpu_set(allocation.profile.cores))),
         ],
     ):
-        result = subprocess.run(
-            [*command, *arguments],
-            env=dict(env),
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
+        if deadline is None:
+            result = subprocess.run(
+                [*command, *arguments],
+                env=dict(env),
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+        else:
+            result = control_run(
+                [*command, *arguments], env=env, deadline=deadline, maximum=5
+            )
         if result.returncode:
             raise AdmissionError("Cannot enforce originating allocation ancestor")
     from scripts.pse_env import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
@@ -941,8 +1324,11 @@ def enforce_allocation(allocation: Allocation, env: Mapping[str, str]) -> None:
 
 
 @contextlib.contextmanager
-def parent_update(directory: Path) -> Generator[None, None, None]:
+def parent_update(
+    directory: Path, *, deadline: float | None = None
+) -> Generator[None, None, None]:
     """Serialize the finite configuration write, never a workload or a drain."""
+    remaining(deadline, 1)
     protected(directory)
     fd = os.open(
         directory / ".parent-update.lock",
@@ -953,31 +1339,31 @@ def parent_update(directory: Path) -> Generator[None, None, None]:
         info = os.fstat(fd)
         if info.st_uid != os.getuid() or info.st_mode & 0o077:
             raise AdmissionError("Unsafe aggregate configuration lock")
-        deadline = time.monotonic() + 5
-        while True:
-            try:
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                break
-            except BlockingIOError:
-                if time.monotonic() >= deadline:
-                    raise AdmissionError(
-                        "Aggregate configuration update deadline exhausted"
-                    ) from None
-                time.sleep(0.01)
+        lock_until(
+            fd,
+            fcntl.LOCK_EX,
+            min(deadline, time.monotonic() + 5)
+            if deadline is not None
+            else time.monotonic() + 5,
+        )
         yield
     finally:
         os.close(fd)
 
 
-def enforce_parent(profile: Profile, env: Mapping[str, str]) -> None:
-    with parent_update(root_path(env)):
-        _enforce_parent(profile, env)
+def enforce_parent(
+    profile: Profile, env: Mapping[str, str], *, deadline: float | None = None
+) -> None:
+    with parent_update(root_path(env), deadline=deadline):
+        _enforce_parent(profile, env, deadline=deadline)
 
 
-def _enforce_parent(profile: Profile, env: Mapping[str, str]) -> None:
+def _enforce_parent(
+    profile: Profile, env: Mapping[str, str], *, deadline: float | None = None
+) -> None:
     cap = aggregate(profile)
     # A concurrent light admission may never lower a widened live heavy envelope.
-    with allocation_metadata(root_path(env)) as state:
+    with allocation_metadata(root_path(env), deadline=deadline) as state:
         for owner in state["owners"].values():
             existing = Profile(
                 owner["class"],
@@ -988,22 +1374,26 @@ def _enforce_parent(profile: Profile, env: Mapping[str, str]) -> None:
                 owner["exclusive"],
             )
             cap = max(cap, aggregate(existing))
-    result = subprocess.run(
-        [
-            "systemctl",
-            "--user",
-            "set-property",
-            "--runtime",
-            "pse.slice",
-            f"MemoryMax={cap}",
-            "MemorySwapMax=0",
-        ],
-        env=dict(env),
-        capture_output=True,
-        text=True,
-        timeout=5,
-        check=False,
-    )
+    command = [
+        "systemctl",
+        "--user",
+        "set-property",
+        "--runtime",
+        "pse.slice",
+        f"MemoryMax={cap}",
+        "MemorySwapMax=0",
+    ]
+    if deadline is None:
+        result = subprocess.run(
+            command,
+            env=dict(env),
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    else:
+        result = control_run(command, env=env, deadline=deadline, maximum=5)
     if result.returncode:
         raise AdmissionError("Cannot enforce admitted aggregate parent")
     from scripts.pse_env import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership

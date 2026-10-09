@@ -810,8 +810,13 @@ class Plan30LifecycleTests(unittest.TestCase):
         context = self.context()
         generation = self.generation()
         receiver = {
+            "supervisor_executable": str(Path(sys.executable).resolve()),
             "supervisor_script": str(generation / "scripts/surreal_server.py"),
             "worker_executable": str(generation / "bin/pse-worker"),
+            "supervisor_sha256": server.file_digest(
+                generation / "scripts/surreal_server.py"
+            ),
+            "worker_sha256": server.file_digest(generation / "bin/pse-worker"),
         }
         for directory in (self.state, context):
             config = server.config_for(directory)

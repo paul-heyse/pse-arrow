@@ -12,16 +12,26 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import python_tests, surreal_server, test_run
+from scripts import python_tests, surreal_server
 
 
 class PythonProcessRoutingTests(unittest.TestCase):
+    def setUp(self) -> None:
+        environment = {
+            name: value
+            for name, value in os.environ.items()
+            if name != "PSE_NATIVE_OPERATION"
+        }
+        isolated = patch.dict(os.environ, environment, clear=True)
+        isolated.start()
+        self.addCleanup(isolated.stop)
+
     def test_ordinary_defaults_keep_four_workers_and_original_categories(
         self,
     ) -> None:
         with (
             patch.object(sys, "argv", ["python_tests"]),
-            patch.object(test_run, "run_python", return_value=0) as run,
+            patch.object(python_tests, "run_python", return_value=0) as run,
         ):
             self.assertEqual(python_tests.main(), 0)
         command = run.call_args.args[0]
@@ -47,7 +57,7 @@ class PythonProcessRoutingTests(unittest.TestCase):
         ]
         with (
             patch.object(sys, "argv", ["python_tests", *extra]),
-            patch.object(test_run, "run_python", return_value=7) as run,
+            patch.object(python_tests, "run_python", return_value=7) as run,
         ):
             self.assertEqual(python_tests.main(), 7)
         command = run.call_args.args[0]
@@ -70,10 +80,23 @@ class PythonProcessRoutingTests(unittest.TestCase):
             patch.object(
                 surreal_server, "reference_state", side_effect=lambda state: state
             ),
+            patch.object(
+                python_tests.native_tests,
+                "worker_binary",
+                return_value=Path("/selected/worker"),
+            ) as worker,
+            patch.object(
+                python_tests.native_tests,
+                "worker_binding",
+                wraps=python_tests.native_tests.worker_binding,
+            ) as binding,
             patch.object(surreal_server, "observer", return_value=19) as placed,
-            patch.object(test_run, "run_python") as run,
+            patch.object(python_tests, "run_python") as run,
         ):
             self.assertEqual(python_tests.main(), 19)
+        worker.assert_called_once()
+        binding.assert_called_once_with(Path("/selected/worker"))
+        self.assertEqual(placed.call_args.kwargs["profile"], "reference")
         state, command = placed.call_args.args
         self.assertEqual(state, Path("/owned/state"))
         self.assertEqual(
@@ -100,7 +123,7 @@ class PythonProcessRoutingTests(unittest.TestCase):
         with (
             patch.object(sys, "argv", ["python_tests", *extra]),
             patch.object(surreal_server, "observer") as placed,
-            patch.object(test_run, "run_python", return_value=0) as run,
+            patch.object(python_tests, "run_python", return_value=0) as run,
         ):
             self.assertEqual(python_tests.main(), 0)
         command = run.call_args.args[0]
@@ -115,10 +138,41 @@ class PythonProcessRoutingTests(unittest.TestCase):
     def test_managed_child_requires_the_declared_route(self) -> None:
         with (
             patch.object(sys, "argv", ["python_tests", "--managed-primary-child"]),
-            patch.object(test_run, "run_python") as run,
+            patch.object(python_tests, "run_python") as run,
             self.assertRaises(ValueError),
         ):
             python_tests.main()
+        run.assert_not_called()
+
+    def test_functional_native_parent_reexecutes_in_declared_observer(self) -> None:
+        extra = ["-m", "component", "-k", "flash"]
+        with (
+            patch.object(sys, "argv", ["python_tests", *extra]),
+            patch.dict(
+                os.environ,
+                {
+                    "PSE_NATIVE_OPERATION": "/owned/operation",
+                    "PSE_SURREAL_STATE": "/owned/state",
+                },
+            ),
+            patch.object(surreal_server, "observer", return_value=21) as placed,
+            patch.object(python_tests, "run_python") as run,
+        ):
+            self.assertEqual(python_tests.main(), 21)
+        self.assertEqual(
+            placed.call_args.args,
+            (
+                Path("/owned/state"),
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.python_tests",
+                    *extra,
+                    "--functional-observer-child",
+                ],
+            ),
+        )
+        self.assertEqual(placed.call_args.kwargs, {"profile": "exclusive-observer"})
         run.assert_not_called()
 
     def test_managed_route_requires_selected_state(self) -> None:
@@ -134,6 +188,6 @@ class PythonProcessRoutingTests(unittest.TestCase):
     def test_child_signal_status_keeps_shell_semantics(self) -> None:
         with (
             patch.object(sys, "argv", ["python_tests"]),
-            patch.object(test_run, "run_python", return_value=-signal.SIGTERM),
+            patch.object(python_tests, "run_python", return_value=-signal.SIGTERM),
         ):
             self.assertEqual(python_tests.main(), 128 + signal.SIGTERM)

@@ -133,7 +133,7 @@ class ProducerDeploymentCollectionTests(unittest.TestCase):
 
     @staticmethod
     def item(name: str, *markers: str) -> Mock:
-        item = Mock(nodeid=name)
+        item = Mock(nodeid=name, fixturenames=[])
         item.iter_markers.return_value = [
             SimpleNamespace(name=marker) for marker in markers
         ]

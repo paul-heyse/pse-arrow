@@ -37,7 +37,13 @@ class NativeOperationTests(unittest.TestCase):
         environment = {
             name: value
             for name, value in os.environ.items()
-            if name not in {operation.MARKER, "PSE_NATIVE_HANDOFF"}
+            if name
+            not in {
+                operation.MARKER,
+                "PSE_NATIVE_HANDOFF",
+                pse_env.host.MARKER,
+                "PSE_ADMISSION_DEADLINE",
+            }
         }
         isolated = patch.dict(os.environ, environment, clear=True)
         isolated.start()
@@ -83,7 +89,12 @@ class NativeOperationTests(unittest.TestCase):
         while not path.exists():
             if process is not None and process.poll() is not None:
                 self.fail(
-                    f"native fixture exited before admission: {process.returncode}"
+                    f"native fixture exited before admission: {process.returncode}; "
+                    + (
+                        (path.parent / "fixture.log").read_text()[-3000:]
+                        if (path.parent / "fixture.log").is_file()
+                        else ""
+                    )
                 )
             if time.monotonic() >= deadline:
                 self.fail("native fixture did not admit within its bounded deadline")
@@ -102,11 +113,19 @@ class NativeOperationTests(unittest.TestCase):
             **{
                 name: value
                 for name, value in os.environ.items()
-                if name not in {operation.MARKER, "PSE_NATIVE_HANDOFF"}
+                if name
+                not in {
+                    operation.MARKER,
+                    "PSE_NATIVE_HANDOFF",
+                    pse_env.host.MARKER,
+                    "PSE_ADMISSION_DEADLINE",
+                }
             },
             "PSE_NATIVE_CACHE": str(base),
             "PSE_NATIVE_CAPABILITIES": "",
             "PSE_MEMORY_MAX": "512M",
+            "PSE_RESOURCE_CLASS": "light",
+            **pse_env.manager_environment(),
         }
 
     def fixture_command(
@@ -120,8 +139,12 @@ class NativeOperationTests(unittest.TestCase):
         # child observes and validates its actual unit and invocation normally.
         with patch.object(operation, "scope_owner", return_value=None):
             prefix = pse_env.placement(environment, native=True)
+        allocation = pse_env.host.inherit(environment)
+        self.assertIsNotNone(allocation, "fixture must own its host allocation")
+        assert allocation is not None
+        self.addCleanup(allocation.release)
         self.assertTrue(prefix, "independent fixture requires the local user manager")
-        self.assertIn("MemoryMax=512M", prefix)
+        self.assertIn(f"MemoryMax={512 * (1 << 20)}", prefix)
         unit = next(
             argument.removeprefix("--unit=")
             for argument in prefix
@@ -166,6 +189,8 @@ class NativeOperationTests(unittest.TestCase):
                 {
                     operation.MARKER: "/outer/.operations/owner.json",
                     "PSE_NATIVE_HANDOFF": "/outer/.operations/handoff.json",
+                    pse_env.host.MARKER: "/outer/host/" + "c" * 32,
+                    "PSE_ADMISSION_DEADLINE": "1",
                     "PSE_FIXTURE_CALLER": "preserved",
                 },
             ),
@@ -174,6 +199,8 @@ class NativeOperationTests(unittest.TestCase):
             environment = self.fixture_environment(base)
             self.assertNotIn(operation.MARKER, environment)
             self.assertNotIn("PSE_NATIVE_HANDOFF", environment)
+            self.assertNotIn(pse_env.host.MARKER, environment)
+            self.assertNotIn("PSE_ADMISSION_DEADLINE", environment)
             self.assertEqual(environment["PSE_NATIVE_CACHE"], str(base))
             self.assertEqual(environment["PSE_FIXTURE_CALLER"], "preserved")
             self.assertEqual(
@@ -752,7 +779,13 @@ class NativeOperationTests(unittest.TestCase):
                 "$literal",
             ],
             cwd=cache.ROOT,
-            env={**os.environ, "PSE_NATIVE_CAPABILITIES": "", "PSE_MEMORY_MAX": "off"},
+            env={
+                **os.environ,
+                "PSE_NATIVE_CAPABILITIES": "",
+                "PSE_MEMORY_MAX": "512M",
+                "PSE_RESOURCE_CLASS": "light",
+                **pse_env.manager_environment(),
+            },
             check=True,
             capture_output=True,
             text=True,
@@ -769,6 +802,7 @@ class NativeOperationTests(unittest.TestCase):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 timeout=10,
+                env={**os.environ, **pse_env.manager_environment()},
             ).returncode
             == 0
         ):
@@ -900,18 +934,18 @@ n.write_json(base/'worker-ready.json', {'scope':record['scope'],'operation':str(
 deadline=time.monotonic()+30
 while not (base/'stop').exists() and time.monotonic()<deadline: time.sleep(.02)
 """
-            launcher = """import json, sys, subprocess, time
+            launcher = """import json, os, sys, subprocess, time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
-from scripts import native_cache as c, native_operation as n, surreal_server as s
+from scripts import native_cache as c, native_operation as n, surreal_server as s, host_admission as h
 base=Path(sys.argv[1]); state=base/'disposable-state'
 def builder(stage, work):
  (stage/'lib').mkdir(); (stage/'lib/a').write_text('original archive')
 generation=c.prepare(base,'fixture',{'id':1},('lib/a',),builder)
-unit=s.worker_unit(state,0); handoff=n.prepare_handoff(unit)
+unit=s.worker_unit(state,0); owner=h.inherit(os.environ); assert owner is not None; owner.register(unit); handoff=n.prepare_handoff(unit)
 allocation={'native_worker_memory_bytes':256*1024**2}
 command=s.worker_scope_command(state,0,allocation,[sys.executable,'-c',sys.argv[2],str(base),str(generation)],capabilities=())
 worker=subprocess.Popen(command,env=s.worker_environment(state,0,allocation,handoff))
@@ -919,6 +953,7 @@ n.write_json(base/'launcher-ready.json',{'scope':n.scope_owner(),'generation':st
 while worker.poll() is None: time.sleep(.02)
 """
             log = (base / "fixture.log").open("w")
+            self.addCleanup(log.close)
             environment = self.fixture_environment(base)
             process = subprocess.Popen(
                 self.fixture_command(
@@ -1040,6 +1075,7 @@ record=n._record(n.current()); n.write_json(base/'cancel-ready.json',{'record':r
 time.sleep(30)
 """
             log = (base / "cancel.log").open("w")
+            self.addCleanup(log.close)
             environment = self.fixture_environment(base)
             process = subprocess.Popen(
                 self.fixture_command(

@@ -41,3 +41,11 @@ FASTMCP_CHECK_FOR_UPDATES = "off"
 # (`codex -c mcp_servers.rust-analyzer.enabled=true`).
 [mcp_servers.rust-analyzer]
 enabled = false
+
+# Machine-local attachment to the existing owned server; no embedded datastore or adapter.
+# Reconnect after state/port/credential changes: Codex caches helper headers.
+[mcp_servers.pse-surreal]
+url = "http://127.0.0.1:18240/mcp"
+enabled = false
+enabled_tools = ["info", "list", "query"]
+http_headers_helper = "python3 /home/paul/pse-arrow/scripts/surreal_server.py mcp-headers --state /home/paul/.local/state/pse-arrow/surreal-functional-v2 --expected-endpoint http://127.0.0.1:18240/mcp"

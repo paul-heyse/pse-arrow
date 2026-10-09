@@ -24,12 +24,12 @@ import shlex
 import subprocess
 import sys
 from pathlib import Path
-
-from scripts.test_run import run_rust
+from typing import TYPE_CHECKING
 
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from typing import TYPE_CHECKING
+
+from scripts.test_run import run_rust
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

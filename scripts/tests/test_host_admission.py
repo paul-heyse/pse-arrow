@@ -6,6 +6,10 @@
 from __future__ import annotations
 
 import contextlib
+import fcntl
+import os
+import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -21,6 +25,527 @@ class HostAdmissionTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.directory = Path(temporary.name) / "admission"
+
+    def test_readonly_snapshot_preserves_metadata_bytes_inodes_and_modes(self) -> None:
+        owner = host.acquire_light_control(
+            directory=self.directory, deadline=time.monotonic() + 1
+        )
+        paths = [
+            self.directory,
+            self.directory / ".lock",
+            self.directory / "allocations.json",
+        ]
+        before = [
+            (
+                p.stat().st_ino,
+                p.stat().st_mode,
+                p.stat().st_mtime_ns,
+                p.read_bytes() if p.is_file() else None,
+            )
+            for p in paths
+        ]
+        with patch.object(
+            host, "reconcile", side_effect=AssertionError("reconciliation")
+        ):
+            snapshot = host.readonly_snapshot(
+                self.directory, deadline=time.monotonic() + 1
+            )
+        snapshot["owners"][owner.nonce]["units"]["pse-detached.scope"] = {}
+        after = [
+            (
+                p.stat().st_ino,
+                p.stat().st_mode,
+                p.stat().st_mtime_ns,
+                p.read_bytes() if p.is_file() else None,
+            )
+            for p in paths
+        ]
+        self.assertEqual(before, after)
+        self.assertNotIn(
+            "pse-detached.scope",
+            host.readonly_snapshot(self.directory, deadline=time.monotonic() + 1)[
+                "owners"
+            ][owner.nonce]["units"],
+        )
+
+    def test_snapshot_missing_unsafe_and_corrupt_state_never_repairs(self) -> None:
+        with self.assertRaises(OSError):
+            host.readonly_snapshot(self.directory, deadline=time.monotonic() + 1)
+        self.assertFalse(self.directory.exists())
+        host.acquire_light_control(
+            directory=self.directory, deadline=time.monotonic() + 1
+        )
+        ledger = self.directory / "allocations.json"
+        ledger.chmod(0o644)
+        with self.assertRaisesRegex(host.AdmissionError, "Unsafe admission ledger"):
+            host.readonly_snapshot(self.directory, deadline=time.monotonic() + 1)
+        self.assertEqual(ledger.stat().st_mode & 0o777, 0o644)
+        ledger.chmod(0o600)
+        ledger.write_text('{"version":1,"owners":{"bad":{}}}')
+        before = ledger.read_bytes()
+        with self.assertRaises(host.AdmissionError):
+            host.readonly_snapshot(self.directory, deadline=time.monotonic() + 1)
+        self.assertEqual(ledger.read_bytes(), before)
+
+    def test_snapshot_and_control_admission_locks_obey_absolute_deadline(self) -> None:
+        host.acquire_light_control(
+            directory=self.directory, deadline=time.monotonic() + 1
+        )
+        descriptor = os.open(self.directory / ".lock", os.O_RDWR)
+        self.addCleanup(os.close, descriptor)
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        before = (self.directory / "allocations.json").read_bytes()
+        for action in (host.readonly_snapshot, host.acquire_light_control):
+            started = time.monotonic()
+            with self.assertRaisesRegex(host.AdmissionError, "deadline"):
+                action(directory=self.directory, deadline=started + 0.03)
+            self.assertLess(time.monotonic() - started, 0.2)
+        self.assertEqual((self.directory / "allocations.json").read_bytes(), before)
+
+    def test_control_keeps_stale_owners_charged_and_never_reconciles_services(
+        self,
+    ) -> None:
+        with (
+            patch.object(host, "reconcile", side_effect=AssertionError("reconcile")),
+            patch.object(
+                host, "drain_borrowed_services", side_effect=AssertionError("drain")
+            ),
+            patch.object(
+                surreal_server, "unpark_service", side_effect=AssertionError("unpark")
+            ),
+        ):
+            owner = host.acquire_light_control(
+                directory=self.directory, deadline=time.monotonic() + 1
+            )
+            with host.allocation_metadata(self.directory) as state:
+                state["owners"][owner.nonce]["pid"] = -1
+                state["owners"][owner.nonce]["start"] = "gone"
+                state["owners"][owner.nonce]["service"] = "/missing/service"
+            second = host.acquire_light_control(
+                directory=self.directory, deadline=time.monotonic() + 1
+            )
+            self.assertTrue(
+                host.release_light_control(second, deadline=time.monotonic() + 1)
+            )
+            self.assertIn(
+                owner.nonce,
+                host.readonly_snapshot(self.directory, deadline=time.monotonic() + 1)[
+                    "owners"
+                ],
+            )
+
+    def test_control_cleanup_retains_active_unknown_and_expired_ownership(self) -> None:
+        owner = host.acquire_light_control(
+            directory=self.directory, deadline=time.monotonic() + 1
+        )
+        owner.register("pse-control.scope", deadline=time.monotonic() + 1)
+        for observation in (
+            {"LoadState": "loaded", "ActiveState": "active", "ControlGroup": "/g"},
+            ValueError("unavailable"),
+        ):
+            mocked = (
+                patch.object(host, "control_unit_observation", side_effect=observation)
+                if isinstance(observation, Exception)
+                else patch.object(
+                    host, "control_unit_observation", return_value=observation
+                )
+            )
+            with mocked:
+                self.assertFalse(
+                    host.release_light_control(owner, deadline=time.monotonic() + 0.03)
+                )
+        self.assertFalse(
+            host.release_light_control(owner, deadline=time.monotonic() - 1)
+        )
+        self.assertIn(
+            owner.nonce,
+            host.readonly_snapshot(self.directory, deadline=time.monotonic() + 1)[
+                "owners"
+            ],
+        )
+        with patch.object(
+            host,
+            "control_unit_observation",
+            return_value={
+                "LoadState": "not-found",
+                "ActiveState": "inactive",
+                "ControlGroup": "",
+            },
+        ):
+            self.assertTrue(
+                host.release_light_control(owner, deadline=time.monotonic() + 1)
+            )
+
+    def test_control_cleanup_waits_for_manager_drain_inside_original_clock(
+        self,
+    ) -> None:
+        owner = host.acquire_light_control(
+            directory=self.directory, deadline=time.monotonic() + 1
+        )
+        owner.register("pse-control.scope", deadline=time.monotonic() + 1)
+        deadline = time.monotonic() + 0.1
+        with (
+            patch.object(host, "retire_light_control", return_value=True),
+            patch.object(
+                host,
+                "control_unit_observation",
+                side_effect=[
+                    {
+                        "LoadState": "loaded",
+                        "ActiveState": "active",
+                        "ControlGroup": "/g",
+                    },
+                    {
+                        "LoadState": "not-found",
+                        "ActiveState": "inactive",
+                        "ControlGroup": "",
+                    },
+                ],
+            ) as observe,
+        ):
+            self.assertTrue(host.release_light_control(owner, deadline=deadline))
+        self.assertEqual(observe.call_count, 2)
+        self.assertTrue(
+            all(call.args[1] == deadline for call in observe.call_args_list)
+        )
+
+    def test_parent_configuration_lock_uses_control_deadline(self) -> None:
+        host.protected(self.directory)
+        path = self.directory / ".parent-update.lock"
+        descriptor = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
+        self.addCleanup(os.close, descriptor)
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        started = time.monotonic()
+        with (
+            self.assertRaisesRegex(host.AdmissionError, "deadline"),
+            host.parent_update(self.directory, deadline=started + 0.03),
+        ):
+            self.fail("lock acquired")
+        self.assertLess(time.monotonic() - started, 0.2)
+
+    def test_control_wait_and_cancellation_use_original_deadline(self) -> None:
+        started = time.monotonic()
+        # A descendant inherits stdout: pipe-based subprocess.run cleanup would
+        # wait for it after killing the direct child. Regular-file capture cannot.
+        program = "import subprocess,time,sys; subprocess.Popen([sys.executable,'-c','import time; time.sleep(.08)']); time.sleep(1)"
+        with self.assertRaises(subprocess.TimeoutExpired):
+            host.control_run(
+                [sys.executable, "-c", program], env=os.environ, deadline=started + 0.04
+            )
+        self.assertLess(time.monotonic() - started, 0.2)
+
+    def test_readonly_inheritance_releases_lock_before_unit_observation(self) -> None:
+        owner = host.acquire_light_control(
+            directory=self.directory, deadline=time.monotonic() + 1
+        )
+        group = host.operation.process_group(os.getpid())
+        with host.allocation_metadata(self.directory) as state:
+            state["owners"][owner.nonce]["units"]["pse-owned.scope"] = {
+                "group": group,
+                "invocation": "a" * 32,
+            }
+
+        def observe(_unit: str, _deadline: float | None) -> dict[str, str]:
+            fd = os.open(self.directory / ".lock", os.O_RDWR)
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            finally:
+                os.close(fd)
+            return {"ControlGroup": group, "InvocationID": "a" * 32}
+
+        before = (self.directory / "allocations.json").read_bytes()
+        with patch.object(host, "control_unit_observation", side_effect=observe):
+            inherited = host.inherit(owner.environment(), deadline=time.monotonic() + 1)
+        assert inherited is not None
+        self.assertEqual(inherited.nonce, owner.nonce)
+        self.assertEqual((self.directory / "allocations.json").read_bytes(), before)
+
+    def test_fixed_control_child_binds_only_its_actual_scope(self) -> None:
+        owner = host.acquire_light_control(
+            directory=self.directory, deadline=time.monotonic() + 1
+        )
+        owner.register(
+            "pse-control-" + "b" * 32 + ".scope", deadline=time.monotonic() + 1
+        )
+        with (
+            patch.object(
+                host.operation, "process_group", return_value="/control/child"
+            ),
+            patch.object(
+                host,
+                "control_unit_observation",
+                return_value={"ControlGroup": "/control", "InvocationID": "c" * 32},
+            ),
+            patch.object(host, "group_identity", return_value=91),
+        ):
+            verified = host.verify_light_control_child(
+                owner.environment(), deadline=time.monotonic() + 1
+            )
+        self.assertEqual(verified.nonce, owner.nonce)
+        record = host.readonly_snapshot(self.directory, deadline=time.monotonic() + 1)[
+            "owners"
+        ][owner.nonce]
+        self.assertEqual(
+            record["units"],
+            {
+                "pse-control-" + "b" * 32 + ".scope": {
+                    "group": "/control",
+                    "invocation": "c" * 32,
+                    "inode": 91,
+                }
+            },
+        )
+        with (
+            patch.object(host.operation, "process_group", return_value="/outside"),
+            patch.object(
+                host,
+                "control_unit_observation",
+                return_value={"ControlGroup": "/control", "InvocationID": "c" * 32},
+            ),
+            self.assertRaisesRegex(host.AdmissionError, "outside"),
+        ):
+            host.verify_light_control_child(
+                owner.environment(), deadline=time.monotonic() + 1
+            )
+
+    def test_bounded_inheritance_and_control_fallback_reject_stale_bound_identity(
+        self,
+    ) -> None:
+        owner = host.acquire_light_control(
+            directory=self.directory, deadline=time.monotonic() + 1
+        )
+        unit = "pse-control-" + "b" * 32 + ".scope"
+        owner.register(unit, deadline=time.monotonic() + 1)
+        with host.allocation_metadata(self.directory) as state:
+            record = state["owners"][owner.nonce]
+            record["pid"] = os.getppid()
+            record["start"] = host.operation.start_identity(os.getppid())
+            record["units"][unit] = {
+                "group": "/control",
+                "invocation": "c" * 32,
+                "inode": 91,
+            }
+        ledger = self.directory / "allocations.json"
+        before = (ledger.read_bytes(), ledger.stat().st_ino)
+        for invocation, inode in (("d" * 32, 91), ("c" * 32, 92)):
+            with (
+                self.subTest(invocation=invocation, inode=inode),
+                patch.object(
+                    host.operation, "process_group", return_value="/control/child"
+                ),
+                patch.object(
+                    host,
+                    "control_unit_observation",
+                    return_value={
+                        "ControlGroup": "/control",
+                        "InvocationID": invocation,
+                    },
+                ),
+                patch.object(host, "group_identity", return_value=inode),
+            ):
+                with self.assertRaisesRegex(host.AdmissionError, "actual cgroup"):
+                    host.inherit(owner.environment(), deadline=time.monotonic() + 1)
+                with self.assertRaisesRegex(host.AdmissionError, "outside"):
+                    host.verify_light_control_child(
+                        owner.environment(), deadline=time.monotonic() + 1
+                    )
+            self.assertEqual((ledger.read_bytes(), ledger.stat().st_ino), before)
+        with (
+            patch.object(
+                host.operation, "process_group", return_value="/control/child"
+            ),
+            patch.object(
+                host,
+                "control_unit_observation",
+                return_value={"ControlGroup": "/control", "InvocationID": "c" * 32},
+            ),
+            patch.object(host, "group_identity", return_value=91),
+        ):
+            inherited = host.inherit(owner.environment(), deadline=time.monotonic() + 1)
+            assert inherited is not None
+            self.assertEqual(inherited.nonce, owner.nonce)
+            with self.assertRaisesRegex(host.AdmissionError, "already bound"):
+                owner.bind(unit, deadline=time.monotonic() + 1)
+        self.assertEqual((ledger.read_bytes(), ledger.stat().st_ino), before)
+
+    def test_unbound_control_child_refuses_dead_launch_parent_without_writes(
+        self,
+    ) -> None:
+        owner = host.acquire_light_control(
+            directory=self.directory, deadline=time.monotonic() + 1
+        )
+        owner.register(
+            "pse-control-" + "b" * 32 + ".scope", deadline=time.monotonic() + 1
+        )
+        with host.allocation_metadata(self.directory) as state:
+            state["owners"][owner.nonce].update(pid=-1, start="gone")
+        ledger = self.directory / "allocations.json"
+        before = ledger.read_bytes()
+        with self.assertRaisesRegex(host.AdmissionError, "no longer live"):
+            host.verify_light_control_child(
+                owner.environment(), deadline=time.monotonic() + 1
+            )
+        self.assertEqual(ledger.read_bytes(), before)
+
+    def test_control_cleanup_uses_bound_empty_kernel_lifetime_before_gc(self) -> None:
+        owner = host.acquire_light_control(
+            directory=self.directory, deadline=time.monotonic() + 1
+        )
+        unit = "pse-control-" + "b" * 32 + ".scope"
+        owner.register(unit, deadline=time.monotonic() + 1)
+        with host.allocation_metadata(self.directory) as state:
+            state["owners"][owner.nonce]["units"][unit] = {
+                "group": "/control",
+                "invocation": "c" * 32,
+                "inode": 91,
+            }
+        with (
+            patch.object(host, "group_identity", return_value=91),
+            patch.object(host.operation, "populated", return_value=False),
+            patch.object(
+                host,
+                "control_unit_observation",
+                return_value={
+                    "LoadState": "loaded",
+                    "ActiveState": "active",
+                    "ControlGroup": "/control",
+                    "InvocationID": "c" * 32,
+                },
+            ),
+            patch.object(host, "retire_light_control", return_value=True),
+        ):
+            self.assertTrue(
+                host.release_light_control(owner, deadline=time.monotonic() + 1)
+            )
+
+    def test_control_retirement_stops_only_empty_matching_owned_units(self) -> None:
+        owner = host.acquire_light_control(
+            directory=self.directory, deadline=time.monotonic() + 1
+        )
+        unit = "pse-control-" + "b" * 32 + ".scope"
+        parent = "/pse.slice/" + host.allocation_slice(owner)
+        group = parent + "/" + unit
+        owner.register(unit, deadline=time.monotonic() + 1)
+        with host.allocation_metadata(self.directory) as state:
+            state["owners"][owner.nonce]["units"][unit] = {
+                "group": group,
+                "invocation": "c" * 32,
+                "inode": 91,
+            }
+        record = host.readonly_snapshot(self.directory, deadline=time.monotonic() + 1)[
+            "owners"
+        ][owner.nonce]
+
+        def observe(name: str, _deadline: float) -> dict[str, str]:
+            return {
+                "LoadState": "loaded",
+                "ActiveState": "active",
+                "ControlGroup": parent if name.endswith(".slice") else group,
+                "InvocationID": "c" * 32,
+            }
+
+        deadline = time.monotonic() + 1
+        with (
+            patch.object(host, "control_unit_observation", side_effect=observe),
+            patch.object(
+                host,
+                "group_identity",
+                side_effect=lambda selected: 92 if selected == parent else 91,
+            ),
+            patch.object(host.operation, "populated", return_value=False),
+            patch.object(
+                host,
+                "control_run",
+                return_value=subprocess.CompletedProcess([], 0, "", ""),
+            ) as run,
+        ):
+            self.assertTrue(host.retire_light_control(owner, record, deadline=deadline))
+        self.assertEqual(
+            [call.args[0][-1] for call in run.call_args_list],
+            [unit, host.allocation_slice(owner)],
+        )
+        self.assertTrue(
+            all(call.kwargs["deadline"] == deadline for call in run.call_args_list)
+        )
+        for invalid in (
+            "parent-populated",
+            "wrong-invocation",
+            "wrong-inode",
+            "stop-failure",
+        ):
+            with (
+                self.subTest(invalid=invalid),
+                patch.object(
+                    host,
+                    "control_unit_observation",
+                    side_effect=(
+                        lambda name, clock: {
+                            **observe(name, clock),
+                            "InvocationID": "d" * 32,
+                        }
+                    )
+                    if invalid == "wrong-invocation"
+                    else observe,
+                ),
+                patch.object(
+                    host,
+                    "group_identity",
+                    side_effect=lambda selected, selected_case=invalid: (
+                        92
+                        if selected == parent
+                        else 93
+                        if selected_case == "wrong-inode"
+                        else 91
+                    ),
+                ),
+                patch.object(
+                    host.operation,
+                    "populated",
+                    side_effect=lambda selected, selected_case=invalid: (
+                        selected_case == "parent-populated" and selected == parent
+                    ),
+                ),
+                patch.object(
+                    host,
+                    "control_run",
+                    return_value=subprocess.CompletedProcess(
+                        [], 1 if invalid == "stop-failure" else 0, "", ""
+                    ),
+                ) as run,
+            ):
+                self.assertFalse(
+                    host.retire_light_control(owner, record, deadline=deadline)
+                )
+                if invalid != "stop-failure":
+                    run.assert_not_called()
+                else:
+                    self.assertFalse(
+                        host.release_light_control(owner, deadline=deadline)
+                    )
+                    self.assertIn(
+                        owner.nonce,
+                        host.readonly_snapshot(self.directory, deadline=deadline)[
+                            "owners"
+                        ],
+                    )
+
+    def test_control_enforcement_calls_share_deadline(self) -> None:
+        owner = host.acquire_light_control(
+            directory=self.directory, deadline=time.monotonic() + 1
+        )
+        deadline = time.monotonic() + 1
+        with (
+            patch.object(
+                host,
+                "control_run",
+                return_value=subprocess.CompletedProcess([], 0, "", ""),
+            ) as run,
+            patch("scripts.pse_env.limits", return_value=[]),
+            patch.object(host, "root_path", return_value=self.directory),
+        ):
+            host.enforce_parent(owner.profile, {}, deadline=deadline)
+        self.assertEqual(run.call_args.kwargs["deadline"], deadline)
+        self.assertEqual(run.call_args.kwargs["maximum"], 5)
 
     def test_profile_widening_preserves_reference_and_role_sums(self) -> None:
         self.assertEqual(host.select("functional", "64G").name, "wide")

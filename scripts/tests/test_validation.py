@@ -10,6 +10,7 @@ import io
 import json
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -72,7 +73,8 @@ class ValidationTests(unittest.TestCase):
             self.assertFalse((root / "injected").exists())
 
     def test_assessment_recipe_preserves_reason_and_output_arguments(self) -> None:
-        source = (Path(__file__).resolve().parents[2] / "justfile").read_text()
+        repository = Path(__file__).resolve().parents[2]
+        source = (repository / "justfile").read_text()
         match = re.search(
             r"(?m)^\[positional-arguments\]\n\[script\]\nassessment[^\n]*:\n(?:[ \t]+[^\n]*\n)+",
             source,
@@ -83,32 +85,82 @@ class ValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "justfile").write_text(
-                'set script-interpreter := ["bash", "-euo", "pipefail"]\n'
+                'set script-interpreter := ["bash", "scripts/pse-env", "--", "bash", "-euo", "pipefail"]\n'
                 'py := "' + sys.executable + '"\n' + match.group()
             )
             (root / "scripts").mkdir()
             (root / "scripts/validation.py").write_text(
-                "import json, pathlib, sys\n"
-                "pathlib.Path('arguments.json').write_text(json.dumps(sys.argv[1:]))\n"
+                "import json, os, pathlib, sys\n"
+                "from dataclasses import asdict\n"
+                "from unittest.mock import patch\n"
+                f"sys.path.insert(0, {str(repository)!r})\n"
+                "del sys.modules['scripts']\n"
+                "from scripts import preflight, validation\n"
+                "captured = {'arguments': sys.argv[1:], 'threads': {key: os.environ[key] for key in ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS')}}\n"
+                "def fresh(root, path, label):\n"
+                "    captured['output'] = str(path)\n"
+                "    path.mkdir(parents=True)\n"
+                "    return path.resolve()\n"
+                "def run(root, output, gates, **kwargs):\n"
+                "    captured['gates'] = [asdict(gate) for gate in gates]\n"
+                "    captured['change_reason'] = kwargs['change_reason']\n"
+                "    (output / 'checks.json').write_text(json.dumps({'checks': []}))\n"
+                "    return 0\n"
+                "with patch.object(validation, 'fresh_output', side_effect=fresh), patch.object(validation, 'run_gates', side_effect=run), patch.object(preflight, 'main', return_value=0) as prerequisite:\n"
+                "    code = validation.main()\n"
+                "    captured['preflight'] = [call.args[0] for call in prerequisite.call_args_list]\n"
+                "pathlib.Path('arguments.json').write_text(json.dumps(captured))\n"
+                "raise SystemExit(code)\n"
             )
-            # Argument forwarding is the scope; native lifecycle is exercised by
-            # its own operation controls rather than invoking setup in this fixture.
+            # The real Just binding and real validation parser run; gates and
+            # prerequisites are observation controls, never product workloads.
             boundary = root / "scripts/pse-env"
             boundary.write_text(
-                '#!/usr/bin/env bash\nwhile [[ "$1" != "--" ]]; do shift; done\nshift\nexec "$@"\n'
+                '#!/usr/bin/env bash\n[[ "$1" == "--" ]] || exit 99\nshift\nexec "$@"\n'
             )
             boundary.chmod(0o755)
             reason = 'literal "quotes"; $HOME `pwd` $(touch injected)'
-            subprocess.run(
-                ["just", "assessment", "output with spaces", "--change-reason", reason],
-                cwd=root,
-                check=True,
-                capture_output=True,
-            )
-            self.assertEqual(
-                json.loads((root / "arguments.json").read_text()),
-                ["--output", "output with spaces", "--change-reason", reason],
-            )
+            output = "build/assessment/path with spaces"
+            for selection, names, prerequisites in (
+                (["--group", "ready"], ["skills-sync", "doctor"], []),
+                (
+                    ["--functional-scope", "native"],
+                    ["native-test"],
+                    [["native", "store"]],
+                ),
+            ):
+                arguments = [*selection, "--output", output, "--change-reason", reason]
+                subprocess.run(
+                    ["just", "assessment", *arguments],
+                    cwd=root,
+                    check=True,
+                    capture_output=True,
+                    env={
+                        **os.environ,
+                        "OMP_NUM_THREADS": "8",
+                        "OPENBLAS_NUM_THREADS": "8",
+                        "MKL_NUM_THREADS": "8",
+                    },
+                )
+                captured = json.loads((root / "arguments.json").read_text())
+                self.assertEqual(captured["arguments"], arguments)
+                self.assertEqual(captured["output"], output)
+                self.assertEqual(captured["change_reason"], reason)
+                self.assertEqual([gate["name"] for gate in captured["gates"]], names)
+                self.assertEqual(captured["preflight"], prerequisites)
+                self.assertEqual(
+                    captured["threads"],
+                    dict.fromkeys(
+                        ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"),
+                        "1",
+                    ),
+                )
+                if names == ["native-test"]:
+                    self.assertEqual(
+                        captured["gates"][0]["mode"], "native-force-validate"
+                    )
+                    self.assertEqual(captured["gates"][0]["profile"], "local")
+                shutil.rmtree(root / output)
             self.assertFalse((root / "injected").exists())
 
     def setUp(self) -> None:

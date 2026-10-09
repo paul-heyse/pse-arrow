@@ -1,0 +1,128 @@
+{
+  "fixed_window": {
+    "start_utc": "2026-10-06T04:00:00Z",
+    "cutoff_utc": "2026-10-09T10:52:57Z",
+    "start_local": "2026-10-06T00:00:00-04:00",
+    "cutoff_local": "2026-10-09T06:52:57-04:00"
+  },
+  "derived": {
+    "unique_attributed_wrappers": 26644,
+    "launches_with_recorded_native_exit": 16204,
+    "launches_without_recorded_native_exit": 8173,
+    "unique_truncated_wrappers": 2287,
+    "search_read_repeated_occurrences_after_first": 550,
+    "search_read_repeated_patterns": 257,
+    "qualifying_sessions_started_before_window": 6
+  },
+  "audited_leads": [
+    {
+      "category": "nonexistent-recipe",
+      "session": "01a11895-738b-7b92-a763-3ed32588e6c6",
+      "call_lines": [
+        447,
+        3031
+      ],
+      "output_lines": [
+        451,
+        3035
+      ],
+      "correction_line": 3039,
+      "sanitized_example": "just fmt-rust -> cargo fmt --all",
+      "interpretation": "Recoverable command-surface mismatch; prompt correction, not persistent inability."
+    },
+    {
+      "category": "invalid-test-filter",
+      "session": "01a11af7-d18d-7c32-9c3d-83ec7228d0d1",
+      "call_lines": [
+        7437
+      ],
+      "output_lines": [
+        7440
+      ],
+      "correction_line": 7444,
+      "sanitized_example": "bare name|name -> test(name) | test(name)",
+      "interpretation": "Selector grammar error, native exit94; correction attempted immediately."
+    },
+    {
+      "category": "empty-test-selection",
+      "session": "01a11af5-9952-71e1-964d-5ab6a3843304",
+      "call_lines": [
+        27018
+      ],
+      "output_lines": [
+        27021
+      ],
+      "sanitized_example": "nextest selected zero tests; native exit4",
+      "interpretation": "Explicit zero-tests verdict, not a successful test pass."
+    },
+    {
+      "category": "missing-native-python-route",
+      "session": "01a11066-ed5f-7943-9507-71a66b6bfb01",
+      "call_lines": [
+        7321
+      ],
+      "output_lines": [
+        7324
+      ],
+      "sanitized_example": ".venv/bin/python -m pytest -n 0 -m unit <test>",
+      "interpretation": "ImportError missing libmkl_gnu_thread.so.3; inspected native-execution environment next."
+    },
+    {
+      "category": "locked-metadata-mismatch",
+      "session": "01a11af5-9952-71e1-964d-5ab6a3843304",
+      "call_lines": [
+        2726
+      ],
+      "output_lines": [
+        2729
+      ],
+      "correction_lines": [
+        2735,
+        2743,
+        2748
+      ],
+      "sanitized_example": "native test -> pse-env metadata boundary native exit125",
+      "interpretation": "Concurrent manifest/lock mismatch, followed by metadata and lock-diff checks; cannot infer inadequate instructions."
+    },
+    {
+      "category": "canonical-store-selection",
+      "session": "01a11af7-d18d-7c32-9c3d-83ec7228d0d1",
+      "call_lines": [
+        2789
+      ],
+      "output_lines": [
+        2792,
+        2848,
+        2917,
+        2931
+      ],
+      "correction_lines": [
+        2796
+      ],
+      "sanitized_example": "--store default unavailable -> explicit native capabilities",
+      "interpretation": "Boundary refusal then actual test failure then two explicit one-test passes; recovery, with changing scientific/fixture scope."
+    },
+    {
+      "category": "cargo-lock-observation",
+      "session": "01a11068-fd28-7f62-bf5f-7917aa0b32d9",
+      "call_lines": [
+        273
+      ],
+      "output_lines": [
+        275
+      ],
+      "sanitized_example": "just check-package <package>",
+      "interpretation": "Actual launch observes build-directory lock; repeated tails/polls are not independent contention incidents."
+    },
+    {
+      "category": "repeated-log-tail",
+      "session": "01a10ee1-6c9b-7521-8d92-b37264f65756",
+      "call_lines": [
+        6427
+      ],
+      "sanitized_example": "tail -n 7 <assessment>/features-combinations.log",
+      "repetitions_same_session": 24,
+      "interpretation": "Repeated progress retrieval during long qualification; candidate convenience issue, not demonstrated wasted build work."
+    }
+  ]
+}

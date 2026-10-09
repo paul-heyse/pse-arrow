@@ -30,36 +30,74 @@ BUILD_TOOLS = {"cargo", "rustc", "cargo-nextest", "clippy-driver", "rustdoc", "m
 def systemctl(*args: str) -> str:
     result = subprocess.run(
         ["systemctl", "--user", *args],
+        env={**os.environ, **pse_env.manager_environment()},
         capture_output=True,
         text=True,
         check=False,
         timeout=10,
     )
+    if result.returncode:
+        raise ValueError(f"systemctl {args[0]} failed ({result.returncode})")
     return result.stdout
 
 
-def units() -> list[dict[str, str]]:
-    listed = json.loads(
-        systemctl("list-units", "pse-*", "--all", "--no-pager", "--output=json") or "[]"
-    )
+def parse_units(value: str) -> list[dict[str, str]]:
+    """Validate the manager's list before observing individual units."""
+    listed = json.loads(value)
+    if not isinstance(listed, list) or any(
+        not isinstance(unit, dict)
+        or not isinstance(unit.get("unit"), str)
+        or not unit["unit"].startswith("pse-")
+        or not isinstance(unit.get("active"), str)
+        for unit in listed
+    ):
+        raise ValueError("malformed systemctl unit list")
+    return listed
+
+
+def parse_properties(value: str, properties: tuple[str, ...]) -> dict[str, str]:
+    """Reject incomplete or disappeared observations without losing other units."""
+    lines = value.splitlines()
+    if any("=" not in line for line in lines):
+        raise ValueError("malformed systemctl unit properties")
+    fields = dict(line.split("=", 1) for line in lines)
+    if any(key not in fields for key in properties):
+        raise ValueError("incomplete systemctl unit properties")
+    if fields["LoadState"] == "not-found":
+        raise ValueError("unit disappeared during observation")
+    return fields
+
+
+def units() -> tuple[list[dict[str, str]] | None, list[str]]:
+    """Keep a failed list distinct from an empty list, and retain partial results."""
+    errors = []
+    try:
+        listed = parse_units(
+            systemctl("list-units", "pse-*", "--all", "--no-pager", "--output=json")
+        )
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        return None, [f"units unavailable: {type(error).__name__}: {error}"]
     found = []
+    properties = (
+        "MemoryCurrent",
+        "CPUUsageNSec",
+        "ActiveEnterTimestampMonotonic",
+        "ControlGroup",
+        "Slice",
+        "LoadState",
+        "ActiveState",
+    )
     for unit in listed:
         name = unit["unit"]
-        fields = dict(
-            line.split("=", 1)
-            for line in systemctl(
-                "show",
-                name,
-                "--property=MemoryCurrent",
-                "--property=CPUUsageNSec",
-                "--property=ActiveEnterTimestampMonotonic",
-                "--property=ControlGroup",
-                "--property=Slice",
-            ).splitlines()
-            if "=" in line
-        )
-        found.append({"unit": name, "active": unit.get("active", ""), **fields})
-    return found
+        try:
+            fields = parse_properties(
+                systemctl("show", name, *(f"--property={key}" for key in properties)),
+                properties,
+            )
+            found.append({"unit": name, "active": fields["ActiveState"], **fields})
+        except (OSError, ValueError, subprocess.SubprocessError) as error:
+            errors.append(f"{name} unavailable: {type(error).__name__}: {error}")
+    return found, errors
 
 
 def first_command(group: str) -> str:
@@ -115,29 +153,50 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true", help="structured output")
     args = parser.parse_args(argv)
-    observed = units()
-    builds = build_processes(ROOT)
-    selected = pse_env.slice_name(os.environ)
-    bounds = pse_env.limits(selected)
+    observed, errors = units()
+    units_available = observed is not None and not errors
+    try:
+        builds = build_processes(ROOT)
+    except OSError as error:
+        builds = None
+        errors.append(f"build processes unavailable: {error}")
+    selected = None
+    try:
+        selected = pse_env.slice_name(os.environ)
+        bounds = pse_env.limits(selected)
+    except (OSError, ValueError, pse_env.BoundaryError) as error:
+        bounds = None
+        errors.append(f"aggregate limits unavailable: {error}")
     if args.json:
         print(
             json.dumps(
                 {
                     "units": observed,
+                    "units_available": units_available,
+                    "observation_errors": errors,
                     "build_processes": [
                         {"pid": pid, "tool": tool, "cgroup": group, "command": command}
-                        for pid, tool, group, command in builds
-                    ],
+                        for pid, tool, group, command in (builds or [])
+                    ]
+                    if builds is not None
+                    else None,
                     "slice": selected,
                     "aggregate_limits": bounds,
                 },
                 indent=2,
             )
         )
-        return 0
+        return int(bool(errors))
+    for error in errors:
+        print(error, file=sys.stderr)
     print(
         f"slice: {selected or 'caller slice'}; aggregate limits: "
-        + (", ".join(f"{group} MemoryMax={value}" for group, value in bounds) or "none")
+        + (
+            "unavailable"
+            if bounds is None
+            else ", ".join(f"{group} MemoryMax={value}" for group, value in bounds)
+            or "none"
+        )
     )
     if observed:
         print(f"\n{'unit':58} {'state':8} {'memory':>7} {'up':>7}  command")
@@ -147,7 +206,7 @@ def main(argv: list[str] | None = None) -> int:
                 f" {elapsed(unit.get('ActiveEnterTimestampMonotonic', '')):>7}"
                 f"  {first_command(unit.get('ControlGroup', ''))}"
             )
-    else:
+    elif units_available:
         print("\nno pse-* units")
     if builds:
         print(
@@ -155,9 +214,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         for pid, tool, group, command in builds:
             print(f"  {pid:>8} {tool:14} {group[:44]:44} {command}")
-    else:
+    elif builds is not None:
         print("\nno build processes in this checkout")
-    return 0
+    return int(bool(errors))
 
 
 if __name__ == "__main__":

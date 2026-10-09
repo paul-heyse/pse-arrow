@@ -7,8 +7,18 @@ them. Plan 29 introduced most of it.
 
 ## One environment boundary: `scripts/pse-env`
 
-Every recipe line, script recipe and backtick runs through `scripts/pse-env` (the justfile's
-`set shell` and `set script-interpreter`), and any command can use it directly:
+Workload recipe lines and scripts run through `scripts/pse-env` (the justfile's
+`set shell` and `set script-interpreter`), and any workload command can use it directly.
+The fixed read-only `just activity` observer runs directly, without workload admission or
+compiler preparation, so unavailable admission remains diagnosable. Invoke it without an
+outer `scripts/pse-env` wrapper; it accepts only its observer options. Failed observations
+are reported as unavailable with partial independent observations retained.
+
+Recipe arguments remain positional data. A composed recipe supports a native mode across
+all stages or rejects it before effects: `just codegen` publishes the full target and accepts
+no arguments; `just codegen-check` compares it without first refreshing outputs.
+
+Any workload command can use the environment boundary directly:
 
 ```bash
 scripts/pse-env -- <command>               # checkout environment + its own capped scope
@@ -152,6 +162,10 @@ other's artifacts — ADR-0122). Remove a worktree with `git worktree remove <pa
   changed against REF (staged, unstaged, deleted, untracked), what that cannot cover
   (native feature-gated tests, Python consumers, generator inputs) and the exact command;
   `--run` runs it. Root build configuration widens it to the workspace.
+  This is a raw nextest route: it does not automatically associate a retained
+  canonical fixture with the managed runner's terminal report. Use `unit-package`
+  or the existing managed native recipes when that association is required;
+  inspect retained fixture diagnostics before intentional cleanup.
 - `PSE_NEXTEST_ACTION=list just <recipe> ...` shows a recipe's selection without running it.
 - Bare tools: `cargo t -p <pkg> -E 'package(<pkg>) & test(x)'` and `cargo c -p <pkg>` carry
   force-validation; plain `cargo nextest run`/`cargo check` do not.
@@ -169,6 +183,21 @@ other's artifacts — ADR-0122). Remove a worktree with `git worktree remove <pa
   `just native-python <output> --managed-primary-route` owns the native receipt route.
 - `just codegen-check` checks every generated output, including the native stub against the
   installed extension (rebuild it with `just py-sync` after a Rust API change).
+
+An extension-kind/path check and a matching Python lock describe what is installed;
+they do not prove that the extension incorporates current Rust source. After relevant
+Rust edits, use `just py-sync` for the default extension or `just py-sync-native` for
+the linked extension before inspecting Python behavior. Read-only queries do not trigger
+an automatic rebuild.
+
+Discover the native grammar with `just --usage check-package` and inspect composition
+with `just --show codegen`. For a focused machine-readable view, filter a transient
+`just --dump --dump-format json` result, for example
+`just --dump --dump-format json | jq '.recipes["check-package"]'`.
+Structured compiler feedback is available with
+`just check-package pse-structural --message-format json`:
+Cargo's `compiler-message` records carry the diagnostic and spans, while non-diagnostic
+records describe build progress. This does not measure compiler or solver performance.
 
 For managed durable studies, select the reference execution profile and an already
 built linked worker when creating state:
@@ -201,13 +230,19 @@ that failed and a non-zero status. The console stays short: each step's command 
 pass `--live` (`just hygiene --live`) to stream everything. `latest-<group>` beside the runs
 is a convenience; use the printed path.
 
-`seed-conformance`, `modeling-conformance` and `assessment` first run
+`seed-conformance` and `modeling-conformance` first run
 `scripts/preflight.py` for what they need (solver prefix, linked extension, manifest,
 canonical store), so a missing prerequisite exits 125 with its fix before native setup;
 `PSE_PREFLIGHT=off` proceeds without it (for example to collect partial evidence). A
 pass does not predict code, fixture or scientific failures. Python test collection exits
 125 with a `pse-env:` line when the installed native extension cannot load its libraries
 outside the native environment.
+
+`assessment` forwards its native flags unchanged and selects prerequisites from the
+chosen gates. For example, `just assessment --group ready` needs no native solver
+preparation. Read the printed run with `just result <run-path> --failures`; reader exit
+zero means the checkpoint was readable, not that its assessment passed. The
+[qualification guide](validation-assessment.md) owns result, reuse and completeness semantics.
 
 ## Hooks and permissions
 
@@ -241,9 +276,53 @@ What a session loads costs context and processes, so optional capabilities are o
   Codex 0.160 role files cannot change MCP servers, so there is no subagent-only setting.
   Codex runs `bash -lc` without direnv; prefix commands with `scripts/pse-env --`.
 
+**Native SurrealDB inspection.** This machine's `pse-surreal` registration is disabled
+by default. Start a fresh session with `codex -c mcp_servers.pse-surreal.enabled=true`.
+It attaches to the existing server's `http://127.0.0.1:18240/mcp`; application SDK traffic
+continues to use WebSocket. The supervisor's fixed `mcp-headers` action verifies the
+explicit owned state and endpoint and supplies the private selection VIEWER credential
+through Codex's header helper. It uses ordinary light admission, no compiler setup and
+one eight-second deadline. Failure does not start/reconcile the service or initialize a
+database. Never print or save the helper's Authorization output yourself.
+
+The exposed native tools are `info`, `list` and `query`; the database VIEWER authority
+enforces read access. Select namespace and database explicitly in every inspection call
+and establish existence with `list` before reading schema/indexes. Missing `pse/canonical`
+is an error to report, not permission to initialize it. Retained/quiesced contexts can be
+read independently of scientific write admission. Codex caches headers; reconnect or
+restart after state, port or credential changes and keep registration/helper endpoints
+matched. Do not launch `surreal mcp` on the persistent files: that opens another datastore.
+
+For scientific meaning use the typed APIs and exact identifiers described in
+[the substrate guide](surreal-substrate.md#typed-scientific-inspection), rather than
+interpreting raw rows as a qualified scientific result.
+
 **Semantic navigation, when text search is not enough.** rust-analyzer (Claude's LSP plugin,
 or the Codex MCP server when enabled) answers callers, implementations and type resolution
 across the workspace; `rust-analyzer.toml` gives it the force-validate feature and its own
 target directory, so it never waits on an agent's build lock. The library catalog
 (`library-catalog` MCP, `just library-catalog` to refresh) answers where a library item is
 used. Context7 serves current library documentation (`.agents/roles/worker.md`).
+
+## Explicit host controls
+
+The opt-in kernel and subprocess controls live in `scripts/tests/plan30_*_check.py`,
+separate from `just setup-test` discovery. Their environment switches and assertions are
+unchanged; setup discovery runs ordinary unit controls and requires zero skips. Use a new
+receipt directory for each explicitly selected host control:
+
+```bash
+PSE_PLAN30_PLACEMENT=1 PSE_PLAN30_RECEIPTS=build/placement-control-new \
+  scripts/pse-env --resource-class light -- .venv/bin/python -m unittest scripts.tests.plan30_placement_check
+PSE_PLAN30_PLACEMENT=1 PSE_PLAN30_RECEIPTS=build/capacity-control-new \
+  scripts/pse-env --resource-class light -- .venv/bin/python -m unittest scripts.tests.plan30_capacity_modes_check
+PSE_PLAN30_C_ACTUAL=build/resource-control-new \
+  scripts/pse-env --resource-class light -- .venv/bin/python -m unittest \
+  scripts.tests.plan30_resources_actual_check.ActualResourceControls.test_actual_runner_ownership_and_retention
+PSE_PLAN30_C_COLLECTION_ACTUAL=build/collection-control-new \
+  scripts/pse-env --resource-class light -- .venv/bin/python -m unittest \
+  scripts.tests.plan30_resources_actual_check.ActualResourceControls.test_nested_collection_preserves_parent_catalog_and_later_fixture_association
+```
+
+These commands exercise their named placement or filesystem ownership scope; they do not
+qualify scientific execution. Historical receipts retain their original module names.

@@ -37,9 +37,15 @@ class NativePythonImportIdentity(unittest.TestCase):
         self.package.mkdir(parents=True)
         (self.package / "__init__.py").write_text("from . import _native\n")
         (self.package / "_native.py").write_text("__version__ = 'compatible'\n")
+        fixture_package = self.package / "tests"
+        fixture_package.mkdir()
+        (fixture_package / "__init__.py").write_text("")
+        (fixture_package / "canonical_fixture.py").write_text(
+            "class CanonicalFixture: pass\n"
+        )
         self.environment = {
             **os.environ,
-            "PYTHONPATH": str(self.package.parent),
+            "PYTHONPATH": os.pathsep.join((str(self.package.parent), str(ROOT))),
             "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         }
 
@@ -48,7 +54,14 @@ class NativePythonImportIdentity(unittest.TestCase):
         with (
             patch.dict(os.environ, self.environment, clear=True),
             patch.object(
-                sys, "argv", ["native_tests", "python", f"--junitxml={report}"]
+                sys,
+                "argv",
+                [
+                    "native_tests",
+                    "python",
+                    "--functional-observer-child",
+                    f"--junitxml={report}",
+                ],
             ),
             patch.object(native_tests, "native_provenance") as provenance,
             patch.object(native_tests.subprocess, "call") as child,
@@ -141,6 +154,19 @@ class ExecutionContracts(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.output = Path(self.directory.name)
+        self.rust_invocation = self.output / "rust-invocation.json"
+        self.rust_invocation.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "nonce": "a" * 32,
+                    "kind": "rust",
+                    "selected": [],
+                    "terminal_owner": "assessment",
+                }
+            )
+        )
+        self.rust_invocation.chmod(0o600)
         binary = ROOT / "python/pse/_native.so"
         self.native_binary = self.enterContext(
             patch.object(native_tests, "python_native_binary", return_value=binary)
@@ -194,7 +220,12 @@ class ExecutionContracts(unittest.TestCase):
         selection = "test(=exact); literal $(must-not-expand)"
         with (
             patch.dict(
-                os.environ, {"PSE_NATIVE_PROVENANCE": str(provenance)}, clear=True
+                os.environ,
+                {
+                    "PSE_NATIVE_PROVENANCE": str(provenance),
+                    "PSE_TEST_INVOCATION": str(self.rust_invocation),
+                },
+                clear=True,
             ),
             patch.object(sys, "argv", ["native_tests", "rust", "-E", selection]),
             patch.object(
@@ -220,7 +251,12 @@ class ExecutionContracts(unittest.TestCase):
         )
         with (
             patch.dict(
-                os.environ, {"PSE_NATIVE_PROVENANCE": str(provenance)}, clear=True
+                os.environ,
+                {
+                    "PSE_NATIVE_PROVENANCE": str(provenance),
+                    "PSE_TEST_INVOCATION": str(self.rust_invocation),
+                },
+                clear=True,
             ),
             patch.object(sys, "argv", ["native_tests", "rust"]),
             patch.object(
@@ -263,7 +299,10 @@ class ExecutionContracts(unittest.TestCase):
         with (
             patch.dict(
                 os.environ,
-                {"PSE_NATIVE_PROVENANCE": str(self.output / "native.json")},
+                {
+                    "PSE_NATIVE_PROVENANCE": str(self.output / "native.json"),
+                    "PSE_TEST_INVOCATION": str(self.rust_invocation),
+                },
                 clear=True,
             ),
             patch.object(
@@ -325,6 +364,7 @@ class ExecutionContracts(unittest.TestCase):
                 [
                     "native_tests",
                     "python",
+                    "--functional-observer-child",
                     f"--junitxml={report}",
                     "--terminal-owner=assessment",
                 ],
@@ -364,7 +404,14 @@ class ExecutionContracts(unittest.TestCase):
         with (
             patch.dict(os.environ, {}, clear=True),
             patch.object(
-                sys, "argv", ["native_tests", "python", f"--junitxml={report}"]
+                sys,
+                "argv",
+                [
+                    "native_tests",
+                    "python",
+                    "--functional-observer-child",
+                    f"--junitxml={report}",
+                ],
             ),
             patch.object(native_tests.time, "time", return_value=1),
             patch.object(
@@ -406,7 +453,14 @@ class ExecutionContracts(unittest.TestCase):
         with (
             patch.dict(os.environ, {}, clear=True),
             patch.object(
-                sys, "argv", ["native_tests", "python", f"--junitxml={report}"]
+                sys,
+                "argv",
+                [
+                    "native_tests",
+                    "python",
+                    "--functional-observer-child",
+                    f"--junitxml={report}",
+                ],
             ),
             patch.object(
                 native_tests,
@@ -423,7 +477,14 @@ class ExecutionContracts(unittest.TestCase):
         with (
             patch.dict(os.environ, {}, clear=True),
             patch.object(
-                sys, "argv", ["native_tests", "python", f"--junitxml={report}"]
+                sys,
+                "argv",
+                [
+                    "native_tests",
+                    "python",
+                    "--functional-observer-child",
+                    f"--junitxml={report}",
+                ],
             ),
             patch.object(
                 native_tests,
@@ -442,12 +503,25 @@ class ExecutionContracts(unittest.TestCase):
             'import pathlib, pytest\n@pytest.mark.unit\ndef test_owned(tmp_path):\n    (tmp_path / "output").write_text("owned")\n    pathlib.Path("concurrent.txt").write_text("authorized unrelated edit")\n'
         )
         result = subprocess.run(
-            [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider"],
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "-q",
+                "-p",
+                "no:cacheprovider",
+                "-p",
+                "xdist.plugin",
+            ],
             cwd=self.output,
             capture_output=True,
             text=True,
             check=False,
-            env={**os.environ, "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"},
+            env={
+                **os.environ,
+                "PYTHONPATH": str(ROOT),
+                "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+            },
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
@@ -458,12 +532,25 @@ class ExecutionContracts(unittest.TestCase):
                 "import pytest\n" + markers + "def test_bad(): pass\n"
             )
             failed = subprocess.run(
-                [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider"],
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    "-q",
+                    "-p",
+                    "no:cacheprovider",
+                    "-p",
+                    "xdist.plugin",
+                ],
                 cwd=self.output,
                 capture_output=True,
                 text=True,
                 check=False,
-                env={**os.environ, "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"},
+                env={
+                    **os.environ,
+                    "PYTHONPATH": str(ROOT),
+                    "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+                },
             )
             self.assertNotEqual(failed.returncode, 0)
             self.assertIn("exactly one", failed.stderr)

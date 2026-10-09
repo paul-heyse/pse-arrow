@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 from scripts import host_admission as host
 from scripts import native_operation as operation
-from scripts.tests import test_plan30_placement as placement
+from scripts.tests import plan30_placement_check as placement
 
 
 @unittest.skipUnless(
@@ -79,7 +79,7 @@ class CapacityModesTests(unittest.TestCase):
                     "--",
                     sys.executable,
                     "-m",
-                    "scripts.tests.test_plan30_placement",
+                    "scripts.tests.plan30_placement_check",
                     "--worker",
                     "hold",
                     str(child_directory),

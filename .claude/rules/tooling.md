@@ -25,7 +25,12 @@ keep it accurate when you change them.
   it runs when it builds a command, and leaves selection visible to Cargo/nextest. Native
   recipes declare capabilities with `[script("bash", "scripts/pse-env", "--native=…", "--",
   "bash", "-euo", "pipefail")]`; never source environment files inside a recipe.
-- **Placement owns memory caps.** Every command already runs in its own capped scope; do not
+  Forward arbitrary arguments as positional data, never interpolated shell source. A composed
+  recipe honors its supported mode across all stages or rejects it before effects.
+- **Fixed observation.** `just activity` runs its read-only observer directly, without workload
+  admission or compiler preparation. It accepts observer options, never an arbitrary executable;
+  report unavailable observations as unavailable, not empty success.
+- **Placement owns memory caps.** Workload commands run in their own capped scope; do not
   add another wrapper. Builders call `pse_env.placement()` per command (a transient unit name
   cannot be reused). Host admission uses short kernel-held allocation metadata exclusion;
   never hold a machine-wide or fd-inheriting lock through a workload, RPC or drain.

@@ -62,6 +62,27 @@ def record_ownership(directory: Path, unit: str) -> None:
 def finish_fixture(directory: Path, evidence: Path | None) -> dict[str, object] | None:
     """Verify successful terminal state before saving proof and retiring new inputs."""
     proof: dict[str, object] | None = None
+    mcp = (
+        server.read_json(directory / "mcp-control.json")
+        if (directory / "mcp-control.json").is_file()
+        else None
+    )
+    attached_state = (
+        Path(str(mcp["attached_state"]))
+        if mcp is not None and mcp.get("attached_state")
+        else None
+    )
+    if (
+        attached_state is not None
+        and mcp is not None
+        and (
+            mcp.get("namespace_absent") is not True
+            or mcp.get("clients_closed") is not True
+            or server.config_for(attached_state)["instance_id"]
+            != mcp.get("service_generation")
+        )
+    ):
+        raise server.SupervisorError("Attached MCP fixture retirement is unproven")
     for state in (directory / "live", directory / "restored"):
         if (state / "config.json").exists():
             server.all_contexts_drained(state)
@@ -94,12 +115,14 @@ def finish_fixture(directory: Path, evidence: Path | None) -> dict[str, object] 
                 "Positive evidence destination already exists; refusing replacement"
             )
         evidence.mkdir(mode=0o700, parents=True)
-        selected = server.config_for(directory / "live")
+        selected = server.config_for(attached_state or directory / "live")
         controls: dict[str, object] = {}
         proof = {
             "version": 1,
             "outcome": "passed",
-            "scope": "bounded owned process lifecycle and toy receiver artifact controls; no scientific or performance qualification",
+            "scope": "disposable native MCP namespace controls on an existing service; no retained database writes or service lifecycle effects"
+            if attached_state
+            else "bounded owned process lifecycle and toy receiver artifact controls; no scientific or performance qualification",
             "fixture": str(directory),
             "fixture_retired": False,
             "fixture_source_sha256": server.file_digest(Path(__file__)),
@@ -107,7 +130,9 @@ def finish_fixture(directory: Path, evidence: Path | None) -> dict[str, object] 
             "server": selected["server"],
             "service_generation": selected["instance_id"],
             "service_supervisor": selected["service_supervisor"],
-            "all_contexts_and_kernel_scopes_drained": True,
+            "all_contexts_and_kernel_scopes_drained": True
+            if attached_state is None
+            else None,
             "owned_scopes": record["scopes"],
             "controls": controls,
         }
@@ -115,6 +140,7 @@ def finish_fixture(directory: Path, evidence: Path | None) -> dict[str, object] 
             "receiver_closures": directory / "receiver-closures.json",
             "restart_exhaustion": directory / "restart-exhaustion.json",
             "recovery_qualification": directory / "live/recovery-qualification.json",
+            "native_mcp": directory / "mcp-control.json",
         }.items():
             if path.is_file():
                 controls[name] = server.read_json(path)
@@ -650,6 +676,8 @@ def journey(
     restart_exhaustion_only: bool = False,
     receiver_closures_only: bool = False,
     bounded_b_controls: bool = False,
+    mcp_only: bool = False,
+    mcp_state: Path | None = None,
     evidence: Path | None = None,
 ) -> None:
     root = (
@@ -658,6 +686,21 @@ def journey(
     )
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     with owned_fixture(root, evidence) as directory:
+        if mcp_state is not None:
+            from scripts.tests.test_surreal_mcp import (  # noqa: PLC0415 -- opt-in native MCP controls
+                fixture_mcp_controls,
+            )
+
+            server.write_json(directory / "fixture-ownership.json", {"scopes": []})
+            server.write_json(
+                directory / "mcp-control.json",
+                fixture_mcp_controls(mcp_state.absolute(), directory, attached=True),
+            )
+            print(
+                "attached disposable native MCP contextual read, VIEWER write-denial readback, authentication failure and missing-context controls passed; owned namespace absent",
+                flush=True,
+            )
+            return
         state, restored = directory / "live", directory / "restored"
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
@@ -682,11 +725,27 @@ def journey(
                 "512",
             ]
         )
+        if mcp_only:
+            args.version = "v3.3.0"
         server.setup(args)
         config = server.config_for(state)
         try:
             server.start(state, config)
             record_ownership(directory, server.unit_name(state))
+            if mcp_only:
+                from scripts.tests.test_surreal_mcp import (  # noqa: PLC0415 -- opt-in native MCP controls
+                    fixture_mcp_controls,
+                )
+
+                server.write_json(
+                    directory / "mcp-control.json",
+                    fixture_mcp_controls(state, directory),
+                )
+                print(
+                    "disposable native MCP contextual read, VIEWER write-denial readback and missing-context control passed",
+                    flush=True,
+                )
+                return
             query(
                 state,
                 "DEFINE NAMESPACE IF NOT EXISTS pse; USE NS pse; DEFINE DATABASE IF NOT EXISTS canonical; USE DB canonical; "
@@ -784,12 +843,20 @@ def main() -> None:
     parser.add_argument("--restart-exhaustion-only", action="store_true")
     parser.add_argument("--receiver-closures-only", action="store_true")
     parser.add_argument("--bounded-b-controls", action="store_true")
+    parser.add_argument("--mcp-only", action="store_true")
+    parser.add_argument(
+        "--mcp-state",
+        type=Path,
+        help="Explicit existing service for a unique disposable MCP namespace; requires --mcp-only",
+    )
     parser.add_argument(
         "--evidence",
         type=Path,
         help="New private destination for compact positive controls after actual drain",
     )
     args = parser.parse_args()
+    if args.mcp_state is not None and not args.mcp_only:
+        parser.error("--mcp-state requires --mcp-only")
     if (
         sum(
             (
@@ -797,6 +864,7 @@ def main() -> None:
                 args.restart_exhaustion_only,
                 args.receiver_closures_only,
                 args.bounded_b_controls,
+                args.mcp_only,
             )
         )
         > 1
@@ -811,6 +879,8 @@ def main() -> None:
             restart_exhaustion_only=args.restart_exhaustion_only,
             receiver_closures_only=args.receiver_closures_only,
             bounded_b_controls=args.bounded_b_controls,
+            mcp_only=args.mcp_only,
+            mcp_state=args.mcp_state,
             evidence=args.evidence,
         )
 

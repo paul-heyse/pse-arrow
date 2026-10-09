@@ -3,7 +3,7 @@ title: SurrealDB unified simulation substrate
 status: in-progress
 date: 2026-10-05
 adrs: [ADR-0164, ADR-0166]
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md, docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md, docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md, docs/design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -57,6 +57,7 @@ qualify the new store, codec, compiler boundary or durable lifecycle.
 | [28h — Native setup and artifact identity](28h-native-setup-and-artifact-identity.md) | Operation-scoped verified installations, actual capability setup and separated artifact/outer-provenance association. |
 | [28i — Receiving-runtime validity and interruption](28i-runtime-validity-and-interruption.md) | Actual receiving premises, protected validity/trust-transition lifetimes, interruptible observation and shared completion ownership. |
 | [28j — Pure preparation and explicit publication](28j-pure-preparation-and-publication.md) | Complete immutable basis and fresh attribution; pure/effect separation, reusable descriptions and explicit publication contract. |
+| [28k — Graph kernels and hashing investigations](28k-graph-kernels-and-hashing-investigations.md) | Bounded graph preparation/placement, role-specific hashing, complete invalidation and framing/persistence decisions; no second finding or qualification ledger. |
 
 The document division expresses responsibilities, not sequential phases. Conceptual
 products do not require a new crate/type/service for each concept. Root coordinates shared
@@ -651,6 +652,69 @@ Existing bounded retention, flights, allocation owners, native generation pins a
 scientific checks are foundations. No new global compiler, generic cache, solver controller,
 store pivot, mandatory benchmark matrix or permanent assurance framework is selected.
 
+## Graph and hashing review integration
+
+The [2026-10-09 graph compilation, kernels and hashing review](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md)
+assesses further graph preparation, fast hashing independently and their combined reuse role.
+The maintainer selected bounded investigations alongside planning the concrete corrections.
+This integration is **Proposed**: it supplies plan documents, not authorization to implement
+production changes or restart the narrowed qualification continuation. The review retains
+its Revise verdict and source/evidence limits; its conditional alternatives are not adopted
+merely because they have investigation packages.
+
+Authoring refreshed `main` at `d0f2c41818a34539a910654dfea4760771603f45` with the preserved
+dirty tree. Complete J1/J2/B7/N11 preparation reuse is implemented. The new corrections address
+remaining discovery/lookup work on that foundation. Existing study topology/policy, scientific
+assessment, current attribution/effects and private numerical workers remain preservation
+constraints. Earlier implementation receipts and paused campaign obligations keep their owners.
+
+### Target, dependencies and selected rule changes
+
+| Package owner | Capability and readiness |
+|---|---|
+| [28j/J3](28j-pure-preparation-and-publication.md#j3-indexed-description-settlement) | Retained canonical portable inventory and exact indexed description matching. Working J1/J2/B7 supply its pure/effect basis; compiler inventory integration belongs to this package. |
+| [28f/N12](28f-shared-numerical-preparation.md#n12--indexed-flow-decision-policy) | Binary search over existing sorted decisions removes per-edge full policy scans, preserving physical occurrence graphs and cycle witnesses. Independent of J3/B8. |
+| [28b/B8](28b-selected-compilation-and-reuse.md#b8-retained-supplier-topology) | Compiler-owned supplier discovery, admitted-view identity mapping and selected closure/order. Preserve failure scope; no global cycle admission is imposed on valid selected closures. |
+| [28f/N13](28f-shared-numerical-preparation.md#n13--demand-specific-supplier-registration) | Working B8 supplies ordering while current output/coordinate/derivative demands, starts/policies and private registrations remain runtime operations. |
+| [28k/GH1–GH4](28k-graph-kernels-and-hashing-investigations.md#packages-evidence-and-completion) | Bounded graph/layout/placement, hash-role, invalidation and framing/persistence decisions. GH3 consumes N0's catalog investigation; no duplicate authority. |
+| [28e](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance) | Sole affected assembled acceptance and later authorized measurement route. Local controls and investigation completion do not restart E4/E5. |
+
+J3 and N12 can proceed independently after their existing contracts. B8's working supplier
+selection enables N13; an agreed interface alone does not establish that prerequisite. GH1/GH2
+and GH3's source inquiry are independent; U01 contract analysis is an early GH4 slice. Combined
+persistent adoption depends on GH2/GH3's complete encoding/dependency conclusions. Investigations
+do not block the three source-supported corrections. One integration owner coordinates shared
+compiler/runtime product declarations, lifetime accounting, manifests and tests.
+
+**Selected rule changes: none (2026-10-09).** The correction packages preserve current identity,
+dependency, physical, numerical and publication contracts. GH1–GH4 investigate alternatives
+without selecting a universal graph/task compiler or changing durable hashes, frames or runtime
+persistence. [28k's rule-change boundary](28k-graph-kernels-and-hashing-investigations.md#rule-change-boundary)
+records Graph/hash RC01–RC04 as conditional notes, not accepted/rejected amendments. Before a
+dependent target uses an actual rule change, present its consequence for explicit accept/reject,
+record the outcome/date/route here and schedule the required decision/design amendment first.
+Keeping current rules leaves J3/B8/N12/N13 and role-specific local alternatives available.
+
+### Graph and hashing finding dispositions
+
+This table is the sole finding-status owner for this review. The qualified labels below
+distinguish it from other reviews' F01/U01; they do not rename the original identifiers.
+Packages own their progress and evidence at the linked companions. Open records describe
+planned work awaiting execution selection, not implementation acceptance.
+
+| Finding or premise | Review scenarios | Disposition | Work/decision owner | Required evidence or question |
+|---|---|---|---|---|
+| [Graph/hash F01](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#f01) | S01/S02 | Open | 28j/J3; 28e affected acceptance | Canonical view inventory and exact indexed settlement replace repeated discovery while current acknowledgment, lineage, protection and allocation ownership remain. |
+| [Graph/hash F02](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#f02) | S03 | Open | 28f/N12; 28e affected acceptance | No full decision scan per edge; reordered/parallel/policy cases retain physical contracts and independent forbidden-cycle witness. |
+| [Graph/hash F03](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#f03) | S02/S04 | Open | 28b/B8 plus 28f/N13; 28e affected acceptance | Immutable supplier discovery shared across registrations; selected cycle/failure scope and actual derivative/private-state obligations preserved at all affected callers. |
+| [Graph/hash U01](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#u01--flow-fingerprint-structural-framing-remains-a-bounded-open-premise) | S03/S07 | Open premise, not a fourth defect | 28k/GH4 with identity/structural owners | Establish supported identity-role/framing premise or a legitimate supported counterexample and affected consumers; no sole-key equivalence or scientific misreuse claim by default. |
+
+Broader opportunities are GH decision packages, not additional demonstrated defects.
+Retained-design decisions, adoption proposals and bounded unresolved premises have explicit
+completion products in 28k. A deferred decision uses the existing register with an observable
+trigger/check/owner; there is no new backlog. The new findings are resolved only after their
+working corrections and applicable acceptance evidence exist, not after plan publication.
+
 ## Verification
 
 **Proposed acceptance:** companions specify targeted controls and deletions. E3 runs the sole
@@ -669,6 +733,13 @@ N4/T5/L4 caller/coverage reconciliation: no confirmed comparable variant remains
 mechanism, and justified distinct contracts and conditional retained-design decisions are explicit.
 
 ## Current checkpoint
+
+**Graph/hash planning handoff, 2026-10-09:** J3/B8/N12/N13 and draft 28k are documented at
+the [integration above](#graph-and-hashing-review-integration), with Open finding dispositions.
+No new correction/investigation has been executed and no rule change selected. The following
+qualification continuation retains its authorization boundary; this planning handoff neither
+restarts it nor replaces its historical evidence. Select future execution scope from the
+package dependencies above rather than treating document creation as a campaign restart.
 
 The maintainer authorized detailed execution of 28i/28j and then implementation on
 2026-10-08, before remaining unrelated Plan 28 scope. I0/J0 selected trust-transition
