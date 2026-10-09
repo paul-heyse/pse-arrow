@@ -1,0 +1,1108 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+"""Finite local lanes bound to actual supervised lifetimes.
+
+The short ledger lock never spans a systemctl call, workload or drain. A missing
+caller is insufficient to release capacity: every registered unit must be observed
+empty. Unobservable ownership is retained. Evidence pins are deliberately separate.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import fcntl
+import json
+import math
+import os
+import re
+import stat
+import subprocess
+import time
+import tomllib
+import uuid
+from dataclasses import dataclass, replace
+from pathlib import Path
+from typing import TYPE_CHECKING, NotRequired, TypedDict, cast
+
+from scripts import native_operation as operation
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Mapping, Sequence
+
+ROOT = Path(__file__).resolve().parents[1]
+GIB = 1 << 30
+MARKER = "PSE_HOST_ALLOCATION"
+
+
+HostPolicy = TypedDict(
+    "HostPolicy",
+    {
+        "version": int,
+        "aggregate_gib": int,
+        "non_agent_headroom_gib": int,
+        "pressure_guard_gib": int,
+        "admission_seconds": int,
+        "functional_cores": list[int],
+        "timing_cores": list[int],
+        "light": dict[str, int],
+        "compiler-cache": dict[str, int],
+        "compile": dict[str, int],
+        "functional": dict[str, int],
+        "wide": dict[str, int],
+        "timing": dict[str, int],
+        "exclusive": dict[str, int],
+        "reference": dict[str, int],
+        "exclusive-observer": dict[str, int],
+        "test-runner": dict[str, int],
+    },
+)
+
+
+class MetadataLedger(TypedDict):
+    """Shared private JSON envelope; each owner interprets its own rows."""
+
+    version: int
+    owners: dict[str, dict[str, object]]
+    parked_services: NotRequired[list[str]]
+
+
+class BoundUnit(TypedDict, total=False):
+    """Observed kernel and systemd identity, absent until a launch binds."""
+
+    group: str
+    invocation: str
+    inode: int
+
+
+AllocationRecord = TypedDict(
+    "AllocationRecord",
+    {
+        "boot": str,
+        "pid": int,
+        "start": str,
+        "class": str,
+        "memory": int,
+        "lane": str,
+        "slots": int,
+        "cores": list[int],
+        "exclusive": bool,
+        "deadline": float,
+        "units": dict[str, BoundUnit],
+        "released": NotRequired[bool],
+        "service": NotRequired[str],
+        "parkable": NotRequired[bool],
+        "borrowed_services": NotRequired[list[str]],
+    },
+)
+
+
+class AllocationLedger(TypedDict):
+    """The host admission domain of the shared private envelope."""
+
+    version: int
+    owners: dict[str, AllocationRecord]
+    parked_services: NotRequired[list[str]]
+
+
+class AdmissionError(ValueError):
+    """No safe finite placement could be established."""
+
+
+@dataclass(frozen=True)
+class Profile:
+    name: str
+    memory: int
+    lane: str
+    slots: int
+    cores: tuple[int, ...]
+    exclusive: bool = False
+
+
+def policy() -> HostPolicy:
+    declared = tomllib.loads((ROOT / ".config/agent-capacity.toml").read_text())
+    for key, value in declared.items():
+        if key.endswith("_cores") and key in {"functional_cores", "timing_cores"}:
+            valid = isinstance(value, list) and all(type(core) is int for core in value)
+        elif isinstance(value, dict):
+            valid = all(type(amount) is int for amount in value.values())
+        else:
+            valid = type(value) is int
+        if not valid:
+            raise AdmissionError(f"Invalid capacity declaration {key}")
+    return cast("HostPolicy", declared)
+
+
+def total_memory() -> int:
+    return memory_info()["MemTotal"]
+
+
+def memory_info() -> dict[str, int]:
+    return {
+        line.split(":", 1)[0]: int(line.split()[1]) * 1024
+        for line in Path("/proc/meminfo").read_text().splitlines()
+        if len(line.split()) == 3 and line.split()[2] == "kB"
+    }
+
+
+def finite_bytes(value: str) -> int:
+    match = re.fullmatch(r"(\d+)([KMGT%]?)", value.strip().upper())
+    if not match:
+        raise AdmissionError(
+            "Coordinated work requires a positive finite PSE_MEMORY_MAX"
+        )
+    count, suffix = int(match[1]), match[2]
+    size = (
+        count * total_memory() // 100
+        if suffix == "%"
+        else count * {"": 1, "K": 1 << 10, "M": 1 << 20, "G": GIB, "T": 1 << 40}[suffix]
+    )
+    if size <= 0:
+        raise AdmissionError("Memory allocation must be positive")
+    return size
+
+
+def settings(name: str) -> dict[str, int]:
+    declared = cast("Mapping[str, object]", policy())[name]
+    if not isinstance(declared, dict):
+        raise AdmissionError("Missing capacity declaration")
+    return cast("dict[str, int]", declared)
+
+
+def execution(name: str) -> dict[str, int]:
+    if name == "reference":
+        from scripts.surreal_server import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
+            reference_execution,
+        )
+
+        return reference_execution()
+    selected = settings(name)
+    return {
+        "pool_memory_bytes": selected["pool_gib"] * GIB,
+        "worker_bytes": selected["worker_gib"] * GIB,
+        "cpu_threads": selected["cpu_threads"],
+        "case_lanes": selected["case_lanes"],
+        "math_jobs": selected["math_jobs"],
+        "compiler_cores": selected["compiler_cores"],
+        "admission_wait_ms": policy()["admission_seconds"] * 1000,
+        "process_headroom_bytes": (selected["receiver_gib"] - selected["pool_gib"])
+        * GIB,
+        "observer_memory_bytes": selected["observer_gib"] * GIB,
+    }
+
+
+def select(name: str, requested: str | None = None) -> Profile:
+    config = policy()
+    functional = tuple(config["functional_cores"])
+    timing = tuple(config["timing_cores"])
+    amount = finite_bytes(requested) if requested is not None else None
+    if name == "compiler-cache":
+        declared = settings(name)["memory_gib"] * GIB
+        if amount is not None and amount != declared:
+            raise AdmissionError(
+                "Compiler-cache capacity is declared by its resident light role"
+            )
+        return Profile(name, declared, "light", 1, functional)
+    if name in {"store-functional", "store-timing"}:
+        lane = name.removeprefix("store-")
+        declared = settings(lane)
+        result = Profile(
+            name,
+            amount or declared["store_gib"] * GIB,
+            name,
+            1,
+            functional if lane == "functional" else timing,
+        )
+        if result.memory > declared["store_gib"] * GIB:
+            raise AdmissionError(
+                "Resident store request exceeds its declared lane; explicitly widen the host profile"
+            )
+        return result
+    if name not in {
+        "light",
+        "compile",
+        "functional",
+        "wide",
+        "timing",
+        "reference",
+        "exclusive",
+    }:
+        raise AdmissionError(f"Unknown resource class {name!r}")
+    if name in {"light", "compile", "functional", "wide", "exclusive"} and amount:
+        if amount > settings("wide")["slot_gib"] * GIB:
+            name = "exclusive"
+        elif amount > settings("functional")["slot_gib"] * GIB:
+            name = "wide"
+        elif name == "light" and amount > settings("light")["memory_gib"] * GIB:
+            name = "functional"
+    if name == "light":
+        result = Profile(
+            name, settings(name)["memory_gib"] * GIB, "light", 1, functional
+        )
+    elif name == "compile":
+        result = Profile(
+            name, settings(name)["memory_gib"] * GIB, "functional", 1, functional[:4]
+        )
+    elif name == "functional":
+        result = Profile(
+            name, settings(name)["slot_gib"] * GIB, name, 1, functional[:4]
+        )
+    elif name == "wide":
+        result = Profile(
+            name, settings(name)["slot_gib"] * GIB, "functional", 2, functional
+        )
+    elif name == "timing":
+        result = Profile(name, settings(name)["slot_gib"] * GIB, name, 1, timing)
+    elif name == "reference":
+        selected = execution(name)
+        memory = (
+            selected["pool_memory_bytes"]
+            + settings(name)["receiver_headroom_gib"] * GIB
+        )
+        result = Profile(name, memory, "exclusive", 2, timing + functional, True)
+        if amount is not None and amount != memory:
+            raise AdmissionError(
+                "Reference profile requires its unchanged 140GiB primary and 160GiB envelope; select exclusive for another allocation"
+            )
+    else:
+        result = Profile(
+            name,
+            settings(name)["slot_gib"] * GIB,
+            "exclusive",
+            2,
+            timing + functional,
+            True,
+        )
+    if amount is not None:
+        result = replace(result, memory=amount)
+    envelope = aggregate(result)
+    maximum = total_memory() - config["non_agent_headroom_gib"] * GIB
+    if envelope > maximum:
+        raise AdmissionError(
+            f"Requested aggregate {envelope // GIB}GiB exceeds host capacity {maximum // GIB}GiB after non-agent allowance"
+        )
+    return result
+
+
+def aggregate(profile: Profile) -> int:
+    config = policy()
+    if profile.name == "reference":
+        return (
+            profile.memory
+            + (
+                settings("reference")["store_gib"]
+                + settings("reference")["observer_gib"]
+            )
+            * GIB
+        )
+    if profile.exclusive:
+        resident = settings("exclusive")
+        return max(
+            config["aggregate_gib"] * GIB,
+            profile.memory + (resident["store_gib"] + resident["light_gib"]) * GIB,
+        )
+    return config["aggregate_gib"] * GIB
+
+
+def classify(command: Sequence[str], native: bool = False) -> str:
+    if "--managed-primary-route" in command:
+        return "reference"
+    if "--unit-only" in command or "py-unit" in command:
+        return "compile"
+    if any(
+        part
+        in {
+            "py-test",
+            "py-unit",
+            "native-python",
+            "unit-package",
+            "unit",
+            "native-test",
+            "scripts.python_tests",
+            "scripts.native_tests",
+        }
+        for part in command
+    ):
+        return "exclusive"
+    names = {Path(part).name for part in command[:4]}
+    if names & {"cargo", "rustc", "maturin", "py_sync.py", "codegen.py"}:
+        return "compile"
+    if not native and names & {"rg", "cat", "git", "ls", "true", "head", "tail"}:
+        return "light"
+    return "functional"
+
+
+def root_path(env: Mapping[str, str] | None = None) -> Path:
+    source = os.environ if env is None else env
+    home = Path(source.get("XDG_STATE_HOME", str(Path.home() / ".local/state")))
+    return home / "pse-arrow/host-admission"
+
+
+def protected(directory: Path) -> None:
+    if any(path.is_symlink() for path in (directory, *directory.parents)):
+        raise AdmissionError("Admission state must not traverse symlinks")
+    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    information = directory.stat()
+    if information.st_uid != os.getuid() or stat.S_IMODE(information.st_mode) & 0o077:
+        raise AdmissionError("Admission state must be owned with mode0700")
+
+
+@contextlib.contextmanager
+def metadata(directory: Path) -> Generator[MetadataLedger, None, None]:
+    protected(directory)
+    fd = os.open(
+        directory / ".lock",
+        os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC,
+        0o600,
+    )
+    try:
+        information = os.fstat(fd)
+        if information.st_uid != os.getuid() or information.st_mode & 0o077:
+            raise AdmissionError("Unsafe admission lock")
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        path = directory / "allocations.json"
+        if path.is_symlink():
+            raise AdmissionError("Unsafe admission ledger")
+        record = (
+            json.loads(path.read_text())
+            if path.exists()
+            else {"version": 1, "owners": {}}
+        )
+        if record.get("version") != 1 or not isinstance(record.get("owners"), dict):
+            raise AdmissionError(
+                "Corrupt admission ledger; retain owners for inspection"
+            )
+        if any(not isinstance(row, dict) for row in record["owners"].values()):
+            raise AdmissionError(
+                "Corrupt admission owner; retain ledger for inspection"
+            )
+        yield cast("MetadataLedger", record)
+        operation.write_json(path, record)
+    finally:
+        os.close(fd)
+
+
+@contextlib.contextmanager
+def allocation_metadata(directory: Path) -> Generator[AllocationLedger, None, None]:
+    """Interpret only the host's private rows, preserving the shared lock boundary."""
+    with metadata(directory) as ledger:
+        for record in ledger["owners"].values():
+            validate_allocation_record(record)
+        yield cast("AllocationLedger", ledger)
+
+
+def validate_allocation_record(record: Mapping[str, object]) -> None:
+    """Malformed host ownership remains charged until explicitly inspected."""
+    valid = all(
+        isinstance(record.get(key), str) for key in ("boot", "start", "class", "lane")
+    )
+    valid = valid and bool(
+        re.fullmatch(
+            r"[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}", str(record.get("boot", ""))
+        )
+    )
+    valid = valid and all(
+        type(record.get(key)) is int for key in ("pid", "memory", "slots")
+    )
+    valid = valid and type(record.get("exclusive")) is bool
+    cores = record.get("cores")
+    valid = (
+        valid
+        and isinstance(cores, list)
+        and all(type(core) is int and core >= 0 for core in cores)
+    )
+    deadline = record.get("deadline")
+    valid = (
+        valid
+        and type(deadline) in {int, float}
+        and math.isfinite(cast("float", deadline))
+    )
+    units = record.get("units")
+    valid = valid and isinstance(units, dict)
+    if isinstance(units, dict):
+        for name, owner in units.items():
+            valid = valid and isinstance(name, str) and isinstance(owner, dict)
+            if isinstance(owner, dict):
+                valid = valid and all(
+                    isinstance(owner[key], str)
+                    for key in ("group", "invocation")
+                    if key in owner
+                )
+                valid = valid and ("inode" not in owner or type(owner["inode"]) is int)
+    for key in ("released", "parkable"):
+        valid = valid and (key not in record or type(record[key]) is bool)
+    valid = valid and ("service" not in record or isinstance(record["service"], str))
+    services = record.get("borrowed_services", [])
+    valid = (
+        valid
+        and isinstance(services, list)
+        and all(isinstance(service, str) for service in services)
+    )
+    if not valid:
+        raise AdmissionError("Corrupt host allocation; retain ownership for inspection")
+
+
+def boot() -> str:
+    return Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+
+
+def integer(value: object) -> int:
+    """Reject an untyped ownership number rather than guessing a live identity."""
+    if type(value) is not int:
+        raise AdmissionError("Invalid integer in ownership record")
+    return value
+
+
+def caller_alive(record: Mapping[str, object]) -> bool:
+    if record["boot"] != boot():
+        return False
+    try:
+        return operation.start_identity(integer(record["pid"])) == record["start"]
+    except FileNotFoundError:
+        return False
+
+
+def group_identity(group: str) -> int | None:
+    """Kernel identity distinguishes a recreated unit path from its old owner."""
+    if not group.startswith("/") or group == "/" or ".." in Path(group).parts:
+        raise AdmissionError("Invalid registered cgroup")
+    try:
+        return (Path("/sys/fs/cgroup") / group.lstrip("/")).stat().st_ino
+    except FileNotFoundError:
+        return None
+
+
+def drained(record: Mapping[str, object]) -> bool:
+    generation = record.get("boot")
+    if not isinstance(generation, str) or not re.fullmatch(
+        r"[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}", generation
+    ):
+        return False
+    if generation != boot():
+        return True  # No kernel lifetime survives a verified boot generation change.
+    units = record.get("units")
+    if not isinstance(units, dict):
+        return False
+    for unit, owner in units.items():
+        if not isinstance(owner, dict):
+            return False
+        try:
+            observed = operation.unit_observation(unit)
+            if (
+                record.get("service")
+                and observed.get("LoadState") == "loaded"
+                and observed.get("ActiveState") not in {"inactive", "failed"}
+            ):
+                # RestartSec may retain the old empty cgroup and invocation.
+                # The resident owner stays charged until the service stops.
+                return False
+            if owner.get("group"):
+                identity = group_identity(str(owner["group"]))
+                if owner.get("inode") is not None and identity != owner["inode"]:
+                    # Cgroup destruction proves the previous kernel lifetime ended,
+                    # even if systemd has reused this persistent unit name.
+                    continue
+                if operation.populated(str(owner["group"])):
+                    return False
+                if (
+                    observed.get("LoadState") == "loaded"
+                    and observed.get("ActiveState") not in {"inactive", "failed"}
+                    and observed.get("InvocationID")
+                    not in {"", owner.get("invocation")}
+                ):
+                    return False
+            elif observed.get("LoadState") != "not-found":
+                if observed.get("ActiveState") in {
+                    "inactive",
+                    "failed",
+                } and not observed.get("ControlGroup"):
+                    continue
+                # A registered launch without bound ownership cannot be guessed empty.
+                return False
+        except (OSError, ValueError, subprocess.SubprocessError):
+            return False
+    return bool(record.get("released")) or not caller_alive(record)
+
+
+def drain_borrowed_services(
+    directory: Path, record: Mapping[str, object], *, explicit: bool = False
+) -> None:
+    """An exclusive caller returns borrowed storage after all other roles drain."""
+    raw_services = record.get("borrowed_services", [])
+    if not isinstance(raw_services, list) or any(
+        not isinstance(value, str) for value in raw_services
+    ):
+        raise AdmissionError("Invalid borrowed service ownership")
+    services = cast("list[str]", raw_services)
+    raw_units = record.get("units")
+    if not isinstance(raw_units, dict):
+        raise AdmissionError("Invalid borrowed service unit ownership")
+    bound_units = cast("dict[str, BoundUnit]", raw_units)
+    if not services or (not explicit and caller_alive(record)):
+        return
+    from scripts import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
+        surreal_server,
+    )
+
+    units = {surreal_server.unit_name(Path(value)) for value in services}
+    other = {
+        **record,
+        "units": {
+            unit: owner for unit, owner in bound_units.items() if unit not in units
+        },
+        "released": True,
+    }
+    if not drained(other):
+        return
+    for value in services:
+        state = Path(value)
+        with surreal_server.lifecycle_reservation(state):
+            config = surreal_server.config_for(state)
+            observed = operation.unit_observation(surreal_server.unit_name(state))
+            # Residency permits borrowing a running service; it does not reverse
+            # an intentional stop or a failed service on allocation release.
+            if not config.get("resident") or observed.get("ActiveState") != "active":
+                surreal_server.workers_drained(state, config)
+                surreal_server.stop(state, config)
+            else:
+                surreal_server.park_service(state)
+                with allocation_metadata(directory) as ledger:
+                    if value not in ledger.setdefault("parked_services", []):
+                        ledger["parked_services"].append(value)
+
+
+def reconcile(directory: Path, deadline: float | None = None) -> None:
+    with allocation_metadata(directory) as state:
+        snapshot = dict(state["owners"])
+    for item in snapshot.values():
+        if (
+            isinstance(item, dict)
+            and item.get("borrowed_services")
+            and not caller_alive(item)
+        ):
+            try:
+                drain_borrowed_services(directory, item)
+            except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+                # The living service/receiver still owns capacity, even without caller.
+                continue
+    finished = {
+        nonce: item
+        for nonce, item in snapshot.items()
+        if isinstance(item, dict) and drained(item)
+    }
+    with allocation_metadata(directory) as state:
+        owners = state["owners"]
+        for nonce, item in finished.items():
+            if owners.get(nonce) == item:
+                del owners[nonce]
+        exclusive_live = any(owner["exclusive"] for owner in owners.values())
+        parked = list(state.get("parked_services", [])) if not exclusive_live else []
+        if parked:
+            state["parked_services"] = []
+    if parked:
+        from scripts import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
+            surreal_server,
+        )
+
+        for selected in parked:
+            try:
+                surreal_server.unpark_service(Path(selected), deadline=deadline)
+            except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+                # Retain the explicit parked record; status/recover remains actionable.
+                with allocation_metadata(directory) as state:
+                    if selected not in state.setdefault("parked_services", []):
+                        state["parked_services"].append(selected)
+                continue
+            with allocation_metadata(directory) as state:
+                if selected in state.get("parked_services", []):
+                    state["parked_services"].remove(selected)
+
+
+def conflict(profile: Profile, owners: Mapping[str, object]) -> str | None:
+    entries = [item for item in owners.values() if isinstance(item, dict)]
+    heavy = [item for item in entries if item["lane"] != "light"]
+    if (profile.exclusive and heavy) or (
+        profile.lane != "light" and any(item["exclusive"] for item in entries)
+    ):
+        return "exclusive heavy-work owner"
+    used = sum(
+        integer(item["slots"]) for item in entries if item["lane"] == profile.lane
+    )
+    capacity = (
+        settings("light")["slots"]
+        if profile.lane == "light"
+        else 1
+        if profile.lane in {"timing", "store-functional", "store-timing"}
+        else 2
+    )
+    if used + profile.slots > capacity:
+        return f"{profile.lane} slots occupied"
+    # Resident service roles are accounted separately by their originating owner.
+    return None
+
+
+@dataclass
+class Allocation:
+    directory: Path
+    nonce: str
+    profile: Profile
+    deadline: float
+
+    def environment(self) -> dict[str, str]:
+        return {
+            MARKER: str(self.directory / self.nonce),
+            "PSE_ADMISSION_DEADLINE": str(self.deadline),
+            "PSE_RESOURCE_CLASS": self.profile.name,
+        }
+
+    def register(self, unit: str) -> None:
+        if not re.fullmatch(r"[A-Za-z0-9_.:-]+\.(?:service|scope)", unit):
+            raise AdmissionError("Invalid supervised unit")
+        with allocation_metadata(self.directory) as state:
+            owner = state["owners"].get(self.nonce)
+            if not isinstance(owner, dict):
+                raise AdmissionError("Allocation is no longer live")
+            owner["units"].setdefault(unit, {})
+
+    def bind(self, unit: str) -> None:
+        observed = operation.unit_observation(unit)
+        group = operation.process_group(os.getpid())
+        control = observed.get("ControlGroup", "")
+        if (
+            not control
+            or not (group == control or group.startswith(control + "/"))
+            or not re.fullmatch(r"[a-f0-9]{32}", observed.get("InvocationID", ""))
+        ):
+            raise AdmissionError("Child is not in the registered actual unit")
+        with allocation_metadata(self.directory) as state:
+            owner = state["owners"].get(self.nonce)
+            if not isinstance(owner, dict) or unit not in owner["units"]:
+                raise AdmissionError("Unit was not registered before launch")
+            identity = group_identity(control)
+            if identity is None:
+                raise AdmissionError(
+                    "Registered child cgroup disappeared before binding"
+                )
+            owner["units"][unit] = {
+                "group": control,
+                "invocation": observed["InvocationID"],
+                "inode": identity,
+            }
+
+    def release(self) -> bool:
+        with allocation_metadata(self.directory) as state:
+            owner = state["owners"].get(self.nonce)
+        if not isinstance(owner, dict):
+            return True
+        drain_borrowed_services(self.directory, owner, explicit=True)
+        # Explicit owner release only relaxes caller liveness; actual units stay charged.
+        snapshot = cast("AllocationRecord", dict(owner))
+        snapshot["pid"] = -1
+        snapshot["start"] = "released"
+        if not drained(snapshot):
+            with allocation_metadata(self.directory) as state:
+                if state["owners"].get(self.nonce) == owner:
+                    state["owners"][self.nonce]["released"] = True
+            return False
+        with allocation_metadata(self.directory) as state:
+            if state["owners"].get(self.nonce) == owner:
+                del state["owners"][self.nonce]
+        retire_empty_allocation(self)
+        return True
+
+
+def inherit(env: Mapping[str, str], *, handoff: bool = False) -> Allocation | None:
+    marker = env.get(MARKER)
+    if not marker:
+        return None
+    path = Path(marker)
+    if not re.fullmatch(r"[a-f0-9]{32}", path.name):
+        raise AdmissionError("Invalid inherited allocation")
+    with allocation_metadata(path.parent) as state:
+        owner = state["owners"].get(path.name)
+    if not isinstance(owner, dict) or owner["boot"] != boot():
+        raise AdmissionError("Missing or stale inherited allocation")
+    group = operation.process_group(os.getpid())
+    member = False
+    for unit, value in owner["units"].items():
+        if not isinstance(value, dict) or not value.get("group"):
+            continue
+        if group == value["group"] or group.startswith(value["group"] + "/"):
+            observed = operation.unit_observation(unit)
+            member = (
+                observed.get("InvocationID") == value.get("invocation")
+                and observed.get("ControlGroup") == value["group"]
+            )
+            if member:
+                break
+    own = owner["pid"] == os.getpid() and owner["start"] == operation.start_identity(
+        os.getpid()
+    )
+    if not member and not own and not handoff:
+        raise AdmissionError(
+            "Inherited allocation does not match actual cgroup ownership"
+        )
+    if handoff and not member and not caller_alive(owner):
+        raise AdmissionError("Handoff lost its launch owner")
+    profile = Profile(
+        owner["class"],
+        owner["memory"],
+        owner["lane"],
+        owner["slots"],
+        tuple(owner["cores"]),
+        owner["exclusive"],
+    )
+    return Allocation(path.parent, path.name, profile, owner["deadline"])
+
+
+def require_admission_time(deadline: float, message: str) -> None:
+    if time.monotonic() >= deadline:
+        raise AdmissionError(message)
+
+
+def acquire(
+    profile: Profile, *, directory: Path | None = None, deadline: float | None = None
+) -> Allocation:
+    directory = root_path() if directory is None else directory
+    deadline = (
+        time.monotonic() + policy()["admission_seconds"]
+        if deadline is None
+        else deadline
+    )
+    reason = "capacity"
+    while time.monotonic() < deadline:
+        reconcile(directory, deadline)
+        if time.monotonic() >= deadline:
+            break
+        if (
+            profile.lane != "light"
+            and memory_info()["MemAvailable"] < policy()["pressure_guard_gib"] * GIB
+        ):
+            reason = "host MemAvailable below startup pressure guard"
+        else:
+            selected: Allocation | None = None
+            with allocation_metadata(directory) as state:
+                parkable = {
+                    nonce: owner
+                    for nonce, owner in state["owners"].items()
+                    if owner.get("service") and owner.get("parkable")
+                }
+                competing = {
+                    nonce: owner
+                    for nonce, owner in state["owners"].items()
+                    if not profile.exclusive or nonce not in parkable
+                }
+                reason = conflict(profile, competing)
+                if reason is None and time.monotonic() >= deadline:
+                    reason = "original admission clock expired"
+                if reason is None:
+                    nonce = uuid.uuid4().hex
+                    # Second normal slot owns the other four physical cores.
+                    occupied = {
+                        core
+                        for value in state["owners"].values()
+                        if value["lane"] == "functional"
+                        for core in value["cores"]
+                    }
+                    if profile.lane == "functional" and profile.slots == 1:
+                        cores = tuple(core for core in policy()["functional_cores"])
+                        profile = replace(
+                            profile,
+                            cores=next(
+                                part
+                                for part in (cores[:4], cores[4:])
+                                if not occupied.intersection(part)
+                            ),
+                        )
+                    state["owners"][nonce] = {
+                        "boot": boot(),
+                        "pid": os.getpid(),
+                        "start": operation.start_identity(os.getpid()),
+                        "class": profile.name,
+                        "memory": profile.memory,
+                        "lane": profile.lane,
+                        "slots": profile.slots,
+                        "cores": list(profile.cores),
+                        "exclusive": profile.exclusive,
+                        "deadline": deadline,
+                        "units": {},
+                    }
+                    selected = Allocation(directory, nonce, profile, deadline)
+            if selected is not None:
+                if profile.exclusive and parkable:
+                    from scripts import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
+                        surreal_server,
+                    )
+
+                    try:
+                        for owner in parkable.values():
+                            require_admission_time(
+                                deadline,
+                                "Original admission clock expired while parking owned services",
+                            )
+                            service = owner["service"]
+                            with allocation_metadata(directory) as state:
+                                if service not in state.setdefault(
+                                    "parked_services", []
+                                ):
+                                    state["parked_services"].append(service)
+                            surreal_server.park_service(
+                                Path(service), deadline=deadline
+                            )
+                        reconcile(directory, deadline)
+                        require_admission_time(
+                            deadline,
+                            "Original admission clock expired during service parking",
+                        )
+                    except Exception:
+                        selected.release()
+                        raise
+                return selected
+        time.sleep(min(0.1, max(0, deadline - time.monotonic())))
+    raise AdmissionError(f"Admission deadline exhausted: {reason}")
+
+
+def cpu_set(cores: Sequence[int]) -> tuple[int, ...]:
+    selected: set[int] = set()
+    for core in cores:
+        path = Path(f"/sys/devices/system/cpu/cpu{core}/topology/thread_siblings_list")
+        if not path.is_file():
+            raise AdmissionError(f"Configured physical core {core} is unavailable")
+        siblings = set()
+        for part in path.read_text().strip().split(","):
+            ends = part.split("-")
+            siblings.update(range(int(ends[0]), int(ends[-1]) + 1))
+        if min(siblings) != core:
+            raise AdmissionError("Host topology differs from physical-core declaration")
+        selected.update(siblings)
+    return tuple(sorted(selected))
+
+
+def allocation_slice(allocation: Allocation) -> str:
+    return f"pse-allocation-{allocation.nonce}.slice"
+
+
+def retire_empty_allocation(allocation: Allocation) -> None:
+    """Release only this drained runtime cgroup, preserving every stored artifact."""
+    name = allocation_slice(allocation)
+    observed = operation.unit_observation(name)
+    group = observed.get("ControlGroup", "")
+    if group and not operation.populated(group):
+        from scripts import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
+            surreal_server,
+        )
+
+        surreal_server.systemctl("stop", name, check=False)
+
+
+def enforce_allocation(allocation: Allocation, env: Mapping[str, str]) -> None:
+    """One finite ancestor charges sibling role units to their originating owner."""
+    resident = settings("exclusive")
+    overhead = (
+        (resident["store_gib"] + resident["light_gib"]) * GIB
+        if allocation.profile.exclusive
+        else 0
+    )
+    ceiling = (
+        aggregate(allocation.profile)
+        if allocation.profile.name == "reference"
+        else allocation.profile.memory + overhead
+    )
+    name = allocation_slice(allocation)
+    command = ["systemctl", "--user"]
+    for arguments in (
+        ["start", name],
+        [
+            "set-property",
+            "--runtime",
+            name,
+            f"MemoryMax={ceiling}",
+            "MemorySwapMax=0",
+            f"CPUQuota={len(allocation.profile.cores) * 100}%",
+            "AllowedCPUs=" + ",".join(map(str, cpu_set(allocation.profile.cores))),
+        ],
+    ):
+        result = subprocess.run(
+            [*command, *arguments],
+            env=dict(env),
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        if result.returncode:
+            raise AdmissionError("Cannot enforce originating allocation ancestor")
+    from scripts.pse_env import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
+        slice_group,
+    )
+
+    observed = int((slice_group(name) / "memory.max").read_text().strip())
+    if observed != ceiling:
+        raise AdmissionError("Allocation memory ancestor readback differs")
+
+
+@contextlib.contextmanager
+def parent_update(directory: Path) -> Generator[None, None, None]:
+    """Serialize the finite configuration write, never a workload or a drain."""
+    protected(directory)
+    fd = os.open(
+        directory / ".parent-update.lock",
+        os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC,
+        0o600,
+    )
+    try:
+        info = os.fstat(fd)
+        if info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise AdmissionError("Unsafe aggregate configuration lock")
+        deadline = time.monotonic() + 5
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise AdmissionError(
+                        "Aggregate configuration update deadline exhausted"
+                    ) from None
+                time.sleep(0.01)
+        yield
+    finally:
+        os.close(fd)
+
+
+def enforce_parent(profile: Profile, env: Mapping[str, str]) -> None:
+    with parent_update(root_path(env)):
+        _enforce_parent(profile, env)
+
+
+def _enforce_parent(profile: Profile, env: Mapping[str, str]) -> None:
+    cap = aggregate(profile)
+    # A concurrent light admission may never lower a widened live heavy envelope.
+    with allocation_metadata(root_path(env)) as state:
+        for owner in state["owners"].values():
+            existing = Profile(
+                owner["class"],
+                owner["memory"],
+                owner["lane"],
+                owner["slots"],
+                tuple(owner["cores"]),
+                owner["exclusive"],
+            )
+            cap = max(cap, aggregate(existing))
+    result = subprocess.run(
+        [
+            "systemctl",
+            "--user",
+            "set-property",
+            "--runtime",
+            "pse.slice",
+            f"MemoryMax={cap}",
+            "MemorySwapMax=0",
+        ],
+        env=dict(env),
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=False,
+    )
+    if result.returncode:
+        raise AdmissionError("Cannot enforce admitted aggregate parent")
+    from scripts.pse_env import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
+        limits,
+    )
+
+    smaller = [(name, value) for name, value in limits("pse.slice") if int(value) < cap]
+    if smaller:
+        raise AdmissionError(
+            f"Effective ancestor is below requested aggregate {cap}: {smaller}"
+        )
+
+
+def status() -> dict[str, object]:
+    directory = root_path()
+    reconcile(directory)
+    with allocation_metadata(directory) as state:
+        return {**state, "pressure": memory_info(), "policy": policy()}
+
+
+def measurement_context(env: Mapping[str, str] | None = None) -> dict[str, object]:
+    """Record conditions without treating snapshots or CPU ceilings as isolation."""
+    source = os.environ if env is None else env
+    owner = inherit(source)
+    with allocation_metadata(root_path(source)) as state:
+        owners = dict(state["owners"])
+    ours = owners.get(owner.nonce) if owner else None
+    units = ours["units"] if ours else {}
+    owned_groups = [value["group"] for value in units.values() if value.get("group")]
+    external = []
+    for path in Path("/proc").iterdir():
+        if not path.name.isdigit():
+            continue
+        try:
+            if path.stat().st_uid != os.getuid():
+                continue
+            fields = (path / "stat").read_text().rsplit(")", 1)[1].split()
+            group = operation.process_group(int(path.name))
+            if any(
+                group == selected or group.startswith(selected + "/")
+                for selected in owned_groups
+            ):
+                continue
+            rss = int((path / "statm").read_text().split()[1]) * os.sysconf(
+                "SC_PAGE_SIZE"
+            )
+            ticks = int(fields[11]) + int(fields[12])
+            if rss >= 100 * (1 << 20) or (path / "comm").read_text().strip() in {
+                "python",
+                "rustc",
+                "postgres",
+                "surreal",
+            }:
+                external.append(
+                    {
+                        "pid": int(path.name),
+                        "start": fields[19],
+                        "name": (path / "comm").read_text().strip(),
+                        "rss_bytes": rss,
+                        "cpu_ticks": ticks,
+                    }
+                )
+        except (OSError, ValueError, IndexError):
+            continue
+    service = None
+    selected = source.get("PSE_SURREAL_STATE")
+    if selected:
+        from scripts import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
+            surreal_server,
+        )
+
+        state_path = Path(selected)
+        config = surreal_server.config_for(state_path)
+        process = state_path / "server-process.json"
+        service = {
+            "state": selected,
+            "generation": config["instance_id"],
+            "resident": bool(config.get("resident")),
+            "server_process": surreal_server.read_json(process)
+            if process.is_file()
+            else None,
+            "supervisor": config.get("service_supervisor"),
+            "receiver": config.get("primary_receiver"),
+            "execution_profile": source.get("PSE_TEST_EXECUTION_PROFILE"),
+            "filesystem_cache": "uncontrolled",
+            "rocksdb_cache": "not independently measured",
+            "schema_provisioning_timed": "declared by selected journey",
+        }
+    return {
+        "clock": time.monotonic(),
+        "class": owner.profile.name if owner else None,
+        "owner": ours,
+        "competing_cooperating_owners": {
+            nonce: value
+            for nonce, value in owners.items()
+            if owner is None or nonce != owner.nonce
+        },
+        "memory": memory_info(),
+        "external_processes": external,
+        "service": service,
+        "isolation": "unqualified; external load and shared device contention remain possible",
+    }

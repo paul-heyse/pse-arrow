@@ -4,6 +4,7 @@
 //! Explicit scientific history withdrawal and restartable bounded result cleanup.
 
 use crate::{
+    canonical::transport::{original_deadline, within_clock},
     canonical::{CanonicalError, CanonicalStore, protected_query},
     canonical_codec,
 };
@@ -38,49 +39,61 @@ impl CanonicalStore {
     /// scientific occurrence and outcome receipts. Individual runs are retired
     /// explicitly, and protected readers and retained analyses still prevent it.
     pub async fn forget_study_results(&self, study: &str) -> Result<(), CanonicalError> {
-        identity(study)?;
-        self.ensure_writes()?;
-        protected_query("canonical_result_retention::forget_study_results", || {
-            Ok(self
-                .db
-                .query("RETURN fn::pse_retention_v1::forget_study($study);")
-                .bind(("study", study.to_owned())))
-        })
-        .await?;
-        Ok(())
+        within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
+            identity(study)?;
+            self.ensure_writes()?;
+            protected_query("canonical_result_retention::forget_study_results", || {
+                Ok(self
+                    .db
+                    .query("RETURN fn::pse_retention_v1::forget_study($pse_rpc_expires_at, $study);")
+                    .bind(("study", study.to_owned())))
+            })
+            .await?;
+            Ok(())
+        }).await
     }
     /// Withdraw a derived analysis's result retention. Source roots may then be
     /// released explicitly; the original method and input lineage remain receipts.
     pub async fn forget_analysis_results(&self, analysis: &str) -> Result<(), CanonicalError> {
-        identity(analysis)?;
-        self.ensure_writes()?;
-        protected_query(
-            "canonical_result_retention::forget_analysis_results",
-            || {
-                Ok(self
-                    .db
-                    .query("RETURN fn::pse_retention_v1::forget_analysis($analysis);")
-                    .bind(("analysis", analysis.to_owned())))
-            },
-        )
-        .await?;
-        Ok(())
+        within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
+            identity(analysis)?;
+            self.ensure_writes()?;
+            protected_query(
+                "canonical_result_retention::forget_analysis_results",
+                || {
+                    Ok(self
+                        .db
+                        .query("RETURN fn::pse_retention_v1::forget_analysis($pse_rpc_expires_at, $analysis);")
+                        .bind(("analysis", analysis.to_owned())))
+                },
+            )
+            .await?;
+            Ok(())
+        }).await
     }
     /// Irreversibly withdraw scientific payloads only after recovery is complete
     /// and no live reader, retained study or analysis needs them. This atomically
     /// fences future claims/reads and releases every selected run source root.
     /// Repeating it resumes the same retirement after an uncertain acknowledgment.
     pub async fn forget_run_results(&self, run: &str) -> Result<(), CanonicalError> {
-        identity(run)?;
-        self.ensure_writes()?;
-        protected_query("canonical_result_retention::forget_run_results", || {
-            Ok(self
-                .db
-                .query("RETURN fn::pse_retention_v1::forget_run($run);")
-                .bind(("run", run.to_owned())))
-        })
-        .await?;
-        Ok(())
+        within_clock(
+            original_deadline(crate::canonical::REQUEST_TIMEOUT),
+            async {
+                identity(run)?;
+                self.ensure_writes()?;
+                protected_query("canonical_result_retention::forget_run_results", || {
+                    Ok(self
+                        .db
+                        .query(
+                            "RETURN fn::pse_retention_v1::forget_run($pse_rpc_expires_at, $run);",
+                        )
+                        .bind(("run", run.to_owned())))
+                })
+                .await?;
+                Ok(())
+            },
+        )
+        .await
     }
     /// Reclaim at most one payload and 64 indexes of each supported class. A
     /// persistent generation cursor preserves progress across interruption.
@@ -89,27 +102,29 @@ impl CanonicalStore {
         &self,
         run: &str,
     ) -> Result<ResultReclamationPage, CanonicalError> {
-        identity(run)?;
-        self.ensure_writes()?;
-        let mut response =
-            protected_query("canonical_result_retention::reclaim_result_page", || {
-                Ok(self
-                    .db
-                    .query("RETURN fn::pse_retention_v1::collect_run($run);")
-                    .bind(("run", run.to_owned())))
+        within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
+            identity(run)?;
+            self.ensure_writes()?;
+            let mut response =
+                protected_query("canonical_result_retention::reclaim_result_page", || {
+                    Ok(self
+                        .db
+                        .query("RETURN fn::pse_retention_v1::collect_run($pse_rpc_expires_at, $run);")
+                        .bind(("run", run.to_owned())))
+                })
+                .await?;
+            let mut row = response
+                .take::<Option<Object>>(0)?
+                .ok_or(CanonicalError::IncompleteResponse)?;
+            Ok(ResultReclamationPage {
+                complete: canonical_codec::decode_boolean(canonical_codec::required(
+                    &mut row, "complete",
+                )?)?,
+                batches: canonical_codec::decode_uint(canonical_codec::required(&mut row, "batches")?)?,
+                indexes: canonical_codec::decode_uint(canonical_codec::required(&mut row, "indexes")?)?,
+                sets: canonical_codec::decode_uint(canonical_codec::required(&mut row, "sets")?)?,
             })
-            .await?;
-        let mut row = response
-            .take::<Option<Object>>(0)?
-            .ok_or(CanonicalError::IncompleteResponse)?;
-        Ok(ResultReclamationPage {
-            complete: canonical_codec::decode_boolean(canonical_codec::required(
-                &mut row, "complete",
-            )?)?,
-            batches: canonical_codec::decode_uint(canonical_codec::required(&mut row, "batches")?)?,
-            indexes: canonical_codec::decode_uint(canonical_codec::required(&mut row, "indexes")?)?,
-            sets: canonical_codec::decode_uint(canonical_codec::required(&mut row, "sets")?)?,
-        })
+        }).await
     }
 }
 
@@ -137,9 +152,11 @@ mod canonical_result_retention_server_unit {
         let state =
             std::env::var("PSE_SURREAL_STATE").expect("supervised canonical fixture required");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
-        options.database = format!("result_retention_{}", uuid::Uuid::new_v4().simple());
-        let store = CanonicalStore::connect(&options).await.unwrap();
-        store.create().await.unwrap();
+        options.database = format!(
+            "canonical_test_result_retention_{}",
+            uuid::Uuid::new_v4().simple()
+        );
+        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
         (store, options.database)
     }
     async fn request(store: &CanonicalStore, key: &str) -> RunRequest {
@@ -315,12 +332,8 @@ mod canonical_result_retention_server_unit {
                 .interpretation,
             wire::INTERPRETATION
         );
-        store
-            .db
-            .query(format!("REMOVE DATABASE {database};"))
-            .await
-            .and_then(checked)
-            .unwrap();
+        assert_eq!(store.database(), database);
+        store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
     async fn multipage_result_read_hands_protection_to_analysis_before_retirement() {
@@ -518,12 +531,8 @@ mod canonical_result_retention_server_unit {
                 .as_deref(),
             Some("partial")
         );
-        store
-            .db
-            .query(format!("REMOVE DATABASE {database};"))
-            .await
-            .and_then(checked)
-            .unwrap();
+        assert_eq!(store.database(), database);
+        store.remove_isolated_fixture().await.unwrap();
     }
 
     #[tokio::test]
@@ -558,11 +567,7 @@ mod canonical_result_retention_server_unit {
             }
             assert_eq!(cleanup(&store, &request.key).await, (3, 1));
         }
-        store
-            .db
-            .query(format!("REMOVE DATABASE {database};"))
-            .await
-            .and_then(checked)
-            .unwrap();
+        assert_eq!(store.database(), database);
+        store.remove_isolated_fixture().await.unwrap();
     }
 }

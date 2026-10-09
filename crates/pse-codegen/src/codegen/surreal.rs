@@ -179,6 +179,14 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
             if index.unique { " UNIQUE" } else { "" }
         );
     }
+    ddl.push_str(
+        r#"
+DEFINE FUNCTION fn::pse_execution_v1::deadline($rpc_expiry: int) -> bool {
+    IF time::micros() >= $rpc_expiry { THROW 'original canonical RPC deadline expired'; };
+    RETURN true;
+};
+"#,
+    );
     super::surreal_execution::append(&mut ddl);
     super::surreal_studies::append(&mut ddl);
     super::surreal_retention::append(&mut ddl);

@@ -262,6 +262,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"scripts/tests/**" = ["S101"] # Acceptance assertions belong in test modules.
 "conftest.py" = ["D1", "INP001", "S603", "S607"]
 "python/pse/tests/**" = [
   "S101",

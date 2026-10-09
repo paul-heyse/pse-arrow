@@ -15,7 +15,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import native_tests, surreal_server
+from scripts import native_tests, surreal_server, test_run
 
 
 class ManagedRustSelectionTests(unittest.TestCase):
@@ -134,6 +134,9 @@ class ManagedRustSelectionTests(unittest.TestCase):
             patch.object(
                 native_tests, "managed_rust_capture", return_value=(execution, worker)
             ) as capture,
+            patch.object(
+                surreal_server, "reference_state", side_effect=lambda state: state
+            ),
             patch.object(surreal_server, "observer", return_value=13) as route,
         ):
             self.assertEqual(native_tests.main(), 13)
@@ -227,7 +230,7 @@ class ManagedRustSelectionTests(unittest.TestCase):
             ),
             patch.object(native_tests.subprocess, "run") as build,
             patch.object(native_tests, "worker_binary") as worker_build,
-            patch.object(native_tests.subprocess, "call", return_value=7) as run,
+            patch.object(test_run, "run_rust", return_value=7) as run,
         ):
             self.assertEqual(native_tests.main(), 7)
         build.assert_not_called()
@@ -437,11 +440,11 @@ class PythonSelectionTests(unittest.TestCase):
         self.assertNotIn("test_first.py::test_first", selected[True])
         self.assertNotIn("test_second.py::test_second", selected[True])
 
-    def test_ordinary_default_keeps_sixteen_workers_and_managed_observer_is_single(
+    def test_ordinary_default_keeps_four_workers_and_managed_observer_is_single(
         self,
     ) -> None:
         ordinary = native_tests.python_command([])
-        self.assertEqual(ordinary[ordinary.index("-n") + 1], "16")
+        self.assertEqual(ordinary[ordinary.index("-n") + 1], "4")
         self.assertEqual(
             ordinary[-2:],
             ["-m", "(unit or component or integration) and not managed_primary"],
@@ -453,7 +456,7 @@ class PythonSelectionTests(unittest.TestCase):
             managed[-4:], ["-m", "(integration) and managed_primary", "-n", "0"]
         )
 
-    def test_sixteen_workers_overlap_and_controller_inventory_preserves_every_case(
+    def test_four_workers_overlap_and_controller_inventory_preserves_every_case(
         self,
     ) -> None:
         """An actual parallel run retains collection and terminal identities."""
@@ -553,6 +556,9 @@ class ManagedPythonRouteTests(unittest.TestCase):
         with (
             patch.object(sys, "argv", ["native_tests.py", "python", *arguments]),
             patch.dict(os.environ, {"PSE_SURREAL_STATE": "/owned/state"}),
+            patch.object(
+                surreal_server, "reference_state", side_effect=lambda state: state
+            ),
             patch.object(surreal_server, "observer", return_value=17) as placed,
             patch.object(
                 native_tests,
@@ -571,6 +577,7 @@ class ManagedPythonRouteTests(unittest.TestCase):
                 *arguments,
                 "--managed-primary-child",
             ],
+            profile="reference",
         )
 
     def test_managed_child_captures_original_native_and_collection_receipts(
@@ -671,7 +678,7 @@ class NativeIgnoredSelectionTests(unittest.TestCase):
                 "run",
                 return_value=subprocess.CompletedProcess([], 0, json.dumps(inventory)),
             ) as listed,
-            patch.object(subprocess, "call", return_value=0) as executed,
+            patch.object(test_run, "run_rust", return_value=0) as executed,
             patch.object(native_tests, "observe_deployed_artifacts"),
             patch.object(native_tests, "native_provenance", return_value={}),
         ):

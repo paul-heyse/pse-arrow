@@ -408,7 +408,7 @@ async fn runtime(cli: &Cli) -> Result<Runtime, String> {
         shared.pool(),
     );
     Ok(Runtime::from_shared(shared, registry, sessions, deployment)
-        .with_durability(Durability::Durable(operations)))
+        .with_durability(Durability::Durable(Box::new(operations))))
 }
 
 fn diagnostic_report(error: &WorkflowError) -> String {

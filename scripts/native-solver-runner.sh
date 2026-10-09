@@ -28,7 +28,7 @@ case "$target/" in
   "$root/"*) ;;
   *) mounts+=(-v "$target:$target:ro") ;;
 esac
-# Canonical application tests use the configured supervised loopback gRPC server.
+# Canonical application tests use the configured supervised loopback WebSocket server.
 # Preserve its private profile paths and host loopback namespace when requested.
 store=()
 network=none

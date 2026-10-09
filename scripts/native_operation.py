@@ -122,6 +122,7 @@ def unit_observation(unit: str) -> dict[str, str]:
             "--property=InvocationID",
             "--property=ControlGroup",
             "--property=LoadState",
+            "--property=ActiveState",
             unit,
         ],
         check=False,
@@ -474,7 +475,28 @@ def environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
             elif name not in off:
                 result.setdefault(name, value)
     if "klu" in requested:
-        prefix = cache.klu(base, result)
+        include_value = result.get("SUITESPARSE_INCLUDE_DIR")
+        library_value = result.get("SUITESPARSE_LIBRARY_DIR")
+        if "SUITESPARSE_INCLUDE_DIR" in result or "SUITESPARSE_LIBRARY_DIR" in result:
+            if not include_value or not library_value:
+                raise ValueError(
+                    "explicit KLU paths require both include and library directories"
+                )
+            include = Path(include_value)
+            library = Path(library_value)
+            if not include.is_absolute() or not library.is_absolute():
+                raise ValueError("explicit KLU paths must be absolute")
+            prefix = include.parent.parent.resolve()
+            if (
+                include.resolve() != prefix / "include/suitesparse"
+                or library.resolve() != prefix / "lib"
+            ):
+                raise ValueError(
+                    "explicit KLU paths must select one coherent native prefix"
+                )
+            cache.admit_external(prefix, cache.KLU_FILES)
+        else:
+            prefix = cache.klu(base, result)
         enforce(result, "SUITESPARSE_INCLUDE_DIR", str(prefix / "include/suitesparse"))
         enforce(result, "SUITESPARSE_LIBRARY_DIR", str(prefix / "lib"))
     if "isolation" in requested:
@@ -571,6 +593,16 @@ def main() -> int:
     from scripts import native_cache as cache  # noqa: PLC0415 -- owner cycle
 
     original = dict(os.environ)
+    if not args.shell and original.get("PSE_HOST_ALLOCATION"):
+        from scripts import (  # noqa: PLC0415 -- reciprocal operation/admission ownership
+            host_admission,
+        )
+
+        allocation = host_admission.inherit(original, handoff=True)
+        owner = scope_owner()
+        if allocation is None or owner is None:
+            raise ValueError("Managed native role lacks actual allocation membership")
+        allocation.bind(owner["unit"])
     if args.shell:
         configured = environment(requested, build_environment.configure(ROOT, original))
         for name, value in sorted(configured.items()):

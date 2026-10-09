@@ -17,6 +17,7 @@ from pse.contracts.enums import (
     ReusePolicy,
 )
 from pse.contracts.values import SemanticId
+from pse.tests.canonical_fixture import CanonicalFixture
 
 #: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
@@ -30,10 +31,10 @@ PRIMITIVES = (
 def test_authored_solve_join_warm_start_checks_and_retention(
     inspection_settings: pse.EngineSettings,
     tmp_path: Path,
-    canonical_substrate: str,
+    canonical_substrate: CanonicalFixture,
 ) -> None:
     # Ordinary runs retain exact canonical attempt selections.
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = canonical_substrate.runtime(inspection_settings)
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
     physical = runtime.physical_from_documents(

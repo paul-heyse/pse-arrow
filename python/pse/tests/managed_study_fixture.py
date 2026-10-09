@@ -4,7 +4,6 @@
 
 import math
 import os
-import shutil
 import signal
 import stat
 import subprocess
@@ -17,6 +16,8 @@ from pathlib import Path
 from typing import Self
 
 import msgspec
+from scripts import native_operation, test_resources
+from scripts import surreal_server as server
 
 
 class NativeEntry(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
@@ -77,8 +78,18 @@ class ManagedStudyFixture:
     starts local native work or gives the observer a primary worker allocation.
     """
 
-    def __init__(self, state: str) -> None:
-        self.state = Path(state).absolute()
+    def __init__(
+        self,
+        state: str,
+        *,
+        database: str | None = None,
+        resource: str | None = None,
+        test: str | None = None,
+    ) -> None:
+        self.state = server.receiver_context(Path(state).absolute(), database)
+        self.resource = resource
+        self.test = test
+        self.controls_resource: str | None = None
         self.lock = self.state / "managed-study-qualification.lock"
         self.nonce = uuid.uuid4().hex
         self.directory = self.state / f"native-entry-qualification-{self.nonce}"
@@ -91,18 +102,28 @@ class ManagedStudyFixture:
         self.drain_deadline: float | None = None
 
     def __enter__(self) -> Self:
-        deadline = time.monotonic() + 60
-        while True:
-            try:
-                descriptor = os.open(
-                    self.lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600
-                )
-                os.close(descriptor)
-                self.lock_owned = True
-                break
-            except FileExistsError:
-                assert time.monotonic() < deadline, "exclusive managed study fixture"
-                time.sleep(0.02)
+        with server.state_lock(self.state):
+            if self.lock.exists():
+                prior = _read_object(self.lock)
+                try:
+                    alive = (
+                        native_operation.start_identity(
+                            msgspec.convert(prior["pid"], type=int)
+                        )
+                        == prior["start"]
+                    )
+                except FileNotFoundError:
+                    alive = False
+                assert not alive, "another live owner has this qualification context"
+            _write_private(
+                self.lock,
+                {
+                    "nonce": self.nonce,
+                    "pid": os.getpid(),
+                    "start": native_operation.start_identity(os.getpid()),
+                },
+            )
+            self.lock_owned = True
         try:
             config = _read_object(self.state / "config.json")
             resources = msgspec.convert(config["resources"], type=dict[str, object])
@@ -138,6 +159,15 @@ class ManagedStudyFixture:
             self.database = msgspec.convert(config["database"], type=str)
             receiver = msgspec.convert(config["primary_receiver"], type=dict[str, str])
             self._handoff_prior_observer()
+            self.controls_resource = test_resources.register(
+                {
+                    "state": str(self.state),
+                    "database": self.database,
+                    "kind": "controls",
+                    "directory": str(self.directory),
+                    "test": self.test or "",
+                }
+            )
             self.directory.mkdir(mode=0o700)
             _write_private(
                 self.directory / "request.json",
@@ -207,7 +237,6 @@ class ManagedStudyFixture:
                 record = _read_object(registration)
                 pid = msgspec.convert(record["pid"], type=int)
                 if pid == os.getpid():
-                    server._checked_current_observer(self.state)
                     owned = True
                 else:
                     process = Path(f"/proc/{pid}/stat")
@@ -216,22 +245,20 @@ class ManagedStudyFixture:
                         or process.read_text().rsplit(")", 1)[1].split()[19]
                         != record["start"]
                     ), "another live caller owns the observer allocation"
-            prior = getattr(server._STARTUP, "deadline", None)
-            deadline = time.monotonic() + 10
-            server._STARTUP.deadline = (
-                deadline if prior is None else min(deadline, prior)
-            )
-            try:
-                observed = server.primary_observation(self.state)
-            finally:
-                server._STARTUP.deadline = prior
-            group = observed["ControlGroup"]
-            live = observed["ActiveState"] not in {"inactive", "failed"} or bool(
-                group and server.group_populated(group)
-            )
-            assert not live or owned, (
-                "refuse to drain a primary owned by another observer"
-            )
+        if owned:
+            server._checked_current_observer(self.state)
+        prior = getattr(server._STARTUP, "deadline", None)
+        deadline = time.monotonic() + 10
+        server._STARTUP.deadline = deadline if prior is None else min(deadline, prior)
+        try:
+            observed = server.primary_observation(self.state)
+        finally:
+            server._STARTUP.deadline = prior
+        group = observed["ControlGroup"]
+        live = observed["ActiveState"] not in {"inactive", "failed"} or bool(
+            group and server.group_populated(group)
+        )
+        assert not live or owned, "refuse to drain a primary owned by another observer"
         if live:
             stop_managed_primary(self.state, self.database)
         if owned:
@@ -481,8 +508,14 @@ class ManagedStudyFixture:
                 assert final.canonical_database == self.database
                 assert final.pid == self.worker_pid
                 assert final.active == 0
-            shutil.rmtree(self.directory)
-        self.lock.unlink()
+            if self.controls_resource is not None:
+                test_resources.record_drain(self.controls_resource)
+        with server.state_lock(self.state):
+            if (
+                self.lock.exists()
+                and _read_object(self.lock).get("nonce") == self.nonce
+            ):
+                self.lock.unlink()
         self.lock_owned = False
 
     def __exit__(self, _kind: object, _error: object, _traceback: object) -> None:

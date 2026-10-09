@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
 """Bounded, unauthenticated loopback HTTP/2 control-frame diagnostic.
 
 Uses the pinned SurrealDB GetCapabilities unary RPC with an empty protobuf request.
@@ -17,6 +19,10 @@ import json
 import socket
 import struct
 import time
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import NoReturn
 
 RPC_PATH = "/surrealdb.protocol.rpc.v1.SurrealDBService/GetCapabilities"
 ERROR_NAMES = {
@@ -133,6 +139,11 @@ class Channel:
         )
 
 
+def fail_probe(reason: str) -> NoReturn:
+    """End the diagnostic through its existing bounded failure classification."""
+    raise ProbeError(reason)
+
+
 def probe(
     host: str,
     port: int,
@@ -179,7 +190,7 @@ def probe(
             kind, flags, stream, payload = channel.receive()
             frame_count += 1
             if frame_count > 64 * requests + 1024:
-                raise ProbeError("received frame count bound reached")
+                fail_probe("received frame count bound reached")
             if kind == 4 and not flags & 1:
                 channel.send(frame(4, 1, 0))
             elif kind == 6 and not flags & 1:
@@ -187,7 +198,7 @@ def probe(
             elif kind in (3, 7):
                 offset = 4 if kind == 7 else 0
                 if len(payload) < offset + 4:
-                    raise ProbeError("truncated reset/goaway frame")
+                    fail_probe("truncated reset/goaway frame")
                 code = int.from_bytes(payload[offset : offset + 4], "big")
                 control: dict[str, object] = {
                     "direction": "server_to_probe",
@@ -204,17 +215,17 @@ def probe(
                         "ascii", errors="backslashreplace"
                     )
                 controls.append(control)
-                raise ProbeError("peer emitted " + str(control["frame"]))
+                fail_probe("peer emitted " + str(control["frame"]))
             if kind == 0:
                 if stream not in active:
-                    raise ProbeError("DATA for an unowned stream")
+                    fail_probe("DATA for an unowned stream")
                 data = payload
                 if flags & 8:
                     if not payload or payload[0] >= len(payload):
-                        raise ProbeError("invalid DATA padding")
+                        fail_probe("invalid DATA padding")
                     data = payload[1 : len(payload) - payload[0]]
                 if len(active[stream]) + len(data) > 65536:
-                    raise ProbeError("per-response byte bound reached")
+                    fail_probe("per-response byte bound reached")
                 active[stream].extend(data)
                 if payload:
                     increment = struct.pack("!I", len(payload))
@@ -223,7 +234,7 @@ def probe(
                         channel.send(frame(8, 0, stream, increment))
             if kind in (0, 1) and flags & 1:
                 if stream not in active:
-                    raise ProbeError("END_STREAM for an unowned stream")
+                    fail_probe("END_STREAM for an unowned stream")
                 body = active.pop(stream)
                 if len(body) >= 5 and len(body) >= 5 + int.from_bytes(body[1:5], "big"):
                     messages += 1

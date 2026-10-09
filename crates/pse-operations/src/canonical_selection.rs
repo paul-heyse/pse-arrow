@@ -653,7 +653,7 @@ impl CanonicalStore {
             &read.selection.revision().problem,
             "canonical_selection::adopt_dependencies_from_same_revision",
             || Ok(self.db.query(format!(
-                "{PROTECTED_BEGIN}\nSELECT * FROM ONLY type::record('canonical_revisions', $revision);\nCOMMIT;"
+                "{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM ONLY type::record('canonical_revisions', $revision) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"
             ))
                 .bind(("problem", read.selection.revision().problem.clone()))
                 .bind(("revision", read.selection.revision().key.clone()))
@@ -715,7 +715,7 @@ impl CanonicalStore {
         if logicals.len() > 256 {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = self.protected_query(&read.selection.revision().problem, "canonical_selection::resolve_logicals", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND logical IN $logicals AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nCOMMIT;"))
+        let mut response = self.protected_query(&read.selection.revision().problem, "canonical_selection::resolve_logicals", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem AND logical IN $logicals AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem", read.selection.revision().problem.clone())).bind(("revision", read.selection.revision().key.clone())).bind(("protection", read.selection.key().to_owned())).bind(("logicals", logicals.to_vec())).bind(("sequence", crate::canonical_codec::encode_uint(read.selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         let members = rows
@@ -866,9 +866,13 @@ impl CanonicalStore {
         let limit = 64 / cursors.len();
         let mut sql = PROTECTED_BEGIN.to_owned();
         for index in 0..cursors.len() {
-            sql.push_str(&format!("\nSELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope{index} = NONE OR scope = $scope{index}) AND key > $after{index} AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($kind{index} = NONE OR (out.kind = $kind{index} AND out.closed = true)) AND ($target_scope{index} = NONE OR (SELECT VALUE key FROM canonical_edges WHERE source_version = $parent.version AND target_scope = $target_scope{index} AND target_name = $target_name{index} LIMIT 1) != []) ORDER BY key LIMIT {limit};"));
+            sql.push_str(&format!("\nLET $page{index} = SELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope{index} = NONE OR scope = $scope{index}) AND key > $after{index} AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($kind{index} = NONE OR (out.kind = $kind{index} AND out.closed = true)) AND ($target_scope{index} = NONE OR (SELECT VALUE key FROM canonical_edges WHERE source_version = $parent.version AND target_scope = $target_scope{index} AND target_name = $target_name{index} LIMIT 1) != []) ORDER BY key LIMIT {limit} TIMEOUT $pse_rpc_timeout;"));
         }
-        sql.push_str("\nCOMMIT;");
+        let pages = (0..cursors.len())
+            .map(|index| format!("$page{index}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        sql.push_str(&format!("\nLET $rpc_result = [{pages}];\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"));
         let mut response = self
             .protected_query(
                 &read.selection.revision().problem,
@@ -904,20 +908,20 @@ impl CanonicalStore {
                 },
             )
             .await?;
-        let first = response
-            .num_statements()
-            .checked_sub(cursors.len() + 1)
-            .ok_or(CanonicalError::IncompleteResponse)?;
-        // Decode the complete response before moving any cursor's premise.
-        let mut pages = Vec::with_capacity(cursors.len());
-        for index in first..first + cursors.len() {
-            let rows: Vec<Object> = response.take(index)?;
-            pages.push(
+        // Decode every bounded page before moving any cursor's premise.
+        let raw_pages: Vec<Vec<Object>> =
+            response.take(response.num_statements().saturating_sub(2))?;
+        if raw_pages.len() != cursors.len() {
+            return Err(CanonicalError::IncompleteResponse);
+        }
+        let pages = raw_pages
+            .into_iter()
+            .map(|rows| {
                 rows.into_iter()
                     .map(wire::decode_canonical_memberships)
-                    .collect::<Result<Vec<_>, _>>()?,
-            );
-        }
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         for (cursor, page) in cursors.iter_mut().zip(&pages) {
             self.accept_membership_page(read, cursor, page)?;
         }
@@ -1028,7 +1032,7 @@ impl CanonicalStore {
         target: Option<(&str, &str)>,
         after: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
-        let mut response = self.protected_query(&selection.revision().problem, "canonical_selection::selection_membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope = NONE OR scope = $scope) AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($source_kind = NONE OR (out.kind = $source_kind AND out.closed = true)) AND ($target_scope = NONE OR (SELECT VALUE key FROM canonical_edges WHERE source_version = $parent.version AND target_scope = $target_scope AND target_name = $target_name LIMIT 1) != []) ORDER BY key LIMIT 64;\nCOMMIT;"))
+        let mut response = self.protected_query(&selection.revision().problem, "canonical_selection::selection_membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope = NONE OR scope = $scope) AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($source_kind = NONE OR (out.kind = $source_kind AND out.closed = true)) AND ($target_scope = NONE OR (SELECT VALUE key FROM canonical_edges WHERE source_version = $parent.version AND target_scope = $target_scope AND target_name = $target_name LIMIT 1) != []) ORDER BY key LIMIT 64 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("protection", selection.key().to_owned())).bind(("scope", scope.map(str::to_owned))).bind(("source_kind", source_kind.map(str::to_owned))).bind(("after", after.to_owned())).bind(("target_scope", target.map(|(scope,_)| scope.to_owned()))).bind(("target_name", target.map(|(_,name)| name.to_owned()))).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
@@ -1129,7 +1133,7 @@ impl CanonicalStore {
             .collect::<Vec<_>>()
             .join(" OR ");
         let sql = format!(
-            "{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND ({predicate}) AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nCOMMIT;"
+            "{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem AND ({predicate}) AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"
         );
         let mut response = self
             .protected_query(
@@ -1188,7 +1192,7 @@ impl CanonicalStore {
         scope: Option<&str>,
         after: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
-        let mut response = self.protected_query(&selection.revision().problem, "canonical_selection::membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope = NONE OR scope = $scope) AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) ORDER BY key LIMIT 64;\nCOMMIT;"))
+        let mut response = self.protected_query(&selection.revision().problem, "canonical_selection::membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope = NONE OR scope = $scope) AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) ORDER BY key LIMIT 64 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("protection", selection.key().to_owned())).bind(("scope", scope.map(str::to_owned))).bind(("after", after.to_owned())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
@@ -1238,7 +1242,7 @@ impl CanonicalStore {
     ) -> Result<Option<String>, CanonicalError> {
         self.acknowledge_description_until(
             description,
-            tokio::time::Instant::now() + crate::canonical::REQUEST_TIMEOUT,
+            crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT),
         )
         .await
     }
@@ -1252,12 +1256,11 @@ impl CanonicalStore {
         if tokio::time::Instant::now() >= deadline {
             return Err(CanonicalError::Timeout);
         }
-        tokio::time::timeout_at(
+        crate::canonical::transport::within_clock(
             deadline,
             self.product_acknowledged(&description.material.product),
         )
         .await
-        .map_err(|_| CanonicalError::Timeout)?
     }
     /// Settle or publish reusable material against the exact current consumer read.
     pub async fn publish_description(
@@ -1268,7 +1271,7 @@ impl CanonicalStore {
         self.publish_description_until(
             read,
             description,
-            tokio::time::Instant::now() + crate::canonical::REQUEST_TIMEOUT,
+            crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT),
         )
         .await
     }
@@ -1305,7 +1308,7 @@ impl CanonicalStore {
         self.publish_scientific_description_inner(
             read,
             description,
-            tokio::time::Instant::now() + crate::canonical::REQUEST_TIMEOUT,
+            crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT),
         )
         .await
     }
@@ -1346,7 +1349,8 @@ impl CanonicalStore {
         read: &SelectedRead,
         product: Product,
     ) -> Result<String, CanonicalError> {
-        let deadline = tokio::time::Instant::now() + crate::canonical::REQUEST_TIMEOUT;
+        let deadline =
+            crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT);
         if is_replay_producer(&product.producer) {
             return Err(CanonicalError::Configuration(
                 "generic product publication cannot impersonate scientific admission".into(),
@@ -1370,7 +1374,8 @@ impl CanonicalStore {
         read: &SelectedRead,
         product: Product,
     ) -> Result<String, CanonicalError> {
-        let deadline = tokio::time::Instant::now() + crate::canonical::REQUEST_TIMEOUT;
+        let deadline =
+            crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT);
         if !scientific_producer(&product.producer) {
             return Err(CanonicalError::Configuration(
                 "scientific publication requires its current reserved qualified producer".into(),
@@ -1389,7 +1394,7 @@ impl CanonicalStore {
         if tokio::time::Instant::now() >= deadline {
             return Err(CanonicalError::Timeout);
         }
-        tokio::time::timeout_at(deadline, async {
+        crate::canonical::transport::within_clock(deadline, async {
             if !description.matches_read(read)? {
                 return Err(CanonicalError::Configuration(
                     "product description dependencies differ from current read".into(),
@@ -1432,7 +1437,6 @@ impl CanonicalStore {
             }
         })
         .await
-        .map_err(|_| CanonicalError::Timeout)?
     }
     /// Corrupt only a disposable native fixture's first immutable product block.
     #[cfg(feature = "canonical-tests")]
@@ -1500,7 +1504,7 @@ impl CanonicalStore {
             || {
                 Ok(self
                     .db
-                    .query(format!("{PROTECTED_BEGIN}\nSELECT VALUE true FROM canonical_products WHERE problem = $problem AND producer = $producer AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1;\nCOMMIT;"))
+                    .query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT VALUE true FROM canonical_products WHERE problem = $problem AND producer = $producer AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
                     .bind(("problem", selection.revision().problem.clone()))
                     .bind(("revision", selection.revision().key.clone()))
                     .bind((
@@ -1532,7 +1536,7 @@ impl CanonicalStore {
         {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = self.protected_query(&selection.revision().problem, "canonical_selection::product_candidate", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_products WHERE problem = $problem AND producer = $producer AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1;\nCOMMIT;"))
+        let mut response = self.protected_query(&selection.revision().problem, "canonical_selection::product_candidate", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_products WHERE problem = $problem AND producer = $producer AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?))
             .bind(("protection", selection.key().to_owned())).bind(("producer", producer.to_owned())).bind(("request", surrealdb::types::Bytes::from(request.to_vec()))).bind(("after", after.to_owned())).bind(("interpretation", wire::INTERPRETATION.to_owned())))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
@@ -1801,8 +1805,7 @@ mod canonical_server_unit {
             std::env::var("PSE_SURREAL_STATE").expect("canonical-test supplies supervised state");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_{}", uuid::Uuid::new_v4().simple());
-        let store = CanonicalStore::connect(&options).await.unwrap();
-        store.create().await.unwrap();
+        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
         store
     }
     async fn read(store: &CanonicalStore, revision: crate::canonical::Revision) -> SelectedRead {
@@ -2826,7 +2829,7 @@ mod canonical_server_unit {
             CanonicalOptions::from_state(Path::new(&std::env::var("PSE_SURREAL_STATE").unwrap()))
                 .unwrap();
         options.database = store.database().to_owned();
-        let reopened = CanonicalStore::connect(&options).await.unwrap();
+        let reopened = crate::testing::canonical_fixture_peer(&store, &options).unwrap();
         reopened.open().await.unwrap();
         let mut selected = second.clone();
         assert_eq!(

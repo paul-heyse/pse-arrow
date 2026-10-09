@@ -22,6 +22,7 @@ from pse.contracts.enums import (
     PresolvePolicyKind,
 )
 from pse.contracts.identities import DeclarationId
+from pse.tests.canonical_fixture import CanonicalFixture
 
 #: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
@@ -82,10 +83,10 @@ def _settings() -> pse.SolveSettings:
 @pytest.mark.integration
 def test_canonical_result_selection_and_progress_reopen(
     inspection_settings: pse.EngineSettings,
-    canonical_substrate: str,
+    canonical_substrate: CanonicalFixture,
     tmp_path: Path,
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = canonical_substrate.runtime(inspection_settings)
     assert runtime.durable
     package, case = _package(runtime)
     prepared = package.prepare_solve(case, _settings())
@@ -107,7 +108,7 @@ def test_canonical_result_selection_and_progress_reopen(
 
     # Another workflow handle reopens exact immutable members, without a retained
     # RunResult or a SQL/secondary publication authority.
-    reopened = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    reopened = canonical_substrate.runtime(inspection_settings)
     (header,) = pa.table(reopened.run_record(run)).to_pylist()
     (record,) = pa.table(reopened.attempt_record(attempt)).to_pylist()
     (manifest,) = pa.table(reopened.result_manifest(attempt)).to_pylist()
@@ -171,7 +172,7 @@ def test_canonical_result_selection_and_progress_reopen(
 @pytest.mark.producer_deployment
 def test_canonical_eligible_deployment_receipt_reopens_original_scalar(
     inspection_settings: pse.EngineSettings,
-    canonical_substrate: str,
+    canonical_substrate: CanonicalFixture,
     tmp_path: Path,
 ) -> None:
     receipt_path = os.environ.get("PSE_PRODUCER_RECEIPT")
@@ -204,7 +205,7 @@ def test_canonical_eligible_deployment_receipt_reopens_original_scalar(
     if worker is None:
         pytest.fail("This control requires the actual worker deployment receipt.")
     with pytest.raises(pse.InspectionError, match="actual deployed artifact"):
-        pse.Runtime(inspection_settings, substrate=canonical_substrate, producer=worker)
+        canonical_substrate.runtime(inspection_settings, producer=worker)
     stale = msgspec.json.decode(Path(receipt_path).read_bytes(), type=dict[str, object])
     stale_association = stale["deployment"]
     assert isinstance(stale_association, dict)
@@ -214,13 +215,9 @@ def test_canonical_eligible_deployment_receipt_reopens_original_scalar(
     stale_path = tmp_path / "stale-artifact.json"
     stale_path.write_bytes(msgspec.json.encode(stale))
     with pytest.raises(pse.InspectionError, match="consumed file changed"):
-        pse.Runtime(
-            inspection_settings, substrate=canonical_substrate, producer=str(stale_path)
-        )
+        canonical_substrate.runtime(inspection_settings, producer=str(stale_path))
 
-    runtime = pse.Runtime(
-        inspection_settings, substrate=canonical_substrate, producer=receipt_path
-    )
+    runtime = canonical_substrate.runtime(inspection_settings, producer=receipt_path)
     package, case = _package(runtime)
     revision = package.canonical_revision
     settings = _settings()
@@ -265,9 +262,7 @@ def test_canonical_eligible_deployment_receipt_reopens_original_scalar(
     runtime.clear_program_cache()
     del runtime
 
-    reopened = pse.Runtime(
-        inspection_settings, substrate=canonical_substrate, producer=receipt_path
-    )
+    reopened = canonical_substrate.runtime(inspection_settings, producer=receipt_path)
     recreated = reopened.modeling_revision(revision, _physical(reopened))
     assert recreated.canonical_revision == revision
     assert pa.table(reopened.results(run, attempt, "runtime.solve_variables")).equals(
@@ -297,7 +292,7 @@ def test_canonical_eligible_deployment_receipt_reopens_original_scalar(
 @pytest.mark.integration
 def test_canonical_default_no_receipt_reopens_scalar_with_sibling_loader(
     inspection_settings: pse.EngineSettings,
-    canonical_substrate: str,
+    canonical_substrate: CanonicalFixture,
     tmp_path: Path,
 ) -> None:
     # Bound the complete native preparation, not just Thread.join: a TLS/loader
@@ -379,7 +374,7 @@ def test_canonical_default_no_receipt_reopens_scalar_with_sibling_loader(
     loader_cycle()
     # No producer argument: ordinary imported Python chooses its supported local
     # admission independently, even if an optional strict campaign is configured.
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = canonical_substrate.runtime(inspection_settings)
     package, case = _package(runtime)
     revision = package.canonical_revision
     prepared = package.prepare_solve(case, _settings())
@@ -403,7 +398,7 @@ def test_canonical_default_no_receipt_reopens_scalar_with_sibling_loader(
     runtime.clear_program_cache()
     del runtime
 
-    receiving = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    receiving = canonical_substrate.runtime(inspection_settings)
     recreated = receiving.modeling_revision(revision, _physical(receiving))
     assert recreated.canonical_revision == revision
     started = threading.Event()
@@ -452,7 +447,7 @@ def test_canonical_default_no_receipt_reopens_scalar_with_sibling_loader(
 
     # Quiet reopening after loader activity verifies the ordinary composed path
     # and exact retained historical members; it makes no timing/replay-only claim.
-    reopened = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    reopened = canonical_substrate.runtime(inspection_settings)
     assert pa.table(reopened.results(run, attempt, "runtime.solve_variables")).equals(
         original
     )

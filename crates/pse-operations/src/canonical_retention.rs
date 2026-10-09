@@ -5,6 +5,7 @@
 //! immutable after its source intervals are reclaimed; range markers fence reopening.
 
 use crate::{
+    canonical::transport::{original_deadline, within_clock},
     canonical::{CanonicalError, CanonicalStore, bounded_query},
     canonical_codec,
     generated::surreal as wire,
@@ -93,43 +94,55 @@ impl CanonicalStore {
         revision: &Revision,
         owner: &RetentionOwner,
     ) -> Result<(), CanonicalError> {
-        owner.validate()?;
-        if !matches!(owner, RetentionOwner::History(_)) {
-            return Err(CanonicalError::Configuration(
-                "only deliberate history roots can be minted or moved explicitly".into(),
-            ));
-        }
-        for attempt in 0..RETRIES {
-            self.ensure_writes()?;
-            let result = bounded_query(
-                self.db
-                    .query(RETAIN)
-                    .bind(("problem", revision.problem.clone()))
-                    .bind(("revision", revision.key.clone()))
-                    .bind(("root", owner.key()))
-                    .bind(("owner_kind", owner.parts().0))
-                    .bind(("owner", owner.parts().1.to_owned()))
-                    .bind(("interpretation", wire::INTERPRETATION)),
-            )
-            .await
-            .map(|_| ());
-            match result {
-                Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
-                    tokio::task::yield_now().await;
+        within_clock(
+            original_deadline(crate::canonical::REQUEST_TIMEOUT),
+            async {
+                owner.validate()?;
+                if !matches!(owner, RetentionOwner::History(_)) {
+                    return Err(CanonicalError::Configuration(
+                        "only deliberate history roots can be minted or moved explicitly".into(),
+                    ));
                 }
-                other => return other,
-            }
-        }
-        Err(CanonicalError::Configuration(
-            "retention retries exhausted".into(),
-        ))
+                for attempt in 0..RETRIES {
+                    self.ensure_writes()?;
+                    let result = bounded_query(
+                        self.db
+                            .query(RETAIN)
+                            .bind(("problem", revision.problem.clone()))
+                            .bind(("revision", revision.key.clone()))
+                            .bind(("root", owner.key()))
+                            .bind(("owner_kind", owner.parts().0))
+                            .bind(("owner", owner.parts().1.to_owned()))
+                            .bind(("interpretation", wire::INTERPRETATION)),
+                    )
+                    .await
+                    .map(|_| ());
+                    match result {
+                        Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
+                            tokio::task::yield_now().await;
+                        }
+                        other => return other,
+                    }
+                }
+                Err(CanonicalError::Configuration(
+                    "retention retries exhausted".into(),
+                ))
+            },
+        )
+        .await
     }
 
     /// Explicitly forget only this revision's default history root. Durable run,
     /// product, analysis, attempt and protected-reader roots remain independent.
     pub async fn forget_history(&self, revision: &Revision) -> Result<(), CanonicalError> {
-        self.drop_retained_root(revision, &RetentionOwner::History(revision.key.clone()))
-            .await
+        within_clock(
+            original_deadline(crate::canonical::REQUEST_TIMEOUT),
+            async {
+                self.drop_retained_root(revision, &RetentionOwner::History(revision.key.clone()))
+                    .await
+            },
+        )
+        .await
     }
 
     /// Drop exactly a history or product owner's expected selection. Lifecycle roots
@@ -140,38 +153,46 @@ impl CanonicalStore {
         revision: &Revision,
         owner: &RetentionOwner,
     ) -> Result<(), CanonicalError> {
-        owner.validate()?;
-        if matches!(
-            owner,
-            RetentionOwner::Run(_) | RetentionOwner::Analysis(_) | RetentionOwner::ActiveAttempt(_)
-        ) {
-            return Err(CanonicalError::Configuration(
-                "lifecycle roots are released only by their owning retirement".into(),
-            ));
-        }
-        for attempt in 0..RETRIES {
-            self.ensure_writes()?;
-            let result = bounded_query(
-                self.db
-                    .query(DROP_ROOT)
-                    .bind(("problem", revision.problem.clone()))
-                    .bind(("revision", revision.key.clone()))
-                    .bind(("root", owner.key()))
-                    .bind(("owner_kind", owner.parts().0))
-                    .bind(("owner", owner.parts().1.to_owned())),
-            )
-            .await
-            .map(|_| ());
-            match result {
-                Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
-                    tokio::task::yield_now().await;
+        within_clock(
+            original_deadline(crate::canonical::REQUEST_TIMEOUT),
+            async {
+                owner.validate()?;
+                if matches!(
+                    owner,
+                    RetentionOwner::Run(_)
+                        | RetentionOwner::Analysis(_)
+                        | RetentionOwner::ActiveAttempt(_)
+                ) {
+                    return Err(CanonicalError::Configuration(
+                        "lifecycle roots are released only by their owning retirement".into(),
+                    ));
                 }
-                other => return other,
-            }
-        }
-        Err(CanonicalError::Configuration(
-            "retention retries exhausted".into(),
-        ))
+                for attempt in 0..RETRIES {
+                    self.ensure_writes()?;
+                    let result = bounded_query(
+                        self.db
+                            .query(DROP_ROOT)
+                            .bind(("problem", revision.problem.clone()))
+                            .bind(("revision", revision.key.clone()))
+                            .bind(("root", owner.key()))
+                            .bind(("owner_kind", owner.parts().0))
+                            .bind(("owner", owner.parts().1.to_owned())),
+                    )
+                    .await
+                    .map(|_| ());
+                    match result {
+                        Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
+                            tokio::task::yield_now().await;
+                        }
+                        other => return other,
+                    }
+                }
+                Err(CanonicalError::Configuration(
+                    "retention retries exhausted".into(),
+                ))
+            },
+        )
+        .await
     }
 
     /// Examine at most 64 closed intervals for one problem. Every deletion reruns
@@ -182,76 +203,78 @@ impl CanonicalStore {
         problem: &str,
         after: &str,
     ) -> Result<ReclamationPage, CanonicalError> {
-        self.ensure_writes()?;
-        let mut response = bounded_query(self.db.query("SELECT key FROM canonical_memberships WHERE problem = $problem AND key > $after AND to_sequence != NONE ORDER BY key LIMIT 64;")
-            .bind(("problem", problem.to_owned())).bind(("after", after.to_owned()))).await?;
-        let rows: Vec<Object> = response.take(0)?;
-        let full = rows.len() == PAGE;
-        let mut page = ReclamationPage::default();
-        let mut previous = after.to_owned();
-        for mut row in rows {
-            let key = canonical_codec::decode_string(canonical_codec::required(&mut row, "key")?)?;
-            let mut decision = None;
-            for attempt in 0..RETRIES {
-                self.ensure_writes()?;
-                let result = bounded_query(
-                    self.db
-                        .query(RECLAIM.replace(
-                            "/* DELETE_VERSION */",
-                            crate::canonical_staging::DELETE_VERSION,
-                        ))
-                        .bind(("problem", problem.to_owned()))
-                        .bind(("candidate", key.clone())),
-                )
-                .await;
-                match result {
-                    Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
-                        tokio::task::yield_now().await;
-                    }
-                    Err(error) => return Err(error),
-                    Ok(mut response) => {
-                        decision = response
-                            .take::<Option<Object>>(response.num_statements().saturating_sub(2))?;
-                        break;
+        within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
+            self.ensure_writes()?;
+            let mut response = bounded_query(self.db.query("SELECT key FROM canonical_memberships WHERE problem = $problem AND key > $after AND to_sequence != NONE ORDER BY key LIMIT 64;")
+                .bind(("problem", problem.to_owned())).bind(("after", after.to_owned()))).await?;
+            let rows: Vec<Object> = response.take(0)?;
+            let full = rows.len() == PAGE;
+            let mut page = ReclamationPage::default();
+            let mut previous = after.to_owned();
+            for mut row in rows {
+                let key = canonical_codec::decode_string(canonical_codec::required(&mut row, "key")?)?;
+                let mut decision = None;
+                for attempt in 0..RETRIES {
+                    self.ensure_writes()?;
+                    let result = bounded_query(
+                        self.db
+                            .query(RECLAIM.replace(
+                                "/* DELETE_VERSION */",
+                                crate::canonical_staging::DELETE_VERSION,
+                            ))
+                            .bind(("problem", problem.to_owned()))
+                            .bind(("candidate", key.clone())),
+                    )
+                    .await;
+                    match result {
+                        Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
+                            tokio::task::yield_now().await;
+                        }
+                        Err(error) => return Err(error),
+                        Ok(mut response) => {
+                            decision = response
+                                .take::<Option<Object>>(response.num_statements().saturating_sub(2))?;
+                            break;
+                        }
                     }
                 }
+                let mut decision = decision.ok_or_else(|| {
+                    CanonicalError::Configuration("reclamation retries exhausted".into())
+                })?;
+                page.examined += 1;
+                page.memberships += usize::from(canonical_codec::decode_boolean(
+                    canonical_codec::required(&mut decision, "membership")?,
+                )?);
+                page.versions += usize::from(canonical_codec::decode_boolean(
+                    canonical_codec::required(&mut decision, "version")?,
+                )?);
+                let edges =
+                    canonical_codec::decode_uint(canonical_codec::required(&mut decision, "edges")?)?;
+                page.edges += usize::try_from(edges).map_err(|_| CanonicalError::PayloadLimit)?;
+                let blocks =
+                    canonical_codec::decode_uint(canonical_codec::required(&mut decision, "blocks")?)?;
+                page.blocks += usize::try_from(blocks).map_err(|_| CanonicalError::PayloadLimit)?;
+                if canonical_codec::decode_boolean(canonical_codec::required(
+                    &mut decision,
+                    "pending",
+                )?)? {
+                    page.after = Some(previous);
+                    return Ok(page);
+                }
+                previous = key;
             }
-            let mut decision = decision.ok_or_else(|| {
-                CanonicalError::Configuration("reclamation retries exhausted".into())
-            })?;
-            page.examined += 1;
-            page.memberships += usize::from(canonical_codec::decode_boolean(
-                canonical_codec::required(&mut decision, "membership")?,
-            )?);
-            page.versions += usize::from(canonical_codec::decode_boolean(
-                canonical_codec::required(&mut decision, "version")?,
-            )?);
-            let edges =
-                canonical_codec::decode_uint(canonical_codec::required(&mut decision, "edges")?)?;
-            page.edges += usize::try_from(edges).map_err(|_| CanonicalError::PayloadLimit)?;
-            let blocks =
-                canonical_codec::decode_uint(canonical_codec::required(&mut decision, "blocks")?)?;
-            page.blocks += usize::try_from(blocks).map_err(|_| CanonicalError::PayloadLimit)?;
-            if canonical_codec::decode_boolean(canonical_codec::required(
-                &mut decision,
-                "pending",
-            )?)? {
+            if full {
                 page.after = Some(previous);
-                return Ok(page);
             }
-            previous = key;
-        }
-        if full {
-            page.after = Some(previous);
-        }
-        Ok(page)
+            Ok(page)
+        }).await
     }
 }
 
 const RETAIN: &str = r#"BEGIN;
 IF $owner_kind != 'history' { THROW 'only deliberate history roots can be minted or moved explicitly'; };
 LET $guard = type::record('canonical_guards', 'retention:' + $problem);
-SELECT * FROM $guard FOR UPDATE;
+SELECT * FROM $guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $selected = SELECT * FROM ONLY type::record('canonical_revisions', $revision);
 IF $selected = NONE OR $selected.problem != $problem { THROW 'retained revision unavailable'; };
 IF $selected.interpretation != $interpretation { THROW 'retained revision interpretation mismatch'; };
@@ -261,23 +284,25 @@ LET $old = SELECT * FROM ONLY type::record('canonical_roots', $root);
 IF $old != NONE AND ($old.problem != $problem OR $old.owner_kind != $owner_kind OR $old.owner != $owner) { THROW 'retention owner identity collision'; };
 UPSERT type::record('canonical_roots', $root) SET key = $root, problem = $problem, revision = $selected.key, sequence = $selected.sequence, owner_kind = $owner_kind, owner = $owner;
 UPSERT $guard SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
+fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 COMMIT;"#;
 
 const DROP_ROOT: &str = r#"BEGIN;
 IF $owner_kind IN ['run','analysis','active_attempt'] { THROW 'lifecycle roots are released only by their owning retirement'; };
 LET $guard = type::record('canonical_guards', 'retention:' + $problem);
-SELECT * FROM $guard FOR UPDATE;
+SELECT * FROM $guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $old = SELECT * FROM ONLY type::record('canonical_roots', $root);
 IF $old != NONE {
     IF $old.problem != $problem OR $old.revision != $revision OR $old.owner_kind != $owner_kind OR $old.owner != $owner { THROW 'retained owner selection changed'; };
     DELETE ONLY type::record('canonical_roots', $root);
 };
 UPSERT $guard SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
+fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 COMMIT;"#;
 
 const RECLAIM: &str = r#"BEGIN;
 LET $guard = type::record('canonical_guards', 'retention:' + $problem);
-SELECT * FROM $guard FOR UPDATE;
+SELECT * FROM $guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $member = SELECT * FROM ONLY type::record('canonical_memberships', $candidate);
 LET $result = IF $member = NONE OR $member.problem != $problem OR $member.to_sequence = NONE {
     {membership:false, version:false, edges:0dec, blocks:0dec, pending:false}
@@ -299,7 +324,9 @@ LET $result = IF $member = NONE OR $member.problem != $problem OR $member.to_seq
     };
 };
 UPSERT $guard SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
-RETURN $result;
+LET $pse_rpc_result = $result;
+fn::pse_execution_v1::deadline($pse_rpc_expires_at);
+RETURN $pse_rpc_result;
 COMMIT;"#;
 
 #[cfg(all(test, feature = "canonical-tests"))]
@@ -310,7 +337,6 @@ mod canonical_server_unit {
         reason = "isolated retention fixtures and assertions fail the test on unexpected results"
     )]
     use super::*;
-    use crate::canonical::checked;
     use crate::canonical::{CanonicalOptions, ObjectEdit};
     use pse_model::generated::runtime::canonical_versions::Row as ObjectVersion;
     use std::{path::Path, time::Duration};
@@ -337,19 +363,14 @@ mod canonical_server_unit {
         let state =
             std::env::var("PSE_SURREAL_STATE").expect("canonical-test supplies supervised state");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
-        options.database = format!("canonical_retention_{}", uuid::Uuid::new_v4().simple());
-        let store = CanonicalStore::connect(&options).await.unwrap();
-        store.create().await.unwrap();
+        options.database = format!("canonical_test_retention_{}", uuid::Uuid::new_v4().simple());
+        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
         (store, options.database)
     }
 
     async fn remove(store: &CanonicalStore, database: &str) {
-        store
-            .db
-            .query(format!("REMOVE DATABASE {database};"))
-            .await
-            .and_then(checked)
-            .unwrap();
+        assert_eq!(store.database(), database);
+        store.remove_isolated_fixture().await.unwrap();
     }
 
     async fn retention_generation(store: &CanonicalStore, problem: &str) -> u64 {

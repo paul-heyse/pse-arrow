@@ -666,8 +666,8 @@ py-test *args:
 [script]
 py-unit *args:
     case "$(python3 scripts/doctor.py --extension-kind)" in
-      native) exec scripts/pse-env --native -- "{{ py }}" -m pytest --maxfail=0 --continue-on-collection-errors -m unit "$@" ;;
-      dev) exec "{{ py }}" -m pytest --maxfail=0 --continue-on-collection-errors -m unit "$@" ;;
+      native) exec scripts/pse-env --native -- "{{ py }}" -m scripts.python_tests --unit-only --maxfail=0 --continue-on-collection-errors "$@" ;;
+      dev) exec "{{ py }}" -m scripts.python_tests --unit-only --maxfail=0 --continue-on-collection-errors "$@" ;;
       *) echo "pse-env: no installed pse extension; run just py-sync (or just py-sync-native)" >&2; exit 125 ;;
     esac
 

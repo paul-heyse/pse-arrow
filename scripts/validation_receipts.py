@@ -8,6 +8,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from scripts import test_resources
 from scripts.validation_scope import input_identity
 
 
@@ -122,6 +123,7 @@ def reuse_checks(
     reuse: set[str],
     transfer: set[str],
     reason: str | None,
+    consumer: Path | None = None,
 ) -> list[dict]:
     """Carry only explicitly selected observations, keeping their original origin.
 
@@ -132,6 +134,23 @@ def reuse_checks(
         raise ValueError("a gate cannot be both reused and transferred")
     if transfer and not (reason and reason.strip()):
         raise ValueError("reviewed transfer requires a rationale")
+
+    with test_resources.reference_report(parent, consumer):
+        return _reuse_guarded(
+            parent, snapshot, environment, scope, reuse, transfer, reason, consumer
+        )
+
+
+def _reuse_guarded(
+    parent: Path,
+    snapshot: dict,
+    environment: dict,
+    scope: list[dict],
+    reuse: set[str],
+    transfer: set[str],
+    reason: str | None,
+    consumer: Path | None,
+) -> list[dict]:
     prior = json.loads((parent / "checks.json").read_text())
     if prior.get("version") != 5:
         raise ValueError("reuse requires an current version 5 report")
@@ -150,40 +169,42 @@ def reuse_checks(
         if not qualified(check):
             raise ValueError("only successful observations can be retained")
         origin = Path(check.get("origin", str(parent)))
-        origin_report = origin / "checks.json"
-        origin_digest = check.get("origin_digest", digest(origin_report))
-        if digest(origin_report) != origin_digest:
-            raise ValueError("changed original report")
-        # Preserve syntax validation of the authenticated original report.
-        json.loads(origin_report.read_text())
-        current_inputs = input_identity(
-            declarations[name]["input_scope"], snapshot, environment
-        )
-        if not check.get("inputs"):
-            raise ValueError("missing scoped input identity")
-        changes = changed(check["inputs"]["files"], current_inputs["files"])
-        for artifact, expected in check.get("artifacts", {}).items():
-            path = (origin / artifact).resolve()
-            path.relative_to(origin.resolve())
-            if digest(path) != expected:
-                raise ValueError("changed retained artifact")
-        if name in reuse:
-            if check["inputs"] != current_inputs:
-                raise ValueError(
-                    "unchanged-input reuse requires identical inputs and environment"
-                )
-            if check.get("native"):
-                verify_native(check["native"])
-        transfers = list(check.get("applicability_transfers", []))
-        if name in transfer:
-            transfers.append(
-                {
-                    "from_inputs": check["inputs"],
-                    "to_inputs": current_inputs,
-                    "changed_inputs": changes,
-                    "reason": reason,
-                }
+
+        with test_resources.reference_report(origin, consumer):
+            origin_report = origin / "checks.json"
+            origin_digest = check.get("origin_digest", digest(origin_report))
+            if digest(origin_report) != origin_digest:
+                raise ValueError("changed original report")
+            # Preserve syntax validation of the authenticated original report.
+            json.loads(origin_report.read_text())
+            current_inputs = input_identity(
+                declarations[name]["input_scope"], snapshot, environment
             )
+            if not check.get("inputs"):
+                raise ValueError("missing scoped input identity")
+            changes = changed(check["inputs"]["files"], current_inputs["files"])
+            for artifact, expected in check.get("artifacts", {}).items():
+                path = (origin / artifact).resolve()
+                path.relative_to(origin.resolve())
+                if digest(path) != expected:
+                    raise ValueError("changed retained artifact")
+            if name in reuse:
+                if check["inputs"] != current_inputs:
+                    raise ValueError(
+                        "unchanged-input reuse requires identical inputs and environment"
+                    )
+                if check.get("native"):
+                    verify_native(check["native"])
+            transfers = list(check.get("applicability_transfers", []))
+            if name in transfer:
+                transfers.append(
+                    {
+                        "from_inputs": check["inputs"],
+                        "to_inputs": current_inputs,
+                        "changed_inputs": changes,
+                        "reason": reason,
+                    }
+                )
         retained.append(
             {
                 **check,

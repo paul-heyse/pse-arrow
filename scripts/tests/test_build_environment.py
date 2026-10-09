@@ -83,10 +83,15 @@ class BuildEnvironmentTests(unittest.TestCase):
         self.assertEqual(env["SCCACHE_CLIENT_SIDE"], "1")
         self.assertEqual(env["SCCACHE_DIRECT"], "false")
         self.assertEqual(env["SCCACHE_CONF"], str(build.ROOT / ".config/sccache.toml"))
+        self.assertEqual(env["PSE_SCCACHE_BINARY"], "/bin/sccache")
+        self.assertEqual(env["RUSTC_WRAPPER"], str(build.ROOT / "scripts/sccache"))
         self.assertEqual(build.configure(build.ROOT, env), env)
         own = {"RUSTC_WRAPPER": "sccache", "SCCACHE_DIR": "/user/cache"}
+        configured = build.configure(build.ROOT, own)
+        self.assertEqual(configured["SCCACHE_DIR"], own["SCCACHE_DIR"])
+        self.assertEqual(configured["PSE_SCCACHE_BINARY"], "sccache")
         self.assertEqual(
-            {key: build.configure(build.ROOT, own)[key] for key in own}, own
+            configured["RUSTC_WRAPPER"], str(build.ROOT / "scripts/sccache")
         )
 
     def test_cache_modes_that_escape_supervision_fall_back_before_setup(self) -> None:

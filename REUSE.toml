@@ -8,6 +8,16 @@ SPDX-PackageName = "pse-arrow"
 SPDX-PackageSupplier = "Paul Heyse <paul@heyse.io>"
 SPDX-PackageDownloadLocation = "https://github.com/paul-heyse/pse-arrow"
 
+# Preserve the imported SDK family's exact upstream license parameters.
+[[annotations]]
+path = ["vendor/surrealdb/**", "vendor/surrealdb-engine-api/**"]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "2025 SurrealDB Limited",
+  "2026 Paul Heyse (bounded RPC additions)",
+]
+SPDX-License-Identifier = "LicenseRef-SurrealDB-BSL-3.0"
+
 [[annotations]]
 path = ["docker/solvers/uno-pse.patch"]
 precedence = "override"

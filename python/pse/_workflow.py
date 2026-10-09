@@ -53,6 +53,7 @@ class Runtime:
         settings: EngineSettings,
         *,
         substrate: str,
+        database: str | None = None,
         producer: str | None = None,
         ephemeral: bool = False,
     ) -> None:
@@ -62,6 +63,7 @@ class Runtime:
             settings: The deployment budget shared by compilation, native work
                 and reads.
             substrate: Supervisor state directory for canonical scientific storage.
+            database: Optional explicitly selected existing canonical database.
             producer: Optional qualified mathematical producer receipt path.
             ephemeral: Explicitly retain numerical outcomes only in this process.
                 Application execution durably records outcomes in canonical storage.
@@ -70,9 +72,26 @@ class Runtime:
             self,
             "_handle",
             _NativeRuntime(
-                settings, substrate=substrate, producer=producer, ephemeral=ephemeral
+                settings,
+                substrate=substrate,
+                database=database,
+                producer=producer,
+                ephemeral=ephemeral,
             ),
         )
+
+    @staticmethod
+    def initialize_database(
+        settings: EngineSettings, *, substrate: str, database: str
+    ) -> None:
+        """Explicitly provision a selected database before opening its runtime."""
+        _NativeRuntime.initialize_database(
+            settings, substrate=substrate, database=database
+        )
+
+    def close(self) -> None:
+        """Drain this runtime's local readers and canonical connections."""
+        self._handle.close()
 
     @property
     def durable(self) -> bool:

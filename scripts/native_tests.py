@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -13,8 +14,10 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from scripts import host_admission, surreal_server
+
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Generator, Mapping
 
 from scripts import producer_deployment, validation, validation_receipts
 
@@ -25,6 +28,43 @@ MANAGED_FEATURES = ",".join(
     for feature in FEATURES.split(",")
     if feature.startswith(("pse-runtime/", "pse-relations/"))
 )
+
+
+@contextlib.contextmanager
+def worker_binding(worker: Path) -> Generator[None, None, None]:
+    """Bind the selected artifact before reference-state admission and launch."""
+    prior = os.environ.get("PSE_WORKER_BINARY")
+    os.environ["PSE_WORKER_BINARY"] = str(worker)
+    try:
+        yield
+    finally:
+        if prior is None:
+            os.environ.pop("PSE_WORKER_BINARY", None)
+        else:
+            os.environ["PSE_WORKER_BINARY"] = prior
+
+
+def rust_test_environment(environment: Mapping[str, str]) -> dict[str, str]:
+    """Supply a finite libtest thread stack without changing native job policy."""
+    selected = dict(environment)
+    if "RUST_MIN_STACK" not in selected:
+        policy = host_admission.policy()["test-runner"]
+        if not isinstance(policy, dict):
+            raise ValueError("Missing Rust test thread stack policy")
+        mib = policy["rust_thread_stack_mib"]
+        if type(mib) is not int or mib <= 0:
+            raise ValueError(
+                "Rust test thread stack policy must be a positive integer MiB"
+            )
+        selected["RUST_MIN_STACK"] = str(mib * (1 << 20))
+    value = selected["RUST_MIN_STACK"]
+    if (
+        not value
+        or any(character not in "0123456789" for character in value)
+        or not 0 < int(value) <= sys.maxsize * 2 + 1
+    ):
+        raise ValueError("RUST_MIN_STACK must be a positive finite byte count")
+    return selected
 
 
 def native_provenance(
@@ -101,18 +141,16 @@ def rust_command(action: str, extra: list[str], *, managed: bool = False) -> lis
         "cargo",
         "nextest",
         action,
-        *(
-            []
-            if managed and scoped
-            else ["-p", "pse-runtime"]
-            if managed
-            else ["--workspace"]
-        ),
+        *([] if scoped else ["-p", "pse-runtime"] if managed else ["--workspace"]),
         "--locked",
         "--features",
         MANAGED_FEATURES if managed else FEATURES,
         *extra,
     ]
+
+
+def rust_completion_arguments(extra: list[str]) -> list[str]:
+    return [*([] if "--no-fail-fast" in extra else ["--no-fail-fast"]), *extra]
 
 
 def python_native_binary(environment: Mapping[str, str]) -> Path:
@@ -187,7 +225,7 @@ def python_command(extra: list[str], *, managed: bool = False) -> list[str]:
         *PYTHON_DEFAULT_SELECTION,
         "--maxfail=0",
         "--continue-on-collection-errors",
-        *([] if managed else ["-n", "16"]),
+        *([] if managed else ["-n", "4", "--dist", "loadgroup"]),
         *forwarded,
         "-m",
         f"({selected}) and {partition}",
@@ -261,7 +299,9 @@ def worker_binary(extra: list[str], environment: Mapping[str, str]) -> Path:
     return binary
 
 
-def managed_rust_arguments(extra: list[str]) -> tuple[list[str], list[str]]:
+def managed_rust_arguments(
+    extra: list[str], *, include_managed_features: bool = True
+) -> tuple[list[str], list[str]]:
     """Consume Cargo choices in metadata; keep nextest execution choices intact."""
     values = {
         "-p",
@@ -314,7 +354,7 @@ def managed_rust_arguments(extra: list[str]) -> tuple[list[str], list[str]]:
     }
     execution: list[str] = []
     metadata: list[str] = []
-    features: list[str] = [MANAGED_FEATURES]
+    features: list[str] = [MANAGED_FEATURES] if include_managed_features else []
     index = 0
     while index < len(extra):
         argument = extra[index]
@@ -351,7 +391,10 @@ def managed_rust_arguments(extra: list[str]) -> tuple[list[str], list[str]]:
         else:
             execution.append(argument)
         index += 1
-    return execution, ["--features", ",".join(features), *metadata]
+    return execution, [
+        *(["--features", ",".join(features)] if features else []),
+        *metadata,
+    ]
 
 
 def managed_list_arguments(extra: list[str]) -> list[str]:
@@ -460,7 +503,37 @@ def managed_rust_capture(
 ) -> tuple[list[str], Path]:
     """Build and enumerate before entering the observer's finite process cap."""
     scoped = managed_rust_selection(extra)
-    execution, metadata_options = managed_rust_arguments(scoped)
+    return _rust_capture(scoped, provenance, selected, managed=True)
+
+
+def ordinary_rust_capture(
+    command: list[str],
+    provenance: Path,
+    selected: Path,
+    environment: Mapping[str, str],
+) -> tuple[list[str], Path]:
+    """Retain exactly the ordinary caller's build and test selection."""
+    return _rust_capture(
+        command[command.index("run") + 1 :],
+        provenance,
+        selected,
+        managed=False,
+        environment=environment,
+    )
+
+
+def _rust_capture(
+    scoped: list[str],
+    provenance: Path,
+    selected: Path,
+    *,
+    managed: bool,
+    environment: Mapping[str, str] | None = None,
+) -> tuple[list[str], Path]:
+    execution, metadata_options = managed_rust_arguments(
+        scoped,
+        include_managed_features=managed,
+    )
     binary_metadata = selected.with_name(
         selected.stem + "-binaries-metadata.json"
     ).resolve()
@@ -469,24 +542,23 @@ def managed_rust_capture(
     ).resolve()
     for destination in (provenance, selected, binary_metadata, cargo_metadata):
         destination.parent.mkdir(parents=True, exist_ok=True)
-    environment = dict(os.environ)
+    environment = dict(os.environ if environment is None else environment)
     # Managed controls live in the runtime unit binary, so their binary-name is
     # not "worker". They still require the actual qualified receiver artifact.
-    profile = managed_cargo_profile(extra)
+    profile = managed_cargo_profile(scoped)
     worker = worker_binary(["--cargo-profile", profile], environment)
     environment["PSE_WORKER_BINARY"] = str(worker)
+    build_arguments = [
+        "--list-type",
+        "binaries-only",
+        "--message-format",
+        "json",
+        *managed_list_arguments(scoped),
+    ]
     build = subprocess.run(
-        rust_command(
-            "list",
-            [
-                "--list-type",
-                "binaries-only",
-                "--message-format",
-                "json",
-                *managed_list_arguments(scoped),
-            ],
-            managed=True,
-        ),
+        rust_command("list", build_arguments, managed=True)
+        if managed
+        else ["cargo", "nextest", "list", *build_arguments],
         cwd=ROOT,
         env=environment,
         check=False,
@@ -549,12 +621,17 @@ def managed_rust_capture(
             for test in suite["testcases"].values()
         )
     ]
+    environment = rust_test_environment(environment)
     observe_deployed_artifacts(environment)
     native = native_provenance(
         {
-            "features": MANAGED_FEATURES.split(","),
+            "features": metadata_options[
+                metadata_options.index("--features") + 1
+            ].split(",")
+            if "--features" in metadata_options
+            else [],
             "cargo_profile": profile,
-            "managed_build_arguments": extra,
+            "managed_build_arguments" if managed else "build_arguments": scoped,
         },
         [*binaries, str(worker)],
         environment=environment,
@@ -608,9 +685,10 @@ def managed_rust_run(extra: list[str], provenance: Path) -> int:
     ):
         raise ValueError("managed Rust worker is outside parent provenance")
     environment["PSE_WORKER_BINARY"] = str(worker)
-    return subprocess.call(
-        ["cargo", "nextest", "run", "--no-fail-fast", *extra], cwd=ROOT, env=environment
-    )
+    from scripts.test_run import run_rust  # noqa: PLC0415 -- owner cycle
+
+    completion = [] if "--no-fail-fast" in extra else ["--no-fail-fast"]
+    return run_rust(["cargo", "nextest", "run", *completion, *extra], env=environment)
 
 
 def main() -> int:
@@ -625,25 +703,43 @@ def main() -> int:
             state = os.environ.get("PSE_SURREAL_STATE")
             if not state:
                 raise ValueError("managed primary route requires PSE_SURREAL_STATE")
-            from scripts import (  # noqa: PLC0415 -- selected managed placement owner
-                surreal_server,
-            )
 
+            worker = worker_binary([], os.environ)
+            with worker_binding(worker):
+                return surreal_server.observer(
+                    surreal_server.reference_state(Path(state)),
+                    [
+                        sys.executable,
+                        "-m",
+                        "scripts.native_tests",
+                        "python",
+                        *extra,
+                        "--managed-primary-child",
+                    ],
+                    profile="reference",
+                )
+        if not managed and "--functional-observer-child" not in extra:
             return surreal_server.observer(
-                Path(state),
+                Path(os.environ["PSE_SURREAL_STATE"]),
                 [
                     sys.executable,
                     "-m",
                     "scripts.native_tests",
                     "python",
                     *extra,
-                    "--managed-primary-child",
+                    "--functional-observer-child",
                 ],
+                profile="exclusive-observer",
             )
         extra = [
             arg
             for arg in extra
-            if arg not in {"--managed-primary-route", "--managed-primary-child"}
+            if arg
+            not in {
+                "--managed-primary-route",
+                "--managed-primary-child",
+                "--functional-observer-child",
+            }
         ]
         owners = [
             arg.split("=", 1)[1] for arg in extra if arg.startswith("--terminal-owner=")
@@ -686,11 +782,22 @@ def main() -> int:
         selection = report.with_name(report.stem + "-selected.txt")
         if owner == "standalone":
             env["PSE_TEST_ENUMERATION"] = str(selection)
+        from scripts import (  # noqa: PLC0415 -- runner cycle
+            test_resources,
+            test_run,
+        )
+
+        invocation = None
+        if owner == "standalone" and test_resources.MARKER not in env:
+            invocation = test_resources.invocation(
+                "python", [], terminal_owner="standalone"
+            )
+            env[test_resources.MARKER] = str(invocation)
         command = python_command(extra, managed=managed)
         code = subprocess.call(command, cwd=ROOT, env=env)
         if owner == "assessment":
             return code
-        check = {
+        check: dict[str, object] = {
             "exit_code": code,
             "status": "passed" if code == 0 else "failed",
             "started": started,
@@ -706,8 +813,13 @@ def main() -> int:
             validation_receipts.require_fresh(selection, started, "Python")
             check["selected"] = validation_receipts.python_selection(selection)
         except (OSError, ValueError) as error:
-            check["report_errors"].append(f"missing current collection: {error}")
+            errors = check["report_errors"]
+            if not isinstance(errors, list):
+                raise TypeError("Invalid report errors") from error
+            errors.append(f"missing current collection: {error}")
         validation.compose_terminal(check, report, report.parent, report.stem)
+        if invocation is not None:
+            test_run.finish(invocation, check, "standalone")
         validation.write_json(report.with_suffix(".terminal.json"), check)
         return code or int(check["status"] != "passed")
     if kind != "rust":
@@ -740,31 +852,38 @@ def main() -> int:
         ).resolve()
         if child:
             return managed_rust_run(extra, provenance)
-        from scripts import surreal_server  # noqa: PLC0415 -- selected deployment owner
 
         execution, worker = managed_rust_capture(extra, provenance, selected_path)
         # Carry exact retained artifact paths through the existing observer launcher.
         prior = os.environ.get("PSE_NATIVE_PROVENANCE")
         os.environ["PSE_NATIVE_PROVENANCE"] = str(provenance)
         try:
-            return surreal_server.observer(
-                Path(os.environ["PSE_SURREAL_STATE"]),
-                [
-                    sys.executable,
-                    "-m",
-                    "scripts.native_tests",
-                    "rust",
-                    "--managed-primary-child",
-                    f"--managed-primary-worker={worker}",
-                    *execution,
-                ],
-            )
+            with worker_binding(worker):
+                return surreal_server.observer(
+                    surreal_server.reference_state(
+                        Path(os.environ["PSE_SURREAL_STATE"])
+                    ),
+                    [
+                        sys.executable,
+                        "-m",
+                        "scripts.native_tests",
+                        "rust",
+                        "--managed-primary-child",
+                        f"--managed-primary-worker={worker}",
+                        *execution,
+                    ],
+                    profile="reference",
+                )
         finally:
             if prior is None:
                 os.environ.pop("PSE_NATIVE_PROVENANCE", None)
             else:
                 os.environ["PSE_NATIVE_PROVENANCE"] = prior
 
+    if os.environ.get("PSE_NATIVE_OPERATION"):
+        from scripts.test_run import run_rust  # noqa: PLC0415 -- owner cycle
+
+        return run_rust(rust_command("run", rust_completion_arguments(extra)))
     if not path:
         output = validation.fresh_output(
             ROOT, ROOT / "build/native-tests" / str(time.time_ns())
@@ -818,7 +937,7 @@ def main() -> int:
             for test in suite["testcases"].values()
         )
     ]
-    environment = dict(os.environ)
+    environment = rust_test_environment(os.environ)
     if any(
         suite.get("binary-name") == "worker"
         or suite.get("binary-id", "").endswith("::worker")
@@ -847,8 +966,12 @@ def main() -> int:
             environment=environment,
         ),
     )
-    return subprocess.call(
-        rust_command("run", ["--no-fail-fast", *extra]), cwd=ROOT, env=environment
+    from scripts.test_run import run_rust  # noqa: PLC0415 -- owner cycle
+
+    return run_rust(
+        rust_command("run", rust_completion_arguments(extra)),
+        env=environment,
+        inventory=data,
     )
 
 

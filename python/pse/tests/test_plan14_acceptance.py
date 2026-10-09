@@ -27,13 +27,14 @@ from pse.contracts.enums import (
 )
 from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
+from pse.tests.canonical_fixture import CanonicalFixture
 
 
 @pytest.mark.integration
 def test_public_native_process_and_exact_results(
-    inspection_settings: pse.EngineSettings, canonical_substrate: str
+    inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = canonical_substrate.runtime(inspection_settings)
     root = Path(__file__).resolve().parents[3] / "packages/reference"
 
     def documents(path: Path) -> dict[str, str | bytes]:
@@ -133,10 +134,10 @@ def test_public_native_process_and_exact_results(
 def test_public_dynamic_and_transient_fit(
     inspection_settings: pse.EngineSettings,
     tmp_path: Path,
-    canonical_substrate: str,
+    canonical_substrate: CanonicalFixture,
 ) -> None:
     # Every ordinary run retains its exact canonical scientific attempt.
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = canonical_substrate.runtime(inspection_settings)
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
     physical = runtime.physical_from_documents(

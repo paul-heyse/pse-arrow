@@ -524,7 +524,7 @@ def check_solvers() -> Check:
 def _canonical_profile_check(state: Path) -> Check:
     config = json.loads((state / "config.json").read_text(encoding="utf-8"))
     server = config["server"]
-    if config["owner"] != "pse-arrow-surreal-v1" or config["profile_version"] != 1:
+    if config["owner"] != "pse-arrow-surreal-v1" or config["profile_version"] != 2:
         raise ValueError("unsupported owned profile")
     if not Path(server["binary"]).is_file():
         raise ValueError("configured server executable is absent")
@@ -545,7 +545,7 @@ def check_canonical_store() -> Check:
                 Path(
                     os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state"))
                 )
-                / "pse-arrow/surreal"
+                / "pse-arrow/surreal-functional-v2"
             ),
         )
     )

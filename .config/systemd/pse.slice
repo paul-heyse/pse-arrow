@@ -6,9 +6,9 @@
 # Without this file systemd still creates the slice on demand; the file adds a CPU weight
 # below interactive applications and memory-pressure monitoring of agent work.
 #
-# There is deliberately no aggregate MemoryMax: each command's scope (PSE_MEMORY_MAX) is
-# its failure boundary, and a stricter ancestor would silently defeat a raised cap. Opt in
-# for one boot with: systemctl --user set-property --runtime pse.slice MemoryMax=96G
+# scripts/host_admission.py materializes the finite aggregate MemoryMax from
+# .config/agent-capacity.toml before workload admission. A widened explicit request
+# raises that ancestor coherently; individual scopes retain their own failure boundary.
 [Unit]
 Description=pse-arrow agent and recipe commands
 

@@ -27,6 +27,8 @@ admission-only bound for entries without a finite enclosing clock.
 
 ## Scope
 
+Plan 30's confirmed RC02/RC03 preserve the exact reference primary/observer qualification profile while adding separately bounded functional receivers, resident storage services and coordinated host admission. Fixed host lanes and short allocation bookkeeping replace independent invocation ceilings; systemd/actual affinity enforce placement and actual descendant drain controls capacity release. Nested work borrows an authenticated owner and original clock. CPU/memory ceilings are not physical reservations and do not control unmanaged host activity.
+
 This amends blueprint §18.8, §19.3 and §20.6. Scientific authority, exact occurrence/start
 lineage, native thread affinity, original-model assessment and canonical claim authority remain.
 Any selected predicate-guard change requires its complete writer/predicate argument before
@@ -100,6 +102,8 @@ explicit native coexistence and deployment lifetimes; exclusion may limit simult
 phases even while independent cases remain concurrent.
 
 ## More information
+
+[Plan 30](../plans/30-websocket-and-persistent-agent-environment.md) owns current host-admission and receiver-generation integration; [30d](../plans/30d-host-admission-and-timing-qualification.md) owns profile materialization and assembled environment acceptance. The reference scientific declaration and its original 160 GiB partition remain unchanged. A diagnosed inadequate functional cap selects a wider admitted profile rather than a smaller workload.
 
 [Plan 28 parallel scope](../plans/28-surrealdb-unified-substrate.md#parallel-execution-integration)
 owns dispositions; its companions own packages. The

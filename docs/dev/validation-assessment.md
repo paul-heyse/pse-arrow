@@ -228,6 +228,16 @@ These tooling tests establish runner behaviour, not product or scientific accept
 
 ## Case measurements
 
+The host owner records the admitted lane, actual process placement, competing
+cooperating owners and external pressure alongside measurement context. Service
+generation, receiver identity and process residency are distinct from RocksDB cache,
+filesystem cache, imported extension and prepared-product residency. A fresh process
+or database does not establish a cold filesystem. Uncontrolled cache/load conditions
+are labeled; quotas and a configured CPU mask do not establish timing isolation.
+Long-lived service RSS/high-water observations are not attributed to an individual
+case. Keep build, preparation, numerical execution, publication and serving intervals
+separate when describing benefits.
+
 `just case-measure <new-output> --functional-from <assessment-dir-or-checks.json>`
 measures selected complete-process, preparation or admission cases. Repeat `--case <id>`
 to select declared cases; no selector runs the complete campaign. Workload declarations in

@@ -21,7 +21,14 @@ from __future__ import annotations
 import os
 import re
 import shlex
+import subprocess
 import sys
+from pathlib import Path
+
+from scripts.test_run import run_rust
+
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -115,8 +122,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 2
     print("select: " + shlex.join(command), file=sys.stderr, flush=True)
-    os.execvp(command[0], command)  # noqa: S606 -- the selection becomes the run
-    return 127
+    if "run" not in command:
+        return subprocess.call(command)
+
+    return run_rust(command)
 
 
 if __name__ == "__main__":

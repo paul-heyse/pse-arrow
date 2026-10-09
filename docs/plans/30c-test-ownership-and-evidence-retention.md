@@ -1,6 +1,6 @@
 ---
 title: Test ownership and evidence retention
-status: draft
+status: done
 date: 2026-10-08
 adrs: [ADR-0160]
 review_sources: [docs/design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md]
@@ -143,10 +143,10 @@ need only their own context/receiver exclusion.
 
 | Package | Inputs and delivered behavior | Migration/deletion and focused acceptance | Status |
 |---|---|---|---|
-| C0 — Runner/resource contract | R0 policy route; existing selection/terminal owners and actual pinned runner IDs. Design registration/finalization and unassociated-tool behavior. | Assertion after fixture Drop, pytest setup/call/teardown errors, duplicate names, missing/contradictory results and terminal-owner selection. No new test selection or pass/fail ledger. | Planned |
-| C1 — Isolated registered contexts | C0; B0/B1 service selection; A1 bound connection; D1 admission. Register before creation and pass context explicitly to Rust/Python. | Migrate canonical fixture helpers, Python conftest/native runtime, managed fixtures and unit/component runners. Test concurrent invocations/xdist with identical problem names, intentional sharing and initialization failure. Delete ambient shared mutable fixture selection. | Planned |
-| C2 — Final disposition and ownership recovery | C1; existing result-reader/native/cgroup drain and terminal composer; C3 early reference guard before any disposal. Finalize successful disposal and retain failure pins; recover abandoned exclusion. | Test normal failure after successful science, failure after Drop, abrupt exit, surviving descendants/PID reuse, collection failure, unknown reference eligibility and cleanup interruption. Remove destructor-success inference, unconditional fixture-directory deletion and empty-lock qualification. | Planned |
-| C3 — Reference-protected release/reclaim | C1 registry plus canonical retention and assessment origin/artifact references supply the early disposal guard; C2 disposition enables later exact status/release and bounded resumable cleanup. | Test referenced successful evidence, new-reference/reclaim races, retained analysis/live reader, explicit failed release, corrupt/missing reference and interrupted reclamation. Remove only the replaced fixture cleanup mechanisms; preserve existing materials. D3 owns assembled acceptance. | Planned |
+| C0 — Runner/resource contract | R0 policy route; existing selection/terminal owners and actual pinned runner IDs. Design registration/finalization and unassociated-tool behavior. | Assertion after fixture Drop, pytest setup/call/teardown errors, duplicate names, missing/contradictory results and terminal-owner selection. No new test selection or pass/fail ledger. | Implemented; focused controls and selected D3 handoff Tested |
+| C1 — Isolated registered contexts | C0; B0/B1 service selection; A1 bound connection; D1 admission. Register before creation and pass context explicitly to Rust/Python. | Migrate canonical fixture helpers, Python conftest/native runtime, managed fixtures and unit/component runners. Test concurrent invocations/xdist with identical problem names, intentional sharing and initialization failure. Delete ambient shared mutable fixture selection. | Implemented; focused controls and selected D3 handoff Tested |
+| C2 — Final disposition and ownership recovery | C1; existing result-reader/native/cgroup drain and terminal composer; C3 early reference guard before any disposal. Finalize successful disposal and retain failure pins; recover abandoned exclusion. | Test normal failure after successful science, failure after Drop, abrupt exit, surviving descendants/PID reuse, collection failure, unknown reference eligibility and cleanup interruption. Remove destructor-success inference, unconditional fixture-directory deletion and empty-lock qualification. | Implemented; focused controls and selected D3 handoff Tested |
+| C3 — Reference-protected release/reclaim | C1 registry plus canonical retention and assessment origin/artifact references supply the early disposal guard; C2 disposition enables later exact status/release and bounded resumable cleanup. | Test referenced successful evidence, new-reference/reclaim races, retained analysis/live reader, explicit failed release, corrupt/missing reference and interrupted reclamation. Remove only the replaced fixture cleanup mechanisms; preserve existing materials. D3 owns assembled acceptance. | Implemented; focused controls and selected D3 handoff Tested |
 
 Use owner-local runner/receipt/supervisor tests and targeted `pse-operations` lifetime
 tests, plus scoped pytest fixture controls. Canonical controls use actual owned
@@ -160,6 +160,98 @@ an interrupted test; a successful disposable test reclaims only its owned unrefe
 payload after drain. Reused reports remain valid at their original paths/digests.
 Parallel tests interfere only where sharing is deliberately declared.
 
-No database, log, result, archive or worktree is removed by this authoring work.
-Package status is planned. D3 owns new-scope composed verification; the old Python
-failure-only continuation remains at 28e and is not replaced by this fixture plan.
+D3 completed the selected new-scope composed verification and
+scope-end checks; the old Python failure-only continuation remains at 28e and is not
+replaced by this fixture plan. The focused checks below establish their named scope,
+not every package acceptance journey.
+
+**Tested:** `scripts/pse-env --resource-class light -- .venv/bin/python -m unittest
+scripts.tests.test_test_resources scripts.tests.test_plan30_routing` passed 45 controls
+(33 resource and 12 routing controls), zero failures against the zero baseline.
+Resource controls cover terminal disposition, manual pins, references, report path
+ownership, fair bounded cleanup selection, service admission and stale configuration.
+Registration and cleanup claims refuse live lifecycle reservations; a drained fixture's
+live cleaner still prevents destructive service lifecycle work after claim locks release.
+
+**Tested:** the same light wrapper with `PSE_PLAN30_C_ACTUAL` selecting the newly owned
+`build/plan30-c-actual-20261009-collection-6` directory exercised
+`scripts.tests.test_plan30_resources_actual.ActualResourceControls.test_actual_runner_ownership_and_retention`
+under the actual-control module command. This control passed, zero failures against the
+zero baseline. Two concurrent pytest invocations with
+two xdist workers each registered four isolated contexts for identical node IDs. Passing
+disposable controls were removed; assertion after context exit retained a failed/drained
+resource, and abrupt exit retained an incomplete/undrained resource. A real reference
+borrow protected evidence; exact release followed by interrupted-cleaner recovery
+compacted its owned payload. Service configuration was a filesystem-control stand-in;
+this journey did not execute a canonical database or native science.
+
+**Tested:** the light wrapper with `PSE_PLAN30_C_COLLECTION_ACTUAL` selecting
+`build/plan30-c-nested-collection-20261009-2` and `-m unittest
+scripts.tests.test_plan30_resources_actual.ActualResourceControls.test_nested_collection_preserves_parent_catalog_and_later_fixture_association`
+passed one actual subprocess control, zero failures against the zero baseline.
+Three parent pytest tests and one nested subset test passed; the parent catalog and
+enumeration bytes remained unchanged, its actual collector identity remained the owner,
+and four resources in that invocation received passing disposition and cleanup, including
+the later parent fixtures. The preceding combined actual-control command had one passing
+xdist control and one nested-driver receipt lookup error; that lookup was repaired and
+only the nested control was rerun. Failed materials remain preserved. This control uses
+filesystem fixtures and exercises no native science.
+
+**Tested:** `scripts.tests.plan30_context_overlap_run prepare/run`, using a compile
+preparation followed by the admitted `exclusive-observer` route, passed the actual
+Rust and Python canonical-fixture controls: two passes, zero failures against the zero
+baseline. `build/plan30-c1-overlap-20261009-2/result.json` records two distinct registered
+databases on the selected functional service, overlapping fixture lifetimes, isolated
+mutations of the same authored table/record name and both databases removed after
+reconciled pass and drain. The prepared native Python path/hash matched the extension
+actually imported by the Python child. This was fixture/schema and codec isolation,
+without scientific execution.
+
+**Tested:** `scripts/pse-env --resource-class light -- .venv/bin/python -m unittest
+scripts.tests.test_plan30_routing` passed 12 controls, zero failures against the zero
+baseline. Prebuilt observer routing retains caller selection/features and terminal
+ownership; managed Rust and both managed Python launchers bind their selected worker
+before reference-state admission and restore ambient binding on exit. The test-only
+Rust thread stack defaults to the capacity policy's 16 MiB; explicit positive finite
+byte overrides survive nested execution, and provenance records the effective setting.
+Production native-job stack policy is unchanged. These launcher
+controls do not qualify the native scientific journeys launched by D3.
+
+## Implementation checkpoint — 2026-10-09
+
+Runner invocation/test identities now register opaque database/control resources before effects. Fixture exit records drain; existing terminal reconciliation governs disposal. Failed and incomplete resources, manual pins and protected evidence references survive. New report compaction preserves compact receipts and waits for registered groups to drain; exact reference release is explicit.
+
+Registration and database/control cleanup claims now share the service's short
+context-admission gate. A lifecycle reservation cannot miss a newly published native-free
+borrower or an active cleaner of a drained fixture. Removal and readiness IPC remain
+outside metadata locks. Focused controls and the actual pytest/xdist filesystem journey
+exercise this composition. Actual Rust/Python canonical-fixture overlap now verifies
+separate registered databases, same-name probe isolation, terminal cleanup and the
+Python child's native artifact association.
+
+Python collection now publishes the owning invocation's catalog once under short
+kernel-held exclusion, bound to the actual collector PID/start generation and boot.
+A nested collector verifies its subset without rewriting the parent catalog or
+enumeration; the owning collector and xdist controller must retain exact agreement.
+Xdist workers retain JUnit node-ID properties while the controller owns publication.
+Actual nested collection and the existing xdist journey exercise later fixture
+association and terminal cleanup with this authority boundary.
+
+D3 completed the selected native interruption, retained-read consumer journeys and scope-end checks. The parent Outcome records their conditions and exclusions; the focused controls alone are not the assembled acceptance claim.
+
+## Outcome (recorded after implementation)
+
+**Implemented:** this packet's target mechanisms and required consumer migration are
+complete. **Tested:** the focused controls above and the selected assembled D3 journeys
+passed against the zero failure baseline under their recorded conditions. The
+[series Outcome](30-websocket-and-persistent-agent-environment.md#outcome-recorded-after-implementation)
+owns the repaired composite results, commands, current storage restart proof and
+qualification exclusions. Earlier failed receipts retain their original outcome;
+there was no restart of the former full Python suite or broader Plan 28 campaign.
+
+A mistake made and corrected, and deliberate deviations, are recorded at that same
+series Outcome with their owning repair. Enduring contracts and operation guidance
+live in blueprint §20.6/§24.1 and the substrate/environment/validation guides. This
+completed handoff remains while retained Plan 28/29 readers depend on it; it is not an
+active implementation backlog. Benefit measurement and the conditional topology
+investigation retain their explicit authorization and observable triggers.

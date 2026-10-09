@@ -48,6 +48,7 @@ from pse.contracts.identities import (
     InstanceId,
 )
 from pse.contracts.values import SemanticId
+from pse.tests.canonical_fixture import CanonicalFixture
 
 #: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
@@ -234,19 +235,17 @@ def test_explicit_primal_seed_and_transactional_initialization(
 
 @pytest.fixture
 def runtime(
-    inspection_settings: pse.EngineSettings, canonical_substrate: str
+    inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
 ) -> pse.Runtime:
-    return pse.Runtime(
-        inspection_settings, substrate=canonical_substrate, ephemeral=True
-    )
+    return canonical_substrate.runtime(inspection_settings, ephemeral=True)
 
 
 @pytest.fixture
 def durable_runtime(
     inspection_settings: pse.EngineSettings,
-    canonical_substrate: str,
+    canonical_substrate: CanonicalFixture,
 ) -> pse.Runtime:
-    return pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    return canonical_substrate.runtime(inspection_settings)
 
 
 @pytest.fixture

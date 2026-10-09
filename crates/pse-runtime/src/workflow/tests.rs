@@ -109,8 +109,13 @@ pub(crate) fn runtime_on(memory: usize, math: crate::math::MathPolicy) -> Runtim
         .with_durability(Durability::Ephemeral)
 }
 pub(crate) fn canonical_deployment() -> CanonicalDeployment {
+    let store = match std::env::var("PSE_TEST_EXECUTION_PROFILE") {
+        Ok(profile) => pse_operations::testing::canonical_managed_fixture_store(&profile),
+        Err(_) => pse_operations::testing::canonical_fixture_store(),
+    }
+    .unwrap();
     CanonicalDeployment::new(
-        pse_operations::testing::canonical_fixture_store().unwrap(),
+        store,
         OuterAttestation {
             source: Some(pse_ids::ContentHash::from_bytes([0; 32])),
             build: pse_ids::ContentHash::from_bytes([1; 32]),

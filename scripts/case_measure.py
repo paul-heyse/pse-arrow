@@ -17,7 +17,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from scripts import validation, validation_receipts
+from scripts import host_admission, validation, validation_receipts
 from scripts.native_tests import FEATURES, MANAGED_FEATURES, native_provenance
 from scripts.validation_scope import (
     FUNCTIONAL_SCOPES,
@@ -678,6 +678,7 @@ def main() -> int:
     )
     output = validation.fresh_output(ROOT, args.output)
     started = time.time()
+    environment_started = host_admission.measurement_context()
     inputs = measurement_inputs(snapshot)
     before = snapshot_digest(inputs)
     profile = {
@@ -759,6 +760,7 @@ def main() -> int:
         "profile": profile,
         "functional": functional,
         "started": started,
+        "host_conditions_start": environment_started,
         "source_digest": before,
         "measurement_inputs": inputs,
         "compilation_timed": False,
@@ -786,6 +788,7 @@ def main() -> int:
         else {"cases": [], "admission": None, "not_selected": True}
     )
     report["thermodynamic_preparation"] = preparation_report
+    report["host_conditions_end"] = host_admission.measurement_context()
     if preparation_report.get("native"):
         compatible_native(functional, preparation_report["native"])
     if snapshot_digest(measurement_inputs(validation.sources(ROOT))) != before:

@@ -4,6 +4,7 @@
 //! Fenced durable execution and immutable closed result selections.
 
 use crate::{
+    canonical::transport::{original_deadline, within_clock},
     canonical::{CanonicalError, CanonicalStore, REQUEST_TIMEOUT, bounded_query},
     canonical_codec,
     generated::surreal as wire,
@@ -28,9 +29,9 @@ pub const RESULT_BATCH_BYTES: usize = wire::RESULT_BLOCK_BYTES;
 pub const EXECUTION_METADATA_BYTES: usize = wire::RESULT_INDEX_BYTES;
 const RESULT_SETS: usize = 256;
 
-/// Conservative native CBOR extent for the canonical codec's metadata values.
+/// Conservative CBOR extent for the canonical codec's metadata budget.
 /// Decimal uses a fixed bound covering its tag and the longest signed decimal text;
-/// this is independent of protobuf framing and live allocation ownership.
+/// this is independent of native RPC framing and live allocation ownership.
 pub fn result_metadata_extent(value: &Value) -> Result<usize, CanonicalError> {
     fn head(length: usize) -> usize {
         if length < 24 {
@@ -99,15 +100,14 @@ pub struct RunRequest {
 )]
 mod canonical_execution_server_unit {
     use super::*;
-    use crate::canonical::{CanonicalOptions, checked};
+    use crate::canonical::CanonicalOptions;
     use std::path::Path;
 
     async fn fixture() -> (CanonicalStore, String, crate::canonical::Revision) {
         let state = std::env::var("PSE_SURREAL_STATE").expect("explicit native fixture required");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
-        options.database = format!("canonical_execution_{}", uuid::Uuid::new_v4().simple());
-        let store = CanonicalStore::connect(&options).await.unwrap();
-        store.create().await.unwrap();
+        options.database = format!("canonical_test_execution_{}", uuid::Uuid::new_v4().simple());
+        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
         let revision = store
             .edit("problem", None, "initial-source", &[])
             .await
@@ -115,12 +115,8 @@ mod canonical_execution_server_unit {
         (store, options.database, revision)
     }
     async fn remove(store: &CanonicalStore, database: &str) {
-        store
-            .db
-            .query(format!("REMOVE DATABASE {database};"))
-            .await
-            .and_then(checked)
-            .unwrap();
+        assert_eq!(store.database(), database);
+        store.remove_isolated_fixture().await.unwrap();
     }
     async fn run(
         store: &CanonicalStore,
@@ -720,6 +716,103 @@ mod canonical_execution_server_unit {
                     .is_err()
             );
         }
+        remove(&store, &database).await;
+    }
+
+    #[tokio::test]
+    async fn canonical_execution_lookup_queue_consumes_original_clock() {
+        let (store, database, revision) = fixture().await;
+        run(&store, &revision, "clock-queue").await;
+        let mut pending = tokio::task::JoinSet::new();
+        let mut contexts = Vec::new();
+        for _ in 0..32 {
+            let client = std::sync::Arc::clone(&store.db);
+            let context = surrealdb::opt::RequestContext::new(
+                std::time::Instant::now() + Duration::from_secs(5),
+            );
+            contexts.push(context.clone());
+            pending.spawn(async move {
+                bounded_query(
+                    client
+                        .query("SLEEP 1s; RETURN true;")
+                        .request_context(context),
+                )
+                .await
+            });
+        }
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while !contexts
+                .iter()
+                .all(surrealdb::opt::RequestContext::was_dispatched)
+            {
+                tokio::time::sleep(Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .unwrap();
+        let offered = tokio::time::Instant::now() + REQUEST_TIMEOUT;
+        let mut observed = None;
+        let mut result = store
+            .protected_execution_query("clock-queue", "execution-clock-control", || {
+                observed = Some(original_deadline(REQUEST_TIMEOUT));
+                Ok(store.db.query("RETURN true;"))
+            })
+            .await
+            .unwrap();
+        assert_eq!(result.take::<Value>(0).unwrap(), Value::Bool(true));
+        // The blocked lookup consumes around a second, while this 50 ms
+        // allowance covers only local scheduling before the first clock mint.
+        assert!(observed.unwrap() <= offered + Duration::from_millis(50));
+        while let Some(result) = pending.join_next().await {
+            result.unwrap().unwrap();
+        }
+        remove(&store, &database).await;
+    }
+
+    #[tokio::test]
+    async fn canonical_execution_renewal_cannot_commit_after_original_lease_expires() {
+        let (store, database, revision) = fixture().await;
+        run(&store, &revision, "late-renewal").await;
+        let fence = store
+            .claim_run(
+                "late-renewal",
+                "late-renewal-claim",
+                "worker",
+                Duration::from_secs(1),
+            )
+            .await
+            .unwrap();
+        let original = store
+            .canonical_attempt(&fence.attempt)
+            .await
+            .unwrap()
+            .unwrap();
+        // Fault-inject a delay into this isolated database's installed production
+        // renewal function after UPDATE and before its final lease admission.
+        let start = wire::SCHEMA
+            .find("DEFINE FUNCTION fn::pse_execution_v1::renew(")
+            .unwrap();
+        let length = wire::SCHEMA[start..].find("\n};").unwrap() + 3;
+        let function = &wire::SCHEMA[start..start + length];
+        let delayed = function.replacen("DEFINE FUNCTION ", "DEFINE FUNCTION OVERWRITE ", 1)
+            .replacen("    fn::pse_execution_v1::lease($rpc_expiry, $original_expiry);", "    SLEEP 1500ms;\n    fn::pse_execution_v1::lease($rpc_expiry, $original_expiry);", 1);
+        assert!(delayed.contains("SLEEP 1500ms;"));
+        bounded_query(store.db.query(delayed)).await.unwrap();
+        let error = store
+            .renew_attempt(&fence, Duration::from_secs(60))
+            .await
+            .unwrap_err();
+        assert!(
+            error.to_string().contains("lease expired before commit"),
+            "{error}"
+        );
+        let saved = store
+            .canonical_attempt(&fence.attempt)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(saved.expires_at, original.expires_at);
+        assert!(!saved.terminal);
         remove(&store, &database).await;
     }
 
@@ -1371,7 +1464,7 @@ impl CanonicalStore {
         F: FnMut() -> Result<Q, CanonicalError>,
         Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
     {
-        tokio::time::timeout(REQUEST_TIMEOUT, async {
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut response = bounded_query(
                 self.db
                     .query("SELECT problem FROM ONLY type::record('canonical_runs',$run);")
@@ -1388,52 +1481,56 @@ impl CanonicalStore {
             self.protected_query(&problem, operation, build).await
         })
         .await
-        .map_err(|_| CanonicalError::Timeout)?
     }
     /// Retain selected inputs and provenance atomically before native execution.
     pub async fn begin_run(&self, request: &RunRequest) -> Result<CanonicalRun, CanonicalError> {
-        let (row, sources) = run_request_receipt(request)?;
-        let encoded = wire::encode_canonical_runs(&row)?;
-        self.ensure_writes()?;
-        let response = self
-            .protected_query(&row.problem, "canonical_execution::begin_run", || {
-                Ok(self
-                    .db
-                    .query("RETURN fn::pse_execution_v1::begin_run($row,$sources);")
-                    .bind(("row", encoded.clone()))
-                    .bind(("sources", sources.clone())))
-            })
-            .await;
-        match response {
-            Ok(mut response) => Ok(wire::decode_canonical_runs(
-                response
-                    .take::<Option<Object>>(0)?
-                    .ok_or(CanonicalError::IncompleteResponse)?,
-            )?),
-            Err(error) => match self.canonical_run(&row.key).await {
-                Ok(Some(saved)) if same_run_receipt(&row, &saved) => {
-                    self.ensure_execution_retained(&row.key).await?;
-                    Ok(saved)
-                }
-                Ok(Some(_)) => Err(CanonicalError::OperationReused),
-                _ => Err(error),
-            },
-        }
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            let (row, sources) = run_request_receipt(request)?;
+            let encoded = wire::encode_canonical_runs(&row)?;
+            self.ensure_writes()?;
+            let response = self
+                .protected_query(&row.problem, "canonical_execution::begin_run", || {
+                    Ok(self
+                        .db
+                        .query("RETURN fn::pse_execution_v1::begin_run($pse_rpc_expires_at, $row,$sources);")
+                        .bind(("row", encoded.clone()))
+                        .bind(("sources", sources.clone())))
+                })
+                .await;
+            match response {
+                Ok(mut response) => Ok(wire::decode_canonical_runs(
+                    response
+                        .take::<Option<Object>>(0)?
+                        .ok_or(CanonicalError::IncompleteResponse)?,
+                )?),
+                Err(error) => match self.canonical_run(&row.key).await {
+                    Ok(Some(saved)) if same_run_receipt(&row, &saved) => {
+                        self.ensure_execution_retained(&row.key).await?;
+                        Ok(saved)
+                    }
+                    Ok(Some(_)) => Err(CanonicalError::OperationReused),
+                    _ => Err(error),
+                },
+            }
+        }).await
     }
     /// Check the complete immutable run receipt without publication or retention effects.
     pub(crate) async fn check_execution_run_identity(
         &self,
         request: &RunRequest,
     ) -> Result<(), CanonicalError> {
-        let (expected, _) = run_request_receipt(request)?;
-        let saved = self
-            .canonical_run(&expected.key)
-            .await?
-            .ok_or(CanonicalError::OperationReused)?;
-        if !same_run_receipt(&expected, &saved) {
-            return Err(CanonicalError::OperationReused);
-        }
-        Ok(())
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            let (expected, _) = run_request_receipt(request)?;
+            let saved = self
+                .canonical_run(&expected.key)
+                .await?
+                .ok_or(CanonicalError::OperationReused)?;
+            if !same_run_receipt(&expected, &saved) {
+                return Err(CanonicalError::OperationReused);
+            }
+            Ok(())
+        })
+        .await
     }
     /// Bounded semantic ordering over one problem's recorded execution sequence.
     pub async fn execution_run_page(
@@ -1442,20 +1539,22 @@ impl CanonicalStore {
         after: Option<u64>,
         limit: usize,
     ) -> Result<Vec<RunSummary>, CanonicalError> {
-        identity(problem)?;
-        if !(1..=64).contains(&limit) {
-            return Err(CanonicalError::PayloadLimit);
-        }
-        let after = after
-            .map(canonical_codec::encode_uint)
-            .transpose()?
-            .unwrap_or(canonical_codec::encode_int(-1)?);
-        let mut result=bounded_query(self.db.query("SELECT key,problem,revision,source_sequence,sequence,interpretation,current_generation,current_attempt,cancelled,terminal_attempt,terminal_class FROM canonical_runs WHERE problem=$problem AND sequence>$after ORDER BY sequence LIMIT $limit;").bind(("problem",problem.to_owned())).bind(("after",after)).bind(("limit",limit))).await?;
-        result
-            .take::<Vec<Object>>(0)?
-            .into_iter()
-            .map(decode_run_summary)
-            .collect()
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            identity(problem)?;
+            if !(1..=64).contains(&limit) {
+                return Err(CanonicalError::PayloadLimit);
+            }
+            let after = after
+                .map(canonical_codec::encode_uint)
+                .transpose()?
+                .unwrap_or(canonical_codec::encode_int(-1)?);
+            let mut result=bounded_query(self.db.query("SELECT key,problem,revision,source_sequence,sequence,interpretation,current_generation,current_attempt,cancelled,terminal_attempt,terminal_class FROM canonical_runs WHERE problem=$problem AND sequence>$after ORDER BY sequence LIMIT $limit;").bind(("problem",problem.to_owned())).bind(("after",after)).bind(("limit",limit))).await?;
+            result
+                .take::<Vec<Object>>(0)?
+                .into_iter()
+                .map(decode_run_summary)
+                .collect()
+        }).await
     }
     /// Exact scalar metadata for one retained seed; payload selection requires its manifest.
     pub async fn result_seed(
@@ -1463,18 +1562,21 @@ impl CanonicalStore {
         key: &str,
     ) -> Result<Option<pse_model::generated::runtime::canonical_result_seeds::Row>, CanonicalError>
     {
-        identity(key)?;
-        let mut result = bounded_query(
-            self.db
-                .query("SELECT * FROM ONLY type::record('canonical_result_seeds',$key);")
-                .bind(("key", key.to_owned())),
-        )
-        .await?;
-        result
-            .take::<Option<Object>>(0)?
-            .map(wire::decode_canonical_result_seeds)
-            .transpose()
-            .map_err(Into::into)
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            identity(key)?;
+            let mut result = bounded_query(
+                self.db
+                    .query("SELECT * FROM ONLY type::record('canonical_result_seeds',$key);")
+                    .bind(("key", key.to_owned())),
+            )
+            .await?;
+            result
+                .take::<Option<Object>>(0)?
+                .map(wire::decode_canonical_result_seeds)
+                .transpose()
+                .map_err(Into::into)
+        })
+        .await
     }
     /// Narrow eligibility selector; callers validate terminal scientific permission.
     pub async fn result_seed_candidates(
@@ -1485,25 +1587,27 @@ impl CanonicalStore {
         attempt: Option<&str>,
     ) -> Result<Vec<pse_model::generated::runtime::canonical_result_seeds::Row>, CanonicalError>
     {
-        let query = if attempt.is_some() {
-            "SELECT * FROM canonical_result_seeds WHERE layout=$layout AND preparation=$preparation AND backend=$backend AND attempt=$attempt AND (SELECT VALUE key FROM canonical_result_retirements WHERE run=$parent.run LIMIT 1) = [] ORDER BY run_sequence DESC,attempt_generation DESC,step DESC LIMIT 64;"
-        } else {
-            "SELECT * FROM canonical_result_seeds WHERE layout=$layout AND preparation=$preparation AND backend=$backend AND (SELECT VALUE key FROM canonical_result_retirements WHERE run=$parent.run LIMIT 1) = [] ORDER BY run_sequence DESC,attempt_generation DESC,step DESC LIMIT 64;"
-        };
-        let mut result = bounded_query(
-            self.db
-                .query(query)
-                .bind(("layout", layout.to_owned()))
-                .bind(("preparation", preparation.to_owned()))
-                .bind(("backend", backend.to_owned()))
-                .bind(("attempt", attempt.map(str::to_owned))),
-        )
-        .await?;
-        result
-            .take::<Vec<Object>>(0)?
-            .into_iter()
-            .map(|row| wire::decode_canonical_result_seeds(row).map_err(Into::into))
-            .collect()
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            let query = if attempt.is_some() {
+                "SELECT * FROM canonical_result_seeds WHERE layout=$layout AND preparation=$preparation AND backend=$backend AND attempt=$attempt AND (SELECT VALUE key FROM canonical_result_retirements WHERE run=$parent.run LIMIT 1) = [] ORDER BY run_sequence DESC,attempt_generation DESC,step DESC LIMIT 64;"
+            } else {
+                "SELECT * FROM canonical_result_seeds WHERE layout=$layout AND preparation=$preparation AND backend=$backend AND (SELECT VALUE key FROM canonical_result_retirements WHERE run=$parent.run LIMIT 1) = [] ORDER BY run_sequence DESC,attempt_generation DESC,step DESC LIMIT 64;"
+            };
+            let mut result = bounded_query(
+                self.db
+                    .query(query)
+                    .bind(("layout", layout.to_owned()))
+                    .bind(("preparation", preparation.to_owned()))
+                    .bind(("backend", backend.to_owned()))
+                    .bind(("attempt", attempt.map(str::to_owned))),
+            )
+            .await?;
+            result
+                .take::<Vec<Object>>(0)?
+                .into_iter()
+                .map(|row| wire::decode_canonical_result_seeds(row).map_err(Into::into))
+                .collect()
+        }).await
     }
     /// Narrow immutable seed headers for one explicit attempt, ordered by scientific step.
     pub async fn result_seed_page(
@@ -1512,17 +1616,19 @@ impl CanonicalStore {
         after: Option<u64>,
     ) -> Result<Vec<pse_model::generated::runtime::canonical_result_seeds::Row>, CanonicalError>
     {
-        identity(attempt)?;
-        let after = after
-            .map(canonical_codec::encode_uint)
-            .transpose()?
-            .unwrap_or(canonical_codec::encode_int(-1)?);
-        let mut result=bounded_query(self.db.query("SELECT * FROM canonical_result_seeds WHERE attempt=$attempt AND step>$after ORDER BY step LIMIT 64;").bind(("attempt",attempt.to_owned())).bind(("after",after))).await?;
-        result
-            .take::<Vec<Object>>(0)?
-            .into_iter()
-            .map(|row| wire::decode_canonical_result_seeds(row).map_err(Into::into))
-            .collect()
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            identity(attempt)?;
+            let after = after
+                .map(canonical_codec::encode_uint)
+                .transpose()?
+                .unwrap_or(canonical_codec::encode_int(-1)?);
+            let mut result=bounded_query(self.db.query("SELECT * FROM canonical_result_seeds WHERE attempt=$attempt AND step>$after ORDER BY step LIMIT 64;").bind(("attempt",attempt.to_owned())).bind(("after",after))).await?;
+            result
+                .take::<Vec<Object>>(0)?
+                .into_iter()
+                .map(|row| wire::decode_canonical_result_seeds(row).map_err(Into::into))
+                .collect()
+        }).await
     }
     /// Renew the current live worker fence; expired or cancelled workers cannot revive.
     pub async fn renew_attempt(
@@ -1530,33 +1636,35 @@ impl CanonicalStore {
         fence: &AttemptFence,
         lifetime: Duration,
     ) -> Result<CanonicalAttempt, CanonicalError> {
-        let lifetime =
-            i64::try_from(lifetime.as_micros()).map_err(|_| CanonicalError::PayloadLimit)?;
-        if lifetime <= 0 || lifetime > 86_400_000_000 {
-            return Err(CanonicalError::Configuration(
-                "attempt renewal lifetime out of bounds".into(),
-            ));
-        }
-        let generation = canonical_codec::encode_uint(fence.generation)?;
-        self.ensure_writes()?;
-        let mut response = self
-            .protected_execution_query(&fence.run, "canonical_execution::renew_attempt", || {
-                Ok(self
-                    .db
-                    .query(
-                        "RETURN fn::pse_execution_v1::renew($run,$attempt,$generation,$lifetime);",
-                    )
-                    .bind(("run", fence.run.clone()))
-                    .bind(("attempt", fence.attempt.clone()))
-                    .bind(("generation", generation.clone()))
-                    .bind(("lifetime", lifetime)))
-            })
-            .await?;
-        Ok(wire::decode_canonical_attempts(
-            response
-                .take::<Option<Object>>(0)?
-                .ok_or(CanonicalError::IncompleteResponse)?,
-        )?)
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            let lifetime =
+                i64::try_from(lifetime.as_micros()).map_err(|_| CanonicalError::PayloadLimit)?;
+            if lifetime <= 0 || lifetime > 86_400_000_000 {
+                return Err(CanonicalError::Configuration(
+                    "attempt renewal lifetime out of bounds".into(),
+                ));
+            }
+            let generation = canonical_codec::encode_uint(fence.generation)?;
+            self.ensure_writes()?;
+            let mut response = self
+                .protected_execution_query(&fence.run, "canonical_execution::renew_attempt", || {
+                    Ok(self
+                        .db
+                        .query(
+                            "RETURN fn::pse_execution_v1::renew($pse_rpc_expires_at, $run,$attempt,$generation,$lifetime);",
+                        )
+                        .bind(("run", fence.run.clone()))
+                        .bind(("attempt", fence.attempt.clone()))
+                        .bind(("generation", generation.clone()))
+                        .bind(("lifetime", lifetime)))
+                })
+                .await?;
+            Ok(wire::decode_canonical_attempts(
+                response
+                    .take::<Option<Object>>(0)?
+                    .ok_or(CanonicalError::IncompleteResponse)?,
+            )?)
+        }).await
     }
     /// Register only a structurally complete immutable chunked seed under its live gate.
     /// Eligibility still comes from the scientific completion owner and terminal descriptor.
@@ -1566,47 +1674,49 @@ impl CanonicalStore {
         operation: &str,
         seed: &pse_model::generated::runtime::canonical_result_seeds::Row,
     ) -> Result<(), CanonicalError> {
-        identity(operation)?;
-        identity(&seed.key)?;
-        if seed.run != fence.run
-            || seed.attempt != fence.attempt
-            || seed.batch_count == 0
-            || seed.batch != result_batch_key(&fence.attempt, &seed.result_set, seed.first_ordinal)
-        {
-            return Err(CanonicalError::Configuration(
-                "seed descriptor coordinate mismatch".into(),
-            ));
-        }
-        let encoded = wire::encode_canonical_result_seeds(seed)?;
-        let mut digest = FramedHasher::new(Frame::CanonicalPayloadV1);
-        digest.str("pse.execution.seed-descriptor.v1");
-        pse_model::SemanticFrame::frame(seed, &mut digest);
-        let request = json(&(
-            &fence.run,
-            &fence.attempt,
-            fence.generation,
-            digest.finish_hash().to_hex(),
-        ))?;
-        let generation = canonical_codec::encode_uint(fence.generation)?;
-        self.ensure_writes()?;
-        let result=self.protected_execution_query(&fence.run, "canonical_execution::register_result_seed", ||Ok(self.db.query("RETURN fn::pse_execution_v1::seed($run,$attempt,$generation,$operation,$request,$seed);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("seed",encoded.clone())))).await;
-        match result {
-            Ok(mut response) => {
-                let saved = wire::decode_canonical_result_seeds(
-                    response
-                        .take::<Option<Object>>(0)?
-                        .ok_or(CanonicalError::IncompleteResponse)?,
-                )?;
-                if saved != *seed {
-                    return Err(CanonicalError::OperationReused);
-                }
-                Ok(())
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            identity(operation)?;
+            identity(&seed.key)?;
+            if seed.run != fence.run
+                || seed.attempt != fence.attempt
+                || seed.batch_count == 0
+                || seed.batch != result_batch_key(&fence.attempt, &seed.result_set, seed.first_ordinal)
+            {
+                return Err(CanonicalError::Configuration(
+                    "seed descriptor coordinate mismatch".into(),
+                ));
             }
-            Err(error) => match self.settle_operation(operation, "seed", &request).await? {
-                Some(_) => Ok(()),
-                None => Err(error),
-            },
-        }
+            let encoded = wire::encode_canonical_result_seeds(seed)?;
+            let mut digest = FramedHasher::new(Frame::CanonicalPayloadV1);
+            digest.str("pse.execution.seed-descriptor.v1");
+            pse_model::SemanticFrame::frame(seed, &mut digest);
+            let request = json(&(
+                &fence.run,
+                &fence.attempt,
+                fence.generation,
+                digest.finish_hash().to_hex(),
+            ))?;
+            let generation = canonical_codec::encode_uint(fence.generation)?;
+            self.ensure_writes()?;
+            let result=self.protected_execution_query(&fence.run, "canonical_execution::register_result_seed", ||Ok(self.db.query("RETURN fn::pse_execution_v1::seed($pse_rpc_expires_at, $run,$attempt,$generation,$operation,$request,$seed);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("seed",encoded.clone())))).await;
+            match result {
+                Ok(mut response) => {
+                    let saved = wire::decode_canonical_result_seeds(
+                        response
+                            .take::<Option<Object>>(0)?
+                            .ok_or(CanonicalError::IncompleteResponse)?,
+                    )?;
+                    if saved != *seed {
+                        return Err(CanonicalError::OperationReused);
+                    }
+                    Ok(())
+                }
+                Err(error) => match self.settle_operation(operation, "seed", &request).await? {
+                    Some(_) => Ok(()),
+                    None => Err(error),
+                },
+            }
+        }).await
     }
     /// Coherent bounded recovery observation. It grants no claim or fence;
     /// the recovery effect independently checks current expiration/cancellation.
@@ -1622,103 +1732,119 @@ impl CanonicalStore {
         ),
         CanonicalError,
     > {
-        identity(key)?;
-        let mut response = bounded_query(self.db.query("BEGIN; LET $point = SELECT * FROM ONLY type::record('canonical_study_points',$key); RETURN {point:$point,attempt:(SELECT * FROM ONLY type::record('canonical_attempts',$point.attempt)),study:(SELECT * FROM ONLY type::record('canonical_studies',$point.study)),run:(SELECT * FROM ONLY type::record('canonical_runs',$point.run))}; COMMIT;").bind(("key",key.to_owned()))).await?;
-        let index = response.num_statements().saturating_sub(2);
-        let mut row = response
-            .take::<Option<Object>>(index)?
-            .ok_or(CanonicalError::IncompleteResponse)?;
-        let object = |value| match value {
-            Value::Object(row) => Ok(row),
-            _ => Err(CanonicalError::IncompleteResponse),
-        };
-        let point = wire::decode_canonical_study_points(object(canonical_codec::required(
-            &mut row, "point",
-        )?)?)?;
-        let attempt = wire::decode_canonical_attempts(object(canonical_codec::required(
-            &mut row, "attempt",
-        )?)?)?;
-        let study =
-            wire::decode_canonical_studies(object(canonical_codec::required(&mut row, "study")?)?)?;
-        let run =
-            wire::decode_canonical_runs(object(canonical_codec::required(&mut row, "run")?)?)?;
-        if !row.is_empty()
-            || point.key != key
-            || point.attempt.as_deref() != Some(&attempt.key)
-            || point.run != attempt.run
-            || point.run != run.key
-            || point.study != study.key
-        {
-            return Err(CanonicalError::Configuration(
-                "recovery snapshot identity mismatch".into(),
-            ));
-        }
-        Ok((point, attempt, study, run))
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            identity(key)?;
+            let mut response = bounded_query(self.db.query("BEGIN; LET $point = SELECT * FROM ONLY type::record('canonical_study_points',$key); RETURN {point:$point,attempt:(SELECT * FROM ONLY type::record('canonical_attempts',$point.attempt)),study:(SELECT * FROM ONLY type::record('canonical_studies',$point.study)),run:(SELECT * FROM ONLY type::record('canonical_runs',$point.run))}; COMMIT;").bind(("key",key.to_owned()))).await?;
+            let index = response.num_statements().saturating_sub(2);
+            let mut row = response
+                .take::<Option<Object>>(index)?
+                .ok_or(CanonicalError::IncompleteResponse)?;
+            let object = |value| match value {
+                Value::Object(row) => Ok(row),
+                _ => Err(CanonicalError::IncompleteResponse),
+            };
+            let point = wire::decode_canonical_study_points(object(canonical_codec::required(
+                &mut row, "point",
+            )?)?)?;
+            let attempt = wire::decode_canonical_attempts(object(canonical_codec::required(
+                &mut row, "attempt",
+            )?)?)?;
+            let study =
+                wire::decode_canonical_studies(object(canonical_codec::required(&mut row, "study")?)?)?;
+            let run =
+                wire::decode_canonical_runs(object(canonical_codec::required(&mut row, "run")?)?)?;
+            if !row.is_empty()
+                || point.key != key
+                || point.attempt.as_deref() != Some(&attempt.key)
+                || point.run != attempt.run
+                || point.run != run.key
+                || point.study != study.key
+            {
+                return Err(CanonicalError::Configuration(
+                    "recovery snapshot identity mismatch".into(),
+                ));
+            }
+            Ok((point, attempt, study, run))
+        }).await
     }
     /// Read a retained semantic execution independently of its current generation.
     pub async fn canonical_run(&self, key: &str) -> Result<Option<CanonicalRun>, CanonicalError> {
-        let mut response = bounded_query(
-            self.db
-                .query("SELECT * FROM ONLY type::record('canonical_runs', $key);")
-                .bind(("key", key.to_owned())),
-        )
-        .await?;
-        response
-            .take::<Option<Object>>(0)?
-            .map(wire::decode_canonical_runs)
-            .transpose()
-            .map_err(Into::into)
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            let mut response = bounded_query(
+                self.db
+                    .query("SELECT * FROM ONLY type::record('canonical_runs', $key);")
+                    .bind(("key", key.to_owned())),
+            )
+            .await?;
+            response
+                .take::<Option<Object>>(0)?
+                .map(wire::decode_canonical_runs)
+                .transpose()
+                .map_err(Into::into)
+        })
+        .await
     }
     /// Read an explicit attempt; terminal history is independent of the latest pointer.
     pub async fn canonical_attempt(
         &self,
         key: &str,
     ) -> Result<Option<CanonicalAttempt>, CanonicalError> {
-        let mut response = bounded_query(
-            self.db
-                .query("SELECT * FROM ONLY type::record('canonical_attempts', $key);")
-                .bind(("key", key.to_owned())),
-        )
-        .await?;
-        response
-            .take::<Option<Object>>(0)?
-            .map(wire::decode_canonical_attempts)
-            .transpose()
-            .map_err(Into::into)
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            let mut response = bounded_query(
+                self.db
+                    .query("SELECT * FROM ONLY type::record('canonical_attempts', $key);")
+                    .bind(("key", key.to_owned())),
+            )
+            .await?;
+            response
+                .take::<Option<Object>>(0)?
+                .map(wire::decode_canonical_attempts)
+                .transpose()
+                .map_err(Into::into)
+        })
+        .await
     }
     /// Read a closed manifest; admission additionally requires a terminal attempt.
     pub async fn canonical_result_manifest(
         &self,
         key: &str,
     ) -> Result<Option<ResultManifest>, CanonicalError> {
-        let mut response = bounded_query(
-            self.db
-                .query("SELECT * FROM ONLY type::record('canonical_result_manifests', $key);")
-                .bind(("key", key.to_owned())),
-        )
-        .await?;
-        let row = response
-            .take::<Option<Object>>(0)?
-            .map(wire::decode_canonical_result_manifests)
-            .transpose()?;
-        if let Some(row) = &row {
-            decode_result_descriptors(row)?;
-        }
-        Ok(row)
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            let mut response = bounded_query(
+                self.db
+                    .query("SELECT * FROM ONLY type::record('canonical_result_manifests', $key);")
+                    .bind(("key", key.to_owned())),
+            )
+            .await?;
+            let row = response
+                .take::<Option<Object>>(0)?
+                .map(wire::decode_canonical_result_manifests)
+                .transpose()?;
+            if let Some(row) = &row {
+                decode_result_descriptors(row)?;
+            }
+            Ok(row)
+        })
+        .await
     }
     async fn ensure_execution_retained(&self, run: &str) -> Result<(), CanonicalError> {
-        let mut retirement = bounded_query(
-            self.db
-                .query("SELECT key FROM ONLY type::record('canonical_result_retirements',$run);")
-                .bind(("run", run.to_owned())),
-        )
-        .await?;
-        if retirement.take::<Option<Object>>(0)?.is_some() {
-            return Err(CanonicalError::Configuration(
-                "execution results explicitly retired".into(),
-            ));
-        }
-        Ok(())
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            let mut retirement = bounded_query(
+                self.db
+                    .query(
+                        "SELECT key FROM ONLY type::record('canonical_result_retirements',$run);",
+                    )
+                    .bind(("run", run.to_owned())),
+            )
+            .await?;
+            if retirement.take::<Option<Object>>(0)?.is_some() {
+                return Err(CanonicalError::Configuration(
+                    "execution results explicitly retired".into(),
+                ));
+            }
+            Ok(())
+        })
+        .await
     }
     pub(crate) async fn settle_operation(
         &self,
@@ -1726,21 +1852,26 @@ impl CanonicalStore {
         kind: &str,
         request: &[u8],
     ) -> Result<Option<String>, CanonicalError> {
-        let mut response = bounded_query(
-            self.db
-                .query("SELECT * FROM ONLY type::record('canonical_execution_operations', $key);")
-                .bind(("key", operation.to_owned())),
-        )
-        .await?;
-        let Some(object) = response.take::<Option<Object>>(0)? else {
-            return Ok(None);
-        };
-        let row = wire::decode_canonical_execution_operations(object)?;
-        self.ensure_execution_retained(&row.run).await?;
-        if row.kind != kind || row.request.as_slice() != request {
-            return Err(CanonicalError::OperationReused);
-        }
-        Ok(row.attempt)
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            let mut response = bounded_query(
+                self.db
+                    .control_query(
+                        "SELECT * FROM ONLY type::record('canonical_execution_operations', $key);",
+                    )
+                    .bind(("key", operation.to_owned())),
+            )
+            .await?;
+            let Some(object) = response.take::<Option<Object>>(0)? else {
+                return Ok(None);
+            };
+            let row = wire::decode_canonical_execution_operations(object)?;
+            self.ensure_execution_retained(&row.run).await?;
+            if row.kind != kind || row.request.as_slice() != request {
+                return Err(CanonicalError::OperationReused);
+            }
+            Ok(row.attempt)
+        })
+        .await
     }
     /// Claim a fresh actual attempt, or settle the same claim after lost acknowledgment.
     pub async fn claim_run(
@@ -1750,36 +1881,38 @@ impl CanonicalStore {
         worker: &str,
         lifetime: Duration,
     ) -> Result<AttemptFence, CanonicalError> {
-        identity(run)?;
-        identity(operation)?;
-        identity(worker)?;
-        let lifetime =
-            i64::try_from(lifetime.as_micros()).map_err(|_| CanonicalError::PayloadLimit)?;
-        if lifetime <= 0 || lifetime > 86_400_000_000 {
-            return Err(CanonicalError::Configuration(
-                "attempt lifetime must be positive and at most one day".into(),
-            ));
-        }
-        let attempt = execution_attempt_key(run, operation);
-        let request = json(&(run, operation, worker, lifetime, wire::INTERPRETATION))?;
-        self.ensure_writes()?;
-        let result = self.protected_execution_query(run, "canonical_execution::claim_run", || Ok(self.db.query("RETURN fn::pse_execution_v1::claim($run,$operation,$request,$attempt,$worker,$lifetime,$interpretation);").bind(("run",run.to_owned())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)).bind(("interpretation",wire::INTERPRETATION)))).await;
-        let row = match result {
-            Ok(mut response) => wire::decode_canonical_attempts(
-                response
-                    .take::<Option<Object>>(0)?
-                    .ok_or(CanonicalError::IncompleteResponse)?,
-            )?,
-            Err(error) => match self.settle_operation(operation, "claim", &request).await? {
-                Some(key) => self.canonical_attempt(&key).await?.ok_or(error)?,
-                None => return Err(error),
-            },
-        };
-        Ok(AttemptFence {
-            run: row.run,
-            attempt: row.key,
-            generation: row.generation,
-        })
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            identity(run)?;
+            identity(operation)?;
+            identity(worker)?;
+            let lifetime =
+                i64::try_from(lifetime.as_micros()).map_err(|_| CanonicalError::PayloadLimit)?;
+            if lifetime <= 0 || lifetime > 86_400_000_000 {
+                return Err(CanonicalError::Configuration(
+                    "attempt lifetime must be positive and at most one day".into(),
+                ));
+            }
+            let attempt = execution_attempt_key(run, operation);
+            let request = json(&(run, operation, worker, lifetime, wire::INTERPRETATION))?;
+            self.ensure_writes()?;
+            let result = self.protected_execution_query(run, "canonical_execution::claim_run", || Ok(self.db.query("RETURN fn::pse_execution_v1::claim($pse_rpc_expires_at, $run,$operation,$request,$attempt,$worker,$lifetime,$interpretation);").bind(("run",run.to_owned())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)).bind(("interpretation",wire::INTERPRETATION)))).await;
+            let row = match result {
+                Ok(mut response) => wire::decode_canonical_attempts(
+                    response
+                        .take::<Option<Object>>(0)?
+                        .ok_or(CanonicalError::IncompleteResponse)?,
+                )?,
+                Err(error) => match self.settle_operation(operation, "claim", &request).await? {
+                    Some(key) => self.canonical_attempt(&key).await?.ok_or(error)?,
+                    None => return Err(error),
+                },
+            };
+            Ok(AttemptFence {
+                run: row.run,
+                attempt: row.key,
+                generation: row.generation,
+            })
+        }).await
     }
     /// Append an exact bounded batch under the attempt's live ingestion gate.
     pub async fn append_result_batch(
@@ -1791,17 +1924,20 @@ impl CanonicalStore {
         payload: &[u8],
         row_count: u64,
     ) -> Result<ResultBatch, CanonicalError> {
-        self.append_execution_batch(
-            fence,
-            operation,
-            name,
-            ordinal,
-            payload,
-            row_count,
-            None,
-            &[],
-            &[],
-        )
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            self.append_execution_batch(
+                fence,
+                operation,
+                name,
+                ordinal,
+                payload,
+                row_count,
+                None,
+                &[],
+                &[],
+            )
+            .await
+        })
         .await
     }
     /// Append an independently decodable scientific block and its indexed metadata atomically.
@@ -1819,17 +1955,20 @@ impl CanonicalStore {
         row_count: u64,
         block: &ResultBlock,
     ) -> Result<ResultBatch, CanonicalError> {
-        self.append_execution_batch(
-            fence,
-            operation,
-            name,
-            ordinal,
-            payload,
-            row_count,
-            Some(block),
-            &[],
-            &[],
-        )
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            self.append_execution_batch(
+                fence,
+                operation,
+                name,
+                ordinal,
+                payload,
+                row_count,
+                Some(block),
+                &[],
+                &[],
+            )
+            .await
+        })
         .await
     }
     /// Retain exact scalar values and their batch receipt under one ingestion gate.
@@ -1848,22 +1987,25 @@ impl CanonicalStore {
         block: &ResultBlock,
         cells: &[ResultCell],
     ) -> Result<ResultBatch, CanonicalError> {
-        if cells.windows(2).any(|pair| pair[0].key >= pair[1].key) {
-            return Err(CanonicalError::Configuration(
-                "scalar metadata must have strictly ordered identities".into(),
-            ));
-        }
-        self.append_execution_batch(
-            fence,
-            operation,
-            name,
-            ordinal,
-            payload,
-            row_count,
-            Some(block),
-            cells,
-            &[],
-        )
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            if cells.windows(2).any(|pair| pair[0].key >= pair[1].key) {
+                return Err(CanonicalError::Configuration(
+                    "scalar metadata must have strictly ordered identities".into(),
+                ));
+            }
+            self.append_execution_batch(
+                fence,
+                operation,
+                name,
+                ordinal,
+                payload,
+                row_count,
+                Some(block),
+                cells,
+                &[],
+            )
+            .await
+        })
         .await
     }
     /// Atomically index original IPC rows and scientific output groups with their one immutable payload.
@@ -1883,24 +2025,27 @@ impl CanonicalStore {
         cells: &[ResultCell],
         outputs: &[ResultOutput],
     ) -> Result<ResultBatch, CanonicalError> {
-        if cells.windows(2).any(|pair| pair[0].key >= pair[1].key)
-            || outputs.windows(2).any(|pair| pair[0].key >= pair[1].key)
-        {
-            return Err(CanonicalError::Configuration(
-                "result index metadata must have strictly ordered identities".into(),
-            ));
-        }
-        self.append_execution_batch(
-            fence,
-            operation,
-            name,
-            ordinal,
-            payload,
-            row_count,
-            Some(block),
-            cells,
-            outputs,
-        )
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            if cells.windows(2).any(|pair| pair[0].key >= pair[1].key)
+                || outputs.windows(2).any(|pair| pair[0].key >= pair[1].key)
+            {
+                return Err(CanonicalError::Configuration(
+                    "result index metadata must have strictly ordered identities".into(),
+                ));
+            }
+            self.append_execution_batch(
+                fence,
+                operation,
+                name,
+                ordinal,
+                payload,
+                row_count,
+                Some(block),
+                cells,
+                outputs,
+            )
+            .await
+        })
         .await
     }
     #[allow(
@@ -1919,216 +2064,186 @@ impl CanonicalStore {
         cells: &[ResultCell],
         outputs: &[ResultOutput],
     ) -> Result<ResultBatch, CanonicalError> {
-        identity(operation)?;
-        identity(name)?;
-        if name.len() > 128 {
-            return Err(CanonicalError::PayloadLimit);
-        }
-        bounded(payload, RESULT_BATCH_BYTES)?;
-        let set_key = result_set_key(&fence.attempt, name);
-        let key = result_batch_key(&fence.attempt, &set_key, ordinal);
-        let digest = result_payload_digest(payload);
-        let set = ResultSet {
-            key: set_key.clone(),
-            attempt: fence.attempt.clone(),
-            name: name.into(),
-            interpretation: wire::INTERPRETATION.into(),
-            next_ordinal: 0,
-            row_count: 0,
-        };
-        let batch = ResultBatch {
-            key: key.clone(),
-            attempt: fence.attempt.clone(),
-            result_set: set_key.clone(),
-            ordinal,
-            digest: digest.clone(),
-            payload: payload.to_vec().into(),
-            row_count,
-        };
-        if let Some(block) = block
-            && (block.key != key
-                || block.batch != key
-                || block.result_set != set_key
-                || block.ordinal != ordinal
-                || block.rows != row_count
-                || block.payload_bytes != payload.len() as u64
-                || block.payload_digest != digest
-                || block.interpretation != wire::INTERPRETATION
-                || block.end < block.start
-                || block.end - block.start != row_count)
-        {
-            return Err(CanonicalError::Configuration(
-                "scientific block descriptor does not match immutable batch".into(),
-            ));
-        }
-        if let Some(block) = block {
-            crate::canonical_results::validate_result_block(block, &batch)?;
-        }
-        if cells.len() > wire::RESULT_INDEX_RECORDS {
-            return Err(CanonicalError::PayloadLimit);
-        }
-        let mut cell_hash = FramedHasher::new(Frame::CanonicalPayloadV1);
-        cell_hash.str("pse.execution.scalar-metadata.v1");
-        for cell in cells {
-            crate::canonical_results::validate_result_cell(cell)?;
-            if cell.batch != key || cell.result_set != set_key {
-                return Err(CanonicalError::Configuration(
-                    "scalar cell batch coordinate mismatch".into(),
-                ));
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            identity(operation)?;
+            identity(name)?;
+            if name.len() > 128 {
+                return Err(CanonicalError::PayloadLimit);
             }
-            if block.is_some_and(|block| cell.row < block.start || cell.row >= block.end) {
-                return Err(CanonicalError::Configuration(
-                    "scalar cell row is outside original IPC block".into(),
-                ));
-            }
-            pse_model::SemanticFrame::frame(cell, &mut cell_hash);
-        }
-        if outputs.len() > wire::RESULT_INDEX_RECORDS {
-            return Err(CanonicalError::PayloadLimit);
-        }
-        let mut output_hash = FramedHasher::new(Frame::CanonicalPayloadV1);
-        output_hash.str("pse.execution.output-index-metadata.v1");
-        for output in outputs {
-            identity(&output.key)?;
-            identity(&output.output)?;
-            identity(&output.partition)?;
-            if output.batch != key
-                || output.result_set != set_key
-                || output.interpretation != wire::INTERPRETATION
-                || output.end < output.start
-                || block.is_none_or(|block| output.start < block.start || output.end > block.end)
+            bounded(payload, RESULT_BATCH_BYTES)?;
+            let set_key = result_set_key(&fence.attempt, name);
+            let key = result_batch_key(&fence.attempt, &set_key, ordinal);
+            let digest = result_payload_digest(payload);
+            let set = ResultSet {
+                key: set_key.clone(),
+                attempt: fence.attempt.clone(),
+                name: name.into(),
+                interpretation: wire::INTERPRETATION.into(),
+                next_ordinal: 0,
+                row_count: 0,
+            };
+            let batch = ResultBatch {
+                key: key.clone(),
+                attempt: fence.attempt.clone(),
+                result_set: set_key.clone(),
+                ordinal,
+                digest: digest.clone(),
+                payload: payload.to_vec().into(),
+                row_count,
+            };
+            if let Some(block) = block
+                && (block.key != key
+                    || block.batch != key
+                    || block.result_set != set_key
+                    || block.ordinal != ordinal
+                    || block.rows != row_count
+                    || block.payload_bytes != payload.len() as u64
+                    || block.payload_digest != digest
+                    || block.interpretation != wire::INTERPRETATION
+                    || block.end < block.start
+                    || block.end - block.start != row_count)
             {
                 return Err(CanonicalError::Configuration(
-                    "output index batch coordinate mismatch".into(),
+                    "scientific block descriptor does not match immutable batch".into(),
                 ));
             }
-            pse_model::SemanticFrame::frame(output, &mut output_hash);
-        }
-        let mut block_hash = FramedHasher::new(Frame::CanonicalPayloadV1);
-        block_hash.str("pse.execution.block-metadata.v1");
-        if let Some(block) = block {
-            pse_model::SemanticFrame::frame(block, &mut block_hash);
-        }
-        let request = json(&(
-            &fence.run,
-            &fence.attempt,
-            fence.generation,
-            name,
-            ordinal,
-            &digest,
-            row_count,
-            block_hash.finish_hash().to_hex(),
-            cell_hash.finish_hash().to_hex(),
-            output_hash.finish_hash().to_hex(),
-        ))?;
-        let block = block
-            .map(wire::encode_canonical_result_blocks)
-            .transpose()?;
-        let cells = cells
-            .iter()
-            .map(wire::encode_canonical_result_cells)
-            .collect::<Result<Vec<_>, _>>()?;
-        let outputs = outputs
-            .iter()
-            .map(wire::encode_canonical_result_block_outputs)
-            .collect::<Result<Vec<_>, _>>()?;
-        let mut metadata = Object::new();
-        metadata.insert(
-            "block",
-            block.clone().map(Value::Object).unwrap_or(Value::None),
-        );
-        metadata.insert(
-            "cells",
-            Value::Array(
-                cells
-                    .iter()
-                    .cloned()
-                    .map(Value::Object)
-                    .collect::<Vec<_>>()
-                    .into(),
-            ),
-        );
-        metadata.insert(
-            "outputs",
-            Value::Array(
-                outputs
-                    .iter()
-                    .cloned()
-                    .map(Value::Object)
-                    .collect::<Vec<_>>()
-                    .into(),
-            ),
-        );
-        if result_metadata_extent(&Value::Object(metadata))? > EXECUTION_METADATA_BYTES {
-            return Err(CanonicalError::PayloadLimit);
-        }
-        let encoded_set = wire::encode_canonical_result_sets(&set)?;
-        let encoded_batch = wire::encode_canonical_result_batches(&batch)?;
-        let generation = canonical_codec::encode_uint(fence.generation)?;
-        let variables = [
-            Value::String(fence.run.clone()),
-            Value::String(fence.attempt.clone()),
-            generation.clone(),
-            Value::String(operation.into()),
-            Value::Bytes(Bytes::from(request.clone())),
-            Value::Object(encoded_set.clone()),
-            Value::Object(encoded_batch.clone()),
-            block.clone().map(Value::Object).unwrap_or(Value::None),
-            Value::Array(
-                cells
-                    .iter()
-                    .cloned()
-                    .map(Value::Object)
-                    .collect::<Vec<_>>()
-                    .into(),
-            ),
-            Value::Array(
-                outputs
-                    .iter()
-                    .cloned()
-                    .map(Value::Object)
-                    .collect::<Vec<_>>()
-                    .into(),
-            ),
-        ];
-        let extent = variables.iter().try_fold(1024_usize, |sum, value| {
-            let bytes =
-                surrealdb::types::encode_proto(value).map_err(|_| CanonicalError::PayloadLimit)?;
-            sum.checked_add(bytes.len())
-                .ok_or(CanonicalError::PayloadLimit)
-        })?;
-        if extent > wire::RESULT_MESSAGE_BYTES {
-            return Err(CanonicalError::PayloadLimit);
-        }
-        self.ensure_writes()?;
-        let result = self.protected_execution_query(&fence.run, "canonical_execution::append_execution_batch", || Ok(self.db.query("RETURN fn::pse_execution_v1::append($run,$attempt,$generation,$operation,$request,$set,$batch,$block,$cells,$outputs);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("set",encoded_set.clone())).bind(("batch",encoded_batch.clone())).bind(("block",block.clone().map(Value::Object).unwrap_or(Value::None))).bind(("cells",cells.clone())).bind(("outputs",outputs.clone())))).await;
-        match result {
-            Ok(mut response) => {
-                let saved = response
-                    .take::<Option<Object>>(0)?
-                    .ok_or(CanonicalError::IncompleteResponse)?;
-                let mut expected = encoded_batch;
-                expected.remove("payload");
-                expected.insert("request", Value::Bytes(Bytes::from(request.clone())));
-                if saved != expected {
-                    return Err(CanonicalError::OperationReused);
-                }
-                Ok(batch)
+            if let Some(block) = block {
+                crate::canonical_results::validate_result_block(block, &batch)?;
             }
-            Err(error) => {
-                // The exact operation receipt exists only after all original
-                // payload bytes and metadata were admitted atomically. Settlement
-                // retains that guarantee without fetching the IPC success echo.
-                if self
-                    .settle_operation(operation, "append", &request)
-                    .await?
-                    .is_none()
+            if cells.len() > wire::RESULT_INDEX_RECORDS {
+                return Err(CanonicalError::PayloadLimit);
+            }
+            let mut cell_hash = FramedHasher::new(Frame::CanonicalPayloadV1);
+            cell_hash.str("pse.execution.scalar-metadata.v1");
+            for cell in cells {
+                crate::canonical_results::validate_result_cell(cell)?;
+                if cell.batch != key || cell.result_set != set_key {
+                    return Err(CanonicalError::Configuration(
+                        "scalar cell batch coordinate mismatch".into(),
+                    ));
+                }
+                if block.is_some_and(|block| cell.row < block.start || cell.row >= block.end) {
+                    return Err(CanonicalError::Configuration(
+                        "scalar cell row is outside original IPC block".into(),
+                    ));
+                }
+                pse_model::SemanticFrame::frame(cell, &mut cell_hash);
+            }
+            if outputs.len() > wire::RESULT_INDEX_RECORDS {
+                return Err(CanonicalError::PayloadLimit);
+            }
+            let mut output_hash = FramedHasher::new(Frame::CanonicalPayloadV1);
+            output_hash.str("pse.execution.output-index-metadata.v1");
+            for output in outputs {
+                identity(&output.key)?;
+                identity(&output.output)?;
+                identity(&output.partition)?;
+                if output.batch != key
+                    || output.result_set != set_key
+                    || output.interpretation != wire::INTERPRETATION
+                    || output.end < output.start
+                    || block.is_none_or(|block| output.start < block.start || output.end > block.end)
                 {
-                    return Err(error);
+                    return Err(CanonicalError::Configuration(
+                        "output index batch coordinate mismatch".into(),
+                    ));
                 }
-                Ok(batch)
+                pse_model::SemanticFrame::frame(output, &mut output_hash);
             }
-        }
+            let mut block_hash = FramedHasher::new(Frame::CanonicalPayloadV1);
+            block_hash.str("pse.execution.block-metadata.v1");
+            if let Some(block) = block {
+                pse_model::SemanticFrame::frame(block, &mut block_hash);
+            }
+            let request = json(&(
+                &fence.run,
+                &fence.attempt,
+                fence.generation,
+                name,
+                ordinal,
+                &digest,
+                row_count,
+                block_hash.finish_hash().to_hex(),
+                cell_hash.finish_hash().to_hex(),
+                output_hash.finish_hash().to_hex(),
+            ))?;
+            let block = block
+                .map(wire::encode_canonical_result_blocks)
+                .transpose()?;
+            let cells = cells
+                .iter()
+                .map(wire::encode_canonical_result_cells)
+                .collect::<Result<Vec<_>, _>>()?;
+            let outputs = outputs
+                .iter()
+                .map(wire::encode_canonical_result_block_outputs)
+                .collect::<Result<Vec<_>, _>>()?;
+            let mut metadata = Object::new();
+            metadata.insert(
+                "block",
+                block.clone().map(Value::Object).unwrap_or(Value::None),
+            );
+            metadata.insert(
+                "cells",
+                Value::Array(
+                    cells
+                        .iter()
+                        .cloned()
+                        .map(Value::Object)
+                        .collect::<Vec<_>>()
+                        .into(),
+                ),
+            );
+            metadata.insert(
+                "outputs",
+                Value::Array(
+                    outputs
+                        .iter()
+                        .cloned()
+                        .map(Value::Object)
+                        .collect::<Vec<_>>()
+                        .into(),
+                ),
+            );
+            if result_metadata_extent(&Value::Object(metadata))? > EXECUTION_METADATA_BYTES {
+                return Err(CanonicalError::PayloadLimit);
+            }
+            let encoded_set = wire::encode_canonical_result_sets(&set)?;
+            let encoded_batch = wire::encode_canonical_result_batches(&batch)?;
+            let generation = canonical_codec::encode_uint(fence.generation)?;
+            // The shared native WebSocket driver admits the complete encoded RPC
+            // envelope against MESSAGE_BYTES before dispatch. Domain metadata and
+            // Arrow IPC limits above are independent of that transport bound.
+            self.ensure_writes()?;
+            let result = self.protected_execution_query(&fence.run, "canonical_execution::append_execution_batch", || Ok(self.db.query("RETURN fn::pse_execution_v1::append($pse_rpc_expires_at, $run,$attempt,$generation,$operation,$request,$set,$batch,$block,$cells,$outputs);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("set",encoded_set.clone())).bind(("batch",encoded_batch.clone())).bind(("block",block.clone().map(Value::Object).unwrap_or(Value::None))).bind(("cells",cells.clone())).bind(("outputs",outputs.clone())))).await;
+            match result {
+                Ok(mut response) => {
+                    let saved = response
+                        .take::<Option<Object>>(0)?
+                        .ok_or(CanonicalError::IncompleteResponse)?;
+                    let mut expected = encoded_batch;
+                    expected.remove("payload");
+                    expected.insert("request", Value::Bytes(Bytes::from(request.clone())));
+                    if saved != expected {
+                        return Err(CanonicalError::OperationReused);
+                    }
+                    Ok(batch)
+                }
+                Err(error) => {
+                    // The exact operation receipt exists only after all original
+                    // payload bytes and metadata were admitted atomically. Settlement
+                    // retains that guarantee without fetching the IPC success echo.
+                    if self
+                        .settle_operation(operation, "append", &request)
+                        .await?
+                        .is_none()
+                    {
+                        return Err(error);
+                    }
+                    Ok(batch)
+                }
+            }
+        }).await
     }
     /// Fence late batches before reconciling immutable metadata outside a transaction.
     pub async fn close_result_ingestion(
@@ -2136,13 +2251,15 @@ impl CanonicalStore {
         fence: &AttemptFence,
         operation: &str,
     ) -> Result<ClosedAttempt, CanonicalError> {
-        identity(operation)?;
-        let request = json(&(&fence.run, &fence.attempt, fence.generation))?;
-        let generation = canonical_codec::encode_uint(fence.generation)?;
-        self.ensure_writes()?;
-        let result = self.protected_execution_query(&fence.run, "canonical_execution::close_result_ingestion", || Ok(self.db.query("RETURN fn::pse_execution_v1::close($run,$attempt,$generation,$operation,$request);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))))).await;
-        self.closed_response(result, operation, "close", &request)
-            .await
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            identity(operation)?;
+            let request = json(&(&fence.run, &fence.attempt, fence.generation))?;
+            let generation = canonical_codec::encode_uint(fence.generation)?;
+            self.ensure_writes()?;
+            let result = self.protected_execution_query(&fence.run, "canonical_execution::close_result_ingestion", || Ok(self.db.query("RETURN fn::pse_execution_v1::close($pse_rpc_expires_at, $run,$attempt,$generation,$operation,$request);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))))).await;
+            self.closed_response(result, operation, "close", &request)
+                .await
+        }).await
     }
     async fn closure_operation(
         &self,
@@ -2150,30 +2267,32 @@ impl CanonicalStore {
         kind: &str,
         request: Option<&[u8]>,
     ) -> Result<Option<(String, u64)>, CanonicalError> {
-        let mut response = bounded_query(
-            self.db
-                .query(
-                    "SELECT * FROM ONLY type::record('canonical_execution_operations',$operation);",
-                )
-                .bind(("operation", operation.to_owned())),
-        )
-        .await?;
-        let Some(row) = response.take::<Option<Object>>(0)? else {
-            return Ok(None);
-        };
-        let row = wire::decode_canonical_execution_operations(row)?;
-        if row.kind != kind || request.is_some_and(|request| row.request.as_slice() != request) {
-            return Err(CanonicalError::OperationReused);
-        }
-        let authority = std::str::from_utf8(row.result.as_slice())
-            .map_err(|error| CanonicalError::Configuration(error.to_string()))?
-            .parse::<u64>()
-            .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-        Ok(Some((
-            row.attempt
-                .ok_or_else(|| CanonicalError::Configuration("closure attempt missing".into()))?,
-            authority,
-        )))
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            let mut response = bounded_query(
+                self.db
+                    .control_query(
+                        "SELECT * FROM ONLY type::record('canonical_execution_operations',$operation);",
+                    )
+                    .bind(("operation", operation.to_owned())),
+            )
+            .await?;
+            let Some(row) = response.take::<Option<Object>>(0)? else {
+                return Ok(None);
+            };
+            let row = wire::decode_canonical_execution_operations(row)?;
+            if row.kind != kind || request.is_some_and(|request| row.request.as_slice() != request) {
+                return Err(CanonicalError::OperationReused);
+            }
+            let authority = std::str::from_utf8(row.result.as_slice())
+                .map_err(|error| CanonicalError::Configuration(error.to_string()))?
+                .parse::<u64>()
+                .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
+            Ok(Some((
+                row.attempt
+                    .ok_or_else(|| CanonicalError::Configuration("closure attempt missing".into()))?,
+                authority,
+            )))
+        }).await
     }
     async fn closed_response(
         &self,
@@ -2182,22 +2301,25 @@ impl CanonicalStore {
         kind: &str,
         request: &[u8],
     ) -> Result<ClosedAttempt, CanonicalError> {
-        let receipt = self
-            .closure_operation(operation, kind, Some(request))
-            .await?;
-        let Some((key, authority)) = receipt else {
-            return Err(result.err().unwrap_or(CanonicalError::IncompleteResponse));
-        };
-        let mut value = match result {
-            Ok(mut response) => closed(wire::decode_canonical_attempts(
-                response
-                    .take::<Option<Object>>(0)?
-                    .ok_or(CanonicalError::IncompleteResponse)?,
-            )?)?,
-            Err(error) => closed(self.canonical_attempt(&key).await?.ok_or(error)?)?,
-        };
-        value.authority = authority;
-        Ok(value)
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            let receipt = self
+                .closure_operation(operation, kind, Some(request))
+                .await?;
+            let Some((key, authority)) = receipt else {
+                return Err(result.err().unwrap_or(CanonicalError::IncompleteResponse));
+            };
+            let mut value = match result {
+                Ok(mut response) => closed(wire::decode_canonical_attempts(
+                    response
+                        .take::<Option<Object>>(0)?
+                        .ok_or(CanonicalError::IncompleteResponse)?,
+                )?)?,
+                Err(error) => closed(self.canonical_attempt(&key).await?.ok_or(error)?)?,
+            };
+            value.authority = authority;
+            Ok(value)
+        })
+        .await
     }
     /// Revoke worker authority and freeze available observations at cancellation.
     pub async fn cancel_run(
@@ -2205,39 +2327,41 @@ impl CanonicalStore {
         run: &str,
         operation: &str,
     ) -> Result<CanonicalRun, CanonicalError> {
-        identity(run)?;
-        identity(operation)?;
-        let request = json(&(run, operation))?;
-        self.ensure_writes()?;
-        let result = self
-            .protected_execution_query(run, "canonical_execution::cancel_run", || {
-                Ok(self
-                    .db
-                    .query("RETURN fn::pse_execution_v1::cancel($run,$operation,$request);")
-                    .bind(("run", run.to_owned()))
-                    .bind(("operation", operation.to_owned()))
-                    .bind(("request", Bytes::from(request.clone()))))
-            })
-            .await;
-        match result {
-            Ok(mut response) => Ok(wire::decode_canonical_runs(
-                response
-                    .take::<Option<Object>>(0)?
-                    .ok_or(CanonicalError::IncompleteResponse)?,
-            )?),
-            Err(error) => {
-                // Cancellation operations have no attempt; absence must be distinguished.
-                let mut response = bounded_query(self.db.query("SELECT * FROM ONLY type::record('canonical_execution_operations',$operation);").bind(("operation",operation.to_owned()))).await?;
-                let Some(row) = response.take::<Option<Object>>(0)? else {
-                    return Err(error);
-                };
-                let row = wire::decode_canonical_execution_operations(row)?;
-                if row.kind != "cancel" || row.request.as_slice() != request {
-                    return Err(CanonicalError::OperationReused);
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            identity(run)?;
+            identity(operation)?;
+            let request = json(&(run, operation))?;
+            self.ensure_writes()?;
+            let result = self
+                .protected_execution_query(run, "canonical_execution::cancel_run", || {
+                    Ok(self
+                        .db
+                        .query("RETURN fn::pse_execution_v1::cancel($pse_rpc_expires_at, $run,$operation,$request);")
+                        .bind(("run", run.to_owned()))
+                        .bind(("operation", operation.to_owned()))
+                        .bind(("request", Bytes::from(request.clone()))))
+                })
+                .await;
+            match result {
+                Ok(mut response) => Ok(wire::decode_canonical_runs(
+                    response
+                        .take::<Option<Object>>(0)?
+                        .ok_or(CanonicalError::IncompleteResponse)?,
+                )?),
+                Err(error) => {
+                    // Cancellation operations have no attempt; absence must be distinguished.
+                    let mut response = bounded_query(self.db.control_query("SELECT * FROM ONLY type::record('canonical_execution_operations',$operation);").bind(("operation",operation.to_owned()))).await?;
+                    let Some(row) = response.take::<Option<Object>>(0)? else {
+                        return Err(error);
+                    };
+                    let row = wire::decode_canonical_execution_operations(row)?;
+                    if row.kind != "cancel" || row.request.as_slice() != request {
+                        return Err(CanonicalError::OperationReused);
+                    }
+                    self.canonical_run(run).await?.ok_or(error)
                 }
-                self.canonical_run(run).await?.ok_or(error)
             }
-        }
+        }).await
     }
     /// Current recovery owner closes expired or cancelled staging; no stale worker can use this authority.
     pub async fn recover_closed_attempt(
@@ -2245,22 +2369,24 @@ impl CanonicalStore {
         run: &str,
         operation: &str,
     ) -> Result<ClosedAttempt, CanonicalError> {
-        identity(run)?;
-        identity(operation)?;
-        let request = json(&(run, operation))?;
-        self.ensure_writes()?;
-        let result = self
-            .protected_execution_query(run, "canonical_execution::recover_closed_attempt", || {
-                Ok(self
-                    .db
-                    .query("RETURN fn::pse_execution_v1::recover($run,$operation,$request);")
-                    .bind(("run", run.to_owned()))
-                    .bind(("operation", operation.to_owned()))
-                    .bind(("request", Bytes::from(request.clone()))))
-            })
-            .await;
-        self.closed_response(result, operation, "recover", &request)
-            .await
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            identity(run)?;
+            identity(operation)?;
+            let request = json(&(run, operation))?;
+            self.ensure_writes()?;
+            let result = self
+                .protected_execution_query(run, "canonical_execution::recover_closed_attempt", || {
+                    Ok(self
+                        .db
+                        .query("RETURN fn::pse_execution_v1::recover($pse_rpc_expires_at, $run,$operation,$request);")
+                        .bind(("run", run.to_owned()))
+                        .bind(("operation", operation.to_owned()))
+                        .bind(("request", Bytes::from(request.clone()))))
+                })
+                .await;
+            self.closed_response(result, operation, "recover", &request)
+                .await
+        }).await
     }
     /// Resume an already closed live operation after restart without repeating native work.
     pub async fn resume_closed_attempt(
@@ -2268,175 +2394,179 @@ impl CanonicalStore {
         attempt: &str,
         operation: &str,
     ) -> Result<ClosedAttempt, CanonicalError> {
-        let mut response=bounded_query(self.db.query("SELECT kind FROM ONLY type::record('canonical_execution_operations',$operation);").bind(("operation",operation.to_owned()))).await?;
-        let mut row = response
-            .take::<Option<Object>>(0)?
-            .ok_or_else(|| CanonicalError::Configuration("closure operation unavailable".into()))?;
-        let kind = canonical_codec::decode_string(canonical_codec::required(&mut row, "kind")?)?;
-        if kind != "close" && kind != "recover" {
-            return Err(CanonicalError::OperationReused);
-        }
-        let (key, authority) = self
-            .closure_operation(operation, &kind, None)
-            .await?
-            .ok_or(CanonicalError::IncompleteResponse)?;
-        if key != attempt {
-            return Err(CanonicalError::OperationReused);
-        }
-        let mut value =
-            closed(self.canonical_attempt(attempt).await?.ok_or_else(|| {
-                CanonicalError::Configuration("closed attempt unavailable".into())
-            })?)?;
-        value.authority = authority;
-        Ok(value)
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            let mut response=bounded_query(self.db.query("SELECT kind FROM ONLY type::record('canonical_execution_operations',$operation);").bind(("operation",operation.to_owned()))).await?;
+            let mut row = response
+                .take::<Option<Object>>(0)?
+                .ok_or_else(|| CanonicalError::Configuration("closure operation unavailable".into()))?;
+            let kind = canonical_codec::decode_string(canonical_codec::required(&mut row, "kind")?)?;
+            if kind != "close" && kind != "recover" {
+                return Err(CanonicalError::OperationReused);
+            }
+            let (key, authority) = self
+                .closure_operation(operation, &kind, None)
+                .await?
+                .ok_or(CanonicalError::IncompleteResponse)?;
+            if key != attempt {
+                return Err(CanonicalError::OperationReused);
+            }
+            let mut value =
+                closed(self.canonical_attempt(attempt).await?.ok_or_else(|| {
+                    CanonicalError::Configuration("closed attempt unavailable".into())
+                })?)?;
+            value.authority = authority;
+            Ok(value)
+        }).await
     }
     /// Reconcile exact immutable batch membership in bounded metadata pages, then admit its descriptor.
     pub async fn reconcile_closed_attempt(
         &self,
         closed: &ClosedAttempt,
     ) -> Result<ClosedManifest, CanonicalError> {
-        let attempt = self
-            .canonical_attempt(&closed.fence.attempt)
-            .await?
-            .ok_or_else(|| CanonicalError::Configuration("closed attempt unavailable".into()))?;
-        if !attempt.closed
-            || attempt.ingestion_open
-            || attempt.generation != closed.fence.generation
-        {
-            return Err(CanonicalError::Configuration(
-                "reconciliation attempt fenced".into(),
-            ));
-        }
-        if let Some(row) = self.canonical_result_manifest(&attempt.key).await? {
-            return Ok(ClosedManifest {
-                closed: closed.clone(),
-                row,
-            });
-        }
-        let mut response=bounded_query(self.db.query("SELECT * FROM canonical_result_sets WHERE attempt=$attempt ORDER BY key LIMIT 257;").bind(("attempt",attempt.key.clone()))).await?;
-        let rows: Vec<Object> = response.take(0)?;
-        if rows.len() > RESULT_SETS {
-            return Err(CanonicalError::PayloadLimit);
-        }
-        let mut descriptors = Vec::with_capacity(rows.len());
-        for row in rows {
-            let set = wire::decode_canonical_result_sets(row)?;
-            if set.key != result_set_key(&attempt.key, &set.name)
-                || set.interpretation != wire::INTERPRETATION
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            let attempt = self
+                .canonical_attempt(&closed.fence.attempt)
+                .await?
+                .ok_or_else(|| CanonicalError::Configuration("closed attempt unavailable".into()))?;
+            if !attempt.closed
+                || attempt.ingestion_open
+                || attempt.generation != closed.fence.generation
             {
                 return Err(CanonicalError::Configuration(
-                    "closed result-set coordinate mismatch".into(),
+                    "reconciliation attempt fenced".into(),
                 ));
             }
-            let mut next = 0_u64;
-            let mut row_count = 0_u64;
-            let mut digest = FramedHasher::new(Frame::CanonicalPayloadV1);
-            digest.str("pse.execution.batch-selection.v1");
-            while next < set.next_ordinal {
-                let mut page=bounded_query(self.db.query("SELECT key,attempt,result_set,ordinal,digest,row_count FROM canonical_result_batches WHERE result_set=$set AND ordinal >= $next ORDER BY ordinal LIMIT 64;").bind(("set",set.key.clone())).bind(("next",canonical_codec::encode_uint(next)?))).await?;
-                let batches: Vec<Object> = page.take(0)?;
-                if batches.is_empty() {
+            if let Some(row) = self.canonical_result_manifest(&attempt.key).await? {
+                return Ok(ClosedManifest {
+                    closed: closed.clone(),
+                    row,
+                });
+            }
+            let mut response=bounded_query(self.db.query("SELECT * FROM canonical_result_sets WHERE attempt=$attempt ORDER BY key LIMIT 257;").bind(("attempt",attempt.key.clone()))).await?;
+            let rows: Vec<Object> = response.take(0)?;
+            if rows.len() > RESULT_SETS {
+                return Err(CanonicalError::PayloadLimit);
+            }
+            let mut descriptors = Vec::with_capacity(rows.len());
+            for row in rows {
+                let set = wire::decode_canonical_result_sets(row)?;
+                if set.key != result_set_key(&attempt.key, &set.name)
+                    || set.interpretation != wire::INTERPRETATION
+                {
                     return Err(CanonicalError::Configuration(
-                        "closed result batch missing".into(),
+                        "closed result-set coordinate mismatch".into(),
                     ));
                 }
-                for mut batch in batches {
-                    let key = canonical_codec::decode_string(canonical_codec::required(
-                        &mut batch, "key",
-                    )?)?;
-                    let selected_attempt = canonical_codec::decode_string(
-                        canonical_codec::required(&mut batch, "attempt")?,
-                    )?;
-                    let selected_set = canonical_codec::decode_string(canonical_codec::required(
-                        &mut batch,
-                        "result_set",
-                    )?)?;
-                    let ordinal = canonical_codec::decode_uint(canonical_codec::required(
-                        &mut batch, "ordinal",
-                    )?)?;
-                    let payload_digest = canonical_codec::decode_string(
-                        canonical_codec::required(&mut batch, "digest")?,
-                    )?;
-                    let rows = canonical_codec::decode_uint(canonical_codec::required(
-                        &mut batch,
-                        "row_count",
-                    )?)?;
-                    if next >= set.next_ordinal
-                        || ordinal != next
-                        || key != result_batch_key(&attempt.key, &set.key, ordinal)
-                        || selected_attempt != attempt.key
-                        || selected_set != set.key
-                    {
+                let mut next = 0_u64;
+                let mut row_count = 0_u64;
+                let mut digest = FramedHasher::new(Frame::CanonicalPayloadV1);
+                digest.str("pse.execution.batch-selection.v1");
+                while next < set.next_ordinal {
+                    let mut page=bounded_query(self.db.query("SELECT key,attempt,result_set,ordinal,digest,row_count FROM canonical_result_batches WHERE result_set=$set AND ordinal >= $next ORDER BY ordinal LIMIT 64;").bind(("set",set.key.clone())).bind(("next",canonical_codec::encode_uint(next)?))).await?;
+                    let batches: Vec<Object> = page.take(0)?;
+                    if batches.is_empty() {
                         return Err(CanonicalError::Configuration(
-                            "closed result batch coverage mismatch".into(),
+                            "closed result batch missing".into(),
                         ));
                     }
-                    digest.str(&key).str(&payload_digest).u64(rows);
-                    row_count = row_count
-                        .checked_add(rows)
-                        .ok_or(CanonicalError::PayloadLimit)?;
-                    next = next.checked_add(1).ok_or(CanonicalError::PayloadLimit)?;
+                    for mut batch in batches {
+                        let key = canonical_codec::decode_string(canonical_codec::required(
+                            &mut batch, "key",
+                        )?)?;
+                        let selected_attempt = canonical_codec::decode_string(
+                            canonical_codec::required(&mut batch, "attempt")?,
+                        )?;
+                        let selected_set = canonical_codec::decode_string(canonical_codec::required(
+                            &mut batch,
+                            "result_set",
+                        )?)?;
+                        let ordinal = canonical_codec::decode_uint(canonical_codec::required(
+                            &mut batch, "ordinal",
+                        )?)?;
+                        let payload_digest = canonical_codec::decode_string(
+                            canonical_codec::required(&mut batch, "digest")?,
+                        )?;
+                        let rows = canonical_codec::decode_uint(canonical_codec::required(
+                            &mut batch,
+                            "row_count",
+                        )?)?;
+                        if next >= set.next_ordinal
+                            || ordinal != next
+                            || key != result_batch_key(&attempt.key, &set.key, ordinal)
+                            || selected_attempt != attempt.key
+                            || selected_set != set.key
+                        {
+                            return Err(CanonicalError::Configuration(
+                                "closed result batch coverage mismatch".into(),
+                            ));
+                        }
+                        digest.str(&key).str(&payload_digest).u64(rows);
+                        row_count = row_count
+                            .checked_add(rows)
+                            .ok_or(CanonicalError::PayloadLimit)?;
+                        next = next.checked_add(1).ok_or(CanonicalError::PayloadLimit)?;
+                    }
+                }
+                if row_count != set.row_count {
+                    return Err(CanonicalError::Configuration(
+                        "closed row coverage mismatch".into(),
+                    ));
+                }
+                descriptors.push(ResultSetDescriptor {
+                    key: set.key,
+                    name: set.name,
+                    batch_count: next,
+                    row_count,
+                    batches_digest: digest.finish_hash().to_hex(),
+                });
+            }
+            let descriptors = json(&descriptors)?;
+            bounded(&descriptors, EXECUTION_METADATA_BYTES)?;
+            let row = ResultManifest {
+                key: attempt.key.clone(),
+                attempt: attempt.key,
+                generation: attempt.generation,
+                digest: metadata_digest(&descriptors),
+                descriptors: descriptors.into(),
+            };
+            let encoded = wire::encode_canonical_result_manifests(&row)?;
+            self.ensure_writes()?;
+            let result = self
+                .protected_execution_query(
+                    &closed.fence.run,
+                    "canonical_execution::reconcile_closed_attempt",
+                    || {
+                        Ok(self
+                            .db
+                            .query("RETURN fn::pse_execution_v1::manifest($pse_rpc_expires_at, $run,$manifest);")
+                            .bind(("run", closed.fence.run.clone()))
+                            .bind(("manifest", encoded.clone())))
+                    },
+                )
+                .await;
+            match result {
+                Ok(mut response) => {
+                    let saved = wire::decode_canonical_result_manifests(
+                        response
+                            .take::<Option<Object>>(0)?
+                            .ok_or(CanonicalError::IncompleteResponse)?,
+                    )?;
+                    if saved != row {
+                        return Err(CanonicalError::OperationReused);
+                    }
+                }
+                Err(error) => {
+                    self.ensure_execution_retained(&closed.fence.run).await?;
+                    if self.canonical_result_manifest(&row.key).await?.as_ref() != Some(&row) {
+                        return Err(error);
+                    }
                 }
             }
-            if row_count != set.row_count {
-                return Err(CanonicalError::Configuration(
-                    "closed row coverage mismatch".into(),
-                ));
-            }
-            descriptors.push(ResultSetDescriptor {
-                key: set.key,
-                name: set.name,
-                batch_count: next,
-                row_count,
-                batches_digest: digest.finish_hash().to_hex(),
-            });
-        }
-        let descriptors = json(&descriptors)?;
-        bounded(&descriptors, EXECUTION_METADATA_BYTES)?;
-        let row = ResultManifest {
-            key: attempt.key.clone(),
-            attempt: attempt.key,
-            generation: attempt.generation,
-            digest: metadata_digest(&descriptors),
-            descriptors: descriptors.into(),
-        };
-        let encoded = wire::encode_canonical_result_manifests(&row)?;
-        self.ensure_writes()?;
-        let result = self
-            .protected_execution_query(
-                &closed.fence.run,
-                "canonical_execution::reconcile_closed_attempt",
-                || {
-                    Ok(self
-                        .db
-                        .query("RETURN fn::pse_execution_v1::manifest($run,$manifest);")
-                        .bind(("run", closed.fence.run.clone()))
-                        .bind(("manifest", encoded.clone())))
-                },
-            )
-            .await;
-        match result {
-            Ok(mut response) => {
-                let saved = wire::decode_canonical_result_manifests(
-                    response
-                        .take::<Option<Object>>(0)?
-                        .ok_or(CanonicalError::IncompleteResponse)?,
-                )?;
-                if saved != row {
-                    return Err(CanonicalError::OperationReused);
-                }
-            }
-            Err(error) => {
-                self.ensure_execution_retained(&closed.fence.run).await?;
-                if self.canonical_result_manifest(&row.key).await?.as_ref() != Some(&row) {
-                    return Err(error);
-                }
-            }
-        }
-        Ok(ClosedManifest {
-            closed: closed.clone(),
-            row,
-        })
+            Ok(ClosedManifest {
+                closed: closed.clone(),
+                row,
+            })
+        }).await
     }
     /// Atomically expose the frozen selection with the actual scientific terminal class.
     ///
@@ -2457,8 +2587,11 @@ impl CanonicalStore {
         outcome: TerminalClass,
         completion: &[u8],
     ) -> Result<CanonicalAttempt, CanonicalError> {
-        self.seal_execution(manifest, operation, outcome, completion, None)
-            .await
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            self.seal_execution(manifest, operation, outcome, completion, None)
+                .await
+        })
+        .await
     }
     /// Atomically admit the owning study summary and conclude its exact study header.
     ///
@@ -2478,9 +2611,12 @@ impl CanonicalStore {
         outcome: TerminalClass,
         completion: &[u8],
     ) -> Result<CanonicalAttempt, CanonicalError> {
-        identity(study)?;
-        self.seal_execution(manifest, operation, outcome, completion, Some(study))
-            .await
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            identity(study)?;
+            self.seal_execution(manifest, operation, outcome, completion, Some(study))
+                .await
+        })
+        .await
     }
     async fn seal_execution(
         &self,
@@ -2490,55 +2626,57 @@ impl CanonicalStore {
         completion: &[u8],
         study: Option<&str>,
     ) -> Result<CanonicalAttempt, CanonicalError> {
-        identity(operation)?;
-        bounded(completion, EXECUTION_METADATA_BYTES)?;
-        let fence = &manifest.closed.fence;
-        let request = json(&(
-            &fence.run,
-            &fence.attempt,
-            manifest.closed.authority,
-            &manifest.row.key,
-            &manifest.row.digest,
-            outcome,
-            result_payload_digest(completion),
-            study,
-        ))?;
-        bounded(&request, crate::canonical::PAYLOAD_BYTES)?;
-        let authority = canonical_codec::encode_uint(manifest.closed.authority)?;
-        self.ensure_writes()?;
-        let query = if study.is_some() {
-            "RETURN fn::pse_study_v1::seal($study,$run,$attempt,$authority,$operation,$request,$manifest,$digest,$outcome,$completion);"
-        } else {
-            "RETURN fn::pse_execution_v1::seal($run,$attempt,$authority,$operation,$request,$manifest,$digest,$outcome,$completion);"
-        };
-        let result = self
-            .protected_execution_query(&fence.run, "canonical_execution::seal_execution", || {
-                Ok(self
-                    .db
-                    .query(query)
-                    .bind(("study", study.map(str::to_owned)))
-                    .bind(("run", fence.run.clone()))
-                    .bind(("attempt", fence.attempt.clone()))
-                    .bind(("authority", authority.clone()))
-                    .bind(("operation", operation.to_owned()))
-                    .bind(("request", Bytes::from(request.clone())))
-                    .bind(("manifest", manifest.row.key.clone()))
-                    .bind(("digest", manifest.row.digest.clone()))
-                    .bind(("outcome", outcome.as_str()))
-                    .bind(("completion", Bytes::from(completion.to_vec()))))
-            })
-            .await;
-        match result {
-            Ok(mut response) => Ok(wire::decode_canonical_attempts(
-                response
-                    .take::<Option<Object>>(0)?
-                    .ok_or(CanonicalError::IncompleteResponse)?,
-            )?),
-            Err(error) => match self.settle_operation(operation, "seal", &request).await? {
-                Some(key) => self.canonical_attempt(&key).await?.ok_or(error),
-                None => Err(error),
-            },
-        }
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            identity(operation)?;
+            bounded(completion, EXECUTION_METADATA_BYTES)?;
+            let fence = &manifest.closed.fence;
+            let request = json(&(
+                &fence.run,
+                &fence.attempt,
+                manifest.closed.authority,
+                &manifest.row.key,
+                &manifest.row.digest,
+                outcome,
+                result_payload_digest(completion),
+                study,
+            ))?;
+            bounded(&request, crate::canonical::PAYLOAD_BYTES)?;
+            let authority = canonical_codec::encode_uint(manifest.closed.authority)?;
+            self.ensure_writes()?;
+            let query = if study.is_some() {
+                "RETURN fn::pse_study_v1::seal($pse_rpc_expires_at, $study,$run,$attempt,$authority,$operation,$request,$manifest,$digest,$outcome,$completion);"
+            } else {
+                "RETURN fn::pse_execution_v1::seal($pse_rpc_expires_at, $run,$attempt,$authority,$operation,$request,$manifest,$digest,$outcome,$completion);"
+            };
+            let result = self
+                .protected_execution_query(&fence.run, "canonical_execution::seal_execution", || {
+                    Ok(self
+                        .db
+                        .query(query)
+                        .bind(("study", study.map(str::to_owned)))
+                        .bind(("run", fence.run.clone()))
+                        .bind(("attempt", fence.attempt.clone()))
+                        .bind(("authority", authority.clone()))
+                        .bind(("operation", operation.to_owned()))
+                        .bind(("request", Bytes::from(request.clone())))
+                        .bind(("manifest", manifest.row.key.clone()))
+                        .bind(("digest", manifest.row.digest.clone()))
+                        .bind(("outcome", outcome.as_str()))
+                        .bind(("completion", Bytes::from(completion.to_vec()))))
+                })
+                .await;
+            match result {
+                Ok(mut response) => Ok(wire::decode_canonical_attempts(
+                    response
+                        .take::<Option<Object>>(0)?
+                        .ok_or(CanonicalError::IncompleteResponse)?,
+                )?),
+                Err(error) => match self.settle_operation(operation, "seal", &request).await? {
+                    Some(key) => self.canonical_attempt(&key).await?.ok_or(error),
+                    None => Err(error),
+                },
+            }
+        }).await
     }
 }
 

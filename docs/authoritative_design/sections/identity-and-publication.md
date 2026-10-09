@@ -616,7 +616,41 @@ qualification or policy. Generated contracts remain declarations, never inferred
 
 ### 20.6 Operational store and durable execution
 
-> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed). `pse-operations` owns the thin authenticated gRPC client and typed guarded operations. Native science stays outside database transactions.
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed). `pse-operations` owns the thin authenticated native WebSocket client and typed guarded operations under Plan 30 implementation. Native science stays outside database transactions.
+
+One original monotonic operation clock covers admission, queueing, reconnect, dispatch
+and complete response handling. Definite conflicts may retry the guarded decision within
+that clock; unknown writes settle by original immutable identity. Expired undispatched
+work refuses locally. Submitted work retains correlation/admission through bounded
+transport drain; socket closure does not prove server abort or native drain. Transaction
+expiry and live-authority fences precede the final return. UTC and statement timeouts
+do not promise durable commit before the caller's deadline. Complete bounded pages retain
+statement completion, exact coordinates and accounted decoded/escaped ownership.
+
+Explicit pre-database catalog creation uses a fresh unselected administrative connection.
+SurrealDB 3.3 plans even built-in clock calls at database context level, so initial
+namespace/database DDL cannot carry the in-database UTC fence. Its original transport
+clock and finite server backstops remain enforced; loss of a submitted DDL response
+leaves an unknown catalog outcome. Only acknowledged creation admits context selection.
+Atomic schema installation and scientific mutations retain their final transaction fences.
+
+Disk/service identity, immutable receiver artifacts and invocation/database context have
+separate lifetimes. Compatible receiver changes do not stop storage; schema creation is
+explicit and ordinary open refuses an incompatible interpretation. Python forwards explicit
+database selection to the same Rust context validation. Persistent owned user-manager
+services consume host admission on startup/restart and cannot relaunch during intentional
+parking. Fixed host lanes account independent commands, services and receivers; nested
+work borrows its authentic owner and capacity is released only after actual descendant drain.
+Storage readiness validates its own charged allocation, actual unit invocation/cgroup,
+PID start, finite memory/CPU caps and affinity independently of science placement.
+Qualified restart retains that storage charge through the restart delay and only rebinds
+after the owned predecessor drains. Missing or stale ownership refuses replacement.
+Dedicated timing storage and its separately admitted timing caller retain their selected lane.
+
+Context selection uses a private read-only system account and an exact-record probe,
+then restores the write account. Selection and acknowledged reconnect replay cannot
+implicitly define missing namespaces/databases or enumerate unbounded catalogs.
+Service setup/readmission owns account provisioning; schema installation remains explicit.
 
 **Authority and client.** Short native transactions establish source roots, immutable
 operation identity and current cancellation/generation premises under named conflict guards,
@@ -668,7 +702,7 @@ points. Generic run recovery leaves an unfinished study header recoverable and d
 invent the summary conclusion.
 
 > Decision: [ADR-0166](../../adr/0166-bounded-parallel-scientific-execution.md)
-> (proposed, under Plan 28 implementation). The selected primary durable group has
+> (proposed, under Plan 28/30 implementation). The reference primary durable group has
 > sixteen bounded lanes sharing one runtime, pool and CPU owner in one supervised
 > process; observers add no unbudgeted native assistance. Discovery and local in-flight
 > suppression do not grant canonical claim authority. Server, group, observer and
@@ -678,7 +712,7 @@ invent the summary conclusion.
 > isolation uses whole operations and explicit partitions where required. Numeric
 > placement and actual readback are L7 prerequisites, not RSS guarantees.
 
-**Operational limits.** The supported deployment is authenticated local gRPC with native
+**Operational limits.** The target deployment is authenticated local native WebSocket with native
 RocksDB and finite server/native-worker allocations. Backup drains managed work and copies
 a stopped coherent database; it is an operator lifecycle, not an online export lease.
 These implemented contracts do not claim power-loss durability, remote deployment support,

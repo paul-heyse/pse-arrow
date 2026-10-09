@@ -307,6 +307,12 @@ formulations. Parity does not establish numerical IDAES equivalence
   reconciles actual selection, failure, cancellation and missing evidence. Comprehensive
   qualification runs the shared native graph once, with separate feature-absence controls
   and one Python scope; ordinary effects follow requested fixtures and resource owners.
+  Invocation resources associate that exact selection with an isolated mutable context
+  before creation. Fixture Drop/exit records borrower/drain facts, never test success.
+  Only reconciled terminal pass plus actual reader/native/cgroup drain and no protected
+  reference permits automatic disposable cleanup. Failed/incomplete outcomes and unknown
+  historical resources remain pinned until explicit release. Reference acquisition and
+  receipt publication coordinate with reclamation, preserving original paths/digests.
 
 **Commands.** During implementation: `just check-package <pkg>`, `just unit-package
 <pkg> <filter>` and `just codegen` when declarations change. On request: `just test`

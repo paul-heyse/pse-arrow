@@ -27,7 +27,8 @@ keep it accurate when you change them.
   "bash", "-euo", "pipefail")]`; never source environment files inside a recipe.
 - **Placement owns memory caps.** Every command already runs in its own capped scope; do not
   add another wrapper. Builders call `pse_env.placement()` per command (a transient unit name
-  cannot be reused). Never introduce a machine-wide or fd-inheriting lock.
+  cannot be reused). Host admission uses short kernel-held allocation metadata exclusion;
+  never hold a machine-wide or fd-inheriting lock through a workload, RPC or drain.
 - **Status meanings.** `125` is the boundary's own failure, with a `pse-env:` line naming the
   fix; keep a command's own exit status and signals intact.
 - **Hooks.** `scripts/agent-hooks.py` is the only hook script (`just lint-agents` checks the

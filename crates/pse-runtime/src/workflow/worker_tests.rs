@@ -86,3 +86,102 @@ async fn canonical_document_sources_chunked_exact_and_kind_checked() {
     wrong.identity = pse_ids::ContentHash::from_bytes([0; 32]);
     assert!(operations.sources(&wrong).await.is_err());
 }
+
+#[cfg(feature = "canonical-tests")]
+#[tokio::test]
+async fn canonical_cancelled_dependent_refreshes_rejected_predecessor_premise() {
+    use pse_model::study::{
+        ActionKind, Dependency, OccurrenceKey, PointPolicy, SeedNeed, StartPolicy,
+    };
+    use pse_operations::{
+        canonical_execution::RunRequest,
+        canonical_studies::{NewOccurrence, point_key},
+    };
+    let runtime = durable_tests::durable_runtime();
+    let store = runtime.canonical_store();
+    let revision = store
+        .edit(
+            "cancel-premise",
+            None,
+            "effect-free cancellation fixture",
+            &[],
+        )
+        .await
+        .unwrap();
+    let request = |key: &str| RunRequest {
+        key: key.into(),
+        revision: revision.clone(),
+        sources: vec![],
+        request: vec![1],
+        source_selection: vec![2],
+        attestation: vec![3],
+    };
+    let points = [0, 1].map(|ordinal| NewOccurrence {
+        policy: PointPolicy {
+            key: OccurrenceKey(ordinal),
+            dependencies: if ordinal == 0 {
+                vec![]
+            } else {
+                vec![Dependency::Ordering(OccurrenceKey(0))]
+            },
+            start: StartPolicy::Fresh,
+            seed_need: SeedNeed::NotNeeded,
+            attempt_limit: 1,
+        },
+        descriptor: vec![42],
+        run: request(&format!("cancel-premise-point-{ordinal}")),
+    });
+    store
+        .create_study(
+            "cancel-premise",
+            &request("cancel-premise-summary"),
+            &[9],
+            &points,
+            &|| false,
+        )
+        .await
+        .unwrap();
+    store.cancel_study("cancel-premise").await.unwrap();
+    // Two independent lanes can snapshot a cancelled dependency before either
+    // finishes. Advance the predecessor after capturing the dependent's scope.
+    let dependent_key = point_key("cancel-premise", OccurrenceKey(1));
+    let stale = store.study_scope(&dependent_key).await.unwrap();
+    let stale_action = stale.action(None).unwrap();
+    assert!(matches!(stale_action.kind, ActionKind::Cancel));
+    let predecessor = store
+        .study_scope(&point_key("cancel-premise", OccurrenceKey(0)))
+        .await
+        .unwrap();
+    let settled = runtime
+        .settle_current_study_candidate(&predecessor, &predecessor.action(None).unwrap())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(settled.settled && settled.attempt.is_none());
+    assert!(
+        runtime
+            .settle_current_study_candidate(&stale, &stale_action)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let fresh = store.study_scope(&dependent_key).await.unwrap();
+    assert_eq!(
+        fresh.point().revision,
+        stale.point().revision,
+        "rejection must not mutate the dependent"
+    );
+    assert_eq!(
+        fresh.predecessors()[0].revision,
+        stale.predecessors()[0].revision + 1
+    );
+    let action = fresh.action(None).unwrap();
+    assert!(matches!(action.kind, ActionKind::Cancel));
+    let settled = runtime
+        .settle_current_study_candidate(&fresh, &action)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(settled.settled && settled.attempt.is_none());
+    assert_eq!(settled.revision, stale.point().revision + 1);
+}

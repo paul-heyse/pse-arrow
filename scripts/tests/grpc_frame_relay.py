@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
 """Bounded opaque loopback relay for an explicitly selected HTTP/2 diagnostic.
 
 Forward HEADERS/DATA without decoding or logging their contents. Record only
@@ -8,14 +10,23 @@ relay-limit closures are labelled separately from peer transport failures.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import selectors
 import socket
+import sys
 import time
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import NoReturn
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from grpc_frame_probe import ERROR_NAMES
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from scripts.tests.grpc_frame_probe import ERROR_NAMES
 
 PREFACE = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
 BUFFER_LIMIT = 256 * 1024
@@ -24,7 +35,7 @@ CONNECTION_LIMIT = 16
 TOTAL_CONNECTION_LIMIT = 64
 
 
-class RelayLimit(Exception):
+class RelayLimitError(Exception):
     """An explicit diagnostic limit, not a server transport failure."""
 
 
@@ -46,12 +57,12 @@ class Receipt:
     ) -> None:
         self.frames += 1
         if self.frames > FRAME_LIMIT:
-            raise RelayLimit("aggregate_frame_limit")
+            raise RelayLimitError("aggregate_frame_limit")
         if kind not in (3, 7):
             return
         self.controls += 1
         if self.controls > 8192:
-            raise RelayLimit("control_receipt_limit")
+            raise RelayLimitError("control_receipt_limit")
         offset = 4 if kind == 7 else 0
         if len(data) < offset + 4:
             self.emit(
@@ -104,7 +115,7 @@ class Frames:
                 self.preface_left -= count
                 view = view[count:]
                 if not self.preface_left and self.preface_seen != PREFACE:
-                    raise RelayLimit("unexpected_non_http2_client_preface")
+                    raise RelayLimitError("unexpected_non_http2_client_preface")
                 continue
             if self.kind == -1:
                 count = min(9 - len(self.header), len(view))
@@ -145,6 +156,11 @@ class Side:
     write_closed: bool = False
 
 
+def fail_relay(reason: str) -> NoReturn:
+    """End the diagnostic through its existing bounded failure classification."""
+    raise RelayLimitError(reason)
+
+
 def relay(
     port: int, upstream: int, seconds: float, byte_limit: int, receipt: Receipt
 ) -> int:
@@ -166,7 +182,7 @@ def relay(
     def refresh(side: Side) -> None:
         peer = side.peer
         if peer is None:
-            raise RelayLimit("missing_peer")
+            fail_relay("missing_peer")
         events = 0
         if side.read_open and len(peer.outgoing) < BUFFER_LIMIT:
             events |= selectors.EVENT_READ
@@ -175,20 +191,16 @@ def relay(
         if not peer.read_open and not side.outgoing and not side.write_closed:
             side.sock.shutdown(socket.SHUT_WR)
             side.write_closed = True
-        try:
+        with contextlib.suppress(KeyError):
             selector.unregister(side.sock)
-        except KeyError:
-            pass
         if events:
             selector.register(side.sock, events, side)
 
     def close(connection: int, reason: str) -> None:
         pair = connections.pop(connection)
         for side in pair:
-            try:
+            with contextlib.suppress(KeyError):
                 selector.unregister(side.sock)
-            except KeyError:
-                pass
             side.sock.close()
         receipt.emit(
             {"event": "connection_closed", "connection": connection, "reason": reason}
@@ -223,7 +235,7 @@ def relay(
                         or accepted >= TOTAL_CONNECTION_LIMIT
                     ):
                         client.close()
-                        raise RelayLimit("connection_count_limit")
+                        fail_relay("connection_count_limit")
                     try:
                         server = socket.create_connection(
                             ("127.0.0.1", upstream), timeout=2
@@ -259,7 +271,7 @@ def relay(
                     continue
                 peer = side.peer
                 if peer is None:
-                    raise RelayLimit("missing_peer")
+                    fail_relay("missing_peer")
                 try:
                     if mask & selectors.EVENT_WRITE:
                         written = side.sock.send(side.outgoing)
@@ -271,7 +283,7 @@ def relay(
                             if data:
                                 wire_bytes += len(data)
                                 if wire_bytes > byte_limit:
-                                    raise RelayLimit("aggregate_wire_byte_limit")
+                                    fail_relay("aggregate_wire_byte_limit")
                                 side.parser.feed(data)
                                 peer.outgoing.extend(data)
                                 last_activity = time.monotonic()
@@ -305,7 +317,7 @@ def relay(
                         }
                     )
                     close(side.connection, "peer_socket_error")
-    except RelayLimit as error:
+    except RelayLimitError as error:
         outcome = str(error)
     except OSError as error:
         outcome = "relay_socket_error"

@@ -50,20 +50,70 @@ command cannot be executed or was not found. Signal deaths report `128+N`.
 
 ## Placement and memory
 
-Each command gets its own systemd user scope: `pse-cmd-<hex>.scope` for ordinary commands,
-`pse-native-<hex>.scope` for native ones, inside `$PSE_SLICE` (default `pse.slice`; `none`
-keeps the caller's slice). `PSE_MEMORY_MAX` (default `120G`; a size, a percentage, `infinity`
-or `off`) is the scope's `MemoryMax`, with swap disabled, so a runaway process is OOM-killed
-alone. A command already inside a native operation or managed-worker scope stays there.
-Without a working user manager, commands run in place. Supervised canonical servers and
-workers launch their own units in the same slice.
+Commands acquire a finite host allocation before their systemd user scope starts.
+`.config/agent-capacity.toml` owns the machine's memory partitions and physical-core
+lanes; `scripts/host_admission.py` coordinates independent sessions under private XDG
+state. The aggregate parent initially caps cooperating work at 160 GiB. Functional
+work uses cores 8–15 (and their SMT siblings), timing uses cores 0–7. Kernel quotas
+bound CPU time; inherited scheduler affinity enforces placement when the user manager
+has no delegated cpuset controller.
 
-`just slice-install` installs `.config/systemd/pse.slice`: a CPU weight below interactive
-applications and memory-pressure monitoring. The slice has no aggregate `MemoryMax` by
-default — a stricter ancestor would silently defeat a raised command cap — and siblings are
-not guaranteed to survive aggregate exhaustion. Opt in for one boot with
-`systemctl --user set-property --runtime pse.slice MemoryMax=96G`; commands then report when
-their own cap is bounded by it.
+Light commands use a 2 GiB slot, compilation a 24 GiB slot, ordinary functional work
+one 40 GiB slot, and wide work both functional slots. Native scientific selections
+with a 64 GiB observer pool use the named exclusive-observer partition. Pure Python
+unit selections bypass that observer. Reference preserves its original 160 GiB
+partition, 128 GiB pool and sixteen lanes. The runner builds and enumerates native
+artifacts before entering a capped observer; the observer executes admitted binaries.
+Rust test runners default `RUST_MIN_STACK` to the `[test-runner]` stack declaration
+in `.config/agent-capacity.toml` (16 MiB), preserve an explicit positive finite byte
+count, and record it in native provenance. This libtest thread setting is separate
+from production native-job stack policy.
+
+The managed `scripts/sccache` wrapper gives the shared cache daemon its own finite
+light-service allocation. Its immutable binary/configuration identity selects a private
+socket; readiness verifies the actual process, unit invocation and socket peer. Compiler
+children remain in the build allocation. Completed builds can therefore release capacity
+while the cache stays resident. `PSE_SCCACHE_BINARY` identifies the installed executable;
+the wrapper never administers the global cache server or deletes cache materials.
+
+The pinned cache client can lazily start a server after a connection race. The wrapper
+contains that fallback in its client process group and refuses the result if the admitted
+service dies. This bounds surviving work; it does not establish that no transient fork
+or cache effect occurred during the race. Explicit measurement servers keep their own
+foreground lifecycle and endpoint.
+
+`PSE_MEMORY_MAX` requests a positive finite cap. Requests above 40 GiB widen to both
+functional slots; above 80 GiB requires exclusive heavy admission. A larger request
+also raises its aggregate ancestor after checking physical capacity and nominal
+non-agent headroom. Nested commands reuse the actual owner, and cannot silently
+request more than an enclosing role or ancestor provides. Start that work in a
+widened allocation instead. Nested light and compile jobs keep the enclosing CPU
+lane rather than selecting a new functional lane. `off`, `infinity`, missing supervision and unverifiable
+ownership are refused. Memory ceilings and pressure observations do not reserve RAM
+or exclude unrelated projects.
+
+Capacity remains charged until every registered kernel group drains, including a
+child whose launcher died. Resource/evidence pins survive capacity release. Only
+explicitly owned, drained resident services may be parked for exclusive admission;
+unknown services remain preserved and count as external pressure. The user-manager
+unit installed by `just slice-install` supplies CPU weight and pressure monitoring;
+the host owner materializes its finite aggregate cap before execution.
+
+Persistent storage is separately charged: a functional or timing caller acquires its
+store allocation independently of the caller's execution slot. Exclusive modes charge
+borrowed storage inside their aggregate envelope. Storage readiness verifies its own
+unit/cgroup, memory cap, finite CPU quota and affinity; it does not require the caller's
+receiver placement. The host ledger retains a resident store's charge while a qualified
+automatic restart is pending. A restart rebinds that charged owner only after the prior
+storage lifetime drains; unknown ownership remains a refusal.
+
+Timing work selects both the timing host class and a dedicated timing store/context.
+`setup --execution-profile timing` records that service class; using
+`--resource-class timing` alone does not convert the functional store. Cross-lane
+context registration is refused. The [local substrate guide](surreal-substrate.md)
+shows dedicated-state setup and owns the stopped reconfiguration, readmission and
+recovery routes. Recovery qualification uses its own administrative probe database,
+so it also works when isolated tests have never created the base canonical database.
 
 `just activity` (read-only; `--json`) lists the `pse-*` scopes and services with memory, age
 and command, canonical servers and workers, Cargo processes in this checkout and the slice
@@ -108,13 +158,14 @@ other's artifacts — ADR-0122). Remove a worktree with `git worktree remove <pa
 - Python: `just py-unit` observes the installed extension (`doctor.py --extension-kind`) and
   uses the native environment for the linked build; `just py-test` and the native suites
   require a serving canonical server (`--store`) at `$PSE_SURREAL_STATE`.
-  `just py-test` defaults to unit and component tests with sixteen pytest workers.
+  `just py-test` defaults to unit and component tests with four pytest workers;
+  fixture-owner groups keep mutable native contexts serial within each owner.
   An explicit selection such as `just py-test -m integration` keeps the ordinary
   process allocation and excludes tests marked `managed_primary`.
   `just py-test --managed-primary-route -m integration` runs that managed subset
   in a fresh observer process with pytest distribution disabled; its native work
   belongs to the configured primary's sixteen lanes. File, keyword and marker
-  selections still apply. This convenience route does not require a JUnit report;
+  selections still apply. The runner binds fixtures to its existing selection and consumes a private JUnit terminal report;
   `just native-python <output> --managed-primary-route` owns the native receipt route.
 - `just codegen-check` checks every generated output, including the native stub against the
   installed extension (rebuild it with `just py-sync` after a Rust API change).
@@ -132,7 +183,8 @@ just canonical-init "$PSE_SURREAL_STATE"
 ```
 
 The setup records the selected worker bytes and the exact reference allocation.
-A rebuilt or differently selected worker requires offline receiver readmission.
+A compatible rebuilt worker is frozen into a new context receiver generation;
+existing receivers retain their admitted bytes and storage remains running.
 Existing legacy state requires quiescing and draining its workers, stopping the
 server, then `just surreal reconfigure --execution-profile plan28-reference
 --worker-executable "$PWD/target/debug/pse-worker"` before restarting. The

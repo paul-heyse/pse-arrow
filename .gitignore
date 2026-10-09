@@ -1,5 +1,6 @@
 # Build output and regenerable artifacts
 /target/
+/vendor/*/target/
 /build/
 /dist/
 /wheels/

@@ -170,6 +170,7 @@ class ProducerDeploymentTests(unittest.TestCase):
             LIBCLANG_PATH="selected-libclang",
             CFLAGS_x86_64_unknown_linux_gnu="-O2",
             LLVM_CONFIG_PATH="selected-llvm",
+            PSE_SCCACHE_BINARY="selected-cache-binary",
             PYO3_BUILD_EXTENSION_MODULE="",
             PYO3_CONFIG_FILE=str(self.python_native),
             SYMBOLICA_LICENSE="private-secret",
@@ -209,6 +210,7 @@ class ProducerDeploymentTests(unittest.TestCase):
             self.assertIn("SOURCE_DATE_EPOCH=0", command)
             self.assertIn("CFLAGS_x86_64_unknown_linux_gnu=-O2", command)
             self.assertIn("LLVM_CONFIG_PATH=selected-llvm", command)
+            self.assertIn("PSE_SCCACHE_BINARY=selected-cache-binary", command)
             if name == "python":
                 self.assertIn("PYO3_BUILD_EXTENSION_MODULE=1", command)
                 self.assertIn(f"PYO3_CONFIG_FILE={self.python_native}", command)

@@ -8,17 +8,54 @@ pub(crate) struct FixtureLifetime {
     store: crate::canonical::CanonicalStore,
     executor: &'static tokio::runtime::Runtime,
     pub(crate) removed: tokio::sync::Mutex<bool>,
+    pub(crate) resource: String,
+    peers: std::sync::Mutex<Vec<crate::canonical::CanonicalStore>>,
 }
 impl FixtureLifetime {
     pub(crate) fn new(
         store: crate::canonical::CanonicalStore,
         executor: &'static tokio::runtime::Runtime,
+        resource: String,
     ) -> Self {
         Self {
             store,
             executor,
             removed: tokio::sync::Mutex::new(false),
+            resource,
+            peers: std::sync::Mutex::new(Vec::new()),
         }
+    }
+}
+impl FixtureLifetime {
+    pub(crate) async fn drain_connections(&self) -> Result<(), crate::canonical::CanonicalError> {
+        self.store.disconnect().await?;
+        let peers = self
+            .peers
+            .lock()
+            .map_err(|_| {
+                crate::canonical::CanonicalError::Configuration(
+                    "fixture peer owner poisoned".into(),
+                )
+            })?
+            .clone();
+        for peer in peers {
+            peer.disconnect().await?;
+        }
+        Ok(())
+    }
+    pub(crate) fn retain_peer(
+        &self,
+        peer: crate::canonical::CanonicalStore,
+    ) -> Result<(), crate::canonical::CanonicalError> {
+        self.peers
+            .lock()
+            .map_err(|_| {
+                crate::canonical::CanonicalError::Configuration(
+                    "fixture peer owner poisoned".into(),
+                )
+            })?
+            .push(peer);
+        Ok(())
     }
 }
 impl Drop for FixtureLifetime {
@@ -30,17 +67,38 @@ impl Drop for FixtureLifetime {
         if *self.removed.get_mut() {
             return;
         }
-        // Nextest may exit immediately after the test: cleanup must complete,
-        // rather than merely queue a task. The detached store has no owner.
-        // A final borrower may itself live in a detached task, so qualification
-        // consumers must await explicit removal to surface failure in their body.
+        // A test outcome belongs to the runner, never to last-borrower Drop.
+        // Publish drain only after both physical clients and local readers finish.
         let result = std::thread::scope(|scope| {
             scope
-                .spawn(|| self.executor.block_on(self.store.remove_isolated_fixture()))
+                .spawn(|| {
+                    self.executor.block_on(self.store.disconnect())?;
+                    for peer in self
+                        .peers
+                        .get_mut()
+                        .map_err(|_| {
+                            crate::canonical::CanonicalError::Configuration(
+                                "fixture peer owner poisoned".into(),
+                            )
+                        })?
+                        .iter()
+                    {
+                        self.executor.block_on(peer.disconnect())?;
+                    }
+                    resource_bridge(
+                        "drain",
+                        &serde_json::json!({
+                            "resource": self.resource,
+                            "state": self.store.deployment_state(),
+                            "database": self.store.database(),
+                        }),
+                    )
+                    .map(|_| ())
+                })
                 .join()
                 .unwrap_or_else(|_| {
                     Err(crate::canonical::CanonicalError::Configuration(
-                        "fixture cleanup executor panicked".into(),
+                        "fixture drain executor panicked".into(),
                     ))
                 })
         });
@@ -49,22 +107,218 @@ impl Drop for FixtureLifetime {
                 use std::io::Write;
                 let _ = writeln!(
                     std::io::stderr().lock(),
-                    "isolated canonical fixture cleanup failed: {error}"
+                    "isolated canonical fixture drain failed: {error}"
                 );
             } else {
-                panic!("isolated canonical fixture cleanup failed: {error}");
+                panic!("isolated canonical fixture drain failed: {error}");
             }
         }
     }
 }
 
+pub(crate) fn resource_bridge(
+    action: &str,
+    input: &serde_json::Value,
+) -> Result<serde_json::Value, crate::canonical::CanonicalError> {
+    use std::io::Write;
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .ok_or_else(|| {
+            crate::canonical::CanonicalError::Configuration(
+                "fixture checkout root unavailable".into(),
+            )
+        })?;
+    let interpreter = std::env::var_os("PSE_TEST_RESOURCE_PYTHON")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| root.join(".venv/bin/python"));
+    let mut child = std::process::Command::new(interpreter)
+        .current_dir(root)
+        .args(["-m", "scripts.test_resources", action])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|error| crate::canonical::CanonicalError::Configuration(error.to_string()))?;
+    let mut stdin = child.stdin.take().ok_or_else(|| {
+        crate::canonical::CanonicalError::Configuration("fixture registry input unavailable".into())
+    })?;
+    stdin
+        .write_all(
+            &serde_json::to_vec(input).map_err(|error| {
+                crate::canonical::CanonicalError::Configuration(error.to_string())
+            })?,
+        )
+        .map_err(|error| crate::canonical::CanonicalError::Configuration(error.to_string()))?;
+    drop(stdin);
+    let budget = if action == "drain" { 50 } else { 60 };
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(budget);
+    loop {
+        if child
+            .try_wait()
+            .map_err(|error| crate::canonical::CanonicalError::Configuration(error.to_string()))?
+            .is_some()
+        {
+            break;
+        }
+        if std::time::Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(crate::canonical::CanonicalError::Configuration(format!(
+                "fixture registry {action} exceeded its finite bridge budget"
+            )));
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    let output = child
+        .wait_with_output()
+        .map_err(|error| crate::canonical::CanonicalError::Configuration(error.to_string()))?;
+    if !output.status.success() {
+        return Err(crate::canonical::CanonicalError::Configuration(format!(
+            "fixture registry {action}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )));
+    }
+    serde_json::from_slice(&output.stdout)
+        .map_err(|error| crate::canonical::CanonicalError::Configuration(error.to_string()))
+}
+
+fn selected_fixture_identity()
+-> Result<(String, std::path::PathBuf), crate::canonical::CanonicalError> {
+    let args = std::env::args().collect::<Vec<_>>();
+    let test = args
+        .iter()
+        .position(|arg| arg == "--exact")
+        .and_then(|index| {
+            index
+                .checked_sub(1)
+                .filter(|before| *before != 0)
+                .and_then(|before| args.get(before))
+                .filter(|value| !value.starts_with('-'))
+                .or_else(|| args.get(index + 1).filter(|value| !value.starts_with('-')))
+        })
+        .cloned()
+        .unwrap_or_default();
+    let executable = std::env::current_exe()
+        .map_err(|error| crate::canonical::CanonicalError::Configuration(error.to_string()))?;
+    Ok((test, executable))
+}
+
+fn registered_resource(
+    payload: &serde_json::Value,
+) -> Result<String, crate::canonical::CanonicalError> {
+    let result = resource_bridge("register", payload)?;
+    result
+        .get("resource")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
+        .ok_or_else(|| {
+            crate::canonical::CanonicalError::Configuration(
+                "fixture registry omitted resource identity".into(),
+            )
+        })
+}
+
+/// Pin disposable controls before creating their directory. Only the runner's
+/// exact selected test association can later authorize retained-data disposal.
+pub fn register_fixture_controls(
+    state: &std::path::Path,
+    database: &str,
+    directory: &std::path::Path,
+) -> Result<String, crate::canonical::CanonicalError> {
+    let (test, executable) = selected_fixture_identity()?;
+    registered_resource(&serde_json::json!({
+        "state": state, "database": database, "directory": directory,
+        "kind": "controls", "test": test, "executable": executable, "units": [],
+    }))
+}
+
+/// Record control drain after the caller has cooperatively drained its actual
+/// native receiver. The registry independently verifies the associated context.
+pub fn record_fixture_controls_drain(
+    resource: &str,
+    state: &std::path::Path,
+    database: &str,
+) -> Result<(), crate::canonical::CanonicalError> {
+    resource_bridge(
+        "drain",
+        &serde_json::json!({
+            "resource": resource, "state": state, "database": database,
+        }),
+    )
+    .map(|_| ())
+}
+
+pub(crate) fn register_database(
+    options: &crate::canonical::CanonicalOptions,
+    execution_profile: Option<&str>,
+) -> Result<String, crate::canonical::CanonicalError> {
+    let (test, executable) = selected_fixture_identity()?;
+    let mut payload = serde_json::json!({"state": options.state_path(), "database": options.database, "kind": "database", "test": test, "executable": executable, "units": []});
+    if execution_profile.is_some()
+        || options.native.execution.is_some()
+        || options.primary_receiver.is_some()
+    {
+        if let Some(profile) = execution_profile {
+            payload["execution_profile"] = profile.into();
+        } else if let Ok(profile) = std::env::var("PSE_TEST_EXECUTION_PROFILE") {
+            payload["execution_profile"] = profile.into();
+        }
+        if let Some(worker) = std::env::var_os("PSE_WORKER_BINARY") {
+            payload["worker"] = std::path::PathBuf::from(worker)
+                .to_string_lossy()
+                .into_owned()
+                .into();
+        }
+    }
+    registered_resource(&payload)
+}
+
 /// Explicit isolated canonical fixture on the recipe-selected supervised server.
 /// The retained fixture executor keeps the remote connection alive even when a
 /// synchronous test helper is called from a different asynchronous executor.
-/// Await `remove_isolated_fixture` after readers and workers finish when cleanup
-/// failure must reach the caller; last-borrower Drop is a fallback.
+/// Await `remove_isolated_fixture` to request local drain; final runner outcome
+/// and reference eligibility alone authorize disposal. Drop never infers pass.
 pub fn canonical_fixture_store()
 -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
+    canonical_fixture_with_options(&canonical_fixture_options()?, true)
+}
+
+/// Explicit managed fixture selection. The registry owns profile resources and
+/// exact worker publication; codec-only fixtures never infer this allocation.
+pub fn canonical_managed_fixture_store(
+    execution_profile: &str,
+) -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
+    canonical_fixture_with_profile(&canonical_fixture_options()?, true, Some(execution_profile))
+}
+
+fn canonical_fixture_options()
+-> Result<crate::canonical::CanonicalOptions, crate::canonical::CanonicalError> {
+    let state = std::env::var_os("PSE_SURREAL_STATE").ok_or_else(|| {
+        crate::canonical::CanonicalError::Configuration(
+            "canonical fixture requires recipe-selected PSE_SURREAL_STATE".into(),
+        )
+    })?;
+    let mut options = crate::canonical::CanonicalOptions::from_state(std::path::Path::new(&state))?;
+    options.database = format!("canonical_test_{}", uuid::Uuid::new_v4().simple());
+    Ok(options)
+}
+
+/// Register an explicit test database before connecting, then retain its physical
+/// clients on the fixture executor through the final managed borrower.
+/// `initialize` is false for tests whose subject is explicit schema installation.
+pub fn canonical_fixture_with_options(
+    options: &crate::canonical::CanonicalOptions,
+    initialize: bool,
+) -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
+    canonical_fixture_with_profile(options, initialize, None)
+}
+
+fn canonical_fixture_with_profile(
+    options: &crate::canonical::CanonicalOptions,
+    initialize: bool,
+    execution_profile: Option<&str>,
+) -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
     use std::sync::OnceLock;
     static EXECUTOR: OnceLock<Result<tokio::runtime::Runtime, std::io::Error>> = OnceLock::new();
     let executor = EXECUTOR
@@ -78,37 +332,72 @@ pub fn canonical_fixture_store()
         .map_err(|error| {
             crate::canonical::CanonicalError::Configuration(format!("fixture executor: {error}"))
         })?;
-    let state = std::env::var_os("PSE_SURREAL_STATE").ok_or_else(|| {
-        crate::canonical::CanonicalError::Configuration(
-            "canonical fixture requires recipe-selected PSE_SURREAL_STATE".into(),
-        )
-    })?;
-    let mut options = crate::canonical::CanonicalOptions::from_state(std::path::Path::new(&state))?;
-    options.database = format!("canonical_test_{}", uuid::Uuid::new_v4().simple());
+    let resource = register_database(options, execution_profile)?;
+    let mut selected = crate::canonical::CanonicalOptions::from_state_for_database(
+        options.state_path(),
+        Some(&options.database),
+    )?;
+    // Explicit test relay selection is separate from the registered DB allocation.
+    selected.endpoint = options.endpoint.clone();
+    let options = &selected;
     let store = std::thread::scope(|scope| {
         scope
-            .spawn(|| executor.block_on(crate::canonical::CanonicalStore::connect(&options)))
+            .spawn(|| executor.block_on(crate::canonical::CanonicalStore::connect(options)))
             .join()
             .map_err(|_| {
                 crate::canonical::CanonicalError::Configuration(
                     "canonical fixture executor panicked".into(),
                 )
             })?
+    })?
+    .own_fixture(executor, resource);
+    if initialize {
+        std::thread::scope(|scope| {
+            scope
+                .spawn(|| executor.block_on(store.create()))
+                .join()
+                .map_err(|_| {
+                    crate::canonical::CanonicalError::Configuration(
+                        "canonical fixture initialization executor panicked".into(),
+                    )
+                })?
+        })?;
+    }
+    Ok(store)
+}
+
+/// Open an independent physical client under the existing fixture association.
+/// Its shared lifetime delays registry drain until every peer borrower finishes.
+pub fn canonical_fixture_peer(
+    owner: &crate::canonical::CanonicalStore,
+    options: &crate::canonical::CanonicalOptions,
+) -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
+    let lifetime = owner.fixture_lifetime.as_ref().ok_or_else(|| {
+        crate::canonical::CanonicalError::Configuration(
+            "fixture peer requires registered owner".into(),
+        )
     })?;
-    let store = store.own_fixture(executor);
-    // Ownership exists before initialization can fail, but it is attached and
-    // released outside the fixture executor. Failed schema creation also cleans up.
-    std::thread::scope(|scope| {
+    if owner.database() != options.database || owner.deployment_state() != options.state_path() {
+        return Err(crate::canonical::CanonicalError::Configuration(
+            "fixture peer identity differs from registered owner".into(),
+        ));
+    }
+    let peer = std::thread::scope(|scope| {
         scope
-            .spawn(|| executor.block_on(store.create()))
+            .spawn(|| {
+                lifetime
+                    .executor
+                    .block_on(crate::canonical::CanonicalStore::connect(options))
+            })
             .join()
             .map_err(|_| {
                 crate::canonical::CanonicalError::Configuration(
-                    "canonical fixture initialization executor panicked".into(),
+                    "fixture peer executor panicked".into(),
                 )
             })?
     })?;
-    Ok(store)
+    lifetime.retain_peer(peer.clone())?;
+    peer.borrow_fixture(owner)
 }
 
 #[cfg(all(test, feature = "canonical-tests"))]
@@ -151,34 +440,27 @@ mod canonical_server_unit {
         assert!(database_exists(&observer, &database).await);
         borrower.open().await.unwrap();
         drop(borrower);
-        assert!(!database_exists(&observer, &database).await);
+        assert!(database_exists(&observer, &database).await);
     }
 
     #[tokio::test]
-    async fn fixture_explicit_removal_disarms_last_owner_cleanup() {
+    async fn fixture_explicit_drain_retains_database_for_runner_disposition() {
         let store = canonical_fixture_store().unwrap();
         let database = store.database().to_owned();
         let observer = CanonicalStore::connect(&options()).await.unwrap();
         let borrower = store.clone();
         store.remove_isolated_fixture().await.unwrap();
-        assert!(!database_exists(&observer, &database).await);
-        let mut external = options();
-        external.database = database.clone();
-        let replacement = CanonicalStore::connect(&external).await.unwrap();
-        replacement.create().await.unwrap();
-        // A repeated explicit cleanup and the final managed drop cannot remove
-        // a newly created, independently owned database under the same name.
-        borrower.remove_isolated_fixture().await.unwrap();
+        assert!(database_exists(&observer, &database).await);
+        // An outstanding borrower keeps its connection and owns final drain.
+        borrower.open().await.unwrap();
         drop(store);
         drop(borrower);
         assert!(database_exists(&observer, &database).await);
-        replacement.open().await.unwrap();
-        replacement.remove_isolated_fixture().await.unwrap();
     }
 
     #[tokio::test]
-    async fn fixture_connections_preserve_external_and_deployment_databases() {
-        let mut external = options();
+    async fn fixture_connections_preserve_deployment_database() {
+        let external = options();
         let observer = CanonicalStore::connect(&external).await.unwrap();
         assert!(!observer.owns_fixture());
         let deployment_database = external.database.clone();
@@ -190,14 +472,61 @@ mod canonical_server_unit {
             database_exists(&observer, &deployment_database).await,
             deployment_existed
         );
+    }
 
-        external.database = format!("canonical_test_external_{}", uuid::Uuid::new_v4().simple());
-        let unmanaged = CanonicalStore::connect(&external).await.unwrap();
-        assert!(!unmanaged.owns_fixture());
-        unmanaged.create().await.unwrap();
-        drop(unmanaged);
-        assert!(database_exists(&observer, &external.database).await);
-        let cleanup = CanonicalStore::connect(&external).await.unwrap();
-        cleanup.remove_isolated_fixture().await.unwrap();
+    #[tokio::test]
+    #[ignore = "explicit Rust/Python overlap control needs its owned rendezvous directory"]
+    async fn plan30_rust_python_fixture_context_overlap() {
+        let directory =
+            std::path::PathBuf::from(std::env::var_os("PSE_PLAN30_C1_CONTROL").unwrap());
+        let publish = |name: &str, value: serde_json::Value| {
+            let temporary = directory.join(format!("{name}.tmp"));
+            std::fs::write(&temporary, serde_json::to_vec(&value).unwrap()).unwrap();
+            std::fs::rename(temporary, directory.join(name)).unwrap();
+        };
+        let store = canonical_fixture_store().unwrap();
+        let marker = format!("rust:{}", store.database());
+        bounded_query(store.db.query(
+            "DEFINE TABLE c1_overlap_problem SCHEMALESS; CREATE c1_overlap_problem:same_authored_name SET marker = $marker;",
+        ).bind(("marker", marker.clone()))).await.unwrap();
+        let resource = &store.fixture_lifetime.as_ref().unwrap().resource;
+        publish(
+            "rust-ready.json",
+            serde_json::json!({
+                "database": store.database(),
+                "resource": resource, "marker": marker,
+            }),
+        );
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(60);
+        while !directory.join("python-ready.json").exists() {
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "Python overlap peer did not arrive within the control deadline"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        let peer: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(directory.join("python-ready.json")).unwrap())
+                .unwrap();
+        assert_ne!(peer["database"].as_str().unwrap(), store.database());
+        let mut response = bounded_query(
+            store
+                .db
+                .query("SELECT VALUE marker FROM c1_overlap_problem:same_authored_name;"),
+        )
+        .await
+        .unwrap();
+        let observed: Vec<String> = response.take(0).unwrap();
+        assert_eq!(observed, vec![marker]);
+        publish("rust-observed.json", serde_json::json!(observed));
+        // Both proofs complete while both live fixture handles still own their
+        // contexts; fixture Drop supplies drain, and the runner owns disposition.
+        while !directory.join("python-observed.json").exists() {
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "Python overlap proof did not complete within the control deadline"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
     }
 }

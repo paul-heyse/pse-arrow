@@ -331,6 +331,23 @@ pub(crate) struct NativeRuntime {
 }
 #[pymethods]
 impl NativeRuntime {
+    /// Close this context's local result readers and physical RPC drivers.
+    /// Independently supervised native workers retain their separate drain owner.
+    fn close(&self, py: Python<'_>) -> PyResult<()> {
+        blocking(
+            py,
+            &self.owner,
+            async {
+                self.inner
+                    .canonical_store()
+                    .disconnect()
+                    .await
+                    .map_err(|error| native::WorkflowError::Input(error.to_string()))
+            },
+            || {},
+        )
+    }
+
     /// Reopen an exact retained canonical source selection without authored document replay.
     fn modeling_revision(
         &self,
@@ -399,13 +416,46 @@ impl NativeRuntime {
             inner: strategies::Strategy::Cone(Box::new(inner)),
         })
     }
+    /// Explicit database/schema installation after the test context is registered.
+    #[staticmethod]
+    #[pyo3(signature = (settings, *, substrate, database))]
+    fn initialize_database(
+        py: Python<'_>,
+        settings: &inspection::EngineSettings,
+        substrate: &str,
+        database: &str,
+    ) -> PyResult<()> {
+        let owner = py
+            .detach(|| runtime::acquire(settings))
+            .map_err(|error| errors::diagnostic(py, &error))?;
+        let options = pse_operations::canonical::CanonicalOptions::from_state_for_database(
+            std::path::Path::new(substrate),
+            Some(database),
+        )
+        .map_err(|error| errors::diagnostic(py, &error))?;
+        blocking(
+            py,
+            &owner,
+            async {
+                let store = pse_operations::canonical::CanonicalStore::connect(&options)
+                    .await
+                    .map_err(|error| native::WorkflowError::Input(error.to_string()))?;
+                let initialized = store.create().await;
+                let drained = store.disconnect().await;
+                initialized.map_err(|error| native::WorkflowError::Input(error.to_string()))?;
+                drained.map_err(|error| native::WorkflowError::Input(error.to_string()))
+            },
+            || {},
+        )
+    }
     /// Canonical durable deployment; ephemeral execution is an explicit local choice.
     #[new]
-    #[pyo3(signature = (settings, *, substrate, producer=None, ephemeral=false))]
+    #[pyo3(signature = (settings, *, substrate, database=None, producer=None, ephemeral=false))]
     fn new(
         py: Python<'_>,
         settings: &inspection::EngineSettings,
         substrate: &str,
+        database: Option<&str>,
         producer: Option<&str>,
         ephemeral: bool,
     ) -> PyResult<Self> {
@@ -434,8 +484,9 @@ impl NativeRuntime {
             source: outer.source,
             build: outer.build,
         };
-        let options = pse_operations::canonical::CanonicalOptions::from_state(
+        let options = pse_operations::canonical::CanonicalOptions::from_state_for_database(
             std::path::Path::new(substrate),
+            database,
         )
         .map_err(|e| errors::diagnostic(py, &e))?;
         let canonical = blocking(

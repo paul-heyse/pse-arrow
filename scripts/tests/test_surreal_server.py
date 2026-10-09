@@ -12,10 +12,12 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+from scripts import host_admission as host
 from scripts import surreal_server as server
 
 if TYPE_CHECKING:
@@ -28,6 +30,21 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.addCleanup(self.scratch.cleanup)
         self.root = Path(self.scratch.name)
         self.state = self.root / "state"
+        # Supervisor unit controls borrow a declared owner without touching the
+        # live machine ledger. Host admission itself has its own owner tests.
+        self.allocation = MagicMock(spec=host.Allocation)
+        self.allocation.directory = self.root / "admission"
+        self.allocation.nonce = "a" * 32
+        self.allocation.profile = host.select("reference")
+        self.allocation.environment.return_value = {}
+        for target, name, value in (
+            (host, "inherit", self.allocation),
+            (host, "enforce_allocation", None),
+            (host, "enforce_parent", None),
+        ):
+            owned = patch.object(target, name, return_value=value)
+            owned.start()
+            self.addCleanup(owned.stop)
 
         def manager_result(
             *arguments: str, check: bool = True
@@ -57,15 +74,29 @@ class SurrealSupervisorTests(unittest.TestCase):
                 str(self.state),
                 "--interpretation",
                 "pse.substrate.v1",
+                "--memory-mib",
+                "4096",
+                "--server-memory-mib",
+                "2048",
+                "--native-workers",
+                "2",
+                "--native-worker-memory-mib",
+                "1024",
+                "--port",
+                "18080",
             ]
         )
+        binary = self.root / "surreal"
+        binary.write_text("#!/bin/sh\nexit 0\n")
+        binary.chmod(0o700)
         with (
             patch.object(
                 server,
                 "install",
                 return_value={
                     "version": "3.3.0",
-                    "binary": "/unused",
+                    "binary": str(binary),
+                    "binary_sha256": server.file_digest(binary),
                     "archive_sha256": "abc",
                 },
             ),
@@ -232,14 +263,16 @@ class SurrealSupervisorTests(unittest.TestCase):
         selected.start()
         self.addCleanup(selected.stop)
         config["resources"] = server.reference_resources()
-        config["primary_receiver"] = server.primary_receiver(worker)
+        config["primary_receiver"] = server.publish_generation(self.state, worker)
         server.write_json(self.state / "config.json", config)
         return config
 
     def test_changed_primary_executable_requires_readmission(self) -> None:
         config = self.reference_fixture()
         server.checked_primary(config)
-        (self.root / "pse-worker").write_text("#!/bin/sh\nexit 1\n")
+        Path(server.recorded_primary(config)["worker_executable"]).write_text(
+            "#!/bin/sh\nexit 1\n"
+        )
         with self.assertRaises(server.SupervisorError):
             server.checked_primary(config)
 
@@ -318,9 +351,9 @@ class SurrealSupervisorTests(unittest.TestCase):
     ) -> None:
         self.reference_fixture()
         other = self.root / "other-worker"
-        other.write_text("#!/bin/sh\nexit 0\n")
+        other.write_text("#!/bin/sh\nexit 1\n")
         other.chmod(0o700)
-        # Even identical bytes at another selected path are another receiving artifact.
+        # Selected bytes must match the admitted immutable receiving artifact.
         with (
             patch.dict(os.environ, {"PSE_WORKER_BINARY": str(other)}, clear=True),
             patch.object(server, "ensure_execution_placement") as placement,
@@ -606,8 +639,12 @@ class SurrealSupervisorTests(unittest.TestCase):
         config = self.reference_fixture()
         worker = self.root / "pse-worker"
         shutil.copyfile(Path(sys.executable).resolve(), worker)
-        config["primary_receiver"] = server.primary_receiver(worker)
+        config["primary_receiver"] = server.publish_generation(self.state, worker)
         server.write_json(self.state / "config.json", config)
+        worker = Path(server.recorded_primary(config)["worker_executable"])
+        server.write_json(
+            self.state / "execution-placement.json", {"physical_cpus": list(range(16))}
+        )
         nonce = "owned-live-launch"
         environment = {
             **os.environ,
@@ -665,7 +702,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                 server.primary_drain_pid(self.state, config, observation), child.pid
             )
 
-    def test_primary_quiesce_drains_recorded_executable_after_atomic_rebuild(
+    def test_primary_quiesce_drains_immutable_generation_after_source_rebuild(
         self,
     ) -> None:
         config, child, observation = self.live_primary_fixture()
@@ -673,8 +710,13 @@ class SurrealSupervisorTests(unittest.TestCase):
         replacement = self.root / "rebuilt-worker"
         replacement.write_bytes(b"different next admission")
         replacement.replace(worker)
-        self.assertTrue(
-            str(Path(f"/proc/{child.pid}/exe").readlink()).endswith(" (deleted)")
+        self.assertEqual(
+            str(Path(f"/proc/{child.pid}/exe").readlink()),
+            server.recorded_primary(config)["worker_executable"],
+        )
+        self.assertEqual(
+            server.file_digest(Path(f"/proc/{child.pid}/exe")),
+            server.recorded_primary(config)["worker_sha256"],
         )
         args = server.parser().parse_args(["quiesce", "--state", str(self.state)])
         with (
@@ -684,16 +726,12 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(
                 server, "effective_limits", return_value=(140 * server.GIB, 16)
             ),
-            patch.dict(
-                os.environ,
-                {"PSE_WORKER_PRODUCER_RECEIPT": str(self.root / "removed-receipt")},
-            ),
+            patch.object(server, "systemd_environment", return_value={}),
             patch.object(server.signal, "pidfd_send_signal") as signal_pid,
             patch.object(server, "active", return_value=False),
             patch("builtins.print"),
         ):
-            with self.assertRaisesRegex(server.SupervisorError, "bytes changed"):
-                server.primary_ready(self.state, config, observation)
+            self.assertTrue(server.primary_ready(self.state, config, observation))
             self.assertEqual(
                 server.primary_drain_pid(self.state, config, observation), child.pid
             )
@@ -777,7 +815,11 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.assertEqual(cpu, 8)
 
     def test_insufficient_ancestor_cap_refuses_before_placement_mutation(self) -> None:
+        group = self.root / "originating-allocation"
+        group.mkdir()
+        (group / "memory.max").write_text(str(120 * server.GIB))
         with (
+            patch.object(server, "group_for_slice", return_value=group),
             patch.object(server, "physical_cpus", return_value=list(range(16))),
             patch.object(
                 server, "effective_limits", return_value=(120 * server.GIB, 16)
@@ -789,23 +831,30 @@ class SurrealSupervisorTests(unittest.TestCase):
         manager.assert_not_called()
 
     def test_host_capacity_below_cap_refuses_before_placement_mutation(self) -> None:
+        # Host capacity belongs to admission; the supervisor must respect its
+        # refusal before reading or changing any placement state.
         with (
             patch.object(server, "physical_cpus", return_value=list(range(16))),
-            patch.object(server, "group_for_slice", return_value=self.root / "group"),
-            patch.object(server, "effective_limits", return_value=(None, None)),
             patch.object(
-                server, "host_memory", return_value=(159 * server.GIB, 150 * server.GIB)
+                host,
+                "enforce_allocation",
+                side_effect=host.AdmissionError(
+                    "Host physical memory cannot admit this owner"
+                ),
             ),
+            patch.object(server, "group_for_slice") as group,
             patch.object(server, "systemctl") as manager,
-            self.assertRaisesRegex(server.SupervisorError, "Host physical memory"),
+            self.assertRaisesRegex(host.AdmissionError, "Host physical memory"),
         ):
             server.ensure_execution_placement(self.state, server.reference_resources())
+        group.assert_not_called()
         manager.assert_not_called()
 
     def test_available_memory_is_observed_without_upfront_reservation(self) -> None:
         self.reference_fixture()
         group = self.root / "cgroups/profile"
         group.mkdir(parents=True)
+        (group / "memory.max").write_text(str(160 * server.GIB))
         (group / "memory.current").write_text(str(2 * server.GIB))
         (group / "cpuset.cpus.effective").write_text("0-15")
         with (
@@ -814,7 +863,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(
                 server,
                 "effective_limits",
-                side_effect=[(None, None), (160 * server.GIB, 16)],
+                return_value=(160 * server.GIB, 16),
             ),
             patch.object(
                 server, "host_memory", return_value=(188 * server.GIB, 112 * server.GIB)
@@ -822,7 +871,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(server, "systemctl") as manager,
         ):
             server.ensure_execution_placement(self.state, server.reference_resources())
-        self.assertEqual(manager.call_count, 2)
+        manager.assert_not_called()
         observation = server.read_json(self.state / "execution-placement.json")
         self.assertEqual(observation["available_plus_owned_bytes"], 114 * server.GIB)
         self.assertEqual(observation["memory_max_bytes"], 160 * server.GIB)
@@ -857,13 +906,14 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.reference_fixture()
         group = self.root / "cgroups/profile"
         group.mkdir(parents=True)
+        (group / "memory.max").write_text(str(160 * server.GIB))
         with (
             patch.object(server, "physical_cpus", return_value=list(range(16))),
             patch.object(server, "group_for_slice", return_value=group),
             patch.object(
                 server,
                 "effective_limits",
-                side_effect=[(None, None), (160 * server.GIB, 16)],
+                return_value=(160 * server.GIB, 16),
             ),
             patch.object(
                 server, "host_memory", return_value=(188 * server.GIB, 20 * server.GIB)
@@ -958,9 +1008,9 @@ class SurrealSupervisorTests(unittest.TestCase):
             self.assertEqual(
                 self.reconfigure(
                     "--memory-mib",
-                    "32768",
+                    "24576",
                     "--server-memory-mib",
-                    "16384",
+                    "8192",
                     "--native-worker-memory-mib",
                     "8192",
                 ),
@@ -972,7 +1022,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         after = server.config_for(self.state)
         self.assertEqual(
             after["resources"],
-            server.resources(32 * server.GIB, 16 * server.GIB, 2, 8 * server.GIB),
+            server.resources(24 * server.GIB, 8 * server.GIB, 2, 8 * server.GIB),
         )
         before.pop("resources")
         after.pop("resources")
@@ -1120,10 +1170,11 @@ class SurrealSupervisorTests(unittest.TestCase):
                 self.reconfigure(flag, value, "--memory-mib", "8192")
             self.assertEqual((self.state / "config.json").read_bytes(), before)
 
-    def test_reconfigure_checks_and_write_hold_existing_lifecycle_lock(self) -> None:
+    def test_reconfigure_reservation_excludes_owner_without_holding_drain_lock(
+        self,
+    ) -> None:
         self.quiesced_fixture()
         locked = False
-        original_write = server.write_json
         original_drain = server.workers_drained
 
         @server.contextlib.contextmanager
@@ -1137,21 +1188,38 @@ class SurrealSupervisorTests(unittest.TestCase):
                 locked = False
 
         def drain(state: Path, config: dict[str, object]) -> None:
-            self.assertTrue(locked)
-            original_drain(state, config)
+            # Kernel-associated reservation excludes another lifecycle owner,
+            # while the metadata lock is free throughout drain IPC.
+            self.assertFalse(locked)
+            reservation = server.read_json(state / "lifecycle-owner.json")
+            self.assertEqual(reservation["pid"], os.getpid())
 
-        def write(path: Path, value: dict[str, object]) -> None:
-            self.assertTrue(locked)
-            original_write(path, value)
+            def competing_owner() -> None:
+                with (
+                    self.assertRaisesRegex(
+                        server.SupervisorError, "Another live owner"
+                    ),
+                    server.lifecycle_reservation(state),
+                ):
+                    self.fail("A second live lifecycle owner was admitted")
+
+            with ThreadPoolExecutor(max_workers=1) as competing:
+                competing.submit(competing_owner).result(timeout=5)
+            original_drain(state, config)
 
         with (
             patch.object(server, "state_lock", side_effect=lock),
             patch.object(server, "workers_drained", side_effect=drain),
-            patch.object(server, "write_json", side_effect=write) as written,
         ):
             self.reconfigure("--memory-mib", "8192")
-        written.assert_called_once()
         self.assertFalse(locked)
+        self.assertFalse((self.state / "lifecycle-owner.json").exists())
+        self.assertEqual(
+            server.object_mapping(server.config_for(self.state)["resources"])[
+                "total_memory_bytes"
+            ],
+            8 * server.GIB,
+        )
 
     def test_explicit_start_uses_reconfigured_budget_and_reopens_admission(
         self,
@@ -1167,7 +1235,10 @@ class SurrealSupervisorTests(unittest.TestCase):
         )
         with (
             patch.object(server, "active", return_value=False),
-            patch.object(server, "ready", return_value=True),
+            patch.object(server, "listener_ready", return_value=True),
+            patch.object(server, "establish_protocol_readiness"),
+            patch.object(server, "service_allocation", return_value=self.allocation),
+            patch.dict(os.environ, {"XDG_CONFIG_HOME": str(self.root / "user-config")}),
             patch.object(
                 server.subprocess,
                 "run",
@@ -1181,10 +1252,10 @@ class SurrealSupervisorTests(unittest.TestCase):
                 ),
                 0,
             )
-        self.assertIn(
-            f"--property=MemoryMax={16 * server.GIB}",
-            started.call_args.args[0],
-        )
+        unit = self.root / "user-config/systemd/user" / server.unit_name(self.state)
+        self.assertIn(f"MemoryMax={16 * server.GIB}", unit.read_text())
+        self.assertIn("/.generations/", unit.read_text())
+        started.assert_not_called()
         config = server.config_for(self.state)
         self.assertTrue(config["accepting_writes"])
         self.assertEqual(config["admission"], "open")
@@ -1331,6 +1402,45 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.assertIn("solver,klu,isolation,uno,petsc", command)
         self.assertEqual(command[-4:], ["--", "/worker", "--jobs", "1"])
 
+    def test_listener_health_does_not_establish_authenticated_websocket_readiness(
+        self,
+    ) -> None:
+        config = self.initialized()
+        with patch.object(server, "listener_ready", return_value=True):
+            self.assertFalse(server.ready(self.state, config))
+
+    def test_websocket_readiness_proof_binds_invocation_generation_and_credentials(
+        self,
+    ) -> None:
+        config = self.initialized()
+        observed = subprocess.CompletedProcess([], 0, "actual-invocation\n", "")
+        with patch.object(server, "systemctl", return_value=observed):
+            proof = {
+                "schema": "native-ws-readiness-v1",
+                "instance_id": config["instance_id"],
+                "invocation": "actual-invocation",
+                "binary_sha256": server.object_mapping(config["server"])[
+                    "binary_sha256"
+                ],
+                "credentials_sha256": server.file_digest(
+                    self.state / "credentials.json"
+                ),
+            }
+            server.write_json(self.state / "protocol-readiness.json", proof)
+            self.assertTrue(server.protocol_ready(self.state, config))
+            for key in (
+                "instance_id",
+                "invocation",
+                "binary_sha256",
+                "credentials_sha256",
+            ):
+                with self.subTest(binding=key):
+                    server.write_json(
+                        self.state / "protocol-readiness.json",
+                        {**proof, key: "different-admission"},
+                    )
+                    self.assertFalse(server.protocol_ready(self.state, config))
+
     def test_owned_environment_does_not_inherit_authentication_bypass(self) -> None:
         config = self.initialized()
         with patch.dict(
@@ -1344,7 +1454,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                 config, {"username": "user", "password": "secret"}
             )
         self.assertNotIn("SURREAL_UNAUTHENTICATED", environment)
-        self.assertEqual(environment["SURREAL_GRPC_MAX_MESSAGE_SIZE"], "4194304")
+        self.assertEqual(environment["SURREAL_WEBSOCKET_MAX_MESSAGE_SIZE"], "4194304")
         self.assertEqual(
             environment["SURREAL_ROCKSDB_BLOCK_CACHE_SIZE"], str(512 * server.MIB)
         )
@@ -1461,7 +1571,11 @@ class SurrealSupervisorTests(unittest.TestCase):
         with (
             patch.object(server, "state_lock", side_effect=lock),
             patch.object(server, "ready", return_value=True),
-            patch.object(server, "worker_observation", side_effect=[inactive, active]),
+            patch.object(
+                server,
+                "worker_observation",
+                side_effect=[inactive, inactive, inactive, active],
+            ),
             patch.object(server.subprocess, "Popen", return_value=child) as spawn,
             patch.dict("os.environ", {"PSE_MEMORY_MAX": "off"}),
         ):
@@ -1507,7 +1621,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         with (
             patch.object(server, "ready", return_value=True),
             patch.object(
-                server, "worker_observation", side_effect=[inactive, uncapped]
+                server,
+                "worker_observation",
+                side_effect=[inactive, inactive, inactive, uncapped],
             ),
             patch.object(server.subprocess, "Popen", return_value=child),
             self.assertRaisesRegex(server.SupervisorError, "cap differs"),

@@ -36,7 +36,23 @@ Keeping PG/Delta while repairing local caches can improve individual hot paths b
 
 ## Outcome
 
-Repurpose `pse-operations` as the concrete thin remote SDK and typed-operation owner. The supported initial profile is authenticated loopback gRPC with RocksDB `sync=every&versioned=false`, explicit 4 MiB message limits and finite server/worker budgets. Schema and codecs derive from existing declarations. Finite scientific f64 cells preserve authoritative bits; unsigned integers use checked native decimal values. Interpretation versions are explicit.
+Repurpose `pse-operations` as the concrete thin remote SDK and typed-operation owner. Plan 30 replaces initial gRPC application RPC with authenticated loopback native binary WebSocket, preserving RocksDB `sync=every&versioned=false`, explicit 4 MiB message limits and finite server/worker budgets. Schema and codecs derive from existing declarations. Finite scientific f64 cells preserve authoritative bits; unsigned integers use checked native decimal values. Interpretation versions are explicit.
+
+Plan 30's confirmed RC01/RC04/RC05/RC06 supply the operation and context lifetimes. A minimal pinned SDK/engine-api 3.3.0 patch carries the original deadline and cancellation through bounded admission, queueing, reconnect and dispatch. Ordinary operations have thirty seconds, activation/initialization ninety; definite conflict retry consumes the same clock. Cancel-before-dispatch and drain-after-dispatch preserve truthful unknown outcomes. UTC/lease/generation fences precede the final RETURN/COMMIT; statement TIMEOUT and the global backstop do not establish hard abort or commit-before-deadline.
+
+Native replies are complete bounded pages with all statement errors inspected and decoding/escaped Arrow ownership accounted for. Storage service generations are separate from immutable receiver generations and per-invocation databases. Compatible receiver readmission does not interrupt storage. Python Runtime accepts explicit database selection validated by the Rust canonical context owner; opening never installs schema. Existing runner terminal reconciliation, actual reader/native/cgroup drain and protected references govern successful disposable cleanup; failure, incomplete outcomes and unknown historical materials remain pinned until explicit release.
+
+Explicit service setup/readmission installs a private root VIEWER for context selection.
+Its exact namespace/database USE cannot create missing catalog entries; a single-record
+probe establishes existence before the client restores its write account. Acknowledged
+authorization/selection steps replay in order with a finite 64-entry setup ceiling.
+Ordinary opens do not materialize full root/namespace catalogs. Administrative schema
+initialization and service-readiness inventory retain their explicit ownership.
+Initial catalog DDL uses a fresh unselected administrative connection. SurrealDB 3.3's
+planner requires database context for clock calls, so this pre-database operation has
+the original transport clock and finite server backstops, but no in-database UTC fence.
+A lost submitted catalog acknowledgment remains unknown; atomic schema installation
+and scientific mutations retain their final transaction fences.
 
 Immutable object versions and membership intervals supply linear per-problem head-CAS revisions. Named head/name/scope/retention guards protect all consumed premises; conflict retries repeat the whole decision. Selected scientific admission remains one Rust kernel. Portable admitted descriptions retain complete positive, absent-name, membership and interpretation dependencies; native handles remain process-local. Producer-specific relevant identities govern reuse, while complete dirty-build attestation belongs to the outer run.
 
@@ -173,9 +189,13 @@ One substrate makes revision selection, product discovery, result queries and re
 
 ## More information
 
+[Plan 30](../plans/30-websocket-and-persistent-agent-environment.md) owns the WebSocket and persistent-environment findings and implementation. Its bounded [contract assessment](../design_review/reviews/design_review_plan-30-runtime-contracts_2026-10-09.md) concerns the supported target, not deployed qualification; native scientific and remaining Plan 28 campaigns retain their owners.
+
 [Plan 28](../plans/28-surrealdb-unified-substrate.md) owns implementation and finding dispositions. [28a](../plans/28a-canonical-substrate-and-revisions.md) owns store/revision/protection contracts; [28b](../plans/28b-selected-compilation-and-reuse.md) owns selected admission, products and numerical reuse. Their shared declarations and adjacent lifecycle consumers remain coordinated there.
 
 ## Status history
+
+- 2026-10-09 — maintainer authorized Plan 30 execution after confirming its six rule impacts; amend the proposed RPC/context/retention contracts before dependent production changes. Proposed status remains unchanged.
 
 - 2026-10-05 — proposed before dependent production changes, under maintainer implementation authorization. Formal acceptance and ADR-0114 supersession remain in the decision PR route.
 - 2026-10-06 — maintainer authorized all companion functional scope; capability-informed function, result-block and read contracts are included before dependent changes. Assembled verification follows full functional implementation.

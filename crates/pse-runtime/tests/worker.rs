@@ -345,16 +345,8 @@ fn two_worker_fixture_state() -> TwoWorkerFixtureProfile {
 
 async fn canonical_fixture_store_at(state: &Path) -> pse_operations::canonical::CanonicalStore {
     let mut options = pse_operations::canonical::CanonicalOptions::from_state(state).unwrap();
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    options.database = format!("canonical_test_worker_{}_{}", std::process::id(), stamp);
-    let store = pse_operations::canonical::CanonicalStore::connect(&options)
-        .await
-        .unwrap();
-    store.create().await.unwrap();
-    store
+    options.database = format!("canonical_test_worker_{}", uuid::Uuid::new_v4().simple());
+    pse_operations::testing::canonical_fixture_with_options(&options, true).unwrap()
 }
 
 fn runtime() -> (Arc<SharedRuntime>, Runtime) {
@@ -654,7 +646,7 @@ fn bind_operations(
         shared.pool(),
     );
     (
-        local.with_durability(Durability::Durable(operations.clone())),
+        local.with_durability(Durability::Durable(Box::new(operations.clone()))),
         operations,
     )
 }

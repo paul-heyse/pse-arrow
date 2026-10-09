@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# Host policy, not a RAM reservation. Reference scientific capacities are derived
+# from packages/reference/conformance.toml, never redeclared here.
+version = 1
+aggregate_gib = 160
+non_agent_headroom_gib = 16
+pressure_guard_gib = 36
+admission_seconds = 30
+functional_cores = [8, 9, 10, 11, 12, 13, 14, 15]
+timing_cores = [0, 1, 2, 3, 4, 5, 6, 7]
+
+[light]
+slots = 4
+memory_gib = 2
+# The shared compiler-cache daemon occupies one of these light slots, rather
+# than inheriting the first compilation's heavy allocation.
+[compiler-cache]
+memory_gib = 2
+[compile]
+memory_gib = 24
+[functional]
+slot_gib = 40
+store_gib = 8
+receiver_gib = 32
+observer_gib = 4
+control_gib = 4
+pool_gib = 24
+worker_gib = 8
+case_lanes = 2
+cpu_threads = 4
+math_jobs = 4
+compiler_cores = 1
+[wide]
+slot_gib = 80
+receiver_gib = 72
+observer_gib = 4
+control_gib = 4
+pool_gib = 64
+worker_gib = 16
+case_lanes = 4
+cpu_threads = 8
+math_jobs = 8
+compiler_cores = 1
+[timing]
+slot_gib = 56
+store_gib = 8
+receiver_gib = 48
+observer_gib = 4
+control_gib = 4
+pool_gib = 40
+worker_gib = 8
+case_lanes = 4
+cpu_threads = 8
+math_jobs = 8
+compiler_cores = 1
+[exclusive]
+slot_gib = 144
+store_gib = 8
+light_gib = 8
+receiver_gib = 136
+observer_gib = 4
+control_gib = 4
+pool_gib = 128
+worker_gib = 16
+case_lanes = 16
+cpu_threads = 16
+math_jobs = 32
+compiler_cores = 1
+[reference]
+store_gib = 16
+receiver_headroom_gib = 12
+observer_gib = 4
+
+[test-runner]
+rust_thread_stack_mib = 16
+
+# Ordinary durable tests retain their 64GiB caller declaration. Their managed
+# receiver uses the wide profile's 64GiB pool; both roles fit exclusive execution.
+# This is not the reference primary/observer partition.
+[exclusive-observer]
+slot_gib = 144
+receiver_gib = 72
+observer_gib = 64
+control_gib = 8
+pool_gib = 64
+worker_gib = 16
+case_lanes = 4
+cpu_threads = 16
+math_jobs = 8
+compiler_cores = 1

@@ -1,6 +1,6 @@
 ---
 title: WebSocket RPC and the persistent agent environment
-status: draft
+status: done
 date: 2026-10-08
 adrs: [ADR-0164, ADR-0166]
 review_sources: [docs/design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md]
@@ -22,8 +22,9 @@ The [review](../design_review/reviews/design_review_websocket-and-persistent-age
 judged the current architecture **Revise** and its unresolved candidate **Not Accept**.
 This series develops that candidate; authoring does not revise the historical verdict,
 accept an ADR or establish a deployed replacement. The maintainer authorized creation
-of these documents after confirming the rule changes below. Production execution is
-not authorized by this authoring handoff.
+of these documents after confirming the rule changes below. The maintainer authorized full production execution on 2026-10-09. The execution
+baseline is clean main at `d92fa8ee1110508e50f049bc681765e2903cbd8b`; the earlier
+authoring observations retain their original scope.
 
 Plan 30 is the sole current disposition owner for WP01–WP08 and the transferred
 AE-25/AE-26 follow-ups. Companions own their package progress. [Plan 28](28-surrealdb-unified-substrate.md)
@@ -155,16 +156,16 @@ status; companion package tables do not repeat finding status.
 
 | Finding reference | Scenario reference | Disposition | Decision/work owner | Evidence or revisit trigger |
 |---|---|---|---|---|
-| [WP01](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md#wp01) | S01/S03 | scheduled | 30a A0–A3 | Original-clock, expired replay, uncertain-send/commit and drain controls; no implementation evidence yet. |
-| [WP02](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md#wp02) | S01/S06 | scheduled | 30a A1/A2, 30d D2 | Bounded pending/deferred/replay state and native paged result admission, including decoded memory. |
-| [WP03](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md#wp03) | S02 | scheduled | 30c C1/C2, 30b B2 | Overlapping Rust/Python tests reuse names without interference; deliberate sharing remains explicit. |
-| [WP04](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md#wp04) | S05/S09 | scheduled | 30c C1–C3 | Assertion-after-Drop, interrupted/missing results, retained references and resumable disposal. |
-| [WP05](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md#wp05) | S02/S04 | scheduled | 30b B0–B3 | Compatible receiver coexistence, incompatible generation refusal and storage lifetime independence. |
-| [WP06](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md#wp06) | S07 | scheduled | 30c C2, 30d D1 | Owner loss/PID reuse with surviving descendants; capacity recovery preserves evidence pins. |
-| [WP07](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md#wp07) | S06 | scheduled | 30d D0–D3 | Cross-invocation limits, nested ownership and admission through actual drain. |
-| [WP08](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md#wp08) | S04/S06 | scheduled | 30d D2/D3 | Explicit residency, contention and process-lifetime attribution; no benefit claimed yet. |
-| [AE-25](29-agent-workspace-effectiveness.md#latency-and-concurrency-s1-s5-s7) | Plan 29 S5/S7; review S02 | scheduled | 30c C1/C2 | Transfer the open isolation follow-up from 28e; original observation remains historical. |
-| [AE-26](29-agent-workspace-effectiveness.md#latency-and-concurrency-s1-s5-s7) | Plan 29 S5; review S02/S06 | scheduled | 30b B3 | Compare current shared-service behavior only if supported contention triggers the bounded topology investigation; old DDL diagnosis is not current proof. |
+| [WP01](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md#wp01) | S01/S03 | resolved | 30a A0–A3 | Native WS lifecycle and failed-only real-server controls are positive at 30a; D3 selected scientific handoff passed; see Outcome. |
+| [WP02](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md#wp02) | S01/S06 | resolved | 30a A1/A2, 30d D2 | Bounded pending/deferred/replay state and native paged result admission, including decoded memory. |
+| [WP03](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md#wp03) | S02 | resolved | 30c C1/C2, 30b B2 | Overlapping Rust/Python tests reuse names without interference; deliberate sharing remains explicit. |
+| [WP04](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md#wp04) | S05/S09 | resolved | 30c C1–C3 | Assertion-after-Drop, interrupted/missing results, retained references and resumable disposal. |
+| [WP05](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md#wp05) | S02/S04 | resolved | 30b B0–B3 | Compatible receiver coexistence, incompatible generation refusal and storage lifetime independence. |
+| [WP06](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md#wp06) | S07 | resolved | 30c C2, 30d D1 | Owner loss/PID reuse with surviving descendants; capacity recovery preserves evidence pins. |
+| [WP07](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md#wp07) | S06 | resolved | 30d D0–D3 | Cross-invocation limits, nested ownership and admission through actual drain. |
+| [WP08](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md#wp08) | S04/S06 | resolved | 30d D2/D3 | Implemented residency/attribution and dedicated timing placement; actual 8+56 GiB control passed. Optional benefit measurement remains unclaimed at 30d. |
+| [AE-25](29-agent-workspace-effectiveness.md#latency-and-concurrency-s1-s5-s7) | Plan 29 S5/S7; review S02 | resolved | 30c C1/C2 | Transfer the open isolation follow-up from 28e; original observation remains historical. |
+| [AE-26](29-agent-workspace-effectiveness.md#latency-and-concurrency-s1-s5-s7) | Plan 29 S5; review S02/S06 | deferred | 30b B3 | Shared service retained on the selected positive overlap/scientific controls. Reopen B3 only for diagnosed current catalog/commit contention obstructing admitted work within its existing budgets; compare two services at equal allocation/scope. Historical DDL observations do not trigger it. |
 
 S08's domain-extension scenario is a preservation constraint across every package:
 adding a model uses existing semantic admission and execution operations; it introduces
@@ -211,3 +212,125 @@ been implemented by this authoring work. Existing services and materials are pre
 Next, when production scope is authorized, execute R0 with A0/B0/C0/D0. The original
 managed failing test remains with 28e; this checkpoint neither closes it nor schedules
 another full campaign.
+
+## Implementation checkpoint — 2026-10-09
+
+R0's bounded contract assessment accepts the proposed runtime design in
+[the concrete-contract review](../design_review/reviews/design_review_plan-30-runtime-contracts_2026-10-09.md).
+The proposed ADRs and architectural owners describe the operator-confirmed contracts;
+their decision status remains proposed. The single application RPC path is bounded
+native WebSocket. Persistent disk/service generations, separately admitted receiver
+artifacts, runner-owned disposable contexts and cross-invocation host admission are
+implemented with their focused controls.
+
+Actual controls establish finite kernel placement, overlapping isolated Rust/Python
+contexts, final-outcome retention and recovery, independent receiver generations,
+restart exhaustion, offline backup/reopen, bounded submitted RPC state and exact paged
+reads. The shared compiler cache has its own finite resident allocation. Scope and
+conditions remain at the companion owners; these are not full scientific qualification
+or uncontended performance claims.
+
+D3 selected scientific qualification is complete. The selected managed Rust launch
+first stopped before testing because the captured worker was not bound before reference
+admission. That launcher was corrected. Actual testing then exposed a reference-store
+affinity/readiness mismatch and an inadequate default libtest thread stack; both are
+repaired without changing reference scientific scope or solver stopping budgets. The
+next managed attempt reached primary launch and exposed KLU preparation resolving
+development metadata from an immutable runtime closure. Prepared-prefix admission
+was corrected and its focused controls passed. The ordinary Rust study and six
+ordinary Python scientific journeys passed across their selected invocations. One
+Python cancellation journey exposed concurrent effect-free settlement against stale
+immediate premises; the guarded policy-refresh repair is complete: the original failed cancellation identity passed against the rebuilt extension.
+The three previously failed managed Rust identities passed on the retained current native artifacts. The original thousand-point managed Python identity passed under the unchanged reference profile. Scope-end checks completed with failed-leaf repairs. Independent storage restart after launch-caller exit also passed; the Outcome owns final evidence and exclusions.
+
+Existing stores, failed/incomplete resources, receipts and frozen worktrees remain
+preserved. Broader Plan 28 E4/E5 and the former full Python selection remain paused.
+
+## Outcome (recorded after implementation)
+
+### What was built
+
+**Implemented:** one native binary WebSocket application path with original operation
+clocks, bounded submitted correlations and immutable context selection; separately
+admitted disk/service and receiver generations; runner-owned isolated disposable
+contexts; final-outcome retention and reference-protected reclamation; finite host
+admission and independent persistent storage/compiler-cache allocations. The exact
+3.3.0 SDK and engine API are selected by direct paths and exact versions, with their
+original license retained. Scientific meaning and native solver stopping budgets
+remain with their existing owners. Optional benefit measurements and the wider Plan
+28 campaigns have not been started.
+
+**Tested, zero failure baseline:** the companion evidence establishes the focused
+transport, generation, retention and actual kernel placement controls. D3 assembled
+evidence now includes the ordinary Rust study (1 pass, nextest
+`87ec0b50-b2b7-44e9-945e-48afb463d830`), seven ordinary Python scientific journeys
+across their original selection and failed-only retries, and the three managed Rust
+journeys from retained current artifacts (3 passes in 107.737 seconds, nextest
+`1e50d804-f850-4876-8d15-6d862083ddb5`). The Python cancellation retry is
+`just native-python build/plan30-d3-python-cancel-current-20261009
+python/pse/tests/test_studies.py::test_durable_study_cancel_and_its_refusals -n 0`,
+under the native exclusive observer: 1 pass, 0 failures in 16.70 seconds. These are
+repaired composite selections; the producer-deployment-specific identity was
+legitimately deselected without its separate deployment capture and is not a pass.
+The original thousand-point managed Python identity passed: 1 pass, 0 failures in 1,832.49 seconds, with one selected identity and a passed terminal result without report errors. Command: `scripts/pse-env --resource-class reference --native --store -- just native-python build/plan30-d3-python-thousand-current-20261009 --managed-primary-route 'python/pse/tests/test_studies.py::test_flash_sweep_prepares_structure_once[managed-durable-science]' -n 0`. Its XML, native provenance, selected inventory and reconciled terminal result retain that directory. All 1,000 occurrences retain their result and physical assertions; this is no proof that HTTP/2 caused the original failure.
+
+**Tested:** current functional and unchanged-reference service generations passed
+explicit process-kill/reopen recovery qualification and native WebSocket readiness.
+Actual dedicated timing placement passed with an 8 GiB store and separate 56 GiB
+caller, including the actual kernel memory cap, disjoint charged owners and native
+WebSocket readiness (`build/plan30-d2-timing-storage-current-20261009/passed.json`).
+These are lifecycle/placement observations, not speed comparisons or power-loss
+survival claims. The final caller-loss automatic-restart control passed (`build/plan30-b-storage-restart-independent-20261009/passed.json`): the actual loaded/activating restart delay retained its original charged owner through reconciliation after the launch caller died; the new unit invocation reused the same independent 8 GiB storage allocation and returned the original acknowledged bytes. The service remains resident and native WebSocket ready.
+
+**Tested, repaired composite static evidence:** `just hygiene` originally reported six
+failed leaves. The failed typos, license, Python lint, type, default Clippy and
+no-default Clippy leaves were repaired and passed; its other leaves passed, including
+all generated-output equivalence checks. `just governance` ran 102 tests: 101 passed
+and one failed. The unchanged failed root override prohibition passed after selecting
+the exact SDK paths directly (nextest `742342bd-0255-4310-94d8-5545822a8fe4`).
+`just ready`, `just docs`, and the compile-class retries of `just lint-native-contracts`
+and `just lint-native-data` passed. The first native lint attempt was wrongly routed
+through a 2 GiB light cap and was killed; it is not a positive result.
+
+**Interface-checked:** the scoped feature matrix has 12 valid depth-two cases and five
+absence/default cases passing across operations, runtime, Python and xtask. The first
+`cargo hack` command also generated 28 invalid cross-package feature requests, which
+failed before compilation because its pinned unknown-feature filtering did not apply
+to that inclusion list. Those are harness selection errors, not successful checks or
+product defects. Supported cases are retained in
+`build/plan30-scope-end-powerset-20261009/result.json` and
+`build/plan30-scope-end-feature-absence-20261009/result.json`. No whole-workspace
+feature powerset, complete simulator qualification or performance campaign is claimed.
+
+### A mistake made and corrected
+
+Treating storage readiness as science-placement readiness caused the actual timing
+store to reach its startup deadline. Storage now validates its own allocation, finite
+caps, affinity and exact unit/invocation/cgroup/PID binding. A qualified restart retains
+that charge through the restart delay, even while the old cgroup is empty. It only
+rebinds after the exact predecessor drains; stale or malformed ownership refuses.
+The actual service recovery probe also initially assumed the base canonical database
+existed and that every provisioning statement returned NULL. Its owned UUID recovery
+context now checks the released 3.3.0 DEFINE/USE acknowledgments exactly.
+
+Other assembled failures exposed default libtest stack insufficiency for a large async
+publication frame, runtime KLU preparation using development metadata in an immutable
+receiver closure, and cancellation settlement using stale predecessor premises.
+The launcher uses the declared test stack, prepared KLU prefixes are admitted exactly,
+and effect-free settlement refreshes policy only after a definite guarded premise
+conflict. Unknown effects do not gain a retry. Failed/incomplete evidence remains pinned.
+
+### Deviations from the plan, deliberate
+
+The setup/replay allowance was settled at 64 bounded entries instead of the initial 16-entry proposal; complete acknowledged selection checkpoints fold only across adjacent compatible setup, retaining intervening command order. Pending and deferred routes remain bounded at 34. Shared functional storage remains selected. The two-service pool investigation keeps
+its observable current-contention trigger; historical measurements do not establish
+that trigger. Cache lifetime separation was necessary to preserve actual caller drain
+and resource attribution. Tests retain the unchanged 160 GiB reference profile and
+ordinary engineering stopping budgets. Historical final results use the maintainer's
+separate +/-10% assessment; it does not control solver stopping.
+
+Existing stores and failed/incomplete materials are preserved. The two remaining
+frozen worktrees contain substantial preserved uncommitted work and are therefore retained. This highest-numbered parent
+and its companion handoff remain available while Plan 28/29 readers depend on them;
+retirement follows ADR-0096 after those references move. Proposed ADR status has not
+been promoted by implementation or test success.

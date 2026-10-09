@@ -55,10 +55,12 @@ own WP01–WP08 and the prospective AE-25/AE-26 follow-ups. Companions
 [30b](30b-persistent-services-and-receiver-generations.md),
 [30c](30c-test-ownership-and-evidence-retention.md) and
 [30d](30d-host-admission-and-timing-qualification.md) develop RPC lifetimes, service/receiver
-generations, test isolation/retention and host admission/timing. The series is authored
-at Proposed strength; its [checkpoint](30-websocket-and-persistent-agent-environment.md#authoring-checkpoint)
-owns the next prerequisite route when production execution is authorized. The existing
-failing-test repair and paused Plan 28 E4/E5 campaign retain their current boundaries.
+generations, test isolation/retention and host admission/timing. Implementation and the
+selected assembled qualification are complete (2026-10-09); its
+[Outcome](30-websocket-and-persistent-agent-environment.md#outcome-recorded-after-implementation)
+records repaired composite evidence and exclusions, including the passing original
+thousand-point managed identity. The completed handoff remains for its Plan 28/29 readers;
+the broader Plan 28 E4/E5 campaign remains paused.
 
 [Plan 25](25-design-remediation.md) coordinates remediation of the domain-alignment reviews
 and the later full-case compilation/solver-routing review. Its companion plans describe the target contracts,

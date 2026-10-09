@@ -59,8 +59,8 @@ futures-io = { version = "0.3" }
 futures-task = { version = "0.3" }
 futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
 half = { version = "2", features = ["num-traits"] }
-hashbrown-3575ec1268b04181 = { package = "hashbrown", version = "0.15" }
-hashbrown-9067fe90e8c1f593 = { package = "hashbrown", version = "0.17", features = ["rayon"] }
+hashbrown-3575ec1268b04181 = { package = "hashbrown", version = "0.15", features = ["rayon"] }
+hashbrown-9067fe90e8c1f593 = { package = "hashbrown", version = "0.17" }
 indexmap = { version = "2", features = ["rayon", "serde"] }
 itertools = { version = "0.13" }
 libc = { version = "0.2" }
@@ -93,7 +93,7 @@ smallvec = { version = "1", default-features = false, features = ["const_new"] }
 sqlparser = { version = "0.62", features = ["visitor"] }
 subtle = { version = "2" }
 syn-7b89eefb6aaa9bf3 = { package = "syn", version = "3", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
-tokio = { version = "1", features = ["io-util", "macros", "process", "rt-multi-thread", "signal", "sync", "time"] }
+tokio = { version = "1", features = ["io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["compat", "io", "rt"] }
 tracing = { version = "0.1", features = ["release_max_level_debug"] }
 tracing-core = { version = "0.1" }
@@ -108,7 +108,6 @@ zlib-rs = { version = "0.6", default-features = false, features = ["std"] }
 [build-dependencies]
 aho-corasick = { version = "1", default-features = false, features = ["perf-literal", "std"] }
 cc = { version = "1", default-features = false, features = ["parallel"] }
-either = { version = "1", default-features = false, features = ["use_std"] }
 memchr = { version = "2" }
 phf_shared = { version = "0.13", default-features = false, features = ["unicase"] }
 proc-macro2 = { version = "1" }
@@ -129,13 +128,7 @@ getrandom = { version = "0.4", default-features = false, features = ["std", "sys
 libc = { version = "0.2", default-features = false, features = ["extra_traits"] }
 rustix = { version = "1", features = ["fs", "stdio", "termios"] }
 simdutf8 = { version = "0.1", default-features = false, features = ["aarch64_neon", "public_imp"] }
-slab = { version = "0.4" }
-tokio = { version = "1", default-features = false, features = ["fs", "io-std", "net"] }
-tokio-stream = { version = "0.1", features = ["net", "sync"] }
-tokio-util = { version = "0.7", default-features = false, features = ["codec"] }
-zstd = { version = "0.13" }
-zstd-safe = { version = "7", default-features = false, features = ["arrays", "legacy", "std", "zdict_builder"] }
-zstd-sys = { version = "2", default-features = false, features = ["legacy", "std", "zdict_builder"] }
+tokio = { version = "1", default-features = false, features = ["fs", "io-std"] }
 
 [target.x86_64-unknown-linux-gnu.build-dependencies]
 libc = { version = "0.2" }

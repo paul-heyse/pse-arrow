@@ -26,6 +26,7 @@ from pse.contracts.enums import (
 )
 from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
+from pse.tests.canonical_fixture import CanonicalFixture
 
 
 def identity(n: int) -> SemanticId:
@@ -320,7 +321,7 @@ def physical(runtime: pse.Runtime) -> pse.PhysicalContext:
 
 @pytest.mark.component
 def test_binary_documents_admit_keyed_rows_and_reject_integer_sequences(
-    inspection_settings: pse.EngineSettings, canonical_substrate: str
+    inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
 ) -> None:
     root = Path(__file__).resolve().parents[3]
     physical_root = root / "tests/fixtures/packages/physical-primitives"
@@ -361,7 +362,7 @@ def test_binary_documents_admit_keyed_rows_and_reject_integer_sequences(
     invalid = {**documents, "data/bank.parquet": cast("str | bytes", [1, 2, 3])}
     with pytest.raises(TypeError, match="document content must be str or bytes"):
         pse.ModelingConformance.pure([invalid], physical_documents, inspection_settings)
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = canonical_substrate.runtime(inspection_settings)
     usage = runtime.resource_usage()
     assert usage.limit_bytes == inspection_settings.memory_limit_bytes
     assert usage.pool_peak_bytes >= usage.pool_reserved_now >= 0
@@ -369,9 +370,9 @@ def test_binary_documents_admit_keyed_rows_and_reject_integer_sequences(
 
 @pytest.mark.integration
 def test_modeling_expansion_limits_are_explicit_and_isolated(
-    inspection_settings: pse.EngineSettings, canonical_substrate: str
+    inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = canonical_substrate.runtime(inspection_settings)
     root = Path(__file__).resolve().parents[3]
     manifest = (
         (root / "tests/fixtures/packages/minimal_explicit/package.toml")
@@ -427,9 +428,9 @@ def test_modeling_expansion_limits_are_explicit_and_isolated(
 
 @pytest.mark.integration
 def test_complete_preparation_policy_controls_public_preparation_and_execution(
-    inspection_settings: pse.EngineSettings, canonical_substrate: str
+    inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = canonical_substrate.runtime(inspection_settings)
     root = Path(__file__).resolve().parents[3]
     manifest = on_primitives(
         (root / "tests/fixtures/packages/minimal_explicit/package.toml")
@@ -486,7 +487,9 @@ def test_complete_preparation_policy_controls_public_preparation_and_execution(
 
 @pytest.mark.component
 def test_conformance_preparation_policy_reaches_native_and_pure_compilers(
-    tmp_path: Path, inspection_settings: pse.EngineSettings, canonical_substrate: str
+    tmp_path: Path,
+    inspection_settings: pse.EngineSettings,
+    canonical_substrate: CanonicalFixture,
 ) -> None:
     root = Path(__file__).resolve().parents[3]
     physical_root = root / "tests/fixtures/packages/physical-primitives"
@@ -509,7 +512,7 @@ def test_conformance_preparation_policy_reaches_native_and_pure_compilers(
         for path in physical_root.rglob("*")
         if path.is_file()
     }
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = canonical_substrate.runtime(inspection_settings)
     package = runtime.modeling_from_documents([source], physical(runtime))
     default = package.conform(pse.SolveSettings())
     assert default.passed
@@ -571,9 +574,9 @@ def test_conformance_preparation_policy_reaches_native_and_pure_compilers(
 
 @pytest.mark.integration
 def test_modeling_simulation_events_checks_and_terminal_reports(
-    inspection_settings: pse.EngineSettings, canonical_substrate: str
+    inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = canonical_substrate.runtime(inspection_settings)
     root = Path(__file__).resolve().parents[3]
     # This controlled event/reset journey deliberately selects high fidelity to
     # distinguish localization, reset and terminal quadrature conditions.
@@ -662,9 +665,9 @@ def test_modeling_simulation_events_checks_and_terminal_reports(
 
 @pytest.mark.integration
 def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
-    inspection_settings: pse.EngineSettings, canonical_substrate: str
+    inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = canonical_substrate.runtime(inspection_settings)
     root = Path(__file__).resolve().parents[3]
     source = f'''@id("{identity(221).to_hex()}") package diagnostic {{
  @id("{identity(222).to_hex()}") def D {{
@@ -889,9 +892,9 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
 
 @pytest.mark.integration
 def test_modeling_native_linear_diagnostics_preserve_scope_and_source_coordinates(
-    inspection_settings: pse.EngineSettings, canonical_substrate: str
+    inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = canonical_substrate.runtime(inspection_settings)
     root = Path(__file__).resolve().parents[3]
     source = """package linear {
  def Bad {var x:Scalar; eq lo:x>=2; eq hi:x<=1;}
@@ -978,9 +981,11 @@ def test_modeling_native_linear_diagnostics_preserve_scope_and_source_coordinate
 
 @pytest.mark.integration
 def test_modeling_authored_fixture_shared_checks_and_owned_tables(
-    inspection_settings: pse.EngineSettings, tmp_path: Path, canonical_substrate: str
+    inspection_settings: pse.EngineSettings,
+    tmp_path: Path,
+    canonical_substrate: CanonicalFixture,
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = canonical_substrate.runtime(inspection_settings)
     source = f'''@id("{identity(201).to_hex()}") package p {{
  @id("{identity(202).to_hex()}") def D {{
   @id("{identity(203).to_hex()}") var x:Scalar;
@@ -1118,9 +1123,9 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
 
 @pytest.mark.integration
 def test_modeling_nonlinear_explanation_retains_local_evidence(
-    inspection_settings: pse.EngineSettings, canonical_substrate: str
+    inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = canonical_substrate.runtime(inspection_settings)
     root = Path(__file__).resolve().parents[3]
     manifest = (
         (root / "tests/fixtures/packages/minimal_explicit/package.toml")
@@ -1335,9 +1340,9 @@ def test_pure_conformance_has_no_process_runtime_and_retains_findings(
 
 @pytest.mark.integration
 def test_knowledge_exports_admitted_values_and_bounds_projection(
-    inspection_settings: pse.EngineSettings, canonical_substrate: str
+    inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = canonical_substrate.runtime(inspection_settings)
     root = Path(__file__).resolve().parents[3]
     manifest = on_primitives(
         (root / "tests/fixtures/packages/minimal_explicit/package.toml")

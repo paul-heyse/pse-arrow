@@ -16,6 +16,7 @@ from pse.contracts.enums import (
     PresolvePolicyKind,
     TearMethod,
 )
+from pse.tests.canonical_fixture import CanonicalFixture
 
 #: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
@@ -27,9 +28,9 @@ PRIMITIVES = (
 
 @pytest.mark.integration
 def test_authored_recycle_uses_declared_ports_and_owned_results(
-    inspection_settings: pse.EngineSettings, canonical_substrate: str
+    inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    runtime = canonical_substrate.runtime(inspection_settings)
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
     physical = runtime.physical_from_documents(

@@ -115,8 +115,8 @@ class ValidationTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
-        self.output = self.root / "evidence"
-        self.output.mkdir()
+        self.output = self.root / "build/evidence"
+        self.output.mkdir(parents=True)
 
     def test_source_inventory_tracks_additions_deletions_modes_and_symlinks(
         self,
@@ -1329,7 +1329,14 @@ class ValidationTests(unittest.TestCase):
 
             with (
                 patch.object(
-                    sys, "argv", ["native_tests", "python", f"--junitxml={path}"]
+                    sys,
+                    "argv",
+                    [
+                        "native_tests",
+                        "python",
+                        "--functional-observer-child",
+                        f"--junitxml={path}",
+                    ],
                 ),
                 patch.dict(os.environ, {}, clear=True),
                 patch.object(
@@ -1347,7 +1354,9 @@ class ValidationTests(unittest.TestCase):
             ):
                 self.assertEqual(native_tests.main(), expected)
         with (
-            patch.object(sys, "argv", ["native_tests", "python"]),
+            patch.object(
+                sys, "argv", ["native_tests", "python", "--functional-observer-child"]
+            ),
             patch.dict(os.environ, {}, clear=True),
             patch("subprocess.call") as call,
         ):

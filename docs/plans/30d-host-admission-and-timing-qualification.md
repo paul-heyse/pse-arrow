@@ -1,6 +1,6 @@
 ---
 title: Host admission and timing qualification
-status: draft
+status: done
 date: 2026-10-08
 adrs: [ADR-0166]
 review_sources: [docs/design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md]
@@ -163,10 +163,10 @@ same failing journey's new evidence.
 
 | Package | Inputs and delivered behavior | Migration/deletion and focused acceptance | Status |
 |---|---|---|---|
-| D0 — Host/profile materialization | R0 rules, current topology/effective limits and B0 role identity. Materialize the profiles above and command-class routing. | Verify role sums, allowed physical cores/SMT sets, runtime/ancestor compatibility, reference invariance and widened-cap routes. No machine-wide stress campaign. | Planned |
-| D1 — Working cross-invocation admission | D0; existing environment/supervisor scope owners. Implement fixed-slot selection, reentrant nested use, pressure check and liveness reconciliation. | Migrate command prefixes, ordinary Rust/Python/native wrappers, service/receiver launches and measurement roots. Test simultaneous independent callers, original-clock timeout, nested calls, parent death, surviving units/PID reuse and effective-limit refusal. Delete replaced independent per-run admission assumptions and empty-lock exclusion. | Planned |
-| D2 — Actual functional/timing composition | D1; working A2/B2/C2. Enforce role placement and timing residency/attribution. | Bounded overlapping representative builds/tests, heavy cap escalation, timing exclusion, reference exclusive admission, service restart and cancellation through actual drain. Pure metadata mocks do not qualify real kernel placement. Delete duplicated placement interpretation and stale budget defaults. | Planned |
-| D3 — Selected assembled qualification | All functional A/B/C/D packages and necessary consumer migration/deletion complete. Run the new-scope integrated checks once, with shared terminal/outcome composition. | Real native WS exact reads/writes and unknown acknowledgment; concurrent Rust/Python isolation; compatible receiver coexistence; failed/incomplete pins and referenced cleanup; native interruption/drain; representative edit/re-solve, ordinary/managed study and retained reopen. Scope-end hygiene/manual checks, fix/rerun failures, then documentation handoff. | Planned |
+| D0 — Host/profile materialization | R0 rules, current topology/effective limits and B0 role identity. Materialize the profiles above and command-class routing. | Verify role sums, allowed physical cores/SMT sets, runtime/ancestor compatibility, reference invariance and widened-cap routes. No machine-wide stress campaign. | Implemented; focused controls and selected D3 handoff Tested |
+| D1 — Working cross-invocation admission | D0; existing environment/supervisor scope owners. Implement fixed-slot selection, reentrant nested use, pressure check and liveness reconciliation. | Migrate command prefixes, ordinary Rust/Python/native wrappers, service/receiver launches and measurement roots. Test simultaneous independent callers, original-clock timeout, nested calls, parent death, surviving units/PID reuse and effective-limit refusal. Delete replaced independent per-run admission assumptions and empty-lock exclusion. | Implemented; focused controls and selected D3 handoff Tested |
+| D2 — Actual functional/timing composition | D1; working A2/B2/C2. Enforce role placement and timing residency/attribution. | Bounded overlapping representative builds/tests, heavy cap escalation, timing exclusion, reference exclusive admission, service restart and cancellation through actual drain. Pure metadata mocks do not qualify real kernel placement. Delete duplicated placement interpretation and stale budget defaults. | Implemented; focused controls and selected D3 handoff Tested |
+| D3 — Selected assembled qualification | All functional A/B/C/D packages and necessary consumer migration/deletion complete. Run the new-scope integrated checks once, with shared terminal/outcome composition. | Real native WS exact reads/writes and unknown acknowledgment; concurrent Rust/Python isolation; compatible receiver coexistence; failed/incomplete pins and referenced cleanup; native interruption/drain; representative edit/re-solve, ordinary/managed study and retained reopen. Scope-end hygiene/manual checks, fix/rerun failures, then documentation handoff. | Implemented; focused controls and selected D3 handoff Tested |
 
 Use owner-local `pse_env`, supervisor, execution-contract and receipt tests first,
 plus targeted affected Rust/Python controls with force-validation. Real-placement
@@ -195,7 +195,64 @@ discoverable. Unmanaged host activity, shared-device interference and configured
 ceilings remain explicit limits. D1/D2 settle the initial profile sizes and pressure
 guard with bounded evidence before any performance/safety claim.
 
-Only read-only topology inspection and documentation authoring occurred. No resource
-cap, unit, CPU placement or test campaign changed. Packages remain planned; Plan 30
-owns findings; the next implementation package, once production execution is
-authorized, is R0/D0.
+**Implemented:** the declared profiles, finite host admission, inherited allocations,
+service borrowing and independent compiler-cache lifetime now replace independent
+per-command assumptions. **Tested:** the bounded controls below establish selected
+actual placement and lifetime behavior against a zero failure baseline. They do not
+establish scientific composition, performance improvement or machine-wide safety;
+D3 is complete for the selected authorized scope; Plan 30 owns finding dispositions and the repaired composite Outcome.
+
+## Implementation checkpoint — 2026-10-09
+
+The single host profile declaration and finite allocation ledger now coordinate lanes, independent callers and inherited owners. Actual kernel controls establish disjoint affinity, finite caps, nested reuse, survivor charges after parent death, bounded refusal and release after drain. Ordinary scientific runner processes share one nextest group; pure selections retain parallelism.
+
+An actual widened-profile control exposed a shared cache daemon surviving inside a
+completed compile scope. Its replacement gives the resident daemon an independent
+finite 2 GiB light allocation, verifies private socket and process identity, scrubs
+caller-specific environment and keeps compiler children in their caller's allocation.
+The actual cache lifecycle control records that separation in
+`build/plan30-cache-lifecycle-20261009T071814Z/evidence.json`; thirteen focused cache
+controls also passed. Service identity and client-group containment address the pinned
+client's lazy-start behavior; a transient fork or cache effect remains possible. Cache
+storage is preserved. These controls do not measure compiler throughput or latency.
+
+The failed capacity control was repaired and its affected selection passed: actual
+80 GiB wide and 56 GiB timing callers overlap with disjoint declared affinities, finite
+memory caps and nested allocation reuse. A conflicting unchanged-reference request
+refuses after its original 30-second admission budget. The selected actual control
+passed in 30.984 seconds, with its result in
+`build/plan30-d2-capacity-modes-20261009-3/result.json`. Five focused nested-capacity
+controls cover light/compile affinity inheritance; one focused service-borrowing
+control covers preserving intentionally stopped services instead of parking/resuming
+them. These are placement and lifecycle observations, not performance qualification.
+
+The selected reference startup failure exposed a physical-core versus SMT-affinity
+mismatch in storage launch. Execution storage now uses its declared physical role
+cores, while codec-only storage retains the host profile's affinity. Explicit reference
+demand now starts the actual owning service before observer admission, retaining
+restored validation and readiness refusal. A focused prelaunch control and four
+focused reference-demand controls passed, and the preserved service reached actual native
+WebSocket readiness under unchanged 160 GiB aggregate/16 GiB storage capacities.
+`build/plan30-reference-affinity-20261009/passed.json` records the frozen generation
+and invocation, subsequent actual drain and the controller evidence-rendering error
+recovered from the persisted readiness receipt without repeating startup. This does
+not qualify the scientific journeys or recovery policy of that generation.
+
+D3 resolved the selected native/Python failures through affected-only retries. The original managed thousand-point Python identity passed under the unchanged reference allocation. Scope-end integration and documentation handoff are complete; wider Plan 28 campaigns remain paused.
+
+## Outcome (recorded after implementation)
+
+**Implemented:** this packet's target mechanisms and required consumer migration are
+complete. **Tested:** the focused controls above and the selected assembled D3 journeys
+passed against the zero failure baseline under their recorded conditions. The
+[series Outcome](30-websocket-and-persistent-agent-environment.md#outcome-recorded-after-implementation)
+owns the repaired composite results, commands, current storage restart proof and
+qualification exclusions. Earlier failed receipts retain their original outcome;
+there was no restart of the former full Python suite or broader Plan 28 campaign.
+
+A mistake made and corrected, and deliberate deviations, are recorded at that same
+series Outcome with their owning repair. Enduring contracts and operation guidance
+live in blueprint §20.6/§24.1 and the substrate/environment/validation guides. This
+completed handoff remains while retained Plan 28/29 readers depend on it; it is not an
+active implementation backlog. Benefit measurement and the conditional topology
+investigation retain their explicit authorization and observable triggers.

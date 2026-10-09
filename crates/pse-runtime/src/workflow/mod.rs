@@ -267,12 +267,12 @@ impl Runtime {
         sessions: Arc<EngineFactory>,
         canonical: CanonicalDeployment,
     ) -> Self {
-        let durability = Durability::Durable(Operations::from_store(
+        let durability = Durability::Durable(Box::new(Operations::from_store(
             canonical.store().clone(),
             Operations::process_worker("runtime"),
             LeasePolicy::default(),
             shared.pool(),
-        ));
+        )));
         let physical_cache = Arc::new(physical_cache::PhysicalCache::default());
         let component: Arc<dyn pse_engine::cache_service::CacheComponent> = physical_cache.clone();
         shared.caches().register_component(&component);

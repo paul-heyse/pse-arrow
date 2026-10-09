@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 137
-date: 2026-10-08
+revision: 138
+date: 2026-10-09
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 138 | 2026-10-09 | Proposed ADR-0164/0166, Plan 30 RC01–RC06: §20.6 bounded native WebSocket operation lifetimes, independent persistent services/receiver generations and shared host admission; §24.1 explicit isolated context and terminal-outcome/reference-protected disposal. | Maintainer-authorized Plan 30 implementation; visible `.design-edit`; target contracts and runtime qualification remain distinct. |
 | 137 | 2026-10-08 | Proposed ADR-0164, preparation RC01–RC04: §5.3/§14.3 trust-transition qualification and independent immutable mathematics in a stable symbol universe; §14.4 exact prepared products with fresh attribution and guarded identical-revision premise adoption; explicit acknowledgment/publication, short transaction pacing and original-clock interruption. | Maintainer-authorized Plan 28i/28j execution; visible `.design-edit`; implementation and scoped qualification remain in Plan 28. |
 | 136 | 2026-10-08 | Proposed ADR-0166: §18.8 bounded demand admission, original task clocks and persistent team ownership; §19.3 concurrent independent study sequences; §20.6 one coordinated durable group and finite aggregate placement. Parallel RC01–RC04 and execution defaults are maintainer-confirmed; implementation and E3–E5 qualification remain in Plan 28. | Maintainer-authorized Plan 28 execution; visible `.design-edit` authorization; no ADR acceptance or performance claim. |
 | 135 | 2026-10-07 | Proposed ADR-0164, accepted enhancement RC01: §5.3/§14.3 distinguish default exact deployment-local replay from strict relevant-source producer qualification. Controlled Linux/glibc 2.39 reconstruction uses bounded loader exclusion and context revalidation; immutable products own no native provider handles, and downstream native generation-use contracts remain separate. Unknown consumed premises refuse reuse without preventing fresh science/history. | Maintainer-authorized Plan 28 implementation; visible `.design-edit` authorization. Implementation and assembled qualification remain owned by Plan 28. |

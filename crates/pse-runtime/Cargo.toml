@@ -94,6 +94,7 @@ pse-workspace-hack.workspace = true
 flatbuffers.workspace = true
 
 [dev-dependencies]
+uuid.workspace = true
 pse-operations = { workspace = true, features = ["test-support"] }
 tempfile.workspace = true
 pse-relations = { workspace = true, features = ["test-support"] }

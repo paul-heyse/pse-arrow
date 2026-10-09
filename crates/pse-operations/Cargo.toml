@@ -42,6 +42,8 @@ pse-workspace-hack.workspace = true
 surrealdb.workspace = true
 
 [dev-dependencies]
+futures-util.workspace = true
+tokio-tungstenite.workspace = true
 arrow-schema.workspace = true
 pse-codegen.workspace = true
 # Store tests compare the created schema with canonical registry declarations.

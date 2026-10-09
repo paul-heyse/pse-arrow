@@ -313,7 +313,7 @@ pub enum Durability {
     #[default]
     Ephemeral,
     /// Application execution uses native canonical claims and immutable results.
-    Durable(Operations),
+    Durable(Box<Operations>),
 }
 /// Persistence receipt of one joined execution.
 #[derive(Clone, Debug, Default)]
@@ -2000,7 +2000,7 @@ mod canonical_durable_codec {
         let Durability::Durable(operations) = runtime.durability() else {
             unreachable!()
         };
-        let operations = operations.clone();
+        let operations = operations.as_ref().clone();
         let revision = operations
             .store
             .edit("codec-fixture", None, "source-fixture", &[])

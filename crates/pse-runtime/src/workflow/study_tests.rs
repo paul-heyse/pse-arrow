@@ -1602,7 +1602,7 @@ async fn durable_worker_sixteen_cancelled_occurrences_obey_action_bound_and_drai
         durable_tests::quick(),
         runtime.shared.pool(),
     );
-    let runtime = runtime.with_durability(Durability::Durable(operations));
+    let runtime = runtime.with_durability(Durability::Durable(Box::new(operations)));
     let (sources, definition) = admitted(&runtime, |_, _, fixed| {
         (0..16)
             .map(|index| point(fixed, (index + 1) * 7, vec![], StartPolicy::Fresh))
@@ -1706,7 +1706,7 @@ async fn ephemeral_study_single_population_slot_refuses_before_preparation_or_na
 struct ManagedStudyFixture {
     runtime: Runtime,
     directory: std::path::PathBuf,
-    lock: std::path::PathBuf,
+    controls_resource: String,
     nonce: String,
     worker_pid: u32,
     finished: bool,
@@ -1739,31 +1739,18 @@ fn managed_read_json(path: &std::path::Path) -> serde_json::Value {
 #[cfg(feature = "canonical-tests")]
 impl ManagedStudyFixture {
     async fn start(hold_entries: bool) -> Self {
-        use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
-        let state = std::path::PathBuf::from(std::env::var_os("PSE_SURREAL_STATE").unwrap());
-        let lock = state.join("managed-study-qualification.lock");
-        let deadline = std::time::Instant::now() + Duration::from_secs(60);
-        loop {
-            match std::fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .mode(0o600)
-                .open(&lock)
-            {
-                Ok(_) => break,
-                Err(error)
-                    if error.kind() == std::io::ErrorKind::AlreadyExists
-                        && std::time::Instant::now() < deadline =>
-                {
-                    tokio::time::sleep(Duration::from_millis(20)).await
-                }
-                Err(error) => panic!("exclusive managed study fixture: {error}"),
-            }
-        }
+        use std::os::unix::fs::DirBuilderExt;
         // This is the observer's separately placed pool. The managed primary retains
         // the exact 128 GiB/16 CPU/32 population profile recorded in the state.
         let runtime = tests::runtime_with_workspace(64 << 20);
         let store = runtime.canonical_store();
+        let context = managed_read_json(
+            &store
+                .deployment_state()
+                .join(".contexts")
+                .join(format!("{}.json", store.database())),
+        );
+        let state = std::path::PathBuf::from(context["receiver_state"].as_str().unwrap());
         let allocation = store.native_allocation().unwrap();
         allocation.validate().unwrap();
         assert_eq!(allocation.native_workers, 1);
@@ -1785,6 +1772,12 @@ impl ManagedStudyFixture {
         let nonce: pse_ids::SemanticId = pse_operations::mint_id();
         let nonce = nonce.to_string();
         let directory = state.join(format!("native-entry-qualification-{nonce}"));
+        let controls_resource = pse_operations::testing::register_fixture_controls(
+            &state,
+            store.database(),
+            &directory,
+        )
+        .unwrap();
         std::fs::DirBuilder::new()
             .mode(0o700)
             .create(&directory)
@@ -1802,9 +1795,9 @@ impl ManagedStudyFixture {
             runtime.shared.pool(),
         );
         let mut fixture = Self {
-            runtime: runtime.with_durability(Durability::Durable(operations)),
+            runtime: runtime.with_durability(Durability::Durable(Box::new(operations))),
             directory,
-            lock,
+            controls_resource,
             nonce,
             worker_pid: 0,
             finished: false,
@@ -1900,7 +1893,7 @@ impl ManagedStudyFixture {
             }
         }
         // Keep the public future and its cancellation owner alive while the real
-        // primary drains. A timeout drops neither the fixture nor its cleanup lock;
+        // primary drains. A timeout drops neither the fixture nor its drain owner;
         // Drop retains the actual worker drain ownership during the explicit failure.
         let drained = tokio::time::timeout_at(
             tokio::time::Instant::from_std(self.drain_deadline()),
@@ -2034,8 +2027,18 @@ impl Drop for ManagedStudyFixture {
         if self.worker_pid == 0
             || !std::path::Path::new(&format!("/proc/{}", self.worker_pid)).exists()
         {
-            std::fs::remove_dir_all(&self.directory).unwrap();
-            std::fs::remove_file(&self.lock).unwrap();
+            let result = pse_operations::testing::record_fixture_controls_drain(
+                &self.controls_resource,
+                self.directory.parent().unwrap(),
+                self.runtime.canonical_store().database(),
+            );
+            if let Err(error) = result {
+                if std::thread::panicking() {
+                    eprintln!("managed fixture retained after drain failure: {error}");
+                } else {
+                    panic!("managed fixture drain failed: {error}");
+                }
+            }
         }
     }
 }

@@ -17,7 +17,7 @@ pub const INTERPRETATION: &str = "pse.substrate.v2";
 pub const RESULT_BLOCK_BYTES: usize = 512 * 1024;
 /// Native CBOR index/descriptor envelope admission per append.
 pub const RESULT_INDEX_BYTES: usize = 128 * 1024;
-/// Complete uncompressed selected gRPC message admission.
+/// Complete uncompressed native WebSocket message admission.
 pub const RESULT_MESSAGE_BYTES: usize = 4 * 1024 * 1024;
 /// Every valid index object contains at least the nonempty `key` field. The
 /// minimal CBOR map `{key: "a"}` occupies seven bytes; other mandatory fields

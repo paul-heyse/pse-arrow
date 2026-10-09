@@ -1,6 +1,6 @@
 ---
 title: Native WebSocket RPC and operation lifetimes
-status: draft
+status: done
 date: 2026-10-08
 adrs: [ADR-0164]
 review_sources: [docs/design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md]
@@ -94,14 +94,18 @@ free a scientific capacity owner merely because its observing caller returned.
 
 ## Bounded realization and completed reads
 
-Initial **Proposed** application defaults are 32 outstanding application requests per physical
+The **Implemented** application defaults are 32 outstanding application requests per physical
 connection plus two reserved control requests, route capacity 34, at most 34 deferred routes, one immutably selected
-application session, and at most 16 bounded setup/replay entries. Setup traffic also
+application session, and at most 64 bounded setup/replay entries. Setup traffic also
 uses its bounded reserved admission, so full application occupancy cannot prevent
 replay/settlement control. Reject additional setup before transmission when its replay allowance
 is full; replace the connection only at a controlled idle boundary. Do not discard
 replay history without proving equivalent session semantics. Application operations
 are never added to a reconnect replay log.
+The released server's read-only selection and owner restoration sequence requires
+ordered replay. Only complete adjacent acknowledged selection checkpoints are folded;
+intervening commands retain their order. This replaces the initial 16-entry proposal
+without adding mutation replay or unbounded history.
 
 Retain a 4 MiB complete native wire-message target with finite frame/message limits,
 128 KiB read/write buffers and an 8 MiB maximum write buffer. A1 checks actual SDK
@@ -132,10 +136,10 @@ control-plane contract in 30b, not an implicit application transport fallback.
 
 | Package | Inputs and delivered behavior | Migration/deletion and focused acceptance | Status |
 |---|---|---|---|
-| A0 — Exact lifecycle contract | R0 rule route and source above. Select/pin the minimal SDK family correction, original-clock/SQL support contract and response budgets. | Expired replay/sink wait, interrupted send, definitive conflict, clock/timeout boundary and lost-commit controls distinguish supported claims. Document remaining limits and exact affected dependency pins. | Planned |
-| A1 — Working bounded native connection | A0; 30b B0 context selection; existing codec. Implement immutable WS binding and corrected queue/pending/replay ownership. | Move ordinary/activation connections and all used RPC method adapters. Test native Bytes/record IDs/unsigned/IEEE payloads, typed errors, expired queued work, session/replay limits and siblings. Delete replaced gRPC connection/configuration after migrated controls pass. | Planned |
-| A2 — Complete operations and pages | A1 and existing guarded operations/result layout. Implement original-clock retry, submitted-work drain and acknowledgment settlement; close response/materialization gaps. | Migrate source/revision/protection/publication, run/study/activation, result/analysis/retention, Python/worker and fixture consumers. Test uncertain writes, all statement errors, exact multipage Arrow, late failure, byte limits and slow/abandoned readers. Delete displaced timeout/streaming helpers and gRPC-only accounting/tests. | Planned |
-| A3 — Integration handoff | A2 and working B/C/D consumers. Reconcile deployment and all remaining application callers. | Actual server disconnect/reopen and mixed read/write/study journeys under new controls; D3 owns assembled acceptance. Remove obsolete application gRPC dependency features and probes only when their repair/evidence owner no longer consumes them. | Planned |
+| A0 — Exact lifecycle contract | R0 rule route and source above. Select/pin the minimal SDK family correction, original-clock/SQL support contract and response budgets. | Expired replay/sink wait, interrupted send, definitive conflict, clock/timeout boundary and lost-commit controls distinguish supported claims. Document remaining limits and exact affected dependency pins. | Implemented; focused controls and selected D3 handoff Tested |
+| A1 — Working bounded native connection | A0; 30b B0 context selection; existing codec. Implement immutable WS binding and corrected queue/pending/replay ownership. | Move ordinary/activation connections and all used RPC method adapters. Test native Bytes/record IDs/unsigned/IEEE payloads, typed errors, expired queued work, session/replay limits and siblings. Delete replaced gRPC connection/configuration after migrated controls pass. | Implemented; focused controls and selected D3 handoff Tested |
+| A2 — Complete operations and pages | A1 and existing guarded operations/result layout. Implement original-clock retry, submitted-work drain and acknowledgment settlement; close response/materialization gaps. | Migrate source/revision/protection/publication, run/study/activation, result/analysis/retention, Python/worker and fixture consumers. Test uncertain writes, all statement errors, exact multipage Arrow, late failure, byte limits and slow/abandoned readers. Delete displaced timeout/streaming helpers and gRPC-only accounting/tests. | Implemented; focused controls and selected D3 handoff Tested |
+| A3 — Integration handoff | A2 and working B/C/D consumers. Reconcile deployment and all remaining application callers. | Actual server disconnect/reopen and mixed read/write/study journeys under new controls; D3 owns assembled acceptance. Remove obsolete application gRPC dependency features and probes only when their repair/evidence owner no longer consumes them. | Implemented; focused controls and selected D3 handoff Tested |
 
 Compile touched packages with `just check-package pse-operations` and affected callers;
 target owner-local codec, lifecycle and protected-result tests with force-validation.
@@ -152,7 +156,62 @@ retained state. An earlier gRPC pass is not a WS pass. The expected scientific v
 and native edge cases come from independent prescribed facts, not only round-tripping
 the same questionable codec.
 
-This plan selects a library-first implementation route. A0 remains a bounded working
-prerequisite; no SDK patch or new transport test has been executed in this authoring turn.
-Package status stays planned; Plan 30 owns current finding disposition and D3 owns
-series-level assembled acceptance.
+The library-first route is implemented with a pinned two-crate lifecycle correction.
+The scoped controls and their limitations are recorded below. Plan 30 owns current
+finding dispositions; D3 owns selected assembled acceptance.
+
+## Implementation checkpoint — 2026-10-09
+
+Native SDK and canonical consumers use bounded WebSocket request contexts and
+complete original operation clocks. Submitted work retains its correlation through
+bounded drain; reconnect preserves ordered session state. Final mutation boundaries
+recheck original RPC expiry and applicable saved attempt leases. Ordinary context
+selection uses a read-only marker point probe; a failed or cancelled return to the
+owner role poisons that client until a fresh connection is established. The application
+gRPC path and its dependency features are removed.
+
+**Tested:** the failed-only seven real-server lifetime/selection controls passed
+under the readmitted native service (nextest
+`d48e0d3f-10f4-45f2-a1df-9b47da33106c`, 7 passed, 0 failed).
+Three peer controls cover rejected owner selection, late cancelled owner acknowledgment
+and ordered replay across an intervening variable. The standalone patched SDK's four
+private controls passed in
+`build/plan30-sdk-private-20261009-1/result.json`: uncertain start-send,
+cancelled stalled flush, retained submitted correlation and redacted closed-channel
+logging. Its ninety-second drain boundary is exercised with controlled timestamps;
+this is not a ninety-second wall-clock measurement.
+
+**Tested:** six selected exact-value/paging/execution/analysis controls ran against
+the real server: five passed; the returned-block test failed because generic borrower
+deferral bypassed its live-buffer guard. Moving result-buffer drain ahead of borrower
+deferral repaired that ordering. Only that failed test was rerun, passing with nextest
+`8f1a7624-3c96-48ec-bfac-3e0a223e9d29` (1 passed, 0 failed).
+The original failed fixture remains preserved.
+
+Exact 3.3 source and the real-server provisioning control exposed an A0 support
+limit: `expr_required_context` assigns all function calls, including `time::micros`,
+to database context. Pre-database catalog DDL therefore cannot use the ordinary UTC
+commit fence. Explicit namespace/database creation uses a fresh unselected native
+administrative connection, the original SDK clock and finite server backstops; only
+acknowledged DDL admits subsequent context selection. Caller expiry after submission
+retains an unknown catalog outcome and does not establish server abort. Atomic schema
+installation and scientific mutations retain their in-database final fences.
+
+The selected assembled scientific journeys and scope-end checks completed at 30d D3. Their Outcome does not qualify unexercised scientific scope or establish that the previous HTTP/2 failure had a transport root cause.
+
+## Outcome (recorded after implementation)
+
+**Implemented:** this packet's target mechanisms and required consumer migration are
+complete. **Tested:** the focused controls above and the selected assembled D3 journeys
+passed against the zero failure baseline under their recorded conditions. The
+[series Outcome](30-websocket-and-persistent-agent-environment.md#outcome-recorded-after-implementation)
+owns the repaired composite results, commands, current storage restart proof and
+qualification exclusions. Earlier failed receipts retain their original outcome;
+there was no restart of the former full Python suite or broader Plan 28 campaign.
+
+A mistake made and corrected, and deliberate deviations, are recorded at that same
+series Outcome with their owning repair. Enduring contracts and operation guidance
+live in blueprint §20.6/§24.1 and the substrate/environment/validation guides. This
+completed handoff remains while retained Plan 28/29 readers depend on it; it is not an
+active implementation backlog. Benefit measurement and the conditional topology
+investigation retain their explicit authorization and observable triggers.

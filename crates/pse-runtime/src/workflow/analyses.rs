@@ -631,7 +631,7 @@ impl ModelingSolvePreparation {
         let revision = self.source.canonical_revision().clone();
         let mut sources = vec![revision.clone()];
         let operations = match runtime.durability() {
-            Durability::Durable(operations) => operations.clone(),
+            Durability::Durable(operations) => operations.as_ref().clone(),
             Durability::Ephemeral => super::Operations::from_store(
                 runtime.canonical_store().clone(),
                 "analysis",

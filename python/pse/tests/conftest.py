@@ -12,18 +12,23 @@ import hashlib
 import os
 import subprocess
 import sys
+import uuid
+from collections.abc import Generator
 from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.ipc
 import pytest
+from scripts import surreal_server, test_resources
 
+import pse
 from pse._build import (
     CacheSettings,
     EngineSettings,
     build_info,
 )
 from pse.contracts.extension_types import EXTENSION_NAMES
+from pse.tests.canonical_fixture import CanonicalFixture
 
 #: Modules `pse` itself must not pull in at import (blueprint §21.6, §3.1).
 #:
@@ -63,17 +68,56 @@ def pytest_sessionstart() -> None:
             raise pytest.UsageError(message)
 
 
-@pytest.fixture(scope="session")
-def canonical_substrate() -> str:
-    """Use the explicitly supervised, initialized persistent scientific fixture."""
-    state = os.environ.get("PSE_SURREAL_STATE")
-    if state is None:
+@pytest.fixture
+def canonical_substrate(
+    request: pytest.FixtureRequest,
+) -> Generator[CanonicalFixture, None, None]:
+    """Register an opaque per-test database before provisioning or opening it."""
+    selected = os.environ.get("PSE_SURREAL_STATE")
+    if selected is None:
         pytest.fail(
-            "Canonical workflow tests require PSE_SURREAL_STATE "
-            "and just canonical-init.",
+            "Canonical workflows require an explicit supervised PSE_SURREAL_STATE.",
             pytrace=False,
         )
-    return state
+    state = Path(selected).resolve(strict=True)
+    database = "canonical_test_" + uuid.uuid4().hex
+    resource = test_resources.register(
+        {"state": str(state), "database": database, "test": request.node.nodeid}
+    )
+    fixture = CanonicalFixture(str(state), database, resource)
+    registered_context = False
+    try:
+        profile = os.environ.get("PSE_TEST_EXECUTION_PROFILE", "exclusive-observer")
+        worker = os.environ.get("PSE_WORKER_BINARY")
+        if worker is None:
+            receiver = surreal_server.config_for(state).get("primary_receiver")
+            if isinstance(receiver, dict):
+                worker = str(receiver["worker_executable"])
+        surreal_server.register_context(
+            state, database, profile, Path(worker) if worker else None
+        )
+        registered_context = True
+        config = surreal_server.config_for(state)
+        if config.get("parked"):
+            surreal_server.unpark_service(state)
+            config = surreal_server.config_for(state)
+        if not surreal_server.ready(state, config):
+            surreal_server.start(state, config)
+        settings = request.getfixturevalue(
+            "managed_observer_settings"
+            if request.node.get_closest_marker("managed_primary")
+            else "inspection_settings"
+        )
+        pse.Runtime.initialize_database(
+            settings, substrate=str(state), database=database
+        )
+        yield fixture
+    finally:
+        fixture.drain()
+        units = (
+            surreal_server.drain_context(state, database) if registered_context else []
+        )
+        test_resources.record_drain(resource, units=units)
 
 
 @pytest.fixture(scope="session")

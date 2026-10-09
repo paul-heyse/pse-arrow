@@ -35,6 +35,7 @@ exclude = [
   "tooling/dfarrow-apiex/verify",
   "docker",
   "external",
+  "vendor",
   "crates/pse-operations-queries",
   "crates/pse-catalog",
 ]
@@ -143,8 +144,9 @@ pyo3-arrow = "=0.19.0"
 pyo3-introspection = "=0.29.2"
 
 # ---- runtime ----
-surrealdb = { version = "=3.3.0", default-features = false, features = [
-  "protocol-grpc",
+surrealdb = { version = "=3.3.0", path = "vendor/surrealdb", default-features = false, features = [
+  "protocol-ws",
+  "rustls",
 ] }
 tokio = { version = "=1.53.2", default-features = false, features = [
   "rt-multi-thread",
@@ -157,6 +159,7 @@ tokio = { version = "=1.53.2", default-features = false, features = [
 tokio-util = { version = "=0.7.19", default-features = false, features = [
   "rt",
 ] }
+tokio-tungstenite = "=0.28.0"
 tracing = "=0.1.44"
 datafusion-tracing = "=55.0.0"
 instrumented-object-store = "=55.0.0"

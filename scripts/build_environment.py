@@ -131,6 +131,20 @@ def configure(
                     / f"pse-sccache-{os.getuid()}-{key}.sock"
                 ),
             )
+    if wrapper and Path(wrapper).name == "sccache":
+        # The cache daemon has a distinct supervised light lifetime. Compiler
+        # processes remain in the caller's allocation; the wrapper verifies the
+        # admitted daemon generation and contains sccache's lazy-start fallback.
+        managed = root / "scripts/sccache"
+        real = env.get("PSE_SCCACHE_BINARY") if Path(wrapper) == managed else wrapper
+        if not real:
+            raise ValueError(
+                "managed compiler cache requires its exact installed binary"
+            )
+        env["PSE_SCCACHE_BINARY"] = real
+        env["RUSTC_WRAPPER"] = str(managed)
+        if env.get("PSE_NATIVE_COMPILER_CACHE"):
+            env["PSE_NATIVE_COMPILER_CACHE"] = str(managed)
     # Each checkout, git worktrees included, builds into its own target directory. A
     # directory inherited from another checkout is not an override for this one: a
     # long-running agent or editor process started under that checkout's direnv carries

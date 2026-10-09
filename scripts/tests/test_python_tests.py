@@ -12,27 +12,27 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import python_tests, surreal_server
+from scripts import python_tests, surreal_server, test_run
 
 
 class PythonProcessRoutingTests(unittest.TestCase):
-    def test_ordinary_defaults_keep_sixteen_workers_and_original_categories(
+    def test_ordinary_defaults_keep_four_workers_and_original_categories(
         self,
     ) -> None:
         with (
             patch.object(sys, "argv", ["python_tests"]),
-            patch.object(python_tests.subprocess, "call", return_value=0) as run,
+            patch.object(test_run, "run_python", return_value=0) as run,
         ):
             self.assertEqual(python_tests.main(), 0)
         command = run.call_args.args[0]
         self.assertIn(
-            ["-n", "16"],
+            ["-n", "4"],
             [command[index : index + 2] for index in range(len(command) - 1)],
         )
         self.assertEqual(
             command[-2:], ["-m", "(unit or component) and not managed_primary"]
         )
-        self.assertEqual(run.call_args.kwargs["cwd"], python_tests.ROOT)
+        self.assertEqual(python_tests.ROOT, Path(__file__).resolve().parents[2])
 
     def test_explicit_integration_keeps_selection_inside_ordinary_partition(
         self,
@@ -47,7 +47,7 @@ class PythonProcessRoutingTests(unittest.TestCase):
         ]
         with (
             patch.object(sys, "argv", ["python_tests", *extra]),
-            patch.object(python_tests.subprocess, "call", return_value=7) as run,
+            patch.object(test_run, "run_python", return_value=7) as run,
         ):
             self.assertEqual(python_tests.main(), 7)
         command = run.call_args.args[0]
@@ -67,8 +67,11 @@ class PythonProcessRoutingTests(unittest.TestCase):
         with (
             patch.object(sys, "argv", ["python_tests", *extra]),
             patch.dict(os.environ, {"PSE_SURREAL_STATE": "/owned/state"}),
+            patch.object(
+                surreal_server, "reference_state", side_effect=lambda state: state
+            ),
             patch.object(surreal_server, "observer", return_value=19) as placed,
-            patch.object(python_tests.subprocess, "call") as run,
+            patch.object(test_run, "run_python") as run,
         ):
             self.assertEqual(python_tests.main(), 19)
         state, command = placed.call_args.args
@@ -97,7 +100,7 @@ class PythonProcessRoutingTests(unittest.TestCase):
         with (
             patch.object(sys, "argv", ["python_tests", *extra]),
             patch.object(surreal_server, "observer") as placed,
-            patch.object(python_tests.subprocess, "call", return_value=0) as run,
+            patch.object(test_run, "run_python", return_value=0) as run,
         ):
             self.assertEqual(python_tests.main(), 0)
         command = run.call_args.args[0]
@@ -112,7 +115,7 @@ class PythonProcessRoutingTests(unittest.TestCase):
     def test_managed_child_requires_the_declared_route(self) -> None:
         with (
             patch.object(sys, "argv", ["python_tests", "--managed-primary-child"]),
-            patch.object(python_tests.subprocess, "call") as run,
+            patch.object(test_run, "run_python") as run,
             self.assertRaises(ValueError),
         ):
             python_tests.main()
@@ -131,6 +134,6 @@ class PythonProcessRoutingTests(unittest.TestCase):
     def test_child_signal_status_keeps_shell_semantics(self) -> None:
         with (
             patch.object(sys, "argv", ["python_tests"]),
-            patch.object(python_tests.subprocess, "call", return_value=-signal.SIGTERM),
+            patch.object(test_run, "run_python", return_value=-signal.SIGTERM),
         ):
             self.assertEqual(python_tests.main(), 128 + signal.SIGTERM)

@@ -35,6 +35,7 @@ from pse.contracts.enums import (
 )
 from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
+from pse.tests.canonical_fixture import CanonicalFixture
 
 #: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
@@ -62,9 +63,9 @@ def identity(n: int) -> SemanticId:
 
 @pytest.fixture
 def runtime(
-    inspection_settings: pse.EngineSettings, canonical_substrate: str
+    inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
 ) -> pse.Runtime:
-    return pse.Runtime(inspection_settings, substrate=canonical_substrate)
+    return canonical_substrate.runtime(inspection_settings)
 
 
 @pytest.fixture

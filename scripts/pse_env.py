@@ -6,9 +6,9 @@
 checkout's environment: the caller's values, then ``.envrc.local`` for anything the caller
 has not set, then repository defaults (the venv, the local solver stack), then the
 compiler/cache configuration of ``build_environment.configure``. Native capabilities are
-admitted only on request, under ``native_operation``'s operation owner. Unless asked not
-to, the command runs in its own systemd scope inside ``$PSE_SLICE`` (default
-``pse.slice``) with ``$PSE_MEMORY_MAX`` as its failure boundary.
+admitted only on request, under ``native_operation``'s operation owner. A finite host
+allocation precedes each owned scope in ``pse.slice``; nested work borrows its actual
+owner. ``PSE_MEMORY_MAX`` widens a compatible allocation and its ancestors together.
 
 ``--print`` emits shell exports of the ordinary environment (never native setup, never a
 local secret's value), for ``.envrc`` and a Claude ``SessionStart`` hook. ``--explain``
@@ -39,13 +39,16 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from scripts import build_environment  # noqa: E402 -- direct-script path routing
+from scripts import (  # noqa: E402 -- direct-script path routing
+    build_environment,
+    test_resources,
+)
+from scripts import host_admission as host  # noqa: E402 -- placement owner
 from scripts import native_operation as operation  # noqa: E402 -- same routing
 
 FAILURE = 125
 LOCAL = ".envrc.local"
 DEFAULT_SLICE = "pse.slice"
-DEFAULT_MEMORY_MAX = "120G"
 SOLVER_STACK = Path("/opt/pse-solvers")
 # Values configure() replaces to keep compiler supervision and checkout isolation.
 CONFIGURED = {
@@ -117,7 +120,9 @@ def compose(
     state_home = env.get("XDG_STATE_HOME") or str(
         Path(env.get("HOME", str(Path.home()))) / ".local/state"
     )
-    env.setdefault("PSE_SURREAL_STATE", str(Path(state_home) / "pse-arrow/surreal"))
+    env.setdefault(
+        "PSE_SURREAL_STATE", str(Path(state_home) / "pse-arrow/surreal-functional-v2")
+    )
     env["PATH"] = prepend(str(venv(root, env) / "bin"), env.get("PATH"))
     if (SOLVER_STACK / "bin").is_dir():
         env["PATH"] = prepend(str(SOLVER_STACK / "bin"), env["PATH"])
@@ -242,6 +247,26 @@ def limits(name: str | None) -> list[tuple[str, str]]:
     return found
 
 
+def current_memory_ceiling() -> int | None:
+    """Smallest actual cgroup ancestor, including a narrower observer role."""
+    group = operation.process_group(os.getpid())
+    if not group:
+        raise BoundaryError("Cannot observe actual enclosing memory placement")
+    root = Path("/sys/fs/cgroup")
+    current = root / group.lstrip("/")
+    ceilings = []
+    while current.is_relative_to(root):
+        path = current / "memory.max"
+        if path.is_file():
+            value = path.read_text().strip()
+            if value != "max":
+                ceilings.append(int(value))
+        if current == root:
+            break
+        current = current.parent
+    return min(ceilings) if ceilings else None
+
+
 def require_store(env: Mapping[str, str]) -> None:
     """Fail early, with the fix, when the selected canonical server is not serving."""
     state = Path(env["PSE_SURREAL_STATE"])
@@ -255,13 +280,24 @@ def require_store(env: Mapping[str, str]) -> None:
     from scripts import surreal_server  # noqa: PLC0415 -- supervisor owns readiness
 
     config = json.loads(config_path.read_text())
+    owner = host.inherit(env)
+    if owner is None:
+        if config.get("admission") not in {"open", "quiesced"} or (
+            config.get("admission") == "quiesced" and not config.get("parked")
+        ):
+            raise BoundaryError("Selected canonical service is not admitted")
+        return  # Demand readiness inside the registered actual allocation.
+    if config.get("parked") and owner.profile.exclusive:
+        surreal_server.unpark_service(state)
+        config = surreal_server.config_for(state)
+    if config.get("admission") == "open" and not surreal_server.ready(state, config):
+        surreal_server.start(state, config)
     if config.get("admission") != "open" or not surreal_server.ready(state, config):
         raise BoundaryError(
             f"canonical server for {state} is not ready; run: just surreal start --state {state}"
         )
 
 
-MEMORY_VALUE = re.compile(r"\d+[KMGT]?|\d+%|infinity", re.IGNORECASE)
 SLICE_VALUE = re.compile(r"[A-Za-z0-9_:.-]+\.slice")
 
 
@@ -297,51 +333,97 @@ def manager_available() -> bool:
     return probe.returncode == 0
 
 
-def memory_cap(env: Mapping[str, str]) -> str | None:
-    """The command's MemoryMax: a size, percentage or infinity; None for `off`."""
-    value = env.get("PSE_MEMORY_MAX") or DEFAULT_MEMORY_MAX
-    if value == "off":
-        return None
-    if not MEMORY_VALUE.fullmatch(value):
-        raise BoundaryError(
-            f"PSE_MEMORY_MAX={value!r} is not a size (e.g. 64G), a percentage, infinity or off"
-        )
-    return value
-
-
 def placement(env: dict[str, str], *, native: bool) -> list[str]:
     """systemd-run arguments that give the command its own scope, or nothing."""
+    allocation = host.inherit(env)
+    if allocation is not None:
+        requested = env.get("PSE_MEMORY_MAX")
+        if (
+            requested is not None
+            and host.finite_bytes(requested) > allocation.profile.memory
+        ):
+            raise BoundaryError(
+                "Nested memory request exceeds the admitted enclosing allocation; start this work in a widened allocation"
+            )
+        actual = current_memory_ceiling()
+        if (
+            requested is not None
+            and actual is not None
+            and host.finite_bytes(requested) > actual
+        ):
+            raise BoundaryError(
+                "Nested memory request exceeds the actual enclosing role/ancestor cap; enter a widened role before execution"
+            )
+        requested_class = env.get("PSE_RESOURCE_CLASS")
+        if requested_class and requested_class != allocation.profile.name:
+            desired = host.select(requested_class, requested)
+            # Light and compile classify nested work, not a demand to move its
+            # inherited CPU lane. Explicit scientific lanes keep that refusal.
+            changes_lane = requested_class not in {"light", "compile"} and not set(
+                desired.cores
+            ).issubset(host.cpu_set(allocation.profile.cores))
+            if (
+                (desired.exclusive and not allocation.profile.exclusive)
+                or desired.memory > allocation.profile.memory
+                or changes_lane
+            ):
+                raise BoundaryError(
+                    "Nested resource class exceeds the admitted enclosing allocation; start a new matching allocation"
+                )
+        return []
     if operation.scope_owner() is not None:
-        # Never leave a scope that protects native generations or a managed worker.
-        return []
-    selected = slice_name(env)
-    cap = memory_cap(env)
+        raise BoundaryError("Native operation has no verified host allocation")
+    slice_name(env)  # Validate an explicit caller selection before admission.
     if not manager_available():
-        return []
+        raise BoundaryError(
+            "Coordinated command placement requires the systemd user manager"
+        )
     for name, value in manager_environment().items():
         env.setdefault(name, value)
     kind = "native" if native else "cmd"
+    profile = host.select(
+        env.get("PSE_RESOURCE_CLASS", "functional"), env.get("PSE_MEMORY_MAX")
+    )
+    allocation = host.acquire(profile, directory=host.root_path(env))
+    env.update(allocation.environment())
+    try:
+        host.enforce_parent(profile, env)
+        host.enforce_allocation(allocation, env)
+    except Exception:
+        allocation.release()
+        raise
+    selected = host.allocation_slice(allocation)
+    cap = str(profile.memory)
+    unit = f"pse-{kind}-{uuid.uuid4().hex}.scope"
+    allocation.register(unit)
     command = [
         "systemd-run",
         "--user",
         "--scope",
         "--quiet",
         "--collect",
-        f"--unit=pse-{kind}-{uuid.uuid4().hex}.scope",
+        f"--unit={unit}",
     ]
     if selected is not None:
         command.append(f"--slice={selected}")
     if cap is not None:
         command += ["-p", f"MemoryMax={cap}", "-p", "MemorySwapMax=0"]
-        requested = parse_bytes(cap)
-        for group, value in limits(selected):
-            if requested is not None and int(value) < requested:
-                print(
-                    f"pse-env: PSE_MEMORY_MAX={cap} is bounded by {group} MemoryMax={value}",
-                    file=sys.stderr,
-                )
-                break
-    return [*command, "--"]
+    command += [
+        "-p",
+        "AllowedCPUs=" + " ".join(map(str, host.cpu_set(profile.cores))),
+        "-p",
+        f"CPUQuota={len(profile.cores) * 100}%",
+    ]
+    return [
+        *command,
+        "--",
+        setup_python(ROOT, env),
+        str(ROOT / "scripts/pse_env.py"),
+        "--bind-allocation",
+        unit,
+        "--no-scope",
+        "--",
+    ]
 
 
 def setup_python(root: Path, env: Mapping[str, str]) -> str:
@@ -390,18 +472,29 @@ def native(
         return execute(command, operation.environment(requested, env))
     prefix = placement(env, native=True) if scope else []
     if prefix:
-        return execute(
-            [
-                *prefix,
-                setup_python(root, env),
-                str(root / "scripts/pse_env.py"),
-                "--no-scope",
-                "--native=" + ",".join(requested),
-                "--",
-                *command,
-            ],
-            env,
-        )
+        try:
+            status = subprocess.call(
+                [
+                    *prefix,
+                    setup_python(root, env),
+                    str(root / "scripts/pse_env.py"),
+                    "--no-scope",
+                    "--native=" + ",".join(requested),
+                    "--",
+                    *command,
+                ],
+                env=env,
+            )
+            return 128 - status if status < 0 else status
+        finally:
+            allocation = host.inherit(env)
+            if allocation is not None:
+                allocation.release()
+            for error in test_resources.reclaim_reports():
+                print(
+                    f"test-resources: report remains pinned after cleanup error: {error}",
+                    file=sys.stderr,
+                )
     from scripts import native_cache as cache  # noqa: PLC0415 -- owner cycle
 
     os.environ.clear()
@@ -491,20 +584,41 @@ def explain(root: Path, caller: Mapping[str, str], requested: list[str] | None) 
     if owner is not None:
         lines.append(f"placement         inside {owner['unit']} (kept)")
     elif not manager_available():
-        lines.append("placement         in place (no systemd user manager)")
+        lines.append("placement         refused (systemd user manager required)")
     else:
         lines.append(
             f"placement         new scope in {selected or 'the caller slice'};"
-            f" PSE_MEMORY_MAX={env.get('PSE_MEMORY_MAX', DEFAULT_MEMORY_MAX)}"
+            f" PSE_MEMORY_MAX={env.get('PSE_MEMORY_MAX', 'declared capacity profile')}"
         )
-        bounds = limits(selected)
+    try:
+        profile = host.select(
+            env.get("PSE_RESOURCE_CLASS", "functional"), env.get("PSE_MEMORY_MAX")
+        )
         lines.append(
-            "aggregate limits  "
+            f"capacity class    {profile.name}; {profile.memory // host.GIB} GiB; physical cores {','.join(map(str, profile.cores))}; aggregate {host.aggregate(profile) // host.GIB} GiB"
+        )
+        with host.allocation_metadata(host.root_path(env)) as ledger:
+            owners = list(ledger["owners"].values())
+        lines.append(
+            "current owners    "
             + (
-                ", ".join(f"{group} MemoryMax={value}" for group, value in bounds)
+                ", ".join(
+                    f"{item['class']} pid={item['pid']} units={len(item['units'])}"
+                    for item in owners
+                )
                 or "none"
             )
         )
+        lines.append(
+            f"host pressure     MemAvailable={host.memory_info()['MemAvailable'] // host.GIB} GiB; startup guard={host.policy()['pressure_guard_gib']} GiB (ceilings are not reservations)"
+        )
+    except (ValueError, OSError) as error:
+        lines.append(f"capacity          refused: {error}")
+    bounds = limits(selected)
+    lines.append(
+        "aggregate limits  "
+        + (", ".join(f"{group} MemoryMax={value}" for group, value in bounds) or "none")
+    )
     lines.append(
         "local values      "
         + (
@@ -519,12 +633,39 @@ def explain(root: Path, caller: Mapping[str, str], requested: list[str] | None) 
     return "\n".join(lines) + "\n"
 
 
+def required_allocation(
+    env: Mapping[str, str], *, handoff: bool = False
+) -> host.Allocation:
+    allocation = host.inherit(env, handoff=handoff)
+    if allocation is None:
+        raise BoundaryError("Missing registered allocation handoff")
+    return allocation
+
+
+def require_enclosing_owner(env: Mapping[str, str], *, no_scope: bool) -> None:
+    if no_scope and host.inherit(env) is None:
+        raise BoundaryError("--no-scope requires an actual admitted enclosing owner")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="pse-env", description=__doc__)
     parser.add_argument("--print", action="store_true", dest="print_exports")
     parser.add_argument("--explain", action="store_true")
     parser.add_argument("--native", nargs="?", const="__default__", default=None)
     parser.add_argument("--no-scope", action="store_true")
+    parser.add_argument(
+        "--resource-class",
+        choices=(
+            "light",
+            "compile",
+            "functional",
+            "wide",
+            "timing",
+            "reference",
+            "exclusive",
+        ),
+    )
+    parser.add_argument("--bind-allocation", help=argparse.SUPPRESS)
     parser.add_argument(
         "--store",
         action="store_true",
@@ -556,17 +697,52 @@ def main(argv: Sequence[str] | None = None) -> int:
         if not command:
             parser.error("give a command after --, or use --print/--explain")
         env = compose(ROOT, caller)
+        if args.resource_class:
+            env["PSE_RESOURCE_CLASS"] = args.resource_class
+        elif host.MARKER not in env:
+            env.setdefault(
+                "PSE_RESOURCE_CLASS", host.classify(command, requested is not None)
+            )
+        if args.bind_allocation:
+            allocation = required_allocation(env, handoff=True)
+            allocation.bind(args.bind_allocation)
+            # User managers can enforce memory/CPU quota without a delegated
+            # cpuset controller. Bind inherited scheduler affinity on the child.
+            os.sched_setaffinity(0, host.cpu_set(allocation.profile.cores))
         for note in refusals(caller, env, ANNOUNCED):
             print(note, file=sys.stderr)
         if args.store:
+            env["PSE_REQUIRE_STORE"] = "1"
+        if env.get("PSE_REQUIRE_STORE"):
             require_store(env)
+            if host.inherit(env) is not None:
+                env.pop("PSE_REQUIRE_STORE", None)
         status = unexecutable(command, env)
         if status is not None:
             return status
+        require_enclosing_owner(env, no_scope=args.no_scope)
+        if host.inherit(env) is not None:
+            placement(env, native=requested is not None)
         if requested is not None:
             return native(ROOT, requested, command, env, scope=not args.no_scope)
         prefix = [] if args.no_scope else placement(env, native=False)
-        return execute([*prefix, *command], env)
+        if not prefix:
+            return execute(command, env)
+        try:
+            status = subprocess.call([*prefix, *command], env=env)
+            return 128 - status if status < 0 else status
+        finally:
+            allocation = host.inherit(env)
+            if allocation is not None and not allocation.release():
+                print(
+                    f"pse-env: allocation retained until actual drain: {env[host.MARKER]}",
+                    file=sys.stderr,
+                )
+            for error in test_resources.reclaim_reports():
+                print(
+                    f"test-resources: report remains pinned after cleanup error: {error}",
+                    file=sys.stderr,
+                )
     except BoundaryError as error:
         print(f"pse-env: {error}", file=sys.stderr)
         return FAILURE

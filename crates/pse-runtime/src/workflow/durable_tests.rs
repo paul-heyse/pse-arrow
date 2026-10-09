@@ -75,7 +75,7 @@ pub(super) fn durable_runtime_on(runtime: Runtime) -> Runtime {
         quick(),
         runtime.shared.pool(),
     );
-    runtime.with_durability(Durability::Durable(operations))
+    runtime.with_durability(Durability::Durable(Box::new(operations)))
 }
 
 #[cfg(feature = "canonical-tests")]
@@ -170,7 +170,7 @@ async fn canonical_registration_refusal_never_returns_success_or_fabricates_head
         quick(),
         runtime.shared.pool(),
     );
-    let runtime = runtime.with_durability(Durability::Durable(operations));
+    let runtime = runtime.with_durability(Durability::Durable(Box::new(operations)));
     let (package, analysis) = package_on(
         &runtime,
         "package p { def Root { param x:Scalar=3; annotation report x(\"constant\"); } }",

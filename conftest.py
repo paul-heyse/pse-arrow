@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 import xdist
+from scripts import test_resources
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Sequence
@@ -279,6 +280,9 @@ def pytest_collection_modifyitems(
         Whatever the wrapped hook implementations returned.
     """
     _check_markers(items)
+    for item in items:
+        if "canonical_substrate" in getattr(item, "fixturenames", ()):
+            item.add_marker(pytest.mark.xdist_group(name="canonical-owner"))
     result = yield
     _deselect_parity(config, items)
     _deselect_producer_deployment(config, items)
@@ -291,10 +295,22 @@ def pytest_collection_finish(session: pytest.Session) -> None:
     Args:
         session: The collected test session.
     """
+    invocation_path = os.environ.get("PSE_TEST_INVOCATION")
     path = os.environ.get("PSE_TEST_ENUMERATION")
     if path:
         for item in session.items:
             item.user_properties.append(("nodeid", item.nodeid))
+    if xdist.is_xdist_worker(session):
+        return  # The controller publishes and verifies the common worker catalog.
+    if xdist.is_xdist_controller(session) and not session.config.getoption(
+        "collectonly"
+    ):
+        return
+    if invocation_path and not test_resources.publish_python_collection(
+        Path(invocation_path), [item.nodeid for item in session.items]
+    ):
+        return
+    if path:
         if xdist.is_xdist_worker(session):
             return
         # collect-only stays local even when parallel execution is configured.
@@ -319,6 +335,11 @@ def pytest_xdist_node_collection_finished(
     node: "WorkerController", ids: "Sequence[str]"
 ) -> None:
     """Record the worker collection once; xdist verifies agreement across workers."""
+    invocation_path = os.environ.get("PSE_TEST_INVOCATION")
+    if invocation_path and not test_resources.publish_python_collection(
+        Path(invocation_path), ids
+    ):
+        return
     path = os.environ.get("PSE_TEST_ENUMERATION")
     if path and not node.config.stash.get(_parallel_inventory_written_key, False):
         _write_selected_inventory(path, ids)

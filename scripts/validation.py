@@ -31,7 +31,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import (
+        Mapping,
+    )
 
 from scripts import build_environment, producer_deployment, validation_receipts
 from scripts.validation_scope import (
@@ -72,6 +74,7 @@ def relevant_environment(source: Mapping[str, str] | None = None) -> dict[str, s
             "CARGO_TARGET_DIR",
             "SCCACHE_DIR",
             "CARGO_BUILD_JOBS",
+            "RUST_MIN_STACK",
         )
         if key in source_environment
     }
@@ -629,13 +632,20 @@ def run_gates(
         "parent": None,
         "environment": relevant_environment(),
     }
+    from scripts import (  # noqa: PLC0415 -- validation/terminal runner cycle
+        test_resources,
+        test_run,
+    )
+
+    report_resource = test_resources.register_report(output, root=root)
     selected = {gate.name for gate in gates}
     if reuse_from:
         parent = reuse_from.resolve()
-        receipt["parent"] = {
-            "path": str(parent),
-            "digest": validation_receipts.digest(parent / "checks.json"),
-        }
+        with test_resources.reference_report(parent, output):
+            receipt["parent"] = {
+                "path": str(parent),
+                "digest": validation_receipts.digest(parent / "checks.json"),
+            }
         receipt["checks"] = validation_receipts.reuse_checks(
             parent,
             snapshot,
@@ -644,6 +654,7 @@ def run_gates(
             set(reuse),
             set(transfer),
             change_reason,
+            consumer=output,
         )
     write_json(
         output / "scope.json", {"checks": receipt["scope"], "exclusions": EXCLUSIONS}
@@ -838,6 +849,14 @@ def run_gates(
                     checkpoint(output, receipt)
                     continue
             checkpoint(output, receipt)
+        resource_invocation = None
+        if report and recipe in {"native-test", "native-python", "feature-absence"}:
+            kind = "python" if recipe == "native-python" else "rust"
+            resource_invocation = test_resources.invocation(
+                kind, [], terminal_owner="assessment"
+            )
+            gate_env[test_resources.MARKER] = str(resource_invocation)
+            record["resource_invocation"] = str(resource_invocation)
         record.update(execute(root, output, gate.name, command, gate_env))
         record["evidence_kind"] = "executed"
         interrupted = record["status"] == "interrupted"
@@ -928,6 +947,8 @@ def run_gates(
             except (OSError, ValueError) as error:
                 record["report_errors"].append(f"missing current collection: {error}")
         compose_selection(record)
+        if resource_invocation is not None:
+            test_run.finish(resource_invocation, record, "assessment")
         validation_receipts.classify(record, output)
         record["artifacts"][record["log"]] = validation_receipts.digest(
             output / record["log"]
@@ -973,6 +994,12 @@ def run_gates(
         and all(validation_receipts.qualified(c) for c in receipt["checks"])
     )
     checkpoint(output, receipt)
+    test_resources.finish_report(report_resource, receipt)
+    for error in test_resources.reclaim_reports():
+        print(
+            f"test-resources: report remains pinned after cleanup error: {error}",
+            file=sys.stderr,
+        )
     return int(not receipt["required_checks_covered"])
 
 

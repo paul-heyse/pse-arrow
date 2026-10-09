@@ -597,6 +597,41 @@ impl Runtime {
         }
         Ok(())
     }
+    /// A definite decision rejection can demand a fresh shared-policy decision.
+    /// Never replay an effect-free mutation after uncertain completion.
+    pub(super) async fn settle_current_study_candidate(
+        &self,
+        scope: &pse_operations::canonical_studies::StudyScope,
+        action: &pse_model::study::PointAction,
+    ) -> Result<Option<pse_operations::canonical_studies::StudyPoint>, WorkflowError> {
+        let deadline = tokio::time::Instant::now() + pse_operations::canonical::REQUEST_TIMEOUT;
+        tokio::time::timeout_at(deadline, async {
+            match self.settle_study_candidate(scope, action, None).await {
+                Ok(point) => Ok(Some(point)),
+                Err(error) => {
+                    if !matches!(&error, WorkflowError::Canonical(pse_operations::canonical::CanonicalError::Driver(driver)) if driver.details().is_thrown() && matches!(driver.message().strip_prefix("An error occurred: ").unwrap_or(driver.message()), "study decision generation changed" | "study candidate not available" | "study decision premise changed")) {
+                        return Err(error);
+                    }
+                    let current = self.canonical_store().study_scope(&scope.point().key).await?;
+                    if current.point().revision != scope.point().revision
+                        || current.point().assigned != scope.point().assigned
+                        || current.point().settled != scope.point().settled
+                        || current.generation() != scope.generation()
+                        || current.cancelled() != scope.cancelled()
+                        || current.predecessors().iter().map(|point| (&point.key, point.revision))
+                            .ne(scope.predecessors().iter().map(|point| (&point.key, point.revision)))
+                    {
+                        // The server refused this old read set. The caller must
+                        // rediscover the candidate and recompute its policy.
+                        Ok(None)
+                    } else {
+                        Err(error)
+                    }
+                }
+            }
+        }).await.map_err(|_| WorkflowError::Canonical(pse_operations::canonical::CanonicalError::Timeout))?
+    }
+
     /// Claim a structurally ready candidate under its exact consumed revisions.
     pub async fn work_once(&self) -> Result<Processed, WorkflowError> {
         Ok(self.work_once_with_result().await?.0)
@@ -691,8 +726,13 @@ impl Runtime {
                             ActionKind::Wait(WaitReason::SeedResolution { .. })
                             | ActionKind::Start(_) => {}
                             ActionKind::Refuse(_) | ActionKind::Cancel => {
-                                self.settle_study_candidate(&scope, &preliminary, None)
-                                    .await?;
+                                if self
+                                    .settle_current_study_candidate(&scope, &preliminary)
+                                    .await?
+                                    .is_none()
+                                {
+                                    continue;
+                                }
                                 return Ok((
                                     Processed::Settled {
                                         point: candidate.key,
@@ -707,7 +747,13 @@ impl Runtime {
                         if !matches!(action.kind, ActionKind::Start(_)) {
                             match action.kind {
                                 ActionKind::Refuse(_) | ActionKind::Cancel => {
-                                    self.settle_study_candidate(&scope, &action, None).await?;
+                                    if self
+                                        .settle_current_study_candidate(&scope, &action)
+                                        .await?
+                                        .is_none()
+                                    {
+                                        continue;
+                                    }
                                     return Ok((
                                         Processed::Settled {
                                             point: candidate.key,

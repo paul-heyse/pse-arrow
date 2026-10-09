@@ -4,6 +4,7 @@
 //! Bounded immutable derived graphs with exact source and result lineage.
 
 use crate::{
+    canonical::transport::{original_deadline, within_clock},
     canonical::{CanonicalError, CanonicalStore, Revision, bounded_query, protected_query},
     canonical_codec as codec,
     canonical_results::ResultRead,
@@ -91,21 +92,23 @@ fn identity(value: &str) -> Result<(), CanonicalError> {
 impl CanonicalStore {
     /// Retrieve only the actual primary and physical source receipts of a run.
     pub async fn analysis_run_sources(&self, run: &str) -> Result<Vec<Revision>, CanonicalError> {
-        identity(run)?;
-        let mut response=bounded_query(self.db.query("SELECT VALUE revision FROM canonical_run_sources WHERE run=$run ORDER BY revision LIMIT 66;").bind(("run",run.to_owned()))).await?;
-        let keys = response.take::<Vec<String>>(0)?;
-        if keys.is_empty() || keys.len() > 65 {
-            return Err(CanonicalError::PayloadLimit);
-        }
-        let mut sources = Vec::with_capacity(keys.len());
-        for key in keys {
-            sources.push(
-                self.revision(&key)
-                    .await?
-                    .ok_or_else(|| invalid("analysis result source missing"))?,
-            );
-        }
-        Ok(sources)
+        within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
+            identity(run)?;
+            let mut response=bounded_query(self.db.query("SELECT VALUE revision FROM canonical_run_sources WHERE run=$run ORDER BY revision LIMIT 66;").bind(("run",run.to_owned()))).await?;
+            let keys = response.take::<Vec<String>>(0)?;
+            if keys.is_empty() || keys.len() > 65 {
+                return Err(CanonicalError::PayloadLimit);
+            }
+            let mut sources = Vec::with_capacity(keys.len());
+            for key in keys {
+                sources.push(
+                    self.revision(&key)
+                        .await?
+                        .ok_or_else(|| invalid("analysis result source missing"))?,
+                );
+            }
+            Ok(sources)
+        }).await
     }
 
     /// Persist admitted graph pages, then activate exact complete membership.
@@ -119,161 +122,163 @@ impl CanonicalStore {
         nodes: &[AnalysisNode],
         edges: &[AnalysisEdge],
     ) -> Result<Analysis, CanonicalError> {
-        self.ensure_writes()?;
-        identity(&header.key)?;
-        identity(&header.method)?;
-        identity(&header.input_digest)?;
-        if header.active
-            || header.interpretation != wire::INTERPRETATION
-            || header.configuration.len() > 128 * 1024
-            || sources.is_empty()
-            || sources.len() > 65
-            || inputs.len() > 64
-            || nodes.len() > ANALYSIS_NODES
-            || edges.len() > ANALYSIS_EDGES
-            || header.node_count != nodes.len() as u64
-            || header.edge_count != edges.len() as u64
-            || !sources.iter().any(|source| source.key == header.revision)
-        {
-            return Err(invalid("analysis closure bounds or source mismatch"));
-        }
-        let mut node_pages = BTreeMap::new();
-        for (ordinal, node) in nodes.iter().enumerate() {
-            identity(&node.key)?;
-            identity(&node.semantic)?;
-            identity(&node.kind)?;
-            if node.analysis != header.key
-                || node_pages.insert(node.key.as_str(), ordinal / 64).is_some()
+        within_clock(original_deadline(crate::canonical::ACTIVATION_REQUEST_TIMEOUT), async {
+            self.ensure_writes()?;
+            identity(&header.key)?;
+            identity(&header.method)?;
+            identity(&header.input_digest)?;
+            if header.active
+                || header.interpretation != wire::INTERPRETATION
+                || header.configuration.len() > 128 * 1024
+                || sources.is_empty()
+                || sources.len() > 65
+                || inputs.len() > 64
+                || nodes.len() > ANALYSIS_NODES
+                || edges.len() > ANALYSIS_EDGES
+                || header.node_count != nodes.len() as u64
+                || header.edge_count != edges.len() as u64
+                || !sources.iter().any(|source| source.key == header.revision)
             {
-                return Err(invalid("analysis node closure"));
+                return Err(invalid("analysis closure bounds or source mismatch"));
             }
-        }
-        let mut edge_keys = BTreeSet::new();
-        let mut publication = EdgePublication::new(nodes.len());
-        for (ordinal, edge) in edges.iter().enumerate() {
-            identity(&edge.key)?;
-            identity(&edge.kind)?;
-            if edge
-                .evidence
-                .as_ref()
-                .is_some_and(|value| value.len() > 4096)
-                || edge.analysis != header.key
-                || !edge_keys.insert(&edge.key)
-                || publication.classify(ordinal, edge, &node_pages).is_none()
-            {
-                return Err(invalid("analysis edge closure"));
-            }
-        }
-        if inputs.iter().any(|input| !input.belongs_to(self)) {
-            return Err(invalid("analysis input belongs to another store"));
-        }
-        // Pins close the interval between immutable receipt selection and the
-        // transaction that creates all retained analysis roots.
-        let mut pins = Vec::with_capacity(sources.len());
-        for source in sources {
-            match self.protect(source.clone(), Duration::from_secs(600)).await {
-                Ok(pin) => pins.push(pin),
-                Err(error) => {
-                    for pin in &pins {
-                        let _ = self.release(pin).await;
-                    }
-                    return Err(error);
+            let mut node_pages = BTreeMap::new();
+            for (ordinal, node) in nodes.iter().enumerate() {
+                identity(&node.key)?;
+                identity(&node.semantic)?;
+                identity(&node.kind)?;
+                if node.analysis != header.key
+                    || node_pages.insert(node.key.as_str(), ordinal / 64).is_some()
+                {
+                    return Err(invalid("analysis node closure"));
                 }
             }
-        }
-        let admission = async {
-            let mut roots = Vec::with_capacity(sources.len());
+            let mut edge_keys = BTreeSet::new();
+            let mut publication = EdgePublication::new(nodes.len());
+            for (ordinal, edge) in edges.iter().enumerate() {
+                identity(&edge.key)?;
+                identity(&edge.kind)?;
+                if edge
+                    .evidence
+                    .as_ref()
+                    .is_some_and(|value| value.len() > 4096)
+                    || edge.analysis != header.key
+                    || !edge_keys.insert(&edge.key)
+                    || publication.classify(ordinal, edge, &node_pages).is_none()
+                {
+                    return Err(invalid("analysis edge closure"));
+                }
+            }
+            if inputs.iter().any(|input| !input.belongs_to(self)) {
+                return Err(invalid("analysis input belongs to another store"));
+            }
+            // Pins close the interval between immutable receipt selection and the
+            // transaction that creates all retained analysis roots.
+            let mut pins = Vec::with_capacity(sources.len());
             for source in sources {
-                let mut row = Object::new();
-                row.insert(
-                    "key",
-                    codec::encode_string(analysis_key(
-                        "pse.analysis.root.v1",
-                        &[header.key.as_bytes(), source.key.as_bytes()],
-                    ))?,
-                );
-                row.insert("problem", codec::encode_string(source.problem.clone())?);
-                row.insert("revision", codec::encode_string(source.key.clone())?);
-                row.insert("sequence", codec::encode_uint(source.sequence)?);
-                roots.push(row);
+                match self.protect(source.clone(), Duration::from_secs(600)).await {
+                    Ok(pin) => pins.push(pin),
+                    Err(error) => {
+                        for pin in &pins {
+                            let _ = self.release(pin).await;
+                        }
+                        return Err(error);
+                    }
+                }
             }
-            let mut selected = Vec::with_capacity(inputs.len());
-            for input in inputs {
-                let row = AnalysisInput {
-                    key: analysis_key(
-                        "pse.analysis.input.v1",
-                        &[
-                            header.key.as_bytes(),
-                            input.attempt().key.as_bytes(),
-                            input.manifest().key.as_bytes(),
-                        ],
-                    ),
-                    analysis: header.key.clone(),
-                    run: input.run().key.clone(),
-                    attempt: input.attempt().key.clone(),
-                    manifest: input.manifest().key.clone(),
-                };
-                let mut row = wire::encode_canonical_analysis_inputs(&row)?;
-                row.insert(
-                    "protection",
-                    codec::encode_string(input.protected_selection().key().to_owned())?,
-                );
-                selected.push(row);
+            let admission = async {
+                let mut roots = Vec::with_capacity(sources.len());
+                for source in sources {
+                    let mut row = Object::new();
+                    row.insert(
+                        "key",
+                        codec::encode_string(analysis_key(
+                            "pse.analysis.root.v1",
+                            &[header.key.as_bytes(), source.key.as_bytes()],
+                        ))?,
+                    );
+                    row.insert("problem", codec::encode_string(source.problem.clone())?);
+                    row.insert("revision", codec::encode_string(source.key.clone())?);
+                    row.insert("sequence", codec::encode_uint(source.sequence)?);
+                    roots.push(row);
+                }
+                let mut selected = Vec::with_capacity(inputs.len());
+                for input in inputs {
+                    let row = AnalysisInput {
+                        key: analysis_key(
+                            "pse.analysis.input.v1",
+                            &[
+                                header.key.as_bytes(),
+                                input.attempt().key.as_bytes(),
+                                input.manifest().key.as_bytes(),
+                            ],
+                        ),
+                        analysis: header.key.clone(),
+                        run: input.run().key.clone(),
+                        attempt: input.attempt().key.clone(),
+                        manifest: input.manifest().key.clone(),
+                    };
+                    let mut row = wire::encode_canonical_analysis_inputs(&row)?;
+                    row.insert(
+                        "protection",
+                        codec::encode_string(input.protected_selection().key().to_owned())?,
+                    );
+                    selected.push(row);
+                }
+                let row = wire::encode_canonical_analyses(header)?;
+                protected_query("canonical_analyses::persist_analysis", || {
+                    Ok(self
+                        .db
+                        .query("RETURN fn::pse_analysis_v1::begin($pse_rpc_expires_at, $row,$sources,$inputs);")
+                        .bind(("row", row.clone()))
+                        .bind(("sources", roots.clone()))
+                        .bind(("inputs", selected.clone())))
+                })
+                .await?;
+                Ok::<(), CanonicalError>(())
             }
-            let row = wire::encode_canonical_analyses(header)?;
-            protected_query("canonical_analyses::persist_analysis", || {
+            .await;
+            for pin in &pins {
+                let _ = self.release(pin).await;
+            }
+            admission?;
+            for (ordinal, page) in nodes.chunks(64).enumerate() {
+                let encoded = page
+                    .iter()
+                    .map(wire::encode_canonical_analysis_nodes)
+                    .collect::<Result<Vec<_>, _>>()?;
+                let ready = publication
+                    .node_page(ordinal)
+                    .into_iter()
+                    .map(wire::encode_canonical_analysis_edges)
+                    .collect::<Result<Vec<_>, _>>()?;
+                // The native append inserts all page nodes before its edges, so
+                // endpoint dependencies hold within this same guarded effect.
+                self.append_analysis(&header.key, encoded, ready).await?;
+            }
+            loop {
+                let page = publication.take_ready();
+                if page.is_empty() {
+                    break;
+                }
+                let encoded = page
+                    .iter()
+                    .map(|edge| wire::encode_canonical_analysis_edges(edge))
+                    .collect::<Result<Vec<_>, _>>()?;
+                self.append_analysis(&header.key, vec![], encoded).await?;
+            }
+            let mut response = protected_query("canonical_analyses::persist_analysis", || {
                 Ok(self
                     .db
-                    .query("RETURN fn::pse_analysis_v1::begin($row,$sources,$inputs);")
-                    .bind(("row", row.clone()))
-                    .bind(("sources", roots.clone()))
-                    .bind(("inputs", selected.clone())))
+                    .query("RETURN fn::pse_analysis_v1::activate($pse_rpc_expires_at, $key);")
+                    .bind(("key", header.key.clone())))
             })
             .await?;
-            Ok::<(), CanonicalError>(())
-        }
-        .await;
-        for pin in &pins {
-            let _ = self.release(pin).await;
-        }
-        admission?;
-        for (ordinal, page) in nodes.chunks(64).enumerate() {
-            let encoded = page
-                .iter()
-                .map(wire::encode_canonical_analysis_nodes)
-                .collect::<Result<Vec<_>, _>>()?;
-            let ready = publication
-                .node_page(ordinal)
-                .into_iter()
-                .map(wire::encode_canonical_analysis_edges)
-                .collect::<Result<Vec<_>, _>>()?;
-            // The native append inserts all page nodes before its edges, so
-            // endpoint dependencies hold within this same guarded effect.
-            self.append_analysis(&header.key, encoded, ready).await?;
-        }
-        loop {
-            let page = publication.take_ready();
-            if page.is_empty() {
-                break;
-            }
-            let encoded = page
-                .iter()
-                .map(|edge| wire::encode_canonical_analysis_edges(edge))
-                .collect::<Result<Vec<_>, _>>()?;
-            self.append_analysis(&header.key, vec![], encoded).await?;
-        }
-        let mut response = protected_query("canonical_analyses::persist_analysis", || {
-            Ok(self
-                .db
-                .query("RETURN fn::pse_analysis_v1::activate($key);")
-                .bind(("key", header.key.clone())))
-        })
-        .await?;
-        Ok(wire::decode_canonical_analyses(
-            response
-                .take::<Option<Object>>(0)?
-                .ok_or(CanonicalError::IncompleteResponse)?,
-        )?)
+            Ok(wire::decode_canonical_analyses(
+                response
+                    .take::<Option<Object>>(0)?
+                    .ok_or(CanonicalError::IncompleteResponse)?,
+            )?)
+        }).await
     }
     async fn append_analysis(
         &self,
@@ -281,27 +286,31 @@ impl CanonicalStore {
         nodes: Vec<Object>,
         edges: Vec<Object>,
     ) -> Result<(), CanonicalError> {
-        protected_query("canonical_analyses::append_analysis", || {
-            Ok(self
-                .db
-                .query("RETURN fn::pse_analysis_v1::append($key,$nodes,$edges);")
-                .bind(("key", key.to_owned()))
-                .bind(("nodes", nodes.clone()))
-                .bind(("edges", edges.clone())))
-        })
-        .await?;
-        Ok(())
+        within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
+            protected_query("canonical_analyses::append_analysis", || {
+                Ok(self
+                    .db
+                    .query("RETURN fn::pse_analysis_v1::append($pse_rpc_expires_at, $key,$nodes,$edges);")
+                    .bind(("key", key.to_owned()))
+                    .bind(("nodes", nodes.clone()))
+                    .bind(("edges", edges.clone())))
+            })
+            .await?;
+            Ok(())
+        }).await
     }
     /// Exact active header; incomplete or explicitly withdrawn graphs refuse reads.
     pub async fn analysis(&self, key: &str) -> Result<Analysis, CanonicalError> {
-        identity(key)?;
-        let mut result=protected_query("canonical_analyses::analysis", ||Ok(self.db.query("LET $row=fn::pse_analysis_v1::available($key); IF !$row.active { THROW 'analysis graph incomplete'; }; RETURN $row;").bind(("key",key.to_owned())))).await?;
-        let index = result.num_statements().saturating_sub(1);
-        Ok(wire::decode_canonical_analyses(
-            result
-                .take::<Option<Object>>(index)?
-                .ok_or(CanonicalError::IncompleteResponse)?,
-        )?)
+        within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
+            identity(key)?;
+            let mut result=protected_query("canonical_analyses::analysis", ||Ok(self.db.query("LET $row=fn::pse_analysis_v1::available($pse_rpc_expires_at, $key); IF !$row.active { THROW 'analysis graph incomplete'; }; RETURN $row;").bind(("key",key.to_owned())))).await?;
+            let index = result.num_statements().saturating_sub(1);
+            Ok(wire::decode_canonical_analyses(
+                result
+                    .take::<Option<Object>>(index)?
+                    .ok_or(CanonicalError::IncompleteResponse)?,
+            )?)
+        }).await
     }
     /// Ordered bounded graph nodes from one exact active analysis.
     pub async fn analysis_node_page(
@@ -309,11 +318,17 @@ impl CanonicalStore {
         key: &str,
         after: Option<&str>,
     ) -> Result<Vec<AnalysisNode>, CanonicalError> {
-        self.analysis_page(key, after, "nodes")
-            .await?
-            .into_iter()
-            .map(|row| wire::decode_canonical_analysis_nodes(row).map_err(Into::into))
-            .collect()
+        within_clock(
+            original_deadline(crate::canonical::REQUEST_TIMEOUT),
+            async {
+                self.analysis_page(key, after, "nodes")
+                    .await?
+                    .into_iter()
+                    .map(|row| wire::decode_canonical_analysis_nodes(row).map_err(Into::into))
+                    .collect()
+            },
+        )
+        .await
     }
     /// Ordered bounded native graph edges from one exact active analysis.
     pub async fn analysis_edge_page(
@@ -321,11 +336,17 @@ impl CanonicalStore {
         key: &str,
         after: Option<&str>,
     ) -> Result<Vec<AnalysisEdge>, CanonicalError> {
-        self.analysis_page(key, after, "edges")
-            .await?
-            .into_iter()
-            .map(|row| wire::decode_canonical_analysis_edges(row).map_err(Into::into))
-            .collect()
+        within_clock(
+            original_deadline(crate::canonical::REQUEST_TIMEOUT),
+            async {
+                self.analysis_page(key, after, "edges")
+                    .await?
+                    .into_iter()
+                    .map(|row| wire::decode_canonical_analysis_edges(row).map_err(Into::into))
+                    .collect()
+            },
+        )
+        .await
     }
     async fn analysis_page(
         &self,
@@ -333,21 +354,23 @@ impl CanonicalStore {
         after: Option<&str>,
         kind: &str,
     ) -> Result<Vec<Object>, CanonicalError> {
-        identity(key)?;
-        let mut response = protected_query("canonical_analyses::analysis_page", || {
-            Ok(self
-                .db
-                .query("RETURN fn::pse_analysis_v1::read($key,$after,$kind);")
-                .bind(("key", key.to_owned()))
-                .bind(("after", after.unwrap_or("").to_owned()))
-                .bind(("kind", kind.to_owned())))
-        })
-        .await?;
-        let rows = response.take::<Vec<Object>>(0)?;
-        if rows.len() > 64 {
-            return Err(CanonicalError::PayloadLimit);
-        }
-        Ok(rows)
+        within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
+            identity(key)?;
+            let mut response = protected_query("canonical_analyses::analysis_page", || {
+                Ok(self
+                    .db
+                    .query("RETURN fn::pse_analysis_v1::read($pse_rpc_expires_at, $key,$after,$kind);")
+                    .bind(("key", key.to_owned()))
+                    .bind(("after", after.unwrap_or("").to_owned()))
+                    .bind(("kind", kind.to_owned())))
+            })
+            .await?;
+            let rows = response.take::<Vec<Object>>(0)?;
+            if rows.len() > 64 {
+                return Err(CanonicalError::PayloadLimit);
+            }
+            Ok(rows)
+        }).await
     }
 }
 
@@ -457,14 +480,13 @@ mod canonical_analysis_publication_unit {
 #[cfg(all(test, feature = "canonical-tests"))]
 mod canonical_analyses_server_unit {
     use super::*;
-    use crate::canonical::{CanonicalOptions, checked};
+    use crate::canonical::CanonicalOptions;
     #[tokio::test]
     async fn canonical_analysis_graph_staging_requires_complete_immutable_membership() {
         let state = std::env::var("PSE_SURREAL_STATE").expect("explicit native fixture required");
         let mut options = CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
-        options.database = format!("analysis_{}", uuid::Uuid::new_v4().simple());
-        let store = CanonicalStore::connect(&options).await.unwrap();
-        store.create().await.unwrap();
+        options.database = format!("canonical_test_analysis_{}", uuid::Uuid::new_v4().simple());
+        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
         let revision = store
             .edit("analysis-source", None, "source", &[])
             .await
@@ -495,7 +517,7 @@ mod canonical_analyses_server_unit {
         bounded_query(
             store
                 .db
-                .query("RETURN fn::pse_analysis_v1::begin($row,$sources,$inputs);")
+                .query("RETURN fn::pse_analysis_v1::begin($pse_rpc_expires_at, $row,$sources,$inputs);")
                 .bind(("row", wire::encode_canonical_analyses(&header).unwrap()))
                 .bind(("sources", vec![source]))
                 .bind(("inputs", Vec::<Object>::new())),
@@ -507,7 +529,7 @@ mod canonical_analyses_server_unit {
             bounded_query(
                 store
                     .db
-                    .query("RETURN fn::pse_analysis_v1::activate($key);")
+                    .query("RETURN fn::pse_analysis_v1::activate($pse_rpc_expires_at, $key);")
                     .bind(("key", key))
             )
             .await
@@ -562,7 +584,7 @@ mod canonical_analyses_server_unit {
         bounded_query(
             store
                 .db
-                .query("RETURN fn::pse_analysis_v1::activate($key);")
+                .query("RETURN fn::pse_analysis_v1::activate($pse_rpc_expires_at, $key);")
                 .bind(("key", key)),
         )
         .await
@@ -653,11 +675,7 @@ mod canonical_analyses_server_unit {
         .await
         .unwrap();
         assert!(response.take::<Vec<Object>>(0).unwrap().is_empty());
-        store
-            .db
-            .query(format!("REMOVE DATABASE {};", options.database))
-            .await
-            .and_then(checked)
-            .unwrap();
+        assert_eq!(store.database(), options.database);
+        store.remove_isolated_fixture().await.unwrap();
     }
 }

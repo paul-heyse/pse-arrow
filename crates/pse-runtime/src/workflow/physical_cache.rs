@@ -794,7 +794,7 @@ mod physical_admission_cache_unit {
                 .admission(&runtime, &new_operations, &source)
                 .is_none()
         );
-        other.durability = Durability::Durable(new_operations);
+        other.durability = Durability::Durable(Box::new(new_operations));
         let other_store = pse_operations::testing::canonical_fixture_store().unwrap();
         let foreign = Operations::from_store(
             other_store.clone(),

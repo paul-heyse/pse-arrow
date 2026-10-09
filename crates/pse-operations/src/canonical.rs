@@ -4,6 +4,8 @@
 //! Concrete remote canonical substrate. Scientific work runs outside guarded transactions.
 
 use crate::{canonical_codec::CodecError, generated::surreal as wire};
+#[path = "canonical_transport.rs"]
+pub(crate) mod transport;
 pub use pse_model::generated::runtime::{
     canonical_memberships::Row as Membership, canonical_revisions::Row as Revision,
     canonical_versions::Row as ObjectVersion,
@@ -14,10 +16,11 @@ use std::{
 };
 use surrealdb::{
     Surreal,
-    engine::remote::grpc::{Client, Grpc},
-    opt::{Config, GrpcConfig, auth::Root},
+    engine::remote::ws::Ws,
+    opt::{Config, WebsocketConfig},
     types::{Object, Value},
 };
+use transport::{CanonicalClient, original_deadline, within_clock};
 
 /// Initial negotiated protocol limit; batches must leave space for their envelope.
 pub const MESSAGE_BYTES: usize = wire::RESULT_MESSAGE_BYTES;
@@ -25,8 +28,8 @@ pub const MESSAGE_BYTES: usize = wire::RESULT_MESSAGE_BYTES;
 pub const PAYLOAD_BYTES: usize = 3 * 1024 * 1024;
 /// Client operation deadline. Mutations settle a lost acknowledgment by immutable identity.
 pub const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
-const ACTIVATION_QUERY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
-const ACTIVATION_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(90);
+pub(crate) const ACTIVATION_REQUEST_TIMEOUT: std::time::Duration =
+    std::time::Duration::from_secs(90);
 // A finite contention window for sixteen clients sharing one retention guard.
 // This does not change any RPC deadline or permit replay after uncertain completion.
 const GUARDED_ATTEMPTS: u32 = 32;
@@ -78,8 +81,9 @@ impl pse_diagnostics::TypedDiagnostic for CanonicalError {
 }
 
 /// Authenticated deployment parameters. Credentials never appear in Debug or status output.
+#[derive(Clone)]
 pub struct CanonicalOptions {
-    /// Authenticated loopback gRPC endpoint.
+    /// Authenticated loopback native WebSocket endpoint.
     pub endpoint: String,
     /// Application namespace.
     pub namespace: String,
@@ -89,6 +93,10 @@ pub struct CanonicalOptions {
     pub username: String,
     /// Authentication secret, omitted from Debug.
     pub password: String,
+    /// Read-only account used to select an existing context without implicit DDL.
+    pub selection_username: String,
+    /// Read-only authentication secret, omitted from Debug.
+    pub selection_password: String,
     /// Finite managed native-worker allocation read from the owning supervisor profile.
     pub native: NativeAllocation,
     /// Explicit verified interpreter, supervisor and worker for managed primary startup.
@@ -194,10 +202,24 @@ impl std::fmt::Debug for CanonicalOptions {
     }
 }
 impl CanonicalOptions {
+    /// Selected deployment state for fixture registration before connection.
+    #[cfg(any(test, feature = "test-support"))]
+    pub(crate) fn state_path(&self) -> &Path {
+        &self.state_path
+    }
+
     /// Read the supervisor's private state, including its admission gate.
     pub fn from_state(state: &Path) -> Result<Self, CanonicalError> {
+        Self::from_state_for_database(state, None)
+    }
+    /// Select an explicit validated database without rewriting service configuration.
+    pub fn from_state_for_database(
+        state: &Path,
+        database: Option<&str>,
+    ) -> Result<Self, CanonicalError> {
         #[derive(serde::Deserialize)]
         struct Deployment {
+            profile_version: u32,
             endpoint: String,
             namespace: String,
             database: String,
@@ -213,6 +235,8 @@ impl CanonicalOptions {
         struct Credentials {
             username: String,
             password: String,
+            selection_username: String,
+            selection_password: String,
         }
         #[cfg(unix)]
         {
@@ -265,6 +289,46 @@ impl CanonicalOptions {
         };
         let deployment: Deployment = serde_json::from_slice(&read(&state.join("config.json"))?)
             .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
+        if deployment.profile_version != 2 {
+            return Err(CanonicalError::Configuration("canonical service profile revision 2 required; explicitly upgrade/readmit an older profile".into()));
+        }
+        let mut deployment = deployment;
+        if let Some(database) = database {
+            if database.is_empty()
+                || database.len() > 128
+                || !database
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+            {
+                return Err(CanonicalError::Configuration(
+                    "explicit database must be a bounded ASCII identifier".into(),
+                ));
+            }
+            deployment.database = database.to_owned();
+            let context_path = state.join(".contexts").join(format!("{database}.json"));
+            if context_path
+                .try_exists()
+                .map_err(|error| CanonicalError::Configuration(error.to_string()))?
+            {
+                #[derive(serde::Deserialize)]
+                struct Context {
+                    version: u32,
+                    database: String,
+                    resources: NativeAllocation,
+                    #[serde(default)]
+                    primary_receiver: Option<ManagedPrimaryReceiver>,
+                }
+                let context: Context = serde_json::from_slice(&read(&context_path)?)
+                    .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
+                if context.version != 1 || context.database != database {
+                    return Err(CanonicalError::Configuration(
+                        "registered test context identity/version mismatch".into(),
+                    ));
+                }
+                deployment.resources = context.resources;
+                deployment.primary_receiver = context.primary_receiver;
+            }
+        }
         if deployment.schema_interpretation != wire::INTERPRETATION {
             return Err(CanonicalError::Interpretation {
                 expected: wire::INTERPRETATION,
@@ -300,6 +364,8 @@ impl CanonicalOptions {
             database: deployment.database,
             username: credentials.username,
             password: credentials.password,
+            selection_username: credentials.selection_username,
+            selection_password: credentials.selection_password,
             native: deployment.resources,
             primary_receiver: deployment.primary_receiver,
             state_path: state.to_owned(),
@@ -360,7 +426,7 @@ impl StagingTurns {
             return Err(CanonicalError::Timeout);
         }
         let gate = self.gate(problem)?;
-        tokio::time::timeout_at(deadline, async {
+        within_clock(deadline, async {
             let _turn = gate.lock_owned().await;
             if tokio::time::Instant::now() >= deadline {
                 return Err(CanonicalError::Timeout);
@@ -368,7 +434,6 @@ impl StagingTurns {
             operation.await
         })
         .await
-        .map_err(|_| CanonicalError::Timeout)?
     }
     fn gate(&self, problem: &str) -> Result<Arc<tokio::sync::Mutex<()>>, CanonicalError> {
         let mut problems = self.problems.lock().map_err(|_| {
@@ -387,15 +452,17 @@ impl StagingTurns {
 #[derive(Clone)]
 /// Thin remote client; clones share its bounded transport.
 pub struct CanonicalStore {
-    pub(crate) db: Arc<Surreal<Client>>,
+    pub(crate) db: Arc<CanonicalClient>,
     staging_turns: Arc<StagingTurns>,
     #[cfg(any(test, feature = "test-support"))]
-    fixture_lifetime: Option<Arc<crate::testing::FixtureLifetime>>,
+    pub(crate) fixture_lifetime: Option<Arc<crate::testing::FixtureLifetime>>,
     #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
     pub(crate) result_read_drain: Arc<crate::canonical_results::ResultReadDrain>,
-    activation_db: Arc<Surreal<Client>>,
+    activation_db: Arc<CanonicalClient>,
+    connection_options: CanonicalOptions,
     state_path: PathBuf,
     database: String,
+    namespace: String,
 }
 impl std::fmt::Debug for CanonicalStore {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -406,6 +473,15 @@ impl std::fmt::Debug for CanonicalStore {
     }
 }
 impl CanonicalStore {
+    /// Drain local result readers and close both physical SDK drivers.
+    /// This establishes local transport drain, not server scientific completion.
+    pub async fn disconnect(&self) -> Result<(), CanonicalError> {
+        #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
+        self.result_read_drain.drain().await?;
+        self.db.disconnect().await?;
+        self.activation_db.disconnect().await?;
+        Ok(())
+    }
     /// State selected by this authenticated deployment handle.
     pub fn deployment_state(&self) -> &Path {
         &self.state_path
@@ -414,7 +490,10 @@ impl CanonicalStore {
     /// # Errors
     /// Invalid or unavailable owning deployment configuration.
     pub fn native_allocation(&self) -> Result<NativeAllocation, CanonicalError> {
-        Ok(CanonicalOptions::from_state(&self.state_path)?.native)
+        Ok(
+            CanonicalOptions::from_state_for_database(&self.state_path, Some(&self.database))?
+                .native,
+        )
     }
     /// Re-read the selected executable association for the managed primary receiver.
     /// # Errors
@@ -422,7 +501,10 @@ impl CanonicalStore {
     pub fn managed_primary_receiver(
         &self,
     ) -> Result<Option<ManagedPrimaryReceiver>, CanonicalError> {
-        Ok(CanonicalOptions::from_state(&self.state_path)?.primary_receiver)
+        Ok(
+            CanonicalOptions::from_state_for_database(&self.state_path, Some(&self.database))?
+                .primary_receiver,
+        )
     }
     /// One owner-local turn covers only a bounded RPC, never hydration or
     /// scientific work. Its original request clock includes queueing; dropping a
@@ -438,7 +520,7 @@ impl CanonicalStore {
         self.staging_turns
             .run(
                 problem,
-                tokio::time::Instant::now() + REQUEST_TIMEOUT,
+                original_deadline(REQUEST_TIMEOUT),
                 bounded_query(future),
             )
             .await
@@ -460,7 +542,7 @@ impl CanonicalStore {
         self.staging_turns
             .run(
                 problem,
-                tokio::time::Instant::now() + REQUEST_TIMEOUT,
+                original_deadline(REQUEST_TIMEOUT),
                 protected_query(operation, build),
             )
             .await
@@ -488,15 +570,27 @@ impl CanonicalStore {
         }
         Ok(())
     }
-    /// Connect to the supported authenticated gRPC deployment.
+    /// Connect to the supported authenticated native WebSocket deployment.
     pub async fn connect(options: &CanonicalOptions) -> Result<Self, CanonicalError> {
+        for identifier in [&options.namespace, &options.database] {
+            if identifier.is_empty()
+                || identifier.len() > 128
+                || !identifier
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+            {
+                return Err(CanonicalError::Configuration(
+                    "namespace/database must be bounded ASCII identifiers".into(),
+                ));
+            }
+        }
         let endpoint = url::Url::parse(&options.endpoint)
             .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-        if endpoint.scheme() != "grpc"
+        if endpoint.scheme() != "ws"
             || !matches!(endpoint.host_str(), Some("127.0.0.1" | "localhost" | "::1"))
         {
             return Err(CanonicalError::Configuration(
-                "initial supported profile requires loopback grpc".into(),
+                "supported profile requires loopback native WebSocket".into(),
             ));
         }
         let address = endpoint
@@ -505,8 +599,14 @@ impl CanonicalStore {
             .into_iter()
             .next()
             .ok_or_else(|| CanonicalError::Configuration("endpoint has no port".into()))?;
-        let db = connect_client(address, options, std::time::Duration::from_secs(20)).await?;
-        let activation_db = connect_client(address, options, ACTIVATION_QUERY_TIMEOUT).await?;
+        let deadline = original_deadline(REQUEST_TIMEOUT);
+        let (db, activation_db) = within_clock(deadline, async {
+            let db = connect_client(address, options, REQUEST_TIMEOUT, true).await?;
+            let activation_db =
+                connect_client(address, options, ACTIVATION_REQUEST_TIMEOUT, true).await?;
+            Ok((db, activation_db))
+        })
+        .await?;
         Ok(Self {
             db,
             staging_turns: Arc::default(),
@@ -515,8 +615,10 @@ impl CanonicalStore {
             #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
             result_read_drain: Arc::new(crate::canonical_results::ResultReadDrain::default()),
             activation_db,
+            connection_options: options.clone(),
             state_path: options.state_path.clone(),
             database: options.database.clone(),
+            namespace: options.namespace.clone(),
         })
     }
     /// Explicit schema creation; ordinary opening never mutates an unknown schema.
@@ -528,43 +630,71 @@ impl CanonicalStore {
         F: FnMut() -> Q,
         Q: Future<Output = Result<surrealdb::IndexedResults, CanonicalError>>,
     {
-        for attempt in 0..8 {
-            self.ensure_writes()?;
-            if !self.initialization_required().await? {
-                return self.open().await;
-            }
-            // Only an acknowledged transaction rejection allows a fresh complete
-            // installation decision. Lost responses and cancellation stay uncertain.
-            match submit().await.and_then(complete_response) {
-                Err(CanonicalError::Driver(error))
-                    if matches!(
-                        error.query_details(),
-                        Some(surrealdb::types::QueryError::TransactionConflict)
-                    ) && attempt < 7 =>
-                {
-                    // Desynchronize independent databases sharing physical history.
-                    let jitter = u64::from(uuid::Uuid::new_v4().as_bytes()[0] % 16);
-                    tokio::time::sleep(std::time::Duration::from_millis((1 << attempt) + jitter))
-                        .await;
+        within_clock(original_deadline(ACTIVATION_REQUEST_TIMEOUT), async {
+            for attempt in 0..8 {
+                self.ensure_writes()?;
+                if !self.initialization_required().await? {
+                    return self.open().await;
                 }
-                Err(error) => return Err(error),
-                // Readback failure after an acknowledged commit never replays DDL.
-                Ok(_) => return self.open().await,
+                // Only an acknowledged transaction rejection allows a fresh complete
+                // installation decision. Lost responses and cancellation stay uncertain.
+                self.provision_context().await?;
+                match submit().await.and_then(complete_response) {
+                    Err(CanonicalError::Driver(error))
+                        if matches!(
+                            error.query_details(),
+                            Some(surrealdb::types::QueryError::TransactionConflict)
+                        ) && attempt < 7 =>
+                    {
+                        // Desynchronize independent databases sharing physical history.
+                        let jitter = u64::from(uuid::Uuid::new_v4().as_bytes()[0] % 16);
+                        tokio::time::sleep(std::time::Duration::from_millis(
+                            (1 << attempt) + jitter,
+                        ))
+                        .await;
+                    }
+                    Err(error) => return Err(error),
+                    // Readback failure after an acknowledged commit never replays DDL.
+                    Ok(_) => return self.open().await,
+                }
             }
+            Err(CanonicalError::Configuration(
+                "initialization retry extent".into(),
+            ))
+        })
+        .await
+    }
+    /// INFO FOR DB uses the server's existing catalog lookup, never implicit
+    /// namespace/database provisioning. Only exact typed absence is accepted.
+    async fn database_inventory(&self) -> Result<Option<Object>, CanonicalError> {
+        if !self.db.select_existing().await? {
+            return Ok(None);
         }
-        Err(CanonicalError::Configuration(
-            "initialization retry extent".into(),
-        ))
+        let mut response = match bounded_query(self.db.control_query("INFO FOR DB;")).await {
+            Ok(response) => response,
+            Err(CanonicalError::Driver(error))
+                if matches!(error.not_found_details(),
+                Some(surrealdb::types::NotFoundError::Namespace { name }) if name == &self.namespace)
+                    || matches!(error.not_found_details(),
+                Some(surrealdb::types::NotFoundError::Database { name }) if name == &self.database) =>
+            {
+                return Ok(None);
+            }
+            Err(error) => return Err(error),
+        };
+        let Value::Object(info) = response.take::<Value>(0)? else {
+            return Err(CanonicalError::IncompleteResponse);
+        };
+        Ok(Some(info))
+    }
+    async fn database_exists(&self) -> Result<bool, CanonicalError> {
+        self.db.select_existing().await
     }
     async fn initialization_required(&self) -> Result<bool, CanonicalError> {
         self.ensure_writes()?;
         // Refuse an unmarked partial database rather than declaring imported records ready.
-        let mut inventory = bounded_query(self.db.query("INFO FOR DB;")).await?;
-        let info: Value = inventory.take(0)?;
-        let Value::Object(info) = info else {
-            return Err(CanonicalError::Configuration(
-                "database inventory is not an object".into(),
-            ));
+        let Some(info) = self.database_inventory().await? else {
+            return Ok(true);
         };
         if let Some(Value::Object(tables)) = info.get("tables") {
             if tables.contains_key("canonical_interpretations") {
@@ -578,6 +708,36 @@ impl CanonicalStore {
         }
         Ok(true)
     }
+    /// Creation explicitly provisions catalog entries before selecting them;
+    /// the complete canonical schema remains a separate atomic transaction.
+    async fn provision_context(&self) -> Result<(), CanonicalError> {
+        // Failed ordinary selection retains the missing database name. The
+        // administrative DDL session starts unselected, using the same immutable
+        // connection premises and bounded native transport as this store.
+        let address = url::Url::parse(&self.connection_options.endpoint)
+            .map_err(|error| CanonicalError::Configuration(error.to_string()))?
+            .socket_addrs(|| None)
+            .map_err(|error| CanonicalError::Configuration(error.to_string()))?
+            .into_iter()
+            .next()
+            .ok_or_else(|| CanonicalError::Configuration("endpoint has no port".into()))?;
+        let administration = connect_client(
+            address,
+            &self.connection_options,
+            ACTIVATION_REQUEST_TIMEOUT,
+            false,
+        )
+        .await?;
+        let provisioned = administration.provision().await;
+        let disconnected = administration.disconnect().await;
+        provisioned?;
+        disconnected?;
+        if !self.activation_db.select_existing().await? || !self.db.select_existing().await? {
+            return Err(CanonicalError::IncompleteResponse);
+        }
+        Ok(())
+    }
+
     async fn submit_initialization(&self) -> Result<surrealdb::IndexedResults, CanonicalError> {
         self.ensure_writes()?;
         // Installing the complete schema is an atomic structural transition.
@@ -594,32 +754,50 @@ impl CanonicalStore {
     }
     /// Read and verify the installed interpretation without DDL.
     pub async fn open(&self) -> Result<(), CanonicalError> {
-        let marker: Option<Object> =
-            request(self.db.select(("canonical_interpretations", "current"))).await?;
-        let Some(marker) = marker else {
-            return Err(CanonicalError::Interpretation {
-                expected: wire::INTERPRETATION,
-                observed: "absent".into(),
-            });
-        };
-        let marker = wire::decode_canonical_interpretations(marker)?;
-        if marker.interpretation != wire::INTERPRETATION {
-            return Err(CanonicalError::Interpretation {
-                expected: wire::INTERPRETATION,
-                observed: marker.interpretation,
-            });
-        }
-        if marker.schema_digest != wire::SCHEMA_DIGEST {
-            return Err(CanonicalError::Interpretation {
-                expected: wire::SCHEMA_DIGEST,
-                observed: marker.schema_digest,
-            });
-        }
-        Ok(())
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            if !self.database_exists().await? {
+                return Err(CanonicalError::Interpretation {
+                    expected: wire::INTERPRETATION,
+                    observed: "absent".into(),
+                });
+            }
+            if !self.activation_db.select_existing().await? {
+                return Err(CanonicalError::IncompleteResponse);
+            }
+            let marker: Option<Object> =
+                request(self.db.select(("canonical_interpretations", "current"))).await?;
+            let Some(marker) = marker else {
+                return Err(CanonicalError::Interpretation {
+                    expected: wire::INTERPRETATION,
+                    observed: "absent".into(),
+                });
+            };
+            let marker = wire::decode_canonical_interpretations(marker)?;
+            if marker.interpretation != wire::INTERPRETATION {
+                return Err(CanonicalError::Interpretation {
+                    expected: wire::INTERPRETATION,
+                    observed: marker.interpretation,
+                });
+            }
+            if marker.schema_digest != wire::SCHEMA_DIGEST {
+                return Err(CanonicalError::Interpretation {
+                    expected: wire::SCHEMA_DIGEST,
+                    observed: marker.schema_digest,
+                });
+            }
+            Ok(())
+        })
+        .await
     }
     /// Exact canonical revision retained by this protection.
     pub async fn revision(&self, id: &str) -> Result<Option<Revision>, CanonicalError> {
-        let row: Option<Object> = request(self.db.select(("canonical_revisions", id))).await?;
+        let row: Option<Object> = request(
+            self.db
+                .control_query("SELECT * FROM ONLY type::record('canonical_revisions', $key);")
+                .bind(("key", id.to_owned())),
+        )
+        .await?
+        .take(0)?;
         row.map(wire::decode_canonical_revisions)
             .transpose()
             .map_err(Into::into)
@@ -632,21 +810,28 @@ impl CanonicalStore {
         operation: &str,
         edits: &[ObjectEdit],
     ) -> Result<Revision, CanonicalError> {
-        self.ensure_writes()?;
-        let stage = match self
-            .stage_edits(problem, expected, operation, edits)
-            .await?
-        {
-            crate::canonical_staging::StageOutcome::Acknowledged(revision) => return Ok(revision),
-            crate::canonical_staging::StageOutcome::Closed(stage) => stage,
-        };
-        self.activate_source_stage(&stage).await
+        within_clock(original_deadline(ACTIVATION_REQUEST_TIMEOUT), async {
+            self.ensure_writes()?;
+            let stage = match self
+                .stage_edits(problem, expected, operation, edits)
+                .await?
+            {
+                crate::canonical_staging::StageOutcome::Acknowledged(revision) => {
+                    return Ok(revision);
+                }
+                crate::canonical_staging::StageOutcome::Closed(stage) => stage,
+            };
+            self.activate_source_stage(&stage).await
+        })
+        .await
     }
     /// Activate only the caller's closed source stage under its generation and head fences.
     pub(crate) async fn activate_source_stage(
         &self,
         stage: &crate::canonical_staging::ClosedStage,
     ) -> Result<Revision, CanonicalError> {
+        let deadline = original_deadline(ACTIVATION_REQUEST_TIMEOUT);
+        within_clock(deadline, async {
         for attempt in 0..GUARDED_ATTEMPTS {
             self.ensure_writes()?;
             let query = self
@@ -696,6 +881,7 @@ impl CanonicalStore {
         Err(CanonicalError::Configuration(
             "staged activation retries exhausted".into(),
         ))
+        }).await
     }
     /// Explicit historical inventory, indexed by problem and revision interval.
     #[cfg(all(test, feature = "canonical-tests"))]
@@ -736,14 +922,18 @@ impl CanonicalStore {
         }
         let key = uuid::Uuid::new_v4().to_string();
         let mut response = self.protected_query(&revision.problem, "canonical::protect", || Ok(self.db.query(r#"BEGIN;
-            SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE;
+            SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
             LET $revision = SELECT * FROM ONLY type::record('canonical_revisions', $revision);
             IF $revision = NONE OR $revision.problem != $problem { THROW 'revision unavailable'; };
             LET $reclaimed = SELECT key FROM canonical_reclaimed_ranges WHERE problem = $problem AND from_sequence <= $revision.sequence AND to_sequence > $revision.sequence LIMIT 1;
             IF array::len($reclaimed) != 0 { THROW 'source selection reclaimed'; };
             IF (SELECT * FROM ONLY type::record('canonical_protections', $key)) = NONE { CREATE type::record('canonical_protections', $key) SET key = $key, problem = $problem, revision = $revision.key, sequence = $revision.sequence, expires_at = time::micros() + $lifetime, released = false; };
             UPSERT type::record('canonical_guards', 'retention:' + $problem) SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
-            SELECT * FROM ONLY type::record('canonical_revisions', $revision.key);
+            LET $rpc_result = SELECT * FROM ONLY type::record('canonical_revisions', $revision.key) TIMEOUT $pse_rpc_timeout;
+            fn::pse_execution_v1::deadline($pse_rpc_expires_at);
+            LET $protection = SELECT * FROM ONLY type::record('canonical_protections', $key);
+            IF $protection = NONE OR $protection.released OR $protection.expires_at <= time::micros() { THROW 'immutable selection protection expired'; };
+            RETURN $rpc_result;
             COMMIT;"#).bind(("problem", revision.problem.clone())).bind(("revision", revision.key.clone())).bind(("key", key.clone())).bind(("lifetime", micros)))).await?;
         let actual: Option<Object> = response.take(response.num_statements().saturating_sub(2))?;
         let revision = wire::decode_canonical_revisions(actual.ok_or_else(|| {
@@ -761,7 +951,7 @@ impl CanonicalStore {
         if names.len() > 256 {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = self.protected_query(&selection.revision.problem, "canonical::select_names", || Ok(self.db.query(format!("{}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND scope = $scope AND name IN $names AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nCOMMIT;", PROTECTED_BEGIN))
+        let mut response = self.protected_query(&selection.revision.problem, "canonical::select_names", || Ok(self.db.query(format!("{}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem AND scope = $scope AND name IN $names AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;", PROTECTED_BEGIN))
             .bind(("problem", selection.revision.problem.clone())).bind(("revision", selection.revision.key.clone())).bind(("protection", selection.key.clone())).bind(("scope", scope.to_owned())).bind(("names", names.to_vec())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision.sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
@@ -777,6 +967,7 @@ impl CanonicalStore {
         product: &pse_model::generated::runtime::canonical_products::Row,
         stage: &crate::canonical_staging::ClosedStage,
     ) -> Result<String, CanonicalError> {
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
         self.ensure_writes()?;
         if product.problem != selection.revision.problem
             || product.revision != selection.revision.key
@@ -868,6 +1059,7 @@ impl CanonicalStore {
         Err(CanonicalError::Configuration(
             "product admission retries exhausted".into(),
         ))
+        }).await
     }
     pub(crate) async fn product_acknowledged(
         &self,
@@ -876,7 +1068,7 @@ impl CanonicalStore {
         // Admission can reuse a previously rooted exact product rather than create
         // the proposed publication key. Settle both branches after a lost response,
         // without requiring a still-live preparation pin or admitting anything new.
-        let mut response = self.protected_query(&product.problem, "canonical::product_acknowledged", || Ok(self.db.query("BEGIN; SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; LET $saved = SELECT key FROM canonical_products WHERE problem = $problem AND request = $product.request AND payload = $product.payload AND dependencies = $product.dependencies AND producer = $product.producer AND interpretation = $product.interpretation AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key ORDER BY key LIMIT 1; RETURN IF array::len($saved) = 0 { NONE } ELSE { $saved[0].key }; COMMIT;")
+        let mut response = self.protected_query(&product.problem, "canonical::product_acknowledged", || Ok(self.db.query("BEGIN; SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at); LET $saved = SELECT key FROM canonical_products WHERE problem = $problem AND request = $product.request AND payload = $product.payload AND dependencies = $product.dependencies AND producer = $product.producer AND interpretation = $product.interpretation AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key ORDER BY key LIMIT 1; LET $rpc_result = IF array::len($saved) = 0 { NONE } ELSE { $saved[0].key }; fn::pse_execution_v1::deadline($pse_rpc_expires_at); RETURN $rpc_result; COMMIT;")
             .bind(("problem", product.problem.clone())).bind(("product", wire::encode_canonical_products(product)?)))).await?;
         let value = response.take::<Value>(response.num_statements().saturating_sub(2))?;
         if matches!(value, Value::None) {
@@ -887,11 +1079,11 @@ impl CanonicalStore {
     /// End a selection protection under its retention conflict guard.
     pub async fn release(&self, selection: &ProtectedSelection) -> Result<(), CanonicalError> {
         // Quiescing scientific writes must still let in-flight readers drain.
-        self.protected_query(&selection.revision.problem, "canonical::release", || Ok(self.db.query("BEGIN; SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; UPDATE type::record('canonical_protections', $protection) SET released = true; UPSERT type::record('canonical_guards', 'retention:' + $problem) SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec; COMMIT;")
+        self.protected_query(&selection.revision.problem, "canonical::release", || Ok(self.db.query("BEGIN; SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at); UPDATE type::record('canonical_protections', $protection) SET released = true; UPSERT type::record('canonical_guards', 'retention:' + $problem) SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec; fn::pse_execution_v1::deadline($pse_rpc_expires_at); COMMIT;")
             .bind(("problem", selection.revision.problem.clone())).bind(("protection", selection.key.clone())))).await?;
         Ok(())
     }
-    /// Remove only this handle's explicitly isolated endpoint fixture database.
+    /// Drain a registered fixture locally; runner disposition owns disposal.
     #[cfg(any(test, feature = "test-support", feature = "canonical-tests"))]
     pub async fn remove_isolated_fixture(&self) -> Result<(), CanonicalError> {
         if !self.database.starts_with("canonical_test_") {
@@ -910,27 +1102,71 @@ impl CanonicalStore {
         }
         #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
         self.result_read_drain.drain().await?;
-        bounded_query(
-            self.db
-                .query("REMOVE DATABASE $database;")
-                .bind(("database", self.database.clone())),
-        )
-        .await?;
+        #[cfg(any(test, feature = "test-support"))]
+        if self
+            .fixture_lifetime
+            .as_ref()
+            .is_some_and(|lifetime| Arc::strong_count(lifetime) > 1)
+        {
+            // Remaining borrowers own the eventual Drop/drain publication.
+            return Ok(());
+        }
+        self.disconnect().await?;
+        #[cfg(any(test, feature = "test-support"))]
+        if let Some(lifetime) = &self.fixture_lifetime {
+            lifetime.drain_connections().await?;
+            crate::testing::resource_bridge(
+                "drain",
+                &serde_json::json!({
+                    "resource": lifetime.resource, "state": self.state_path, "database": self.database,
+                }),
+            )?;
+        }
         #[cfg(any(test, feature = "test-support"))]
         if let Some(removed) = removed.as_mut() {
             **removed = true;
         }
         Ok(())
     }
-    /// Retain only an automatically created fixture, after leaving its executor.
+    /// Retain the fixture's runner-owned resource association for all borrowers.
     #[cfg(any(test, feature = "test-support"))]
-    pub(crate) fn own_fixture(mut self, executor: &'static tokio::runtime::Runtime) -> Self {
+    pub(crate) fn own_fixture(
+        mut self,
+        executor: &'static tokio::runtime::Runtime,
+        resource: String,
+    ) -> Self {
         // The cleanup handle has no lifetime owner, so there is no reference cycle.
         let detached = self.clone();
         self.fixture_lifetime = Some(Arc::new(crate::testing::FixtureLifetime::new(
-            detached, executor,
+            detached, executor, resource,
         )));
         self
+    }
+    #[cfg(all(test, feature = "canonical-tests"))]
+    fn retain_fixture_transport(&self) -> Result<(), CanonicalError> {
+        let mut detached = self.clone();
+        detached.fixture_lifetime = None;
+        self.fixture_lifetime
+            .as_ref()
+            .ok_or_else(|| {
+                CanonicalError::Configuration("fixture transport requires registered owner".into())
+            })?
+            .retain_peer(detached)
+    }
+    #[cfg(any(test, feature = "test-support"))]
+    pub(crate) fn borrow_fixture(mut self, owner: &Self) -> Result<Self, CanonicalError> {
+        self.fixture_lifetime = Some(
+            owner
+                .fixture_lifetime
+                .as_ref()
+                .ok_or_else(|| {
+                    CanonicalError::Configuration(
+                        "fixture borrower requires registered owner".into(),
+                    )
+                })?
+                .clone(),
+        );
+        Ok(self)
     }
     #[cfg(all(test, feature = "canonical-tests"))]
     pub(crate) fn owns_fixture(&self) -> bool {
@@ -940,7 +1176,7 @@ impl CanonicalStore {
 
 fn initialization_statement() -> String {
     format!(
-        "BEGIN;\n{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest;\nCOMMIT;",
+        "BEGIN;\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'original schema installation deadline expired'; }};\n{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest;\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'original schema installation deadline expired'; }};\nCOMMIT;",
         wire::SCHEMA
     )
 }
@@ -950,10 +1186,10 @@ pub(crate) async fn request<F, T>(future: F) -> Result<T, CanonicalError>
 where
     F: IntoFuture<Output = Result<T, surrealdb::Error>>,
 {
-    tokio::time::timeout(REQUEST_TIMEOUT, future.into_future())
-        .await
-        .map_err(|_| CanonicalError::Timeout)?
-        .map_err(Into::into)
+    within_clock(original_deadline(REQUEST_TIMEOUT), async {
+        future.into_future().await.map_err(Into::into)
+    })
+    .await
 }
 
 // Transaction failures also mark preceding statements NotExecuted. Preserve the substantive failure.
@@ -979,18 +1215,30 @@ async fn connect_client(
     address: std::net::SocketAddr,
     options: &CanonicalOptions,
     query_timeout: std::time::Duration,
-) -> Result<Arc<Surreal<Client>>, CanonicalError> {
-    let config = Config::new()
-        .query_timeout(query_timeout)
-        .grpc(GrpcConfig::new().max_message_size(MESSAGE_BYTES))?;
-    let db = request(Surreal::new::<Grpc>((address, config))).await?;
-    request(db.signin(Root {
-        username: options.username.clone(),
-        password: options.password.clone(),
-    }))
-    .await?;
-    request(db.use_ns(&options.namespace).use_db(&options.database)).await?;
-    Ok(Arc::new(db))
+    select_context: bool,
+) -> Result<Arc<CanonicalClient>, CanonicalError> {
+    let deadline = original_deadline(REQUEST_TIMEOUT);
+    within_clock(deadline, async {
+        let config = Config::new().bounded_requests().websocket(
+            WebsocketConfig::new()
+                .max_message_size(MESSAGE_BYTES)
+                .read_buffer_size(128 * 1024)
+                .write_buffer_size(128 * 1024)
+                .max_write_buffer_size(8 * 1024 * 1024),
+        )?;
+        let db = within_clock(deadline, async {
+            Surreal::new::<Ws>((address, config))
+                .await
+                .map_err(Into::into)
+        })
+        .await?;
+        let client = Arc::new(CanonicalClient::new(db, query_timeout, options));
+        if select_context {
+            client.select_existing().await?;
+        }
+        Ok(client)
+    })
+    .await
 }
 
 /// Rebuild a protected immutable read or idempotent lease transaction after a
@@ -1004,27 +1252,30 @@ where
     F: FnMut() -> Result<Q, CanonicalError>,
     Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
 {
-    for attempt in 0..GUARDED_ATTEMPTS {
-        match bounded_query(build()?).await {
-            Err(CanonicalError::Driver(error))
-                if matches!(
-                    error.query_details(),
-                    Some(surrealdb::types::QueryError::TransactionConflict)
-                ) && attempt + 1 < GUARDED_ATTEMPTS =>
-            {
-                conflict_backoff(attempt).await;
-            }
-            result => {
-                if let Err(error) = &result {
-                    operation_failed(operation, error);
+    within_clock(original_deadline(REQUEST_TIMEOUT), async {
+        for attempt in 0..GUARDED_ATTEMPTS {
+            match bounded_query(build()?).await {
+                Err(CanonicalError::Driver(error))
+                    if matches!(
+                        error.query_details(),
+                        Some(surrealdb::types::QueryError::TransactionConflict)
+                    ) && attempt + 1 < GUARDED_ATTEMPTS =>
+                {
+                    conflict_backoff(attempt).await;
                 }
-                return result;
+                result => {
+                    if let Err(error) = &result {
+                        operation_failed(operation, error);
+                    }
+                    return result;
+                }
             }
         }
-    }
-    Err(CanonicalError::Configuration(
-        "guarded operation retries exhausted".into(),
-    ))
+        Err(CanonicalError::Configuration(
+            "guarded operation retries exhausted".into(),
+        ))
+    })
+    .await
 }
 
 /// Attribute an escaping failure without altering its typed cause or retry authority.
@@ -1075,18 +1326,18 @@ pub(crate) fn checked(
     Ok(response)
 }
 
-// The gRPC indexed route includes BEGIN and COMMIT result slots. Consumer SELECT
+// The native indexed route includes BEGIN and COMMIT result slots. Consumer SELECT
 // is immediately before COMMIT; do not decode either control's NONE as an object.
 pub(crate) const PROTECTED_BEGIN: &str = r#"BEGIN;
-SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE;
+SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $pin = SELECT * FROM ONLY type::record('canonical_protections', $protection);
 IF $pin = NONE OR $pin.problem != $problem OR $pin.revision != $revision OR $pin.sequence != $sequence OR $pin.released OR $pin.expires_at <= time::micros() { THROW 'immutable selection protection expired'; };"#;
 
 const ADMIT_PRODUCT: &str = r#"
 LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
-SELECT * FROM $stage_guard FOR UPDATE;
+SELECT * FROM $stage_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $version_guard = type::record('canonical_guards', 'version:' + $blob);
-SELECT * FROM $version_guard FOR UPDATE;
+SELECT * FROM $version_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $stage = SELECT * FROM ONLY type::record('canonical_stages', $operation);
 LET $child = SELECT * FROM ONLY type::record('canonical_staged_edits', $operation + ':0');
 LET $manifest = SELECT * FROM ONLY type::record('canonical_version_manifests', $blob);
@@ -1111,17 +1362,20 @@ UPDATE type::record('canonical_stages', $operation) SET activated = true;
 UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
 UPSERT $version_guard SET key = 'version:' + $blob, generation = (generation ?? 0dec) + 1dec;
 UPSERT type::record('canonical_guards', 'retention:' + $problem) SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
-RETURN IF array::len($equivalent) != 0 { $equivalent[0].key } ELSE { $product.key };
+LET $rpc_result = IF array::len($equivalent) != 0 { $equivalent[0].key } ELSE { $product.key };
+fn::pse_execution_v1::deadline($pse_rpc_expires_at);
+IF $pin.expires_at <= time::micros() OR $stage.expires_at <= time::micros() { THROW 'product publication authority expired'; };
+RETURN $rpc_result;
 "#;
 
 const EDIT: &str = r#"
 BEGIN;
 LET $retention_guard = type::record('canonical_guards', 'retention:' + $problem);
-SELECT * FROM $retention_guard FOR UPDATE;
+SELECT * FROM $retention_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
-SELECT * FROM $stage_guard FOR UPDATE;
+SELECT * FROM $stage_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $head_guard = type::record('canonical_guards', 'head:' + $problem);
-SELECT * FROM $head_guard FOR UPDATE;
+SELECT * FROM $head_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $ack = SELECT * FROM ONLY type::record('canonical_revisions', $operation);
 IF $ack != NONE { THROW 'operation identity already committed; settle immutable revision'; };
 LET $stage = SELECT * FROM ONLY type::record('canonical_stages', $operation);
@@ -1214,6 +1468,8 @@ UPSERT type::record('canonical_problems', $problem) SET key = $problem, head = $
 UPSERT $head_guard SET key = 'head:' + $problem, generation = (generation ?? 0dec) + 1dec;
 UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
 UPSERT $retention_guard SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
+fn::pse_execution_v1::deadline($pse_rpc_expires_at);
+IF $stage.expires_at <= time::micros() { THROW 'activation staging lease expired before commit'; };
 COMMIT;
 "#;
 
@@ -1439,7 +1695,21 @@ mod canonical_server_unit {
             std::env::var("PSE_SURREAL_STATE").expect("canonical-test supplies supervised state");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_init_{}", uuid::Uuid::new_v4().simple());
-        (CanonicalStore::connect(&options).await.unwrap(), options)
+        (
+            crate::testing::canonical_fixture_with_options(&options, false).unwrap(),
+            options,
+        )
+    }
+    #[tokio::test]
+    async fn connection_and_open_never_provision_unknown_database() {
+        let (store, _) = initialization_fixture().await;
+        assert!(!store.database_exists().await.unwrap());
+        assert!(store.open().await.is_err());
+        assert!(!store.database_exists().await.unwrap());
+        store.create().await.unwrap();
+        assert!(store.database_exists().await.unwrap());
+        store.open().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
     #[allow(
@@ -1496,19 +1766,14 @@ mod canonical_server_unit {
         // TEST ONLY: an explicit bounded opaque loopback relay may forward the
         // configured actual server. Ordinary native controls keep their fixture route.
         if let Ok(endpoint) = std::env::var("PSE_CANONICAL_TEST_ENDPOINT") {
-            if endpoint != "grpc://127.0.0.1:18089" {
+            if endpoint != "ws://127.0.0.1:18089" {
                 return Err(CanonicalError::Configuration(
                     "transport fixture relay must be the assigned loopback endpoint".into(),
                 ));
             }
             options.endpoint = endpoint;
         }
-        let store = tokio::time::timeout_at(deadline, CanonicalStore::connect(&options))
-            .await
-            .map_err(|_| CanonicalError::Timeout)??;
-        tokio::time::timeout_at(deadline, store.create())
-            .await
-            .map_err(|_| CanonicalError::Timeout)??;
+        let store = crate::testing::canonical_fixture_with_options(&options, true)?;
         let mut cases = Vec::new();
         let mut original_failure = None;
         for (case, bytes, lanes) in [
@@ -1780,9 +2045,15 @@ mod canonical_server_unit {
             .unwrap()
             .socket_addrs(|| None)
             .unwrap()[0];
-        store.db = connect_client(address, &options, std::time::Duration::from_millis(250))
-            .await
-            .unwrap();
+        store.db = connect_client(
+            address,
+            &options,
+            std::time::Duration::from_millis(250),
+            true,
+        )
+        .await
+        .unwrap();
+        store.retain_fixture_transport().unwrap();
         let cancelled = request(store.db.query("SLEEP 750ms; RETURN true;")).await;
         assert!(
             cancelled.and_then(complete_response).is_err(),
@@ -1849,9 +2120,14 @@ mod canonical_server_unit {
             .unwrap()
             .socket_addrs(|| None)
             .unwrap()[0];
-        let short = connect_client(address, &options, std::time::Duration::from_millis(50))
-            .await
-            .unwrap();
+        let short = connect_client(
+            address,
+            &options,
+            std::time::Duration::from_millis(50),
+            true,
+        )
+        .await
+        .unwrap();
         let delayed = initialization_statement().replacen("BEGIN;", "BEGIN; SLEEP 1s;", 1);
         let response = store
             .initialize_with(|| {
@@ -1864,6 +2140,8 @@ mod canonical_server_unit {
             })
             .await;
         assert!(response.is_err());
+        tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+        short.disconnect().await.unwrap();
         assert!(store.open().await.is_err());
         store.remove_isolated_fixture().await.unwrap();
     }
@@ -1874,20 +2152,28 @@ mod canonical_server_unit {
             std::env::var("PSE_SURREAL_STATE").expect("canonical-test supplies supervised state");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_{}", uuid::Uuid::new_v4().simple());
-        let store = CanonicalStore::connect(&options).await.unwrap();
-        store.create().await.unwrap();
+        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
         let address = url::Url::parse(&options.endpoint)
             .unwrap()
             .socket_addrs(|| None)
             .unwrap()[0];
-        let short = connect_client(address, &options, std::time::Duration::from_millis(50))
-            .await
-            .unwrap();
-        let result = bounded_query(short.query("BEGIN; SLEEP 1s; CREATE canonical_guards:late SET key = 'late', generation = 1dec; COMMIT;")).await;
+        let short = connect_client(
+            address,
+            &options,
+            std::time::Duration::from_millis(50),
+            true,
+        )
+        .await
+        .unwrap();
+        let result = bounded_query(short.query("BEGIN; SLEEP 1s; CREATE canonical_guards:late SET key = 'late', generation = 1dec; fn::pse_execution_v1::deadline($pse_rpc_expires_at); COMMIT;")).await;
         assert!(
             result.is_err(),
             "cancellation cannot become a completed empty transaction"
         );
+        // Cancellation classifies an unknown transport outcome. The transaction
+        // expiry fence establishes rollback after server work actually settles.
+        tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+        short.disconnect().await.unwrap();
         let absent: Option<Object> = request(store.db.select(("canonical_guards", "late")))
             .await
             .unwrap();
@@ -1911,8 +2197,7 @@ mod canonical_server_unit {
             std::env::var("PSE_SURREAL_STATE").expect("canonical-test supplies supervised state");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_{}", uuid::Uuid::new_v4().simple());
-        let store = CanonicalStore::connect(&options).await.unwrap();
-        store.create().await.unwrap();
+        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
         let edits = (0..3500)
             .map(|ordinal| {
                 let logical = format!("object-{ordinal}");
@@ -2033,7 +2318,7 @@ mod canonical_server_unit {
             std::env::var("PSE_SURREAL_STATE").expect("canonical-test supplies supervised state");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_{}", uuid::Uuid::new_v4().simple());
-        let store = CanonicalStore::connect(&options).await.unwrap();
+        let store = crate::testing::canonical_fixture_with_options(&options, false).unwrap();
         assert!(
             store.open().await.is_err(),
             "normal open must not install missing schema"
@@ -2089,12 +2374,16 @@ mod canonical_server_unit {
             object.insert("key", format!("cell-{index}"));
             object.insert("finite", codec::encode_finite(value).unwrap());
             object.insert("raw", codec::encode_diagnostic_bits(0x7ff8_0000_0000_0042));
-            let saved: Option<Object> = store
-                .db
-                .create(("canonical_wire_fixture", format!("cell-{index}")))
-                .content(object)
-                .await
-                .unwrap();
+            let mut response = bounded_query(
+                store
+                    .db
+                    .query("CREATE type::record('canonical_wire_fixture', $key) CONTENT $row;")
+                    .bind(("key", format!("cell-{index}")))
+                    .bind(("row", object)),
+            )
+            .await
+            .unwrap();
+            let saved: Option<Object> = response.take(0).unwrap();
             let mut saved = saved.unwrap();
             assert_eq!(
                 codec::decode_finite(saved.remove("finite").unwrap())
@@ -2166,18 +2455,18 @@ mod canonical_server_unit {
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
-    async fn grpc_exact_cells_and_guarded_revisions() {
+    async fn websocket_exact_cells_and_guarded_revisions() {
         let state =
             std::env::var("PSE_SURREAL_STATE").expect("canonical-test supplies supervised state");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_{}", uuid::Uuid::new_v4().simple());
-        let store = CanonicalStore::connect(&options).await.unwrap();
-        store.create().await.unwrap();
+        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
         store.open().await.unwrap();
         let result: Result<(), CanonicalError> = async {
             for (index, value) in [0, (1u64<<63)-1, 1u64<<63, (1u64<<63)+1, u64::MAX-1, u64::MAX].into_iter().enumerate() {
                 let row = pse_model::generated::runtime::canonical_guards::Row { key: format!("boundary-{index}"), generation: value };
-                let saved: Option<Object> = store.db.create(("canonical_guards", row.key.as_str())).content(wire::encode_canonical_guards(&row)?).await?;
+                let mut response = store.db.query("CREATE type::record('canonical_guards', $key) CONTENT $row;").bind(("key", row.key.clone())).bind(("row", wire::encode_canonical_guards(&row)?)).await.and_then(checked)?;
+                let saved: Option<Object> = response.take(0)?;
                 assert_eq!(wire::decode_canonical_guards(saved.unwrap())?.generation, value);
             }
             let mut ordered = store.db.query("SELECT generation FROM canonical_guards WHERE generation >= $lower ORDER BY generation;").bind(("lower", crate::canonical_codec::encode_uint(1u64<<63)?)).await.and_then(checked)?;
@@ -2211,14 +2500,8 @@ mod canonical_server_unit {
             assert!(store.select_names(&selection, "root", &["x".into()]).await.is_err());
             Ok(())
         }.await;
-        store
-            .db
-            .query("REMOVE DATABASE $database;")
-            .bind(("database", options.database))
-            .await
-            .unwrap()
-            .check()
-            .unwrap();
+        assert_eq!(store.database(), options.database);
+        store.remove_isolated_fixture().await.unwrap();
         result.unwrap();
     }
 }

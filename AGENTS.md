@@ -225,8 +225,9 @@ Each of these is a real incident, not a hypothetical.
   are banned in `clippy.toml`; use the typed config path and `try_extension_type`.
 - **A heavy native run can exhaust the machine and take the editor down with it** (two
   editor-wide OOM kills on 2026-09-29). Every recipe command now runs in its own
-  memory-capped scope in `pse.slice` (`PSE_MEMORY_MAX`, default 120G), so a runaway process
-  is killed alone; run an ad hoc heavy command with `scripts/pse-env -- <command>`.
+  memory-capped scope in `pse.slice`, coordinated by `.config/agent-capacity.toml`.
+  `PSE_MEMORY_MAX` requests a finite allocation and widens its ancestors coherently;
+  run an ad hoc heavy command with `scripts/pse-env -- <command>`.
 - **uv workspaces enforce a single `requires-python`**, which is why the IDAES parity set is
   a *dependency group* with an environment marker rather than a workspace member.
 

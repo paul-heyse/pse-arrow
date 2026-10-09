@@ -1,7 +1,7 @@
 # Local SurrealDB substrate
 
-[Plan 28a](../plans/28a-canonical-substrate-and-revisions.md) owns the current delivery
-scope. ADR-0164 owns the substrate decision. This page describes the local server
+[Plan 30](../plans/30-websocket-and-persistent-agent-environment.md) owns
+the transport and agent-environment delivery scope. ADR-0164 owns the substrate decision. This page describes the local server
 operator surface implemented by `scripts/surreal_server.py`; it does not qualify
 scientific operations, remote deployment or physical power-loss survival.
 
@@ -11,40 +11,40 @@ Use `just surreal <command>` and the focused test recipes in `just --list`.
 The underlying tool commands are:
 
 ```bash
-.venv/bin/python scripts/surreal_server.py setup --interpretation pse.substrate.v1
+.venv/bin/python scripts/surreal_server.py setup --interpretation pse.substrate.v2
 .venv/bin/python scripts/surreal_server.py start
 .venv/bin/python scripts/surreal_server.py status
 ```
 
 `--state PATH` selects an isolated application or fixture directory. The default is
-`$PSE_SURREAL_STATE`, otherwise `$XDG_STATE_HOME/pse-arrow/surreal`, falling back to
-`~/.local/state/pse-arrow/surreal`. Setup refuses nonempty unowned state and paths
+`$PSE_SURREAL_STATE`, otherwise `$XDG_STATE_HOME/pse-arrow/surreal-functional-v2`, falling back to
+`~/.local/state/pse-arrow/surreal-functional-v2`. Setup refuses nonempty unowned state and paths
 through symlinks. Repeated setup of an owned compatible state preserves its chosen
 release, credentials and allocation; it is not a reconfiguration or upgrade command.
 No legacy import, cleanup or deletion of other application state occurs.
 
-Setup selects the current stable official GitHub release for Linux amd64/arm64.
-`--version vX.Y.Z` can reproduce a recorded released binary. It verifies the archive
-against the official release asset's SHA256 digest, extracts only the server executable,
-checks its reported version and records archive/binary digests in a private receipt.
-The tool root is `$XDG_DATA_HOME/pse-arrow/tools/surreal`, falling back to
-`~/.local/share/pse-arrow/tools/surreal`; `--tool-root PATH` overrides it. Installation
-adds no database engine to the application Cargo dependency graph and does not modify
-`PATH`. The initial observed release was 3.3.0; future fresh setup follows the release
-resolver. Existing state records the actual selected version, rather than silently
-switching its database executable on restart.
+Fresh setup selects the pinned released SurrealDB 3.3.0 binary; an explicit release
+selection remains an administrative choice. It verifies the release asset SHA256,
+extracts only the executable, checks the reported version and records archive and
+binary digests. Existing state retains its exact binary. The private tool root is
+`$XDG_DATA_HOME/pse-arrow/tools/surreal`, with the usual home fallback. No application
+engine is embedded in Cargo and setup does not modify `PATH`.
 
 The owned state contains:
 
 | Path | Meaning |
 |---|---|
 | `config.json` | Endpoint, namespace/database, interpretation, admission state, server receipt and finite resource allocation |
-| `credentials.json` | Root `username` and generated `password`; mode 0600 |
+| `credentials.json` | Owner and read-only selection credentials; mode 0600 |
 | `database/` | RocksDB files, including recovery logs and committed state |
 | `tmp/` | Server temporary-file location; not included in an offline backup |
 | `server.log`, `.log.1`, `.log.2` | Private supervisor-captured server logs, at most 8 MiB each |
-| `server-process.json` | Current child PID and instance identity; readiness verifies its listener and cgroup ownership |
-| `.supervisor.lock` | Serializes operator lifecycle commands |
+| `server-process.json` | Current child PID/start identity, instance and host allocation; readiness verifies its listener and cgroup ownership |
+| `service-launch.json` | Exact admitted service selection, original startup clock, allocation and bound unit invocation/cgroup identity |
+| `.supervisor.lock` | Short metadata decisions; never spans workload or drain IPC |
+| `.generations/` | Immutable supervisor/source closures and optional worker/producer bytes |
+| `.contexts/`, `.receivers/` | Isolated database association and independently admitted receiver configuration |
+| `.recovery-controls/` | Private recovery-context identity and outcome evidence, retained when qualification is incomplete |
 
 State directories have mode 0700. Credentials are passed to the child through its
 environment, never command arguments, status output or the systemd unit definition.
@@ -54,105 +54,102 @@ profile, not an isolation boundary against the account that owns it.
 
 ## Endpoint and allocation
 
-The server binds `127.0.0.1:18080` by default (`setup --port PORT`). Authentication is
-enabled. gRPC uses that same port, with `endpoint` in `config.json` set to
-`grpc://127.0.0.1:PORT`. The database is `pse/canonical` and the interpretation is
-`pse.substrate.v1`. An initial server does not create application schema; the typed
-substrate boundary owns initial declaration installation and the interpretation record.
+Fresh functional setup binds `127.0.0.1:18240` by default (`setup --port PORT`).
+Application RPC uses authenticated native binary WebSocket at `ws://127.0.0.1:PORT`,
+with a 4 MiB complete encoded-message bound. There is one SDK application session
+plus the server's implicit connection session. Guest queries, outbound networking
+and scripting are denied. Query and transaction backstops are finite; canonical
+operations carry their original clocks through admission, dispatch and settlement.
+A local timeout does not establish server abort or absence of committed effects.
 
-`config.json` supplies `endpoint`, `namespace`, `database`, `schema_interpretation`,
-`max_message_bytes`, `credentials_file` and `accepting_writes` to the Rust client.
-The client must honor admission closure for existing connections as well as new ones.
-Status prints paths and public configuration, never credential contents. Readiness checks
-that the listener belongs to the recorded child in the owned systemd cgroup, then checks
-health. It does not establish authentication, schema or operation correctness.
+Opening a Rust/Python context does not install schema. A private root VIEWER account
+selects the exact namespace/database without implicit DDL, probes one interpretation
+record, then restores the owner account for explicit writes. Ordinary selection does
+not enumerate root or namespace catalogs. `canonical-init` is the explicit schema
+initialization route. Administrative startup defines the read-only account and checks
+authenticated WebSocket readiness; process/listener readiness and interpretation/
+receiver admission remain separate.
 
-The persistent store is:
+Pre-database catalog creation cannot use the ordinary in-database UTC fence in
+SurrealDB 3.3. It uses a fresh unselected administrative connection under the original
+transport clock and finite server backstops. A lost submitted DDL response remains
+an unknown outcome; only acknowledged creation admits subsequent selection.
 
-```text
-rocksdb://<state>/database?sync=every&versioned=false
-```
+The persistent store is `rocksdb://<state>/database?sync=every&versioned=false`.
+Functional services use owned user-manager units and admitted immutable supervisor
+closures. They can survive agent exit; continuous logout/reboot availability depends
+on the account's verified user-manager/linger setup. Scientific work never starts at
+boot. Recovery initially requires explicit action. Restart-on-failure is enabled only
+by a positive process-recovery qualification of that service generation, with three
+starts per five minutes and a five-second delay. Intentional parking suppresses automatic
+restart; an explicit `start` or `ensure` is an admitted unpark operation.
 
-The server explicitly sets `SURREAL_GRPC_MAX_MESSAGE_SIZE=4194304`; the SDK must set
-the same initial 4 MiB client limit. Batch/result sizing includes encoded metadata and
-must stay below that limit. The server denies guest queries, outbound networking and
-embedded scripting, and applies 90-second query and transaction maxima. Ordinary
-client queries have a 20-second server deadline and a 30-second transport deadline.
-Atomic revision activation uses a separate client with a 60-second query deadline
-and a 90-second transport deadline. A missing statement completion is an error;
-uncertain activation settles only through its immutable operation receipt.
+Storage has its own admitted placement. Outside exclusive mode, functional and timing
+stores each use their declared store allocation, independently of the caller's heavy
+slot. The persistent unit sits under `pse.slice` with its own finite memory cap and CPU
+quota. An exclusive owner instead charges borrowed storage inside its aggregate
+allocation. Storage affinity follows that storage owner; starting a server does not
+materialize a receiver's scientific roles. Primary, observer and worker admission
+establish their own placement separately.
 
-The default configured application memory envelope is 4096 MiB: server 2048 MiB and
-two managed native-worker slots of 1024 MiB each. Setup supports
-`--memory-mib`, `--server-memory-mib`, `--native-workers` and
-`--native-worker-memory-mib`; it rejects over-allocation, fewer than one/more than 32
-workers and a server allocation below 512 MiB. Runtime composition consumes the finite
-worker count and per-worker allocation. The helper launches native processes within those
-fixed capped slots and refuses excess admission.
+Listener readiness checks the storage allocation's actual unit invocation, cgroup
+identity, PID start identity, direct/effective memory and CPU limits, and thread
+affinity. A receiver's placement receipt or a responding unrelated listener cannot
+establish storage ownership. Capacity remains charged across a pending qualified
+restart. The new supervisor can rebind that owner only after the exact predecessor
+and its descendants have drained; absent, stale or conflicting ownership is refused.
+Explicit stopped service readmission/start is the repair route, preserving disk and
+earlier generation evidence.
 
-The selected Plan 28 parallel deployment uses `--execution-profile plan28-reference`
-and an explicit absolute `--worker-executable`. Its capacities are read from the
-reference manifest and materialized under one finite systemd parent. See
-[28h's selected deployment](../plans/28h-native-setup-and-artifact-identity.md#parallel-deployment-and-supported-native-placement)
-for the adopted placement. One managed primary owns the shared runtime; public durable
-studies observe it from the separate bounded observer process. Readiness verifies the
-actual executable, database, process and cgroup, with role-specific producer association
-when explicitly selected; it is not proof of native overlap or scientific success.
+Run `qualify-recovery --state PATH` only on the explicitly selected owned service
+when all its contexts can be quiesced and drained. Under one original 90-second clock,
+the control explicitly provisions an administrative `pse_recovery` namespace and a
+unique `recovery_<operation>` database, checking every provisioning acknowledgment
+and the exact selected context. It does not require the base `pse/canonical` database
+or install canonical schema. It writes and reads an acknowledged operation in that
+context, abandons another fully submitted response, kills the process, reopens the
+same disk generation, and reconciles the original identities in the same context.
+Failure retains any created probe database and private context evidence with restart
+qualification disabled. Local cleanup has its own bounded drain clock; an operation
+timeout does not prove that submitted effects are absent. The control finishes stopped
+and quiesced; use explicit `start` to reopen serving after success.
+A positive receipt enables the bounded automatic restart policy for that generation.
+Service readmission or restore disables automatic restart until the new generation
+qualifies. The receipt does not qualify native scientific interruption or
+filesystem/device power loss.
 
-Reference role launches set inherited scheduler affinity to the selected sixteen physical
-cores before any worker threads start. Readiness reads the actual process and thread masks.
-The supervisor also checks cpuset readback where delegated; user managers without that
-controller use process affinity together with the same finite cgroup CPU quota and memory caps.
+The host profile declaration owns resource partitions. Compatible worker rebuilds
+publish new immutable receiver generations per isolated context while the storage
+service continues. Existing receivers keep their exact admitted worker, producer
+receipt, source closure and configuration. Runtime readiness checks actual bytes,
+process generation, database and role placement, rather than mutable build paths.
+Reference mode preserves the original primary/observer allocation; functional and
+timing profiles are separate declarations.
 
-Change an existing owned allocation while admission is quiesced and the server is
-stopped:
+Timing uses a dedicated state and endpoint. With an already built linked worker:
 
 ```bash
-just surreal quiesce
-# Drain runtime work before acknowledging it.
-just surreal stop --drained
-just surreal reconfigure --memory-mib 32768 --server-memory-mib 16384 \
-  --native-worker-memory-mib 8192
-just surreal start
+timing_state="${XDG_STATE_HOME:-$HOME/.local/state}/pse-arrow/surreal-timing-v2"
+scripts/pse-env --resource-class timing -- just surreal setup --state "$timing_state" \
+  --port 18242 --interpretation pse.substrate.v2 --execution-profile timing \
+  --worker-executable "$PWD/target/debug/pse-worker"
+scripts/pse-env --resource-class timing -- just surreal start --state "$timing_state"
 ```
 
-For the ordinary finite-slot profile, `reconfigure` accepts the three memory options above. Omitted values preserve the
-saved allocation exactly; setup's defaults apply only to new state. The supervisor
-verifies the stopped server's cgroup and every existing worker group is empty under
-the lifecycle lock, validates the complete joint budget, then atomically replaces
-only the allocation and its derived cache, write-buffer and threshold fields.
-Invalid or partially specified budgets that exceed the saved joint envelope,
-active or unverifiable process groups, and admission that is not fully quiesced
-leave the configuration unchanged. Explicit `--native-workers`, `--port`,
-`--version`, `--interpretation` or `--tool-root` options are rejected; this command
-preserves worker count and unit names, endpoint, interpretation, release,
-credentials and database contents. It leaves the server stopped and admission
-closed. The next explicit `start` consumes the new server budget and derived
-settings; subsequent managed workers consume the new per-worker budget.
+`setup --execution-profile timing` records the timing service class and allocation;
+it does not select the ordinary functional store. Timing storage starts on admitted
+demand rather than being enabled at user-manager startup. Use this state and the
+timing execution profile for registered timing contexts. Timing contexts on a
+functional service, and functional/reference contexts on a timing service, are refused.
+Changing the command's resource class alone does not convert an existing service.
+Changing an existing selected service profile requires stopped, drained `reconfigure`.
 
-Select or readmit the reference profile through the same quiesce/drain/stop sequence,
-then `just surreal reconfigure --execution-profile plan28-reference
---worker-executable /absolute/path/to/pse-worker`, followed by explicit `start`.
-Memory overrides cannot accompany this profile selection. Offline readmission observes
-the current supervisor and receiver bytes and preserves the database, endpoint,
-credentials and interpretation. A changed executable or supervisor cannot silently
-inherit a live primary's recorded association. Quiesce verifies the admitted running
-receiver through its actual process executable, launch identity and allocation, so a
-replacement disk binary does not prevent cooperative drain. Serving readiness still
-requires the currently admitted disk bytes; stop and readmission require empty worker
-groups. Use `just py-test --managed-primary-route`
-for managed Python consumers, or the explicit managed partition of the native assessment;
-ordinary test processes retain their separate finite budgets.
-
-The supervisor creates a transient systemd **user service** with `MemoryMax` equal to
-the server allocation, `MemorySwapMax=0`, `TasksMax=128`, `KillMode=control-group` and
-a 45-second stop deadline. The cap includes the wrapper and server child. A user manager
-is required; unavailable supervision fails rather than starting uncapped. It discovers
-the account's standard runtime bus when shell bus variables are absent. This uses the
-same systemd resource-control surface and `pse.slice` placement as `scripts/pse-env`, with an explicit
-service lifecycle. No automatic restart is configured: failed/abruptly killed units
-must be restarted explicitly, and application clients own reconnect/uncertain-operation
-resolution.
+For an explicitly selected older owned profile, quiesce and drain all contexts, stop,
+then use `upgrade` for the supported profile revision or `readmit` for the stopped
+service closure/selection credentials. Those commands preserve earlier profile and
+credential evidence. Unknown or incompatible profiles are refused. `ensure`, `drain`
+and `recover` operate only on the selected ownership; status is read-only and redacts
+secrets. A wider allocation must be explicitly admitted before launching its roles.
 
 RocksDB's block cache is one quarter of the allocated server memory. Each write buffer
 is `min(32 MiB, allocation / 64)`, with two buffers per column family. The tracked-memory
@@ -202,7 +199,8 @@ Close application write admission before draining its existing native work:
 
 `quiesce` records `accepting_writes=false` without interrupting the server. `--drained`
 is the caller's acknowledgement that runtime work has drained. The supervisor also
-requires every configured worker scope to be inactive and its cgroup unpopulated before
+requires every registered receiver, observer, worker scope and pending launch to be
+drained before
 stopping the server or copying the database. The acknowledgment does not itself
 perform or prove that drain. Server stop sends SIGTERM through the service and waits
 for the service to become inactive and its cgroup to be empty. The configured deadline can end shutdown forcibly;
@@ -216,7 +214,8 @@ For the initial supported backup route, quiesce and drain, then:
 ```
 
 Backup leaves the server stopped and admission closed. It copies the entire offline
-database together with configuration, credentials and interpretation, then writes a
+database together with configuration, credentials, interpretation, admitted immutable
+generation closures and isolated context descriptors, then writes a
 SHA256 inventory in `backup.json`. Keep this private backup as carefully as live
 credentials. A destination must be new or empty, outside the live state tree. No online
 file copy, export/import reconstruction or independent WAL/data-file copy is supported.
@@ -228,19 +227,21 @@ Restore into a new or empty owned target, never over an existing application:
 
 ```bash
 .venv/bin/python scripts/surreal_server.py restore --state /path/to/restored-state \
-  --source /path/to/new-backup --interpretation pse.substrate.v1
+  --source /path/to/new-backup --interpretation pse.substrate.v2
 .venv/bin/python scripts/surreal_server.py validate --state /path/to/restored-state \
-  --interpretation pse.substrate.v1 --check-command <typed-semantic-validator> <arguments>
+  --interpretation pse.substrate.v2 --check-command <typed-semantic-validator> <arguments>
 .venv/bin/python scripts/surreal_server.py start --state /path/to/restored-state
 ```
 
 Restore checks the full file inventory, digests, known profile and matching interpretation
-before creating the target. It preserves database bytes and operation identities, assigns
+before creating the target. Managed generation/context paths are rerooted into the
+new state; restored serving does not depend on the original state directory. Live
+process and admission receipts are not restored. It preserves database bytes and operation identities, assigns
 a new supervisor instance identity, and records `validation_required` with
 `accepting_writes=false`. Ordinary start refuses that state.
 
 `validate` starts the gated server, authenticates against `pse/canonical`, and requires
-`canonical_interpretations:current.interpretation` to match `pse.substrate.v1`. It then
+`canonical_interpretations:current.interpretation` to match `pse.substrate.v2`. It then
 runs the supplied semantic validator with `PSE_SURREAL_STATE` selecting the restore.
 The validator owns exact selected values, operation identities and schema/codec checks;
 it must use the read path permitted during validation, not normal write admission.
@@ -269,12 +270,35 @@ validation of that exact record. `kill --state PATH` also supports a root-owned 
 fixture; it deliberately bypasses graceful drain.
 
 This helper journey's data control uses authenticated HTTP on the same server port.
-It does not replace Rust gRPC exact-codec, operation-identity or transaction controls.
+It does not replace Rust native WebSocket exact-codec, operation-identity or transaction controls.
 An acknowledged process-restart survival result also does not establish survival of
 physical device/filesystem power loss.
 
 The profile follows the official [start command](https://surrealdb.com/docs/reference/cli/surrealdb-cli/commands/start),
 [environment variables](https://surrealdb.com/docs/reference/cli/surrealdb-cli/environment-variables)
-and [gRPC connection contract](https://surrealdb.com/docs/reference/rust/methods/connect).
+and [WebSocket connection contract](https://surrealdb.com/docs/reference/rust/methods/connect).
 Source and actual released-binary startup take precedence over unsupported documentation
 values: 3.3.0 rejected RocksDB storage log level `none`; this profile uses `error`.
+
+## Disposable tests and retained evidence
+
+Runners register opaque invocation/test resources before side effects. Rust fixture
+Drop and Python fixture exit publish borrower/native drain; the existing selected
+runner terminal result determines disposition. Only a reconciled pass with completed
+drain and no references or manual pin is automatically disposable. A failing or
+incomplete result remains pinned. A bare command without a runner association cannot
+infer success and keeps its resources. Unknown historical materials are preserved.
+
+Fixture registration and database/control cleanup claims enter the service's short
+context-admission gate and recheck current ownership before publication. Removal runs
+outside metadata locks. Storage lifecycle reservations refuse both live undrained
+fixtures and live cleaners, including cleaners of already drained fixtures. Evidence
+file cleanup remains independent of storage lifecycle.
+
+Use `python -m scripts.test_resources list` or `status RESOURCE` to inspect exact
+ownership; `pin RESOURCE`, `release RESOURCE` and `reclaim RESOURCE` are explicit
+operator routes. Retiring a retained evidence dependency uses `release-reference
+RESOURCE --receipt PATH --digest SHA256`; the exact original digest must match, and
+pins/drain still govern reclamation. Successful new report compaction preserves
+checks, selections, provenance and JSON receipts. Old reports and frozen worktrees
+are not cleanup candidates merely because they occupy space.

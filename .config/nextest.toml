@@ -4,12 +4,10 @@
 # `cargo nextest run` with `cargo test --doc --workspace --locked`.
 
 [test-groups]
-# Independent solver tests use the sixteen-worker test budget. Native BLAS/OpenMP
-# teams remain one thread each; memory-heavy authored journeys have their own group.
-solver = { max-threads = 16 }
-# Each engineering workflow has its own 64 GiB ceiling and two workers.
-# At most two such processes run together (128 GiB aggregate declared ceiling).
-engineering = { max-threads = 4 }
+# Pool-owning solver, engineering and runtime cases share one budget. Each
+# consumes both slots, so only one scientific process runs per observer.
+# Unassigned pure tests retain the profile's parallel budget.
+scientific = { max-threads = 2 }
 # Canonical consumers on the one selected supervised server. Each fixture owns an
 # isolated UUID database, so database-only tests share the server (threads-required 1);
 # sixteen clients can share the server's four runtime threads. Tests that own
@@ -33,25 +31,17 @@ success-output = "never"
 
 # Canonical tests are scheduled by their effect on the shared server (Plan 29 D5).
 # Group and threads-required each take the first matching override, so the exclusive
-# and engineering classes precede the solver and database-only classes. Tests with no
+# and scientific classes precede the solver and database-only classes. Tests with no
 # server use (for example `study_policy`, `math::strategy`, `workflow::diagnostics` and
 # the `pse-tests-engine` session controls) have no group.
 
 [[profile.default.overrides]]
 # Exclusive among store tests:
-# - `worker` journeys own the deployment's finite managed worker slots and kill workers
-#   (they also serialise across runs on the state's flock). Scheduler waiting precedes
-#   case execution and does not consume its deadline.
 # - The fixture-connection control observes the deployment database's existence.
 # - Lease, deadline and polling controls assert sub-second windows (50/250 ms client
 #   deadlines, 250-300 ms claims and fences, 1 s leases, 32 x 10 ms polls).
 filter = """
-(package(pse-runtime) & binary(worker))
-| (package(pse-runtime) & test(conformance_parallel_))
-| (package(pse-runtime) & (test(ephemeral_study_sixteen_native_lanes_)
-    | test(ephemeral_study_cancellation_drains_sixteen_)
-    | test(managed_primary_)))
-| (package(pse-operations) & (
+(package(pse-operations) & (
     test(=testing::canonical_server_unit::fixture_connections_preserve_external_and_deployment_databases)
     | test(=canonical::canonical_server_unit::initialization_sixteen_independent_databases_complete_in_parallel)
     | test(=canonical_retention::canonical_server_unit::concurrent_protected_reads_and_lease_changes_retry_complete_transactions)
@@ -68,21 +58,26 @@ threads-required = 16
 [[profile.default.overrides]]
 # Memory-heavy engineering journeys: conformance acceptances own a 64 GiB workflow pool
 # with two workers; the reference-seed journeys declare a 128 GiB pool with 16 GiB of
-# case workers, and the reference flash a 64 GiB pool. Two slots each, so at most two
-# run together. Their isolated fixture databases are light server load.
+# case workers, and the reference flash a 64 GiB pool. Two slots each, so one
+# scientific process runs at once. Runtime worker cases share this budget;
+# host admission and actual owned observer/worker lifetimes coordinate runs.
 filter = """
 (package(pse-tests-conformance) & test(/^acceptance::/) & !test(/^acceptance::(coefficient_conic|native_outcomes)::/))
+| (package(pse-runtime) & (binary(worker) | test(conformance_parallel_)
+    | test(ephemeral_study_sixteen_native_lanes_)
+    | test(ephemeral_study_cancellation_drains_sixteen_)
+    | test(managed_primary_)))
 | (package(pse-runtime) & (
     test(/^workflow::modeling::(pr_jacobian_tests|recycle_tests)::/)
     | test(=math::solves::derived::tests::reference_flash_completed_blocks_discharge_reporting_allowance)))
 """
-test-group = "engineering"
+test-group = "scientific"
 threads-required = 2
 
 [[profile.default.overrides]]
 filter = '(package(pse-backend-native) & test(/^(kinsol|ipopt|uno|petsc|root_isolation|dynamics|highs|clarabel_tests|restart_tests|scip_tests|l1_tests|pounce_convex_tests|measurement_tests)::/)) | test(/(^|::)solve_/)'
-test-group = "solver"
-threads-required = 1
+test-group = "scientific"
+threads-required = 2
 slow-timeout = { period = "300s", terminate-after = 2 }
 
 [[profile.default.overrides]]

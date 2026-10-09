@@ -115,7 +115,7 @@ required without a database timing premise. Build/preparation/dispatch/read gain
 ## WebSocket and persistent environment integration
 
 [Plan 30](30-websocket-and-persistent-agent-environment.md) owns the separately authorized
-plan-document work following the [WebSocket/environment review](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md).
+implementation following the [WebSocket/environment review](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md).
 Its [confirmed rules](30-websocket-and-persistent-agent-environment.md#confirmed-rule-changes)
 replace the prospective application transport and environment lifecycle/admission target.
 Its [dispositions](30-websocket-and-persistent-agent-environment.md#finding-dispositions)
@@ -131,8 +131,9 @@ required inputs. Their earlier implementation evidence is not a WS qualification
 
 Future affected assembled substrate qualification consumes the working Plan 30 handoff
 at [28e](28e-rebuild-retirement-and-qualification.md#websocket-environment-qualification-handoff).
-Plan authoring changes no production service or science and does not resume the
-existing failure-only continuation, full former Python selection or E4/E5 campaign.
+Plan 30 implementation supplies its own scoped environment qualification and completes
+the named failed-only handoff at 28e. It does not restart the former full Python
+selection or the broader E4/E5 campaign.
 
 ## Rule changes confirmed by the maintainer
 

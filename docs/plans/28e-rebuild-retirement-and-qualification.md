@@ -574,10 +574,20 @@ physical checks and engineering solver stopping budgets; historical comparisons 
 ±10%. A transport change does not establish the observed HTTP/2 failure's cause or cure.
 
 The current maintainer boundary still permits repairing/rerunning failed Python identities
-and completing interrupted identities, with preserved raw evidence. Plan creation neither
-resumes that execution nor restarts the former full selection or E4/E5. New-scope local
-controls/assembled acceptance belong to Plan 30 after its implementation is authorized;
-benefit measurements remain subject to their existing authorization and conditions.
+and completing interrupted identities, with preserved raw evidence. The separately
+authorized Plan 30 implementation owns new-scope local and assembled controls. Its
+[Outcome](30-websocket-and-persistent-agent-environment.md#outcome-recorded-after-implementation)
+records the repaired composite evidence and exclusions. This does not restart the former
+full selection or E4/E5; benefit measurements retain their existing authorization and conditions.
+
+**Tested, failed-identity handoff, 2026-10-09:** Plan 30 completed the original
+`test_flash_sweep_prepares_structure_once[managed-durable-science]` identity under
+unchanged reference160 conditions: 1 pass, 0 failures in 1,832.49 seconds, one selected
+identity, passed terminal reconciliation and no report errors. Its original 1,000
+occurrences, native scientific and retained-result/physical assertions remain intact.
+The command and artifacts are at the linked Plan 30 Outcome. This closes that named
+failure-only continuation; it neither closes broader E3/E4/E5 nor establishes the
+historical HTTP/2 failure's root cause. Solver stopping budgets are unchanged.
 
 ## Work packages
 

@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from scripts import pse_env
 
@@ -78,21 +78,32 @@ class PseEnvTests(unittest.TestCase):
         self.assertEqual(group.parts[-2:], ("pse.slice", "pse-agents.slice"))
 
     def test_placement_defaults_and_overrides(self) -> None:
+        owner = MagicMock(spec=pse_env.host.Allocation)
+        owner.directory = self.root / "admission"
+        owner.nonce = "a" * 32
+        owner.environment.return_value = {
+            pse_env.host.MARKER: str(owner.directory / owner.nonce)
+        }
         with (
+            patch.object(pse_env.host, "inherit", return_value=None),
+            patch.object(pse_env.host, "acquire", return_value=owner) as acquire,
+            patch.object(pse_env.host, "enforce_parent"),
+            patch.object(pse_env.host, "enforce_allocation"),
             patch.object(pse_env.operation, "scope_owner", return_value=None),
             patch.object(pse_env, "manager_available", return_value=True),
-            patch.object(pse_env, "limits", return_value=[]),
         ):
-            default = pse_env.placement({}, native=False)
-            self.assertIn("--slice=pse.slice", default)
-            self.assertIn("MemoryMax=120G", default)
-            self.assertTrue(any(arg.startswith("--unit=pse-cmd-") for arg in default))
-            bare = pse_env.placement(
-                {"PSE_SLICE": "none", "PSE_MEMORY_MAX": "off"}, native=True
+            env = {}
+            placed = pse_env.placement(env, native=False)
+            profile = acquire.call_args.args[0]
+            self.assertIn(f"--slice={pse_env.host.allocation_slice(owner)}", placed)
+            self.assertIn(f"MemoryMax={profile.memory}", placed)
+            self.assertIn("--bind-allocation", placed)
+            self.assertTrue(any(arg.startswith("--unit=pse-cmd-") for arg in placed))
+            self.assertEqual(
+                env[pse_env.host.MARKER], str(owner.directory / owner.nonce)
             )
-            self.assertFalse(any(arg.startswith("--slice") for arg in bare))
-            self.assertFalse(any(arg.startswith("MemoryMax") for arg in bare))
-            self.assertTrue(any(arg.startswith("--unit=pse-native-") for arg in bare))
+            with self.assertRaises(pse_env.host.AdmissionError):
+                pse_env.placement({"PSE_MEMORY_MAX": "off"}, native=True)
 
     def test_placement_stays_inside_an_owning_scope_or_without_a_manager(self) -> None:
         owner = {
@@ -100,26 +111,45 @@ class PseEnvTests(unittest.TestCase):
             "group": "/g",
             "invocation": "b" * 32,
         }
-        with patch.object(pse_env.operation, "scope_owner", return_value=owner):
-            self.assertEqual(pse_env.placement({}, native=False), [])
         with (
+            patch.object(pse_env.host, "inherit", return_value=None),
+            patch.object(pse_env.operation, "scope_owner", return_value=owner),
+            self.assertRaisesRegex(
+                pse_env.BoundaryError, "no verified host allocation"
+            ),
+        ):
+            pse_env.placement({}, native=False)
+        with (
+            patch.object(pse_env.host, "inherit", return_value=None),
             patch.object(pse_env.operation, "scope_owner", return_value=None),
             patch.object(pse_env, "manager_available", return_value=False),
+            self.assertRaisesRegex(pse_env.BoundaryError, "systemd user manager"),
         ):
-            self.assertEqual(pse_env.placement({}, native=True), [])
+            pse_env.placement({}, native=True)
 
     def test_aggregate_limit_below_the_command_cap_is_reported(self) -> None:
+        owner = MagicMock(spec=pse_env.host.Allocation)
+        owner.directory = self.root / "admission"
+        owner.nonce = "a" * 32
+        owner.environment.return_value = {}
         with (
+            patch.object(pse_env.host, "inherit", return_value=None),
+            patch.object(pse_env.host, "acquire", return_value=owner),
             patch.object(pse_env.operation, "scope_owner", return_value=None),
             patch.object(pse_env, "manager_available", return_value=True),
             patch.object(
-                pse_env, "limits", return_value=[("pse.slice", str(64 << 30))]
+                pse_env.host,
+                "enforce_parent",
+                side_effect=pse_env.host.AdmissionError(
+                    "Effective ancestor is below requested aggregate"
+                ),
             ),
-            patch("sys.stderr") as stderr,
+            self.assertRaisesRegex(
+                pse_env.host.AdmissionError, "below requested aggregate"
+            ),
         ):
             pse_env.placement({"PSE_MEMORY_MAX": "120G"}, native=False)
-        written = "".join(call.args[0] for call in stderr.write.call_args_list)
-        self.assertIn("bounded by pse.slice", written)
+        owner.register.assert_not_called()
 
     def test_boundary_failure_and_missing_command_statuses(self) -> None:
         with patch.object(
@@ -149,7 +179,8 @@ class StoreReadinessTests(unittest.TestCase):
                 Path("/checkout"), {"HOME": "/home/x", "PATH": ""}, {}
             )
         self.assertEqual(
-            env["PSE_SURREAL_STATE"], "/home/x/.local/state/pse-arrow/surreal"
+            env["PSE_SURREAL_STATE"],
+            "/home/x/.local/state/pse-arrow/surreal-functional-v2",
         )
         with patch.object(pse_env.build_environment, "configure", identity):
             chosen = pse_env.compose(

@@ -14,9 +14,12 @@ import base64
 import contextlib
 import fcntl
 import hashlib
+import http.client
 import json
+import math
 import os
 import platform
+import re
 import secrets
 import shutil
 import signal
@@ -38,8 +41,14 @@ from typing import TYPE_CHECKING
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from scripts import (
+    host_admission,
+    native_operation,
+    test_resources,
+)
+
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Generator, Mapping
 
 
 MIB = 1024 * 1024
@@ -55,6 +64,8 @@ OWNER = "pse-arrow-surreal-v1"
 RELEASE_API = "https://api.github.com/repos/surrealdb/surrealdb/releases"
 SCRIPT = Path(__file__).resolve()
 _STARTUP = threading.local()
+_LIFECYCLE = threading.local()
+WORKER_CAPABILITIES = ("solver", "klu", "isolation", "uno", "petsc")
 
 
 class SupervisorError(RuntimeError):
@@ -68,13 +79,20 @@ def read_json(path: Path) -> dict[str, object]:
     return value
 
 
+def object_mapping(value: object) -> dict[str, object]:
+    """Narrow an owned metadata object before consuming its named fields."""
+    if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
+        raise SupervisorError("Expected a string-keyed owned metadata object")
+    return value
+
+
 def integer(value: object) -> int:
     if not isinstance(value, int) or isinstance(value, bool):
         raise SupervisorError("Expected an integer in owned configuration")
     return value
 
 
-def write_json(path: Path, value: dict[str, object]) -> None:
+def write_json(path: Path, value: Mapping[str, object]) -> None:
     """Replace private metadata atomically and persist the directory entry."""
     fd, name = tempfile.mkstemp(prefix=f".{path.name}-", dir=path.parent)
     try:
@@ -130,6 +148,575 @@ def state_lock(state: Path) -> Generator[None, None, None]:
         os.close(fd)
 
 
+def publish_generation(
+    state: Path, worker: Path | None = None, producer: Path | None = None
+) -> dict[str, str]:
+    """Freeze the complete owned Python/configuration closure before launch."""
+    root = SCRIPT.parents[1]
+    sources = [*sorted((root / "scripts").glob("*.py")), root / "scripts/sccache"]
+    for relative in (
+        ".config/agent-capacity.toml",
+        ".config/build.toml",
+        ".config/sccache.toml",
+        ".cargo/config.toml",
+        "packages/reference/conformance.toml",
+        "docker/solvers/Dockerfile",
+        "Cargo.toml",
+        "rust-toolchain.toml",
+        ".python-version",
+        "crates/pse-operations/src/generated/surreal-policy.json",
+    ):
+        sources.append(root / relative)
+    entries = {str(path.relative_to(root)): file_digest(path) for path in sources}
+    if worker is not None:
+        entries["bin/pse-worker"] = file_digest(worker)
+    if producer is not None:
+        entries["producer/worker.json"] = file_digest(producer)
+    identity = hashlib.sha256(
+        json.dumps(entries, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    generations = state / ".generations"
+    generations.mkdir(mode=0o700, exist_ok=True)
+    destination = generations / identity
+    if not destination.exists():
+        pending = generations / ("pending-" + uuid.uuid4().hex)
+        pending.mkdir(mode=0o700)
+        for source in sources:
+            target = pending / source.relative_to(root)
+            target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            shutil.copyfile(source, target)
+            target.chmod(0o700 if source == root / "scripts/sccache" else 0o600)
+        if worker is not None:
+            target = pending / "bin/pse-worker"
+            target.parent.mkdir(mode=0o700, exist_ok=True)
+            shutil.copyfile(worker, target)
+            target.chmod(0o700)
+        if producer is not None:
+            target = pending / "producer/worker.json"
+            target.parent.mkdir(mode=0o700, exist_ok=True)
+            shutil.copyfile(producer, target)
+            target.chmod(0o600)
+        if any(
+            file_digest(pending / name) != expected
+            for name, expected in entries.items()
+        ):
+            raise SupervisorError(
+                "Source changed while publishing immutable generation; pending bytes preserved"
+            )
+        write_json(
+            pending / "generation.json",
+            {"version": 1, "identity": identity, "files": entries},
+        )
+        # Concurrent complete generations have identical content; preserve pending.
+        with contextlib.suppress(FileExistsError):
+            pending.rename(destination)
+    verify_generation(destination)
+    return {
+        "supervisor_executable": str(Path(sys.executable).resolve()),
+        "supervisor_script": str(destination / "scripts/surreal_server.py"),
+        "supervisor_sha256": entries["scripts/surreal_server.py"],
+        **(
+            {
+                "worker_executable": str(destination / "bin/pse-worker"),
+                "worker_sha256": entries["bin/pse-worker"],
+            }
+            if worker is not None
+            else {}
+        ),
+    }
+
+
+@contextlib.contextmanager
+def lifecycle_reservation(state: Path) -> Generator[None, None, None]:
+    """Reserve an operation with short metadata exclusion, never an IPC-held lock."""
+    state = service_directory(state)
+    if getattr(_LIFECYCLE, "state", None) == state:
+        yield
+        return
+
+    path = state / "lifecycle-owner.json"
+    selected: dict[str, object] = {
+        "nonce": uuid.uuid4().hex,
+        "pid": os.getpid(),
+        "start": native_operation.start_identity(os.getpid()),
+        "boot": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
+    }
+    with state_lock(state):
+        if path.exists():
+            previous = read_json(path)
+            try:
+                live = (
+                    previous["boot"] == selected["boot"]
+                    and native_operation.start_identity(integer(previous["pid"]))
+                    == previous["start"]
+                )
+            except FileNotFoundError:
+                live = False
+            if live:
+                raise SupervisorError(
+                    "Another live owner is changing this service; retry after its operation finishes"
+                )
+        write_json(path, selected)
+    previous_state = getattr(_LIFECYCLE, "state", None)
+    _LIFECYCLE.state = state
+    try:
+        yield
+    finally:
+        with state_lock(state):
+            if path.exists() and read_json(path).get("nonce") == selected["nonce"]:
+                path.unlink()
+        _LIFECYCLE.state = previous_state
+
+
+def reservation_live(reservation: dict[str, object]) -> bool:
+
+    if (
+        reservation.get("boot") is not None
+        and reservation["boot"]
+        != Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+    ):
+        return False
+    try:
+        return (
+            native_operation.start_identity(integer(reservation["pid"]))
+            == reservation["start"]
+        )
+    except FileNotFoundError:
+        return False
+
+
+@contextlib.contextmanager
+def context_admission(state: Path) -> Generator[None, None, None]:
+    """Serialize only admission metadata against all service lifecycle changes."""
+    service = service_directory(state)
+    with state_lock(service):
+        lifecycle = service / "lifecycle-owner.json"
+        if lifecycle.exists() and reservation_live(read_json(lifecycle)):
+            raise SupervisorError(
+                "Service lifecycle operation has closed context admission"
+            )
+        config = config_for(service)
+        if config["admission"] != "open" or not config["accepting_writes"]:
+            raise SupervisorError("Service context admission is closed")
+        if service == state:
+            yield
+        else:
+            with state_lock(state):
+                yield
+
+
+def managed_contexts(state: Path) -> list[Path]:
+    """Inventory registered generations while lifecycle admission is reserved."""
+    contexts = [state]
+    for descriptor in sorted((state / ".contexts").glob("*.json")):
+        if descriptor.is_symlink():
+            raise SupervisorError("Context descriptor must not traverse symlinks")
+        context = read_json(descriptor)
+        selected = receiver_context(state, str(context["database"]))
+        if selected == state:
+            raise SupervisorError("Registered receiver context is missing")
+        contexts.append(selected)
+    return contexts
+
+
+def close_context_admission(state: Path, *, admission: str = "quiesced") -> None:
+    # No admission can pass the service reservation while these small writes run.
+    for context in managed_contexts(state):
+        with state_lock(context):
+            config = config_for(context)
+            config["accepting_writes"] = False
+            if config["admission"] != "validation_required":
+                config["admission"] = admission
+            write_json(context / "config.json", config)
+
+
+def open_context_admission(state: Path) -> None:
+    for context in managed_contexts(state):
+        with state_lock(context):
+            config = config_for(context)
+            config.update(accepting_writes=True, admission="open")
+            write_json(context / "config.json", config)
+
+
+def require_borrowers_drained(state: Path) -> None:
+    """Native-free registered contexts also own an admitted service lifetime."""
+    owner = service_directory(state)
+    for record in test_resources.resource_status().values():
+        if not isinstance(record, dict):
+            raise SupervisorError("Unresolved service resource registry entry")
+        if record.get("kind") == "evidence" or record.get("cleanup") == "removed":
+            continue
+        selected = Path(record.get("state", ""))
+        if selected != owner and owner / ".receivers" not in selected.parents:
+            continue
+        if selected != owner and service_directory(selected) != owner:
+            raise SupervisorError("Live context has an unresolved service association")
+        cleaner = record.get("cleaner")
+        if (
+            record.get("cleanup") == "removing"
+            and isinstance(cleaner, dict)
+            and test_resources.borrower_alive(cleaner)
+        ):
+            raise SupervisorError(
+                "A live context cleanup still borrows this storage service"
+            )
+        if not record.get("drained") and test_resources.borrower_alive(record):
+            raise SupervisorError(
+                "A live test context still borrows this storage service"
+            )
+
+
+def all_contexts_drained(state: Path) -> None:
+    require_borrowers_drained(state)
+    for context in managed_contexts(state):
+        for pending in [
+            context / "primary-admission.json",
+            context / "observer-launch.json",
+            context / "primary-observer.json",
+            *context.glob("worker-admission-*.json"),
+        ]:
+            if pending.exists() and reservation_live(read_json(pending)):
+                raise SupervisorError(
+                    "Context launch reservation remains active; wait for admission to settle"
+                )
+        if observer_launch_busy(context):
+            raise SupervisorError(
+                "Context observer launch remains active; drain before offline action"
+            )
+        observer = context / "primary-observer.json"
+        if observer.exists():
+            registration = read_json(observer)
+            # verify_observer records actual membership for an existing process,
+            # which need not have a supervisor-created unit name. A dead leader
+            # does not free that recorded group while descendants survive.
+            group = registration.get("group", "")
+            if registration.get("unit"):
+                group = systemctl(
+                    "show",
+                    "--property=ControlGroup",
+                    "--value",
+                    str(registration["unit"]),
+                    check=False,
+                ).stdout.strip()
+            if not isinstance(group, str):
+                raise SupervisorError(
+                    "Context observer lacks recorded kernel membership"
+                )
+            if group.startswith("/") and group_populated(group):
+                raise SupervisorError(
+                    "Context observer process group remains populated; drain before offline action"
+                )
+        workers_drained(context, config_for(context))
+
+
+def owned_generations(state: Path) -> set[Path]:
+    generations: set[Path] = set()
+    for context in managed_contexts(state):
+        config = config_for(context)
+        for role in ("service_supervisor", "primary_receiver"):
+            receiver = config.get(role)
+            if isinstance(receiver, dict) and receiver.get("supervisor_script"):
+                generation = Path(str(receiver["supervisor_script"])).parents[1]
+                if generation.parent != state / ".generations":
+                    raise SupervisorError(
+                        "Admitted source generation is outside this service state"
+                    )
+                if generation not in generations:
+                    verify_generation(generation)
+                    generations.add(generation)
+    return generations
+
+
+def readmit_supervisor(state: Path) -> dict[str, object]:
+    """Explicitly publish current owned code without modifying retained generations."""
+    with lifecycle_reservation(state):
+        return _readmit_supervisor(state)
+
+
+def _readmit_supervisor(state: Path) -> dict[str, object]:
+    config = config_for(state)
+    if (
+        active(state)
+        or config.get("accepting_writes")
+        or config.get("admission") != "quiesced"
+    ):
+        raise SupervisorError(
+            "Readmission requires this selected service stopped and quiesced"
+        )
+    close_context_admission(state)
+    all_contexts_drained(state)
+    history = state / ".profile-history"
+    history.mkdir(mode=0o700, exist_ok=True)
+    write_json(history / (uuid.uuid4().hex + ".json"), config)
+    credentials = read_json(state / "credentials.json")
+    if (
+        "selection_username" not in credentials
+        or "selection_password" not in credentials
+    ):
+        write_json(history / (uuid.uuid4().hex + "-credentials.json"), credentials)
+        credentials.update(
+            selection_username="pse-selection",
+            selection_password=secrets.token_urlsafe(36),
+        )
+        write_json(state / "credentials.json", credentials)
+    supervisor = publish_generation(state)
+    server = dict(object_mapping(config["server"]))
+    server["binary_sha256"] = file_digest(Path(str(server["binary"])))
+    with state_lock(state):
+        config = config_for(state)
+        config.update(
+            service_supervisor=supervisor, server=server, restart_qualified=False
+        )
+        write_json(state / "config.json", config)
+    return public_status(state, config)
+
+
+def verify_generation(directory: Path) -> None:
+    if any(path.is_symlink() for path in (directory, *directory.parents)):
+        raise SupervisorError("Immutable generation must not traverse symlinks")
+    receipt = read_json(directory / "generation.json")
+    if (
+        receipt.get("version") != 1
+        or receipt.get("identity") != directory.name
+        or not isinstance(receipt.get("files"), dict)
+    ):
+        raise SupervisorError("Missing immutable generation identity")
+    files = receipt["files"]
+    identity = hashlib.sha256(
+        json.dumps(files, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    if identity != directory.name:
+        raise SupervisorError("Immutable generation declaration changed")
+    for name, expected in files.items():
+        path = directory / name
+        if (
+            not path.is_relative_to(directory)
+            or ".." in Path(name).parts
+            or path.is_symlink()
+            or file_digest(path) != expected
+        ):
+            raise SupervisorError("Immutable supervisor/receiver closure changed")
+        if (
+            name in {"scripts/sccache", "bin/pse-worker"}
+            and path.stat().st_mode & 0o700 != 0o700
+        ):
+            raise SupervisorError(
+                "Immutable executable closure lost its admitted execution mode"
+            )
+
+
+def execution_resources(name: str) -> dict[str, object]:
+    if name == "plan28-reference" or name == "reference":
+        return reference_resources()
+
+    declared = host_admission.settings(name)
+    execution = host_admission.execution(name)
+    server = (
+        host_admission.settings("timing" if name == "timing" else "functional")[
+            "store_gib"
+        ]
+        * GIB
+    )
+    worker = declared["receiver_gib"] * GIB
+    total = server + declared["slot_gib"] * GIB
+    return resources(total, server, 1, worker, execution)
+
+
+def register_context(
+    state: Path, database: str, profile: str, worker: Path | None = None
+) -> dict[str, object]:
+    """Create an explicit receiver/context descriptor without mutating service selection."""
+    config = config_for(state)
+    timing_service = config.get("service_class") == "timing"
+    if (profile == "timing") != timing_service:
+        raise SupervisorError("Timing contexts require their dedicated timing service")
+    if (
+        not database
+        or len(database) > 128
+        or any(
+            not (character.isascii() and (character.isalnum() or character == "_"))
+            for character in database
+        )
+    ):
+        raise SupervisorError("Context database requires a bounded ASCII identity")
+    with context_admission(state):
+        if (state / ".contexts" / f"{database}.json").exists():
+            raise SupervisorError(
+                "Context is already registered; use its explicit owner"
+            )
+    allocation = execution_resources(profile)
+    producer, producer_digest = selected_worker_receipt(systemd_environment())
+    receiver = (
+        publish_generation(state, worker, Path(producer) if producer else None)
+        if worker is not None
+        else None
+    )
+    directory = state / ".contexts"
+    target = directory / f"{database}.json"
+    if target.exists():
+        raise SupervisorError("Context is already registered; use its explicit owner")
+    identity = hashlib.sha256(
+        json.dumps(
+            {
+                "receiver": receiver,
+                "resources": allocation,
+                "producer": producer,
+                "producer_digest": producer_digest,
+            },
+            sort_keys=True,
+        ).encode()
+    ).hexdigest()
+    receiver_state = state / ".receivers" / identity / database
+    selected = dict(config)
+    selected.update(
+        database=database,
+        resources=allocation,
+        primary_receiver=receiver,
+        service_state=str(state),
+        receiver_generation=identity,
+        resident=False,
+    )
+    if producer is not None and receiver is not None:
+        selected["worker_producer_receipt"] = {
+            "path": str(
+                Path(receiver["supervisor_script"]).parents[1] / "producer/worker.json"
+            ),
+            "sha256": producer_digest,
+            "origin": producer,
+        }
+    with context_admission(state):
+        if target.exists():
+            raise SupervisorError(
+                "Context was registered concurrently; use its explicit owner"
+            )
+        directory.mkdir(mode=0o700, exist_ok=True)
+        receiver_state.mkdir(mode=0o700, parents=True, exist_ok=False)
+        selected.update(config_for(state))
+        selected.update(
+            database=database,
+            resources=allocation,
+            primary_receiver=receiver,
+            service_state=str(state),
+            receiver_generation=identity,
+            resident=False,
+        )
+        if producer is not None and receiver is not None:
+            selected["worker_producer_receipt"] = {
+                "path": str(
+                    Path(receiver["supervisor_script"]).parents[1]
+                    / "producer/worker.json"
+                ),
+                "sha256": producer_digest,
+                "origin": producer,
+            }
+        write_json(receiver_state / "config.json", selected)
+        write_json(
+            target,
+            {
+                "version": 1,
+                "database": database,
+                "resources": allocation,
+                "primary_receiver": receiver,
+                "receiver_state": str(receiver_state),
+                "receiver_generation": identity,
+            },
+        )
+    return read_json(target)
+
+
+def receiver_context(state: Path, database: str | None) -> Path:
+    if database is None:
+        return state
+    path = state / ".contexts" / f"{database}.json"
+    if not path.exists():
+        return state
+    context = read_json(path)
+    selected = Path(str(context["receiver_state"]))
+    if (
+        selected.is_symlink()
+        or state / ".receivers" not in selected.parents
+        or context["database"] != database
+    ):
+        raise SupervisorError("Invalid registered receiver/context association")
+    config = config_for(selected)
+    if (
+        config.get("service_state") != str(state)
+        or config["database"] != database
+        or config.get("receiver_generation") != context["receiver_generation"]
+    ):
+        raise SupervisorError(
+            "Receiver generation does not match selected service/context"
+        )
+    return selected
+
+
+def service_directory(state: Path) -> Path:
+    path = state / "config.json"
+    if not path.is_file():
+        return state
+    config = read_json(path)
+    selected = config.get("service_state")
+    if selected is None:
+        return state
+    result = Path(str(selected))
+    if result / ".receivers" not in state.parents:
+        raise SupervisorError("Receiver state is not owned by the recorded service")
+    return result
+
+
+def upgrade_profile(state: Path) -> dict[str, object]:
+    """Explicit selected v1 readmission; leave every other saved profile untouched."""
+    state = checked_directory(state)
+    with state_lock(state):
+        old = read_json(state / "config.json")
+        if old.get("owner") != OWNER or old.get("profile_version") != 1:
+            raise SupervisorError("upgrade selects one owned revision1 profile")
+        if (
+            active(state)
+            or old.get("admission") != "quiesced"
+            or old.get("accepting_writes")
+        ):
+            raise SupervisorError(
+                "Upgrade requires the selected profile stopped, quiesced and drained"
+            )
+        workers_drained(state, old)
+        allocation = old["resources"]
+        if not isinstance(allocation, dict):
+            raise SupervisorError("Missing revision1 allocation")
+        expected = resources(
+            integer(allocation["total_memory_bytes"]),
+            integer(allocation["server_memory_bytes"]),
+            integer(allocation["native_workers"]),
+            integer(allocation["native_worker_memory_bytes"]),
+            allocation.get("execution"),
+        )
+        if (
+            expected != allocation
+            or old.get("grpc_max_message_bytes") != MESSAGE_BYTES
+            or old.get("endpoint") != f"grpc://127.0.0.1:{old['port']}"
+        ):
+            raise SupervisorError(
+                "Revision1 profile does not match its exact admission"
+            )
+        write_json(state / "profile-v1-preserved.json", old)
+        updated = dict(old)
+        updated.update(
+            profile_version=2,
+            endpoint=f"ws://127.0.0.1:{old['port']}",
+            websocket_max_message_bytes=MESSAGE_BYTES,
+        )
+        updated.pop("grpc_max_message_bytes", None)
+        receiver = old.get("primary_receiver")
+        if isinstance(receiver, dict):
+            updated["primary_receiver"] = publish_generation(
+                state, Path(str(receiver["worker_executable"]))
+            )
+        updated["service_supervisor"] = publish_generation(state)
+        updated["resident"] = False
+        write_json(state / "config.json", updated)
+    return public_status(state, config_for(state))
+
+
 def config_for(state: Path) -> dict[str, object]:
     if (
         any(path.is_symlink() for path in (state, *state.parents))
@@ -137,18 +724,16 @@ def config_for(state: Path) -> dict[str, object]:
     ):
         raise SupervisorError("Owned state must not traverse symlinks")
     config = read_json(state / "config.json")
-    if config.get("owner") != OWNER or config.get("profile_version") != 1:
+    if config.get("owner") != OWNER or config.get("profile_version") != 2:
         raise SupervisorError("Not an owned, supported SurrealDB state directory")
-    if config.get("grpc_max_message_bytes") != MESSAGE_BYTES:
-        raise SupervisorError("Unsupported gRPC message profile")
+    if config.get("websocket_max_message_bytes") != MESSAGE_BYTES:
+        raise SupervisorError("Unsupported native WebSocket message profile")
     budget = config.get("resources")
     if not isinstance(budget, dict):
         raise SupervisorError("Missing resource allocation")
     execution = budget.get("execution")
-    if execution is not None and execution != reference_execution():
-        raise SupervisorError(
-            "Execution profile differs from its selected reference declaration"
-        )
+    if execution is not None:
+        validate_execution(execution)
     expected = resources(
         integer(budget["total_memory_bytes"]),
         integer(budget["server_memory_bytes"]),
@@ -161,7 +746,7 @@ def config_for(state: Path) -> dict[str, object]:
             "Resource overrides do not match the allocated server budget"
         )
     port = integer(config["port"])
-    if not 1 <= port <= 65535 or config["endpoint"] != f"grpc://127.0.0.1:{port}":
+    if not 1 <= port <= 65535 or config["endpoint"] != f"ws://127.0.0.1:{port}":
         raise SupervisorError(
             "Only the recorded authenticated loopback endpoint is supported"
         )
@@ -194,20 +779,17 @@ def resources(
         )
     observer = 0
     if execution is not None:
-        if not isinstance(execution, dict) or execution != reference_execution():
-            raise SupervisorError("Unsupported selected execution profile")
+        validate_execution(execution)
+        if not isinstance(execution, dict):
+            raise SupervisorError("Invalid execution configuration")
         observer = integer(execution["observer_memory_bytes"])
-        if (
-            workers != 1
-            or worker
-            != integer(execution["pool_memory_bytes"])
-            + integer(execution["process_headroom_bytes"])
-            or server != 16 * GIB
+        if workers != 1 or worker != integer(execution["pool_memory_bytes"]) + integer(
+            execution["process_headroom_bytes"]
         ):
             raise SupervisorError(
-                "Reference execution requires one exact primary process allocation"
+                "Execution requires one exact primary process allocation"
             )
-    if execution is not None and server + worker + observer != total:
+    if execution is not None and server + worker + observer > total:
         raise SupervisorError(
             "Reference execution requires its exact shared memory envelope"
         )
@@ -228,6 +810,27 @@ def resources(
     if execution is not None:
         allocation["execution"] = execution
     return allocation
+
+
+def validate_execution(execution: object) -> None:
+
+    allowed = [
+        reference_execution(),
+        *(
+            host_admission.execution(name)
+            for name in (
+                "functional",
+                "wide",
+                "timing",
+                "exclusive",
+                "exclusive-observer",
+            )
+        ),
+    ]
+    if not isinstance(execution, dict) or execution not in allowed:
+        raise SupervisorError(
+            "Execution profile differs from its selected finite declaration"
+        )
 
 
 def reference_execution() -> dict[str, int]:
@@ -345,6 +948,7 @@ def install(version: str | None, tool_root: Path) -> dict[str, str]:
                 return {
                     "version": tag.removeprefix("v"),
                     "binary": str(binary),
+                    "binary_sha256": file_digest(binary),
                     "archive_sha256": digest.removeprefix("sha256:"),
                 }
             raise SupervisorError(
@@ -400,6 +1004,7 @@ def install(version: str | None, tool_root: Path) -> dict[str, str]:
     return {
         "version": tag.removeprefix("v"),
         "binary": str(binary),
+        "binary_sha256": file_digest(binary),
         "archive_sha256": digest.removeprefix("sha256:"),
     }
 
@@ -410,6 +1015,7 @@ def file_digest(path: Path) -> str:
 
 
 def setup(args: argparse.Namespace) -> dict[str, object]:
+    args.interpretation = args.interpretation or SUBSTRATE_INTERPRETATION
     if (args.state / "config.json").exists():
         config = config_for(args.state.absolute())
         if config["interpretation"] != args.interpretation:
@@ -422,14 +1028,25 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
                 raise SupervisorError(
                     "Existing state requires offline reconfigure to select reference execution"
                 )
+            if allocation != execution_resources(args.execution_profile):
+                raise SupervisorError(
+                    "Existing execution profile differs; reconfigure offline"
+                )
+            expected_class = (
+                "timing" if args.execution_profile == "timing" else "functional"
+            )
+            if config.get("service_class", "functional") != expected_class:
+                raise SupervisorError(
+                    "Existing storage lane differs; reconfigure offline"
+                )
         return public_status(args.state.absolute(), config)
     # Download first so network failure leaves no half-initialized application state.
     allocation = resources(
-        (4096 if args.memory_mib is None else args.memory_mib) * MIB,
-        (2048 if args.server_memory_mib is None else args.server_memory_mib) * MIB,
-        2 if args.native_workers is None else args.native_workers,
+        (49152 if args.memory_mib is None else args.memory_mib) * MIB,
+        (8192 if args.server_memory_mib is None else args.server_memory_mib) * MIB,
+        1 if args.native_workers is None else args.native_workers,
         (
-            1024
+            32768
             if args.native_worker_memory_mib is None
             else args.native_worker_memory_mib
         )
@@ -449,9 +1066,9 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
             raise SupervisorError(
                 "Reference execution supplies exact capacities; memory overrides are refused"
             )
-        allocation = reference_resources()
+        allocation = execution_resources(args.execution_profile)
         receiver = primary_receiver(args.worker_executable)
-    port = 18080 if args.port is None else args.port
+    port = 18240 if args.port is None else args.port
     if (
         not 1 <= port <= 65535
         or not args.interpretation
@@ -466,7 +1083,7 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
             Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share")))
             / "pse-arrow/tools/surreal"
         )
-    server = install(args.version, tool_root)
+    server = install(args.version or "v3.3.0", tool_root)
     state = checked_directory(args.state, empty=True)
     with state_lock(state):
         if any(path.name != ".supervisor.lock" for path in state.iterdir()):
@@ -475,30 +1092,47 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
             )
         config: dict[str, object] = {
             "owner": OWNER,
-            "profile_version": 1,
+            "profile_version": 2,
             "instance_id": str(uuid.uuid4()),
             "server": server,
             "port": port,
             "namespace": "pse",
             "database": "canonical",
-            "endpoint": f"grpc://127.0.0.1:{port}",
+            "endpoint": f"ws://127.0.0.1:{port}",
             "credentials_file": str(state / "credentials.json"),
             "schema_interpretation": args.interpretation,
             "accepting_writes": True,
             "interpretation": args.interpretation,
             "admission": "open",
             "max_message_bytes": MESSAGE_BYTES,
-            "grpc_max_message_bytes": MESSAGE_BYTES,
+            "websocket_max_message_bytes": MESSAGE_BYTES,
             "resources": allocation,
             "log_max_bytes": 8 * MIB,
             "log_backups": 2,
+            "service_class": "timing"
+            if args.execution_profile == "timing"
+            else "functional",
         }
         write_json(
             state / "credentials.json",
-            {"username": "pse-local", "password": secrets.token_urlsafe(36)},
+            {
+                "username": "pse-local",
+                "password": secrets.token_urlsafe(36),
+                "selection_username": "pse-selection",
+                "selection_password": secrets.token_urlsafe(36),
+            },
         )
         if receiver is not None:
-            config["primary_receiver"] = receiver
+            config["primary_receiver"] = publish_generation(
+                state, Path(receiver["worker_executable"])
+            )
+        config["service_supervisor"] = publish_generation(state)
+        config["resident"] = (
+            args.resident
+            if args.resident is not None
+            else not bool(args.execution_profile)
+            or args.execution_profile in {"functional", "wide"}
+        )
         write_json(state / "config.json", config)
         (state / "tmp").mkdir(mode=0o700)
     return public_status(state, config)
@@ -554,7 +1188,7 @@ def reconfigure(
             raise SupervisorError(
                 "Reference execution supplies exact capacities; memory overrides are refused"
             )
-        allocation = reference_resources()
+        allocation = execution_resources(args.execution_profile)
         receiver = primary_receiver(args.worker_executable)
     elif args.worker_executable is not None:
         raise SupervisorError(
@@ -580,6 +1214,10 @@ def reconfigure(
     workers_drained(state, config)
     updated = dict(config)
     updated["resources"] = allocation
+    if args.execution_profile:
+        updated["service_class"] = (
+            "timing" if args.execution_profile == "timing" else "functional"
+        )
     if receiver is not None:
         updated["primary_receiver"] = receiver
     write_json(state / "config.json", updated)
@@ -620,6 +1258,7 @@ def systemctl(
 
 
 def unit_name(state: Path) -> str:
+    state = service_directory(state)
     return f"pse-surreal-{hashlib.sha256(str(lexical_absolute(state)).encode()).hexdigest()[:16]}.service"
 
 
@@ -627,6 +1266,31 @@ def active(state: Path) -> bool:
     return (
         systemctl("is-active", "--quiet", unit_name(state), check=False).returncode == 0
     )
+
+
+def reset_failure_window(state: Path) -> None:
+    """A collected inactive unit has no live failure window to reset."""
+    unit = unit_name(state)
+    result = systemctl("reset-failed", unit, check=False)
+    if result.returncode:
+        result = systemctl(
+            "show",
+            "--property=ActiveState",
+            "--property=ControlGroup",
+            unit,
+            check=False,
+        )
+        observed = dict(
+            line.split("=", 1) for line in result.stdout.splitlines() if "=" in line
+        )
+        if (
+            result.returncode
+            or observed.get("ActiveState") not in {"inactive", "failed"}
+            or group_populated(observed.get("ControlGroup", ""))
+        ):
+            raise SupervisorError(
+                "Cannot reset an unresolved live service failure window"
+            )
 
 
 def worker_unit(state: Path, slot: int) -> str:
@@ -739,10 +1403,6 @@ def primary_environment(
     handoff: Path | None = None,
 ) -> tuple[dict[str, str], tuple[str, ...]]:
     """Carry role-specific inputs to the actual service; the worker validates them."""
-    from scripts import (  # noqa: PLC0415 -- selected worker handoff owner
-        native_operation,
-    )
-
     environment = worker_environment(state, 0, allocation, handoff)
     selected = environment.get("PSE_WORKER_BINARY")
     if selected is not None:
@@ -752,16 +1412,19 @@ def primary_environment(
             raise SupervisorError(
                 "Selected worker requires offline receiver readmission"
             ) from error
-        if (
-            str(actual) != receiver["worker_executable"]
-            or file_digest(actual) != receiver["worker_sha256"]
-        ):
+        if file_digest(actual) != receiver["worker_sha256"]:
             raise SupervisorError(
                 "Selected worker differs from the configured receiver; drain and readmit it offline"
             )
     # A Python caller's generic receipt is its own role. A service must neither
     # inherit it nor fall back to a stale user-manager generic receipt.
     environment.pop("PSE_PRODUCER_RECEIPT", None)
+    admitted = config_for(state).get("worker_producer_receipt")
+    if isinstance(admitted, dict):
+        frozen = Path(str(admitted["path"]))
+        if file_digest(frozen) != admitted["sha256"]:
+            raise SupervisorError("Immutable worker producer receipt changed")
+        environment["PSE_WORKER_PRODUCER_RECEIPT"] = str(frozen)
     receipt, _ = selected_worker_receipt(environment)
     if receipt is not None:
         environment["PSE_PRODUCER_RECEIPT"] = receipt
@@ -773,6 +1436,10 @@ def primary_environment(
                 "PSE_NATIVE_OPERATION",
                 "PSE_NATIVE_HANDOFF",
                 "PSE_NATIVE_CACHE",
+                "PSE_HOST_ALLOCATION",
+                "PSE_ADMISSION_DEADLINE",
+                "PSE_RESOURCE_CLASS",
+                "PSE_TEST_EXECUTION_PROFILE",
                 "PSE_NATIVE_SETUP_PYTHON",
                 "PSE_SOLVER_IMAGE",
                 "PSE_NATIVE_PROVIDER_RECEIPT",
@@ -857,27 +1524,26 @@ def placement_slice() -> list[str]:
 
 
 def execution_slice(state: Path) -> str:
-    digest = hashlib.sha256(str(lexical_absolute(state)).encode()).hexdigest()[:16]
-    return f"pse-reference-{digest}.slice"
+
+    placement = placement_observation(state)
+    if placement is not None and placement.get("allocation_slice"):
+        return str(placement["allocation_slice"])
+    allocation = host_admission.inherit(os.environ)
+    if allocation is None:
+        raise SupervisorError("Scientific placement requires an admitted host owner")
+    return host_admission.allocation_slice(allocation)
 
 
 def physical_cpus(count: int) -> list[int]:
-    cores: dict[tuple[int, int], int] = {}
-    for cpu in sorted(os.sched_getaffinity(0)):
-        topology = Path(f"/sys/devices/system/cpu/cpu{cpu}/topology")
-        try:
-            key = (
-                int((topology / "physical_package_id").read_text()),
-                int((topology / "core_id").read_text()),
-            )
-        except (OSError, ValueError) as error:
-            raise SupervisorError("Cannot establish physical CPU placement") from error
-        cores.setdefault(key, cpu)
+    """Select declared physical cores independently of the launcher's affinity."""
+    allocation = host_admission.inherit(os.environ)
+    if allocation is None:
+        raise SupervisorError("Scientific role requires an actual host allocation")
+    cores = list(allocation.profile.cores)
+    host_admission.cpu_set(cores)  # Validate this machine's physical topology.
     if len(cores) < count:
-        raise SupervisorError(
-            "Selected reference profile requires sixteen available physical cores"
-        )
-    return list(cores.values())[:count]
+        raise SupervisorError("Admitted host lane cannot fit the scientific CPU width")
+    return cores[:count]
 
 
 def group_for_slice(name: str) -> Path:
@@ -929,39 +1595,31 @@ def ensure_execution_placement(state: Path, allocation: dict[str, object]) -> No
     execution = allocation.get("execution")
     if not isinstance(execution, dict):
         return
+
+    owner = host_admission.inherit(os.environ)
+    if owner is None:
+        raise SupervisorError("Scientific placement requires actual host ownership")
     width = integer(execution["cpu_threads"])
     cpus = physical_cpus(width)
-    total = integer(allocation["total_memory_bytes"])
-    group = group_for_slice(execution_slice(state))
-    memory, cpu = effective_limits(group.parent)
-    if (memory is not None and memory < total) or (cpu is not None and cpu < width):
-        raise SupervisorError(
-            "Ancestor placement cannot admit the exact reference memory/CPU envelope"
-        )
+    host_admission.enforce_allocation(owner, systemd_environment())
+    group = group_for_slice(host_admission.allocation_slice(owner))
+    total = int((group / "memory.max").read_text().strip())
+    if (
+        integer(allocation["native_worker_memory_bytes"])
+        + integer(execution["observer_memory_bytes"])
+        > total
+    ):
+        raise SupervisorError("Scientific roles exceed their originating allocation")
     physical, available = host_memory()
     current = group / "memory.current"
     owned = int(current.read_text()) if current.is_file() else 0
-    if physical < total:
-        raise SupervisorError(
-            "Host physical memory cannot support the declared finite execution cap"
-        )
-    systemctl("start", execution_slice(state))
-    systemctl(
-        "set-property",
-        "--runtime",
-        execution_slice(state),
-        f"MemoryMax={total}",
-        "MemorySwapMax=0",
-        f"CPUQuota={width * 100}%",
-        "AllowedCPUs=" + ",".join(map(str, cpus)),
-    )
     observed_memory, observed_cpu = effective_limits(group)
-    if observed_memory != total or observed_cpu != width:
+    if observed_memory != total or observed_cpu is None or observed_cpu < width:
         raise SupervisorError(
             "Execution placement readback differs from the exact reference envelope"
         )
     effective = group / "cpuset.cpus.effective"
-    if effective.is_file() and cpu_list(effective.read_text().strip()) != set(cpus):
+    if effective.is_file() and not set(cpus) <= cpu_list(effective.read_text().strip()):
         raise SupervisorError(
             "Execution physical CPU placement readback differs from its selection"
         )
@@ -974,6 +1632,8 @@ def ensure_execution_placement(state: Path, allocation: dict[str, object]) -> No
     write_json(
         state / "execution-placement.json",
         {
+            "allocation_slice": host_admission.allocation_slice(owner),
+            "allocation": str(owner.directory / owner.nonce),
             "host_memory_bytes": physical,
             "host_available_bytes": available,
             "owned_resident_bytes": owned,
@@ -998,11 +1658,15 @@ def cpu_list(value: str) -> set[int]:
 
 
 def selected_slice(state: Path, allocation: dict[str, object]) -> list[str]:
-    return (
-        [f"--slice={execution_slice(state)}"]
-        if "execution" in allocation
-        else placement_slice()
-    )
+    if "execution" in allocation:
+        return [f"--slice={execution_slice(state)}"]
+
+    owner = host_admission.inherit(os.environ)
+    if owner is None:
+        raise SupervisorError(
+            "Managed role requires an admitted originating host allocation"
+        )
+    return [f"--slice={host_admission.allocation_slice(owner)}"]
 
 
 def role_command(allocation: dict[str, object], command: list[str]) -> list[str]:
@@ -1017,14 +1681,18 @@ def role_command(allocation: dict[str, object], command: list[str]) -> list[str]
     return [executable, "--cpu-list", ",".join(map(str, cpus)), *command]
 
 
-def role_affinity_ready(pid: int, execution: dict[str, object]) -> bool:
+def role_affinity_ready(
+    pid: int, execution: dict[str, object], cpus: list[int] | None = None
+) -> bool:
     """Read the actual leader and every current thread's kernel affinity."""
     try:
-        cpus = set(physical_cpus(integer(execution["cpu_threads"])))
-        if os.sched_getaffinity(pid) != cpus:
+        allowed = set(
+            physical_cpus(integer(execution["cpu_threads"])) if cpus is None else cpus
+        )
+        if os.sched_getaffinity(pid) != allowed:
             return False
         return all(
-            bool(actual := os.sched_getaffinity(int(thread.name))) and actual <= cpus
+            bool(actual := os.sched_getaffinity(int(thread.name))) and actual <= allowed
             for thread in (Path("/proc") / str(pid) / "task").iterdir()
         )
     except (OSError, ValueError, SupervisorError):
@@ -1037,7 +1705,7 @@ def worker_scope_command(
     allocation: dict[str, object],
     command: list[str],
     *,
-    capabilities: tuple[str, ...] = ("solver", "klu", "isolation", "uno", "petsc"),
+    capabilities: tuple[str, ...] = WORKER_CAPABILITIES,
 ) -> list[str]:
     return [
         "systemd-run",
@@ -1069,38 +1737,85 @@ def worker_scope_command(
     ]
 
 
-def worker(state: Path, command: list[str]) -> int:
+def worker(
+    state: Path,
+    command: list[str],
+    *,
+    capabilities: tuple[str, ...] = WORKER_CAPABILITIES,
+) -> int:
     if not command:
         raise SupervisorError(
             "worker requires --worker-command followed by an executable and arguments"
         )
     config_for(state)
     state = checked_directory(state)
-    # The lifecycle lock covers admission and slot registration only. Quiesce/stop
-    # remain available while the native process runs and drains its current claim.
-    with state_lock(state):
+    # Observe systemd outside exclusion, then reserve only the selected metadata.
+    config = config_for(state)
+    allocation = config["resources"]
+    if not isinstance(allocation, dict):
+        raise SupervisorError("Invalid resource configuration")
+    systemctl("show-environment")
+    ensure_execution_placement(state, allocation)
+    if "execution" in allocation and worker_busy(primary_observation(state)):
+        raise SupervisorError(
+            "The primary process already owns the shared reference allocation"
+        )
+    available = [
+        n
+        for n in range(integer(allocation["native_workers"]))
+        if not worker_busy(settled_worker(state, n))
+    ]
+    token = uuid.uuid4().hex
+
+    if any(
+        capability not in native_operation.CAPABILITIES for capability in capabilities
+    ):
+        raise SupervisorError("Unknown managed worker native capability")
+    with context_admission(state):
         config = config_for(state)
         if config["admission"] != "open" or not config["accepting_writes"]:
             raise SupervisorError("Worker admission is closed")
-        systemctl("show-environment")
-        allocation = config["resources"]
-        if not isinstance(allocation, dict):
-            raise SupervisorError("Invalid resource configuration")
-        ensure_execution_placement(state, allocation)
-        if "execution" in allocation and worker_busy(primary_observation(state)):
+        if config["resources"] != allocation:
+            raise SupervisorError("Worker allocation changed during admission")
+        primary_pending = state / "primary-admission.json"
+        if (
+            "execution" in allocation
+            and primary_pending.exists()
+            and reservation_live(read_json(primary_pending))
+        ):
             raise SupervisorError(
-                "The primary process already owns the shared reference allocation"
+                "Primary receiver admission already owns this allocation"
             )
         slot = next(
             (
                 n
-                for n in range(integer(allocation["native_workers"]))
-                if not worker_busy(settled_worker(state, n))
+                for n in available
+                if not (state / f"worker-admission-{n}.json").exists()
+                or not reservation_live(read_json(state / f"worker-admission-{n}.json"))
             ),
             None,
         )
         if slot is None:
             raise SupervisorError("All configured native worker slots are occupied")
+        pending = state / f"worker-admission-{slot}.json"
+        write_json(
+            pending,
+            {
+                "nonce": token,
+                "pid": os.getpid(),
+                "start": native_operation.start_identity(os.getpid()),
+                "unit": worker_unit(state, slot),
+            },
+        )
+    try:
+        # Once reserved, an offline operation refuses this pending launch rather
+        # than racing its process registration. No metadata lock crosses IPC.
+        if worker_busy(settled_worker(state, slot)) or (
+            "execution" in allocation and worker_busy(primary_observation(state))
+        ):
+            raise SupervisorError(
+                "Selected worker allocation became occupied during admission"
+            )
         if not ready(state, config):
             start(state, config)
         # Pin the launch window before crossing into an independent worker scope.
@@ -1108,13 +1823,19 @@ def worker(state: Path, command: list[str]) -> int:
         root = str(Path(__file__).resolve().parents[1])
         if root not in sys.path:
             sys.path.insert(0, root)
-        from scripts.native_operation import (  # noqa: PLC0415 -- standalone supervisor loads shared owner after root selection
-            prepare_handoff,
-        )
 
-        handoff = prepare_handoff(worker_unit(state, slot))
+        handoff = native_operation.prepare_handoff(worker_unit(state, slot))
+
+        host_owner = host_admission.inherit(os.environ)
+        if host_owner is None:
+            raise SupervisorError(
+                "Managed worker must belong to an admitted host allocation"
+            )
+        host_owner.register(worker_unit(state, slot))
         child = subprocess.Popen(
-            worker_scope_command(state, slot, allocation, command),
+            worker_scope_command(
+                state, slot, allocation, command, capabilities=capabilities
+            ),
             env=worker_environment(state, slot, allocation, handoff),
         )
         deadline = time.monotonic() + 10
@@ -1134,6 +1855,10 @@ def worker(state: Path, command: list[str]) -> int:
                 systemctl("stop", worker_unit(state, slot), check=False)
                 raise SupervisorError("Managed worker scope did not register")
             time.sleep(0.02)
+    finally:
+        with state_lock(state):
+            if pending.exists() and read_json(pending).get("nonce") == token:
+                pending.unlink()
     result = child.wait()
     return result if result >= 0 else 128 - result
 
@@ -1203,14 +1928,63 @@ def observer_launch_busy(state: Path) -> bool:
     return bool(group and group_populated(group))
 
 
-def observer(state: Path, command: list[str]) -> int:
+def reference_state(selected: Path) -> Path:
+    """Demand the explicit unchanged reference store before observer admission."""
+    config_for(selected)
+    selected = service_directory(selected)
+    config = config_for(selected)
+    if config["resources"] == reference_resources():
+        state = selected
+    else:
+        state_home = Path(
+            os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state"))
+        )
+        state = state_home / "pse-arrow/surreal-reference-v2"
+    if not (state / "config.json").exists():
+        worker = os.environ.get("PSE_WORKER_BINARY")
+        if not worker:
+            raise SupervisorError(
+                "Reference setup requires an explicitly qualified PSE_WORKER_BINARY"
+            )
+        args = parser().parse_args(
+            [
+                "setup",
+                "--state",
+                str(state),
+                "--port",
+                "18241",
+                "--execution-profile",
+                "plan28-reference",
+                "--worker-executable",
+                worker,
+                "--interpretation",
+                SUBSTRATE_INTERPRETATION,
+            ]
+        )
+        setup(args)
+    config = config_for(state)
+    if config["resources"] != reference_resources():
+        raise SupervisorError(
+            "Selected reference service must retain the exact reference allocation"
+        )
+    # Explicit reference demand uses the ordinary owned startup boundary. It
+    # preserves restored validation, active-unit readiness and parked guards.
+    start(state, config)
+    return state
+
+
+def observer(state: Path, command: list[str], profile: str | None = None) -> int:
     """Run one foreground observer in the same finite primary/server envelope."""
     config_for(state)
     state = checked_directory(state)
     unit = f"pse-native-{uuid.uuid4().hex}.scope"
-    with state_lock(state):
+    if observer_launch_busy(state):
+        raise SupervisorError("The observer allocation is occupied")
+    with context_admission(state):
         config = config_for(state)
-        allocation = config["resources"]
+        allocation = (
+            config["resources"] if profile is None else execution_resources(profile)
+        )
         if not isinstance(allocation, dict) or not isinstance(
             allocation.get("execution"), dict
         ):
@@ -1223,9 +1997,18 @@ def observer(state: Path, command: list[str]) -> int:
             or not config["accepting_writes"]
         ):
             raise SupervisorError("Observer command requires open admission")
-        ensure_execution_placement(state, allocation)
-        if observer_launch_busy(state):
-            raise SupervisorError("The reference observer allocation is occupied")
+        # Check only recorded caller liveness under exclusion. Actual unit/drain
+        # observation above never holds this metadata lock.
+        pending = state / "observer-launch.json"
+        if pending.exists():
+            previous = read_json(pending)
+            process = Path(f"/proc/{integer(previous['pid'])}/stat")
+            if (
+                process.exists()
+                and process.read_text().rsplit(")", 1)[1].split()[19]
+                == previous["start"]
+            ):
+                raise SupervisorError("The observer allocation is occupied")
         registration = state / "primary-observer.json"
         if registration.exists():
             prior = read_json(registration)
@@ -1245,11 +2028,31 @@ def observer(state: Path, command: list[str]) -> int:
     root = str(SCRIPT.parents[1])
     if root not in sys.path:
         sys.path.insert(0, root)
-    from scripts.native_operation import (  # noqa: PLC0415 -- import after script root registration
-        prepare_handoff,
-    )
 
-    handoff = prepare_handoff(unit)
+    ensure_execution_placement(state, allocation)
+
+    owner = host_admission.inherit(os.environ)
+    if owner is None:
+        raise SupervisorError("Observer must belong to an admitted host allocation")
+    if profile is not None and profile != "reference":
+        group = native_operation.process_group(os.getpid())
+        with host_admission.allocation_metadata(owner.directory) as ledger:
+            units = dict(ledger["owners"][owner.nonce]["units"])
+        for control, observed in units.items():
+            if observed.get("group") and (
+                group == observed["group"] or group.startswith(observed["group"] + "/")
+            ):
+                ceiling = host_admission.settings(profile)["control_gib"] * GIB
+                systemctl(
+                    "set-property",
+                    "--runtime",
+                    control,
+                    f"MemoryMax={ceiling}",
+                    "MemorySwapMax=0",
+                )
+                break
+    owner.register(unit)
+    handoff = native_operation.prepare_handoff(unit)
     environment = systemd_environment()
     for key in (
         "PSE_NATIVE_OPERATION",
@@ -1262,6 +2065,8 @@ def observer(state: Path, command: list[str]) -> int:
     if handoff is not None:
         environment["PSE_NATIVE_HANDOFF"] = str(handoff)
     environment["PSE_SURREAL_STATE"] = str(state)
+    if profile is not None:
+        environment["PSE_TEST_EXECUTION_PROFILE"] = profile
     try:
         return subprocess.call(
             observer_scope_command(state, allocation, unit, command), env=environment
@@ -1331,15 +2136,15 @@ def recorded_primary(config: dict[str, object]) -> dict[str, str]:
         for key in ("supervisor_executable", "supervisor_script", "worker_executable")
     ):
         raise SupervisorError("Primary receiver paths must be explicit and absolute")
-    if Path(result["supervisor_script"]) != SCRIPT:
-        raise SupervisorError("Primary receiver belongs to another supervisor")
+    verify_generation(Path(result["supervisor_script"]).parents[1])
     return result
 
 
 def checked_primary(config: dict[str, object]) -> dict[str, str]:
     receiver = recorded_primary(config)
     if (
-        file_digest(SCRIPT) != receiver["supervisor_sha256"]
+        file_digest(Path(receiver["supervisor_script"]))
+        != receiver["supervisor_sha256"]
         or file_digest(Path(receiver["worker_executable"])) != receiver["worker_sha256"]
     ):
         raise SupervisorError(
@@ -1464,12 +2269,19 @@ def _primary_process(
             process, marker, systemd_environment()
         ):
             return None
-        if not role_affinity_ready(pid, execution):
+        placement = placement_observation(state)
+        if not isinstance(placement, dict) or not isinstance(
+            placement.get("physical_cpus"), list
+        ):
+            return None
+        if not role_affinity_ready(pid, execution, placement["physical_cpus"]):
             return None
         memory, cpu = effective_limits(Path("/sys/fs/cgroup") / relative.lstrip("/"))
-        if memory != integer(
-            allocation["native_worker_memory_bytes"]
-        ) or cpu != integer(execution["cpu_threads"]):
+        if (
+            memory != integer(allocation["native_worker_memory_bytes"])
+            or cpu is None
+            or cpu < integer(execution["cpu_threads"])
+        ):
             return None
     except (OSError, KeyError, StopIteration, SupervisorError):
         return None
@@ -1497,13 +2309,20 @@ def verify_observer(state: Path, config: dict[str, object], pid: int) -> None:
     )
     group = Path("/sys/fs/cgroup") / relative.lstrip("/")
     profile = group_for_slice(execution_slice(state))
+    placement = placement_observation(state)
+    if not isinstance(placement, dict):
+        raise SupervisorError("Observer lacks actual execution placement")
+    cpus = placement.get("physical_cpus")
+    if not isinstance(cpus, list) or not all(isinstance(value, int) for value in cpus):
+        raise SupervisorError("Observer lacks declared physical CPU placement")
     memory, cpu = effective_limits(group)
     if (
         not group.is_relative_to(profile)
         or memory is None
         or memory > integer(execution["observer_memory_bytes"])
-        or cpu != integer(execution["cpu_threads"])
-        or not role_affinity_ready(pid, execution)
+        or cpu is None
+        or cpu < integer(execution["cpu_threads"])
+        or not role_affinity_ready(pid, execution, cpus)
     ):
         raise SupervisorError(
             f"Observer placement required: PSE_SLICE={execution_slice(state)} PSE_MEMORY_MAX=4G scripts/pse-env -- <observer command>"
@@ -1606,15 +2425,49 @@ def ensure_primary(
     database: str | None = None,
     qualification: Path | None = None,
 ) -> dict[str, object]:
+    state = receiver_context(state, database)
     # Existing nested control calls consume this owner's clock; they do not renew it.
     deadline = time.monotonic() + 30
     prior = getattr(_STARTUP, "deadline", None)
+    reservation = state / "primary-admission.json"
+    token = uuid.uuid4().hex
+
+    with context_admission(state):
+        if any(
+            reservation_live(read_json(pending))
+            for pending in state.glob("worker-admission-*.json")
+        ):
+            raise SupervisorError(
+                "A pending native worker launch owns this receiver allocation"
+            )
+        if reservation.exists():
+            owner = read_json(reservation)
+            try:
+                alive = (
+                    native_operation.start_identity(integer(owner["pid"]))
+                    == owner["start"]
+                )
+            except FileNotFoundError:
+                alive = False
+            if alive:
+                raise SupervisorError("Another live owner is admitting this receiver")
+        write_json(
+            reservation,
+            {
+                "nonce": token,
+                "pid": os.getpid(),
+                "start": native_operation.start_identity(os.getpid()),
+            },
+        )
     _STARTUP.deadline = deadline if prior is None else min(deadline, prior)
     try:
         return _ensure_primary(
             state, observer_pid, database, _STARTUP.deadline, qualification
         )
     finally:
+        with state_lock(state):
+            if reservation.exists() and read_json(reservation).get("nonce") == token:
+                reservation.unlink()
         _STARTUP.deadline = prior
 
 
@@ -1629,34 +2482,124 @@ def _ensure_primary(
     state = checked_directory(state)
     if qualification is not None:
         qualification = qualification_directory(state, qualification)
-    with state_lock(state):
-        config = config_for(state)
-        if config["admission"] != "open" or not config["accepting_writes"]:
-            raise SupervisorError("Primary admission is closed")
-        allocation = config["resources"]
-        if not isinstance(allocation, dict) or not isinstance(
-            allocation.get("execution"), dict
-        ):
-            raise SupervisorError(
-                "Primary serving requires an explicit reference execution profile"
-            )
-        receiver = checked_primary(config)
-        primary_environment(state, allocation, receiver)
-        selected_database = (
-            database if database is not None else str(config["database"])
+    config = config_for(state)
+    if config["admission"] != "open" or not config["accepting_writes"]:
+        raise SupervisorError("Primary admission is closed")
+    allocation = config["resources"]
+    if not isinstance(allocation, dict) or not isinstance(
+        allocation.get("execution"), dict
+    ):
+        raise SupervisorError(
+            "Primary serving requires an explicit reference execution profile"
         )
-        if not selected_database or len(selected_database) > 1024:
-            raise SupervisorError(
-                "Primary receiver requires a bounded canonical database identity"
-            )
-        ensure_execution_placement(state, allocation)
-        if observer_pid is not None:
-            verify_observer(state, config, observer_pid)
+    receiver = checked_primary(config)
+    primary_environment(state, allocation, receiver)
+    selected_database = database if database is not None else str(config["database"])
+    if not selected_database or len(selected_database) > 1024:
+        raise SupervisorError(
+            "Primary receiver requires a bounded canonical database identity"
+        )
+    ensure_execution_placement(state, allocation)
+    if observer_pid is not None:
+        verify_observer(state, config, observer_pid)
+    observed = primary_observation(state)
+    ready_arguments = () if qualification is None else (qualification,)
+    if primary_ready(state, config, observed, selected_database, *ready_arguments):
+        if not ready(state, config):
+            start(state, config, deadline=deadline)
+        return {
+            "ready": True,
+            "unit": primary_unit(state),
+            "execution": allocation["execution"],
+            "canonical_database": selected_database,
+            "placement": placement_observation(state),
+        }
+    if worker_busy(observed) or worker_busy(settled_worker(state, 0)):
+        raise SupervisorError(
+            "An active unmatched receiver or canonical database owns the primary allocation; quiesce and drain it before reuse"
+        )
+    if not ready(state, config):
+        start(state, config, deadline=deadline)
+    root = str(SCRIPT.parents[1])
+    if root not in sys.path:
+        sys.path.insert(0, root)
+
+    host_owner = host_admission.inherit(os.environ)
+    if host_owner is None:
+        raise SupervisorError("Primary must belong to an admitted host allocation")
+    host_owner.register(primary_unit(state))
+    handoff = native_operation.prepare_handoff(primary_unit(state))
+    nonce = uuid.uuid4().hex
+    write_json(state / "primary-launch.json", {"nonce": nonce})
+    (state / "primary-receiver.json").unlink(missing_ok=True)
+    environment, names = primary_environment(state, allocation, receiver, handoff)
+    environment["PSE_PRIMARY_NONCE"] = nonce
+    command = [
+        "systemd-run",
+        "--user",
+        "--quiet",
+        "--collect",
+        "--no-ask-password",
+        "--expand-environment=no",
+        f"--unit={primary_unit(state)}",
+        *selected_slice(state, allocation),
+        "--service-type=exec",
+        "--property=KillMode=control-group",
+        "--property=Restart=no",
+        "--property=TimeoutStopSec=45",
+        "--property=TasksMax=2048",
+        "--property=MemorySwapMax=0",
+        f"--property=MemoryMax={allocation['native_worker_memory_bytes']}",
+    ]
+    for key in (
+        "PSE_SURREAL_STATE",
+        "PSE_NATIVE_WORKER_SLOT",
+        "PSE_NATIVE_WORKER_MEMORY_BYTES",
+        "PSE_NATIVE_HANDOFF",
+        "PSE_PRIMARY_NONCE",
+    ):
+        command.append(f"--setenv={key}={environment[key]}")
+    command.extend(primary_service_environment(environment, names))
+    command.extend(
+        [
+            "--",
+            *role_command(
+                allocation,
+                [
+                    receiver["supervisor_executable"],
+                    str(SCRIPT.with_name("native_operation.py")),
+                    "--capabilities",
+                    "solver,klu,isolation,uno,petsc",
+                    "--",
+                    receiver["worker_executable"],
+                    "--maximum-in-flight",
+                    str(allocation["execution"]["case_lanes"]),
+                    "--canonical-database",
+                    selected_database,
+                ],
+            ),
+        ]
+    )
+    if qualification is not None:
+        command.extend(["--qualification-native-entry", str(qualification)])
+    try:
+        result = subprocess.run(
+            command,
+            env=environment,
+            capture_output=True,
+            timeout=remaining(deadline),
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        systemctl("stop", primary_unit(state), check=False, cleanup_timeout=10)
+        raise SupervisorError(
+            "Primary launch exceeded its original admission clock"
+        ) from None
+    if result.returncode:
+        raise SupervisorError("Cannot launch the capped primary receiver")
+    while time.monotonic() < deadline:
         observed = primary_observation(state)
-        ready_arguments = () if qualification is None else (qualification,)
         if primary_ready(state, config, observed, selected_database, *ready_arguments):
-            if not ready(state, config):
-                start(state, config, deadline=deadline)
             return {
                 "ready": True,
                 "unit": primary_unit(state),
@@ -1664,107 +2607,72 @@ def _ensure_primary(
                 "canonical_database": selected_database,
                 "placement": placement_observation(state),
             }
-        if worker_busy(observed) or worker_busy(settled_worker(state, 0)):
-            raise SupervisorError(
-                "An active unmatched receiver or canonical database owns the primary allocation; quiesce and drain it before reuse"
-            )
-        if not ready(state, config):
-            start(state, config, deadline=deadline)
-        root = str(SCRIPT.parents[1])
-        if root not in sys.path:
-            sys.path.insert(0, root)
-        from scripts.native_operation import (  # noqa: PLC0415 -- import after script root registration
-            prepare_handoff,
-        )
+        if observed["ActiveState"] == "failed":
+            break
+        time.sleep(0.05)
+    systemctl("stop", primary_unit(state), check=False, cleanup_timeout=10)
+    raise SupervisorError(
+        "Primary receiver did not establish its actual runtime readiness"
+    )
 
-        handoff = prepare_handoff(primary_unit(state))
-        nonce = uuid.uuid4().hex
-        write_json(state / "primary-launch.json", {"nonce": nonce})
-        (state / "primary-receiver.json").unlink(missing_ok=True)
-        environment, names = primary_environment(state, allocation, receiver, handoff)
-        environment["PSE_PRIMARY_NONCE"] = nonce
-        command = [
-            "systemd-run",
-            "--user",
-            "--quiet",
-            "--collect",
-            "--no-ask-password",
-            "--expand-environment=no",
-            f"--unit={primary_unit(state)}",
-            *selected_slice(state, allocation),
-            "--service-type=exec",
-            "--property=KillMode=control-group",
-            "--property=Restart=no",
-            "--property=TimeoutStopSec=45",
-            "--property=TasksMax=2048",
-            "--property=MemorySwapMax=0",
-            f"--property=MemoryMax={allocation['native_worker_memory_bytes']}",
-        ]
-        for key in (
-            "PSE_SURREAL_STATE",
-            "PSE_NATIVE_WORKER_SLOT",
-            "PSE_NATIVE_WORKER_MEMORY_BYTES",
-            "PSE_NATIVE_HANDOFF",
-            "PSE_PRIMARY_NONCE",
+
+def drain_context(
+    state: Path, database: str, *, deadline: float | None = None
+) -> list[dict[str, str]]:
+    """Cooperatively drain only the receiver associated with this exact context."""
+    if not (state / ".contexts" / f"{database}.json").exists():
+        base = config_for(state)
+        if (
+            "execution" not in object_mapping(base["resources"])
+            and base.get("primary_receiver") is None
         ):
-            command.append(f"--setenv={key}={environment[key]}")
-        command.extend(primary_service_environment(environment, names))
-        command.extend(
-            [
-                "--",
-                *role_command(
-                    allocation,
-                    [
-                        receiver["supervisor_executable"],
-                        str(SCRIPT.with_name("native_operation.py")),
-                        "--capabilities",
-                        "solver,klu,isolation,uno,petsc",
-                        "--",
-                        receiver["worker_executable"],
-                        "--maximum-in-flight",
-                        str(allocation["execution"]["case_lanes"]),
-                        "--canonical-database",
-                        selected_database,
-                    ],
-                ),
-            ]
-        )
-        if qualification is not None:
-            command.extend(["--qualification-native-entry", str(qualification)])
-        try:
-            result = subprocess.run(
-                command,
-                env=environment,
-                capture_output=True,
-                timeout=remaining(deadline),
-                check=False,
-            )
-        except subprocess.TimeoutExpired:
-            systemctl("stop", primary_unit(state), check=False, cleanup_timeout=10)
-            raise SupervisorError(
-                "Primary launch exceeded its original admission clock"
-            ) from None
-        if result.returncode:
-            raise SupervisorError("Cannot launch the capped primary receiver")
-        while time.monotonic() < deadline:
-            observed = primary_observation(state)
-            if primary_ready(
-                state, config, observed, selected_database, *ready_arguments
-            ):
-                return {
-                    "ready": True,
-                    "unit": primary_unit(state),
-                    "execution": allocation["execution"],
-                    "canonical_database": selected_database,
-                    "placement": placement_observation(state),
-                }
-            if observed["ActiveState"] == "failed":
-                break
-            time.sleep(0.05)
-        systemctl("stop", primary_unit(state), check=False, cleanup_timeout=10)
+            # A registered codec-only database never admitted a native receiver.
+            return []
+    selected = receiver_context(state, database)
+    config = config_for(selected)
+    if config["database"] != database:
         raise SupervisorError(
-            "Primary receiver did not establish its actual runtime readiness"
+            "Drain requires an explicit receiver database association"
         )
+    deadline = time.monotonic() + 45 if deadline is None else deadline
+    previous = getattr(_STARTUP, "deadline", None)
+    _STARTUP.deadline = deadline if previous is None else min(previous, deadline)
+    try:
+        observed = primary_observation(selected)
+        group = observed.get("ControlGroup", "")
+        if observed["ActiveState"] in {"inactive", "failed"} and (
+            not group or not group_populated(group)
+        ):
+            return []
+        pid = primary_drain_pid(selected, config, observed)
+        if pid is None:
+            raise SupervisorError(
+                "Unmatched live receiver remains retained; drain refused"
+            )
+        owner = native_operation.unit_observation(primary_unit(selected))
+        association = {
+            "unit": primary_unit(selected),
+            "group": owner["ControlGroup"],
+            "invocation": owner["InvocationID"],
+        }
+        descriptor = os.pidfd_open(pid)
+        try:
+            if (
+                primary_drain_pid(selected, config, primary_observation(selected))
+                != pid
+            ):
+                raise SupervisorError(
+                    "Receiver identity changed before cooperative drain"
+                )
+            signal.pidfd_send_signal(descriptor, signal.SIGINT)
+            while not native_operation.drained({"scope": association}):
+                remaining(_STARTUP.deadline)
+                time.sleep(0.02)
+        finally:
+            os.close(descriptor)
+        return [association]
+    finally:
+        _STARTUP.deadline = previous
 
 
 def public_status(state: Path, config: dict[str, object]) -> dict[str, object]:
@@ -1775,9 +2683,14 @@ def public_status(state: Path, config: dict[str, object]) -> dict[str, object]:
     return {
         "state": str(state),
         "active": active(state),
+        "listener_owned": owns_listener(state, config),
+        "authenticated_websocket_ready": protocol_ready(state, config),
+        "service_generation": config["instance_id"],
+        "supervisor_generation": config.get("service_supervisor"),
+        "parked": bool(config.get("parked")),
         "unit": unit_name(state),
         "endpoint": f"127.0.0.1:{port}",
-        "grpc_endpoint": f"grpc://127.0.0.1:{port}",
+        "websocket_endpoint": config["endpoint"],
         "credentials_file": str(state / "credentials.json"),
         "config_file": str(state / "config.json"),
         "server": config["server"],
@@ -1786,7 +2699,7 @@ def public_status(state: Path, config: dict[str, object]) -> dict[str, object]:
         "resources": config["resources"],
         "execution_placement": placement_observation(state),
         "accepting_writes": config["accepting_writes"],
-        "grpc_max_message_bytes": MESSAGE_BYTES,
+        "websocket_max_message_bytes": MESSAGE_BYTES,
         "worker_units": [
             worker_unit(state, slot)
             for slot in range(integer(allocation["native_workers"]))
@@ -1794,7 +2707,10 @@ def public_status(state: Path, config: dict[str, object]) -> dict[str, object]:
     }
 
 
-def ready(state: Path, config: dict[str, object]) -> bool:
+def listener_ready(state: Path, config: dict[str, object]) -> bool:
+    owner = service_directory(state)
+    if owner != state:
+        return listener_ready(owner, config_for(owner))
     if not owns_listener(state, config):
         return False
     try:
@@ -1806,36 +2722,151 @@ def ready(state: Path, config: dict[str, object]) -> bool:
         return False
 
 
+def protocol_ready(state: Path, config: dict[str, object]) -> bool:
+    owner = service_directory(state)
+    if owner != state:
+        return protocol_ready(owner, config_for(owner))
+    path = state / "protocol-readiness.json"
+    if not path.is_file():
+        return False
+    proof = read_json(path)
+    observed = systemctl(
+        "show", "--property=InvocationID", "--value", unit_name(state), check=False
+    )
+    return (
+        proof.get("schema") == "native-ws-readiness-v1"
+        and proof.get("instance_id") == config["instance_id"]
+        and proof.get("invocation") == observed.stdout.strip()
+        and proof.get("binary_sha256")
+        == object_mapping(config["server"]).get("binary_sha256")
+        and proof.get("credentials_sha256") == file_digest(state / "credentials.json")
+    )
+
+
+def establish_protocol_readiness(
+    state: Path, config: dict[str, object], deadline: float
+) -> None:
+    """Authenticate native WS under the startup clock without installing schema."""
+    state = checked_directory(state)
+    credentials = read_json(state / "credentials.json")
+    if (
+        credentials.get("selection_username") != "pse-selection"
+        or not isinstance(credentials.get("selection_password"), str)
+        or not credentials["selection_password"]
+    ):
+        raise SupervisorError(
+            "Selection credentials are missing; stop, quiesce and explicitly readmit this service"
+        )
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith("SURREAL_")
+    }
+    environment.update(
+        SURREAL_USER=str(credentials["username"]),
+        SURREAL_PASS=str(credentials["password"]),
+    )
+    query = f"DEFINE USER OVERWRITE `pse-selection` ON ROOT PASSWORD {json.dumps(credentials['selection_password'])} ROLES VIEWER; INFO FOR ROOT;\n"
+    result = subprocess.run(
+        [
+            str(object_mapping(config["server"])["binary"]),
+            "sql",
+            "--endpoint",
+            str(config["endpoint"]),
+            "--json",
+            "--hide-welcome",
+        ],
+        input=query,
+        env=environment,
+        cwd=state,
+        capture_output=True,
+        text=True,
+        timeout=remaining(deadline),
+        check=False,
+    )
+    try:
+        # The pinned CLI prints a REPL prompt even for non-interactive pipes.
+        lines = [line.removeprefix("> ").strip() for line in result.stdout.splitlines()]
+        returned = json.loads("\n".join(line for line in lines if line and line != ">"))
+        valid = (
+            isinstance(returned, list)
+            and len(returned) == 2
+            and returned[0] is None
+            and isinstance(returned[1], dict)
+            and isinstance(returned[1].get("namespaces"), dict)
+        )
+    except ValueError:
+        valid = False
+    if result.returncode or not valid:
+        raise SupervisorError(
+            "Authenticated native WebSocket readiness failed; admission remains closed"
+        )
+    invocation = systemctl(
+        "show", "--property=InvocationID", "--value", unit_name(state)
+    ).stdout.strip()
+    write_json(
+        state / "protocol-readiness.json",
+        {
+            "schema": "native-ws-readiness-v1",
+            "instance_id": config["instance_id"],
+            "invocation": invocation,
+            "binary_sha256": object_mapping(config["server"]).get("binary_sha256"),
+            "credentials_sha256": file_digest(state / "credentials.json"),
+        },
+    )
+
+
+def ready(state: Path, config: dict[str, object]) -> bool:
+    return listener_ready(state, config) and protocol_ready(state, config)
+
+
 def owns_listener(state: Path, config: dict[str, object]) -> bool:
     """Linux listener ownership, independent of another server's /health response."""
+    owner_state = service_directory(state)
+    if owner_state != state:
+        return owns_listener(owner_state, config_for(owner_state))
     try:
         process = read_json(state / "server-process.json")
         if process.get("instance_id") != config["instance_id"]:
             return False
         pid = integer(process["pid"])
         proc = Path("/proc") / str(pid)
-        membership = (proc / "cgroup").read_text()
-        if unit_name(state) not in membership:
+        if process.get("start") != native_operation.start_identity(pid):
             return False
-        allocation = config["resources"]
-        if isinstance(allocation, dict) and isinstance(
-            allocation.get("execution"), dict
-        ):
-            relative = next(
-                line.removeprefix("0::")
-                for line in membership.splitlines()
-                if line.startswith("0::")
+        membership = (proc / "cgroup").read_text()
+        owner, launch = recorded_storage_owner(state, config)
+        placement = storage_placement(config, owner)
+        observed = storage_unit_observation(state)
+        binding = object_mapping(launch["binding"])
+        relative = next(
+            line.removeprefix("0::")
+            for line in membership.splitlines()
+            if line.startswith("0::")
+        )
+        group = Path("/sys/fs/cgroup") / relative.lstrip("/")
+        memory, cpu = effective_limits(group)
+        quota, period = (group / "cpu.max").read_text().split()
+        if (
+            observed.get("ActiveState") != "active"
+            or observed.get("InvocationID") != binding["invocation"]
+            or observed.get("ControlGroup") != binding["group"]
+            or relative != binding["group"]
+            or host_admission.group_identity(relative) != binding["inode"]
+            or process.get("allocation") != launch["allocation"]
+            or memory != placement["memory_bytes"]
+            or cpu != placement["cpu_threads"]
+            or (group / "memory.max").read_text().strip()
+            != str(placement["memory_bytes"])
+            or quota == "max"
+            or int(quota) / int(period) != placement["cpu_threads"]
+            or not group.is_relative_to(group_for_slice(str(placement["slice"])))
+            or not role_affinity_ready(
+                pid,
+                {"cpu_threads": placement["cpu_threads"]},
+                list(owner.profile.cores),
             )
-            group = Path("/sys/fs/cgroup") / relative.lstrip("/")
-            execution = allocation["execution"]
-            memory, cpu = effective_limits(group)
-            if (
-                not group.is_relative_to(group_for_slice(execution_slice(state)))
-                or memory != integer(allocation["server_memory_bytes"])
-                or cpu != integer(execution["cpu_threads"])
-                or not role_affinity_ready(pid, execution)
-            ):
-                return False
+        ):
+            return False
         address = f"0100007F:{integer(config['port']):04X}"
         inodes = {
             row.split()[9]
@@ -1846,7 +2877,14 @@ def owns_listener(state: Path, config: dict[str, object]) -> bool:
             str(fd.readlink()) in {f"socket:[{inode}]" for inode in inodes}
             for fd in (proc / "fd").iterdir()
         )
-    except (OSError, KeyError, ValueError, StopIteration, SupervisorError):
+    except (
+        OSError,
+        KeyError,
+        ValueError,
+        StopIteration,
+        SupervisorError,
+        host_admission.AdmissionError,
+    ):
         return False
 
 
@@ -1857,6 +2895,295 @@ def remaining(deadline: float) -> float:
     return value
 
 
+def storage_placement(
+    config: dict[str, object], owner: host_admission.Allocation
+) -> dict[str, object]:
+    """Derive storage caps from its host owner, independently of science roles."""
+    memory = integer(object_mapping(config["resources"])["server_memory_bytes"])
+    service_class = config.get("service_class", "functional")
+    if service_class not in {"functional", "timing"}:
+        raise SupervisorError("Unknown storage service class")
+    if not owner.profile.exclusive:
+        expected = host_admission.select("store-" + str(service_class), str(memory))
+        if owner.profile != expected:
+            raise SupervisorError(
+                "Storage owner differs from the selected service lane"
+            )
+    elif memory > host_admission.settings(owner.profile.name)["store_gib"] * GIB:
+        raise SupervisorError("Storage exceeds its borrowed exclusive partition")
+    host_admission.cpu_set(owner.profile.cores)
+    return {
+        "memory_bytes": memory,
+        "cpu_threads": len(owner.profile.cores),
+        "physical_cpus": list(owner.profile.cores),
+        "slice": host_admission.allocation_slice(owner)
+        if owner.profile.exclusive
+        else "pse.slice",
+    }
+
+
+def storage_launch(state: Path, config: dict[str, object]) -> dict[str, object]:
+    """Require the exact immutable service selection associated with a launch."""
+    launch = read_json(state / "service-launch.json")
+    deadline = launch.get("deadline")
+    if not isinstance(deadline, (int, float)) or not math.isfinite(deadline):
+        raise SupervisorError("Storage launch lacks a finite admission clock")
+    if (
+        launch.get("generation") != config["instance_id"]
+        or launch.get("supervisor_generation") != config.get("service_supervisor")
+        or launch.get("server_generation") != config.get("server")
+        or launch.get("service_class") != config.get("service_class", "functional")
+        or launch.get("server_memory_bytes")
+        != object_mapping(config["resources"])["server_memory_bytes"]
+    ):
+        raise SupervisorError(
+            "Storage launch differs from the admitted service generation"
+        )
+    return launch
+
+
+def recorded_storage_owner(
+    state: Path, config: dict[str, object]
+) -> tuple[host_admission.Allocation, dict[str, object]]:
+    """Read actual charged storage ownership without adopting the caller's lane."""
+    launch = storage_launch(state, config)
+    path = Path(str(launch["allocation"]))
+    if not re.fullmatch(r"[a-f0-9]{32}", path.name):
+        raise SupervisorError("Invalid storage allocation marker")
+    with host_admission.allocation_metadata(path.parent) as ledger:
+        record = ledger["owners"].get(path.name)
+        if (
+            record is None
+            or record["boot"] != host_admission.boot()
+            or record.get("released")
+        ):
+            raise SupervisorError("Storage allocation is absent or stale")
+        bound = dict(record["units"].get(unit_name(state), {}))
+        if (
+            (
+                record.get("service") != str(state)
+                and str(state) not in record.get("borrowed_services", [])
+            )
+            or not isinstance(bound.get("group"), str)
+            or not isinstance(bound.get("invocation"), str)
+            or not re.fullmatch(r"[a-f0-9]{32}", str(bound.get("invocation", "")))
+            or type(bound.get("inode")) is not int
+        ):
+            raise SupervisorError("Storage allocation does not own this service")
+        profile = host_admission.Profile(
+            record["class"],
+            record["memory"],
+            record["lane"],
+            record["slots"],
+            tuple(record["cores"]),
+            record["exclusive"],
+        )
+        deadline = record["deadline"]
+    if bound != launch.get("binding"):
+        raise SupervisorError("Storage launch does not match its bound kernel lifetime")
+    return host_admission.Allocation(path.parent, path.name, profile, deadline), launch
+
+
+def storage_unit_observation(state: Path) -> dict[str, str]:
+    """Observe storage identity through the supervisor's remaining original clock."""
+    result = systemctl(
+        "show",
+        "--property=InvocationID",
+        "--property=ControlGroup",
+        "--property=ActiveState",
+        unit_name(state),
+    )
+    observed = dict(
+        line.split("=", 1) for line in result.stdout.splitlines() if "=" in line
+    )
+    if not re.fullmatch(r"[a-f0-9]{32}", observed.get("InvocationID", "")):
+        raise SupervisorError("Storage unit lacks an actual invocation identity")
+    return observed
+
+
+def resume_storage_allocation(
+    state: Path, config: dict[str, object]
+) -> host_admission.Allocation:
+    """Reuse charged capacity only after the exact owned predecessor has drained."""
+    owner, launch = recorded_storage_owner(state, config)
+    observed = storage_unit_observation(state)
+    group = observed.get("ControlGroup", "")
+    binding = object_mapping(launch["binding"])
+    if (
+        observed.get("ActiveState") not in {"active", "activating"}
+        or not group.startswith("/")
+        or group == "/"
+        or ".." in Path(group).parts
+        or native_operation.process_group(os.getpid()) != group
+        or observed["InvocationID"] == binding.get("invocation")
+        or group != binding.get("group")
+    ):
+        raise SupervisorError("Cannot adopt an uncertain storage restart lifetime")
+    directory = Path("/sys/fs/cgroup") / group.lstrip("/")
+    processes = {
+        int(pid)
+        for path in directory.rglob("cgroup.procs")
+        for pid in path.read_text().split()
+    }
+    if processes != {os.getpid()}:
+        raise SupervisorError("Storage predecessor or descendants remain undrained")
+    return owner
+
+
+def materialize_service(
+    state: Path,
+    config: dict[str, object],
+    owner: host_admission.Allocation | None = None,
+) -> None:
+    """Persistent owned unit; ExecStart only starts storage, never science."""
+    supervisor = config.get("service_supervisor")
+    if not isinstance(supervisor, dict):
+        raise SupervisorError(
+            "Profile has no immutable service supervisor; explicitly readmit it"
+        )
+    verify_generation(Path(str(supervisor["supervisor_script"])).parents[1])
+    directory = (
+        Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config")))
+        / "systemd/user"
+    )
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / unit_name(state)
+    allocation = config["resources"]
+    if not isinstance(allocation, dict):
+        raise SupervisorError("Missing service allocation")
+
+    # Escaping is systemd ExecStart syntax, never shell syntax.
+    def argument(value: object) -> str:
+        text = str(value)
+        if any(character in text for character in "\n\r\0"):
+            raise SupervisorError("Invalid systemd unit argument")
+        return (
+            '"'
+            + text.replace("\\", "\\\\").replace('"', '\\"').replace("%", "%%")
+            + '"'
+        )
+
+    executable = " ".join(
+        argument(value)
+        for value in (
+            supervisor["supervisor_executable"],
+            supervisor["supervisor_script"],
+            "_serve",
+            "--state",
+            state,
+        )
+    )
+    config["restart_qualified"] = recovery_qualified(state, config)
+    restart = "on-failure" if config["restart_qualified"] else "no"
+
+    if owner is None:
+        admitted = host_admission.inherit(os.environ)
+        if admitted is not None and admitted.profile.exclusive:
+            owner = admitted
+        else:
+            profile = host_admission.select(
+                "store-" + str(config.get("service_class", "functional")),
+                str(allocation["server_memory_bytes"]),
+            )
+            owner = host_admission.Allocation(state, "", profile, 0)
+    placement = storage_placement(config, owner)
+    text = f"[Unit]\nDescription=pse-arrow owned storage {config['instance_id']}\nStartLimitIntervalSec=300\nStartLimitBurst=3\n\n[Service]\nType=exec\nExecStart={executable}\nKillMode=control-group\nTimeoutStopSec=45\nRestart={restart}\nRestartSec=5\nSlice={placement['slice']}\nMemoryMax={placement['memory_bytes']}\nCPUQuota={integer(placement['cpu_threads']) * 100}%\nMemorySwapMax=0\nTasksMax=128\nStandardOutput=null\nStandardError=null\n\n[Install]\nWantedBy=default.target\n"
+    if path.exists() and not config.get("unit_materialized"):
+        raise SupervisorError(
+            "Existing user unit is not this generation's materialization"
+        )
+    temporary = path.with_suffix(".pending")
+    temporary.write_text(text)
+    temporary.chmod(0o600)
+    temporary.replace(path)
+    config["unit_materialized"] = True
+    write_json(state / "config.json", config)
+    systemctl("daemon-reload")
+    if config.get("resident"):
+        systemctl("enable", unit_name(state))
+
+
+def service_allocation(
+    state: Path, config: dict[str, object], deadline: float
+) -> host_admission.Allocation:
+
+    inherited = host_admission.inherit(os.environ)
+    if inherited is not None and inherited.profile.exclusive:
+        allocation = inherited
+    else:
+        profile = (
+            "store-timing"
+            if config.get("service_class") == "timing"
+            else "store-functional"
+        )
+        requested = str(object_mapping(config["resources"])["server_memory_bytes"])
+        allocation = host_admission.acquire(
+            host_admission.select(profile, requested), deadline=deadline
+        )
+    storage_placement(config, allocation)
+    allocation.register(unit_name(state))
+    if allocation.profile.exclusive:
+        with host_admission.allocation_metadata(allocation.directory) as ledger:
+            borrowed = ledger["owners"][allocation.nonce].setdefault(
+                "borrowed_services", []
+            )
+            if str(state) not in borrowed:
+                borrowed.append(str(state))
+    if not allocation.profile.exclusive:
+        with host_admission.allocation_metadata(allocation.directory) as ledger:
+            ledger["owners"][allocation.nonce].update(
+                service=str(state), parkable=bool(config.get("resident"))
+            )
+    write_json(
+        state / "service-launch.json",
+        {
+            "allocation": str(allocation.directory / allocation.nonce),
+            "deadline": deadline,
+            "generation": config["instance_id"],
+            "supervisor_generation": config.get("service_supervisor"),
+            "server_generation": config.get("server"),
+            "service_class": config.get("service_class", "functional"),
+            "server_memory_bytes": object_mapping(config["resources"])[
+                "server_memory_bytes"
+            ],
+        },
+    )
+    return allocation
+
+
+def park_service(state: Path, *, deadline: float | None = None) -> None:
+    """Park only this materialized idle service; preserve all disk and evidence."""
+    previous = getattr(_STARTUP, "deadline", None)
+    if deadline is not None:
+        _STARTUP.deadline = deadline if previous is None else min(previous, deadline)
+    try:
+        with lifecycle_reservation(state):
+            _park_service(state)
+    finally:
+        _STARTUP.deadline = previous
+
+
+def _park_service(state: Path) -> None:
+    config = config_for(state)
+    if not config.get("resident") or not config.get("unit_materialized"):
+        raise SupervisorError(
+            "Service lifecycle is not eligible for coordinated parking"
+        )
+    all_contexts_drained(state)
+    with state_lock(state):
+        config = config_for(state)
+        config["parked"] = True
+        write_json(state / "config.json", config)
+    stop(state, config)
+
+
+def unpark_service(state: Path, *, deadline: float | None = None) -> None:
+    with lifecycle_reservation(state):
+        config = config_for(state)
+        if config.get("parked"):
+            start(state, config, deadline=deadline)
+
+
 def start(
     state: Path,
     config: dict[str, object],
@@ -1864,65 +3191,74 @@ def start(
     validation: bool = False,
     deadline: float | None = None,
 ) -> None:
+    deadline = time.monotonic() + 40 if deadline is None else deadline
+    previous = getattr(_STARTUP, "deadline", None)
+    deadline = deadline if previous is None else min(previous, deadline)
+    _STARTUP.deadline = deadline
+    try:
+        remaining(deadline)
+        with lifecycle_reservation(state):
+            _start(state, config, validation=validation, deadline=deadline)
+    finally:
+        _STARTUP.deadline = previous
+
+
+def _start(
+    state: Path,
+    config: dict[str, object],
+    *,
+    validation: bool,
+    deadline: float,
+) -> None:
+    owner = service_directory(state)
+    if owner != state:
+        return start(owner, config_for(owner), validation=validation, deadline=deadline)
     if deadline is None:
         deadline = time.monotonic() + 40
     if config["admission"] == "validation_required" and not validation:
         raise SupervisorError(
             "Restored database requires validate before normal server start"
         )
+    if config.get("parked"):
+        # Only deliberate startup reaches this path. _serve keeps its parked
+        # guard, so unattended systemd recovery cannot reopen admission.
+        with state_lock(state):
+            config.update(config_for(state))
+            config["parked"] = False
+            write_json(state / "config.json", config)
+        # An admitted park/unpark is a new startup, not another failure retry.
+        systemctl("reset-failed", unit_name(state), check=False)
     if active(state):
-        if not ready(state, config):
+        if not listener_ready(state, config):
             raise SupervisorError("Owned server unit is active but unhealthy")
-        return
+        if not protocol_ready(state, config):
+            establish_protocol_readiness(state, config, deadline)
+        if not validation:
+            open_context_admission(state)
+            config.update(config_for(state))
+        return None
     systemctl("show-environment")
     allocation = config["resources"]
     if not isinstance(allocation, dict):
         raise SupervisorError("Invalid resource configuration")
-    ensure_execution_placement(state, allocation)
-    command = [
-        "systemd-run",
-        "--user",
-        "--quiet",
-        "--collect",
-        f"--unit={unit_name(state)}",
-        *selected_slice(state, allocation),
-        "--service-type=exec",
-        "--property=KillMode=control-group",
-        "--property=TimeoutStopSec=45",
-        "--property=Restart=no",
-        "--property=MemorySwapMax=0",
-        "--property=TasksMax=128",
-        f"--property=MemoryMax={allocation['server_memory_bytes']}",
-        "--property=StandardOutput=null",
-        "--property=StandardError=null",
-        "--",
-        *role_command(
-            allocation,
-            [
-                str(Path(sys.executable).resolve()),
-                str(SCRIPT),
-                "_serve",
-                "--state",
-                str(state),
-            ],
-        ),
-    ]
-    result = subprocess.run(
-        command,
-        env=systemd_environment(),
-        capture_output=True,
-        timeout=remaining(deadline),
-        check=False,
-    )
+    remaining(deadline)
+    allocation_owner = service_allocation(state, config, deadline)
+    environment = systemd_environment()
+    host_admission.enforce_parent(allocation_owner.profile, environment)
+    materialize_service(state, config, allocation_owner)
+    result = systemctl("start", unit_name(state), check=False)
     if result.returncode:
-        raise SupervisorError("Cannot create capped server unit")
+        allocation_owner.release()
+        raise SupervisorError("Cannot start owned persistent service unit")
     while time.monotonic() < deadline:
-        if ready(state, config):
+        if listener_ready(state, config):
+            establish_protocol_readiness(state, config, deadline)
             if not validation:
                 config["admission"] = "open"
                 config["accepting_writes"] = True
                 write_json(state / "config.json", config)
-            return
+                open_context_admission(state)
+            return None
         if not active(state):
             break
         time.sleep(0.1)
@@ -1933,6 +3269,19 @@ def start(
 
 
 def stop(state: Path, config: dict[str, object], *, abrupt: bool = False) -> None:
+    prior = getattr(_STARTUP, "deadline", None)
+    deadline = time.monotonic() + 90
+    _STARTUP.deadline = deadline if prior is None else min(deadline, prior)
+    try:
+        with lifecycle_reservation(state):
+            close_context_admission(state)
+            config.update(config_for(state))
+            _stop(state, config, abrupt=abrupt)
+    finally:
+        _STARTUP.deadline = prior
+
+
+def _stop(state: Path, config: dict[str, object], *, abrupt: bool = False) -> None:
     group_result = systemctl(
         "show", "--property=ControlGroup", "--value", unit_name(state), check=False
     )
@@ -1947,9 +3296,9 @@ def stop(state: Path, config: dict[str, object], *, abrupt: bool = False) -> Non
         config["admission"] = "quiesced"
         write_json(state / "config.json", config)
     if not abrupt:
-        workers_drained(state, config)
-    if active(state):
-        if abrupt:
+        all_contexts_drained(state)
+    if abrupt:
+        if active(state):
             killed = systemctl(
                 "kill",
                 "--kill-whom=all",
@@ -1961,39 +3310,74 @@ def stop(state: Path, config: dict[str, object], *, abrupt: bool = False) -> Non
                 raise SupervisorError("Abrupt fixture SIGKILL was refused")
             # Do not enqueue a competing graceful stop while the kill is being
             # processed. Wait for collection of the killed process group.
-            deadline = time.monotonic() + 15
-            while time.monotonic() < deadline:
-                observation = systemctl(
-                    "show",
-                    "--property=ActiveState",
-                    "--value",
-                    unit_name(state),
-                    check=False,
-                )
-                if observation.returncode == 0 and observation.stdout.strip() in {
-                    "inactive",
-                    "failed",
-                }:
-                    break
-                time.sleep(0.05)
-        else:
-            systemctl("stop", unit_name(state), check=False)
+        while True:
+            remaining(_STARTUP.deadline)
+            observation = systemctl(
+                "show",
+                "--property=ActiveState",
+                "--value",
+                unit_name(state),
+                check=False,
+            )
+            if observation.returncode == 0 and observation.stdout.strip() in {
+                "inactive",
+                "failed",
+            }:
+                break
+            time.sleep(0.05)
+    else:
+        # is-active excludes activating/deactivating, but they still require an
+        # actual stop job before an offline action can claim terminal state.
+        systemctl("stop", unit_name(state), check=False)
     result = systemctl(
         "show", "--property=ActiveState", "--value", unit_name(state), check=False
     )
     if result.returncode or result.stdout.strip() not in {"inactive", "failed"}:
         raise SupervisorError("Server remains active; database copy is unsafe")
     if group_path is not None:
-        deadline = time.monotonic() + 15
         while group_path.exists():
             events = group_path / "cgroup.events"
             if not events.exists() or "populated 1" not in events.read_text():
                 break
-            if time.monotonic() >= deadline:
-                raise SupervisorError(
-                    "Server process group remains populated; database copy is unsafe"
-                )
+            remaining(_STARTUP.deadline)
             time.sleep(0.05)
+
+    release_stopped_service(state, config)
+
+
+def release_stopped_service(state: Path, config: dict[str, object]) -> None:
+    """Release the drained storage owner, never its caller's borrowed host lane."""
+    launch_path = state / "service-launch.json"
+    if not launch_path.exists():
+        return
+    launch = read_json(launch_path)
+    if launch.get("generation") != config["instance_id"]:
+        raise SupervisorError("Stopped service allocation has a different generation")
+
+    try:
+        owner = host_admission.inherit(
+            {host_admission.MARKER: str(launch["allocation"])}, handoff=True
+        )
+    except host_admission.AdmissionError:
+        # A dead launch caller is settled by host reconciliation using the
+        # recorded cgroup inode/invocation, not by guessing a live replacement.
+        return
+    if owner is None or owner.profile.exclusive:
+        return
+    with host_admission.allocation_metadata(owner.directory) as ledger:
+        record = ledger["owners"].get(owner.nonce)
+        if (
+            not isinstance(record, dict)
+            or record.get("service") != str(state)
+            or unit_name(state) not in record["units"]
+        ):
+            raise SupervisorError(
+                "Stopped storage allocation does not own this service"
+            )
+    if not owner.release():
+        raise SupervisorError(
+            "Stopped storage allocation still owns an undrained lifetime"
+        )
 
 
 def server_environment(
@@ -2012,7 +3396,11 @@ def server_environment(
         {
             "SURREAL_USER": str(credentials["username"]),
             "SURREAL_PASS": str(credentials["password"]),
-            "SURREAL_GRPC_MAX_MESSAGE_SIZE": str(MESSAGE_BYTES),
+            "SURREAL_WEBSOCKET_MAX_MESSAGE_SIZE": str(MESSAGE_BYTES),
+            "SURREAL_WEBSOCKET_MAX_WRITE_BUFFER_SIZE": str(8 * MIB),
+            # SurrealDB counts its implicit connection session against this cap.
+            # Two permits exactly one SDK application session on each socket.
+            "SURREAL_WEBSOCKET_MAX_ATTACHED_SESSIONS": "2",
             "SURREAL_MEMORY_THRESHOLD": str(allocation["memory_threshold_bytes"]),
             "SURREAL_ROCKSDB_BLOCK_CACHE_SIZE": str(
                 allocation["rocksdb_block_cache_bytes"]
@@ -2071,7 +3459,53 @@ class BoundedLog:
 
 
 def serve(state: Path) -> int:
+    """Give each manager startup one finite clock, independently of science."""
+    prior = getattr(_STARTUP, "deadline", None)
+    deadline = time.monotonic() + 40
+    _STARTUP.deadline = deadline if prior is None else min(prior, deadline)
+    try:
+        return _serve(state)
+    finally:
+        _STARTUP.deadline = prior
+
+
+def _serve(state: Path) -> int:
     config = config_for(state)
+    if config.get("parked"):
+        return 0
+    deadline = _STARTUP.deadline
+    launch_path = state / "service-launch.json"
+    if launch_path.is_file():
+        launch = storage_launch(state, config)
+        if "binding" in launch:
+            allocation_owner = resume_storage_allocation(state, config)
+        else:
+            allocation_owner = host_admission.inherit(
+                {host_admission.MARKER: str(launch["allocation"])}, handoff=True
+            )
+        if allocation_owner is None:
+            raise SupervisorError("Storage launch has no admitted owner")
+    else:
+        allocation_owner = service_allocation(state, config, deadline)
+        launch = storage_launch(state, config)
+    storage_placement(config, allocation_owner)
+    if "binding" not in launch:
+        launch_deadline = launch["deadline"]
+        if not isinstance(launch_deadline, (int, float)):
+            raise SupervisorError("Storage launch lacks a finite admission clock")
+        _STARTUP.deadline = min(deadline, launch_deadline)
+    remaining(_STARTUP.deadline)
+    allocation_owner.bind(unit_name(state))
+    with host_admission.allocation_metadata(allocation_owner.directory) as ledger:
+        binding = dict(
+            ledger["owners"][allocation_owner.nonce]["units"][unit_name(state)]
+        )
+    launch["binding"] = binding
+    write_json(launch_path, launch)
+    os.environ.update(allocation_owner.environment())
+    host_admission.enforce_parent(allocation_owner.profile, systemd_environment())
+    os.sched_setaffinity(0, list(allocation_owner.profile.cores))
+    remaining(_STARTUP.deadline)
     credentials_path = state / "credentials.json"
     if (
         credentials_path.stat().st_mode & 0o077
@@ -2084,6 +3518,10 @@ def serve(state: Path) -> int:
     server = config["server"]
     if not isinstance(server, dict):
         raise SupervisorError("Invalid server receipt")
+    if server.get("binary_sha256") != file_digest(Path(str(server["binary"]))):
+        raise SupervisorError(
+            "Storage binary differs from its admitted generation; explicitly readmit"
+        )
     database = f"rocksdb://{state / 'database'}?sync=every&versioned=false"
     command = [
         str(server["binary"]),
@@ -2117,7 +3555,12 @@ def serve(state: Path) -> int:
     )
     write_json(
         state / "server-process.json",
-        {"instance_id": config["instance_id"], "pid": child.pid},
+        {
+            "instance_id": config["instance_id"],
+            "pid": child.pid,
+            "start": native_operation.start_identity(child.pid),
+            "allocation": launch["allocation"],
+        },
     )
 
     def forward(signum: int, _frame: object) -> None:
@@ -2158,6 +3601,13 @@ def serve(state: Path) -> int:
 def backup(
     state: Path, config: dict[str, object], destination: Path
 ) -> dict[str, object]:
+    with lifecycle_reservation(state):
+        return _backup(state, config, destination)
+
+
+def _backup(
+    state: Path, config: dict[str, object], destination: Path
+) -> dict[str, object]:
     if destination.absolute() == state or state in destination.absolute().parents:
         raise SupervisorError(
             "Backup destination must be outside the live state directory"
@@ -2172,6 +3622,16 @@ def backup(
             shutil.copytree(source, destination / name, symlinks=False)
         else:
             shutil.copy2(source, destination / name)
+    generations = owned_generations(state)
+    for context in managed_contexts(state):
+        if context != state:
+            target = destination / context.relative_to(state)
+            target.mkdir(mode=0o700, parents=True)
+            shutil.copy2(context / "config.json", target / "config.json")
+    for generation in sorted(generations):
+        shutil.copytree(generation, destination / ".generations" / generation.name)
+    if (state / ".contexts").exists():
+        shutil.copytree(state / ".contexts", destination / ".contexts")
     files = {
         str(path.relative_to(destination)): file_digest(path)
         for path in sorted(destination.rglob("*"))
@@ -2181,7 +3641,8 @@ def backup(
         destination / "backup.json",
         {
             "owner": OWNER,
-            "backup_version": 1,
+            "backup_version": 2,
+            "state_root": str(state),
             "interpretation": config["interpretation"],
             "files": files,
         },
@@ -2201,13 +3662,16 @@ def restore(source: Path, state: Path, interpretation: str) -> dict[str, object]
     manifest = read_json(source / "backup.json")
     if (
         manifest.get("owner") != OWNER
-        or manifest.get("backup_version") != 1
+        or manifest.get("backup_version") != 2
         or manifest.get("interpretation") != interpretation
     ):
         raise SupervisorError("Unknown backup or incompatible interpretation")
     files = manifest.get("files")
     if not isinstance(files, dict):
         raise SupervisorError("Invalid backup file inventory")
+    original = manifest.get("state_root")
+    if not isinstance(original, str) or not Path(original).is_absolute():
+        raise SupervisorError("Missing backup source-state identity")
     actual = {
         str(p.relative_to(source))
         for p in source.rglob("*")
@@ -2231,17 +3695,67 @@ def restore(source: Path, state: Path, interpretation: str) -> dict[str, object]
     ):
         raise SupervisorError("Backup metadata has an incompatible interpretation")
     state = checked_directory(state, empty=True)
-    for name in ("database", "config.json", "credentials.json"):
+    for name in (
+        "database",
+        "config.json",
+        "credentials.json",
+        ".generations",
+        ".contexts",
+        ".receivers",
+    ):
         path = source / name
+        if not path.exists():
+            if name.startswith("."):
+                continue
+            raise SupervisorError("Backup is missing owned state")
         if path.is_dir():
             shutil.copytree(path, state / name)
         else:
             shutil.copy2(path, state / name)
+
+    def reroot(value: object) -> object:
+        if isinstance(value, dict):
+            return {key: reroot(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [reroot(item) for item in value]
+        if isinstance(value, str) and (
+            value == original or value.startswith(original + "/")
+        ):
+            return str(state) + value[len(original) :]
+        return value
+
+    config = reroot(config)
+    if not isinstance(config, dict):
+        raise SupervisorError("Invalid restored profile")
     config["instance_id"] = str(uuid.uuid4())
     config["admission"] = "validation_required"
     config["accepting_writes"] = False
     config["credentials_file"] = str(state / "credentials.json")
+    config["unit_materialized"] = False
+    config["restart_qualified"] = False
     write_json(state / "config.json", config)
+    for descriptor in (state / ".contexts").glob("*.json"):
+        selected = reroot(read_json(descriptor))
+        if not isinstance(selected, dict):
+            raise SupervisorError("Invalid restored context descriptor")
+        write_json(descriptor, selected)
+    for receiver in (state / ".receivers").glob("*/*/config.json"):
+        selected = reroot(read_json(receiver))
+        if not isinstance(selected, dict):
+            raise SupervisorError("Invalid restored receiver profile")
+        selected.update(
+            instance_id=config["instance_id"],
+            admission="validation_required",
+            accepting_writes=False,
+            unit_materialized=False,
+            restart_qualified=False,
+        )
+        write_json(receiver, selected)
+    for generation in (
+        (state / ".generations").iterdir() if (state / ".generations").exists() else []
+    ):
+        verify_generation(generation)
+    owned_generations(state)
     (state / "tmp").mkdir(mode=0o700)
     return public_status(state, config)
 
@@ -2314,12 +3828,319 @@ def validate_interpretation(
         )
 
 
+def recovery_generation(state: Path, config: dict[str, object]) -> str:
+    """Bind recovery evidence to the exact owned storage and service closure."""
+    supervisor = config.get("service_supervisor")
+    if not isinstance(supervisor, dict) or not supervisor.get("supervisor_script"):
+        raise SupervisorError(
+            "Recovery qualification requires an immutable service supervisor"
+        )
+    directory = Path(str(supervisor["supervisor_script"])).parents[1]
+    if directory.parent != state / ".generations":
+        raise SupervisorError(
+            "Recovery service closure is outside its owned generation"
+        )
+    verify_generation(directory)
+    binary = config.get("server")
+    if not isinstance(binary, dict) or file_digest(
+        Path(str(binary["binary"]))
+    ) != binary.get("binary_sha256"):
+        raise SupervisorError("Recovery qualification storage artifact changed")
+    selected = {
+        key: config.get(key)
+        for key in (
+            "instance_id",
+            "server",
+            "service_supervisor",
+            "resources",
+            "namespace",
+            "database",
+            "endpoint",
+            "schema_interpretation",
+            "websocket_max_message_bytes",
+        )
+    }
+    selected["credentials_sha256"] = file_digest(state / "credentials.json")
+    return hashlib.sha256(
+        json.dumps(selected, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def recovery_qualified(state: Path, config: dict[str, object]) -> bool:
+    proof = state / "recovery-qualification.json"
+    if not config.get("restart_qualified") or not proof.is_file():
+        return False
+    result = read_json(proof)
+    return (
+        result.get("version") == 1
+        and result.get("outcome") == "passed"
+        and result.get("generation") == recovery_generation(state, config)
+    )
+
+
+def administrative_headers(
+    config: dict[str, object],
+    token: str,
+    namespace: str | None,
+    database: str | None,
+    *,
+    select_context: bool = True,
+) -> dict[str, str]:
+    """Select one validated administrative context or explicitly remain unselected."""
+    if (namespace is None) != (database is None):
+        raise SupervisorError(
+            "Administrative context overrides require both identifiers"
+        )
+    selected = (
+        (config["namespace"], config["database"])
+        if namespace is None
+        else (namespace, database)
+    )
+    if any(
+        not isinstance(value, str)
+        or not 1 <= len(value) <= 128
+        or not all(
+            character.isascii() and (character.isalnum() or character == "_")
+            for character in value
+        )
+        for value in selected
+    ):
+        raise SupervisorError(
+            "Administrative context requires bounded ASCII identifiers"
+        )
+    headers = {"Authorization": f"Basic {token}", "Accept": "application/json"}
+    if select_context:
+        headers.update({"surreal-ns": str(selected[0]), "surreal-db": str(selected[1])})
+    return headers
+
+
+def administrative_query(
+    state: Path,
+    query: str,
+    deadline: float,
+    *,
+    namespace: str | None = None,
+    database: str | None = None,
+    select_context: bool = True,
+) -> list[dict[str, object]]:
+    """Bounded authenticated administrative control; scientific RPC remains native WS."""
+    config = config_for(state)
+    credentials = read_json(state / "credentials.json")
+    token = base64.b64encode(
+        f"{credentials['username']}:{credentials['password']}".encode()
+    ).decode()
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{config['port']}/sql",
+        data=query.encode(),
+        headers=administrative_headers(
+            config, token, namespace, database, select_context=select_context
+        ),
+    )
+    with urllib.request.urlopen(request, timeout=remaining(deadline)) as response:  # noqa: S310 -- literal authenticated loopback endpoint; config_for validates port
+        payload = response.read(MESSAGE_BYTES + 1)
+    if len(payload) > MESSAGE_BYTES:
+        raise SupervisorError("Administrative response exceeded its bounded extent")
+    results = json.loads(payload)
+    if (
+        not isinstance(results, list)
+        or not results
+        or any(
+            not isinstance(row, dict) or row.get("status") != "OK" for row in results
+        )
+    ):
+        raise SupervisorError(
+            "Administrative query contained a failed or incomplete statement"
+        )
+    remaining(deadline)
+    return results
+
+
+def abandon_administrative_response(
+    state: Path,
+    query: str,
+    deadline: float,
+    *,
+    namespace: str | None = None,
+    database: str | None = None,
+) -> None:
+    """Submit the complete small HTTP probe and abandon its unknown acknowledgment."""
+    config = config_for(state)
+    credentials = read_json(state / "credentials.json")
+    token = base64.b64encode(
+        f"{credentials['username']}:{credentials['password']}".encode()
+    ).decode()
+    headers = administrative_headers(config, token, namespace, database)
+    connection = http.client.HTTPConnection(
+        "127.0.0.1", integer(config["port"]), timeout=remaining(deadline)
+    )
+    try:
+        connection.request(
+            "POST",
+            "/sql",
+            body=query.encode(),
+            headers=headers,
+        )
+        # No getresponse(): complete request transmission does not establish commit.
+    finally:
+        connection.close()
+
+
+def qualify_recovery(state: Path) -> dict[str, object]:
+    """Destructive, explicitly selected administrative recovery qualification."""
+    deadline = time.monotonic() + 90
+    prior = getattr(_STARTUP, "deadline", None)
+    _STARTUP.deadline = deadline if prior is None else min(prior, deadline)
+    deadline = _STARTUP.deadline
+    try:
+        remaining(deadline)
+        with lifecycle_reservation(state):
+            close_context_admission(state)
+            all_contexts_drained(state)
+            config = config_for(state)
+            config["restart_qualified"] = False
+            write_json(state / "config.json", config)
+            generation = recovery_generation(state, config)
+            operation = uuid.uuid4().hex
+            unknown_operation = uuid.uuid4().hex
+            namespace = "pse_recovery"
+            database = "recovery_" + operation
+            controls = checked_directory(state / ".recovery-controls")
+            context_directory = controls / operation
+            context_directory.mkdir(mode=0o700)
+            context = {
+                "owner": "supervisor-recovery-v1",
+                "generation": generation,
+                "namespace": namespace,
+                "database": database,
+                "operation": operation,
+                "unknown_operation": unknown_operation,
+                "outcome": "incomplete",
+            }
+            write_json(context_directory / "context.json", context)
+            key = "supervisor_recovery_probe:" + operation
+            unknown_key = "supervisor_recovery_probe:" + unknown_operation
+            acknowledged = {"operation": operation, "payload": "acknowledged-v1"}
+            unknown = {"operation": unknown_operation, "payload": "unknown-v1"}
+            try:
+                stop(state, config)
+                reset_failure_window(state)
+                start(state, config, validation=True, deadline=deadline)
+                provisioned = administrative_query(
+                    state,
+                    f"DEFINE NAMESPACE IF NOT EXISTS `{namespace}`; USE NS `{namespace}`; DEFINE DATABASE `{database}`;",
+                    deadline,
+                    namespace=namespace,
+                    database=database,
+                    select_context=False,
+                )
+                # Released 3.3 USE returns the selected context; DEFINE returns NONE.
+                if (
+                    len(provisioned) != 3
+                    or any(
+                        row.get("status") != "OK" or "result" not in row
+                        for row in provisioned
+                    )
+                    or [row["result"] for row in provisioned]
+                    != [None, {"namespace": namespace, "database": None}, None]
+                ):
+                    raise SupervisorError(
+                        "Recovery context provisioning lacked complete acknowledgments"
+                    )
+                results = administrative_query(
+                    state,
+                    f"UPSERT {key} CONTENT {json.dumps(acknowledged)}; SELECT operation,payload FROM ONLY {key};",  # noqa: S608 -- local UUID records and JSON-encoded payload
+                    deadline,
+                    namespace=namespace,
+                    database=database,
+                )
+                if len(results) != 2 or results[1].get("result") != acknowledged:
+                    raise SupervisorError(
+                        "Recovery acknowledged receipt did not match its original identity"
+                    )
+                abandon_administrative_response(
+                    state,
+                    f"UPSERT {unknown_key} CONTENT {json.dumps(unknown)};",
+                    deadline,
+                    namespace=namespace,
+                    database=database,
+                )
+                stop(state, config, abrupt=True)
+                reset_failure_window(state)
+                start(state, config, validation=True, deadline=deadline)
+                readback = administrative_query(
+                    state,
+                    f"SELECT operation,payload FROM ONLY {key}; SELECT operation,payload FROM ONLY {unknown_key};",  # noqa: S608 -- identifiers are local generated UUID records
+                    deadline,
+                    namespace=namespace,
+                    database=database,
+                )
+                if (
+                    len(readback) != 2
+                    or readback[0].get("result") != acknowledged
+                    or readback[1].get("result") not in (None, unknown)
+                ):
+                    raise SupervisorError(
+                        "Recovery lost the acknowledged original operation or returned conflicting bytes"
+                    )
+                # Old process-group drain plus reopen bounds settlement of this
+                # exact probe. No absent-ack replay or scientific claim occurs.
+                recovered = readback[1]["result"]
+            finally:
+                cleanup_prior = _STARTUP.deadline
+                _STARTUP.deadline = time.monotonic() + 90
+                try:
+                    stop(state, config)
+                finally:
+                    _STARTUP.deadline = cleanup_prior
+            remaining(deadline)
+            if recovery_generation(state, config_for(state)) != generation:
+                raise SupervisorError(
+                    "Service generation changed during recovery qualification"
+                )
+            write_json(
+                state / "recovery-qualification.json",
+                {
+                    "version": 1,
+                    "outcome": "passed",
+                    "generation": generation,
+                    "operation": operation,
+                    "unknown_operation": unknown_operation,
+                    "administrative_context": {
+                        "namespace": namespace,
+                        "database": database,
+                        "evidence": str(context_directory / "context.json"),
+                    },
+                    "acknowledged_survived": True,
+                    "unknown_outcome": "committed"
+                    if recovered == unknown
+                    else "not_committed",
+                    "scope": "process-crash/reopen; administrative fixed probe; no scientific or host-crash qualification",
+                },
+            )
+            context["outcome"] = "passed"
+            write_json(context_directory / "context.json", context)
+            config.update(config_for(state))
+            config["restart_qualified"] = True
+            write_json(state / "config.json", config)
+            materialize_service(state, config)
+            reset_failure_window(state)
+            return public_status(state, config)
+    finally:
+        _STARTUP.deadline = prior
+
+
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument(
         "command",
         choices=[
             "setup",
+            "upgrade",
+            "readmit",
+            "ensure",
+            "recover",
+            "qualify-recovery",
+            "drain",
             "reconfigure",
             "start",
             "status",
@@ -2347,7 +4168,7 @@ def parser() -> argparse.ArgumentParser:
                             "XDG_STATE_HOME", str(Path.home() / ".local/state")
                         )
                     )
-                    / "pse-arrow/surreal"
+                    / "pse-arrow/surreal-functional-v2"
                 ),
             )
         ),
@@ -2360,11 +4181,27 @@ def parser() -> argparse.ArgumentParser:
         "--version", help="Official release vX.Y.Z; omitted selects current stable"
     )
     result.add_argument("--port", type=int)
+    result.add_argument(
+        "--resident",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Resident services may be parked and resumed across host lanes; disable for owned disposable controls",
+    )
     result.add_argument("--memory-mib", type=int)
     result.add_argument("--server-memory-mib", type=int)
     result.add_argument("--native-workers", type=int)
     result.add_argument("--native-worker-memory-mib", type=int)
-    result.add_argument("--execution-profile", choices=["plan28-reference"])
+    result.add_argument(
+        "--execution-profile",
+        choices=[
+            "plan28-reference",
+            "functional",
+            "wide",
+            "timing",
+            "exclusive",
+            "exclusive-observer",
+        ],
+    )
     result.add_argument("--worker-executable", type=Path)
     result.add_argument("--observer-pid", type=int)
     result.add_argument("--canonical-database")
@@ -2383,6 +4220,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--source", type=Path)
     result.add_argument("--check-command", nargs=argparse.REMAINDER)
     result.add_argument("--worker-command", nargs=argparse.REMAINDER)
+    result.add_argument("--worker-capabilities", default=",".join(WORKER_CAPABILITIES))
     result.add_argument("--observer-command", nargs=argparse.REMAINDER)
     return result
 
@@ -2392,7 +4230,9 @@ def dispatch(args: argparse.Namespace) -> int:
         raise SupervisorError(
             "Qualification control is only available with ensure-primary"
         )
-    if args.command == "setup":
+    if args.command == "upgrade":
+        output = upgrade_profile(args.state.absolute())
+    elif args.command == "setup":
         output = setup(args)
     elif args.command == "restore":
         if args.source is None:
@@ -2401,9 +4241,22 @@ def dispatch(args: argparse.Namespace) -> int:
             args.source.absolute(), args.state.absolute(), args.interpretation or ""
         )
     elif args.command == "worker":
-        return worker(args.state.absolute(), args.worker_command or [])
+        return worker(
+            args.state.absolute(),
+            args.worker_command or [],
+            capabilities=tuple(
+                value for value in args.worker_capabilities.split(",") if value
+            ),
+        )
     elif args.command == "observer":
-        return observer(args.state.absolute(), args.observer_command or [])
+        profile = (
+            "reference"
+            if args.execution_profile == "plan28-reference"
+            else args.execution_profile
+        )
+        return observer(
+            args.state.absolute(), args.observer_command or [], profile=profile
+        )
     elif args.command == "ensure-primary":
         output = ensure_primary(
             args.state.absolute(),
@@ -2419,21 +4272,39 @@ def dispatch(args: argparse.Namespace) -> int:
             state
         )  # Reject unowned state before changing permissions or writing a lock.
         state = checked_directory(state)
-        with state_lock(state):
+        with (
+            contextlib.nullcontext()
+            if args.command == "status"
+            else lifecycle_reservation(state)
+        ):
             config = config_for(state)
-            if args.command == "start":
+            if args.command == "readmit":
+                output = readmit_supervisor(state)
+                print(json.dumps(output, sort_keys=True))
+                return 0
+            if args.command == "qualify-recovery":
+                output = qualify_recovery(state)
+                print(json.dumps(output, sort_keys=True))
+                return 0
+            if args.command in {"start", "ensure", "recover"}:
+                if args.command == "recover":
+                    reset_failure_window(state)
                 start(state, config)
             elif args.command == "reconfigure":
                 reconfigure(state, config, args)
-            elif args.command == "quiesce":
-                config["accepting_writes"] = False
-                if config["admission"] != "validation_required":
-                    config["admission"] = "quiescing"
-                write_json(state / "config.json", config)
-                allocation = config["resources"]
-                if isinstance(allocation, dict) and "execution" in allocation:
-                    observed = primary_observation(state)
-                    pid = primary_drain_pid(state, config, observed)
+            elif args.command in {"quiesce", "drain"}:
+                close_context_admission(state, admission="quiescing")
+                config.update(config_for(state))
+                for context in managed_contexts(state):
+                    selected = config_for(context)
+                    allocation = selected["resources"]
+                    if (
+                        not isinstance(allocation, dict)
+                        or "execution" not in allocation
+                    ):
+                        continue
+                    observed = primary_observation(context)
+                    pid = primary_drain_pid(context, selected, observed)
                     if pid is not None:
                         # Signal the actual receiver only. The installation wrapper's
                         # cancellation path kills its scope, which is recovery, not
@@ -2442,7 +4313,7 @@ def dispatch(args: argparse.Namespace) -> int:
                         try:
                             if (
                                 primary_drain_pid(
-                                    state, config, primary_observation(state)
+                                    context, selected, primary_observation(context)
                                 )
                                 == pid
                             ):
