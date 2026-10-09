@@ -3,7 +3,7 @@ title: Canonical substrate and immutable revisions
 status: in-progress
 date: 2026-10-05
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md, docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -35,12 +35,21 @@ scientific artifacts regenerated against the target.
 
 ## Server profile and acknowledgment contract
 
-Select a supervised local SurrealDB server with **RocksDB**, authenticated loopback gRPC,
-and a thin Rust SDK using explicit `protocol-grpc`. The 3.3 API/source profile is the reviewed
+The initial implemented profile uses a supervised local SurrealDB server with **RocksDB**,
+authenticated loopback gRPC and a thin Rust SDK using explicit `protocol-grpc`. The 3.3 API/source profile is the reviewed
 starting point; exact declarations and committed lockfiles record the implemented pair under
 the [dependency policy](../dev/dependency-policy.md). Holds retain their specific revisit
 rationale. Qualify the actually selected pair and record it in the eventual Outcome; this
 parallel extension does not require a dependency or server upgrade.
+
+The prospective replacement is owned by [30a](30a-native-websocket-rpc-and-operation-lifetimes.md)
+and [30b](30b-persistent-services-and-receiver-generations.md), following the
+[confirmed Plan 30 rules](30-websocket-and-persistent-agent-environment.md#confirmed-rule-changes).
+Native WS must preserve exact codecs, complete statements, original operation clocks,
+guarded publication and uncertain-acknowledgment settlement. Its bounded buffering and
+completed-page contract replace the gRPC-specific target after working controls; the
+gRPC observations below retain their original scope. A's canonical semantic owners
+are not duplicated in the transport adapter.
 
 Use `rocksdb://<application-state>/database?sync=every&versioned=false`. Domain revisions
 provide history, so database storage-version history is unnecessary. Current official docs
@@ -233,7 +242,7 @@ examined-work efficiency. A's earlier Outcome retains its original evidence cond
 The [parallel extension](28-surrealdb-unified-substrate.md#parallel-execution-integration)
 adds A4 for Parallel F01/S01/S03/S06. RC01 was accepted conditionally on 2026-10-08;
 its [decision route](28-surrealdb-unified-substrate.md#parallel-execution-rule-decisions-2026-10-08)
-precedes any selected guard-contract change. The source assessment at `84a1caf` establishes
+precedes any selected guard-contract change. The source assessment at `84a1caf17656f00f38b22e703c7cbc2b63a44d2d` establishes
 a broad per-problem retention conflict domain, not the SQL attribution of each failed case.
 
 `CanonicalStore::protect` creates a fresh protection and updates `retention:$problem`.
@@ -268,6 +277,28 @@ error inspection and complete gRPC statement termination.
 | Package | Prerequisite and delivered behavior | Migration, deletion and targeted acceptance | Status |
 |---|---|---|---|
 | A4 — Parallel protection/publication decision | Confirmed RC01; existing A1–A3 guards and actual failed route. Attribute decisive operation/retry scope, select the smallest safe correction, route changed contract, implement the canonical slice consumed by B6/T7. | Migrate all writers/readers of changed guards together; delete replaced guard/query paths after callers and controls move. Exercise sixteen complete cases with original checks/order; race acquire/read/release/expiry, admission/root retirement and reclaim, absent/set edits, shared versions and exact lost-ack settlement. Reader-only stress or increased retries is insufficient. | Scheduled; attribution and selected mechanism remain unresolved. |
+
+## Preparation description admission
+
+The [preparation integration](28-surrealdb-unified-substrate.md#preparation-assurance-and-reuse-review)
+adds A5 after confirmed RC03. [28j](28j-pure-preparation-and-publication.md) owns pure/effect
+and reusable-description contracts; A owns their actual canonical admission, root, staging
+and recovery realization. Keep short guarded decisions and exact acknowledged settlement.
+
+An existing rooted exact product may be acknowledged without creating a new proposed row or
+root for each revision. Current dependencies and consuming attribution must remain correct;
+do not cache a publication permission. Expiry before new admission refuses, while a committed
+exact acknowledgment can settle after the preparation pin expires. Released roots, changed
+dependencies, corruption and another store remain consequential. J0/A5 must preserve this
+distinction when moving descriptor/encoding work ahead of admission.
+
+| Package | Prerequisite and target behavior | Completion and status |
+|---|---|---|
+| A5 — Reusable description admission | J0's complete description/dependency contract and accepted RC03. Select descriptor-first/grouped effect support only where current identity, atomicity and recovery allow; route changed metadata/commit contracts before implementation. | Implemented; Tested exact acknowledgment after revision change/pin expiry and protected concurrent reader/staging controls, with current guards/fences. J1 consumes owned descriptions; displaced repeated encoding is removed. 28e owns the affected scientific continuation. |
+
+This package changes publication mechanics, not scientific authority or the database target.
+No hand-edited schema or new generic store API is implied. If declaration/lowering changes
+are needed, their owning generator and regeneration are part of that implementation.
 
 ## Work packages
 
@@ -305,6 +336,12 @@ against concurrent retention, interrupted export and bounded orphan reclamation.
 target backup and compare its selected exact values and operation identities before writes.
 
 ## Checkpoint and next step
+
+A5 is implemented: owned descriptions preserve the exact encoding and original provenance,
+and actual rooted acknowledgment is queried before new key, staging or receiving work.
+Released roots require new admission; committed exact acknowledgment can recover after pin
+expiry. Targeted qualification is in progress. Earlier A1–A4 controls keep their original
+scope; the coordinator owns PA03 and 28e owns assembled acceptance.
 
 A4's operation attribution located the sixteen-worker failure at `stage_small_edits`.
 The integrated correction paces bounded same-owner staging RPCs per problem; it preserves

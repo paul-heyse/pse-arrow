@@ -229,6 +229,7 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
                 .reserve("test:portable-root", wire.len())
                 .unwrap(),
         )),
+        _projection_owner: None,
         root: Ok(rebuilt),
     };
     let execution = Execution::within(

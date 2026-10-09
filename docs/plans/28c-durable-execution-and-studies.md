@@ -3,7 +3,7 @@ title: Durable execution and dependency-scoped studies
 status: in-progress
 date: 2026-10-05
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md, docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -29,6 +29,22 @@ the scientific portion of `study_policy.rs`. Replace the complete-study snapshot
 derivation in `Studies::admit_dispatch`, PostgreSQL job claims and the cross-store publication
 protocol. Preserve Plan 27's contextual accuracy and partiality distinctions, actual warm
 starts, permission restrictions, predecessor usability and occurrence identity.
+
+## Plan 30 receiver and operation integration
+
+[30a](30a-native-websocket-rpc-and-operation-lifetimes.md#submission-cancellation-and-settlement)
+supplies the replacement RPC lifecycle to existing run/study/activation owners. C's
+immutable acknowledgments, fenced claims, original starts and truthful terminal
+assessment remain authoritative; reconnect or caller expiry cannot authorize another
+scientific attempt. Submitted storage uncertainty and native drain are distinct.
+
+[30b](30b-persistent-services-and-receiver-generations.md#receiver-coexistence-and-transition)
+admits independent functional receiver generations/context associations while preserving
+C7's bounded scientific group within each receiver and the exact reference primary/
+observer lane. [30c](30c-test-ownership-and-evidence-retention.md) supplies test contexts;
+[30d](30d-host-admission-and-timing-qualification.md) supplies shared host admission.
+Plan 30 owns these new mechanisms and status. Existing C implementation receipts and
+28e scientific qualification retain their original conditions.
 
 ## Ordinary runs and attempt state
 
@@ -216,7 +232,7 @@ C6/C7 implement the accepted Parallel RC04 direction and consume RC03's supporte
 placement. [The coordinator](28-surrealdb-unified-substrate.md#parallel-execution-integration)
 owns F05/F03 dispositions; [N8–N10](28f-shared-numerical-preparation.md#parallel-admission-and-native-lifetimes)
 and [L7](28h-native-setup-and-artifact-identity.md#parallel-deployment-and-supported-native-placement)
-supply admission, native scope and deployment contracts. The `84a1caf` ephemeral driver opens
+supply admission, native scope and deployment contracts. The `84a1caf17656f00f38b22e703c7cbc2b63a44d2d` ephemeral driver opens
 one Staged, prepares frontier cases sequentially and uses generic serial batch execution except
 for eligible native coefficient/cone bulk operations. The durable local loop calls work_once
 sequentially; the currently selected two external workers do not establish sixteen-case studies.
@@ -279,6 +295,31 @@ canonical lifetime/operation changes are needed, rather than waiting for whole c
 completion. Their consumer closure joins N4/T5/L4 and E3; new package completion does not
 resolve the broader finding without its complete public-route evidence.
 
+## Complete preparation through study execution
+
+The [preparation integration](28-surrealdb-unified-substrate.md#preparation-assurance-and-reuse-review)
+adds C8. [28j](28j-pure-preparation-and-publication.md) supplies the basis/effect contract,
+B7 supplies working selected preparation, and [28i](28i-runtime-validity-and-interruption.md)
+supplies applicable receiving and stop ownership. C owns actual frontier, ready-candidate,
+worker claim, occurrence and drain semantics; none of these becomes cached permission.
+
+Share compatible stable preparation through actual ephemeral and durable ready execution,
+including managed worker roots. Stored creation's existing basis reuse remains a strength;
+it is not evidence that ready execution avoids pre-view preparation. Independent ready cases
+reuse immutable products while preserving distinct occurrence/start/result placement. Dependent
+sequences retain their declared order and warm-start provenance. Changed source/structural
+binding/demand/provider context gets its required preparation before native claim/entry.
+
+| Package | Prerequisite and target behavior | Completion and status |
+|---|---|---|
+| C8 — Ready study basis consumption | Working B7/J2, current C6/C7 dispatch/claim contracts, applicable I1/I2. Move ephemeral frontiers, durable ready candidates, ordinary Rust/Python callers and managed workers to shared preparation plus fresh case/occurrence effects. | Implemented; targeted cancellation/private-drain controls pass and displaced preparation paths are removed. Fresh selection/publication and independent numerical state remain per occurrence. 28e owns the rebuilt thousand-point and managed scientific qualification. |
+
+The existing thousand-point flash sweep remains a supported completion journey. Small
+targeted composed controls first expose basis/body/observation/encoding work rather than
+only view counters. No point-count reduction, solver-tolerance relaxation or new scheduler
+substitutes for the target. A stopped follower cannot destroy preparation needed by others,
+and native work remains charged until it exits.
+
 ## Work packages
 
 | Package | Prerequisite and delivered behavior | Consumer migration and deletion | Status |
@@ -321,6 +362,13 @@ process-kill recovery and storage acknowledgment behavior require A1/E3's select
 profile, beyond pure in-memory policy units.
 
 ## Checkpoint and next step
+
+C8 is implemented through the common B7 preparation entry used by ephemeral frontiers,
+durable ready candidates and actual workers. Each occurrence retains current selection,
+publication and numerical state; shared flights contain only pure work. Private receiving
+drains before source protection releases. Rebuilt thousand-point and managed study controls
+remain in qualification. C5/C6/C7 evidence retains its original scope; the coordinator owns
+PA02/PA04 closure.
 
 C6 now has bounded completion-driven preparation/execution, actual eligible batching,
 private independent session owners and unambiguous continuation transfer. C7 now has one

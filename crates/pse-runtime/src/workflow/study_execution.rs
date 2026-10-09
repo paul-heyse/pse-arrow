@@ -150,7 +150,9 @@ impl ModelingPackage {
             if handle.result().await?.is_some() {
                 break;
             }
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            // This observer has no native work to schedule. Bound header polling
+            // independently of case count so waiting does not flood the worker's store.
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         }
         let bytes = definition
             .points
@@ -345,7 +347,7 @@ impl ModelingPackage {
             .cores()
             .min(self.runtime.shared.budget().math.jobs / 2)
             .max(1);
-        let work_cancel = crate::CancelSource::new();
+        let work_cancel = cancel.child_with_deadline(None);
         let mut pending: futures_util::stream::FuturesUnordered<
             futures_util::future::BoxFuture<'_, LaneCompletion>,
         > = futures_util::stream::FuturesUnordered::new();
@@ -497,8 +499,9 @@ impl ModelingPackage {
                             "an ephemeral study has no publication effect to reconcile".into())),
                         kind @ (ActionKind::Cancel | ActionKind::Refuse(_)) => {
                             frontier.remove(&index);
-                            if let Some(mut preparation) = ready.remove(&index) {
-                                if let Some(staged) = preparation.staged.take() { staged.close().await; }
+                            if let Some(mut preparation) = ready.remove(&index)
+                                && let Some(staged) = preparation.staged.take() {
+                                staged.close().await;
                             }
                             facts[index].revision += 1;
                             if let ActionKind::Refuse(refusal) = kind {
@@ -531,10 +534,9 @@ impl ModelingPackage {
                             _ => None,
                         }
                     } else { None };
-                    if let Some(backend) = batching {
-                        if let Some((_, group)) = groups.iter_mut().find(|(owner, _)| *owner == Some(backend)) {
-                            group.push((index, start)); continue;
-                        }
+                    if let Some(backend) = batching
+                        && let Some((_, group)) = groups.iter_mut().find(|(owner, _)| *owner == Some(backend)) {
+                        group.push((index, start)); continue;
                     }
                     groups.push((batching, vec![(index, start)]));
                 }
@@ -1309,7 +1311,7 @@ fn study_error(rule: DiagnosticRule, detail: &str) -> WorkflowError {
 )]
 mod occurrence_execution_tests {
     use super::*;
-    use crate::workflow::tests::{compiler_profile, physical, runtime};
+    use crate::workflow::tests::{compiler_profile, physical, runtime_with};
     use crate::workflow::{
         BindingAssignment, BindingQuantity, BindingTarget, CaseOperation, OperationRequest,
         PointOverlay, PreparationSettings, StudyPoint, StudyPointPolicy,
@@ -1338,7 +1340,7 @@ mod occurrence_execution_tests {
         quantity_name: &str,
         unit_symbol: &str,
     ) -> (ModelingPackage, StudyDefinition) {
-        let runtime = runtime();
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
         let rows = pse_authoring::language::parse(
             source,
             SemanticId::NIL,
@@ -1624,12 +1626,73 @@ mod occurrence_execution_tests {
         assert!(b.preparations.views + b.preparations.shared + b.preparations.rebuilt >= 2);
     }
     #[cfg(feature = "solver-pounce")]
+    const POUNCE_OCCURRENCE_SOURCE: &str = "package p { def Root { param t: Scalar = 1; param b: Scalar = 0.4; var x: Scalar; var y: Scalar; eq budget: x + y <= 1; let cost: Scalar = (x-t)*(x-t)+(y-b)*(y-b); annotation objective cost(minimize); annotation bounds x(0,5); annotation bounds y(0,5); annotation start x(0); annotation start y(0); } }";
+
+    #[cfg(feature = "solver-pounce")]
+    fn assert_pounce_occurrence(
+        definition: &StudyDefinition,
+        index: usize,
+        run: &RunResult,
+    ) -> usize {
+        use pse_backend_native::solve::Metric;
+        assert!(
+            run.usable(),
+            "occurrence {index} is not scientifically usable"
+        );
+        let RunReport::Modeling(points) = run.report().unwrap() else {
+            panic!("expected a modeling occurrence");
+        };
+        assert_eq!(points.len(), 1);
+        let point = &points[0];
+        let crate::math::solves::Outcome::Native(native) = &point.outcome else {
+            panic!("{:?}", point.outcome)
+        };
+        assert_eq!(native.backend, Backend::PounceConvex);
+        let Some(Metric::Integer(batch)) = native.metrics.get("batch") else {
+            panic!("expected the native batch population");
+        };
+        let batch = usize::try_from(*batch).unwrap();
+        assert!(batch > 0);
+        let (a, b) = (
+            definition.points[index].binding.values()[&member(point, "t")],
+            0.4,
+        );
+        let excess = (a + b - 1.).max(0.) / 2.;
+        let (x, y) = (
+            point.values.scalars[&member(point, "x")],
+            point.values.scalars[&member(point, "y")],
+        );
+        let actual_cost = (x - a).powi(2) + (y - b).powi(2);
+        let optimal_cost = 2. * excess.powi(2);
+        let target = super::super::tests::engineering_target(
+            point.prepared.solve.numerics(),
+            pse_relations::generated::enums::NumericalTarget::Objective,
+            SemanticId::NIL,
+        );
+        assert!(
+            (actual_cost - optimal_cost).abs() <= target.engineering.as_ref().unwrap().budget,
+            "point {index}: cost={actual_cost}, optimum={optimal_cost}, x={x}, y={y}"
+        );
+        batch
+    }
+
+    #[cfg(feature = "solver-pounce")]
     #[tokio::test]
     async fn occurrence_adapter_reaches_existing_pounce_batch_owner() {
-        use pse_backend_native::solve::Metric;
-        let source = "package p { def Root { param t: Scalar = 1; param b: Scalar = 0.4; var x: Scalar; var y: Scalar; eq budget: x + y <= 1; let cost: Scalar = (x-t)*(x-t)+(y-b)*(y-b); annotation objective cost(minimize); annotation bounds x(0,5); annotation bounds y(0,5); annotation start x(0); annotation start y(0); } }";
-        let (package, definition) =
-            fixture_source(&[0.25, 0.5, 0.75, 1.], source, Backend::PounceConvex, 2).await;
+        let (package, definition) = fixture_source(
+            &[0.25, 0.5, 0.75, 1.],
+            POUNCE_OCCURRENCE_SOURCE,
+            Backend::PounceConvex,
+            2,
+        )
+        .await;
+        let width = package
+            .runtime
+            .shared
+            .math()
+            .cores()
+            .min(package.runtime.shared.budget().math.jobs / 2)
+            .max(1);
         let report = package
             .study(&definition, 8, &crate::CancelSource::new())
             .await
@@ -1637,32 +1700,63 @@ mod occurrence_execution_tests {
         assert_eq!(report.outcomes.len(), 4);
         for (index, outcome) in report.outcomes.iter().enumerate() {
             assert!(outcome.scientific.usable, "{index}: {outcome:?}");
-            let point = result(&report, index);
-            let crate::math::solves::Outcome::Native(native) = &point.outcome else {
-                panic!("{:?}", point.outcome)
+            let StudyOccurrenceResult::Ephemeral(run) = report.results[index].as_ref().unwrap()
+            else {
+                panic!("expected an ephemeral occurrence");
             };
-            assert_eq!(native.backend, Backend::PounceConvex);
-            assert_eq!(native.metrics["batch"], Metric::Integer(4));
-            let (a, b) = (
-                definition.points[index].binding.values()[&member(point, "t")],
-                0.4,
-            );
-            let excess = (a + b - 1.).max(0.) / 2.;
-            let (x, y) = (
-                point.values.scalars[&member(point, "x")],
-                point.values.scalars[&member(point, "y")],
-            );
-            let actual_cost = (x - a).powi(2) + (y - b).powi(2);
-            let optimal_cost = 2. * excess.powi(2);
-            let target = super::super::tests::engineering_target(
-                point.prepared.solve.numerics(),
-                pse_relations::generated::enums::NumericalTarget::Objective,
-                SemanticId::NIL,
-            );
+            let batch = assert_pounce_occurrence(&definition, index, run);
+            // The scheduler groups already-ready preparations without waiting for
+            // the whole frontier, so native batches respect the admitted lane width.
             assert!(
-                (actual_cost - optimal_cost).abs() <= target.engineering.as_ref().unwrap().budget,
-                "point {index}: cost={actual_cost}, optimum={optimal_cost}, x={x}, y={y}"
+                batch <= width.min(report.outcomes.len()),
+                "batch {batch}, width {width}"
             );
+        }
+    }
+
+    #[cfg(feature = "solver-pounce")]
+    #[tokio::test]
+    async fn four_ready_occurrences_reach_existing_pounce_batch_owner() {
+        let (package, definition) = fixture_source(
+            &[0.25, 0.5, 0.75, 1.],
+            POUNCE_OCCURRENCE_SOURCE,
+            Backend::PounceConvex,
+            2,
+        )
+        .await;
+        let cancel = crate::CancelSource::new();
+        let mut members = Vec::new();
+        for (index, point) in definition.points.iter().enumerate() {
+            let operation = package
+                .prepare_bound_operation(&point.operation, &point.binding, &cancel)
+                .await
+                .unwrap();
+            members.push(LaneMember {
+                index,
+                start: StartProvenance::Fresh,
+                attempt: 0,
+                preparation: ReadyOperation {
+                    operation,
+                    staged: None,
+                },
+                previous: None,
+                older: None,
+            });
+        }
+        // Supply one fully prepared cohort to the same runtime adapter used by the
+        // study scheduler, without making preparation readiness depend on timing.
+        let LaneCompletion::Executed { points, staged } =
+            execute_lane(&package, members, &cancel).await
+        else {
+            panic!("expected completed occurrences");
+        };
+        assert!(staged.is_none());
+        assert_eq!(points.len(), 4);
+        for (index, point) in points.into_iter().enumerate() {
+            assert_eq!(point.index, index);
+            assert!(matches!(point.start, StartProvenance::Fresh));
+            let run = point.result.unwrap();
+            assert_eq!(assert_pounce_occurrence(&definition, index, &run), 4);
         }
     }
 

@@ -12,6 +12,9 @@ use salsa::Setter;
 
 /// Bounded immutable body retention owned by the mathematics service. No database
 /// handles or attempt workers cross this interface; cache state never defines meaning.
+/// Implementations perform only immutable in-memory lookup and allocation accounting.
+/// Receiving-host qualification, persisted acquisition and publication belong outside
+/// tracked compiler calls and run explicitly for every current consumer.
 pub trait ModelingBodyRetention: std::fmt::Debug + Send + Sync + std::panic::RefUnwindSafe {
     /// Capture a retention epoch before admission begins.
     fn generation(&self) -> u64;
@@ -620,8 +623,8 @@ pub use executable::{
     AdmittedImplicit, AdmittedModeling, BoundStructure, Derivation, Derived, ImplicitAlgorithm,
     ImplicitCapabilities, ImplicitMeaning, ImplicitScale, ImplicitSelection, ModelingCaseBindings,
     ModelingExpectationResult, ModelingHint, ModelingOutput, ModelingPointChecks,
-    ModelingTestValue, ModelingValidityResult, ModelingVariableState, ObjectiveBound,
-    PreparedModeling, SelectionEquivalence, SelectionNeighborhood,
+    ModelingPreparationFrontier, ModelingTestValue, ModelingValidityResult, ModelingVariableState,
+    ObjectiveBound, PreparedModeling, SelectionEquivalence, SelectionNeighborhood,
 };
 pub use flow::{
     FlowConnectionDocument, FlowSelectionDocument, ModelingFlowSelection, SemanticModeling,

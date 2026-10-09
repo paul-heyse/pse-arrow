@@ -11,11 +11,18 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import nullcontext
 from dataclasses import asdict, replace
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import case_measure, native_tests, validation, validation_receipts
+from scripts import (
+    case_measure,
+    native_tests,
+    surreal_server,
+    validation,
+    validation_receipts,
+)
 from scripts.validation_scope import FUNCTIONAL_SCOPES, Gate, comprehensive, native_gate
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -551,6 +558,89 @@ class ExecutionContracts(unittest.TestCase):
             self.require(
                 self.claim(replace(assembled, dependencies=("unreviewed-setup",)))
             )
+
+    def test_managed_measurement_requires_its_positive_managed_native_owner(
+        self,
+    ) -> None:
+        ordinary = next(gate for gate in comprehensive() if gate.name == "native-test")
+        with self.assertRaisesRegex(ValueError, "exact functional invocation"):
+            self.require(self.claim(ordinary), scopes=["managed-primary"])
+        for profile in ("dev", "producer"):
+            gate = next(
+                gate for gate in comprehensive(profile) if gate.name == "managed-native"
+            )
+            receipt = self.claim(gate)
+            receipt["checks"][0]["native"]["profile"]["features"] = (
+                native_tests.MANAGED_FEATURES.split(",")
+            )
+            consumed = self.require(receipt, scopes=["managed-primary"])
+            self.assertEqual(
+                consumed["prerequisites"]["managed-primary"]["gate"], "managed-native"
+            )
+            for mutation in ("failed", "missing-terminal"):
+                failed = json.loads(json.dumps(receipt))
+                check = failed["checks"][0]
+                if mutation == "failed":
+                    check["status"], check["exit_code"] = "failed", 1
+                else:
+                    check["results"] = []
+                with (
+                    self.subTest(profile=profile, mutation=mutation),
+                    self.assertRaisesRegex(
+                        ValueError, "incomplete functional prerequisite"
+                    ),
+                ):
+                    self.require(failed, scopes=["managed-primary"])
+
+    def test_managed_fixture_drain_refuses_another_database_before_signalling(
+        self,
+    ) -> None:
+        marker = {"pid": os.getpid(), "canonical_database": "another-fixture"}
+        with (
+            patch.object(surreal_server, "state_lock", return_value=nullcontext()),
+            patch.object(surreal_server, "config_for", return_value={}),
+            patch.object(
+                surreal_server,
+                "primary_observation",
+                return_value={"ActiveState": "active", "ControlGroup": "/primary"},
+            ),
+            patch.object(surreal_server, "read_json", return_value=marker),
+            patch.object(case_measure.os, "pidfd_open") as opened,
+            patch.object(case_measure.signal, "pidfd_send_signal") as signalled,
+            self.assertRaisesRegex(ValueError, "not associated with this fixture"),
+        ):
+            case_measure.stop_managed_primary(self.output, "owned-fixture")
+        opened.assert_not_called()
+        signalled.assert_not_called()
+
+    def test_managed_fixture_drain_refuses_a_changed_receiver_before_signalling(
+        self,
+    ) -> None:
+        marker = {
+            "pid": os.getpid(),
+            "canonical_database": "owned-fixture",
+            "nonce": "original",
+        }
+        changed = {**marker, "nonce": "replacement"}
+        with (
+            patch.object(surreal_server, "state_lock", return_value=nullcontext()),
+            patch.object(surreal_server, "config_for", return_value={}),
+            patch.object(
+                surreal_server,
+                "primary_observation",
+                return_value={"ActiveState": "active", "ControlGroup": "/primary"},
+            ),
+            patch.object(surreal_server, "primary_ready", return_value=True),
+            patch.object(surreal_server, "read_json", side_effect=[marker, changed]),
+            patch.object(case_measure.os, "pidfd_open", return_value=123) as opened,
+            patch.object(case_measure.os, "close") as closed,
+            patch.object(case_measure.signal, "pidfd_send_signal") as signalled,
+            self.assertRaisesRegex(ValueError, "association changed before drain"),
+        ):
+            case_measure.stop_managed_primary(self.output, "owned-fixture")
+        opened.assert_called_once_with(os.getpid())
+        closed.assert_called_once_with(123)
+        signalled.assert_not_called()
 
     def test_selected_measurement_rejects_wrong_workload_mode_or_incomplete_claim(
         self,

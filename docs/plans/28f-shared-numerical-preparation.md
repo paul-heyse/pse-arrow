@@ -3,7 +3,7 @@ title: Shared numerical projections and preparation
 status: in-progress
 date: 2026-10-07
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md]
+review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md, docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md]
 scenario_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#4-revealing-scenarios]
 ---
 
@@ -17,6 +17,11 @@ owner reuse to [28b](28b-selected-compilation-and-reuse.md) and the ordinary, st
 fitting and analysis consumers. The [coordinator](28-surrealdb-unified-substrate.md#repository-wide-efficiency-extension)
 owns coverage and PE finding dispositions; [28e](28e-rebuild-retirement-and-qualification.md)
 owns assembled qualification. Blueprint §7, §13, §14, §16 and §19 retain semantic authority.
+
+The [preparation integration](28-surrealdb-unified-substrate.md#preparation-assurance-and-reuse-review)
+adds N11 after confirmed rule decisions. [28j](28j-pure-preparation-and-publication.md) owns
+complete basis/effect contracts; B7 adopts them at selected preparation. This companion
+migrates actual analysis/mode/experiment consumers. The coordinator owns PA01–PA04 dispositions.
 
 The source baseline is `5260a3e9a3cecd69b6358ab86d4e917ae2508b29` plus the preserved review
 and plan documentation. The review establishes PE01 and PE04, not their latency share.
@@ -218,7 +223,7 @@ N-only full campaign is added. E4 distinguishes removed construction from whole-
 The [parallel extension](28-surrealdb-unified-substrate.md#parallel-execution-integration)
 adds N8/N9/N10 for Parallel F02/F04/F03. Its accepted RC02/RC03 directions are recorded at
 the coordinator; this companion owns the shared runtime/native design and package progress.
-The focused source assessment at `84a1caf` preserves current scientific policy, private workers,
+The focused source assessment at `84a1caf17656f00f38b22e703c7cbc2b63a44d2d` preserves current scientific policy, private workers,
 existing adapter safety guards and the one shared DataFusion pool. No new probe or benchmark
 qualifies these directions.
 
@@ -321,6 +326,28 @@ its selected combinations may consume N9's tested scope accounting. N4 extends n
 consumer reconciliation to B6/C6/C7/N8–N10 and all actual ordinary/analysis consumers before E3.
 Source reconciliation previously completed for N1–N7 does not qualify the new extension.
 
+## Complete basis through analysis consumers
+
+N11 moves actual ordinary analysis, dynamic mode discovery/preparation, fitting experiment
+and transient branches, and applicable initialization/recycle preparation entries to B7's
+complete basis and fresh consuming wrapper. Distinct modes, experiment correspondence,
+original/supplier views and stronger derivative demand remain real preparation differences.
+Share their compatible basis/body inputs rather than asserting all products are equivalent.
+
+Preserve initialization's existing base/session reuse and private library evaluator/factor
+state. Do not generalize the reviewed entry duplication into per-time-step, per-fit-trial or
+per-recycle-iteration rebuilding. Changed matrices/coefficients, branch/start and original
+physical assessment remain current. No new numerical controller or second cache is selected.
+
+| Package | Prerequisite and target behavior | Completion and status |
+|---|---|---|
+| N11 — Analysis basis consumption | Working J2/B7 plus applicable I1/I2; existing N1–N10 numerical owners and original scientific contracts. Confirm and migrate affected entries with complete demand/layout/provider identity and fresh value/attribution binding. | Implemented; Tested composed conformance, five fitting/experiment/mode controls and initialization/recycle with original scientific checks. Replaced common-basis preparation is removed; distinct demand/layout and mutable workers retain their owners. 28e records commands, repaired results and qualification limits. |
+
+N11 does not reopen every earlier numerical finding. It supplies functional consumer closure
+for the new preparation scope; N4 retains its earlier coverage basis, and 28e owns affected
+assembled U02 evidence. Relevant library bulk/lifecycle alternatives remain eligible where
+they resolve an actual consumed-contract gap.
+
 ## Work packages and dependencies
 
 | Package | Inputs and delivered behavior | Migration, deletion and focused acceptance | Status |
@@ -363,6 +390,12 @@ production measurement mode with the same physical decision basis; label forced-
 overhead separately. No speedup, full conformance or completed implementation is claimed here.
 
 ## Checkpoint
+
+N11 is implemented through the common exact B7 basis consumed by ordinary, dynamic-mode
+and fit-experiment preparation. Bounds, fixed/free layout, profiles and mutable numerical
+workers remain under their downstream owners. Targeted and composed qualification is in
+progress; existing N1–N10 evidence does not qualify this added composition. The coordinator
+owns PA02/PA03/U02 status and 28e owns assembled acceptance.
 
 N8's release-notifying common pool, one bounded population ticket, oversized refusal,
 CPU release while waiting for memory and original-clock admission are integrated. Term demand

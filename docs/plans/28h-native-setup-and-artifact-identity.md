@@ -3,7 +3,7 @@ title: Native setup lifetime and artifact identity
 status: in-progress
 date: 2026-10-07
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md]
+review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md, docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md]
 scenario_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#4-revealing-scenarios]
 ---
 
@@ -16,6 +16,13 @@ setup and provenance contracts to [28b](28b-selected-compilation-and-reuse.md) a
 E2 retirement/build integration. [28e](28e-rebuild-retirement-and-qualification.md) remains the
 sole assembled qualification owner; the [coordinator](28-surrealdb-unified-substrate.md#repository-wide-efficiency-extension)
 owns coverage and finding dispositions. Blueprint §5, §14 and §20 retain authority.
+
+The [preparation integration](28-surrealdb-unified-substrate.md#preparation-assurance-and-reuse-review)
+distinguishes current native setup's once-per-operation admission from runtime body replay
+observation. [28i](28i-runtime-validity-and-interruption.md) owns runtime premises/validity
+and interruption after confirmed RC01/RC04; this companion supplies actual worker/Python
+root, artifact/configuration and native generation integration to I0/I1/I2. Installation
+pins alone do not protect Python's loaded closure. PA01–PA04 remain with the coordinator.
 
 The maintainer explicitly accepted the production review's
 [RC01](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#rc01)
@@ -36,6 +43,21 @@ The identity mechanisms below describe exact execution/reuse and explicitly requ
 qualification. Changes to their recorded inputs do not invalidate prior scientific results
 or impose a mandatory rebuild/requalification campaign during design. No change-impact
 classification system or frozen/copied Cargo environment is in scope.
+
+## Plan 30 service and receiver integration
+
+[30b](30b-persistent-services-and-receiver-generations.md#b0--generation-and-compatibility-contract)
+consumes H's exact artifact/producer association while separating compatible disk-service
+residency from immutable receiver generation admission. Rebuilding a mutable worker path
+does not reidentify an existing receiver. Its actual runtime and I's receiving premises
+still govern eligibility; unchanged storage is not a new provenance authority.
+
+[30d](30d-host-admission-and-timing-qualification.md#d0--concrete-initial-profiles)
+retains L7's exact 160 GiB/sixteen-physical-core reference profile as a qualification
+lane and declares different bounded functional/timing profiles. Host admission must
+coordinate every actual role without duplicating full-profile allowances or charging
+parent/children twice. Plan 30 owns the new lifecycle/admission mechanisms; H's Outcome
+and existing placement evidence are not promoted to their qualification.
 
 ## Native capability selection and installation lifetime
 
@@ -199,7 +221,7 @@ Unrelated code/environment changes never automatically trigger strict capture or
 L7 consumes [N10's native strategy](28f-shared-numerical-preparation.md#parallel-admission-and-native-lifetimes)
 and the accepted Parallel RC03/RC04 directions. It supplies one supported finite local
 placement to [C7](28c-durable-execution-and-studies.md#parallel-study-frontiers-and-durable-workers)
-and E3. The `84a1caf` supervisor validates server plus managed-worker memory allocations and
+and E3. The `84a1caf17656f00f38b22e703c7cbc2b63a44d2d` supervisor validates server plus managed-worker memory allocations and
 applies worker MemoryMax. SharedRuntime creates CPU/memory admission within each runtime;
 neither this nor sixteen independent process defaults is aggregate deployment coordination.
 
@@ -318,13 +340,19 @@ claim when no comparable historical baseline exists.
 
 ## Checkpoint
 
+I0/I1/I2 own receiving-runtime validity and interruption. Actual worker and imported-Python
+roots now mint local admission through completion-owned scoped jobs with the original finite
+clock. The rebuilt native artifacts await offline managed receiver readmission and composed
+qualification. H retains installation/setup and actual artifact association; native generation
+pins alone do not qualify whole-runtime protection.
+
 Reference roles start with inherited scheduler affinity before creating children or native
 threads; readiness checks the actual leader and every live thread. When the user manager
 delegates cpuset, its effective CPU set is checked too. Missing cpuset delegation uses this
 verified process-affinity route, while the shared cgroup still enforces the finite CPU quota
 and memory ceiling. An unimplemented `AllowedCPUs` property alone establishes nothing.
 
-L7 implements the selected one-primary reference realization on `84a1caf` plus the working
+L7 implements the selected one-primary reference realization on `84a1caf17656f00f38b22e703c7cbc2b63a44d2d` plus the working
 tree, consuming N10 and supplying C7/E3. The supervisor derives capacities from the reference
 manifest and checks actual receiver and cgroup readback. Script controls pass; live placement,
 primary-only native overlap and original public scientific journeys precede E3 acceptance.

@@ -702,7 +702,7 @@ impl Runtime {
                             }
                             ActionKind::Wait(_) | ActionKind::Reconcile => continue,
                         }
-                        let mut prepared = self.prepare_study_candidate(&scope, &cancel).await?;
+                        let mut prepared = self.prepare_study_candidate(&scope, cancel).await?;
                         let action = scope.action(prepared.seed.clone())?;
                         if !matches!(action.kind, ActionKind::Start(_)) {
                             match action.kind {
@@ -790,8 +790,7 @@ impl Runtime {
                                 ));
                             }
                         };
-                        if let Err(error) =
-                            self.apply_study_prediction(&mut prepared, &cancel).await
+                        if let Err(error) = self.apply_study_prediction(&mut prepared, cancel).await
                         {
                             let record = attempt.abandon(&Arc::new(error)).await;
                             self.recover_study_point(&point.key).await?;
@@ -809,7 +808,7 @@ impl Runtime {
                             .await?;
                         let handle = prepared
                             .operation
-                            .start_attempt(self, &cancel, attempt)
+                            .start_attempt(self, cancel, attempt)
                             .await?;
                         let result = tokio::select! {result=handle.wait()=>result?,()=cancel.cancelled()=>{handle.cancel();handle.wait().await?}};
                         let record = match result.durability() {

@@ -947,13 +947,20 @@ impl CasePlan {
     pub fn support_upgrade_allocation_bound(
         &self,
         evaluation: EvaluationLimits,
+        order: DerivativeOrder,
     ) -> Result<Option<usize>, MathError> {
         let overflow = || MathError::Limit("support upgrade construction extent");
         let add = |a: usize, b: usize| a.checked_add(b).ok_or_else(overflow);
         let mul = |a: usize, b: usize| a.checked_mul(b).ok_or_else(overflow);
         let mut support_bytes = 0;
-        for support in self.supports.iter() {
-            let Some(bytes) = support.compilation_allocation_bound(evaluation)? else {
+        for (support, request) in self.supports.iter().zip(self.requests.iter()) {
+            let requested = if request.directional {
+                DerivativeOrder::First
+            } else {
+                order
+            };
+            let Some(bytes) = support.support_upgrade_allocation_bound(evaluation, requested)?
+            else {
                 return Ok(None);
             };
             support_bytes = add(support_bytes, mul(bytes, 2)?)?;

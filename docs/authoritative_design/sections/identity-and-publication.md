@@ -186,17 +186,27 @@ Ordinary preparation can instead use a distinct versioned deployment-local admis
 exact independently observed receiving role/artifact, interpreter, supported loaded ELF
 closure and effective reconstruction configuration. It requires no source/compiler receipt
 and confers no cross-build relevant-source qualification. On the controlled Linux/glibc
-2.39 profile, immutable reconstruction runs under the loader's write-lock callback scope,
-with context and loader-generation checks around construction. Unsupported loaders,
-unknown/JIT/deleted mappings or consumed context changes refuse reuse. Every retained
-retrieval revalidates its originating admission. Body retention separates opaque producer
-identities, and a stale admission cannot qualify a fresh fill; historical unqualified publications remain
-unqualified. The proposed ADR-0164 records the controlled mutation assumptions and
-explicitly separates strict producer qualification from this narrower guarantee.
+2.39 profile, actual persisted receiving and new eligible publication qualify that
+receiving context. Immutable reconstruction uses a short loader callback; the controlled
+mathematical symbol universe admits compatible append-only registration and excludes
+callbacks or replacement of live definitions. Independently admitted immutable mathematics
+then retains its complete semantic meaning without another host capture on each memory
+lookup. Unsupported loaders, unknown/JIT/deleted mappings or changed consumed context
+refuse eligible replay and new eligible publication. Historical unqualified publications
+remain unqualified. The local namespace is `pse.local-runtime.v2:`; version 1 retains its
+historical meaning and cannot admit new products. The runtime body envelope is version 3;
+scientific recipe and canonical product/blob frames retain their existing interpretations.
+The proposed ADR-0164 records the supported roots and mutation assumptions, separating
+strict producer qualification from this narrower guarantee.
 
 Product publication and scientific request have separate identities. A store-issued protected
 admission supplies a stable publication identity through transaction/acknowledgment retries.
-Already rooted exact descriptions are shared without changing their immutable origin. Explicit
+Already rooted exact descriptions are checked at the actual store using their original
+provenance before a new publication identity, producer observation or staging copy is
+constructed. Current dependencies are independently rechecked; old provenance grants no
+new publication permission. Acknowledgment errors remain errors. An exact rooted
+acknowledgment can settle after selection expiry, while new admission requires a live pin.
+Already rooted descriptions are shared without changing their immutable origin. Explicit
 release fences that publication; fresh scientific admission can publish another. Generic retained
 root operations mint or move deliberate history only; product, run, analysis and active-attempt
 roots are issued by their admission owners. Generic release cannot redirect or release

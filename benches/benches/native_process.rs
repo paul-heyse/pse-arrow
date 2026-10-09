@@ -24,8 +24,12 @@ mod k4_support;
 mod observations;
 #[path = "native_process/phases.rs"]
 mod phases;
+#[path = "native_process/restart.rs"]
+mod restart;
 #[path = "native_process/results_analysis.rs"]
 mod results_analysis;
+#[path = "native_process/shooting.rs"]
+mod shooting;
 use criterion::{Criterion, criterion_group, criterion_main};
 use fixture::*;
 use pse_backend_native::solve::{Backend, Metric, Termination};
@@ -103,6 +107,10 @@ fn process(c: &mut Criterion) {
     }
     if operation == "k4-study" {
         k4_studies::measure(c, &spec, &output, &compiler_phases);
+        return;
+    }
+    if operation == "k4-restart" {
+        restart::measure(c, &spec, &output, &compiler_phases);
         return;
     }
     if operation == "k4-accuracy" {

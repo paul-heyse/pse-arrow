@@ -90,6 +90,7 @@ impl PhysicalContext {
             .saturating_add(1024)
     }
 }
+
 impl Runtime {
     /// Admit the exact physical sources through the existing registry/session boundary.
     pub async fn physical_from_documents(
@@ -192,7 +193,16 @@ impl PhysicalContext {
                 );
             }
         }
-        let session = sessions.candidate_checked(physical, registry.clone(), cancel)?;
+        // Physical inventory consists of independent, bounded registry projections.
+        // `execute_group` runs several of those scans concurrently; letting each
+        // inherit the deployment's full target width would make every query try to
+        // reserve the whole shared CPU semaphore. Keep the same factory owners and
+        // implementations, but give each inventory scan its actual one-partition
+        // demand. Other sessions and scientific work retain the deployment width.
+        let inventory_sessions = sessions
+            .clone()
+            .with_target_partitions(std::num::NonZeroUsize::MIN);
+        let session = inventory_sessions.candidate_checked(physical, registry.clone(), cancel)?;
         let inventory = crate::physical::PhysicalInventory::load(&session, &registry, cancel)
             .await
             .map_err(|e| pse_engine::EngineError::Semantic(Arc::new(e)))?;
@@ -200,5 +210,108 @@ impl PhysicalContext {
         context.package = package;
         context.sources.extend(retained_support);
         Ok(context)
+    }
+}
+
+#[cfg(test)]
+mod admission_tests {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "the physical fixture is a checked local package required to exercise grouped inventory admission"
+    )]
+
+    use super::*;
+    use crate::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
+    use pse_columnar::CancellationToken;
+    use pse_engine::{
+        cache_service::{CacheBudget, NativeCacheService},
+        resources::CpuAdmission,
+        session::{EngineFactory, ExecutionSettings, ThreadBudget, native_engine_profile},
+    };
+    use std::{collections::BTreeMap, num::NonZeroUsize, path::Path, sync::Arc};
+
+    fn collect_documents(root: &Path, at: &Path, rows: &mut BTreeMap<String, Vec<u8>>) {
+        for entry in std::fs::read_dir(at).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                collect_documents(root, &path, rows);
+            } else if matches!(
+                path.extension().and_then(|extension| extension.to_str()),
+                Some("toml" | "yaml" | "yml" | "pse" | "parquet")
+            ) {
+                rows.insert(
+                    path.strip_prefix(root)
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .replace('\\', "/"),
+                    std::fs::read(path).unwrap(),
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn cold_multirelation_inventory_shares_cpu_without_fullwidth_sibling_refusal() {
+        let registry = pse_schema::shared_registry().unwrap();
+        let pool: Arc<dyn datafusion::execution::memory_pool::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(512 << 20));
+        let mut cache_policy = CacheBudget::for_memory(512 << 20);
+        cache_policy.concurrent_outputs = NonZeroUsize::new(4).unwrap();
+        let caches = NativeCacheService::new(cache_policy, &pool).unwrap();
+        let permits = Arc::new(tokio::sync::Semaphore::new(16));
+        let sessions = EngineFactory::new(
+            Arc::new(datafusion::execution::runtime_env::RuntimeEnv::default()),
+            pool.clone(),
+            ExecutionSettings::default(),
+            ThreadBudget {
+                pool_threads: NonZeroUsize::new(16).unwrap(),
+                target_partitions: NonZeroUsize::new(16).unwrap(),
+            },
+            native_engine_profile(),
+        )
+        .unwrap()
+        .with_cache_service(caches.clone())
+        .with_extension(caches)
+        .with_extension(Arc::new(CpuAdmission {
+            permits: permits.clone(),
+            workers: 16.try_into().unwrap(),
+        }));
+        assert_eq!(
+            sessions
+                .native_state()
+                .config()
+                .options()
+                .execution
+                .target_partitions,
+            16
+        );
+
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/fixtures/packages/physical-primitives");
+        let mut source = BTreeMap::new();
+        collect_documents(&root, &root, &mut source);
+        let cancel = CancellationToken::new();
+        let validation = sessions.validation_context(&registry).unwrap();
+        let bundle = load_package_documents_owned(
+            &source,
+            &registry,
+            Default::default(),
+            &pool,
+            &cancel,
+            &validation,
+        )
+        .unwrap();
+        let documents = OwnedDocumentSet::try_from_bundles(vec![bundle], &pool, &cancel).unwrap();
+
+        let inventory = PhysicalContext::from_documents(&documents, registry, &sessions, &cancel)
+            .await
+            .unwrap();
+        let loaded = inventory._inventory.as_ref().unwrap().source_batches();
+        assert!(
+            loaded.len() > 1,
+            "fixture must execute multiple physical relation scans in one group"
+        );
+        assert_eq!(permits.available_permits(), 16);
     }
 }

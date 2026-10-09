@@ -277,6 +277,22 @@ impl EngineFactory {
         &self.state
     }
 
+    /// Derive a query-scoped factory with a selected actual DataFusion partition
+    /// demand while retaining this factory's runtime, allocator, cache service,
+    /// deployment CPU admission, implementations and other extensions.
+    ///
+    /// The resulting session inventory records the selected partition count. This
+    /// does not create or replace a CPU owner; query admission still consumes the
+    /// shared deployment semaphore.
+    #[must_use]
+    pub fn with_target_partitions(mut self, target_partitions: std::num::NonZeroUsize) -> Self {
+        let mut config = self.state.config().clone();
+        config.options_mut().execution.target_partitions = target_partitions.get();
+        *self.state.config_mut() = config;
+        self.refresh_cache_identity();
+        self
+    }
+
     /// Capture validation from this factory's actual immutable native assembly.
     /// # Errors
     /// Registry-dependent native assembly fails.

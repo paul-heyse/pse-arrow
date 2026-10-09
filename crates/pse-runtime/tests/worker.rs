@@ -34,20 +34,23 @@ struct ManagedWorkerCase {
 }
 impl ManagedWorkerCase {
     fn acquire() -> Self {
-        use std::os::unix::fs::OpenOptionsExt;
         let state = std::env::var_os("PSE_SURREAL_STATE")
             .expect("worker-test selects owned canonical state");
-        pse_operations::canonical::CanonicalOptions::from_state(Path::new(&state)).unwrap();
+        Self::acquire_at(Path::new(&state))
+    }
+    fn acquire_at(state: &Path) -> Self {
+        use std::os::unix::fs::OpenOptionsExt;
+        pse_operations::canonical::CanonicalOptions::from_state(state).unwrap();
         let lock = std::fs::OpenOptions::new()
             .create(true)
             .truncate(false)
             .read(true)
             .write(true)
             .mode(0o600)
-            .open(Path::new(&state).join(".worker-integration.lock"))
+            .open(state.join(".worker-integration.lock"))
             .unwrap();
         lock.lock().unwrap();
-        let output = supervisor().arg("status").output().unwrap();
+        let output = supervisor_at(state).arg("status").output().unwrap();
         assert!(
             output.status.success(),
             "{}",
@@ -60,7 +63,10 @@ impl ManagedWorkerCase {
             .iter()
             .map(|unit| unit.as_str().unwrap().to_owned())
             .collect::<Vec<_>>();
-        let checked = supervisor_python("from scripts import surreal_server as s; import os,pathlib; p=pathlib.Path(os.environ['PSE_SURREAL_STATE']); s.workers_drained(p,s.config_for(p))").status().unwrap();
+        let checked = supervisor_python("from scripts import surreal_server as s; import os,pathlib; p=pathlib.Path(os.environ['PSE_SURREAL_STATE']); s.workers_drained(p,s.config_for(p))")
+            .env("PSE_SURREAL_STATE", state)
+            .status()
+            .unwrap();
         assert!(
             checked.success(),
             "another process already owns this fixture profile's worker slots"
@@ -95,6 +101,11 @@ fn supervisor() -> std::process::Command {
     command.arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/surreal_server.py"));
     command
 }
+fn supervisor_at(state: &Path) -> std::process::Command {
+    let mut command = supervisor();
+    command.arg("--state").arg(state);
+    command
+}
 fn supervisor_python(code: &str) -> std::process::Command {
     let mut command = std::process::Command::new(python());
     command
@@ -109,12 +120,59 @@ fn managed_worker(database: &str) -> std::process::Command {
     )
 }
 fn managed_worker_command(database: &str, executable: &std::ffi::OsStr) -> std::process::Command {
-    let mut command = supervisor();
+    managed_worker_command_with(supervisor(), database, executable)
+}
+fn managed_worker_command_at(
+    state: &Path,
+    database: &str,
+    executable: &std::ffi::OsStr,
+) -> std::process::Command {
+    managed_worker_command_with(supervisor_at(state), database, executable)
+}
+fn managed_worker_command_with(
+    mut command: std::process::Command,
+    database: &str,
+    executable: &std::ffi::OsStr,
+) -> std::process::Command {
     command
         .args(["worker", "--worker-command"])
         .arg(executable)
         .args(["--canonical-database", database]);
     command
+}
+fn spawn_worker(name: &str, lease_seconds: u64, canonical_database: &str) -> std::process::Child {
+    spawn_worker_with(managed_worker(canonical_database), name, lease_seconds)
+}
+fn spawn_worker_at(
+    state: &Path,
+    name: &str,
+    lease_seconds: u64,
+    canonical_database: &str,
+) -> std::process::Child {
+    let command = managed_worker_command_at(
+        state,
+        canonical_database,
+        &std::env::var_os("PSE_WORKER_BINARY").expect("worker-test supplies its built worker"),
+    );
+    spawn_worker_with(command, name, lease_seconds)
+}
+fn spawn_worker_with(
+    mut command: std::process::Command,
+    name: &str,
+    lease_seconds: u64,
+) -> std::process::Child {
+    command
+        .args([
+            "--name",
+            name,
+            "--until-idle",
+            "--lease-seconds",
+            &lease_seconds.to_string(),
+            "--heartbeat-ms",
+            "200",
+        ])
+        .spawn()
+        .unwrap()
 }
 
 const SQUARE: &str = r#"package algebraic { def Root {
@@ -173,7 +231,138 @@ fn sources_of(source: &str) -> (BTreeMap<String, Vec<u8>>, BTreeMap<String, Vec<
     )
 }
 
+struct TwoWorkerFixtureProfile {
+    state: std::path::PathBuf,
+    started: bool,
+}
+impl TwoWorkerFixtureProfile {
+    fn state(&self) -> &Path {
+        &self.state
+    }
+}
+impl Drop for TwoWorkerFixtureProfile {
+    fn drop(&mut self) {
+        if !self.started {
+            return;
+        }
+        let status = supervisor_at(&self.state)
+            .args(["stop", "--drained"])
+            .status();
+        if !std::thread::panicking() {
+            assert!(
+                status.unwrap().success(),
+                "alternate worker server did not stop cleanly"
+            );
+        }
+    }
+}
+
+fn two_worker_fixture_state() -> TwoWorkerFixtureProfile {
+    const TOTAL_MIB: &str = "20480";
+    const SERVER_MIB: &str = "2048";
+    const WORKER_MIB: &str = "8192";
+    let selected =
+        std::env::var_os("PSE_SURREAL_STATE").expect("worker-test selects owned canonical state");
+    let selected = Path::new(&selected);
+    let selected_status = supervisor().arg("status").output().unwrap();
+    assert!(selected_status.status.success());
+    let selected_status: serde_json::Value =
+        serde_json::from_slice(&selected_status.stdout).unwrap();
+    let interpretation = selected_status["interpretation"].as_str().unwrap();
+    let name = selected.file_name().unwrap().to_string_lossy();
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let state = selected.with_file_name(format!(
+        "{name}-worker-two-slot-{}-{stamp}",
+        std::process::id()
+    ));
+    assert!(
+        !state.exists(),
+        "new alternate worker profile path already exists"
+    );
+    let mut profile = TwoWorkerFixtureProfile {
+        state: state.clone(),
+        started: false,
+    };
+
+    let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    let port = listener.local_addr().unwrap().port().to_string();
+    drop(listener);
+    let setup = supervisor()
+        .args(["setup", "--state"])
+        .arg(&state)
+        .args([
+            "--port",
+            &port,
+            "--interpretation",
+            interpretation,
+            "--memory-mib",
+            TOTAL_MIB,
+            "--server-memory-mib",
+            SERVER_MIB,
+            "--native-workers",
+            "2",
+            "--native-worker-memory-mib",
+            WORKER_MIB,
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        setup.status.success(),
+        "{}",
+        String::from_utf8_lossy(&setup.stderr)
+    );
+
+    let status = supervisor_at(&state).arg("status").output().unwrap();
+    assert!(
+        status.status.success(),
+        "{}",
+        String::from_utf8_lossy(&status.stderr)
+    );
+    let status: serde_json::Value = serde_json::from_slice(&status.stdout).unwrap();
+    let resources = &status["resources"];
+    assert_eq!(status["interpretation"].as_str(), Some(interpretation));
+    assert_eq!(status["admission"].as_str(), Some("open"));
+    assert_eq!(status["accepting_writes"].as_bool(), Some(true));
+    assert_eq!(resources["total_memory_bytes"].as_u64(), Some(20_u64 << 30));
+    assert_eq!(resources["server_memory_bytes"].as_u64(), Some(2_u64 << 30));
+    assert_eq!(resources["native_workers"].as_u64(), Some(2));
+    assert_eq!(
+        resources["native_worker_memory_bytes"].as_u64(),
+        Some(8_u64 << 30)
+    );
+    assert!(
+        resources.get("execution").is_none(),
+        "two-slot fixture must be legacy"
+    );
+    let start = supervisor_at(&state).arg("start").status().unwrap();
+    assert!(start.success());
+    profile.started = true;
+    profile
+}
+
+async fn canonical_fixture_store_at(state: &Path) -> pse_operations::canonical::CanonicalStore {
+    let mut options = pse_operations::canonical::CanonicalOptions::from_state(state).unwrap();
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    options.database = format!("canonical_test_worker_{}_{}", std::process::id(), stamp);
+    let store = pse_operations::canonical::CanonicalStore::connect(&options)
+        .await
+        .unwrap();
+    store.create().await.unwrap();
+    store
+}
+
 fn runtime() -> (Arc<SharedRuntime>, Runtime) {
+    runtime_with_store(pse_operations::testing::canonical_fixture_store().unwrap())
+}
+fn runtime_with_store(
+    store: pse_operations::canonical::CanonicalStore,
+) -> (Arc<SharedRuntime>, Runtime) {
     let n = |v| NonZeroUsize::new(v).unwrap();
     let shared = SharedRuntime::build(pse_runtime::ResourceBudget {
         memory_limit_bytes: n(1 << 30),
@@ -213,7 +402,7 @@ fn runtime() -> (Arc<SharedRuntime>, Runtime) {
             registry,
             sessions,
             pse_runtime::workflow::CanonicalDeployment::new(
-                pse_operations::testing::canonical_fixture_store().unwrap(),
+                store,
                 pse_runtime::workflow::OuterAttestation {
                     source: Some(pse_ids::ContentHash::from_bytes([0; 32])),
                     build: pse_ids::ContentHash::from_bytes([1; 32]),
@@ -527,22 +716,6 @@ async fn submit_single(
         .unwrap();
     (package, case, handle)
 }
-fn spawn_worker(name: &str, lease_seconds: u64, canonical_database: &str) -> std::process::Child {
-    managed_worker(canonical_database)
-        .args([
-            "--name",
-            name,
-            "--until-idle",
-            "--lease-seconds",
-            &lease_seconds.to_string(),
-            "--heartbeat-ms",
-            "200",
-            "--threads",
-            "2",
-        ])
-        .spawn()
-        .unwrap()
-}
 async fn drain_worker(name: &str, local: &Runtime) {
     let database = local.canonical_store().database().to_owned();
     let name = name.to_owned();
@@ -677,8 +850,6 @@ async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
             "30",
             "--heartbeat-ms",
             "200",
-            "--threads",
-            "2",
         ]);
         let exited = tokio::task::spawn_blocking(move || command.spawn().unwrap().wait().unwrap())
             .await
@@ -920,14 +1091,17 @@ async fn long_scip_study(
     .await
     .2
 }
-async fn wait_native_start(local: &Runtime, handle: &StudyHandle) -> (String, String) {
+async fn wait_study_assignment(local: &Runtime, handle: &StudyHandle) -> (String, String) {
     let key = pse_operations::canonical_studies::point_key(
         &handle.study_id().to_string(),
         OccurrenceKey(0),
     );
     until(
-        Duration::from_secs(40),
-        "claimed native SCIP dispatch",
+        // Finite setup watchdog for a cold receiver's loaded-file identity checks
+        // during candidate preparation, before study assignment. Solver, lease, and
+        // cancellation clocks remain separate and unchanged.
+        Duration::from_secs(600),
+        "study assignment",
         || async {
             let point = local
                 .canonical_store()
@@ -957,8 +1131,8 @@ async fn wait_native_start(local: &Runtime, handle: &StudyHandle) -> (String, St
             .unwrap()
             .terminal
     );
-    // Dispatch follows the persisted start fence. Give the authored long native search
-    // time to report scientific observations before testing process death/cancellation.
+    // Preserve the fixed post-fence observation window before testing process
+    // death/cancellation; the fence records assignment, not native solver entry.
     tokio::time::sleep(Duration::from_secs(5)).await;
     (point.run, attempt)
 }
@@ -975,7 +1149,7 @@ async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authore
     let (local, operations) = bind_operations(&shared, local, "killed-enqueuer", policy);
     let handle = long_scip_study(&shared, &local, Duration::from_secs(30), 2).await;
     let mut worker = spawn_worker("worker-killed", 2, local.canonical_store().database());
-    let (run, first) = wait_native_start(&local, &handle).await;
+    let (run, first) = wait_study_assignment(&local, &handle).await;
     managed.kill_solver();
     assert!(!worker.wait().unwrap().success());
     assert!(
@@ -1047,7 +1221,7 @@ async fn cross_process_cancel_stops_scip() {
         bind_operations(&shared, local, "cancel-enqueuer", LeasePolicy::default());
     let handle = long_scip_study(&shared, &local, Duration::from_secs(120), 1).await;
     let mut worker = spawn_worker("worker-cancelled", 30, local.canonical_store().database());
-    let (_, attempt) = wait_native_start(&local, &handle).await;
+    let (_, attempt) = wait_study_assignment(&local, &handle).await;
     let requested = tokio::time::Instant::now();
     handle.cancel().await.unwrap();
     let status = tokio::task::spawn_blocking(move || worker.wait().unwrap())
@@ -1081,9 +1255,13 @@ async fn cross_process_cancel_stops_scip() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
     use pse_runtime::workflow::{BindingAssignment, BindingQuantity, BindingTarget};
-    let _managed = ManagedWorkerCase::acquire();
+    let _selected_managed = ManagedWorkerCase::acquire();
+    let profile = two_worker_fixture_state();
+    let state = profile.state().to_path_buf();
+    let _managed = ManagedWorkerCase::acquire_at(&state);
     const POINTS: usize = 8;
-    let (shared, local) = runtime();
+    let store = canonical_fixture_store_at(&state).await;
+    let (shared, local) = runtime_with_store(store);
     let (local, operations) =
         bind_operations(&shared, local, "parallel-enqueuer", LeasePolicy::default());
     let (physical, modeling) = sources_of(PARAMETRIC);
@@ -1132,7 +1310,7 @@ async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
         .await
         .unwrap();
     let mut children = ["worker-left", "worker-right"]
-        .map(|name| spawn_worker(name, 30, local.canonical_store().database()));
+        .map(|name| spawn_worker_at(&state, name, 30, local.canonical_store().database()));
     let statuses = tokio::task::spawn_blocking(move || {
         children.each_mut().map(|worker| worker.wait().unwrap())
     })

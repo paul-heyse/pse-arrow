@@ -759,6 +759,202 @@ fn formal_symbols_are_stable_across_pool_extension() {
     }
 }
 
+// Collisions use fresh processes: Symbolica registrations and the PSE context are
+// process-global, and resetting either with live atoms would invalidate other tests.
+fn run_symbolic_pool_control(case: &str) {
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "typed_tests::symbolic_pool_registration_child",
+            "--nocapture",
+        ])
+        .env("PSE_SYMBOLIC_POOL_CONTROL", case)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{case}: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    // Detect a misspelled test filter as well as a child assertion failure.
+    assert!(
+        String::from_utf8(output.stdout)
+            .unwrap()
+            .lines()
+            .any(|line| line == format!("SYMBOLIC_POOL_CONTROL:{case}")),
+        "{case}: child did not complete its control"
+    );
+}
+
+fn run_symbolic_pool_collisions(stage: &str) {
+    for family in ["slot", "function"] {
+        for metadata in [
+            "attributes",
+            "normalization",
+            "print",
+            "derivative",
+            "series",
+            "evaluation",
+            "tags",
+            "aliases",
+            "user-data",
+        ] {
+            run_symbolic_pool_control(&format!("{stage}/{family}/{metadata}"));
+        }
+    }
+}
+
+#[test]
+fn symbolic_pool_initial_registration_rejects_incompatible_symbols() {
+    run_symbolic_pool_collisions("initial");
+}
+
+#[test]
+fn symbolic_pool_growth_rejects_incompatible_symbols_without_appending() {
+    run_symbolic_pool_collisions("growth");
+}
+
+#[test]
+fn symbolic_pool_registered_symbols_reject_incompatible_redefinition() {
+    run_symbolic_pool_collisions("registered");
+}
+
+#[test]
+fn symbolic_pool_compatible_registration_preserves_identity_across_growth() {
+    run_symbolic_pool_control("compatible");
+}
+
+#[test]
+fn symbolic_pool_registration_child() {
+    use crate::{MathError, library::FORMAL_CHUNK};
+    use symbolica::atom::{
+        EvaluationInfo, NamespacedSymbol, SymbolAttribute, SymbolBuilder, UserData,
+    };
+
+    let Ok(case) = std::env::var("PSE_SYMBOLIC_POOL_CONTROL") else {
+        return;
+    };
+    let named = |family, slot| {
+        SymbolBuilder::new(
+            NamespacedSymbol::try_from(format!("pse_math::{family}_{slot}").as_str()).unwrap(),
+        )
+    };
+    if case == "compatible" {
+        // Plain pre-existing symbols with empty metadata are compatible at initialization
+        // and growth; their identities must survive checked re-registration.
+        let initial = named("slot", 0).build().unwrap();
+        let initial_function = named("function", 0).build().unwrap();
+        let context = crate::initialize().unwrap();
+        assert_eq!(formal_symbol(0), initial);
+        assert_eq!(context.pool.function(0).unwrap(), initial_function);
+        let before = [0, 1, FORMAL_CHUNK - 1].map(formal_symbol);
+        let function_before = context.pool.function(FORMAL_CHUNK - 1).unwrap();
+        let next = FORMAL_CHUNK + 7;
+        let existing = named("slot", next).build().unwrap();
+        let existing_function = named("function", next).build().unwrap();
+        let far = 2 * FORMAL_CHUNK + 3;
+        let far_symbol = formal_symbol(far);
+        assert_eq!(crate::library::formal_pool_len().unwrap(), 3 * FORMAL_CHUNK);
+        assert_eq!(formal_symbol(next), existing);
+        assert_eq!(context.pool.function(next).unwrap(), existing_function);
+        assert_eq!([0, 1, FORMAL_CHUNK - 1].map(formal_symbol), before);
+        assert_eq!(
+            context.pool.function(FORMAL_CHUNK - 1).unwrap(),
+            function_before
+        );
+        assert_eq!(formal_symbol(far), far_symbol);
+        assert_eq!(crate::library::formal_pool_len().unwrap(), 3 * FORMAL_CHUNK);
+    } else {
+        let parts: Vec<_> = case.split('/').collect();
+        let [stage, family, metadata] = parts.as_slice() else {
+            panic!("invalid pool control {case}");
+        };
+        let before = if *stage != "initial" {
+            assert!(matches!(*stage, "growth" | "registered"));
+            crate::initialize().unwrap();
+            Some((
+                formal_symbol(0),
+                crate::context().unwrap().pool.function(0).unwrap(),
+            ))
+        } else {
+            assert_eq!(*stage, "initial");
+            None
+        };
+        // Fail part-way through registration, including the function family after all
+        // candidate formals registered, to exercise whole-chunk publication on error.
+        let slot = if *stage == "growth" {
+            FORMAL_CHUNK + 7
+        } else {
+            7
+        };
+        let builder = named(*family, slot);
+        let builder = match *metadata {
+            "attributes" => builder.with_attributes(vec![SymbolAttribute::Symmetric]),
+            "normalization" => builder.with_normalization_function(|_, _| {}),
+            "print" => builder.with_print_function(|_, _, _| Some("custom".to_owned())),
+            "derivative" => builder.with_derivative_function(|_, _, _| {}),
+            "series" => builder.with_series_function(|_| None),
+            "evaluation" => builder.with_evaluation_info(
+                EvaluationInfo::new().register(|arguments: &[f64]| arguments[0]),
+            ),
+            "tags" => builder.with_tags(["pool_control::tag"]),
+            "aliases" => builder.with_aliases(["pool_control_alias"]),
+            "user-data" => builder.with_user_data(UserData::Integer(42)),
+            _ => panic!("invalid pool metadata {metadata}"),
+        };
+        let collision = format!("pse_math::{family}_{slot}");
+        if *stage == "registered" {
+            let existing = named(*family, slot).build().unwrap();
+            let error = builder.build().unwrap_err().to_string();
+            assert!(error.contains(&collision), "{error}");
+            assert!(error.contains("redefined"), "{error}");
+            assert_eq!(named(*family, slot).build().unwrap(), existing);
+            assert!(existing.is_exportable());
+            assert!(existing.get_attributes().is_empty());
+            assert!(existing.get_tags().is_empty());
+            assert!(existing.get_aliases().is_empty());
+            assert_eq!(existing.get_data(), &UserData::None);
+            assert_eq!(crate::library::formal_pool_len().unwrap(), FORMAL_CHUNK);
+            println!("SYMBOLIC_POOL_CONTROL:{case}");
+            return;
+        }
+        let incompatible = builder.build().unwrap();
+        let mut previous_error = None;
+        for _ in 0..2 {
+            let error = if let Some((formal, function)) = before {
+                let error = if *family == "slot" {
+                    crate::library::formal(slot).unwrap_err()
+                } else {
+                    crate::context().unwrap().pool.function(slot).unwrap_err()
+                };
+                assert_eq!(crate::library::formal_pool_len().unwrap(), FORMAL_CHUNK);
+                assert_eq!(formal_symbol(0), formal);
+                assert_eq!(
+                    crate::context().unwrap().pool.function(0).unwrap(),
+                    function
+                );
+                error
+            } else {
+                match crate::initialize() {
+                    Err(error) => error,
+                    Ok(_) => panic!("initial registration accepted {collision}: {metadata}"),
+                }
+            };
+            assert!(matches!(&error, MathError::Library(_)), "{error}");
+            let message = error.to_string();
+            assert!(message.contains(&collision), "{message}");
+            assert!(message.contains("redefined"), "{message}");
+            if let Some(previous) = previous_error.replace(message.clone()) {
+                assert_eq!(previous, message);
+            }
+            // Rejection never resets or replaces the incompatible global registration.
+            assert_eq!(named(*family, slot).build().unwrap(), incompatible);
+        }
+    }
+    println!("SYMBOLIC_POOL_CONTROL:{case}");
+}
+
 #[test]
 fn symbolic_order_child() {
     let Ok(order) = std::env::var("PSE_SYMBOLIC_TEST_ORDER") else {

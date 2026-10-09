@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Finite generic preparation uses the existing worker, cancellation and allocation owner.
+pub(crate) use super::preparation::{BasisKey, OwnedModelingFrontier, PreparedBasis};
 use super::{MathRuntimeError, MathService, Workspace};
 use pse_authoring::language::Declaration;
 use pse_columnar::{AllocationLease, flight::FlightCancellation};
@@ -13,7 +14,7 @@ use std::{collections::BTreeMap, sync::Arc};
 /// A source revision retains its reservation through all dependent jobs.
 #[derive(Clone, Debug)]
 pub struct ModelingRevision {
-    admitted: Arc<pse_compiler::workspace::ModelingRevision>,
+    pub(super) admitted: Arc<pse_compiler::workspace::ModelingRevision>,
     identity: pse_ids::roles::SourceRevisionHash,
     _lease: Arc<AllocationLease>,
 }
@@ -26,7 +27,7 @@ impl ModelingRevision {
         Arc::ptr_eq(&self.admitted, &other.admitted)
     }
     /// What specializing `root` as `instance` solves (`pse_model::lineage`).
-    fn solved(
+    pub(super) fn solved(
         &self,
         root: DeclarationId,
         instance: InstanceId,
@@ -93,11 +94,11 @@ pub(crate) fn source_revision(
 /// Kernel products retain memory after the workspace generation rotates.
 #[derive(Clone, Debug)]
 pub struct ModelingPreparation {
-    product: PreparedModeling,
-    solved: Solved,
-    consumed_sources: Arc<BTreeMap<String, String>>,
-    _owner: Arc<super::products::ProductOwner>,
-    _source_owner: Option<Arc<AllocationLease>>,
+    pub(super) product: PreparedModeling,
+    pub(super) solved: Solved,
+    pub(super) consumed_sources: Arc<BTreeMap<String, String>>,
+    pub(super) _owner: Arc<super::products::ProductOwner>,
+    pub(super) _source_owner: Option<Arc<AllocationLease>>,
 }
 impl ModelingPreparation {
     pub(crate) fn with_consumed_source_versions(
@@ -176,7 +177,7 @@ impl pse_math::implicit::InnerSolver for MissingInnerSolver {
         _: Arc<pse_math::implicit::Problem>,
         _: &[f64],
         _: &pse_math::implicit::Options,
-        _: &Arc<AtomicBool>,
+        _: &Arc<std::sync::atomic::AtomicBool>,
     ) -> Result<Vec<f64>, pse_math::MathError> {
         Err(pse_math::MathError::Contract(
             "nested realization requires the KINSOL capability".into(),
@@ -200,25 +201,30 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<pse_compiler::workspace::ModelingPointChecks, MathRuntimeError> {
         let control = FlightCancellation::default();
-        let operation = self.job(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
-            let _lease = workspace.lease;
-            let mut compiler = workspace
-                .compiler
-                .lock()
-                .map_err(|_| MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?;
-            compiler.publish_modeling_revision(revision.admitted.clone())?;
-            Ok(compiler.check_modeling_point(
-                root,
-                pse_modeling::specialize::root_instance(root),
-                bindings,
-                limits,
-                &pse_math::binding::CaseValues {
-                    scalars: BTreeMap::new(),
-                },
-                profile,
-                flag,
-            )?)
-        });
+        let operation = self.job_scoped(
+            1,
+            super::WITHIN_WORKSPACE,
+            control.clone(),
+            driver.deadline(),
+            move |flag| {
+                let _lease = workspace.lease;
+                let mut compiler = workspace.compiler.lock().map_err(|_| {
+                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
+                })?;
+                compiler.publish_modeling_revision(revision.admitted.clone())?;
+                Ok(compiler.check_modeling_point(
+                    root,
+                    pse_modeling::specialize::root_instance(root),
+                    bindings,
+                    limits,
+                    &pse_math::binding::CaseValues {
+                        scalars: BTreeMap::new(),
+                    },
+                    profile,
+                    flag,
+                )?)
+            },
+        );
         tokio::pin!(operation);
         tokio::select! { result = &mut operation => result, () = driver.cancelled() => {
             control.cancel(); let _ = operation.await; Err(MathRuntimeError::Cancelled)
@@ -645,7 +651,7 @@ impl MathService {
     ) -> Result<super::Preparation, MathRuntimeError> {
         enum Comparison {
             Unchanged,
-            Sharing(pse_compiler::workspace::PreparedCase),
+            Sharing(Box<pse_compiler::workspace::PreparedCase>),
             Rebuild(pse_math::binding::CaseValues),
         }
         // Both phases share the enclosing clock or one admission-only cutoff.
@@ -681,7 +687,7 @@ impl MathService {
                     }
                     let rebound = compiled.rebind(&values, &flag)?;
                     let bytes = rebound.rebind_allocation_bytes(&compiled);
-                    return Ok((Comparison::Sharing(rebound), bytes));
+                    return Ok((Comparison::Sharing(Box::new(rebound)), bytes));
                 }
                 Ok((Comparison::Rebuild(values), 0))
             },
@@ -695,6 +701,12 @@ impl MathService {
             }
             Comparison::Sharing(rebound) => {
                 self.count(|p| &p.shared);
+                // Release the temporary box before own_rebind allocates its two
+                // retained PreparedCase owners under the same binding lease.
+                let rebound = {
+                    let boxed = rebound;
+                    *boxed
+                };
                 return Ok(Self::own_rebind(prepared, rebound, lease));
             }
             Comparison::Rebuild(values) => values,
@@ -807,8 +819,12 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<pse_compiler::workspace::SemanticModeling, MathRuntimeError> {
         let control = FlightCancellation::default();
-        let operation =
-            self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
+        let operation = self.job_retained_scoped(
+            1,
+            super::WITHIN_WORKSPACE,
+            control.clone(),
+            driver.deadline(),
+            move |flag| {
                 let _workspace_lease = workspace.lease;
                 let mut compiler = workspace.compiler.lock().map_err(|_| {
                     MathRuntimeError::Infrastructure("compiler lock poisoned".into())
@@ -819,7 +835,8 @@ impl MathService {
                 )?;
                 let bytes = product.retained_bytes();
                 Ok((product, bytes))
-            });
+            },
+        );
         tokio::pin!(operation);
         let (product, lease) = tokio::select! { result=&mut operation => result?, ()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         let owner = self.shared_product(
@@ -845,34 +862,19 @@ impl MathService {
         limits: Limits,
         driver: &crate::CancelSource,
     ) -> Result<ModelingPreparation, MathRuntimeError> {
-        let lineage = revision.clone();
-        let control = FlightCancellation::default();
-        let operation =
-            self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
-                let _workspace_lease = workspace.lease;
-                let mut compiler = workspace.compiler.lock().map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                })?;
-                if flag.load(std::sync::atomic::Ordering::Acquire) {
-                    return Err(MathRuntimeError::Cancelled);
-                }
-                compiler.publish_modeling_revision(revision.admitted.clone())?;
-                let product = compiler
-                    .prepare_modeling_cancellable(root, instance, bindings, limits, flag)?;
-                let bytes = product.retained_bytes();
-                Ok((product, bytes))
-            });
-        tokio::pin!(operation);
-        let (product, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
-        let solved = lineage.solved(root, instance)?;
-        let owner = self.own_modeling_product(&product, lease)?;
-        Ok(ModelingPreparation {
-            consumed_sources: Arc::default(),
-            _source_owner: None,
-            product: product.with_owner(owner.clone()),
-            solved,
-            _owner: owner,
-        })
+        let frontier = self
+            .plan_frontier(
+                workspace.clone(),
+                revision,
+                root,
+                instance,
+                bindings,
+                limits,
+                driver,
+            )
+            .await?;
+        self.complete_frontier(workspace, Arc::new(frontier), driver)
+            .await
     }
 }
 

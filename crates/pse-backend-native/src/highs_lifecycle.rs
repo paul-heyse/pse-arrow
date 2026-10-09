@@ -182,7 +182,7 @@ mod tests {
     }
     impl ComputeAdmission for Compute {
         fn pause(&mut self) {
-            self.paused.send(()).unwrap();
+            assert!(self.paused.send(()).is_ok(), "pause observer was dropped");
         }
         fn resume(&mut self, execution: &Execution) -> Result<(), ProblemError> {
             execution.check()?;

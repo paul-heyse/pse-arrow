@@ -33,6 +33,11 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+# Recorded receivers launch this file directly, independently of the caller's
+# working directory. Its sibling capability owners belong to this installation.
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 if TYPE_CHECKING:
     from collections.abc import Generator
 
@@ -409,12 +414,14 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
         config = config_for(args.state.absolute())
         if config["interpretation"] != args.interpretation:
             raise SupervisorError("Existing state has a different interpretation")
-        if args.execution_profile and not isinstance(config["resources"], dict):
-            raise SupervisorError("Missing recorded execution allocation")
-        if args.execution_profile and "execution" not in config["resources"]:
-            raise SupervisorError(
-                "Existing state requires offline reconfigure to select reference execution"
-            )
+        allocation = config["resources"]
+        if args.execution_profile:
+            if not isinstance(allocation, dict):
+                raise SupervisorError("Missing recorded execution allocation")
+            if "execution" not in allocation:
+                raise SupervisorError(
+                    "Existing state requires offline reconfigure to select reference execution"
+                )
         return public_status(args.state.absolute(), config)
     # Download first so network failure leaves no half-initialized application state.
     allocation = resources(
@@ -1300,7 +1307,8 @@ def primary_observation(state: Path) -> dict[str, str]:
     return fields
 
 
-def checked_primary(config: dict[str, object]) -> dict[str, str]:
+def recorded_primary(config: dict[str, object]) -> dict[str, str]:
+    """Read the admitted association without opening its replacement artifacts."""
     receiver = config.get("primary_receiver")
     if not isinstance(receiver, dict) or not all(
         isinstance(value, str) for value in receiver.values()
@@ -1318,20 +1326,26 @@ def checked_primary(config: dict[str, object]) -> dict[str, str]:
     if set(receiver) != expected:
         raise SupervisorError("Primary receiver association has unsupported fields")
     result = {key: str(value) for key, value in receiver.items()}
-    if (
-        Path(result["supervisor_script"]) != SCRIPT
-        or file_digest(SCRIPT) != result["supervisor_sha256"]
-        or file_digest(Path(result["worker_executable"])) != result["worker_sha256"]
-    ):
-        raise SupervisorError(
-            "Primary receiver bytes changed; offline profile readmission is required"
-        )
     if any(
         not Path(result[key]).is_absolute()
         for key in ("supervisor_executable", "supervisor_script", "worker_executable")
     ):
         raise SupervisorError("Primary receiver paths must be explicit and absolute")
+    if Path(result["supervisor_script"]) != SCRIPT:
+        raise SupervisorError("Primary receiver belongs to another supervisor")
     return result
+
+
+def checked_primary(config: dict[str, object]) -> dict[str, str]:
+    receiver = recorded_primary(config)
+    if (
+        file_digest(SCRIPT) != receiver["supervisor_sha256"]
+        or file_digest(Path(receiver["worker_executable"])) != receiver["worker_sha256"]
+    ):
+        raise SupervisorError(
+            "Primary receiver bytes changed; offline profile readmission is required"
+        )
+    return receiver
 
 
 def primary_ready(
@@ -1346,8 +1360,43 @@ def primary_ready(
         allocation.get("execution"), dict
     ):
         return False
+    return (
+        _primary_process(
+            state,
+            config,
+            observation,
+            checked_primary(config),
+            database,
+            qualification,
+            receiving=True,
+        )
+        is not None
+    )
+
+
+def primary_drain_pid(
+    state: Path, config: dict[str, object], observation: dict[str, str]
+) -> int | None:
+    """Identify the admitted live receiver even after its disk files are replaced."""
+    return _primary_process(state, config, observation, recorded_primary(config))
+
+
+def _primary_process(
+    state: Path,
+    config: dict[str, object],
+    observation: dict[str, str],
+    receiver: dict[str, str],
+    database: str | None = None,
+    qualification: Path | None = None,
+    *,
+    receiving: bool = False,
+) -> int | None:
+    allocation = config["resources"]
+    if not isinstance(allocation, dict) or not isinstance(
+        allocation.get("execution"), dict
+    ):
+        return None
     execution = allocation["execution"]
-    receiver = checked_primary(config)
     try:
         launch = read_json(state / "primary-launch.json")
         marker = read_json(state / "primary-receiver.json")
@@ -1355,25 +1404,25 @@ def primary_ready(
         if qualification is not None and marker.get(
             "qualification_native_entry"
         ) != str(qualification):
-            return False
+            return None
         selected = marker.get("canonical_database")
         if (
             not isinstance(selected, str)
             or not selected
             or (database is not None and selected != database)
         ):
-            return False
+            return None
         if (
             observation["ActiveState"] != "active"
             or not group_populated(observation["ControlGroup"])
             or marker.get("ready") is not True
             or marker.get("nonce") != launch["nonce"]
         ):
-            return False
+            return None
         if observation.get("MemoryMax") != str(
             allocation["native_worker_memory_bytes"]
         ):
-            return False
+            return None
         if any(
             marker.get(key) != execution[key]
             for key in (
@@ -1384,7 +1433,7 @@ def primary_ready(
                 "math_jobs",
             )
         ):
-            return False
+            return None
         process = Path(f"/proc/{pid}")
         relative = next(
             line.removeprefix("0::")
@@ -1394,21 +1443,38 @@ def primary_ready(
         if relative != observation["ControlGroup"] and not relative.startswith(
             observation["ControlGroup"] + "/"
         ):
-            return False
-        if file_digest(process / "exe") != receiver["worker_sha256"] or (
-            process / "exe"
-        ).resolve() != Path(receiver["worker_executable"]):
-            return False
-        if not primary_receipt_ready(process, marker, systemd_environment()):
-            return False
+            return None
+        executable = process / "exe"
+        # Linux keeps the admitted executable open after atomic replacement. Its
+        # proc link gains this suffix; resolving it against the replacement path
+        # would confuse the running admission with the next one.
+        actual_path = str(executable.readlink()).removesuffix(" (deleted)")
+        if file_digest(executable) != receiver["worker_sha256"] or Path(
+            actual_path
+        ) != Path(receiver["worker_executable"]):
+            return None
+        assignments = (process / "environ").read_bytes().split(b"\0")
+        if [
+            item.removeprefix(b"PSE_PRIMARY_NONCE=")
+            for item in assignments
+            if item.startswith(b"PSE_PRIMARY_NONCE=")
+        ] != [os.fsencode(str(launch["nonce"]))]:
+            return None
+        if receiving and not primary_receipt_ready(
+            process, marker, systemd_environment()
+        ):
+            return None
         if not role_affinity_ready(pid, execution):
-            return False
+            return None
         memory, cpu = effective_limits(Path("/sys/fs/cgroup") / relative.lstrip("/"))
-        return memory == integer(
+        if memory != integer(
             allocation["native_worker_memory_bytes"]
-        ) and cpu == integer(execution["cpu_threads"])
+        ) or cpu != integer(execution["cpu_threads"]):
+            return None
     except (OSError, KeyError, StopIteration, SupervisorError):
-        return False
+        return None
+    else:
+        return pid
 
 
 def verify_observer(state: Path, config: dict[str, object], pid: int) -> None:
@@ -1457,6 +1523,62 @@ def verify_observer(state: Path, config: dict[str, object], pid: int) -> None:
                     "The reference envelope's observer allocation is occupied"
                 )
     write_json(registration, {"pid": pid, "start": start, "group": relative})
+
+
+def _checked_current_observer(state: Path) -> dict[str, object]:
+    """Validate the live caller's own registration while holding state_lock."""
+    registration = read_json(state / "primary-observer.json")
+    pid = os.getpid()
+    if integer(registration["pid"]) != pid:
+        raise SupervisorError("Current caller does not own the observer registration")
+    process = Path(f"/proc/{pid}")
+    start = (process / "stat").read_text().rsplit(")", 1)[1].split()[19]
+    group = next(
+        (
+            line.removeprefix("0::")
+            for line in (process / "cgroup").read_text().splitlines()
+            if line.startswith("0::")
+        ),
+        "",
+    )
+    if (
+        not group
+        or registration.get("start") != start
+        or registration.get("group") != group
+    ):
+        raise SupervisorError("Current observer process identity changed")
+    return registration
+
+
+def release_current_observer(state: Path) -> None:
+    """Relinquish only this caller's registration after primary capacity drains.
+
+    The observer's live PID is never overridden by a second caller. A sequential
+    owner may explicitly hand off within its existing aggregate group after the
+    associated primary is stopped and the kernel confirms its allocation empty.
+    """
+    config_for(state)
+    state = checked_directory(state)
+    with state_lock(state):
+        registration = _checked_current_observer(state)
+        # Keep the control request finite without changing general manager policy.
+        prior = getattr(_STARTUP, "deadline", None)
+        deadline = time.monotonic() + 10
+        _STARTUP.deadline = deadline if prior is None else min(deadline, prior)
+        try:
+            observed = primary_observation(state)
+        finally:
+            _STARTUP.deadline = prior
+        group = observed["ControlGroup"]
+        if observed["ActiveState"] not in {"inactive", "failed"} or (
+            group and group_populated(group)
+        ):
+            raise SupervisorError(
+                "Observer handoff requires a stopped, drained primary"
+            )
+        if _checked_current_observer(state) != registration:
+            raise SupervisorError("Observer registration changed before handoff")
+        (state / "primary-observer.json").unlink()
 
 
 def qualification_directory(state: Path, selected: Path) -> Path:
@@ -2311,14 +2433,19 @@ def dispatch(args: argparse.Namespace) -> int:
                 allocation = config["resources"]
                 if isinstance(allocation, dict) and "execution" in allocation:
                     observed = primary_observation(state)
-                    if primary_ready(state, config, observed):
+                    pid = primary_drain_pid(state, config, observed)
+                    if pid is not None:
                         # Signal the actual receiver only. The installation wrapper's
                         # cancellation path kills its scope, which is recovery, not
                         # cooperative native drain.
-                        marker = read_json(state / "primary-receiver.json")
-                        descriptor = os.pidfd_open(integer(marker["pid"]))
+                        descriptor = os.pidfd_open(pid)
                         try:
-                            if primary_ready(state, config, primary_observation(state)):
+                            if (
+                                primary_drain_pid(
+                                    state, config, primary_observation(state)
+                                )
+                                == pid
+                            ):
                                 signal.pidfd_send_signal(descriptor, signal.SIGINT)
                         finally:
                             os.close(descriptor)

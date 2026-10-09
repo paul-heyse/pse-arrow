@@ -280,14 +280,14 @@ LET $guard = type::record('canonical_guards', 'retention:' + $problem);
 SELECT * FROM $guard FOR UPDATE;
 LET $member = SELECT * FROM ONLY type::record('canonical_memberships', $candidate);
 LET $result = IF $member = NONE OR $member.problem != $problem OR $member.to_sequence = NONE {
-    RETURN {membership:false, version:false, edges:0dec, blocks:0dec, pending:false};
+    {membership:false, version:false, edges:0dec, blocks:0dec, pending:false}
 } ELSE {
     LET $head = SELECT * FROM ONLY type::record('canonical_problems', $problem);
     IF $head = NONE { THROW 'reclamation problem head unavailable'; };
     LET $roots = SELECT key FROM canonical_roots WHERE problem = $problem AND sequence >= $member.from_sequence AND sequence < $member.to_sequence LIMIT 1;
     LET $pins = SELECT key FROM canonical_protections WHERE problem = $problem AND sequence >= $member.from_sequence AND sequence < $member.to_sequence AND released = false AND expires_at > time::micros() LIMIT 1;
     IF ($head.sequence >= $member.from_sequence AND $head.sequence < $member.to_sequence) OR array::len($roots) != 0 OR array::len($pins) != 0 {
-        RETURN {membership:false, version:false, edges:0dec, blocks:0dec, pending:false};
+        {membership:false, version:false, edges:0dec, blocks:0dec, pending:false}
     } ELSE {
         UPSERT type::record('canonical_reclaimed_ranges', $candidate) SET key = $candidate, problem = $problem, from_sequence = $member.from_sequence, to_sequence = $member.to_sequence;
         LET $version = $member.version;
@@ -295,7 +295,7 @@ LET $result = IF $member = NONE OR $member.problem != $problem OR $member.to_seq
         LET $excluded_stage = NONE;
         /* DELETE_VERSION */
         IF $deleted.pending = false { DELETE ONLY type::record('canonical_memberships', $candidate); };
-        RETURN {membership:!$deleted.pending, version:$deleted.version, edges:$deleted.edges, blocks:$deleted.blocks, pending:$deleted.pending};
+        {membership:!$deleted.pending, version:$deleted.version, edges:$deleted.edges, blocks:$deleted.blocks, pending:$deleted.pending}
     };
 };
 UPSERT $guard SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
@@ -350,6 +350,55 @@ mod canonical_server_unit {
             .await
             .and_then(checked)
             .unwrap();
+    }
+
+    async fn retention_generation(store: &CanonicalStore, problem: &str) -> u64 {
+        let key = format!("retention:{problem}");
+        let row: Option<Object> = store
+            .db
+            .select(("canonical_guards", key.as_str()))
+            .await
+            .unwrap();
+        wire::decode_canonical_guards(row.unwrap())
+            .unwrap()
+            .generation
+    }
+
+    #[tokio::test]
+    async fn reclamation_guard_generation_advances_for_protected_and_deleted_intervals() {
+        let (store, database) = fixture().await;
+        let first = store
+            .edit("guarded", None, "guarded-first", &[edit("guarded-v1", 0)])
+            .await
+            .unwrap();
+        store
+            .edit(
+                "guarded",
+                Some("guarded-first"),
+                "guarded-second",
+                &[edit("guarded-v2", 0)],
+            )
+            .await
+            .unwrap();
+        store.forget_history(&first).await.unwrap();
+
+        let pin = store.protect(first, Duration::from_secs(60)).await.unwrap();
+        let before_protected_reclaim = retention_generation(&store, "guarded").await;
+        let protected = store.reclaim_page("guarded", "").await.unwrap();
+        let after_protected_reclaim = retention_generation(&store, "guarded").await;
+        assert_eq!(protected.memberships, 0);
+        assert!(after_protected_reclaim > before_protected_reclaim);
+        assert!(store.object("guarded-v1").await.unwrap().is_some());
+        store.release(&pin).await.unwrap();
+
+        let before_unprotected_reclaim = retention_generation(&store, "guarded").await;
+        let unprotected = store.reclaim_page("guarded", "").await.unwrap();
+        let after_unprotected_reclaim = retention_generation(&store, "guarded").await;
+        assert_eq!(unprotected.memberships, 1);
+        assert_eq!(unprotected.versions, 1);
+        assert!(after_unprotected_reclaim > before_unprotected_reclaim);
+        assert!(store.object("guarded-v1").await.unwrap().is_none());
+        remove(&store, &database).await;
     }
 
     #[tokio::test]

@@ -12,6 +12,7 @@ use crate::RuntimeError;
 #[derive(Clone, Debug)]
 pub struct CancelSource {
     token: CancellationToken,
+    deadline: Option<std::time::Instant>,
 }
 
 impl Default for CancelSource {
@@ -25,7 +26,28 @@ impl CancelSource {
     pub fn new() -> Self {
         Self {
             token: CancellationToken::new(),
+            deadline: None,
         }
+    }
+
+    /// The original enclosing operation clock, independent of token cancellation.
+    pub(crate) fn deadline(&self) -> Option<std::time::Instant> {
+        self.deadline
+    }
+
+    /// Narrow the same driver's clock without renewing it or changing cancellation.
+    pub(crate) fn with_deadline(&self, deadline: Option<std::time::Instant>) -> Self {
+        Self {
+            token: self.token.clone(),
+            deadline: self.deadline.into_iter().chain(deadline).min(),
+        }
+    }
+
+    /// An independently cancellable child retains the effective enclosing clock.
+    pub(crate) fn child_with_deadline(&self, deadline: Option<std::time::Instant>) -> Self {
+        let mut child = self.with_deadline(deadline);
+        child.token = CancellationToken::new();
+        child
     }
 
     /// A shared token for synchronous loops.

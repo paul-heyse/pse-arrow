@@ -11,9 +11,13 @@ import tempfile
 import tomllib
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from scripts import build_measurements, native_operation, validation
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class BuildMeasurementTests(unittest.TestCase):
@@ -159,6 +163,229 @@ class BuildMeasurementTests(unittest.TestCase):
             self.assertRaises(subprocess.CalledProcessError),
         ):
             build_measurements.capability_environment({}, native=True, workflow=False)
+
+    def test_preparation_times_actual_admission_and_preserves_preexisting_evidence(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            owner = output / "operation.json"
+            prior = {
+                "version": native_operation.VERSION,
+                "scope": {"unit": "owned", "group": "/owned", "invocation": "nonce"},
+                "admissions": {
+                    "capability:solver": {"inputs": {"IPOPT_DIR": "/solver"}}
+                },
+                "generations": ["/native/known-generation"],
+            }
+            owner.write_text(json.dumps(prior))
+            calls = []
+
+            def snapshot(_root: Path, _output: Path) -> Path:
+                calls.append("snapshot")
+                return output / "source"
+
+            def admission(
+                _requested: list[str], original: dict[str, str]
+            ) -> dict[str, str]:
+                calls.append("admission")
+                updated = {
+                    **prior,
+                    "admissions": {
+                        **prior["admissions"],
+                        "capability:petsc": {"inputs": {"PETSC_DIR": "/petsc"}},
+                    },
+                    "generations": [*prior["generations"], "/native/petsc-generation"],
+                }
+                owner.write_text(json.dumps(updated))
+                return {**original, "IPOPT_DIR": "/solver", "PETSC_DIR": "/petsc"}
+
+            conditions: dict[str, object] = {
+                "compiler_cache_selection": "on",
+                "cold_compiler_cache": True,
+            }
+            with (
+                patch.object(native_operation, "owner_record", return_value=owner),
+                patch.object(native_operation, "environment", side_effect=admission),
+                patch.object(build_measurements, "snapshot", side_effect=snapshot),
+                patch.object(
+                    build_measurements.time, "monotonic", side_effect=[10, 13, 20, 25]
+                ),
+                patch.object(build_measurements, "measure") as cargo,
+            ):
+                source, env, receipt = build_measurements.prepare_inputs(
+                    output,
+                    output,
+                    {"PATH": "/tools"},
+                    native=True,
+                    workflow=False,
+                    conditions=conditions,
+                )
+            cargo.assert_not_called()
+            self.assertEqual(source, output / "source")
+            self.assertEqual(env["PETSC_DIR"], "/petsc")
+            self.assertEqual(calls, ["snapshot", "admission"])
+            self.assertEqual(
+                receipt["phases"],
+                {
+                    "snapshot": {"wall_seconds": 3, "status": "passed"},
+                    "capability_environment": {"wall_seconds": 5, "status": "passed"},
+                },
+            )
+            self.assertEqual(receipt["conditions"], conditions)
+            operation = receipt["native_operation"]
+            if not isinstance(operation, dict):
+                self.fail("preparation operation evidence is not an object")
+            self.assertTrue(operation["preexisting_at_measurement_target_entry"])
+            self.assertEqual(operation["before"], prior)
+            after = operation["after"]
+            before = operation["before"]
+            excludes = receipt["excludes"]
+            if not isinstance(after, dict) or not isinstance(before, dict):
+                self.fail("operation observations are not objects")
+            if not isinstance(excludes, list):
+                self.fail("preparation exclusions are not a list")
+            self.assertIn("capability:petsc", after["admissions"])
+            self.assertNotIn("capability:petsc", before["admissions"])
+            self.assertIn("before target entry", excludes[0])
+            self.assertEqual(
+                json.loads((output / "preparation.json").read_text()), receipt
+            )
+
+    def test_failed_admission_keeps_its_timing_without_any_cargo_sample(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            with (
+                patch.object(native_operation, "owner_record", return_value=None),
+                patch.object(
+                    build_measurements, "snapshot", return_value=output / "source"
+                ),
+                patch.object(
+                    build_measurements,
+                    "capability_environment",
+                    side_effect=ValueError("admission refused"),
+                ),
+                patch.object(
+                    build_measurements.time, "monotonic", side_effect=[10, 12, 20, 26]
+                ),
+                patch.object(build_measurements, "measure") as cargo,
+                self.assertRaisesRegex(ValueError, "admission refused"),
+            ):
+                build_measurements.prepare_inputs(
+                    output,
+                    output,
+                    {},
+                    native=True,
+                    workflow=False,
+                    conditions={},
+                )
+            cargo.assert_not_called()
+            receipt = json.loads((output / "preparation.json").read_text())
+            self.assertEqual(receipt["status"], "failed")
+            self.assertEqual(receipt["phases"]["snapshot"]["wall_seconds"], 2)
+            self.assertEqual(
+                receipt["phases"]["capability_environment"],
+                {
+                    "wall_seconds": 6,
+                    "status": "failed",
+                    "error_type": "ValueError",
+                },
+            )
+
+    def test_summary_keeps_cargo_sample_seconds_distinct_from_entry_phases(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            source = output / "source"
+            source.mkdir()
+            (source / "rust-toolchain.toml").write_text(
+                '[toolchain]\nchannel="pinned-test"\n'
+            )
+            (output / "original-source.json").write_text("{}")
+
+            def sample_builds(
+                _source: Path,
+                _count: int,
+                sample: Callable[[str], None],
+                *,
+                screen: bool,
+            ) -> None:
+                self.assertTrue(screen)
+                for name in ("cold", "warm-0", "warm-1", "warm-2"):
+                    sample(name)
+
+            with (
+                patch.object(
+                    build_measurements.sys,
+                    "argv",
+                    [
+                        "build-measurements",
+                        str(output),
+                        "--screen",
+                        "--cache",
+                        "off",
+                        "--second-worktree",
+                    ],
+                ),
+                patch.object(build_measurements, "ensure_capability_operation"),
+                patch.object(native_operation, "owner_record", return_value=None),
+                patch.object(validation, "fresh_output", return_value=output),
+                patch.object(validation, "sources", return_value={}),
+                patch.object(build_measurements, "snapshot", return_value=source),
+                patch.object(
+                    build_measurements, "capability_environment", return_value={}
+                ),
+                patch.object(
+                    build_measurements.build_environment, "configure", return_value={}
+                ),
+                patch.object(
+                    build_measurements.build_environment,
+                    "effective_flags",
+                    return_value=[],
+                ),
+                patch.object(
+                    build_measurements.subprocess,
+                    "check_output",
+                    return_value="test host",
+                ),
+                patch.object(
+                    build_measurements.shutil,
+                    "disk_usage",
+                    return_value=type("Disk", (), {"free": 1 << 60})(),
+                ),
+                patch.object(
+                    build_measurements, "build_phases", side_effect=sample_builds
+                ),
+                patch.object(
+                    build_measurements, "measure", return_value={"wall_seconds": 7}
+                ) as cargo,
+                patch.object(
+                    build_measurements.time,
+                    "monotonic",
+                    side_effect=[100, 101, 104, 105, 110, 120, 123, 150],
+                ),
+            ):
+                build_measurements.main()
+            self.assertEqual(cargo.call_count, 5)
+            summary = json.loads((output / "summary.json").read_text())
+            self.assertEqual(summary["builds"]["cold"]["wall_seconds"], 7)
+            self.assertEqual(summary["statistics"]["warm"]["median"], 7)
+            self.assertEqual(
+                summary["preparation"]["phases"]["snapshot"]["wall_seconds"], 3
+            )
+            self.assertEqual(
+                summary["preparation"]["phases"]["capability_environment"][
+                    "wall_seconds"
+                ],
+                5,
+            )
+            self.assertEqual(
+                summary["preparation"]["phases"]["second_snapshot"]["wall_seconds"], 3
+            )
+            self.assertEqual(summary["builds"]["second-worktree"]["wall_seconds"], 7)
+            self.assertEqual(summary["target_operation"]["wall_seconds"], 50)
+            self.assertFalse(summary["target_operation"]["setup_inclusive"])
 
     def test_native_operation_precedes_snapshot_and_preserves_arguments(self) -> None:
         with (

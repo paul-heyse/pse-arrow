@@ -125,7 +125,7 @@ built linked worker when creating state:
 ```bash
 export PSE_SURREAL_STATE=/absolute/path/to/private/reference-state
 scripts/pse-env --native -- cargo build -p xtask --bin pse-worker --locked --features native-solvers
-just surreal setup --interpretation pse.substrate.v1 --execution-profile plan28-reference \
+just surreal setup --interpretation pse.substrate.v2 --execution-profile plan28-reference \
   --worker-executable "$PWD/target/debug/pse-worker"
 just surreal start
 just canonical-init "$PSE_SURREAL_STATE"

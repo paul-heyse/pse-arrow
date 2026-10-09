@@ -49,7 +49,12 @@ of 8,192 (`pse_math::library::FORMAL_CHUNK`) until the slot is covered. Growth i
 append-only and serialized: a chunk is appended only once all of its symbols registered,
 and chunk *k* registers its formals and then its functions, so the registration order of
 any two pool symbols is the same whenever, and from whichever query, a chunk registers, and
-a registered symbol never changes. The pool has no ceiling of its own. Each body's explicit
+a registered symbol never changes. Registration explicitly supplies the empty attribute
+set and verifies that each accepted symbol is exportable, excluding preclaimed
+normalization, derivative, series, print or evaluation callbacks as well as incompatible
+attributes. Compatible preclaims remain valid; initial registration and later growth use
+the same checks, and a failed chunk is not appended. Resetting library state with live
+products is outside the supported profile. The pool has no ceiling of its own. Each body's explicit
 slot allowance (`BodyLimits::slots`; by default one chunk) bounds it, and a body that needs
 more slots than its allowance is refused with `MathError::SlotLimit`, naming the required
 and available slots (`runtime.resource_limit`; [§14.3.2](#section-14-3-2)). A tracked query
@@ -561,11 +566,29 @@ Deployment-local replay uses the same scientific reconstruction checker under a 
 synchronous loader-exclusion scope. Its result owns immutable mathematical values and
 provider descriptions, with no loaded provider handles; the scope ends after construction.
 It performs no imports, asynchronous work or caller/provider callbacks inside the loader
-lock. Its owning module TLS is materialized before loader exclusion. Retained retrieval
-revalidates actual originating deployment compatibility before reuse; later
-mutable evaluators and native providers keep their separate scientific admission and
-managed-generation lifetime. Unknown premises refuse reuse while ordinary fresh admission
-remains available (ADR-0164; §5.3).
+lock. Its owning module TLS is materialized before loader exclusion. Receiving qualification
+belongs to actual persisted acquisition or new eligible publication. Already admitted
+immutable mathematics remains independently valid under complete scientific identity and
+the initialized process symbol universe: reserved-symbol registration rejects incompatible
+attributes/callbacks, registration only appends, and reset with live products is prohibited.
+Stable active mathematical implementation remains a supported worker/imported-Python root
+premise. Later mutable evaluators and native providers retain separate scientific admission
+and managed-generation lifetimes. Unknown receiving premises refuse replay while ordinary
+fresh admission and historical reads remain available (ADR-0164; §5.3).
+
+The maintainer-authorized preparation amendment separates pure owned frontier planning and
+completion from current source protection, persisted acquisition and publication. The frontier
+exports compiler-issued body requests, not Salsa handles; completion consumes that same
+frontier. Complete immutable prepared products expose every currently portable primary and
+original description independently of memo execution. Existing bounded retention, flights
+and allocation owners retain those products and reusable encoded description material.
+Each consumer rechecks current selection/dependencies, binds fresh lineage and numerical
+values, and explicitly settles canonical effects. Exact already-rooted acknowledgment
+preserves original provenance without another host observation; absent acknowledgment
+requires current admission before a new eligible publication. No retained description
+confers protection or publication authority. Interruption consumes the original clock and
+charges end only after actual drain. Implementation and scoped qualification are owned by
+Plan 28i/28j; this amendment does not establish a performance or arbitrary-host guarantee.
 
 Evaluators use compact selected formal coordinates, including actual guard/provider and nested
 scope requirements. Public formal identities remain stable; consumers gather through the same
@@ -791,6 +814,30 @@ or measure process RSS.
 ### 14.4 Incrementality
 
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Persisted complete dependencies govern reuse across restart; Salsa is an optional local accelerator. Immutable selected layouts and native products retain their live consumers and bounded accelerator owners, without whole ancestral source bundles. Binding edits reuse structure only when those values are not consumed structural literals.
+
+Complete preparation retention uses the exact selected source/dependency versions (including
+spans, absence and membership), root, actual instance, full structural bindings, specialization
+limits and consumed physical/provider context. Unrelated revisions can reuse unchanged
+selected products. A span-only edit refreshes attribution while equal mathematical body/view
+products remain reusable. Numerical case values, fixed/free state, bounds, profile and
+derivative demand affect the downstream products that consume them. Current lineage and
+consumed-source metadata are rebuilt per use; no compiler, protected read, attempt fence or
+mutable evaluator is retained as the basis. Any acquired dependency delta is rechecked under
+each follower's own protected read before adoption. Premises already proven identically by
+that current read are not rechecked merely because they also appear in a retained basis.
+A previously qualified complete source receipt may be adopted only after a guarded
+store check verifies a fresh live pin and the entire identical immutable canonical revision
+row. The receipt carries no retained protection or publication authority. Changed rows
+continue full positive, absence, membership and interpretation qualification. Protected
+read and staging transactions share the existing weak per-problem pacing owner; each
+complete short decision includes local queueing in its original request deadline, with
+server guards remaining authoritative. No pacing turn spans hydration or native work.
+
+Scoped preparation inherits the enclosing absolute operation clock through its driver and
+independent children; it cannot renew that clock on a basis hit or phase change. An unscoped
+preparation has a separate finite ten-minute loader lifetime. This omission policy changes
+neither individual canonical RPC deadlines nor solver stopping budgets. Preparation expiry
+is a typed time resource limit; native owners remain charged through actual drain.
 
 > Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
 

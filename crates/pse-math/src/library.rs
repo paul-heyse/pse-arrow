@@ -5,7 +5,7 @@
 use crate::MathError;
 use symbolica::domains::{float::Complex, rational::Rational};
 use symbolica::{
-    atom::{Atom, AtomCore, NamespacedSymbol, Symbol, SymbolBuilder},
+    atom::{Atom, AtomCore, NamespacedSymbol, Symbol, SymbolAttribute, SymbolBuilder},
     evaluate::{ExportedInstructions, ExpressionEvaluator, Instruction},
 };
 /// Formal and function symbols register in chunks of this many slots. Initialization
@@ -89,14 +89,23 @@ impl Pool {
 }
 impl Symbols {
     /// Register whole chunks until at least `slots` formals exist. A chunk is appended only
-    /// once all of its symbols registered; Symbolica returns an already registered symbol
-    /// unchanged, so a retried chunk keeps its registration order.
+    /// once all of its symbols registered. Compatible existing symbols retain their
+    /// identity on retry; incompatible attributes or custom metadata fail registration.
     fn cover(&mut self, slots: usize) -> Result<(), String> {
         let register = |name: String| {
-            let name = NamespacedSymbol::try_from(name.as_str())?;
-            SymbolBuilder::new(name)
+            let namespaced = NamespacedSymbol::try_from(name.as_str())?;
+            let symbol = SymbolBuilder::new(namespaced)
+                // An explicit empty list selects Symbolica's checked registration path;
+                // a bare builder accepts any existing same-name symbol unchanged.
+                .with_attributes(Vec::<SymbolAttribute>::new())
                 .build()
-                .map_err(|error| error.to_string())
+                .map_err(|error| error.to_string())?;
+            // Symbolica treats omitted callbacks as unspecified when re-registering.
+            // Pool symbols require none, including numerical evaluation callbacks.
+            if !symbol.is_exportable() {
+                return Err(format!("Symbol {name} redefined with custom callbacks"));
+            }
+            Ok(symbol)
         };
         while self.formals.len() < slots {
             let start = self.formals.len();

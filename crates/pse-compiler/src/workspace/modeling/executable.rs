@@ -1353,6 +1353,53 @@ impl CompilerWorkspace {
     }
 }
 
+/// Complete owned planning product for one exact, instance-qualified request.
+/// Normalized consumer bodies are requested here and materialized only by completion.
+/// Direct nested implicit mathematics remains retained without a portable semantic identity.
+#[derive(Clone, Debug)]
+pub struct ModelingPreparationFrontier {
+    semantic: SemanticModeling,
+    model: Arc<SpecializedModel>,
+    projection: Arc<Projection>,
+    primary: grouped::PlannedModeling,
+    original: Option<(Arc<Projection>, grouped::PlannedModeling)>,
+    physical: ContentHash,
+    environment: ContentHash,
+    providers: BTreeMap<String, (ContentHash, usize)>,
+}
+impl ModelingPreparationFrontier {
+    /// Every compiler-issued portable body dependency, including the original view.
+    /// Repeated consumer uses of the same complete identity issue one request.
+    pub fn body_requests(&self) -> impl Iterator<Item = pse_ids::roles::SemanticBodyHash> {
+        self.primary
+            .body_requests()
+            .chain(
+                self.original
+                    .iter()
+                    .flat_map(|(_, plan)| plan.body_requests()),
+            )
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+    }
+    /// Conservative owned planning bytes, including retained direct implicit products.
+    pub fn retained_bytes(&self) -> usize {
+        2 * size_of::<Self>()
+            + 256
+            + self.semantic.descriptor_bytes()
+            + self.model.retained_bytes()
+            + projection_body_bytes(&self.projection)
+            + self.primary.retained_bytes()
+            + self.original.as_ref().map_or(0, |(projection, plan)| {
+                projection_body_bytes(projection) + plan.retained_bytes()
+            })
+            + self
+                .providers
+                .keys()
+                .map(|name| name.capacity() + 128)
+                .sum::<usize>()
+    }
+}
+
 /// Finite kernel preparation and post-specialization structural evidence.
 #[derive(Clone, Debug)]
 pub struct PreparedModeling {
@@ -1379,6 +1426,22 @@ impl AdmittedModeling {
     }
 }
 impl PreparedModeling {
+    /// Complete portable body inventory, independent of which pure queries executed.
+    /// Primary and original views share one entry per sealed semantic identity; direct
+    /// implicit bodies are retained by their systems and have no invented portable key.
+    pub fn portable_bodies(&self) -> impl Iterator<Item = &Arc<AdmittedBody>> {
+        self.admitted
+            .bodies
+            .values()
+            .chain(
+                self.original
+                    .iter()
+                    .flat_map(|(_, admitted)| admitted.bodies.values()),
+            )
+            .filter_map(|body| body.semantic_identity().map(|identity| (identity, body)))
+            .collect::<BTreeMap<_, _>>()
+            .into_values()
+    }
     /// Original coordinates and equations for eligible selected suppliers. Other
     /// selected operations retain their existing nested guards, regimes and descriptors.
     pub fn original_equations(&self) -> Option<Self> {
@@ -1444,17 +1507,18 @@ impl PreparedModeling {
     }
 }
 impl CompilerWorkspace {
-    /// Atomically prepare typed math, current values and structural evidence in one generation.
+    /// Plan an exact request without materializing its normalized consumer bodies.
+    /// The returned product owns its model, projection, implicit products and body requests.
     /// # Errors
     /// Invalid semantics, physical admission, resource limits or cancellation.
-    pub fn prepare_modeling_cancellable(
+    pub fn plan_modeling_cancellable(
         &mut self,
         root: DeclarationId,
         instance: InstanceId,
         bindings: Bindings,
         limits: Limits,
         cancel: Arc<AtomicBool>,
-    ) -> Result<PreparedModeling> {
+    ) -> Result<ModelingPreparationFrontier> {
         if cancel.load(Ordering::Acquire) {
             return Err(CompileError::Cancelled);
         }
@@ -1467,9 +1531,9 @@ impl CompilerWorkspace {
                 self.inventory.quantities(&self.db),
                 self.inventory.preconditions(&self.db),
             )?;
-            let admitted = admitted(&self.db, self.inventory, catalog, request)?;
             let projection = projection(&self.db, self.inventory, catalog, request)?;
-            let promoted: BTreeSet<_> = admitted
+            let primary = grouped::plan(&self.db, self.inventory, &projection, BTreeMap::new())?;
+            let promoted: BTreeSet<_> = primary
                 .implicit
                 .values()
                 .filter(|supplier| {
@@ -1498,31 +1562,121 @@ impl CompilerWorkspace {
                     let mut bindings = raw.bindings.clone();
                     implicit::project(&remaining, &self.inputs.quantities, &mut p, &mut bindings)?;
                     finish_projection(&mut p, &bindings, &self.inputs.quantities)?;
-                    let mut source = grouped::admit(&self.db, self.inventory, &p)?
-                        .as_ref()
-                        .clone();
-                    source.implicit.extend(
-                        admitted
-                            .implicit
-                            .iter()
-                            .filter(|(id, _)| promoted.contains(id))
-                            .map(|(id, supplier)| (*id, supplier.clone())),
-                    );
-                    Ok((Arc::new(p), Arc::new(source).into()))
+                    let supplied = primary
+                        .implicit
+                        .iter()
+                        .filter(|(id, _)| promoted.contains(id))
+                        .map(|(id, supplier)| (*id, supplier.clone()))
+                        .collect();
+                    let source = grouped::plan(&self.db, self.inventory, &p, supplied)?;
+                    Ok((Arc::new(p), source))
                 })
                 .transpose()?;
-            Ok(PreparedModeling {
+            checkpoint(&self.db);
+            Ok(ModelingPreparationFrontier {
                 semantic,
-                original,
+                model,
                 projection,
-                owned_implicit_view: None,
-                model: model.into(),
-                admitted: admitted.into(),
+                primary,
+                original,
+                physical: physical_identity(
+                    self.inventory.quantities(&self.db),
+                    self.inventory.preconditions(&self.db),
+                ),
+                environment: *self.inventory.environment(&self.db),
+                providers: self
+                    .inventory
+                    .providers(&self.db)
+                    .iter()
+                    .map(|(name, provider)| {
+                        (
+                            name.clone(),
+                            (provider.descriptor.spec().identity(), provider.output),
+                        )
+                    })
+                    .collect(),
             })
         })
         .map_err(|_| compiler_cancelled(&self.db))?;
         self.trim_queries()?;
         result
+    }
+
+    /// Materialize the frontier's exact normalized requests through pure body retention.
+    /// A rotated workspace may receive the owned frontier if its immutable inventory agrees.
+    /// # Errors
+    /// Changed context, invalid math, resource limits or retryable cancellation.
+    pub fn complete_modeling_cancellable(
+        &mut self,
+        frontier: ModelingPreparationFrontier,
+        cancel: Arc<AtomicBool>,
+    ) -> Result<PreparedModeling> {
+        if cancel.load(Ordering::Acquire) {
+            return Err(CompileError::Cancelled);
+        }
+        self.db.cancel = cancel;
+        // Completion consumes immutable owned instructions. Allocation owners may
+        // contain interior accounting state, but cancellation cannot expose a partly
+        // constructed product; non-cancellation panics are rethrown by Salsa.
+        let result = salsa::Cancelled::catch(std::panic::AssertUnwindSafe(|| {
+            checkpoint(&self.db);
+            let providers = self.inventory.providers(&self.db);
+            if frontier.physical
+                != physical_identity(
+                    self.inventory.quantities(&self.db),
+                    self.inventory.preconditions(&self.db),
+                )
+                || frontier.environment != *self.inventory.environment(&self.db)
+                || frontier.providers.len() != providers.len()
+                || !frontier.providers.iter().all(|(name, identity)| {
+                    providers.get(name).is_some_and(|provider| {
+                        *identity == (provider.descriptor.spec().identity(), provider.output)
+                    })
+                })
+            {
+                return Err(CompileError::from(MathError::Contract(
+                    "modeling frontier has a different immutable compiler inventory".into(),
+                )));
+            }
+            let admitted = grouped::complete(&self.db, self.inventory, frontier.primary)?;
+            let original = frontier
+                .original
+                .map(|(projection, plan)| -> Result<_> {
+                    Ok((
+                        projection,
+                        grouped::complete(&self.db, self.inventory, plan)?.into(),
+                    ))
+                })
+                .transpose()?;
+            checkpoint(&self.db);
+            Ok(PreparedModeling {
+                semantic: frontier.semantic,
+                projection: frontier.projection,
+                original,
+                owned_implicit_view: None,
+                model: frontier.model.into(),
+                admitted: admitted.into(),
+            })
+        }))
+        .map_err(|_| compiler_cancelled(&self.db))?;
+        self.trim_queries()?;
+        result
+    }
+
+    /// Prepare the exact request through the same owned planning and completion route.
+    /// # Errors
+    /// Invalid semantics, physical admission, resource limits or cancellation.
+    pub fn prepare_modeling_cancellable(
+        &mut self,
+        root: DeclarationId,
+        instance: InstanceId,
+        bindings: Bindings,
+        limits: Limits,
+        cancel: Arc<AtomicBool>,
+    ) -> Result<PreparedModeling> {
+        let frontier =
+            self.plan_modeling_cancellable(root, instance, bindings, limits, cancel.clone())?;
+        self.complete_modeling_cancellable(frontier, cancel)
     }
 }
 

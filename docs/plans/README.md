@@ -5,7 +5,7 @@ progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
 [Plan 28: SurrealDB unified simulation substrate](28-surrealdb-unified-substrate.md) owns the
-confirmed hard-pivot target, accepted rule changes and US01–US05/EF01–EF08/F01–F05/PE01–PE06 dispositions.
+confirmed hard-pivot target, accepted rule changes and US01–US05/EF01–EF08/F01–F05/PE01–PE06/PA01–PA04 dispositions.
 Its [completion-audit reconciliation](28-surrealdb-unified-substrate.md#completion-audit-reconciliation-and-capability-decisions)
 links the current corrective route and SurrealDB capability research.
 The [current checkpoint](28-surrealdb-unified-substrate.md#current-checkpoint) also routes the
@@ -23,6 +23,17 @@ own canonical contention, temporary admission/native lifetimes, backend/deployme
 and concurrent ordinary studies. [28e's restart/acceptance route](28e-rebuild-retirement-and-qualification.md#parallel-extension-acceptance-and-campaign-restart)
 keeps the campaign pause and links the required correction evidence. Consult the coordinator's
 checkpoint for the next executable package rather than treating this index as a status ledger.
+The [preparation assurance and reuse review](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md)
+investigates the prolonged Python preparation path and related consumers. Its
+[coordinator route](28-surrealdb-unified-substrate.md#preparation-assurance-and-reuse-review)
+owns PA01–PA04 and the unresolved runtime/scientific premises. The maintainer accepted
+RC01–RC04 on 2026-10-08; [28i](28i-runtime-validity-and-interruption.md) develops receiving
+validity/interruption and [28j](28j-pure-preparation-and-publication.md) develops pure
+preparation/explicit publication. Their selected implementation and required consumer
+integration are the current authorized scope; the coordinator checkpoint owns progress
+and the boundary before remaining Plan 28 work.
+The [preparation acceptance route](28e-rebuild-retirement-and-qualification.md#preparation-acceptance-and-investigation-handoff)
+keeps future correction evidence separate from the narrowed failure-only continuation.
 Its A–E companions develop canonical revisions, selected compilation/reuse, durable execution,
 connected native queries/Arrow, and rebuild/retirement/qualification. Added
 [28f](28f-shared-numerical-preparation.md), [28g](28g-bulk-data-operations.md) and
@@ -34,7 +45,20 @@ owns assembled target qualification and adoption of the applicable remaining sci
 campaign obligations from 25k/27. Earlier evidence and scientific finding dispositions keep
 their original owners; obsolete storage qualification is not a pivot prerequisite.
 
-[Plan 29: Agent workspace effectiveness](29-agent-workspace-effectiveness.md) is done (2026-10-07): every command runs through `scripts/pse-env` (environment, capped scopes in `pse.slice`), with effect-based canonical test scheduling, composable selection (`just affected`), run logs and preflight, and compact agent instructions with mechanics in [the agent environment guide](../dev/agent-environment.md). Its Outcome records the evidence; AE-26 (shared-server throughput) awaits a maintainer decision and AE-25 routes to 28e.
+[Plan 29: Agent workspace effectiveness](29-agent-workspace-effectiveness.md) is done (2026-10-07): every command runs through `scripts/pse-env` (environment, capped scopes in `pse.slice`), with effect-based canonical test scheduling, composable selection (`just affected`), run logs and preflight, and compact agent instructions with mechanics in [the agent environment guide](../dev/agent-environment.md). Its Outcome records the historical evidence; the prospective AE-25/AE-26 follow-ups now route to Plan 30.
+
+[Plan 30: WebSocket RPC and the persistent agent environment](30-websocket-and-persistent-agent-environment.md)
+integrates the [review](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md)
+and all six operator-confirmed rule changes. Its [dispositions](30-websocket-and-persistent-agent-environment.md#finding-dispositions)
+own WP01–WP08 and the prospective AE-25/AE-26 follow-ups. Companions
+[30a](30a-native-websocket-rpc-and-operation-lifetimes.md),
+[30b](30b-persistent-services-and-receiver-generations.md),
+[30c](30c-test-ownership-and-evidence-retention.md) and
+[30d](30d-host-admission-and-timing-qualification.md) develop RPC lifetimes, service/receiver
+generations, test isolation/retention and host admission/timing. The series is authored
+at Proposed strength; its [checkpoint](30-websocket-and-persistent-agent-environment.md#authoring-checkpoint)
+owns the next prerequisite route when production execution is authorized. The existing
+failing-test repair and paused Plan 28 E4/E5 campaign retain their current boundaries.
 
 [Plan 25](25-design-remediation.md) coordinates remediation of the domain-alignment reviews
 and the later full-case compilation/solver-routing review. Its companion plans describe the target contracts,

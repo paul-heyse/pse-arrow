@@ -87,9 +87,17 @@ checked around construction. The callback cannot import code, wait for a loader 
 perform asynchronous work or invoke caller/provider callbacks. Panic containment keeps
 unwinding out of the C boundary. The owning executable/imported module TLS is
 materialized before taking the loader write lock; construction touches no newly loaded
-module TLS. Every retained retrieval revalidates its originating admission; qualified
-body-cache entries are separated by that opaque producer identity, and stale admission
-cannot qualify a fresh fill.
+module TLS. The maintainer accepted preparation RC01–RC04 on 2026-10-08.
+Receiving qualification belongs to an actual persisted acquisition or new eligible
+publication, followed by independent immutable mathematical products in the initialized
+process symbol universe. Pure memory retrieval consumes complete scientific identity,
+not a repeated observation of the originating whole executable closure. Compatible
+symbol registration is append-only; reserved PSE symbols reject incompatible prior
+attributes and callbacks, and resetting the universe with live products is prohibited.
+Stable active mathematical implementation remains a controlled-root premise; unmanaged
+interposition, executable-map mutation and callback-bearing reconstruction confer no
+local eligibility. The revised local namespace and runtime envelope are versioned;
+historical descriptions never acquire the new guarantee by reinterpretation.
 Reconstruction produces immutable mathematics and provider descriptions, with no loaded
 provider handles; later evaluator/native use retains its separate scientific admission
 and managed-generation lifetime. No long-lived cache object holds the loader lock.
@@ -98,6 +106,23 @@ loaders and unknown consumed configuration refuse reuse. Direct executable-map m
 concurrent configuration mutation and arbitrary privileged file writes are outside this
 controlled profile and require readmission. Ordinary scientific admission and history
 remain available after any refusal.
+
+Complete exact preparation products retain specialization, projections, admitted bodies
+and original scientific obligations under selected source/dependency versions, actual
+instance, structural bindings, limits and consumed physical/provider interpretations.
+Numerical case values bind later; each use constructs fresh current lineage and source
+metadata. A pure owned frontier exposes known compiler-sealed requests before explicit
+persisted acquisition; completion consumes the same frontier without another specialization.
+Tracked mathematical queries perform no host observation, store request or publication.
+Immutable basis and encoded-description retention use existing bounded owners and flights.
+
+Every consumer rechecks its own selection and any acquisition dependency delta, then
+explicitly settles each exact original description under the canonical retention guard.
+An existing rooted acknowledgment preserves its original provenance and can settle after
+protection expiry without new admission. Only absent acknowledgment requiring new eligible
+publication obtains current producer admission; original provenance is not permission.
+New admission requires live protection. Cancellation and retries consume the original
+operation clock, and shared work retains charges through actual completion/drain.
 
 The scoped loader premise is supported by the glibc 2.39
 [iteration](https://github.com/bminor/glibc/blob/glibc-2.39/elf/dl-iteratephdr.c),

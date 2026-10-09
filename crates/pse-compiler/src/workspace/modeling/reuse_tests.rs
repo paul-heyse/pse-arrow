@@ -271,3 +271,352 @@ fn foreign_retention_cannot_supply_a_body_for_another_dependency_closure() {
         "foreign cache refusal is not memoized as admitted mathematics"
     );
 }
+
+fn plan_frontier(
+    workspace: &mut CompilerWorkspace,
+    root: DeclarationId,
+) -> ModelingPreparationFrontier {
+    workspace
+        .plan_modeling_cancellable(
+            root,
+            InstanceId::from_id(SemanticId::NIL),
+            Bindings::default(),
+            Limits::default(),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap()
+}
+
+fn publish_frontier_source(workspace: &mut CompilerWorkspace, text: &str) -> DeclarationId {
+    let declarations = rows(text);
+    let root = declarations
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    workspace
+        .publish_modeling(declarations, PhysicalScope::default())
+        .unwrap();
+    root
+}
+
+fn counting_frontier_workspace(executions: Arc<AtomicUsize>) -> CompilerWorkspace {
+    CompilerWorkspace::with_events(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+        Some(Box::new(move |event: salsa::Event| {
+            let event = format!("{:?}", event.kind);
+            if event.contains("WillExecute") && event.contains("semantic_body") {
+                executions.fetch_add(1, Ordering::Relaxed);
+            }
+        })),
+    )
+    .unwrap()
+}
+
+#[derive(Debug, Default)]
+struct PureFrontierRetention {
+    bodies: std::sync::Mutex<BTreeMap<pse_ids::roles::SemanticBodyHash, Arc<AdmittedBody>>>,
+    gets: AtomicUsize,
+    retains: AtomicUsize,
+}
+impl ModelingBodyRetention for PureFrontierRetention {
+    fn generation(&self) -> u64 {
+        0
+    }
+    fn get(
+        &self,
+        key: pse_ids::roles::SemanticBodyHash,
+    ) -> std::result::Result<Option<Arc<AdmittedBody>>, MathError> {
+        self.gets.fetch_add(1, Ordering::Relaxed);
+        Ok(self.bodies.lock().unwrap().get(&key).cloned())
+    }
+    fn retain(
+        &self,
+        _: u64,
+        key: pse_ids::roles::SemanticBodyHash,
+        body: Arc<AdmittedBody>,
+    ) -> std::result::Result<Arc<AdmittedBody>, MathError> {
+        self.retains.fetch_add(1, Ordering::Relaxed);
+        self.bodies.lock().unwrap().insert(key, body.clone());
+        Ok(body)
+    }
+}
+
+#[test]
+fn owned_frontier_plans_before_body_retention_and_completes_the_same_requests() {
+    let executions = Arc::new(AtomicUsize::new(0));
+    let retention = Arc::new(PureFrontierRetention::default());
+    let mut workspace = counting_frontier_workspace(executions.clone());
+    workspace.attach_body_retention(retention.clone()).unwrap();
+    let root = publish_frontier_source(
+        &mut workspace,
+        "package p { def Root { var x:Scalar; eq a:x*x==1; eq b:x==2; } }",
+    );
+    let frontier = plan_frontier(&mut workspace, root);
+    let requests = frontier.body_requests().collect::<BTreeSet<_>>();
+    assert!(!requests.is_empty());
+    assert!(frontier.retained_bytes() > 0);
+    assert_eq!(executions.load(Ordering::Relaxed), 0);
+    assert_eq!(retention.gets.load(Ordering::Relaxed), 0);
+    assert_eq!(retention.retains.load(Ordering::Relaxed), 0);
+    let completed = workspace
+        .complete_modeling_cancellable(frontier.clone(), Arc::new(AtomicBool::new(false)))
+        .unwrap();
+    let identities = completed
+        .portable_bodies()
+        .map(|body| body.semantic_identity().unwrap())
+        .collect::<BTreeSet<_>>();
+    assert_eq!(identities, requests);
+    assert_eq!(executions.load(Ordering::Relaxed), requests.len());
+    assert_eq!(retention.retains.load(Ordering::Relaxed), requests.len());
+    let again = workspace
+        .complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false)))
+        .unwrap();
+    assert_eq!(again.admitted.case(), completed.admitted.case());
+    assert_eq!(again.portable_bodies().count(), requests.len());
+    assert_eq!(
+        executions.load(Ordering::Relaxed),
+        requests.len(),
+        "body memos hit without losing the portable inventory"
+    );
+    let ordinary = workspace
+        .admit_modeling(
+            root,
+            InstanceId::from_id(SemanticId::NIL),
+            Bindings::default(),
+            Limits::default(),
+        )
+        .unwrap();
+    assert_eq!(ordinary.as_ref(), completed.admitted.as_ref());
+}
+
+#[test]
+fn owned_frontier_survives_rotation_and_completion_in_an_independent_workspace() {
+    let mut source = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let root = publish_frontier_source(
+        &mut source,
+        "package p { def Root { var x:Scalar; eq a:x*x==1; } }",
+    );
+    let frontier = plan_frontier(&mut source, root);
+    let reference = source
+        .complete_modeling_cancellable(frontier.clone(), Arc::new(AtomicBool::new(false)))
+        .unwrap();
+    let retention = Arc::new(PureFrontierRetention::default());
+    for body in reference.portable_bodies() {
+        retention
+            .bodies
+            .lock()
+            .unwrap()
+            .insert(body.semantic_identity().unwrap(), body.clone());
+    }
+    let generation = source.generation();
+    source.rebuild(source.inputs.clone()).unwrap();
+    assert!(source.generation() > generation);
+    drop(source);
+    let mut receiver = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    receiver.attach_body_retention(retention.clone()).unwrap();
+    let completed = receiver
+        .complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false)))
+        .unwrap();
+    assert!(
+        receiver.modeling.is_none(),
+        "completion does not specialize a receiving catalog"
+    );
+    assert_eq!(completed.admitted.as_ref(), reference.admitted.as_ref());
+    assert_eq!(
+        retention.gets.load(Ordering::Relaxed),
+        completed.portable_bodies().count()
+    );
+    assert_eq!(
+        retention.retains.load(Ordering::Relaxed),
+        0,
+        "qualified owned bodies supply pure completion"
+    );
+    for body in completed.portable_bodies() {
+        assert!(
+            reference
+                .portable_bodies()
+                .any(|old| Arc::ptr_eq(old, body))
+        );
+    }
+    drop(receiver);
+    drop(retention);
+    drop(reference);
+    assert!(completed.retained_bytes() > 0);
+    assert!(!completed.admitted.case().instances().is_empty());
+    assert!(!completed.model.symbols.is_empty());
+}
+
+#[test]
+fn owned_frontier_inventory_includes_promoted_original_and_retains_direct_implicit_bodies() {
+    let executions = Arc::new(AtomicUsize::new(0));
+    let mut workspace = counting_frontier_workspace(executions.clone());
+    let root = publish_frontier_source(
+        &mut workspace,
+        "package p { def Root { param p:Scalar=2; implicit a { var selected_value:Scalar; eq selected:selected_value==p; annotation start selected_value(1); annotation bounds selected_value(0,4); } realize ra on a using nested; var y:Scalar; eq e:y==a.selected_value; } }",
+    );
+    let frontier = plan_frontier(&mut workspace, root);
+    let requests = frontier.body_requests().collect::<BTreeSet<_>>();
+    assert_eq!(
+        executions.load(Ordering::Relaxed),
+        0,
+        "only existing direct implicit admission occurs during planning"
+    );
+    let completed = workspace
+        .complete_modeling_cancellable(frontier.clone(), Arc::new(AtomicBool::new(false)))
+        .unwrap();
+    let original = completed.original_equations().unwrap();
+    let primary = completed
+        .admitted
+        .bodies
+        .values()
+        .map(|body| body.semantic_identity().unwrap())
+        .collect::<BTreeSet<_>>();
+    let original_ids = original
+        .admitted
+        .bodies
+        .values()
+        .map(|body| body.semantic_identity().unwrap())
+        .collect::<BTreeSet<_>>();
+    assert!(
+        original_ids
+            .iter()
+            .any(|identity| !primary.contains(identity)),
+        "original equations have their own requested bodies"
+    );
+    assert_eq!(requests, primary.union(&original_ids).copied().collect());
+    assert_eq!(
+        requests,
+        completed
+            .portable_bodies()
+            .map(|body| body.semantic_identity().unwrap())
+            .collect()
+    );
+    assert_eq!(requests.len(), completed.portable_bodies().count());
+    let supplier = completed.admitted.implicit_systems().next().unwrap();
+    assert!(supplier.retained_bytes() > 0);
+    assert!(
+        supplier
+            .bodies()
+            .all(|body| body.semantic_identity().is_none()),
+        "direct residuals have no fabricated semantic portability identity"
+    );
+    let executed = executions.load(Ordering::Relaxed);
+    let again = workspace
+        .complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false)))
+        .unwrap();
+    assert_eq!(again.portable_bodies().count(), requests.len());
+    assert_eq!(executions.load(Ordering::Relaxed), executed);
+    assert_eq!(
+        again.original_equations().unwrap().admitted.as_ref(),
+        original.admitted.as_ref()
+    );
+}
+
+#[test]
+fn owned_frontier_completion_refuses_changed_inventory_and_cancellation_is_retryable() {
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let root = publish_frontier_source(
+        &mut workspace,
+        "package p { def Root { var x:Scalar; eq a:x*x==1; } }",
+    );
+    let frontier = plan_frontier(&mut workspace, root);
+    assert!(matches!(
+        workspace.complete_modeling_cancellable(frontier.clone(), Arc::new(AtomicBool::new(true))),
+        Err(CompileError::Cancelled)
+    ));
+    workspace
+        .complete_modeling_cancellable(frontier.clone(), Arc::new(AtomicBool::new(false)))
+        .unwrap();
+    let mut changed = workspace.inputs.clone();
+    let mut physical = changed.quantities.to_builder();
+    physical.entity_kind(pse_quantity::EntityKind {
+        id: pse_quantity::EntityKindId::from_id(SemanticId::from_bytes([243; 16])),
+        name: "frontier_other_kind".into(),
+    });
+    changed.quantities = Arc::new(physical.build().unwrap());
+    let mut receiver = CompilerWorkspace::new(changed, WorkspaceLimits::default()).unwrap();
+    let error = receiver
+        .complete_modeling_cancellable(frontier.clone(), Arc::new(AtomicBool::new(false)))
+        .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("different immutable compiler inventory")
+    );
+    workspace
+        .inventory
+        .set_environment(&mut workspace.db)
+        .to(ContentHash::from_bytes([255; 32]));
+    let error = workspace
+        .complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false)))
+        .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("different immutable compiler inventory")
+    );
+}
+
+#[derive(Debug)]
+struct RefuseFrontierLookupOnce(AtomicBool);
+impl ModelingBodyRetention for RefuseFrontierLookupOnce {
+    fn generation(&self) -> u64 {
+        0
+    }
+    fn get(
+        &self,
+        _: pse_ids::roles::SemanticBodyHash,
+    ) -> std::result::Result<Option<Arc<AdmittedBody>>, MathError> {
+        if self.0.swap(false, Ordering::Relaxed) {
+            Err(MathError::Contract("transient pure lookup refusal".into()))
+        } else {
+            Ok(None)
+        }
+    }
+    fn retain(
+        &self,
+        _: u64,
+        _: pse_ids::roles::SemanticBodyHash,
+        body: Arc<AdmittedBody>,
+    ) -> std::result::Result<Arc<AdmittedBody>, MathError> {
+        Ok(body)
+    }
+}
+
+#[test]
+fn owned_frontier_retries_the_same_request_after_a_pure_retention_lookup_refusal() {
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    workspace
+        .attach_body_retention(Arc::new(RefuseFrontierLookupOnce(AtomicBool::new(true))))
+        .unwrap();
+    let root = publish_frontier_source(
+        &mut workspace,
+        "package p { def Root { var x:Scalar; eq a:x*x==1; } }",
+    );
+    let frontier = plan_frontier(&mut workspace, root);
+    let error = workspace
+        .complete_modeling_cancellable(frontier.clone(), Arc::new(AtomicBool::new(false)))
+        .unwrap_err();
+    assert!(error.to_string().contains("transient pure lookup refusal"));
+    workspace
+        .complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false)))
+        .unwrap();
+}

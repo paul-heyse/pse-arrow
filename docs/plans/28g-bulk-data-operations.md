@@ -40,7 +40,12 @@ owning declarations, never independently maintained magic constants in each cons
 
 Retain the existing initial limits: a self-contained scientific IPC block is at most
 512 KiB, execution metadata uses the existing 128 KiB allowance, and the selected transport
-profile caps gRPC messages at 4 MiB. Apply the metadata allowance to each append's derived
+profile initially caps gRPC messages at 4 MiB. The prospective native WS wire budget and
+completed-response bounds are owned by [30a](30a-native-websocket-rpc-and-operation-lifetimes.md#bounded-realization-and-completed-reads);
+protobuf accounting is not a proof of native-frame extent. T/D consumers migrate with
+that adapter, retaining IPC/metadata declarations and exact effect units rather than
+introducing another transport policy. Existing encoded-bound receipts remain gRPC evidence.
+Apply the metadata allowance to each append's derived
 index/descriptor envelope. Account for complete encoded request overhead and decoded/live
 extent independently. A caller may request a lower admitted extent; exceeding the generated
 server ceiling requires a deliberate interpretation/profile change, not a local bypass.

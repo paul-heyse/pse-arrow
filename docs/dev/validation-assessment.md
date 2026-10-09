@@ -18,6 +18,15 @@ rhythm*). It is not a prerequisite for a commit, push, merge or plan close. Duri
 implementation, use `just check-package`, targeted `just unit-package` and `just codegen`.
 The failure baseline is zero. A report names the command, mode, scope and result.
 
+For current development, the maintainer selected a ±10% relative allowance on
+2026-10-08 when assessing final results against historical IDAES/reference values.
+The authored `numerical_policy.historical_reference_relative` constant owns this
+allowance. Historical values are comparison evidence, not proof that the earlier
+solver was more accurate. Zero-reference comparisons retain their explicit absolute
+allowance. This criterion does not change ordinary engineering solver stopping
+budgets, physical feasibility checks or conservation checks. Accuracy qualification
+beyond this development criterion remains separate work.
+
 During design, dependency, toolchain, environment and artifact fingerprints are provenance,
 not automatic grounds to invalidate an earlier result or require a new artifact qualification.
 Use the development profile by default and run targeted tests for changed behavior. Cargo may

@@ -357,6 +357,7 @@ impl ModelingResult {
                 Arc::new(receipt),
                 self._native_owner.clone(),
             )),
+            _projection_owner: None,
             root: self.root_predictor(),
         })
     }
@@ -1918,6 +1919,8 @@ pub(crate) struct PredictionSample {
     pub(crate) prepared: ModelingSolvePreparation,
     pub(crate) runtime: Runtime,
     pub(crate) point: Arc<pse_columnar::Leased<PortablePrediction>>,
+    /// Additional source-valued projections made while reopening a portable point.
+    pub(crate) _projection_owner: Option<Arc<pse_columnar::AllocationLease>>,
     pub(crate) root: Result<
         pse_backend_native::square_response::SparsePredictor,
         pse_backend_native::square_response::Withheld,

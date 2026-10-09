@@ -129,7 +129,7 @@ impl FlowGraph {
             // DFS/SCC/toposort stacks, visit/order maps and cycle result.
             (
                 add(nodes, connections)?,
-                8 * size_of::<usize>() + size_of::<SemanticId>(),
+                size_of::<[usize; 8]>() + size_of::<SemanticId>(),
             ),
         ] {
             bytes = add(bytes, vector(count, width)?)?;
@@ -269,11 +269,11 @@ impl FlowGraph {
             .len()
             .checked_mul(2)
             .and_then(|n| n.checked_add(4))
-            .and_then(|n| n.checked_mul(8 * size_of::<usize>() + 2 * size_of::<Vec<usize>>()))
+            .and_then(|n| n.checked_mul(size_of::<[usize; 8]>() + 2 * size_of::<Vec<usize>>()))
             .and_then(|n| {
                 d.connections
                     .len()
-                    .checked_mul(8 * size_of::<usize>())
+                    .checked_mul(size_of::<[usize; 8]>())
                     .and_then(|e| n.checked_add(e))
             })
             .and_then(|n| n.checked_add(base))

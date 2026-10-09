@@ -21,9 +21,9 @@ use std::sync::{
     mpsc,
 };
 
-#[cfg(any(test, feature = "canonical-tests"))]
+#[cfg(any(all(test, feature = "native-solvers"), feature = "canonical-tests"))]
 type NativeEntry = Arc<dyn Fn(&AtomicBool) + Send + Sync>;
-#[cfg(any(test, feature = "canonical-tests"))]
+#[cfg(any(all(test, feature = "native-solvers"), feature = "canonical-tests"))]
 tokio::task_local! { static NATIVE_ENTRY: NativeEntry; }
 #[cfg(feature = "canonical-tests")]
 static RECEIVER_ENTRY: std::sync::OnceLock<NativeEntry> = std::sync::OnceLock::new();
@@ -43,8 +43,15 @@ pub fn install_qualified_native_entry(
 }
 /// Observe actual admitted native session entries for composition controls. The
 /// callback crosses into the owner thread; it must cooperate with the stop flag.
-#[cfg(any(test, feature = "canonical-tests"))]
+#[cfg(any(all(test, feature = "native-solvers"), feature = "canonical-tests"))]
 #[doc(hidden)]
+#[cfg_attr(
+    not(feature = "canonical-tests"),
+    allow(
+        unreachable_pub,
+        reason = "the same observer is publicly re-exported only for canonical qualification controllers"
+    )
+)]
 pub async fn observed_native_entry<T>(observer: NativeEntry, work: impl Future<Output = T>) -> T {
     NATIVE_ENTRY.scope(observer, work).await
 }
@@ -649,7 +656,7 @@ impl NativeSession {
             permits,
             tokio::runtime::Handle::current(),
         );
-        #[cfg(any(test, feature = "canonical-tests"))]
+        #[cfg(any(all(test, feature = "native-solvers"), feature = "canonical-tests"))]
         let entry = NATIVE_ENTRY.try_with(Arc::clone).ok();
         #[cfg(feature = "canonical-tests")]
         let entry = entry.or_else(|| RECEIVER_ENTRY.get().cloned());
@@ -660,7 +667,10 @@ impl NativeSession {
                 let outcome = execution::compute_scoped(Box::new(compute), || match retained {
                     Ok(retained) => {
                         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                            #[cfg(any(test, feature = "canonical-tests"))]
+                            #[cfg(any(
+                                all(test, feature = "native-solvers"),
+                                feature = "canonical-tests"
+                            ))]
                             if let Some(entry) = entry {
                                 entry(&flag);
                             }

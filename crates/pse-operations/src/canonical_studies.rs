@@ -4,7 +4,7 @@
 //! Bounded occurrence storage and scoped decisions over the canonical substrate.
 
 use crate::{
-    canonical::{CanonicalError, CanonicalStore, bounded_query, protected_query},
+    canonical::{CanonicalError, CanonicalStore, REQUEST_TIMEOUT, bounded_query},
     canonical_codec as codec,
     canonical_execution::{AttemptFence, RunRequest, execution_attempt_key},
     generated::surreal as wire,
@@ -20,6 +20,7 @@ use pse_model::study::{
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
     collections::{BTreeMap, BTreeSet},
+    future::IntoFuture,
     time::Duration,
 };
 use surrealdb::types::{Bytes, Object, Value};
@@ -363,6 +364,37 @@ fn creation_observed(boundary: CreationBoundary) {
 }
 
 impl CanonicalStore {
+    /// Study-only decisions join the same immutable problem owner as execution.
+    /// This narrow lookup is pacing metadata; server predicates remain authority.
+    async fn protected_study_query<F, Q>(
+        &self,
+        study: &str,
+        operation: &'static str,
+        build: F,
+    ) -> Result<surrealdb::IndexedResults, CanonicalError>
+    where
+        F: FnMut() -> Result<Q, CanonicalError>,
+        Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
+    {
+        tokio::time::timeout(REQUEST_TIMEOUT, async {
+            let mut response = bounded_query(
+                self.db
+                    .query("SELECT run FROM ONLY type::record('canonical_studies',$study);")
+                    .bind(("study", study.to_owned())),
+            )
+            .await?;
+            let mut row = response
+                .take::<Option<Object>>(0)?
+                .ok_or(CanonicalError::IncompleteResponse)?;
+            let run = codec::decode_string(
+                row.remove("run")
+                    .ok_or(CanonicalError::IncompleteResponse)?,
+            )?;
+            self.protected_execution_query(&run, operation, build).await
+        })
+        .await
+        .map_err(|_| CanonicalError::Timeout)?
+    }
     /// Store admitted definitions in bounded batches, then atomically activate complete
     /// membership. Retrying exact identities settles ingestion without executing science.
     /// The narrow caller probe introduces no runtime or data-boundary dependency.
@@ -435,7 +467,7 @@ impl CanonicalStore {
         }
         let object = wire::encode_canonical_studies(&row)?;
         self.ensure_writes()?;
-        protected_query("canonical_studies::create_study", || {
+        self.protected_query(&row.problem, "canonical_studies::create_study", || {
             Ok(self
                 .db
                 .query("RETURN fn::pse_study_v1::create($row);")
@@ -615,13 +647,14 @@ impl CanonicalStore {
     }
 
     async fn send_study_activation(&self, key: &str) -> Result<Study, CanonicalError> {
-        let mut response = protected_query("canonical_studies::send_study_activation", || {
-            Ok(self
-                .db
-                .query("RETURN fn::pse_study_v1::activate($study);")
-                .bind(("study", key.to_owned())))
-        })
-        .await?;
+        let mut response = self
+            .protected_study_query(key, "canonical_studies::send_study_activation", || {
+                Ok(self
+                    .db
+                    .query("RETURN fn::pse_study_v1::activate($study);")
+                    .bind(("study", key.to_owned())))
+            })
+            .await?;
         Ok(wire::decode_canonical_studies(
             response
                 .take::<Option<Object>>(0)?
@@ -680,7 +713,7 @@ impl CanonicalStore {
         points: &[Object],
         edges: &[Object],
     ) -> Result<(), CanonicalError> {
-        protected_query("canonical_studies::append_study_batch", || {
+        self.protected_study_query(study, "canonical_studies::append_study_batch", || {
             Ok(self
                 .db
                 .query("RETURN fn::pse_study_v1::append($study,$points,$edges);")
@@ -855,7 +888,7 @@ impl CanonicalStore {
             wire::INTERPRETATION,
         ))?;
         self.ensure_writes()?;
-        let response=protected_query("canonical_studies::claim_study_point", ||Ok(self.db.query("RETURN fn::pse_study_v1::claim($study,$generation,$point,$expected,$start,$operation,$request,$claim_request,$attempt,$worker,$lifetime,$facts);").bind(("study",scope.study.clone())).bind(("generation",codec::encode_uint(scope.generation)?)).bind(("point",scope.point.key.clone())).bind(("expected",expected.clone())).bind(("start",Bytes::from(start_bytes.clone()))).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("claim_request",Bytes::from(claim_request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)).bind(("facts",Bytes::from(facts.clone()))))).await;
+        let response=self.protected_execution_query(&scope.point.run, "canonical_studies::claim_study_point", ||Ok(self.db.query("RETURN fn::pse_study_v1::claim($study,$generation,$point,$expected,$start,$operation,$request,$claim_request,$attempt,$worker,$lifetime,$facts);").bind(("study",scope.study.clone())).bind(("generation",codec::encode_uint(scope.generation)?)).bind(("point",scope.point.key.clone())).bind(("expected",expected.clone())).bind(("start",Bytes::from(start_bytes.clone()))).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("claim_request",Bytes::from(claim_request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)).bind(("facts",Bytes::from(facts.clone()))))).await;
         let response = response.and_then(|mut response| {
             Ok(wire::decode_canonical_attempts(
                 response
@@ -976,7 +1009,7 @@ impl CanonicalStore {
         let facts = encode(&facts)?;
         let outcome = encode(&outcome)?;
         self.ensure_writes()?;
-        let mut result=protected_query("canonical_studies::refuse_study_point", ||Ok(self.db.query("RETURN fn::pse_study_v1::settle($study,$generation,$cancelled,$point,$expected,$facts,$outcome);").bind(("study",scope.study.clone())).bind(("generation",codec::encode_uint(scope.generation)?)).bind(("cancelled",scope.cancelled)).bind(("point",scope.point.key.clone())).bind(("expected",expected.clone())).bind(("facts",Bytes::from(facts.clone()))).bind(("outcome",Bytes::from(outcome.clone()))))).await?;
+        let mut result=self.protected_execution_query(&scope.point.run, "canonical_studies::refuse_study_point", ||Ok(self.db.query("RETURN fn::pse_study_v1::settle($study,$generation,$cancelled,$point,$expected,$facts,$outcome);").bind(("study",scope.study.clone())).bind(("generation",codec::encode_uint(scope.generation)?)).bind(("cancelled",scope.cancelled)).bind(("point",scope.point.key.clone())).bind(("expected",expected.clone())).bind(("facts",Bytes::from(facts.clone()))).bind(("outcome",Bytes::from(outcome.clone()))))).await?;
         Ok(wire::decode_canonical_study_points(
             result
                 .take::<Option<Object>>(0)?
@@ -1001,7 +1034,7 @@ impl CanonicalStore {
         admission: &StudyDispatchAdmission<'_>,
     ) -> Result<StudyPoint, CanonicalError> {
         let claim = admission.claim;
-        let result=protected_query("canonical_studies::send_study_started", ||Ok(self.db.query("RETURN fn::pse_study_v1::started($study,$point,$revision,$run,$attempt,$generation,$operation,$request,$facts);").bind(("study",claim.point.study.clone())).bind(("point",claim.point.key.clone())).bind(("revision",codec::encode_uint(claim.point.revision)?)).bind(("run",claim.fence.run().to_owned())).bind(("attempt",claim.fence.attempt().to_owned())).bind(("generation",codec::encode_uint(claim.fence.generation())?)).bind(("operation",admission.operation.clone())).bind(("request",Bytes::from(admission.request.clone()))).bind(("facts",Bytes::from(admission.facts.clone()))))).await;
+        let result=self.protected_execution_query(claim.fence.run(), "canonical_studies::send_study_started", ||Ok(self.db.query("RETURN fn::pse_study_v1::started($study,$point,$revision,$run,$attempt,$generation,$operation,$request,$facts);").bind(("study",claim.point.study.clone())).bind(("point",claim.point.key.clone())).bind(("revision",codec::encode_uint(claim.point.revision)?)).bind(("run",claim.fence.run().to_owned())).bind(("attempt",claim.fence.attempt().to_owned())).bind(("generation",codec::encode_uint(claim.fence.generation())?)).bind(("operation",admission.operation.clone())).bind(("request",Bytes::from(admission.request.clone()))).bind(("facts",Bytes::from(admission.facts.clone()))))).await;
         let mut result = result?;
         Ok(wire::decode_canonical_study_points(
             result
@@ -1039,7 +1072,7 @@ impl CanonicalStore {
                 }
                 // Fence the readback against cancellation, replacement and expiry;
                 // do not repeat the start transition or authorize another dispatch.
-                let mut response = protected_query("canonical_studies::finish_study_started", || Ok(self.db.query(
+                let mut response = self.protected_execution_query(claim.fence.run(), "canonical_studies::finish_study_started", || Ok(self.db.query(
                     "BEGIN; fn::pse_execution_v1::fence($run,$attempt,$generation); SELECT * FROM ONLY type::record('canonical_study_points',$point); COMMIT;"
                 ).bind(("run", claim.fence.run().to_owned()))
                     .bind(("attempt", claim.fence.attempt().to_owned()))
@@ -1122,7 +1155,7 @@ impl CanonicalStore {
             wire::INTERPRETATION,
         ))?;
         self.ensure_writes()?;
-        let result=protected_query("canonical_studies::begin_study_finalization", ||Ok(self.db.query("RETURN fn::pse_study_v1::finalize($study,$operation,$request,$attempt,$worker,$lifetime);").bind(("study",study.key.clone())).bind(("operation",operation.clone())).bind(("request",Bytes::from(request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)))).await;
+        let result=self.protected_execution_query(&study.run, "canonical_studies::begin_study_finalization", ||Ok(self.db.query("RETURN fn::pse_study_v1::finalize($study,$operation,$request,$attempt,$worker,$lifetime);").bind(("study",study.key.clone())).bind(("operation",operation.clone())).bind(("request",Bytes::from(request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)))).await;
         let result = result.and_then(|mut result| {
             result
                 .take::<Option<Object>>(0)?
@@ -1202,7 +1235,7 @@ impl CanonicalStore {
         let outcome = encode(outcome)?;
         bounded(&outcome, 128 * 1024)?;
         self.ensure_writes()?;
-        let mut response=protected_query("canonical_studies::observe_study_point", ||Ok(self.db.query("RETURN fn::pse_study_v1::observe($point,$revision,$attempt,$facts,$outcome,$settled);").bind(("point",point.key.clone())).bind(("revision",codec::encode_uint(point.revision)?)).bind(("attempt",point.attempt.clone())).bind(("facts",Bytes::from(facts.clone()))).bind(("outcome",Bytes::from(outcome.clone()))).bind(("settled",settled)))).await?;
+        let mut response=self.protected_execution_query(&point.run, "canonical_studies::observe_study_point", ||Ok(self.db.query("RETURN fn::pse_study_v1::observe($point,$revision,$attempt,$facts,$outcome,$settled);").bind(("point",point.key.clone())).bind(("revision",codec::encode_uint(point.revision)?)).bind(("attempt",point.attempt.clone())).bind(("facts",Bytes::from(facts.clone()))).bind(("outcome",Bytes::from(outcome.clone()))).bind(("settled",settled)))).await?;
         Ok(wire::decode_canonical_study_points(
             response
                 .take::<Option<Object>>(0)?
@@ -1212,13 +1245,14 @@ impl CanonicalStore {
     /// Revoke future claims; supervisor still cancels/drains each assigned native attempt.
     pub async fn cancel_study(&self, key: &str) -> Result<Study, CanonicalError> {
         self.ensure_writes()?;
-        let result = protected_query("canonical_studies::cancel_study", || {
-            Ok(self
-                .db
-                .query("RETURN fn::pse_study_v1::cancel($study);")
-                .bind(("study", key.to_owned())))
-        })
-        .await;
+        let result = self
+            .protected_study_query(key, "canonical_studies::cancel_study", || {
+                Ok(self
+                    .db
+                    .query("RETURN fn::pse_study_v1::cancel($study);")
+                    .bind(("study", key.to_owned())))
+            })
+            .await;
         let response = result.and_then(|mut result| {
             Ok(wire::decode_canonical_studies(
                 result
@@ -1254,13 +1288,14 @@ impl CanonicalStore {
     /// Conclude only after native scoped observations settle every admitted occurrence.
     pub async fn conclude_study(&self, key: &str) -> Result<Study, CanonicalError> {
         self.ensure_writes()?;
-        let mut result = protected_query("canonical_studies::conclude_study", || {
-            Ok(self
-                .db
-                .query("RETURN fn::pse_study_v1::conclude($study);")
-                .bind(("study", key.to_owned())))
-        })
-        .await?;
+        let mut result = self
+            .protected_study_query(key, "canonical_studies::conclude_study", || {
+                Ok(self
+                    .db
+                    .query("RETURN fn::pse_study_v1::conclude($study);")
+                    .bind(("study", key.to_owned())))
+            })
+            .await?;
         Ok(wire::decode_canonical_studies(
             result
                 .take::<Option<Object>>(0)?
@@ -1418,6 +1453,195 @@ mod canonical_studies_server_unit {
                 .await
         }
         .unwrap()
+    }
+
+    #[tokio::test]
+    async fn canonical_studies_sixteen_sibling_retention_roundtrips_share_actual_study_guard() {
+        use crate::canonical_execution::decode_result_descriptors;
+        use std::sync::Arc;
+        let (store, database, revision) = fixture().await;
+        let points = (0..16)
+            .map(|key| occurrence(&revision, key, vec![]))
+            .collect::<Vec<_>>();
+        let study = store
+            .create_study(
+                "siblings",
+                &request(&revision, "parent-run"),
+                &[9],
+                &points,
+                &|| false,
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(study.active && !study.cancelled);
+        assert_eq!(study.point_count, 16);
+        let admission = Arc::new(tokio::sync::Barrier::new(16));
+        let retention = Arc::new(tokio::sync::Barrier::new(16));
+        let mut jobs = tokio::task::JoinSet::new();
+        for (index, point) in points.into_iter().enumerate() {
+            let store = store.clone();
+            let admission = admission.clone();
+            let retention = retention.clone();
+            jobs.spawn(async move {
+                admission.wait().await;
+                // Exact immutable run replay precedes the real study claim. Each
+                // sibling has its own run/attempt, but every fence and seal also
+                // touches the same actual study cancellation guard.
+                let run = store.begin_run(&point.run).await.unwrap();
+                assert_eq!(run.key, point.run.key);
+                let scope = store
+                    .study_scope(&point_key("siblings", point.policy.key))
+                    .await
+                    .unwrap();
+                let mut claim = store
+                    .claim_study_point(
+                        &scope,
+                        None,
+                        &format!("sibling-claim-{index}"),
+                        "worker",
+                        Duration::from_secs(60),
+                    )
+                    .await
+                    .unwrap();
+                claim.point = store.mark_study_started(&claim).await.unwrap();
+                assert!(point_facts(&claim.point).unwrap().native_started);
+                let temperatures = [
+                    273.15_f64, 278.15, 283.15, 288.15, 293.15, 298.15, 303.15, 308.15, 313.15,
+                    318.15, 323.15, 328.15, 333.15, 338.15, 343.15, 348.15,
+                ];
+                let original = temperatures[index].to_le_bytes();
+                store
+                    .append_result_batch(
+                        &claim.fence,
+                        &format!("sibling-batch-{index}"),
+                        "temperature_kelvin",
+                        0,
+                        &original,
+                        1,
+                    )
+                    .await
+                    .unwrap();
+                // All sixteen native starts and original observations exist before
+                // the complete short retention protocols compete on their shared guard.
+                retention.wait().await;
+                let closed = store
+                    .close_result_ingestion(&claim.fence, &format!("sibling-close-{index}"))
+                    .await
+                    .unwrap();
+                let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+                let descriptors = decode_result_descriptors(manifest.row()).unwrap();
+                assert_eq!(descriptors.len(), 1);
+                assert_eq!(descriptors[0].batch_count, 1);
+                assert_eq!(descriptors[0].row_count, 1);
+                // SAFETY: each synthetic scientific writer owns this occurrence's exact original observation and specified completion.
+                let attempt = unsafe {
+                    store
+                        .seal_attempt(
+                            &manifest,
+                            &format!("sibling-seal-{index}"),
+                            TerminalClass::Succeeded,
+                            &original,
+                        )
+                        .await
+                }
+                .unwrap();
+                assert_eq!(attempt.run, claim.point.run);
+                assert_eq!(attempt.outcome.as_deref(), Some("succeeded"));
+                let (mut facts, mut outcome) =
+                    observation(&claim.point, StudyPointState::Completed);
+                facts.effect = EffectState::Present;
+                outcome.effect = EffectState::Present;
+                // SAFETY: the exact just-sealed terminal receipt and retained original observation back this occurrence-owned settlement.
+                let settled = unsafe {
+                    store
+                        .observe_study_point(&claim.point, &facts, &outcome, true)
+                        .await
+                }
+                .unwrap();
+                assert!(settled.settled && !settled.assigned);
+                assert_eq!(settled.attempt.as_deref(), Some(claim.fence.attempt()));
+                assert_eq!(point_facts(&settled).unwrap().attempt_count, 1);
+                let read = store
+                    .read_results(
+                        &claim.point.run,
+                        claim.fence.attempt(),
+                        Duration::from_secs(60),
+                    )
+                    .await
+                    .unwrap();
+                let payload = store
+                    .result_payload(&read, &descriptors[0].key, 0)
+                    .await
+                    .unwrap();
+                assert_eq!(payload.batch.payload.as_slice(), original);
+                let kelvin =
+                    f64::from_le_bytes(payload.batch.payload.as_slice().try_into().unwrap());
+                assert!(
+                    (kelvin - 273.15 - f64::from(point.policy.key.0) * 5.0).abs() < 1e-12,
+                    "each sibling retains its independent physical temperature"
+                );
+                drop(payload);
+                drop(read);
+            });
+        }
+        while let Some(result) = jobs.join_next().await {
+            result.unwrap();
+        }
+        store.result_read_drain.drain().await.unwrap();
+        let settled = store.study_point_page("siblings", None).await.unwrap();
+        assert_eq!(settled.len(), 16);
+        assert!(settled.iter().all(|point| point.settled
+            && !point.assigned
+            && point.facts().unwrap().native_started));
+        let attempts = settled
+            .iter()
+            .map(|point| point.attempt.as_ref().unwrap())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            attempts.len(),
+            16,
+            "sibling results must name sixteen actual independent starts"
+        );
+        let summary =
+            StudySummary::from(&store.canonical_study("siblings").await.unwrap().unwrap());
+        let fence = store
+            .begin_study_finalization(&summary, "summary-worker", Duration::from_secs(60))
+            .await
+            .unwrap()
+            .unwrap();
+        let closed = store
+            .close_result_ingestion(&fence, "sibling-summary-close")
+            .await
+            .unwrap();
+        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        // SAFETY: the effect-free summary owns the sixteen actual settled synthetic observations checked above.
+        unsafe {
+            store
+                .seal_study_summary(
+                    "siblings",
+                    &manifest,
+                    "sibling-summary-seal",
+                    TerminalClass::Succeeded,
+                    b"sixteen settled original observations",
+                )
+                .await
+        }
+        .unwrap();
+        assert!(
+            store
+                .canonical_study("siblings")
+                .await
+                .unwrap()
+                .unwrap()
+                .terminal
+        );
+        store
+            .db
+            .query(format!("REMOVE DATABASE {database};"))
+            .await
+            .and_then(checked)
+            .unwrap();
     }
 
     #[tokio::test]

@@ -2,12 +2,13 @@
 // Copyright (c) 2026 Paul Heyse
 //! Two bounded owner-local physical products; native attempts never enter retention.
 use super::{Operations, PhysicalContext, PhysicalSource, Runtime, WorkflowError, contract};
+use crate::math::MathRuntimeError;
 use datafusion::execution::memory_pool::{MemoryConsumer, MemoryReservation};
 use pse_engine::cache_service::{CacheComponent, CacheEntryReport, CacheReport};
 use pse_operations::canonical::{CanonicalStore, ProtectedSelection, Revision};
 use std::sync::{
     Arc, Mutex,
-    atomic::{AtomicUsize, Ordering},
+    atomic::{AtomicU64, AtomicUsize, Ordering},
 };
 
 const RETAINED_BYTES: usize = 16 << 20;
@@ -60,12 +61,19 @@ pub(super) struct PhysicalRows {
     pub(super) revisions: Vec<Revision>,
     _owner: Arc<PhysicalOwner>,
 }
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(super) struct PhysicalCache {
     admission: Mutex<Option<Admission>>,
     rows: Mutex<Option<Rows>>,
     admission_fence: pse_columnar::retention::RetentionFence,
     rows_fence: pse_columnar::retention::RetentionFence,
+    /// Only identical live source admissions share parsing and immutable physical loading.
+    /// Native attempts and per-caller canonical protections remain outside the flight.
+    admission_flights:
+        pse_columnar::flight::Flights<PhysicalAdmissionKey, PhysicalContext, WorkflowError>,
+    /// Separates in-flight work across explicit retention clears without making concurrent
+    /// cache misses for the same source look like distinct admissions.
+    admission_epoch: AtomicU64,
     hits: AtomicUsize,
     misses: AtomicUsize,
     #[cfg(test)]
@@ -82,9 +90,85 @@ pub(super) struct PhysicalCache {
             tokio::sync::oneshot::Receiver<()>,
         )>,
     >,
+    #[cfg(test)]
+    admission_flight_pause: Mutex<
+        Option<(
+            tokio::sync::oneshot::Sender<()>,
+            tokio::sync::oneshot::Receiver<()>,
+        )>,
+    >,
+    #[cfg(test)]
+    admission_flight_waiters: AtomicUsize,
+    #[cfg(test)]
+    admission_flight_loads: AtomicUsize,
+}
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct PhysicalAdmissionKey {
+    revision: String,
+    identity: pse_ids::ContentHash,
+    worker: usize,
+    pool: usize,
+    registry: usize,
+    sessions: usize,
+    epoch: u64,
+}
+impl PhysicalAdmissionKey {
+    fn new(
+        runtime: &Runtime,
+        operations: &Operations,
+        source: &PhysicalSource,
+        epoch: u64,
+    ) -> Self {
+        let (worker, pool) = operations.physical_owner_identity();
+        Self {
+            revision: source.revision.clone(),
+            identity: source.identity,
+            worker,
+            pool,
+            registry: Arc::as_ptr(&runtime.registry) as usize,
+            sessions: Arc::as_ptr(&runtime.sessions) as usize,
+            epoch,
+        }
+    }
+}
+impl Default for PhysicalCache {
+    fn default() -> Self {
+        Self {
+            admission: Mutex::default(),
+            rows: Mutex::default(),
+            admission_fence: pse_columnar::retention::RetentionFence::default(),
+            rows_fence: pse_columnar::retention::RetentionFence::default(),
+            admission_flights: pse_columnar::flight::Flights::new(32),
+            admission_epoch: AtomicU64::new(0),
+            hits: AtomicUsize::new(0),
+            misses: AtomicUsize::new(0),
+            #[cfg(test)]
+            admission_pause: Mutex::default(),
+            #[cfg(test)]
+            admission_start_pause: Mutex::default(),
+            #[cfg(test)]
+            admission_flight_pause: Mutex::default(),
+            #[cfg(test)]
+            admission_flight_waiters: AtomicUsize::new(0),
+            #[cfg(test)]
+            admission_flight_loads: AtomicUsize::new(0),
+        }
+    }
 }
 impl PhysicalCache {
     pub(super) fn clear(&self) {
+        let mut epoch = self.admission_epoch.load(Ordering::Acquire);
+        while epoch < u64::MAX {
+            match self.admission_epoch.compare_exchange_weak(
+                epoch,
+                epoch + 1,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => break,
+                Err(current) => epoch = current,
+            }
+        }
         self.admission_fence.clear(|| {
             self.admission
                 .lock()
@@ -271,6 +355,13 @@ impl Runtime {
     ) -> Result<PhysicalContext, WorkflowError> {
         checkpoint(cancel)?;
         let operations = self.operations()?;
+        let admission_epoch = self.physical_cache.admission_epoch.load(Ordering::Acquire);
+        if admission_epoch == u64::MAX {
+            return Err(WorkflowError::Math(MathRuntimeError::Limit(
+                "physical admission epoch exhausted",
+            )));
+        }
+        let flight_key = PhysicalAdmissionKey::new(self, operations, source, admission_epoch);
         let generation = self.physical_cache.admission_fence.generation();
         let cached = self.physical_cache.admission(self, operations, source);
         // Evict and capture before the first asynchronous source/guard lookup. An
@@ -328,9 +419,63 @@ impl Runtime {
             physical._source_owner = Some(protection);
             return Ok(physical);
         }
-        let sources = operations.sources(source).await?;
+        let load_runtime = self.clone();
+        let load_operations = operations.clone();
+        let load_source = source.clone();
+        #[cfg(test)]
+        let load_cache = self.physical_cache.clone();
+        #[cfg(test)]
+        self.physical_cache
+            .admission_flight_waiters
+            .fetch_add(1, Ordering::SeqCst);
+        let mut flight = Box::pin(self.physical_cache.admission_flights.load_owned(
+            flight_key,
+            move |control| async move {
+                #[cfg(test)]
+                load_cache
+                    .admission_flight_loads
+                    .fetch_add(1, Ordering::SeqCst);
+                #[cfg(test)]
+                let pause = load_cache
+                    .admission_flight_pause
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .take();
+                #[cfg(test)]
+                if let Some((ready, resume)) = pause {
+                    let _ = ready.send(());
+                    let _ = resume.await;
+                }
+                let shared_cancel = crate::CancelSource::new();
+                let sources = tokio::select! {
+                    result = load_operations.sources(&load_source) => result?,
+                    () = control.cancelled() => {
+                        shared_cancel.cancel();
+                        return Err(WorkflowError::Math(MathRuntimeError::Cancelled));
+                    }
+                };
+                let mut physical = tokio::select! {
+                    result = load_runtime.physical_from_sources(&sources, &shared_cancel) => result?,
+                    () = control.cancelled() => {
+                        shared_cancel.cancel();
+                        return Err(WorkflowError::Math(MathRuntimeError::Cancelled));
+                    }
+                };
+                physical._source_owner = None;
+                Ok(Arc::new(physical))
+            },
+        ));
+        let admitted = tokio::select! {
+            result = &mut flight => result.map_err(|error| match error {
+                pse_columnar::flight::FlightError::Load(error) => WorkflowError::Shared(error),
+                pse_columnar::flight::FlightError::Capacity => WorkflowError::Math(MathRuntimeError::Limit("physical source admissions")),
+                pse_columnar::flight::FlightError::Retiring => WorkflowError::Math(MathRuntimeError::Retiring),
+                pse_columnar::flight::FlightError::Panicked => WorkflowError::Math(MathRuntimeError::Panic("physical source admission task panic".into())),
+            })?,
+            () = cancel.cancelled() => return Err(WorkflowError::Math(MathRuntimeError::Cancelled)),
+        };
         checkpoint(cancel)?;
-        let mut physical = self.physical_from_sources(&sources, cancel).await?;
+        let mut physical = admitted.as_ref().clone();
         checkpoint(cancel)?;
         let bytes = physical.retained_bytes();
         let metadata = metadata(
@@ -465,11 +610,96 @@ mod physical_admission_cache_unit {
         assert!(first.same_sources(&second));
     }
     #[tokio::test]
+    async fn canonical_physical_admission_coalesces_same_source_and_localizes_cancellation() {
+        const WAITERS: usize = 16;
+        let (runtime, source) = fixture().await;
+        let (ready, waiting) = tokio::sync::oneshot::channel();
+        let (resume, paused) = tokio::sync::oneshot::channel();
+        *runtime
+            .physical_cache
+            .admission_flight_pause
+            .lock()
+            .unwrap() = Some((ready, paused));
+        let leader_cancel = crate::CancelSource::new();
+        let leader_runtime = runtime.clone();
+        let leader_source = source.clone();
+        let leader_token = leader_cancel.clone();
+        let leader = tokio::spawn(async move {
+            leader_runtime
+                .physical_source(&leader_source, &leader_token)
+                .await
+        });
+        waiting.await.unwrap();
+
+        let mut followers = Vec::with_capacity(WAITERS - 1);
+        for _ in 1..WAITERS {
+            let follower_runtime = runtime.clone();
+            let follower_source = source.clone();
+            followers.push(tokio::spawn(async move {
+                follower_runtime
+                    .physical_source(&follower_source, &crate::CancelSource::new())
+                    .await
+            }));
+        }
+        tokio::time::timeout(std::time::Duration::from_secs(60), async {
+            while runtime
+                .physical_cache
+                .admission_flight_waiters
+                .load(Ordering::SeqCst)
+                < WAITERS
+            {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+
+        leader_cancel.cancel();
+        resume.send(()).unwrap();
+        assert!(matches!(
+            leader.await.unwrap(),
+            Err(WorkflowError::Math(MathRuntimeError::Cancelled))
+        ));
+        let mut admissions = Vec::with_capacity(WAITERS - 1);
+        for follower in followers {
+            admissions.push(follower.await.unwrap().unwrap());
+        }
+        assert_eq!(
+            runtime
+                .physical_cache
+                .admission_flight_loads
+                .load(Ordering::SeqCst),
+            1,
+            "identical immutable source preparation has one flight owner"
+        );
+        assert!(
+            admissions
+                .iter()
+                .all(|admission| admission.same_sources(&admissions[0]))
+        );
+        for (index, admission) in admissions.iter().enumerate() {
+            for other in &admissions[index + 1..] {
+                assert!(
+                    !Arc::ptr_eq(
+                        admission._source_owner.as_ref().unwrap(),
+                        other._source_owner.as_ref().unwrap()
+                    ),
+                    "each waiter keeps its own fresh canonical protection"
+                );
+            }
+        }
+        assert_eq!(runtime.physical_cache.admission_flights.active(), 0);
+    }
+    #[tokio::test]
     async fn canonical_physical_admission_clear_fences_actual_inflight_load() {
         let (runtime, source) = fixture().await;
         let (ready, waiting) = tokio::sync::oneshot::channel();
         let (resume, paused) = tokio::sync::oneshot::channel();
-        *runtime.physical_cache.admission_pause.lock().unwrap() = Some((ready, paused));
+        *runtime
+            .physical_cache
+            .admission_flight_pause
+            .lock()
+            .unwrap() = Some((ready, paused));
         let worker = runtime.clone();
         let requested = source.clone();
         let pending = tokio::spawn(async move {
@@ -480,19 +710,26 @@ mod physical_admission_cache_unit {
         });
         waiting.await.unwrap();
         runtime.clear_program_cache();
-        resume.send(()).unwrap();
-        let active = pending.await.unwrap();
-        assert_eq!(
-            runtime.physical_cache.report()[0].entries,
-            0,
-            "pre-clear load cannot republish"
-        );
         let fresh = runtime
             .physical_source(&source, &crate::CancelSource::new())
             .await
             .unwrap();
-        assert!(!Arc::ptr_eq(&active.quantities, &fresh.quantities));
+        assert_eq!(runtime.physical_cache.admission_flights.active(), 1);
+        resume.send(()).unwrap();
+        let active = pending.await.unwrap();
+        assert_eq!(runtime.physical_cache.report()[0].entries, 1);
+        assert!(
+            !Arc::ptr_eq(&active.quantities, &fresh.quantities),
+            "post-clear caller loads under a distinct in-flight epoch"
+        );
         assert_eq!(active.identity(), fresh.identity());
+        assert!(
+            runtime
+                .physical_cache
+                .admission(&runtime, runtime.operations().unwrap(), &source)
+                .is_some_and(|cached| Arc::ptr_eq(&cached.quantities, &fresh.quantities)),
+            "pre-clear flight cannot overwrite the fresh admitted cache entry"
+        );
     }
     #[tokio::test]
     async fn canonical_physical_admission_clear_before_first_source_await_fences_load() {
@@ -683,7 +920,7 @@ mod physical_admission_cache_unit {
 }
 fn checkpoint(cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
     if cancel.token().is_cancelled() {
-        Err(crate::math::MathRuntimeError::Cancelled.into())
+        Err(MathRuntimeError::Cancelled.into())
     } else {
         Ok(())
     }

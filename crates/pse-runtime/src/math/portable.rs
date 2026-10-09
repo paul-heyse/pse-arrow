@@ -13,9 +13,12 @@ use pse_operations::{
     canonical_selection::SelectedRead,
 };
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
+use std::sync::Mutex;
 use std::sync::{Arc, atomic::AtomicBool};
 
-const INTERPRETATION: &str = "pse.runtime.admitted-body-product.v2";
+const INTERPRETATION: &str = "pse.runtime.admitted-body-product.v3";
+const OBSERVATION_WORK_BYTES: usize = 4 << 20;
 /// Refusals preserve scientific reconstruction and storage failures distinctly.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum PortableError {
@@ -280,6 +283,7 @@ pub struct LocalReplay {
     configuration: RuntimeConfigurationObserver,
     configuration_bytes: Vec<u8>,
     identity: ContentHash,
+    _owner: Option<Arc<pse_columnar::AllocationLease>>,
 }
 impl std::fmt::Debug for LocalReplay {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -294,10 +298,23 @@ impl std::fmt::Debug for LocalReplay {
 /// unqualified publications into eligible products.
 #[derive(Clone, Debug)]
 pub enum ReplayAdmission {
-    /// Exact controlled Linux deployment compatibility, reobserved at each use.
+    /// Controlled receiving-root context; qualified only at actual trust transitions.
     Local(Arc<LocalReplay>),
     /// Existing broader reviewed selected-producer qualification.
     QualifiedProducer(QualifiedProducer),
+}
+/// Current admission for one receiving/publication operation. It is neither a
+/// persisted capability nor the validity owner of already admitted mathematics.
+#[derive(Clone, Debug)]
+pub(crate) struct ValidatedReplayNamespace {
+    producer: String,
+    local: bool,
+    deadline: Option<std::time::Instant>,
+}
+impl ValidatedReplayNamespace {
+    pub(crate) fn producer_key(&self) -> &str {
+        &self.producer
+    }
 }
 impl From<QualifiedProducer> for ReplayAdmission {
     fn from(value: QualifiedProducer) -> Self {
@@ -305,6 +322,9 @@ impl From<QualifiedProducer> for ReplayAdmission {
     }
 }
 impl ReplayAdmission {
+    /// Original finite observation clock used by the worker and Python startup roots.
+    pub const STARTUP_OBSERVATION_LIMIT: std::time::Duration = std::time::Duration::from_secs(60);
+
     /// Independently observe the receiving executable/imported module and mint the
     /// local guarantee only within the supported bounded glibc reconstruction owner.
     /// # Safety
@@ -327,6 +347,31 @@ impl ReplayAdmission {
         anchor: usize,
         configuration: RuntimeConfigurationObserver,
     ) -> Result<Self, PortableError> {
+        // SAFETY: the convenience caller supplies the same receiving-root premises.
+        // Production roots supply their original stop and clock to the scoped mint.
+        unsafe {
+            Self::observe_local_scoped(target, anchor, configuration, &AtomicBool::new(false), None)
+        }
+    }
+    /// Observe the receiving root under the original operation cancellation and clock.
+    /// File capture checks between chunks; opaque initialization/configuration calls and
+    /// waiting to enter the loader scope can only be checked before and after they return.
+    /// # Safety
+    /// The receiving-root requirements of [`Self::observe_local`] apply unchanged.
+    /// # Errors
+    /// Typed cancellation/deadline, incompatible registration, or unavailable observation.
+    #[allow(
+        unsafe_code,
+        reason = "ADR-0164 scoped controlled composition-root local replay admission"
+    )]
+    pub unsafe fn observe_local_scoped(
+        target: ExpectedProducerTarget,
+        anchor: usize,
+        configuration: RuntimeConfigurationObserver,
+        cancelled: &AtomicBool,
+        deadline: Option<std::time::Instant>,
+    ) -> Result<Self, PortableError> {
+        receiving_checkpoint(cancelled, deadline)?;
         let role = if (target.package, target.target, target.kind) == ("xtask", "pse-worker", "bin")
         {
             pse_buildinfo::LocalRuntimeRole::Worker
@@ -341,34 +386,38 @@ impl ReplayAdmission {
         // loaded closure. License activation can resolve a hostname and load NSS
         // modules; capturing first would make the first preparation invalidate
         // its own admission. This effect must remain outside the loader scope.
-        pse_math::initialize()?;
-        let configuration_bytes =
-            configuration().map_err(|error| PortableError::Qualification(error.to_string()))?;
+        receiving_checkpoint(cancelled, deadline)?;
+        let initialized = pse_math::initialize();
+        receiving_checkpoint(cancelled, deadline)?;
+        initialized?;
+        let configuration_bytes = configuration();
+        receiving_checkpoint(cancelled, deadline)?;
+        let configuration_bytes = configuration_bytes.map_err(observation_error)?;
+        let checkpoint = || observation_checkpoint(cancelled, deadline);
         let observation = pse_buildinfo::with_local_runtime_scope(|| {
-            pse_buildinfo::LocalRuntimeObservation::capture(role, anchor)
-        })
-        .map_err(|error| PortableError::Qualification(error.to_string()))?;
-        if configuration().map_err(|error| PortableError::Qualification(error.to_string()))?
-            != configuration_bytes
-        {
+            pse_buildinfo::LocalRuntimeObservation::capture_scoped(role, anchor, &checkpoint)
+        });
+        receiving_checkpoint(cancelled, deadline)?;
+        let observation = observation.map_err(observation_error)?;
+        let current_configuration = configuration();
+        receiving_checkpoint(cancelled, deadline)?;
+        if current_configuration.map_err(observation_error)? != configuration_bytes {
             return Err(PortableError::Qualification(
                 "effective runtime configuration changed during observation".into(),
             ));
         }
         let mut hash = FramedHasher::new(Frame::BuildInputsV1);
-        hash.str("pse.local-runtime-replay.v1")
-            .hash(
-                &observation
-                    .identity()
-                    .map_err(|error| PortableError::Qualification(error.to_string()))?,
-            )
+        hash.str("pse.local-runtime-replay.v2")
+            .hash(&observation.identity().map_err(observation_error)?)
             .part(&configuration_bytes);
+        receiving_checkpoint(cancelled, deadline)?;
         Ok(Self::Local(Arc::new(LocalReplay {
             observation,
             anchor,
             configuration,
             configuration_bytes,
             identity: hash.finish_hash(),
+            _owner: None,
         })))
     }
     /// The relevant key's identity; the guarantee namespace remains explicit.
@@ -388,30 +437,255 @@ impl ReplayAdmission {
             Self::QualifiedProducer(producer) => producer.key(),
         }
     }
-    /// Recheck a local context at every retained/replayed use. Unknown or changed
-    /// context is a cache miss; it does not bar fresh execution or historical reads.
+    /// Independently check the receiving root now. Pure retained products do not
+    /// invoke this diagnostic/transition check.
     pub fn is_current(&self) -> bool {
-        self.with_current(|| ()).is_some()
+        self.qualify_receiving(&AtomicBool::new(false), None)
+            .is_ok_and(|namespace| namespace.is_some())
     }
-    pub(super) fn with_current<T>(&self, operation: impl FnOnce() -> T) -> Option<T> {
-        let Self::Local(local) = self else {
-            return Some(operation());
+    pub(super) fn qualify_receiving(
+        &self,
+        cancelled: &AtomicBool,
+        deadline: Option<std::time::Instant>,
+    ) -> Result<Option<ValidatedReplayNamespace>, PortableError> {
+        receiving_checkpoint(cancelled, deadline)?;
+        if let Self::Local(local) = self {
+            if (local.configuration)().map_err(observation_error)? != local.configuration_bytes {
+                return Ok(None);
+            }
+            let checkpoint = || observation_checkpoint(cancelled, deadline);
+            let result = pse_buildinfo::with_local_runtime_scope(|| {
+                local.observation.verify_scoped(local.anchor, &checkpoint)
+            });
+            if let Err(error) = result {
+                return match error.kind() {
+                    std::io::ErrorKind::Interrupted | std::io::ErrorKind::TimedOut => {
+                        Err(observation_error(error))
+                    }
+                    _ => Ok(None),
+                };
+            }
+            receiving_checkpoint(cancelled, deadline)?;
+            if (local.configuration)().map_err(observation_error)? != local.configuration_bytes {
+                return Ok(None);
+            }
+        }
+        Ok(Some(ValidatedReplayNamespace {
+            producer: self.key(),
+            local: matches!(self, Self::Local(_)),
+            deadline,
+        }))
+    }
+}
+fn observation_checkpoint(
+    cancelled: &AtomicBool,
+    deadline: Option<std::time::Instant>,
+) -> std::io::Result<()> {
+    if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Interrupted,
+            "receiving operation cancelled",
+        ));
+    }
+    if deadline.is_some_and(|at| std::time::Instant::now() >= at) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::TimedOut,
+            "receiving operation deadline",
+        ));
+    }
+    Ok(())
+}
+fn observation_error(error: std::io::Error) -> PortableError {
+    match error.kind() {
+        std::io::ErrorKind::Interrupted => PortableError::Math(pse_math::MathError::Cancelled),
+        std::io::ErrorKind::TimedOut => PortableError::Store(CanonicalError::Timeout),
+        _ => PortableError::Qualification(error.to_string()),
+    }
+}
+pub(super) fn receiving_checkpoint(
+    cancelled: &AtomicBool,
+    deadline: Option<std::time::Instant>,
+) -> Result<(), PortableError> {
+    observation_checkpoint(cancelled, deadline).map_err(observation_error)
+}
+impl ValidatedReplayNamespace {
+    fn reconstruct<T>(
+        &self,
+        cancelled: &AtomicBool,
+        operation: impl FnOnce() -> Result<T, PortableError>,
+    ) -> Result<T, PortableError> {
+        receiving_checkpoint(cancelled, self.deadline)?;
+        if self.local {
+            pse_buildinfo::with_local_runtime_scope(|| Ok(operation()))
+                .map_err(observation_error)?
+        } else {
+            operation()
+        }
+    }
+}
+
+pub(crate) fn runtime_error(error: PortableError) -> super::MathRuntimeError {
+    match error {
+        PortableError::Math(error) => error.into(),
+        error => {
+            let diagnostic = pse_model::diagnostic::project_typed(
+                &error,
+                pse_diagnostics::DiagnosticStage::ModelingAdmission,
+            );
+            super::MathRuntimeError::Math(pse_math::MathError::Typed {
+                retained: size_of_val(&diagnostic) + pse_model::HeapUsage::heap_bytes(&diagnostic),
+                cause: pse_model::diagnostic::DiagnosticCause::new(diagnostic),
+            })
+        }
+    }
+}
+
+/// Receiving checks run under the same completion-owned native job as construction.
+/// A departing caller cancels and joins its observation; it never leaves an unowned
+/// loader callback or file read on an asynchronous executor thread.
+pub(crate) async fn qualify_replay(
+    service: &Arc<super::MathService>,
+    producer: Option<ReplayAdmission>,
+    deadline: std::time::Instant,
+    driver: &crate::CancelSource,
+) -> Result<Option<ValidatedReplayNamespace>, super::MathRuntimeError> {
+    let Some(producer) = producer else {
+        return Ok(None);
+    };
+    let control = pse_columnar::flight::FlightCancellation::default();
+    let operation = service.job_scoped(
+        1,
+        OBSERVATION_WORK_BYTES,
+        control.clone(),
+        Some(deadline),
+        move |flag| {
+            producer
+                .qualify_receiving(&flag, Some(deadline))
+                .map_err(runtime_error)
+        },
+    );
+    tokio::pin!(operation);
+    tokio::select! {
+        biased;
+        () = driver.cancelled() => {
+            control.cancel();
+            let _ = operation.await;
+            Err(super::MathRuntimeError::Cancelled)
+        },
+        result = &mut operation => result,
+    }
+}
+
+impl super::MathService {
+    /// Observe the actual local composition root with owned admission and native drain.
+    /// # Safety
+    /// The caller must satisfy [`ReplayAdmission::observe_local_scoped`]'s controlled
+    /// root and mathematical-state contract. This entry does not qualify arbitrary
+    /// embedding, callbacks, interposition or executable-map mutation.
+    /// # Errors
+    /// Receiving refusal, cancellation, original deadline or resource admission failure.
+    #[allow(
+        unsafe_code,
+        reason = "ADR-0164 actual composition roots mint local receiving admission through a completion-owned job"
+    )]
+    pub async unsafe fn observe_local_runtime(
+        self: &Arc<Self>,
+        role: ExpectedProducerTarget,
+        anchor: usize,
+        configuration: RuntimeConfigurationObserver,
+        deadline: std::time::Instant,
+        driver: &crate::CancelSource,
+    ) -> Result<ReplayAdmission, PortableError> {
+        let control = pse_columnar::flight::FlightCancellation::default();
+        let operation = self.job_retained_scoped(
+            1,
+            OBSERVATION_WORK_BYTES,
+            control.clone(),
+            Some(deadline),
+            move |flag| {
+                // SAFETY: the actual root supplies the same controlled contract as
+                // the synchronous mint; the job owns stop, accounting and final join.
+                let observed = unsafe {
+                    ReplayAdmission::observe_local_scoped(
+                        role,
+                        anchor,
+                        configuration,
+                        &flag,
+                        Some(deadline),
+                    )
+                };
+                let bytes = observed.as_ref().map_or(0, |admission| match admission {
+                    ReplayAdmission::Local(local) => {
+                        size_of::<LocalReplay>()
+                            + 256
+                            + local.observation.retained_bytes()
+                            + local.configuration_bytes.capacity()
+                    }
+                    ReplayAdmission::QualifiedProducer(_) => size_of::<ReplayAdmission>(),
+                });
+                Ok((observed, bytes))
+            },
+        );
+        tokio::pin!(operation);
+        let result = tokio::select! {
+            biased;
+            () = driver.cancelled() => {
+                control.cancel(); let _ = operation.await;
+                return Err(pse_math::MathError::Cancelled.into());
+            },
+            result = &mut operation => result,
         };
-        if (local.configuration)().ok()? != local.configuration_bytes {
-            return None;
+        let (admission, owner) = result.map_err(|error| {
+            PortableError::Math(pse_math::MathError::Typed {
+                retained: size_of_val(&error),
+                cause: pse_model::diagnostic::DiagnosticCause::new(error),
+            })
+        })?;
+        let mut admission = admission?;
+        if let ReplayAdmission::Local(local) = &mut admission {
+            Arc::get_mut(local)
+                .ok_or_else(|| {
+                    PortableError::Qualification(
+                        "startup observation ownership escaped before admission".into(),
+                    )
+                })?
+                ._owner = Some(owner);
         }
-        let result = pse_buildinfo::with_local_runtime_scope(|| {
-            local.observation.verify(local.anchor)?;
-            let result = operation();
-            local.observation.verify(local.anchor)?;
-            Ok(result)
-        })
-        .ok()?;
-        if (local.configuration)().ok()? != local.configuration_bytes {
-            return None;
-        }
-        Some(result)
+        Ok(admission)
     }
+}
+
+async fn native_receiving<T: Send + 'static>(
+    service: &Arc<super::MathService>,
+    cancelled: &Arc<AtomicBool>,
+    deadline: Option<std::time::Instant>,
+    bytes: usize,
+    operation: impl FnOnce(Arc<AtomicBool>) -> Result<T, PortableError> + Send + 'static,
+) -> Result<T, PortableError> {
+    let control = pse_columnar::flight::FlightCancellation::default();
+    let work = service.job_scoped(1, bytes, control.clone(), deadline, move |flag| {
+        operation(flag).map_err(runtime_error)
+    });
+    let stop = async {
+        loop {
+            if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    };
+    tokio::pin!(work);
+    let result = tokio::select! {
+        biased;
+        () = stop => { control.cancel(); let _ = work.await; return Err(pse_math::MathError::Cancelled.into()); },
+        result = &mut work => result,
+    };
+    result.map_err(|error| {
+        PortableError::Math(pse_math::MathError::Typed {
+            retained: size_of_val(&error),
+            cause: pse_model::diagnostic::DiagnosticCause::new(error),
+        })
+    })
 }
 
 #[derive(Serialize, Deserialize)]
@@ -425,7 +699,7 @@ struct Envelope {
 }
 // Keep the compiler payload as opaque bytes. Nesting it as a JSON number array
 // would duplicate and expand the same semantic description at the transport boundary.
-const ENVELOPE_MAGIC: &[u8] = b"pse-admitted-body-product-v2\0";
+const ENVELOPE_MAGIC: &[u8] = b"pse-admitted-body-product-v3\0";
 // Framing metadata is bounded independently of the scientific recipe and storage wire blocks.
 const MAX_METADATA_BYTES: usize = 1024 * 1024;
 const MAX_PRODUCT_BYTES: usize = ENVELOPE_MAGIC.len()
@@ -565,14 +839,40 @@ fn encode(
 /// # Errors
 /// Unsealed body, incomplete receipts, changed physical context or guarded store refusal.
 pub async fn publish_body(
-    service: &super::MathService,
+    service: &Arc<super::MathService>,
     store: &CanonicalStore,
     read: &SelectedRead,
     producer: &ReplayAdmission,
     body: &AdmittedBody,
     context: &CompilerContext,
 ) -> Result<PublishedBody, PortableError> {
-    publish_with_producer_key(service, store, read, producer.key(), body, context).await
+    let deadline = std::time::Instant::now() + pse_operations::canonical::REQUEST_TIMEOUT;
+    let namespace = qualify_replay(
+        service,
+        Some(producer.clone()),
+        deadline,
+        &crate::CancelSource::new(),
+    )
+    .await
+    .map_err(|error| {
+        PortableError::Math(pse_math::MathError::Typed {
+            retained: size_of::<super::MathRuntimeError>(),
+            cause: pse_model::diagnostic::DiagnosticCause::new(error),
+        })
+    })?
+    .ok_or_else(|| PortableError::Qualification("receiving deployment changed".into()))?;
+    let description = describe_body(
+        service,
+        read,
+        namespace.producer_key().to_owned(),
+        body,
+        context,
+    )?;
+    let key = publish_description(store, read, &description, deadline.into()).await?;
+    Ok(PublishedBody {
+        key,
+        semantic_identity: description.semantic_identity,
+    })
 }
 /// Persist admitted meaning when producer eligibility is incomplete. The outer build
 /// is recorded as unqualified provenance and never used as a relevant producer key.
@@ -606,64 +906,169 @@ async fn publish_with_producer_key(
     body: &AdmittedBody,
     context: &CompilerContext,
 ) -> Result<PublishedBody, PortableError> {
+    let description = describe_body(service, read, producer, body, context)?;
+    let key = publish_description(
+        store,
+        read,
+        &description,
+        tokio::time::Instant::now() + pse_operations::canonical::REQUEST_TIMEOUT,
+    )
+    .await?;
+    Ok(PublishedBody {
+        key,
+        semantic_identity: description.semantic_identity,
+    })
+}
+/// Owned exact recipe/envelope encoding. This carries scientific meaning, not permission.
+#[derive(Debug)]
+pub(super) struct EncodedBody {
+    semantic_identity: SemanticBodyHash,
+    request: Vec<u8>,
+    payload: Vec<u8>,
+    _owner: Arc<pse_columnar::AllocationLease>,
+}
+impl EncodedBody {
+    pub(super) fn retained_bytes(&self) -> usize {
+        size_of::<Self>() + self.request.capacity() + self.payload.capacity()
+    }
+}
+#[derive(Debug)]
+pub(crate) struct BodyDescription {
+    pub(crate) description: pse_operations::canonical_selection::ProductDescription,
+    pub(crate) semantic_identity: SemanticBodyHash,
+    producer: String,
+    _owner: Arc<pse_columnar::AllocationLease>,
+}
+impl BodyDescription {
+    pub(super) fn retained_bytes(&self) -> usize {
+        size_of::<Self>() + self.description.retained_bytes() + self.producer.capacity()
+    }
+}
+fn encoded_body(
+    service: &super::MathService,
+    body: &AdmittedBody,
+    context: &CompilerContext,
+) -> Result<Arc<EncodedBody>, PortableError> {
+    let identity = body.semantic_identity().ok_or_else(|| {
+        PortableError::Qualification(
+            "portable encoding requires a compiler-sealed semantic body".into(),
+        )
+    })?;
+    if let Some(encoded) = service.modeling_cache.encoded_body(identity) {
+        return Ok(encoded);
+    }
+    let generation = service.modeling_cache.generation();
     let extent = body.portable_payload_bytes()?;
-    // Both encoded recipe and packed envelope coexist until storage takes ownership.
     let _scratch = reserve_portable(
         service,
         "math:qualified-recipe-encode",
         extent
             .saturating_mul(3)
-            .saturating_add(MAX_METADATA_BYTES.saturating_mul(3))
-            .saturating_add(read.publication_scratch_bytes()?),
+            .saturating_add(MAX_METADATA_BYTES.saturating_mul(3)),
     )?;
     let physical = physical_identity(&context.quantities, &context.preconditions);
     let (envelope, body_payload) = encode(body, physical)?;
     let request = request(envelope.semantic_identity, physical);
     let payload = pack(&envelope, &body_payload)?;
-    drop(body_payload);
+    let owner = reserve_portable(
+        service,
+        "math:retained-recipe-encoding",
+        size_of::<EncodedBody>() + request.capacity() + payload.capacity(),
+    )?;
+    let encoded = Arc::new(EncodedBody {
+        semantic_identity: identity,
+        request,
+        payload,
+        _owner: owner,
+    });
+    service
+        .modeling_cache
+        .retain_encoded_body(generation, identity, encoded.clone());
+    Ok(encoded)
+}
+pub(crate) fn describe_body(
+    service: &super::MathService,
+    read: &SelectedRead,
+    producer: String,
+    body: &AdmittedBody,
+    context: &CompilerContext,
+) -> Result<Arc<BodyDescription>, PortableError> {
+    let encoded = encoded_body(service, body, context)?;
+    let _scratch = reserve_portable(
+        service,
+        "math:canonical-description-encode",
+        encoded
+            .payload
+            .len()
+            .saturating_mul(2)
+            .saturating_add(read.publication_scratch_bytes()?.saturating_mul(3))
+            .saturating_add(MAX_METADATA_BYTES),
+    )?;
     let mut hash = FramedHasher::new(Frame::MathAdmittedRecipeV1);
     hash.str(INTERPRETATION)
         .str("product")
-        .part(&request)
+        .part(&encoded.request)
         .str(&producer)
-        .part(&payload);
-    let key = hash.finish_hash().to_hex();
+        .part(&encoded.payload);
     let revision = read.selection().revision();
     let product = pse_model::generated::runtime::canonical_products::Row {
-        key: key.clone(),
+        key: hash.finish_hash().to_hex(),
         problem: revision.problem.clone(),
         revision: revision.key.clone(),
-        request: request.into(),
-        payload: payload.into(),
+        request: encoded.request.clone().into(),
+        payload: encoded.payload.clone().into(),
         dependencies: Vec::new().into(),
-        producer,
+        producer: producer.clone(),
         interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
     };
-    let key = if pse_operations::canonical_selection::is_replay_producer(&product.producer) {
-        // SAFETY: encode accepts only an AdmittedBody with a private compiler seal
-        // emitted by normal scientific admission or previously qualified replay.
-        // The caller's opaque ReplayAdmission carries its explicit deployment guarantee; decoded DTOs
-        // cannot obtain AdmittedBody or enter this reserved publication path.
-        unsafe { store.publish_scientific_product(read, product) }.await?
-    } else {
-        store.publish_product(read, product).await?
-    };
-    Ok(PublishedBody {
-        key,
-        semantic_identity: envelope.semantic_identity,
-    })
+    let description =
+        pse_operations::canonical_selection::ProductDescription::prepare(read, product)?;
+    let owner = reserve_portable(
+        service,
+        "math:retained-canonical-description",
+        description.retained_bytes() + producer.capacity() + size_of::<BodyDescription>(),
+    )?;
+    Ok(Arc::new(BodyDescription {
+        description,
+        producer,
+        semantic_identity: encoded.semantic_identity,
+        _owner: owner,
+    }))
+}
+#[allow(
+    unsafe_code,
+    reason = "ADR-0164 compiler-sealed description and actual receiving admission are required by this private publication owner"
+)]
+pub(crate) async fn publish_description(
+    store: &CanonicalStore,
+    read: &SelectedRead,
+    description: &BodyDescription,
+    deadline: tokio::time::Instant,
+) -> Result<String, PortableError> {
+    // Callers may use original provenance only for acknowledgment. New eligible
+    // publication must establish a current namespace before constructing this value.
+    Ok(
+        if pse_operations::canonical_selection::is_replay_producer(&description.producer) {
+            // SAFETY: this private path is reached only after current receiving admission;
+            // descriptions are compiler-sealed and bound to the consumer's exact read.
+            unsafe {
+                store.publish_scientific_description_until(read, &description.description, deadline)
+            }
+            .await?
+        } else {
+            store
+                .publish_description_until(read, &description.description, deadline)
+                .await?
+        },
+    )
 }
 /// Return only a dependency-qualified persisted product, reconstructed from its actual
 /// concrete receipts. A hit with corrupt or incomplete receipts is an error; it never
 /// runs normal admission and is never reported as a reconstruction success.
 /// # Errors
 /// Storage/protection failure, incompatible envelope, missing receipts or native error.
-#[allow(
-    unsafe_code,
-    reason = "ADR-0164 sole production storage-to-science authority mint after canonical qualification"
-)]
 pub async fn reuse_body(
-    service: &super::MathService,
+    service: &Arc<super::MathService>,
     store: &CanonicalStore,
     read: &mut SelectedRead,
     producer: &ReplayAdmission,
@@ -671,25 +1076,93 @@ pub async fn reuse_body(
     context: &CompilerContext,
     cancelled: &Arc<AtomicBool>,
 ) -> Result<Option<AdmittedBody>, PortableError> {
-    if !producer.is_current() {
+    if cancelled.load(std::sync::atomic::Ordering::Relaxed) {
+        return Err(pse_math::MathError::Cancelled.into());
+    }
+    let after = String::new();
+    if !product_candidate_presence(store, read, producer, identity, context, &after).await? {
         return Ok(None);
     }
+    if cancelled.load(std::sync::atomic::Ordering::Relaxed) {
+        return Err(pse_math::MathError::Cancelled.into());
+    }
+    let deadline = std::time::Instant::now() + pse_operations::canonical::REQUEST_TIMEOUT;
+    let admission = producer.clone();
+    let namespace = native_receiving(
+        service,
+        cancelled,
+        Some(deadline),
+        OBSERVATION_WORK_BYTES,
+        move |flag| admission.qualify_receiving(&flag, Some(deadline)),
+    )
+    .await?;
+    let Some(namespace) = namespace else {
+        return Ok(None);
+    };
+    if cancelled.load(std::sync::atomic::Ordering::Relaxed) {
+        return Err(pse_math::MathError::Cancelled.into());
+    }
+    reuse_body_current(
+        service, store, read, &namespace, identity, context, cancelled,
+    )
+    .await
+}
+
+/// Probe only for a bounded protected candidate row without decoding its key or payload.
+/// A cold miss needs no local runtime observation; a present candidate still requires full
+/// current-context admission.
+pub(crate) async fn product_candidate_presence(
+    store: &CanonicalStore,
+    read: &SelectedRead,
+    producer: &ReplayAdmission,
+    identity: SemanticBodyHash,
+    context: &CompilerContext,
+    after: &str,
+) -> Result<bool, PortableError> {
+    let physical = physical_identity(&context.quantities, &context.preconditions);
+    Ok(store
+        .product_candidate_presence(
+            read.selection(),
+            &request(identity, physical),
+            &producer.key(),
+            after,
+        )
+        .await?)
+}
+
+#[allow(
+    unsafe_code,
+    reason = "ADR-0164 sole production storage-to-science authority mint after canonical qualification"
+)]
+pub(crate) async fn reuse_body_current(
+    service: &Arc<super::MathService>,
+    store: &CanonicalStore,
+    read: &mut SelectedRead,
+    namespace: &ValidatedReplayNamespace,
+    identity: SemanticBodyHash,
+    context: &CompilerContext,
+    cancelled: &Arc<AtomicBool>,
+) -> Result<Option<AdmittedBody>, PortableError> {
     let physical = physical_identity(&context.quantities, &context.preconditions);
     let mut after = String::new();
     loop {
+        receiving_checkpoint(cancelled, namespace.deadline)?;
         let Some(candidate) = store
             .product_candidate(
                 read.selection(),
                 &request(identity, physical),
-                &producer.key(),
+                namespace.producer_key(),
                 &after,
             )
             .await?
         else {
+            receiving_checkpoint(cancelled, namespace.deadline)?;
             return Ok(None);
         };
+        receiving_checkpoint(cancelled, namespace.deadline)?;
         let (product, _product_scratch) =
             qualify_candidate(service, store, read, &candidate).await?;
+        receiving_checkpoint(cancelled, namespace.deadline)?;
         let Some(product) = product else {
             after = candidate.key().to_owned();
             continue;
@@ -701,7 +1174,7 @@ pub async fn reuse_body(
             pse_ids::scientific_replay::QualifiedScientificRecipe::scratch_bytes(payload.len())
                 .map_err(|e| PortableError::Qualification(e.to_string()))?
                 .saturating_add(metadata.len().saturating_mul(256));
-        let _scratch = reserve_portable(service, "math:qualified-recipe-replay", scratch)?;
+        let scratch_owner = reserve_portable(service, "math:qualified-recipe-replay", scratch)?;
         let (envelope, body_payload) = unpack(product.payload())?;
         if envelope.interpretation != INTERPRETATION
             || envelope.semantic_identity != identity
@@ -712,7 +1185,6 @@ pub async fn reuse_body(
                 "persisted body differs from qualified selected request".into(),
             ));
         }
-        pse_math::initialize()?;
         let qualification = ContentHash::parse_hex(product.key())
             .map_err(|e| PortableError::Qualification(e.to_string()))?;
         let selected_request = ContentHash::try_from_slice(&request(identity, physical))
@@ -732,22 +1204,47 @@ pub async fn reuse_body(
         .map_err(|e| PortableError::Qualification(e.to_string()))?;
         // Only immutable owned mathematical values leave this bounded loader scope.
         // Provider workers/evaluators remain downstream fresh execution state.
-        let Some(body) =
-            producer.with_current(|| reconstruct_portable(&permit, &context.quantities, cancelled))
-        else {
-            return Ok(None);
-        };
-        let body = body?;
-        if body.spec() != &envelope.spec {
-            return Err(PortableError::Qualification(
-                "reconstructed body differs from qualified envelope specification".into(),
-            ));
-        }
-        if body.semantic_identity() != Some(identity) {
-            return Err(PortableError::Qualification(
-                "reconstructed body lacks exact sealed semantic identity".into(),
-            ));
-        }
+        let current = namespace.clone();
+        let quantities = context.quantities.clone();
+        let product_owner = service.clone();
+        let body = native_receiving(
+            service,
+            cancelled,
+            namespace.deadline,
+            super::WITHIN_WORKSPACE,
+            move |flag| {
+                let _scratch = scratch_owner;
+                let _payload = _product_scratch;
+                receiving_checkpoint(&flag, current.deadline)?;
+                pse_math::initialize()?;
+                receiving_checkpoint(&flag, current.deadline)?;
+                let body = current.reconstruct(&flag, || {
+                    let body = reconstruct_portable(&permit, &quantities, &flag)?;
+                    if body.spec() != &envelope.spec {
+                        return Err(PortableError::Qualification(
+                            "reconstructed body differs from qualified envelope specification"
+                                .into(),
+                        ));
+                    }
+                    if body.semantic_identity() != Some(identity) {
+                        return Err(PortableError::Qualification(
+                            "reconstructed body lacks exact sealed semantic identity".into(),
+                        ));
+                    }
+                    Ok(body)
+                })?;
+                let owned = product_owner
+                    .own_semantic_body(Arc::new(body))
+                    .map_err(|error| {
+                        PortableError::Math(pse_math::MathError::Typed {
+                            retained: size_of_val(&error),
+                            cause: pse_model::diagnostic::DiagnosticCause::new(error),
+                        })
+                    })?;
+                Ok(owned.as_ref().clone())
+            },
+        )
+        .await?;
         return Ok(Some(body));
     }
 }
@@ -778,6 +1275,295 @@ async fn qualify_candidate(
 #[cfg(test)]
 mod portable_frame_tests {
     use super::*;
+    fn gated_startup_configuration() -> (
+        RuntimeConfigurationObserver,
+        tokio::sync::oneshot::Receiver<()>,
+        std::sync::mpsc::Sender<()>,
+        Arc<std::sync::atomic::AtomicUsize>,
+    ) {
+        let (entered, witness) = tokio::sync::oneshot::channel();
+        let (release, gate) = std::sync::mpsc::channel();
+        let entered = Mutex::new(Some(entered));
+        let gate = Mutex::new(gate);
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let observed_calls = calls.clone();
+        let configuration: RuntimeConfigurationObserver = Arc::new(move || {
+            observed_calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            if let Some(entered) = entered.lock().unwrap().take() {
+                let _ = entered.send(());
+                gate.lock().unwrap().recv().map_err(|_| {
+                    std::io::Error::new(std::io::ErrorKind::Interrupted, "startup gate abandoned")
+                })?;
+            }
+            Ok(Vec::new())
+        });
+        (configuration, witness, release, calls)
+    }
+    #[tokio::test]
+    #[allow(
+        unsafe_code,
+        reason = "owned startup cancellation control supplies the actual test root"
+    )]
+    async fn async_local_replay_cancellation_joins_native_configuration_before_releasing_charge() {
+        fn anchor() {}
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let driver = crate::CancelSource::new();
+        let (configuration, entered, release, calls) = gated_startup_configuration();
+        let deadline = std::time::Instant::now() + ReplayAdmission::STARTUP_OBSERVATION_LIMIT;
+        // SAFETY: this actual test root supplies controlled configuration that only waits for its gate.
+        let mut observe = Box::pin(unsafe {
+            service.observe_local_runtime(
+                ExpectedProducerTarget::WORKER,
+                anchor as *const () as usize,
+                configuration,
+                deadline,
+                &driver,
+            )
+        });
+        assert!(futures_util::poll!(observe.as_mut()).is_pending());
+        entered.await.unwrap();
+        let charged = service.pool.reserved();
+        assert!(charged > baseline);
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs - 1);
+        assert_eq!(service.cpu.available_permits(), service.cores - 1);
+        driver.cancel();
+        assert!(
+            futures_util::poll!(observe.as_mut()).is_pending(),
+            "cancellation must join the gated native call"
+        );
+        assert_eq!(service.pool.reserved(), charged);
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs - 1);
+        assert_eq!(service.cpu.available_permits(), service.cores - 1);
+        release.send(()).unwrap();
+        assert!(matches!(
+            observe.await,
+            Err(PortableError::Math(pse_math::MathError::Cancelled))
+        ));
+        assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 1);
+        assert_eq!(service.pool.reserved(), baseline);
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+        assert_eq!(service.cpu.available_permits(), service.cores);
+    }
+    #[tokio::test]
+    #[allow(
+        unsafe_code,
+        reason = "abandoned startup control supplies the actual test root"
+    )]
+    async fn async_local_replay_abandoned_waiter_retains_job_and_charge_until_native_drain() {
+        fn anchor() {}
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let driver = crate::CancelSource::new();
+        let (configuration, entered, release, calls) = gated_startup_configuration();
+        let deadline = std::time::Instant::now() + ReplayAdmission::STARTUP_OBSERVATION_LIMIT;
+        // SAFETY: this actual test root supplies controlled gated configuration, with no loader callback.
+        let mut observe = Box::pin(unsafe {
+            service.observe_local_runtime(
+                ExpectedProducerTarget::WORKER,
+                anchor as *const () as usize,
+                configuration,
+                deadline,
+                &driver,
+            )
+        });
+        assert!(futures_util::poll!(observe.as_mut()).is_pending());
+        entered.await.unwrap();
+        let charged = service.pool.reserved();
+        assert!(charged > baseline);
+        drop(observe);
+        assert!(
+            !driver.token().is_cancelled(),
+            "abandonment stops the owned job without cancelling the driver"
+        );
+        assert_eq!(service.pool.reserved(), charged);
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs - 1);
+        assert_eq!(service.cpu.available_permits(), service.cores - 1);
+        release.send(()).unwrap();
+        // Acquiring every slot witnesses completion of the supervisor's native join,
+        // including teardown and release of the pool and compute owners.
+        let drained = service
+            .jobs
+            .clone()
+            .acquire_many_owned(service.policy.jobs as u32)
+            .await
+            .unwrap();
+        assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 1);
+        assert_eq!(service.pool.reserved(), baseline);
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        drop(drained);
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+    }
+    #[tokio::test]
+    #[allow(
+        unsafe_code,
+        reason = "expired startup clock control supplies the actual test root"
+    )]
+    async fn async_local_replay_expired_original_clock_refuses_before_configuration() {
+        fn anchor() {}
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let driver = crate::CancelSource::new();
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let observed_calls = calls.clone();
+        let configuration: RuntimeConfigurationObserver = Arc::new(move || {
+            observed_calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            Ok(Vec::new())
+        });
+        // SAFETY: this controlled test root must be refused before its observer is invoked.
+        let error = unsafe {
+            service.observe_local_runtime(
+                ExpectedProducerTarget::WORKER,
+                anchor as *const () as usize,
+                configuration,
+                std::time::Instant::now(),
+                &driver,
+            )
+        }
+        .await
+        .unwrap_err();
+        let PortableError::Math(pse_math::MathError::Typed { cause, .. }) = error else {
+            panic!("expired startup must retain the native admission timeout: {error:?}");
+        };
+        assert!(matches!(
+            cause
+                .as_error()
+                .downcast_ref::<super::super::MathRuntimeError>(),
+            Some(super::super::MathRuntimeError::Solve(
+                pse_backend_native::ProblemError::Limit {
+                    kind: pse_backend_native::LimitKind::Time,
+                    ..
+                }
+            ))
+        ));
+        assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 0);
+        assert!(!driver.token().is_cancelled());
+        assert_eq!(service.pool.reserved(), baseline);
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+        assert_eq!(service.cpu.available_permits(), service.cores);
+    }
+    #[test]
+    #[allow(
+        unsafe_code,
+        reason = "scoped mint stop controls use the actual test code anchor"
+    )]
+    fn scoped_local_replay_precancellation_and_expiry_skip_configuration() {
+        fn anchor() {}
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let observed_calls = calls.clone();
+        let configuration: RuntimeConfigurationObserver = Arc::new(move || {
+            observed_calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            Ok(Vec::new())
+        });
+        let cancelled = AtomicBool::new(true);
+        // SAFETY: the actual test root supplies its own anchor and controlled configuration.
+        let error = unsafe {
+            ReplayAdmission::observe_local_scoped(
+                ExpectedProducerTarget::WORKER,
+                anchor as *const () as usize,
+                configuration.clone(),
+                &cancelled,
+                None,
+            )
+        }
+        .unwrap_err();
+        assert!(matches!(
+            error,
+            PortableError::Math(pse_math::MathError::Cancelled)
+        ));
+        cancelled.store(false, std::sync::atomic::Ordering::Release);
+        // SAFETY: same controlled root; an already expired clock must stop before observation.
+        let error = unsafe {
+            ReplayAdmission::observe_local_scoped(
+                ExpectedProducerTarget::WORKER,
+                anchor as *const () as usize,
+                configuration,
+                &cancelled,
+                Some(std::time::Instant::now()),
+            )
+        }
+        .unwrap_err();
+        assert!(matches!(
+            error,
+            PortableError::Store(CanonicalError::Timeout)
+        ));
+        assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 0);
+    }
+    #[test]
+    #[allow(
+        unsafe_code,
+        reason = "scoped mint cancellation control uses the actual test code anchor"
+    )]
+    fn scoped_local_replay_configuration_cancellation_cannot_mint() {
+        fn anchor() {}
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let stop = cancelled.clone();
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let observed_calls = calls.clone();
+        let configuration: RuntimeConfigurationObserver = Arc::new(move || {
+            observed_calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            stop.store(true, std::sync::atomic::Ordering::Release);
+            Ok(Vec::new())
+        });
+        // SAFETY: this test supplies its own controlled root; configuration only requests stop.
+        let error = unsafe {
+            ReplayAdmission::observe_local_scoped(
+                ExpectedProducerTarget::WORKER,
+                anchor as *const () as usize,
+                configuration,
+                &cancelled,
+                None,
+            )
+        }
+        .unwrap_err();
+        assert!(matches!(
+            error,
+            PortableError::Math(pse_math::MathError::Cancelled)
+        ));
+        assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 1);
+    }
+    #[test]
+    #[allow(
+        unsafe_code,
+        reason = "scoped mint IO stop controls use the actual test code anchor"
+    )]
+    fn scoped_local_replay_configuration_io_stops_remain_typed() {
+        fn anchor() {}
+        for (kind, expects_cancellation) in [
+            (std::io::ErrorKind::Interrupted, true),
+            (std::io::ErrorKind::TimedOut, false),
+        ] {
+            let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let observed_calls = calls.clone();
+            let configuration: RuntimeConfigurationObserver = Arc::new(move || {
+                observed_calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                Err(std::io::Error::new(kind, "controlled configuration stop"))
+            });
+            // SAFETY: the actual test root uses a controlled, immediately refusing observer.
+            let error = unsafe {
+                ReplayAdmission::observe_local_scoped(
+                    ExpectedProducerTarget::WORKER,
+                    anchor as *const () as usize,
+                    configuration,
+                    &AtomicBool::new(false),
+                    None,
+                )
+            }
+            .unwrap_err();
+            if expects_cancellation {
+                assert!(matches!(
+                    error,
+                    PortableError::Math(pse_math::MathError::Cancelled)
+                ));
+            } else {
+                assert!(matches!(
+                    error,
+                    PortableError::Store(CanonicalError::Timeout)
+                ));
+            }
+            assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 1);
+        }
+    }
     #[cfg(all(target_os = "linux", target_env = "gnu"))]
     #[test]
     #[allow(
@@ -787,9 +1573,7 @@ mod portable_frame_tests {
     fn local_replay_admission_is_opaque_role_bound_and_revalidates_effective_configuration() {
         fn anchor() {}
         let anchor = anchor as *const () as usize;
-        let effective = Arc::new(std::sync::Mutex::new(
-            b"controlled-runtime-configuration".to_vec(),
-        ));
+        let effective = Arc::new(Mutex::new(b"controlled-runtime-configuration".to_vec()));
         let current = effective.clone();
         let observe: RuntimeConfigurationObserver =
             Arc::new(move || Ok(current.lock().unwrap().clone()));
@@ -814,13 +1598,12 @@ mod portable_frame_tests {
         let old = effective.lock().unwrap().clone();
         *effective.lock().unwrap() = b"changed-runtime-configuration".to_vec();
         assert!(!local.is_current());
-        let polled = AtomicBool::new(false);
         assert!(
             local
-                .with_current(|| polled.store(true, std::sync::atomic::Ordering::Relaxed))
+                .qualify_receiving(&AtomicBool::new(false), None)
+                .unwrap()
                 .is_none()
         );
-        assert!(!polled.load(std::sync::atomic::Ordering::Relaxed));
         // SAFETY: same controlled actual root, now independently observing changed configuration.
         let changed = unsafe {
             ReplayAdmission::observe_local(ExpectedProducerTarget::WORKER, anchor, observe.clone())
@@ -1401,194 +2184,102 @@ mod canonical_portable_body_tests {
         }
         .into()
     }
-    #[cfg(all(target_os = "linux", target_env = "gnu"))]
     #[test]
-    #[allow(
-        unsafe_code,
-        reason = "actual controlled test root observes its mutable effective configuration rather than supplying a caller hash"
-    )]
-    fn canonical_portable_body_memory_namespaces_current_fills_and_clear_generation() {
+    fn canonical_portable_body_pure_retention_and_encoding_share_owned_material_after_clear() {
         use crate::math::retention::BodyRetention;
-        fn anchor() {}
+        let context = context();
         let body = admitted(
-            context(),
+            context.clone(),
             "package p {def Root {var x:Scalar;eq residual:x==2;}}",
         );
         let identity = body.semantic_identity().unwrap();
         let service = crate::math::tests::service();
+        let baseline = service.pool.reserved();
         let memory = BodyRetention(Arc::downgrade(&service));
-        let effective = Arc::new(Mutex::new(vec![1_u8]));
-        let observer: RuntimeConfigurationObserver = {
-            let effective = effective.clone();
-            Arc::new(move || Ok(effective.lock().unwrap().clone()))
-        };
-        let observe = || {
-            // SAFETY: this actual native test root owns the effective configuration
-            // above, serializes its mutation, and uses only immutable mathematical
-            // values in local scopes, with no imports or provider callbacks.
-            unsafe {
-                ReplayAdmission::observe_local(
-                    ExpectedProducerTarget::WORKER,
-                    anchor as *const () as usize,
-                    observer.clone(),
-                )
-            }
-            .unwrap()
-        };
-        let a = observe();
-        let same_a = observe();
-        assert_eq!(a.key(), same_a.key());
-        let retained_a = memory
-            .retain_for_producer(memory.generation(), identity, body.clone(), Some(&a))
-            .unwrap();
-        let candidate = memory
-            .get_for_producer(identity, Some(&same_a))
-            .unwrap()
-            .unwrap();
-        let hit_a = same_a.with_current(|| candidate).unwrap();
-        assert!(Arc::ptr_eq(&retained_a, &hit_a));
-        assert!(memory.get(identity).unwrap().is_none());
-
-        *effective.lock().unwrap() = vec![2];
-        let b = observe();
-        assert_ne!(a.key(), b.key());
-        assert!(
-            memory
-                .get_for_producer(identity, Some(&b))
-                .unwrap()
-                .is_none()
-        );
-        let retained_b = memory
-            .retain_for_producer(memory.generation(), identity, body.clone(), Some(&b))
-            .unwrap();
-        let candidate = memory
-            .get_for_producer(identity, Some(&b))
-            .unwrap()
+        let retained = memory
+            .retain(memory.generation(), identity, body.clone())
             .unwrap();
         assert!(Arc::ptr_eq(
-            &retained_b,
-            &b.with_current(|| candidate).unwrap()
-        ));
-        assert!(!Arc::ptr_eq(&retained_a, &retained_b));
-        *effective.lock().unwrap() = vec![1];
-        let candidate = memory
-            .get_for_producer(identity, Some(&a))
-            .unwrap()
-            .unwrap();
-        assert!(Arc::ptr_eq(
-            &retained_a,
-            &a.with_current(|| candidate).unwrap()
-        ));
-
-        // A stale A attachment receives a fresh fill in B. Restoring A must never
-        // make that B fill eligible through A's old qualified memory namespace.
-        service.modeling_cache.clear();
-        *effective.lock().unwrap() = vec![2];
-        assert!(!a.is_current());
-        let stale_fill = memory
-            .retain_for_producer(memory.generation(), identity, body.clone(), Some(&a))
-            .unwrap();
-        assert!(
-            memory
-                .get_for_producer(identity, Some(&a))
-                .unwrap()
-                .is_none()
-        );
-        assert!(
-            memory
-                .get_for_producer(identity, Some(&b))
-                .unwrap()
-                .is_none()
-        );
-        assert!(Arc::ptr_eq(
-            &stale_fill,
+            &retained,
             &memory.get(identity).unwrap().unwrap()
         ));
-        *effective.lock().unwrap() = vec![1];
-        assert!(a.is_current());
+        let encoded = encoded_body(&service, &retained, &context).unwrap();
+        let warm = encoded_body(&service, &retained, &context).unwrap();
         assert!(
-            memory
-                .get_for_producer(identity, Some(&a))
-                .unwrap()
-                .is_none()
+            Arc::ptr_eq(&encoded, &warm),
+            "pure hits reuse exact encoding allocation"
         );
-        let current_fill = memory
-            .retain_for_producer(memory.generation(), identity, body.clone(), Some(&a))
-            .unwrap();
-        let candidate = memory
-            .get_for_producer(identity, Some(&a))
-            .unwrap()
-            .unwrap();
-        assert!(Arc::ptr_eq(
-            &current_fill,
-            &a.with_current(|| candidate).unwrap()
-        ));
-        assert!(Arc::ptr_eq(
-            &stale_fill,
-            &memory.get(identity).unwrap().unwrap()
-        ));
-
+        assert_eq!(service.modeling_cache.report(0).entries, 2);
+        assert!(service.modeling_cache.report(0).retained_bytes > encoded.retained_bytes());
         let old_generation = memory.generation();
         service.modeling_cache.clear();
         assert!(memory.get(identity).unwrap().is_none());
+        assert!(service.modeling_cache.encoded_body(identity).is_none());
         assert!(
-            memory
-                .get_for_producer(identity, Some(&a))
-                .unwrap()
-                .is_none()
+            service.pool.reserved() > baseline,
+            "escaped aliases retain their actual allocation leases"
         );
-        memory
-            .retain_for_producer(old_generation, identity, body.clone(), Some(&a))
+        let late = memory
+            .retain(old_generation, identity, retained.clone())
             .unwrap();
-        memory.retain(old_generation, identity, body).unwrap();
+        service
+            .modeling_cache
+            .retain_encoded_body(old_generation, identity, encoded.clone());
         assert!(memory.get(identity).unwrap().is_none());
+        assert!(service.modeling_cache.encoded_body(identity).is_none());
         assert!(
             memory
-                .get_for_producer(identity, Some(&a))
-                .unwrap()
-                .is_none()
+                .retain(
+                    memory.generation(),
+                    SemanticBodyHash::from(ContentHash::from_bytes([9; 32])),
+                    body.clone()
+                )
+                .is_err(),
+            "a caller key cannot change compiler-sealed meaning"
         );
+        drop(late);
+        drop(warm);
+        drop(encoded);
+        drop(retained);
+        drop(body);
+        assert_eq!(service.pool.reserved(), baseline);
     }
-    #[derive(Debug)]
-    struct RefuseFreshAdmission {
-        inner: crate::math::retention::CanonicalBodyRetention,
-        wanted: SemanticBodyHash,
-        restored: Arc<Mutex<Option<Arc<AdmittedBody>>>>,
-    }
-    impl ModelingBodyRetention for RefuseFreshAdmission {
-        fn generation(&self) -> u64 {
-            self.inner.generation()
-        }
-        fn get(
-            &self,
-            key: SemanticBodyHash,
-        ) -> Result<Option<Arc<AdmittedBody>>, pse_math::MathError> {
-            let value = self.inner.get(key)?;
-            if key == self.wanted {
-                *self.restored.lock().unwrap() = value.clone();
-            }
-            Ok(value)
-        }
-        fn retain(
-            &self,
-            _: u64,
-            _: SemanticBodyHash,
-            _: Arc<AdmittedBody>,
-        ) -> Result<Arc<AdmittedBody>, pse_math::MathError> {
-            Err(pse_math::MathError::Contract(
-                "fresh admission forbidden in persisted-hit control".into(),
-            ))
-        }
+    #[test]
+    fn canonical_portable_body_oversized_pure_retention_bypasses_without_losing_ownership() {
+        use crate::math::retention::BodyRetention;
+        let context = context();
+        let body = admitted(
+            context.clone(),
+            "package p {def Root {var x:Scalar;eq residual:x==2;}}",
+        );
+        let identity = body.semantic_identity().unwrap();
+        let (service, _) = crate::math::tests::service_with_policy(
+            512 << 20,
+            crate::math::MathPolicy {
+                artifact_bytes: 1,
+                ..crate::math::MathPolicy::default()
+            },
+        );
+        let memory = BodyRetention(Arc::downgrade(&service));
+        let retained = memory.retain(memory.generation(), identity, body).unwrap();
+        let encoded = encoded_body(&service, &retained, &context).unwrap();
+        assert!(memory.get(identity).unwrap().is_none());
+        assert!(service.modeling_cache.encoded_body(identity).is_none());
+        assert_eq!(service.modeling_cache.report(0).entries, 0);
+        assert!(service.modeling_cache.report(0).bypasses >= 2);
+        assert!(service.pool.reserved() > 0);
+        drop(encoded);
+        drop(retained);
+        assert_eq!(service.pool.reserved(), 0);
     }
     #[tokio::test]
-    async fn canonical_portable_body_normal_preparation_hits_before_admission_after_reconnect() {
-        normal_preparation_hits_before_admission_after_reconnect(false).await;
+    async fn canonical_portable_body_explicit_receiving_acquisition_survives_reconnect() {
+        explicit_receiving_acquisition_survives_reconnect(false).await;
     }
     #[cfg(all(target_os = "linux", target_env = "gnu"))]
     #[tokio::test]
-    async fn canonical_portable_body_no_receipt_local_replay_hits_before_admission_after_reconnect()
-    {
-        normal_preparation_hits_before_admission_after_reconnect(true).await;
+    async fn canonical_portable_body_explicit_local_receiving_acquisition_survives_reconnect() {
+        explicit_receiving_acquisition_survives_reconnect(true).await;
     }
     #[allow(
         unsafe_code,
@@ -1610,36 +2301,36 @@ mod canonical_portable_body_tests {
         }
         .unwrap()
     }
-    async fn normal_preparation_hits_before_admission_after_reconnect(local: bool) {
+    async fn explicit_receiving_acquisition_survives_reconnect(local: bool) {
+        use crate::math::retention::BodyRetention;
         let state = std::env::var("PSE_SURREAL_STATE").unwrap();
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!(
-            "canonical_test_normal_{}",
+            "canonical_test_explicit_{}",
             pse_operations::mint_id::<pse_ids::SemanticId>().to_hex()
         );
-        let store = Arc::new(CanonicalStore::connect(&options).await.unwrap());
+        let store = CanonicalStore::connect(&options).await.unwrap();
         store.create().await.unwrap();
         let text = "package p {def Root {var x:Scalar;eq residual:x==2;}}";
         let revision = store
             .edit(
-                "normal",
+                "explicit",
                 None,
                 "source",
                 &[ObjectEdit {
                     logical: "root".into(),
                     scope: "p".into(),
                     name: "Root".into(),
-                    version: Some(version("normal-v1", text)),
+                    version: Some(version("explicit-v1", text)),
                     references: Vec::new(),
                 }],
             )
             .await
             .unwrap();
         let context = context();
-        // Mint before constructing the expected body: actual composition roots
-        // also observe eligibility before their first compiler workspace.
         let initial_admission = restarted_admission(local);
-        let wanted = admitted(context.clone(), text).semantic_identity().unwrap();
+        let body = admitted(context.clone(), text);
+        let identity = body.semantic_identity().unwrap();
         let mut selected = SelectedRead::new(
             store
                 .protect(revision.clone(), Duration::from_secs(60))
@@ -1656,54 +2347,24 @@ mod canonical_portable_body_tests {
                 physical_identity(&context.quantities, &context.preconditions).to_prefixed(),
             )
             .unwrap();
-        let read = Arc::new(Mutex::new(selected));
         let service = crate::math::tests::service();
+        publish_body(
+            &service,
+            &store,
+            &selected,
+            &initial_admission,
+            &body,
+            &context,
+        )
+        .await
+        .unwrap();
         let initial_key = initial_admission.key();
-        let workspace = service
-            .canonical_workspace(
-                context.clone(),
-                WorkspaceLimits::default(),
-                store.clone(),
-                read.clone(),
-                Some(initial_admission),
-                ContentHash::from_bytes([66; 32]),
-                Arc::new(AtomicBool::new(false)),
-            )
-            .unwrap();
-        let prepare = move |compiler: &mut CompilerWorkspace| {
-            let declarations = pse_authoring::language::parse(
-                text,
-                pse_ids::SemanticId::from_bytes([88; 16]),
-                pse_authoring::language::IdentityPolicy::Named,
-                pse_authoring::ParseBudget::default(),
-            )
-            .unwrap();
-            let root = declarations
-                .iter()
-                .find(|v| v.name == "Root")
-                .unwrap()
-                .declaration_id;
-            compiler
-                .publish_modeling(declarations, PhysicalScope::default())
-                .unwrap();
-            compiler.prepare_modeling_cancellable(
-                root,
-                InstanceId::from_id(pse_ids::SemanticId::NIL),
-                Bindings::default(),
-                Limits::default(),
-                Arc::new(AtomicBool::new(false)),
-            )
-        };
-        tokio::task::spawn_blocking(move || prepare(&mut workspace.compiler.lock().unwrap()))
-            .await
-            .unwrap()
-            .unwrap();
-        let protection = read.lock().unwrap().selection().clone();
-        store.release(&protection).await.unwrap();
-        drop(read);
+        store.release(selected.selection()).await.unwrap();
+        drop(body);
+        drop(selected);
         drop(service);
         drop(store);
-        let store = Arc::new(CanonicalStore::connect(&options).await.unwrap());
+        let store = CanonicalStore::connect(&options).await.unwrap();
         store.open().await.unwrap();
         let mut selected = SelectedRead::new(
             store
@@ -1717,40 +2378,35 @@ mod canonical_portable_body_tests {
                 physical_identity(&context.quantities, &context.preconditions).to_prefixed(),
             )
             .unwrap();
-        let read = Arc::new(Mutex::new(selected));
         let service = crate::math::tests::service();
-        let restarted_admission = restarted_admission(local);
-        assert_eq!(restarted_admission.key(), initial_key);
-        let restored = Arc::new(Mutex::new(None));
-        let attachment = RefuseFreshAdmission {
-            inner: crate::math::retention::CanonicalBodyRetention {
-                memory: crate::math::retention::BodyRetention(Arc::downgrade(&service)),
-                store: store.clone(),
-                read: read.clone(),
-                producer: Some(restarted_admission),
-                outer_build: ContentHash::from_bytes([66; 32]),
-                inputs: context.clone(),
-                cancelled: Arc::new(AtomicBool::new(false)),
-                handle: tokio::runtime::Handle::current(),
-            },
-            wanted,
-            restored: restored.clone(),
-        };
-        let mut workspace = CompilerWorkspace::new(context, WorkspaceLimits::default()).unwrap();
-        workspace
-            .attach_body_retention(Arc::new(attachment))
+        let receiving = restarted_admission(local);
+        assert_eq!(receiving.key(), initial_key);
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let rebuilt = reuse_body(
+            &service,
+            &store,
+            &mut selected,
+            &receiving,
+            identity,
+            &context,
+            &cancelled,
+        )
+        .await
+        .unwrap()
+        .expect("explicit receiving acquisition reconstructs persisted body");
+        let memory = BodyRetention(Arc::downgrade(&service));
+        assert!(
+            memory.get(identity).unwrap().is_none(),
+            "receiving acquisition itself performs no retention callback"
+        );
+        let retained = memory
+            .retain(memory.generation(), identity, Arc::new(rebuilt))
             .unwrap();
-        tokio::task::spawn_blocking(move || prepare(&mut workspace))
-            .await
-            .unwrap()
-            .unwrap();
-        let body = restored
-            .lock()
-            .unwrap()
-            .take()
-            .expect("normal body lookup restored persisted product before admission");
-        let cancel = Arc::new(AtomicBool::new(false));
-        let compiled = body
+        assert!(Arc::ptr_eq(
+            &retained,
+            &memory.get(identity).unwrap().unwrap()
+        ));
+        let compiled = retained
             .math()
             .compile(
                 &[0],
@@ -1758,7 +2414,7 @@ mod canonical_portable_body_tests {
                 pse_kernels::DerivativeOrder::First,
                 pse_math::library::Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
-                &cancel,
+                &cancelled,
             )
             .unwrap();
         let mut worker = compiled.worker();
@@ -1767,14 +2423,86 @@ mod canonical_portable_body_tests {
                 &[9.0],
                 pse_kernels::DerivativeOrder::First,
                 &mut BTreeMap::new(),
-                &cancel,
+                &cancelled,
             )
             .unwrap();
         assert_eq!(9.0 - jet.values[0] / jet.jacobian[0], 2.0);
-        let protection = read.lock().unwrap().selection().clone();
-        store.release(&protection).await.unwrap();
+        store.release(selected.selection()).await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    #[allow(
+        unsafe_code,
+        reason = "controlled local admission fixture verifies cold canonical miss avoids loader observation"
+    )]
+    async fn canonical_portable_body_cold_miss_skips_local_runtime_observation() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let state = std::env::var("PSE_SURREAL_STATE").unwrap();
+        let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
+        options.database = format!(
+            "canonical_test_cold_miss_{}",
+            pse_operations::mint_id::<pse_ids::SemanticId>().to_hex()
+        );
+        let store = Arc::new(CanonicalStore::connect(&options).await.unwrap());
+        store.create().await.unwrap();
+        let context = context();
+        let body = admitted(
+            context.clone(),
+            "package p {def Root {var x:Scalar;eq residual:x==2;}}",
+        );
+        let identity = body.semantic_identity().unwrap();
+        let revision = store.edit("cold-miss", None, "source", &[]).await.unwrap();
+        let mut selected = SelectedRead::new(
+            store
+                .protect(revision.clone(), Duration::from_secs(60))
+                .await
+                .unwrap(),
+        );
+        selected
+            .interpretation(
+                "physical".into(),
+                physical_identity(&context.quantities, &context.preconditions).to_prefixed(),
+            )
+            .unwrap();
+        let service = crate::math::tests::service();
+        let observations = Arc::new(AtomicUsize::new(0));
+        let observed = observations.clone();
+        fn anchor() {}
+        // SAFETY: the unit-test executable is the controlled anchor for this local replay fixture.
+        let producer = unsafe {
+            ReplayAdmission::observe_local(
+                ExpectedProducerTarget::WORKER,
+                anchor as *const () as usize,
+                Arc::new(move || {
+                    if observed.fetch_add(1, Ordering::Relaxed) < 2 {
+                        Ok(vec![7])
+                    } else {
+                        Err(std::io::Error::other(
+                            "cold miss unexpectedly observed producer context",
+                        ))
+                    }
+                }),
+            )
+        }
+        .unwrap();
+        assert_eq!(observations.load(Ordering::Relaxed), 2);
+        let absent = reuse_body(
+            &service,
+            &store,
+            &mut selected,
+            &producer,
+            identity,
+            &context,
+            &Arc::new(AtomicBool::new(false)),
+        )
+        .await
+        .unwrap();
+        assert!(absent.is_none());
+        assert_eq!(observations.load(Ordering::Relaxed), 2);
+        store.release(selected.selection()).await.unwrap();
         drop(body);
-        drop(read);
         drop(service);
         store.remove_isolated_fixture().await.unwrap();
     }
@@ -2130,7 +2858,7 @@ mod canonical_portable_body_tests {
         unsafe_code,
         reason = "controlled corrupt-store fixture deliberately crosses publication trust boundary"
     )]
-    async fn canonical_portable_body_corrupt_hit_refuses_normal_admission_fallback() {
+    async fn canonical_portable_body_corrupt_explicit_acquisition_refuses_before_retention() {
         let state = std::env::var("PSE_SURREAL_STATE").unwrap();
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!(
@@ -2193,66 +2921,29 @@ mod canonical_portable_body_tests {
         .await
         .unwrap();
         drop(body);
-        let read = Arc::new(Mutex::new(selected));
         let service = crate::math::tests::service();
-        let restored = Arc::new(Mutex::new(None));
-        let attachment = RefuseFreshAdmission {
-            inner: crate::math::retention::CanonicalBodyRetention {
-                memory: crate::math::retention::BodyRetention(Arc::downgrade(&service)),
-                store: store.clone(),
-                read: read.clone(),
-                producer: Some(producer(68)),
-                outer_build: ContentHash::from_bytes([69; 32]),
-                inputs: context.clone(),
-                cancelled: Arc::new(AtomicBool::new(false)),
-                handle: tokio::runtime::Handle::current(),
-            },
-            wanted: identity,
-            restored: restored.clone(),
-        };
-        let mut compiler = CompilerWorkspace::new(context, WorkspaceLimits::default()).unwrap();
-        compiler
-            .attach_body_retention(Arc::new(attachment))
-            .unwrap();
-        let error = tokio::task::spawn_blocking(move || {
-            let declarations = pse_authoring::language::parse(
-                text,
-                pse_ids::SemanticId::from_bytes([88; 16]),
-                pse_authoring::language::IdentityPolicy::Named,
-                pse_authoring::ParseBudget::default(),
-            )
-            .unwrap();
-            let root = declarations
-                .iter()
-                .find(|v| v.name == "Root")
-                .unwrap()
-                .declaration_id;
-            compiler
-                .publish_modeling(declarations, PhysicalScope::default())
-                .unwrap();
-            compiler
-                .prepare_modeling_cancellable(
-                    root,
-                    InstanceId::from_id(pse_ids::SemanticId::NIL),
-                    Bindings::default(),
-                    Limits::default(),
-                    Arc::new(AtomicBool::new(false)),
-                )
-                .unwrap_err()
-        })
+        let memory = crate::math::retention::BodyRetention(Arc::downgrade(&service));
+        let error = reuse_body(
+            &service,
+            &store,
+            &mut selected,
+            &producer(68),
+            identity,
+            &context,
+            &Arc::new(AtomicBool::new(false)),
+        )
         .await
-        .unwrap();
-        use pse_model::diagnostic::DiagnosticProjection;
+        .unwrap_err();
         fn has_refusal(diagnostic: &pse_model::diagnostic::BoundaryDiagnostic) -> bool {
             diagnostic.observations.values().any(|value|matches!(value,pse_model::diagnostic::Observation::Text(detail) if detail.contains("unsupported portable envelope framing"))) || diagnostic.causes.iter().any(has_refusal)
         }
-        let diagnostic =
-            error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::ModelingAdmission);
+        let diagnostic = pse_model::diagnostic::project_typed(
+            &error,
+            pse_diagnostics::DiagnosticStage::ModelingAdmission,
+        );
         assert!(has_refusal(&diagnostic), "{diagnostic:?}");
-        assert!(restored.lock().unwrap().is_none());
-        let protection = read.lock().unwrap().selection().clone();
-        store.release(&protection).await.unwrap();
-        drop(read);
+        assert!(memory.get(identity).unwrap().is_none());
+        store.release(selected.selection()).await.unwrap();
         drop(service);
         store.remove_isolated_fixture().await.unwrap();
     }

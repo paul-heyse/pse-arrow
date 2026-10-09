@@ -65,6 +65,24 @@ pub(super) fn observed(
 ) -> BoundaryDiagnostic {
     error.boundary_diagnostic(stage)
 }
+/// Attribute an escaping workflow operation without replacing its typed error or retry class.
+pub(super) fn operation_context(
+    error: super::WorkflowError,
+    operation: &'static str,
+) -> super::WorkflowError {
+    tracing::warn!(operation, error = %error, "canonical workflow operation failed");
+    #[cfg(feature = "canonical-tests")]
+    {
+        #[allow(
+            clippy::print_stderr,
+            reason = "canonical qualification captures escaping operation attribution without a tracing subscriber"
+        )]
+        {
+            eprintln!("canonical workflow operation {operation} failed: {error}");
+        }
+    }
+    error
+}
 impl RunResult {
     pub(super) fn capture_diagnostics(&self) -> Vec<BoundaryDiagnostic> {
         let mut diagnostics: Vec<BoundaryDiagnostic> = match &self.report {
@@ -181,6 +199,53 @@ mod tests {
         assert!(
             matches!(&diagnostic.observations["detail"], Observation::Text(value) if value == "synthetic capability")
         );
+    }
+    #[test]
+    fn operation_context_preserves_typed_error_and_diagnostic() {
+        let error = operation_context(
+            super::super::WorkflowError::Canonical(
+                pse_operations::canonical::CanonicalError::Timeout,
+            ),
+            "modeling_revision.context",
+        );
+        assert!(matches!(
+            &error,
+            super::super::WorkflowError::Canonical(
+                pse_operations::canonical::CanonicalError::Timeout
+            )
+        ));
+        let diagnostic = error.boundary_diagnostic();
+        assert_eq!(
+            diagnostic.code,
+            pse_diagnostics::DiagnosticCode::RuntimeInfrastructure
+        );
+        assert_eq!(diagnostic.class, Class::Infrastructure);
+        assert_eq!(diagnostic.rule, DiagnosticRule::WorkflowUnclassified);
+        assert!(matches!(
+            &diagnostic.observations["detail"],
+            Observation::Text(detail) if detail == "canonical store request deadline expired"
+        ));
+    }
+    #[test]
+    fn shared_study_retention_failure_preserves_infrastructure_cause() {
+        let cause = std::sync::Arc::new(super::super::WorkflowError::Canonical(
+            pse_operations::canonical::CanonicalError::Timeout,
+        ));
+        let expected = cause.boundary_diagnostic();
+        let error = operation_context(
+            super::super::WorkflowError::Shared(cause.clone()),
+            "study.record_study_attempt.retained_result",
+        );
+        assert!(matches!(
+            &error,
+            super::super::WorkflowError::Shared(retained)
+                if std::sync::Arc::ptr_eq(retained, &cause)
+        ));
+        assert_eq!(
+            serde_json::to_value(error.boundary_diagnostic()).unwrap(),
+            serde_json::to_value(&expected).unwrap()
+        );
+        assert_eq!(expected.class, Class::Infrastructure);
     }
     #[test]
     fn adapter_not_linked_is_unsupported() {

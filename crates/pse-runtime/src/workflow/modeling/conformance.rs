@@ -1957,7 +1957,7 @@ impl ModelingPackage {
                                 bindings,
                                 case,
                                 solve_order,
-                                &policy,
+                                policy,
                                 &result,
                                 cancel,
                             )
@@ -1995,10 +1995,10 @@ impl ModelingPackage {
             }
         }
         #[cfg(test)]
-        if let Ok(probe) = CONFORMANCE_TEST_PROBE.try_with(Arc::clone) {
-            if probe.finished(row.declaration_id, &report) {
-                return Err(contract("controlled fixture report refusal"));
-            }
+        if let Ok(probe) = CONFORMANCE_TEST_PROBE.try_with(Arc::clone)
+            && probe.finished(row.declaration_id, &report)
+        {
+            return Err(contract("controlled fixture report refusal"));
         }
         Ok(FixtureReport {
             report,
@@ -2306,6 +2306,7 @@ mod tests {
         cancelled: BTreeSet<DeclarationId>,
         finished: Vec<DeclarationId>,
         refused: BTreeMap<DeclarationId, String>,
+        #[cfg(feature = "solver-kinsol")]
         expected: BTreeSet<DeclarationId>,
         open: bool,
         fatal_fixture: Option<DeclarationId>,
@@ -2316,6 +2317,7 @@ mod tests {
         wake: std::sync::Condvar,
     }
     impl FixtureProbe {
+        #[cfg(feature = "solver-kinsol")]
         fn for_fixtures(fixtures: &[DeclarationId]) -> Arc<Self> {
             let probe = Arc::new(Self::default());
             probe
@@ -2326,12 +2328,14 @@ mod tests {
                 .extend(fixtures.iter().copied());
             probe
         }
+        #[cfg(feature = "solver-kinsol")]
         fn state_snapshot(&self) -> ProbeState {
             self.state
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .clone()
         }
+        #[cfg(feature = "solver-kinsol")]
         fn snapshot(&self) -> String {
             let state = self.state_snapshot();
             let missing = state
@@ -2408,10 +2412,12 @@ mod tests {
                 && state.entered.contains(&fixture)
                 && report.passed()
         }
+        #[cfg(feature = "solver-kinsol")]
         fn release(&self, fixture: DeclarationId) {
             self.state.lock().unwrap().released.insert(fixture);
             self.wake.notify_all();
         }
+        #[cfg(feature = "solver-kinsol")]
         fn release_all(&self) {
             // A failed assertion must still release every held native worker.
             self.state
@@ -2420,6 +2426,7 @@ mod tests {
                 .open = true;
             self.wake.notify_all();
         }
+        #[cfg(feature = "solver-kinsol")]
         async fn wait(&self, condition: impl Fn(&ProbeState) -> bool) {
             tokio::time::timeout(std::time::Duration::from_secs(20), async {
                 loop {
@@ -2520,13 +2527,16 @@ mod tests {
             refusals
         )
     }
+    #[cfg(feature = "solver-kinsol")]
     fn result_summary(result: &Result<ModelingConformanceReport, WorkflowError>) -> String {
         match result {
             Ok(report) => report_summary(report),
             Err(error) => error.to_string(),
         }
     }
+    #[cfg(feature = "solver-kinsol")]
     struct ProbeDrain(Arc<FixtureProbe>);
+    #[cfg(feature = "solver-kinsol")]
     impl Drop for ProbeDrain {
         fn drop(&mut self) {
             self.0.release_all();
@@ -2544,7 +2554,16 @@ mod tests {
         let baseline = fixture::runtime();
         let mut budget = baseline.shared.budget().clone();
         budget.threads.pool_threads = NonZeroUsize::new(width).unwrap();
-        budget.memory_limit_bytes = NonZeroUsize::new(2 << 30).unwrap();
+        // Ordinary parallel lanes need independent compiler-workspace headroom;
+        // explicit resource-refusal controls use `runtime_on` with a fixed pool.
+        budget.memory_limit_bytes = NonZeroUsize::new(
+            budget
+                .memory_limit_bytes
+                .get()
+                .checked_mul(width)
+                .expect("parallel conformance pool capacity"),
+        )
+        .unwrap();
         budget.math.jobs = jobs;
         budget.math.artifact_bytes = 128 << 20;
         let shared = crate::SharedRuntime::build(budget).unwrap();
@@ -2574,6 +2593,7 @@ mod tests {
             .await
             .unwrap()
     }
+    #[cfg(feature = "solver-kinsol")]
     fn parallel_source(count: usize) -> String {
         let mut source = "package p {def D {var x:Scalar; eq e:x*x==4; annotation start x(1); annotation bounds x(0.5,3);}".to_owned();
         for index in 0..count {
@@ -3347,6 +3367,10 @@ mod tests {
     async fn derivative_submission_deadline_expires_during_first_preparation_queue() {
         let (package, mut resolution) = nested_scope_fixture().await;
         let service = package.runtime.shared.math();
+        assert_eq!(
+            resolution.model.case.compiled().plan.order(),
+            DerivativeOrder::Value
+        );
         let entered = Arc::new(tokio::sync::Notify::new());
         let gate = Arc::new((Mutex::new(false), std::sync::Condvar::new()));
         let e = entered.clone();
@@ -3365,17 +3389,13 @@ mod tests {
                 .await
         });
         entered.notified().await;
-        assert_eq!(
-            resolution.model.case.compiled().plan.order(),
-            DerivativeOrder::Value
-        );
         let control = pse_columnar::flight::FlightCancellation::default();
         let scope = pse_kernels::ExecutionScope::new(
             control.flag(),
             Some(std::time::Instant::now() + std::time::Duration::from_millis(25)),
         );
         let driver = crate::CancelSource::new();
-        let result = service
+        let queued_result = service
             .prepare_order_within_task(
                 resolution.model.case.clone(),
                 DerivativeOrder::First,
@@ -3383,18 +3403,6 @@ mod tests {
                 &driver,
             )
             .await;
-        assert!(matches!(
-            result,
-            Err(MathRuntimeError::Solve(
-                pse_backend_native::ProblemError::Provider(pse_kernels::ProviderError::Deadline)
-            ))
-        ));
-        assert!(
-            !scope
-                .cancellation()
-                .load(std::sync::atomic::Ordering::Acquire)
-        );
-        assert!(!driver.token().is_cancelled());
         resolution.solver.controls.time_limit = std::time::Duration::from_millis(25);
         let result = package
             .conformance_derivatives(
@@ -3406,6 +3414,19 @@ mod tests {
         *gate.0.lock().unwrap() = true;
         gate.1.notify_one();
         job.await.unwrap().unwrap();
+        // Release and join the held job before any outcome assertion can panic.
+        assert!(matches!(
+            queued_result,
+            Err(MathRuntimeError::Solve(
+                pse_backend_native::ProblemError::Provider(pse_kernels::ProviderError::Deadline)
+            ))
+        ));
+        assert!(
+            !scope
+                .cancellation()
+                .load(std::sync::atomic::Ordering::Acquire)
+        );
+        assert!(!driver.token().is_cancelled());
         assert!(matches!(
             result,
             Err(WorkflowError::Math(MathRuntimeError::Solve(

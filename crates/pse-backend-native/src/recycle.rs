@@ -106,7 +106,7 @@ impl CausalMap {
             (support, 11 * size_of::<usize>() + 16 * size_of::<usize>()),
             (
                 matrix,
-                size_of::<faer::sparse::Pair<usize, usize>>() + 8 * size_of::<usize>(),
+                size_of::<faer::sparse::Pair<usize, usize>>() + size_of::<[usize; 8]>(),
             ),
             (
                 n.checked_add(1).ok_or_else(overflow)?,

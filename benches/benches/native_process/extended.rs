@@ -290,6 +290,7 @@ async fn run(
     observations: &mut observations::Observations,
 ) {
     match operation {
+        "shooting" => shooting::run(owner, observations).await,
         "curved-fit" | "curved-gradient" => {
             curved_fit::run(owner, observations, operation == "curved-gradient").await;
         }
@@ -511,6 +512,13 @@ pub(super) fn measure(
                 tokio::task::yield_now().await;
             });
             after_teardown = after_teardown.max(pool.reserved());
+            if operation == "shooting" {
+                assert_eq!(
+                    pool.reserved(),
+                    0,
+                    "one-shot shooting escaped runtime teardown"
+                );
+            }
             iterations += 1;
         })
     });
@@ -523,6 +531,8 @@ pub(super) fn measure(
         "threads":1,"native_threads":1,"compiler_phases":compiler_phases.report(iterations),
         "effective_process_parallelism":std::thread::available_parallelism().unwrap().get(),
         "scope":"fresh runtime per iteration; public source/preparation/execution/analytic validation and teardown; value sweep retains one compiler for 1000 revisions; dynamic rebind retains initial preparation",
+        "timed_scope":if operation == "shooting" { "fresh runtime, original source/physical admission, IDAS simulation preparation, single-shooting preparation, one native solve, original scientific/transport assessment, fixture and runtime teardown" } else { "complete extended public operation and teardown" },
+        "phase_boundary":if operation == "shooting" { "one public shooting start/wait includes native optimization, fresh candidate trajectory and completion assessment; no manufactured repeat session; Cargo/native installation before benchmark entry is excluded" } else { "public preparation/execution completion boundaries" },
         "start_policy":"NoPriorStart","sampling":"10 flat Criterion samples; warmup 250ms; target 1s extended for slow cases",
         "memory_scope":"finite-pool reservations and independent process VmHWM; retained runtime before owner teardown reported separately"
     })).unwrap()).unwrap();

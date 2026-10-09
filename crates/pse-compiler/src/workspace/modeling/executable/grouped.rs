@@ -45,9 +45,33 @@ fn body_key_heap((input,): &(Arc<BodyInput>,)) -> usize {
             .iter()
             .map(|(n, f)| n.capacity() + f.retained_bytes() + 64)
             .sum::<usize>()
-        + input.providers.len() * 512
-        + input.hints.len() * 128
-        + input.validity.len() * 512
+        + input
+            .providers
+            .iter()
+            .map(|(name, provider)| {
+                let spec = provider.descriptor.spec();
+                name.capacity()
+                    + 512
+                    + spec.shapes.retained_bytes()
+                    + size_of_val(spec.inputs.as_slice())
+                    + size_of_val(spec.outputs.as_slice())
+            })
+            .sum::<usize>()
+        + input
+            .hints
+            .keys()
+            .map(|name| name.capacity() + 128)
+            .sum::<usize>()
+        + input
+            .validity
+            .iter()
+            .map(|(name, range)| {
+                name.capacity()
+                    + 512
+                    + pse_modeling::expression::retained_bytes(&range.lower)
+                    + pse_modeling::expression::retained_bytes(&range.upper)
+            })
+            .sum::<usize>()
 }
 #[salsa::tracked(returns(clone), lru = 64, heap_size = body_heap)]
 fn semantic_body(
@@ -58,7 +82,10 @@ fn semantic_body(
     checkpoint(db);
     let input = key.input(db);
     let retained = match db.body_retention() {
-        Some(cache) => cache.get(input.identity)?,
+        Some(cache) => match cache.get(input.identity) {
+            Ok(body) => body,
+            Err(error) => body_refused(db, error),
+        },
         None => None,
     };
     if let Some(body) = retained {
@@ -533,12 +560,109 @@ fn normalize(
     ))
 }
 
+/// Owned assembly instructions. No Salsa identity escapes the planning operation.
+#[derive(Clone, Debug)]
+pub(super) struct PlannedModeling {
+    inputs: Vec<SemanticId>,
+    outputs: Vec<ModelingOutput>,
+    term_outputs: BTreeMap<SemanticId, Vec<(SemanticId, f64)>>,
+    pub(super) implicit: BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
+    instances: Vec<PlannedInstance>,
+    variables: Vec<Variable>,
+    parameters: Vec<Port>,
+    rows: Vec<Row>,
+    objective: Option<pse_math::binding::Objective>,
+    levels: Vec<(
+        pse_math::binding::Objective,
+        Option<pse_math::binding::Degradation>,
+    )>,
+    native: Vec<pse_model::forms::NativeConstraint>,
+    requirements: BTreeSet<pse_model::generated::enums::ModelingStructuralRequirement>,
+}
+#[derive(Clone, Debug)]
+struct PlannedInstance {
+    input: Arc<BodyInput>,
+    instance: SemanticId,
+    checked_members: BTreeMap<SemanticId, SemanticId>,
+    slots: Vec<SlotBinding>,
+    contributions: Vec<Contribution>,
+}
+impl PlannedModeling {
+    pub(super) fn body_requests(
+        &self,
+    ) -> impl Iterator<Item = pse_ids::roles::SemanticBodyHash> + '_ {
+        self.instances
+            .iter()
+            .map(|instance| instance.input.identity)
+    }
+    pub(super) fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            + size_of_val(self.inputs.as_slice())
+            + self
+                .outputs
+                .iter()
+                .map(|output| {
+                    size_of_val(output)
+                        + match output {
+                            ModelingOutput::DynamicRate { equations, .. } => {
+                                size_of_val(equations.as_slice())
+                            }
+                            _ => 0,
+                        }
+                })
+                .sum::<usize>()
+            + self
+                .term_outputs
+                .values()
+                .map(|rows| size_of_val(rows.as_slice()) + 128)
+                .sum::<usize>()
+            + self
+                .implicit
+                .values()
+                .map(|supplier| supplier.retained_bytes())
+                .sum::<usize>()
+            + self
+                .instances
+                .iter()
+                .map(|instance| {
+                    size_of_val(instance)
+                        + body_key_heap(&(instance.input.clone(),))
+                        + instance.checked_members.len()
+                            * (size_of::<(SemanticId, SemanticId)>() + 96)
+                        + size_of_val(instance.slots.as_slice())
+                        + size_of_val(instance.contributions.as_slice())
+                })
+                .sum::<usize>()
+            + size_of_val(self.variables.as_slice())
+            + size_of_val(self.parameters.as_slice())
+            + size_of_val(self.rows.as_slice())
+            + size_of_val(self.levels.as_slice())
+            + self
+                .native
+                .iter()
+                .map(|constraint| {
+                    64 + constraint.identities().len() * (size_of::<SemanticId>() + 16)
+                })
+                .sum::<usize>()
+            + self.requirements.len() * 96
+    }
+}
+
 pub(super) fn admit(
     db: &dyn CompilerDb,
     inventory: Inventory,
     p: &Projection,
 ) -> Result<Arc<AdmittedModeling>> {
-    let (implicit, mut providers) = implicit::admit(db, inventory, p)?;
+    complete(db, inventory, plan(db, inventory, p, BTreeMap::new())?)
+}
+
+pub(super) fn plan(
+    db: &dyn CompilerDb,
+    inventory: Inventory,
+    p: &Projection,
+    supplied: BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
+) -> Result<PlannedModeling> {
+    let (implicit, mut providers) = implicit::admit(db, inventory, p, supplied)?;
     for function in p.functions.values() {
         if let Some(external) = &function.external {
             let call =
@@ -671,9 +795,9 @@ pub(super) fn admit(
     } else {
         None
     };
-    let mut bodies = BTreeMap::new();
     let mut instances = vec![];
     let mut rows = vec![];
+    let physical = physical_identity(registry, checker);
     for (index, (expression, output)) in p.expressions.iter().zip(&p.outputs).enumerate() {
         checkpoint(db);
         if let ModelingOutput::Equation {
@@ -702,7 +826,6 @@ pub(super) fn admit(
             .iter()
             .filter_map(|n| providers.get(n).map(|v| (n.clone(), v.clone())))
             .collect();
-        let physical = physical_identity(registry, checker);
         let mut h = FramedHasher::new(pse_ids::Frame::ModelingConsumerBodyV4);
         h.str(&dsl::render_expr(&expression))
             .id(&p.quantities[index].as_id())
@@ -738,31 +861,18 @@ pub(super) fn admit(
                 .u64(provider.output as u64);
         }
         let identity = pse_ids::roles::SemanticBodyHash::from_id(h.finish_hash());
-        let key = BodyKey::new(
-            db,
-            Arc::new(BodyInput {
-                identity,
-                expression,
-                formals: formals.clone(),
-                functions,
-                providers: selected_providers,
-                hints,
-                validity,
-                quantity: p.quantities[index],
-                physical,
-                limits: p.body_limits,
-            }),
-        );
-        let body = semantic_body(db, inventory, key).map_err(|cause| MathError::Instance {
-            instance: output.row_id(),
-            checked_members: checked_members.clone(),
-            cause: Box::new(MathError::Typed {
-                retained: cause.retained_bytes(),
-                cause: pse_model::diagnostic::DiagnosticCause::new(cause),
-            }),
-        })?;
-        let key = body.spec.key();
-        bodies.insert(key, body);
+        let input = Arc::new(BodyInput {
+            identity,
+            expression,
+            formals: formals.clone(),
+            functions,
+            providers: selected_providers,
+            hints,
+            validity,
+            quantity: p.quantities[index],
+            physical,
+            limits: p.body_limits,
+        });
         let slots = inputs
             .iter()
             .zip(&formals)
@@ -828,9 +938,9 @@ pub(super) fn admit(
                 });
             }
         }
-        instances.push(InstanceBinding {
+        instances.push(PlannedInstance {
+            input,
             instance: id,
-            body: key,
             checked_members,
             slots,
             contributions,
@@ -848,24 +958,7 @@ pub(super) fn admit(
                 .push((output.row_id(), if *negative { -1.0 } else { 1.0 }));
         }
     }
-    let case_limits = CaseLimits::default();
-    let case = if levels.is_empty() {
-        CaseStructure::new(
-            variables,
-            parameters,
-            instances,
-            rows,
-            objective,
-            case_limits,
-        )?
-    } else {
-        CaseStructure::lexicographic(variables, parameters, instances, rows, levels, case_limits)?
-    };
-    let case = Arc::new(
-        case.with_native(p.native.clone())?
-            .with_requirements(p.requirements.iter().copied()),
-    );
-    Ok(Arc::new(AdmittedModeling {
+    Ok(PlannedModeling {
         inputs: p.inputs.clone(),
         outputs: p
             .outputs
@@ -875,6 +968,75 @@ pub(super) fn admit(
             .collect(),
         term_outputs,
         implicit,
+        instances,
+        variables,
+        parameters,
+        rows,
+        objective,
+        levels,
+        native: p.native.clone(),
+        requirements: p.requirements.clone(),
+    })
+}
+
+pub(super) fn complete(
+    db: &dyn CompilerDb,
+    inventory: Inventory,
+    planned: PlannedModeling,
+) -> Result<Arc<AdmittedModeling>> {
+    let mut bodies = BTreeMap::new();
+    let mut instances = Vec::with_capacity(planned.instances.len());
+    for instance in planned.instances {
+        checkpoint(db);
+        let key = BodyKey::new(db, instance.input);
+        let body = semantic_body(db, inventory, key).map_err(|cause| MathError::Instance {
+            instance: instance.instance,
+            checked_members: instance.checked_members.clone(),
+            cause: Box::new(MathError::Typed {
+                retained: cause.retained_bytes(),
+                cause: pse_model::diagnostic::DiagnosticCause::new(cause),
+            }),
+        })?;
+        let key = body.spec.key();
+        bodies.insert(key, body);
+        instances.push(InstanceBinding {
+            instance: instance.instance,
+            body: key,
+            checked_members: instance.checked_members,
+            slots: instance.slots,
+            contributions: instance.contributions,
+        });
+    }
+    let case_limits = CaseLimits::default();
+    let case = if planned.levels.is_empty() {
+        CaseStructure::new(
+            planned.variables,
+            planned.parameters,
+            instances,
+            planned.rows,
+            planned.objective,
+            case_limits,
+        )?
+    } else {
+        CaseStructure::lexicographic(
+            planned.variables,
+            planned.parameters,
+            instances,
+            planned.rows,
+            planned.levels,
+            case_limits,
+        )?
+    };
+    checkpoint(db);
+    let case = Arc::new(
+        case.with_native(planned.native)?
+            .with_requirements(planned.requirements),
+    );
+    Ok(Arc::new(AdmittedModeling {
+        inputs: planned.inputs,
+        outputs: planned.outputs,
+        term_outputs: planned.term_outputs,
+        implicit: planned.implicit,
         bodies,
         case,
     }))
@@ -885,6 +1047,72 @@ mod dependency_tests {
     use super::*;
     use crate::workspace::{CompilerWorkspace, WorkspaceLimits};
     use pse_modeling::{Bindings, Limits, specialize::root_instance};
+
+    #[test]
+    fn supplied_promoted_implicit_descriptors_precede_nested_consumer_planning() {
+        let source = "package p { def Root { param p:Scalar=4; implicit outer select branch(y>=0) { var y:Scalar; implicit child {var z:Scalar;eq e:z==p;} realize c on child using nested; eq e:y*y==child.z; } realize o on outer using nested; eq result:outer.y==2; } }";
+        let rows = crate::authored_transfer_tests::rows(source);
+        let root = crate::authored_transfer_tests::root(&rows, "p", "Root");
+        let mut workspace = CompilerWorkspace::new(
+            crate::authored_transfer_tests::context(),
+            WorkspaceLimits::default(),
+        )
+        .unwrap();
+        workspace
+            .publish_modeling(rows, PhysicalScope::default())
+            .unwrap();
+        let (catalog, request) = workspace
+            .modeling_request(
+                root,
+                root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+            )
+            .unwrap();
+        let projected = projection(&workspace.db, workspace.inventory, catalog, request).unwrap();
+        let primary = plan(
+            &workspace.db,
+            workspace.inventory,
+            &projected,
+            BTreeMap::new(),
+        )
+        .unwrap();
+        let (child, supplier) = primary
+            .implicit
+            .iter()
+            .find(|(_, supplier)| supplier.selection.restriction.is_none())
+            .unwrap();
+        let mut consuming = projected.as_ref().clone();
+        consuming
+            .implicit
+            .retain(|projection| projection.id != *child);
+        let retained = plan(
+            &workspace.db,
+            workspace.inventory,
+            &consuming,
+            BTreeMap::from([(*child, supplier.clone())]),
+        )
+        .unwrap();
+        assert!(
+            Arc::ptr_eq(supplier, &retained.implicit[child]),
+            "the promoted supplier is not readmitted"
+        );
+        let outer = retained
+            .implicit
+            .values()
+            .find(|system| system.selection.restriction.is_some())
+            .unwrap();
+        assert!(
+            outer.bodies().any(|body| body
+                .math
+                .providers()
+                .iter()
+                .any(|provider| provider.id == *child)),
+            "nested admission consumes the supplied provider descriptor"
+        );
+        let admitted = complete(&workspace.db, workspace.inventory, retained).unwrap();
+        assert_eq!(admitted.implicit_order_for(None).unwrap().len(), 2);
+    }
 
     #[test]
     fn reusable_checked_members_bind_actual_inputs_and_computed_locals() {

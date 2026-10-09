@@ -165,10 +165,10 @@ impl Admission {
 }
 impl Drop for Admission {
     fn drop(&mut self) {
-        if self.failed.get() {
-            if let Some(phase) = &mut self.phase {
-                **phase = Phase::Failed;
-            }
+        if self.failed.get()
+            && let Some(phase) = &mut self.phase
+        {
+            **phase = Phase::Failed;
         }
         ACTIVE.set(false);
         self.phase.take();

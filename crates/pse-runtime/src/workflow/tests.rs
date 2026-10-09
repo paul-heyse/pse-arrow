@@ -64,10 +64,18 @@ pub(crate) fn runtime_with(
     foreign_bytes: usize,
     pool_bytes: usize,
 ) -> Runtime {
+    // Ordinary fixtures need enough capacity for opaque construction bounds as
+    // well as known native demand. Deliberate capacity controls use runtime_on.
+    let workspace_bytes = workspace_bytes.max(1 << 30);
+    let pool_bytes = pool_bytes.max(
+        workspace_bytes
+            .checked_mul(4)
+            .expect("ordinary fixture memory pool extent"),
+    );
     runtime_on(
         pool_bytes,
         crate::math::MathPolicy {
-            worker_bytes: 8 << 20,
+            worker_bytes: workspace_bytes,
             workspace_bytes,
             foreign_bytes,
             ..Default::default()

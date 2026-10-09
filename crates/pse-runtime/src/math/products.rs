@@ -81,7 +81,7 @@ impl MathService {
         }
         let source = prepared.prepared.clone();
         let demand = source
-            .support_upgrade_allocation_bound()?
+            .support_upgrade_allocation_bound(order)?
             .unwrap_or(self.policy.workspace_bytes);
         if demand > self.policy.worker_bytes {
             return Err(MathRuntimeError::Limit(
@@ -107,7 +107,7 @@ impl MathService {
         }
         let source = prepared.prepared.clone();
         let demand = source
-            .support_upgrade_allocation_bound()?
+            .support_upgrade_allocation_bound(pse_kernels::DerivativeOrder::First)?
             .unwrap_or(self.policy.workspace_bytes);
         if demand > self.policy.worker_bytes {
             return Err(MathRuntimeError::Limit(

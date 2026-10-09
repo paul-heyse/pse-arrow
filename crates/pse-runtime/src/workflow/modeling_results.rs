@@ -418,7 +418,7 @@ impl RunResult {
 mod tests {
     use super::*;
     use pse_relations::columnar::RelationRow;
-    #[cfg(feature = "native-solvers")]
+    #[cfg(any(feature = "native-solvers", feature = "solver-kinsol"))]
     use std::sync::Arc;
 
     #[tokio::test]

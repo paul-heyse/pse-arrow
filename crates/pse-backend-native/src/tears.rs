@@ -59,7 +59,7 @@ pub fn construction_allocation_bound(graph: &FlowGraph) -> Result<usize, Problem
         (
             entries,
             size_of::<faer::sparse::Triplet<usize, usize, f64>>()
-                + 8 * size_of::<usize>()
+                + size_of::<[usize; 8]>()
                 + 2 * size_of::<f64>(),
         ),
         (

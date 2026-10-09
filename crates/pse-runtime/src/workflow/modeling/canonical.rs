@@ -71,10 +71,20 @@ impl SourceRevision {
         let store = runtime.canonical.store();
         let protection = store
             .protect(canonical.clone(), std::time::Duration::from_secs(3600))
-            .await?;
+            .await
+            .map_err(|error| {
+                super::super::diagnostics::operation_context(
+                    error.into(),
+                    "modeling_revision.protect",
+                )
+            })?;
         let mut read = SelectedRead::new(protection);
-        let result = context(runtime, &mut read).await;
-        let release = store.release(read.selection()).await;
+        let result = context(runtime, &mut read).await.map_err(|error| {
+            super::super::diagnostics::operation_context(error, "modeling_revision.context")
+        });
+        let release = store.release(read.selection()).await.map_err(|error| {
+            super::super::diagnostics::operation_context(error.into(), "modeling_revision.release")
+        });
         let identity = result?;
         release?;
         Ok(Self {
@@ -633,12 +643,7 @@ pub(super) struct SelectedSource {
 pub(super) struct CheckedSelection {
     pub(super) admission: Arc<super::SelectedAdmission>,
     pub(super) read: SelectedRead,
-}
-pub(super) struct CancellationWatch(tokio::task::JoinHandle<()>);
-impl Drop for CancellationWatch {
-    fn drop(&mut self) {
-        self.0.abort();
-    }
+    _premises_metadata: Option<Arc<pse_columnar::AllocationLease>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -1497,11 +1502,55 @@ impl ModelingPackage {
         release?;
         Ok(result)
     }
+    async fn qualified_selected_candidate(
+        &self,
+        request: &Arc<super::SelectedRequest>,
+        read: &mut SelectedRead,
+        cancel: &crate::CancelSource,
+    ) -> Result<
+        Option<(
+            Arc<super::SelectedAdmission>,
+            Arc<pse_columnar::AllocationLease>,
+        )>,
+        WorkflowError,
+    > {
+        let math = self.runtime.shared.math();
+        let store = self.runtime.canonical.store();
+        if let Some(candidates) = math.modeling_cache.selected(request) {
+            for admission in candidates.iter().rev() {
+                checkpoint(cancel)?;
+                let scratch = math.reserve(
+                    "modeling:selected-recheck",
+                    admission.dependencies.retained_bytes(),
+                )?;
+                // Identical actual rows still need a live guarded pin check. Changed
+                // source revisions recheck every positive and absent dependency.
+                if store
+                    .adopt_dependencies_from_same_revision(read, &admission.qualification)
+                    .await?
+                    || store
+                        .recheck_selection_dependencies(read, &admission.dependencies)
+                        .await
+                        .map_err(|error| {
+                            super::super::diagnostics::operation_context(
+                                error.into(),
+                                "modeling.checked_selection.cached_dependency_recheck",
+                            )
+                        })?
+                {
+                    checkpoint(cancel)?;
+                    return Ok(Some((admission.clone(), scratch)));
+                }
+            }
+        }
+        Ok(None)
+    }
     pub(super) async fn checked_selection(
         &self,
         roots: &[DeclarationId],
         cancel: &crate::CancelSource,
     ) -> Result<CheckedSelection, WorkflowError> {
+        let deadline = super::preparation_deadline(cancel)?;
         let store = self.runtime.canonical.store();
         let math = self.runtime.shared.math();
         checkpoint(cancel)?;
@@ -1510,8 +1559,15 @@ impl ModelingPackage {
                 self.revision.canonical.clone(),
                 std::time::Duration::from_secs(3600),
             )
-            .await?;
+            .await
+            .map_err(|error| {
+                super::super::diagnostics::operation_context(
+                    error.into(),
+                    "modeling.checked_selection.protect",
+                )
+            })?;
         let mut read = SelectedRead::new(protection);
+        let mut premises_metadata = None;
         let result: Result<_, WorkflowError> = async {
             let generation = math.modeling_cache.generation();
             let request_bytes = size_of::<super::SelectedRequest>() + self.revision.canonical.problem.len()
@@ -1527,24 +1583,46 @@ impl ModelingPackage {
             // This request is bounded by the same admitted package/roots, and its owned
             // extent is reserved before either cache insertion or flight publication.
             let request = Arc::new(request);
-            if let Some(candidates) = math.modeling_cache.selected(&request) {
-                for admission in candidates.iter().rev() {
-                    checkpoint(cancel)?;
-                    let _scratch = math.reserve("modeling:selected-recheck", admission.dependencies.retained_bytes())?;
-                    if store.recheck_selection_dependencies(&mut read, &admission.dependencies).await? {
-                        checkpoint(cancel)?;
-                        return Ok(admission.clone());
-                    }
-                }
+            if let Some((admission, scratch)) = self
+                .qualified_selected_candidate(&request, &mut read, cancel)
+                .await?
+            {
+                premises_metadata = Some(scratch);
+                return Ok(admission);
             }
-            let (index, physical, documents, leases) = self.select_into(roots, &mut read, cancel).await?;
+            // Current qualification is private. Waiting consumers acquire their own
+            // fresh pin, then qualify the leader's completed admission after its turn.
+            let turn = math.selected_qualification_turn(
+                request.clone(), read.selection().revision(),
+            )?;
+            let _qualification = turn.acquire(cancel, deadline).await?;
+            if let Some((admission, scratch)) = self
+                .qualified_selected_candidate(&request, &mut read, cancel)
+                .await?
+            {
+                premises_metadata = Some(scratch);
+                return Ok(admission);
+            }
+            #[cfg(test)]
+            math.selected_qualifications.record_hydration();
+            let (index, physical, documents, leases) = self
+                .select_into(roots, &mut read, cancel)
+                .await
+                .map_err(|error| {
+                    super::super::diagnostics::operation_context(
+                        error,
+                        "modeling.checked_selection.selected_hydration",
+                    )
+                })?;
             checkpoint(cancel)?;
-            let bytes = read.publication_scratch_bytes()?.checked_add(request.retained_bytes())
+            let bytes = read.snapshot_receipt_scratch_bytes()?.checked_add(request.retained_bytes())
                 .and_then(|n| n.checked_add(index.versions.iter().map(|(k,v)| k.capacity() + v.capacity() + 128).sum::<usize>()))
                 .and_then(|n| n.checked_add(size_of::<super::SelectedAdmission>() + 512))
                 .ok_or_else(|| contract("selected admission metadata extent"))?;
             let metadata = math.reserve("modeling:selected-admission", bytes)?;
-            let dependencies = Arc::new(read.snapshot_dependencies()?);
+            premises_metadata = Some(metadata.clone());
+            let qualification = Arc::new(read.snapshot_receipt()?);
+            let dependencies = qualification.dependencies().clone();
             // A concurrent first loader may have completed while this request was
             // resolving its fresh premises. The same complete receipt proves reuse.
             if let Some(candidates) = math.modeling_cache.selected(&request)
@@ -1590,44 +1668,29 @@ impl ModelingPackage {
             };
             checkpoint(cancel)?;
             let admission = Arc::new(super::SelectedAdmission {
-                request, revision: revision.as_ref().clone(), dependencies, versions, metadata,
+                request, revision: revision.as_ref().clone(), dependencies, qualification, versions, metadata,
                 _validation_owner: self.runtime.sessions.clone(), _registry_owner: self.runtime.registry.clone(),
             });
             math.modeling_cache.retain_selected(generation, admission.clone());
             Ok(admission)
         }.await;
         match result {
-            Ok(admission) => Ok(CheckedSelection { admission, read }),
+            Ok(admission) => Ok(CheckedSelection {
+                admission,
+                read,
+                _premises_metadata: premises_metadata,
+            }),
             Err(error) => {
                 let _ = store.release(read.selection()).await;
                 Err(error)
             }
         }
     }
-    pub(super) fn canonical_workspace(
-        &self,
-        read: &SelectedRead,
-        cancel: &crate::CancelSource,
-    ) -> Result<(crate::math::Workspace, CancellationWatch), WorkflowError> {
-        let flag = Arc::new(std::sync::atomic::AtomicBool::new(
-            cancel.token().is_cancelled(),
-        ));
-        let token = cancel.token();
-        let watched = flag.clone();
-        let watch = CancellationWatch(tokio::spawn(async move {
-            token.cancelled().await;
-            watched.store(true, std::sync::atomic::Ordering::Release);
-        }));
-        let workspace = self.runtime.shared.math().canonical_workspace(
+    pub(super) fn pure_workspace(&self) -> Result<crate::math::Workspace, WorkflowError> {
+        Ok(self.runtime.shared.math().workspace(
             super::compiler_context(&self.physical, &self.providers),
             pse_compiler::workspace::WorkspaceLimits::default(),
-            Arc::new(self.runtime.canonical.store().clone()),
-            Arc::new(std::sync::Mutex::new(read.clone())),
-            self.runtime.canonical.producer().cloned(),
-            self.runtime.canonical.attestation().build,
-            flag,
-        )?;
-        Ok((workspace, watch))
+        )?)
     }
     pub(super) async fn canonical_point(
         &self,
@@ -1637,14 +1700,19 @@ impl ModelingPackage {
         profile: pse_compiler::workspace::Profile,
         cancel: &crate::CancelSource,
     ) -> Result<pse_compiler::workspace::ModelingPointChecks, WorkflowError> {
-        let selected = self.checked_selection(&[root], cancel).await?;
+        let deadline = super::preparation_deadline(cancel)?;
+        let scoped_driver = cancel.with_deadline(Some(deadline));
+        let cancel = &scoped_driver;
+        let selected = self
+            .checked_selection_scoped(&[root], cancel, deadline)
+            .await?;
         let admitted = (|| {
-            let (workspace, watch) = self.canonical_workspace(&selected.read, cancel)?;
+            let workspace = self.pure_workspace()?;
             let revision = selected.admission.revision.clone();
-            Ok::<_, WorkflowError>((workspace, watch, revision))
+            Ok::<_, WorkflowError>((workspace, revision))
         })();
         let result = match admitted {
-            Ok((workspace, _watch, revision)) => self
+            Ok((workspace, revision)) => self
                 .runtime
                 .shared
                 .math()

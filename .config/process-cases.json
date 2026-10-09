@@ -308,6 +308,20 @@
       ]
     },
     {
+      "id": "shooting-single-idas-cold-1",
+      "operation": "shooting",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "variables": [
+        2
+      ],
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ]
+    },
+    {
       "id": "results-cold-1",
       "operation": "results",
       "reuse": "cold",
@@ -523,12 +537,50 @@
       ]
     },
     {
+      "id": "k4-study-in-process-serial-16",
+      "operation": "k4-study",
+      "adapter": "in-process-serial",
+      "reuse": "admitted-definition",
+      "blocks": 16,
+      "threads": 1,
+      "functional_scopes": [
+        "process"
+      ]
+    },
+    {
+      "id": "k4-study-managed-durable-16",
+      "operation": "k4-study",
+      "adapter": "managed-durable",
+      "reuse": "admitted-definition",
+      "blocks": 16,
+      "threads": 16,
+      "functional_scopes": [
+        "process",
+        "lifecycle",
+        "managed-primary"
+      ]
+    },
+    {
       "id": "k4-study-durable-8",
       "operation": "k4-study",
       "adapter": "durable",
       "reuse": "admitted-definition",
       "blocks": 8,
       "threads": 1,
+      "functional_scopes": [
+        "process",
+        "lifecycle"
+      ]
+    },
+    {
+      "id": "k4-restart-local-1",
+      "operation": "k4-restart",
+      "reuse": "persisted",
+      "blocks": 1,
+      "threads": 1,
+      "variables": [
+        2
+      ],
       "functional_scopes": [
         "process",
         "lifecycle"

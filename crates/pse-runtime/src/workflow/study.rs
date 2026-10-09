@@ -20,7 +20,7 @@ use pse_operations::canonical_studies::{
     NewOccurrence, ScopedStudyPoint, StudyPoint as CanonicalPoint, StudyScope, StudySummary,
     point_facts, point_outcome, point_policy,
 };
-use std::{collections::BTreeMap, time::Duration};
+use std::{collections::BTreeMap, mem::size_of, time::Duration};
 
 /// The most points one study holds.
 pub const MAXIMUM_STUDY_POINTS: usize = 100_000;
@@ -47,7 +47,199 @@ struct StudyPrediction {
     package: super::ModelingPackage,
     predecessor: ScopedStudyPoint,
     seed: pse_model::generated::identities::SolutionId,
-    original: crate::math::solves::PreparedSolve,
+    original: super::ModelingSolvePreparation,
+    operation: pse_ids::ContentHash,
+    binding_members: Vec<SemanticId>,
+    _binding_members_owner: std::sync::Arc<pse_columnar::AllocationLease>,
+}
+
+/// Rebuild one related prediction source from the already checked structural view when
+/// its only changes are admitted parameter bindings. All value-dependent numerical
+/// producers and optional solve adapters remain on the complete reconstruction path.
+pub(in crate::workflow) async fn rebind_prediction_source(
+    package: &super::ModelingPackage,
+    template: &super::ModelingSolvePreparation,
+    binding: &AdmittedBinding,
+    binding_members: &[SemanticId],
+    portable: std::sync::Arc<pse_columnar::Leased<super::modeling::results::PortablePrediction>>,
+    cancel: &crate::CancelSource,
+) -> Result<Option<super::modeling::results::PredictionSample>, WorkflowError> {
+    let product = template.model.model.compiled();
+    let can_rebind = binding.entries.len() == binding_members.len()
+        && binding
+            .entries
+            .keys()
+            .copied()
+            .eq(binding_members.iter().copied())
+        && binding.entries.values().all(|entry| entry.parameter)
+        && template.profile.reconstruction.is_none()
+        && template.profile.numerics.goals.is_empty()
+        && template.profile.sensitivity.is_none()
+        && template.providers.is_empty()
+        && product.admitted.implicit_systems().next().is_none()
+        && portable.key.numerical_policy == Some(template.solve.numerics().key);
+    if !can_rebind {
+        return Ok(None);
+    }
+    package.validate_binding(product, binding)?;
+
+    // Charge the rebound value/start projections before their maps and coordinate view
+    // are allocated. The prepared compiler product and portable point keep their own
+    // owners; this lease covers only the additional source-valued wrappers below.
+    let value_extent = template
+        .model
+        .model
+        .compiled()
+        .model
+        .symbols
+        .len()
+        .max(template.model.values.scalars.len());
+    let start_extent = template
+        .model
+        .model
+        .compiled()
+        .model
+        .symbols
+        .len()
+        .max(template.starts.len());
+    let scalar_node = size_of::<(SemanticId, f64)>()
+        .checked_add(4 * size_of::<usize>())
+        .ok_or_else(|| contract("prediction scalar metadata extent"))?;
+    let start_node = size_of::<(SemanticId, super::modeling::StartSource)>()
+        .checked_add(4 * size_of::<usize>())
+        .ok_or_else(|| contract("prediction start metadata extent"))?;
+    let start_strings = template.starts.values().try_fold(0usize, |total, start| {
+        let bytes = match start {
+            super::modeling::StartSource::Case { path } => path.capacity(),
+            _ => 0,
+        };
+        total.checked_add(bytes)
+    });
+    let projection_bytes = value_extent
+        .checked_mul(scalar_node)
+        .and_then(|bytes| bytes.checked_mul(2))
+        .and_then(|bytes| bytes.checked_add(2 * size_of::<BTreeMap<SemanticId, f64>>()))
+        .and_then(|bytes| bytes.checked_add(size_of::<pse_math::binding::CaseValues>()))
+        .and_then(|bytes| {
+            bytes.checked_add(size_of::<BTreeMap<SemanticId, super::modeling::StartSource>>())
+        })
+        .and_then(|bytes| {
+            start_extent
+                .checked_mul(start_node)
+                .and_then(|starts| bytes.checked_add(starts))
+        })
+        .and_then(|bytes| start_strings.and_then(|strings| bytes.checked_add(strings)))
+        .and_then(|bytes| {
+            portable
+                .primal
+                .len()
+                .checked_mul(size_of::<f64>())
+                .and_then(|coordinates| bytes.checked_add(coordinates))
+        })
+        .and_then(|bytes| {
+            template
+                .model
+                .tightenings
+                .capacity()
+                .checked_mul(size_of::<pse_modeling::DomainTightening>())
+                .and_then(|tightenings| bytes.checked_add(tightenings))
+        })
+        .ok_or_else(|| contract("prediction source projection extent"))?;
+    let projection_owner = package
+        .runtime
+        .shared
+        .math()
+        .reserve("study:prediction-source-view", projection_bytes)?;
+    cancel
+        .token()
+        .checkpoint()
+        .map_err(pse_engine::EngineError::from)?;
+
+    // The operation descriptor and equal binding-member set establish that only the
+    // admitted parameter values differ. Replace every bound parameter in the template
+    // before asking the existing math owner to perform its bounded value rebind.
+    let mut values = template.model.values.clone();
+    for (member, entry) in &binding.entries {
+        values.scalars.insert(*member, entry.canonical.into_inner());
+    }
+    let service = package.runtime.shared.math();
+    let case = match service
+        .rebind(&template.model.case, values.clone(), cancel)
+        .await
+    {
+        Ok(case) => case,
+        Err(error) if cancel.token().is_cancelled() => return Err(error.into()),
+        Err(_) => return Ok(None),
+    };
+    let values = case.compiled().complete(&values);
+    let model = crate::math::modeling::ModelingCasePreparation {
+        model: template.model.model.clone(),
+        case: case.clone(),
+        values: values.clone(),
+        tightenings: template.model.tightenings.clone(),
+    };
+    let preparation = service.prepare_resolved(
+        case,
+        values.clone(),
+        template.providers.clone(),
+        template.profile.clone(),
+        std::sync::Arc::new(template.solve.numerics().clone()),
+        BTreeMap::new(),
+    );
+    tokio::pin!(preparation);
+    let solve = tokio::select! {
+        biased;
+        () = cancel.cancelled() => return Err(crate::math::MathRuntimeError::Cancelled.into()),
+        result = &mut preparation => match result {
+            Ok(solve) => solve,
+            Err(_) => return Ok(None),
+        },
+    };
+
+    let plan_columns = model.case.compiled().plan.columns();
+    if portable.coordinates.as_slice() != plan_columns {
+        return Ok(None);
+    }
+    let primal = portable
+        .primal
+        .iter()
+        .copied()
+        .map(f64::from_bits)
+        .collect::<Vec<_>>();
+    if !matches!(solve.semantic_point_key(&primal), Ok(key) if key == portable.key) {
+        return Ok(None);
+    }
+    cancel
+        .token()
+        .checkpoint()
+        .map_err(pse_engine::EngineError::from)?;
+
+    let mut starts = template.starts.clone();
+    for member in binding.entries.keys() {
+        starts.insert(
+            *member,
+            super::modeling::StartSource::Binding { member: *member },
+        );
+    }
+    let prepared = super::ModelingSolvePreparation {
+        stored_seed_owner: None,
+        model,
+        solve,
+        starts,
+        providers: template.providers.clone(),
+        source: package.clone(),
+        compiler: template.compiler,
+        profile: template.profile.clone(),
+    };
+    Ok(Some(super::modeling::results::PredictionSample {
+        prepared,
+        runtime: package.runtime.clone(),
+        point: portable,
+        root: Err(pse_backend_native::square_response::Withheld::Neighborhood(
+            "no retained original root factor".into(),
+        )),
+        _projection_owner: Some(projection_owner),
+    }))
 }
 
 fn creation_checkpoint(cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
@@ -350,7 +542,7 @@ impl Runtime {
                 "ready native seed consumption differs from admission",
             ));
         }
-        let original = match &operation {
+        let original_prediction_eligible = matches!(&operation,
             super::PreparedStudyOperation::DeclaredCase(case)
                 if case
                     .solve
@@ -358,12 +550,13 @@ impl Runtime {
                     .recovery
                     .contains(&pse_model::strategy::StartOrigin::Predicted)
                     && case.solve.numerical_strategy().start.policy
-                        != pse_backend_native::solve::StartPolicy::Explicit =>
-            {
-                Some(case.solve.clone())
-            }
-            _ => None,
-        };
+                        != pse_backend_native::solve::StartPolicy::Explicit
+        );
+        let operation_descriptor = super::study_operations::DeclaredStudyAdmission::key(
+            &definition.operation,
+            &PointOverlay::default(),
+        )?
+        .0;
         let mut prediction = None;
         let seed = match &definition.policy.start {
             StartPolicy::Fresh => None,
@@ -412,8 +605,15 @@ impl Runtime {
                             .await
                         {
                             Ok(seeded) => {
-                                if let (StartPolicy::Continuation(edge), Some(original)) =
-                                    (start, original.as_ref())
+                                let unseeded = match std::mem::replace(
+                                    &mut operation,
+                                    super::PreparedStudyOperation::DeclaredCase(Box::new(seeded)),
+                                ) {
+                                    super::PreparedStudyOperation::DeclaredCase(case) => *case,
+                                    _ => return Err(contract("seeded study case changed owner")),
+                                };
+                                if let StartPolicy::Continuation(edge) = start
+                                    && original_prediction_eligible
                                 {
                                     let predecessor = scope
                                         .predecessors()
@@ -426,15 +626,37 @@ impl Runtime {
                                                 "prediction source outside immediate claim scope",
                                             )
                                         })?;
+                                    let member_bytes = definition
+                                        .binding
+                                        .entries
+                                        .len()
+                                        .checked_mul(size_of::<SemanticId>())
+                                        .and_then(|bytes| {
+                                            bytes.checked_add(size_of::<Vec<SemanticId>>())
+                                        })
+                                        .ok_or_else(|| {
+                                            contract("study prediction member extent")
+                                        })?;
+                                    let binding_members_owner = self
+                                        .shared
+                                        .math()
+                                        .reserve("study:prediction-members", member_bytes)?;
+                                    let binding_members = definition
+                                        .binding
+                                        .entries
+                                        .keys()
+                                        .copied()
+                                        .collect::<Vec<_>>();
                                     prediction = Some(StudyPrediction {
                                         package: package.clone(),
                                         predecessor: predecessor.clone(),
                                         seed: selected,
-                                        original: original.clone(),
+                                        original: unseeded,
+                                        operation: operation_descriptor,
+                                        binding_members,
+                                        _binding_members_owner: binding_members_owner,
                                     });
                                 }
-                                operation =
-                                    super::PreparedStudyOperation::DeclaredCase(Box::new(seeded));
                                 SeedAvailability::Compatible { seed: selected }
                             }
                             Err(WorkflowError::SeedRead(
@@ -444,8 +666,6 @@ impl Runtime {
                                 if error.boundary_diagnostic().class
                                     == pse_model::diagnostic::BoundaryClass::Incompatible =>
                             {
-                                operation =
-                                    super::PreparedStudyOperation::DeclaredCase(case.clone());
                                 SeedAvailability::Incompatible
                             }
                             Err(error) => return Err(error),
@@ -479,20 +699,26 @@ impl Runtime {
             return Err(contract("prediction target ceased to be an original case"));
         };
         let source = self
-            .prediction_sample(&input.package, &input.predecessor, input.seed, cancel)
+            .prediction_sample(
+                &input.package,
+                &input.predecessor,
+                input.seed,
+                &input,
+                cancel,
+            )
             .await?;
         let Some(mut source) = source else {
             return Ok(());
         };
         let deadline = std::time::Instant::now()
-            .checked_add(input.original.time_limit())
+            .checked_add(input.original.solve.time_limit())
             .ok_or_else(|| contract("prediction deadline extent"))?;
-        let scope = input.original.task_scope().unwrap_or_else(|| {
+        let scope = input.original.solve.task_scope().unwrap_or_else(|| {
             pse_kernels::ExecutionScope::new(std::sync::Arc::default(), Some(deadline))
         });
         let original = self
             .native()
-            .admit_proposal_task(input.original, scope.clone())
+            .admit_proposal_task(input.original.solve.clone(), scope.clone())
             .map_err(crate::math::MathRuntimeError::from)?;
         if let Some(root) = &source.point.root {
             let primal = source
@@ -547,6 +773,7 @@ impl Runtime {
                     &input.package,
                     &ScopedStudyPoint::from(&point),
                     seed,
+                    &input,
                     cancel,
                 )
                 .await?
@@ -562,7 +789,7 @@ impl Runtime {
         execution.work_admission = original
             .task_admission()
             .map(|owner| -> std::sync::Arc<dyn pse_backend_native::solve::WorkAdmission> { owner });
-        let mut destination = target.as_ref().clone();
+        let mut destination = input.original.clone();
         destination.solve = original;
         let branch = destination.solve.composition_request().branch;
         match source.available_prediction(older.as_ref(), &destination, branch, &execution) {
@@ -592,6 +819,7 @@ impl Runtime {
         package: &super::ModelingPackage,
         point: &ScopedStudyPoint,
         seed: pse_model::generated::identities::SolutionId,
+        template: &StudyPrediction,
         cancel: &crate::CancelSource,
     ) -> Result<Option<super::modeling::results::PredictionSample>, WorkflowError> {
         let Some((header, portable)) = self.operations()?.prediction(seed).await? else {
@@ -608,6 +836,32 @@ impl Runtime {
             .await?
             .ok_or_else(|| contract("prediction source occurrence absent"))?;
         let definition = definition_of(&full)?;
+        definition.operation.source.check(package)?;
+        let descriptor = super::study_operations::DeclaredStudyAdmission::key(
+            &definition.operation,
+            &PointOverlay::default(),
+        )?
+        .0;
+        if descriptor == template.operation
+            && let Some(sample) = rebind_prediction_source(
+                package,
+                &template.original,
+                &definition.binding,
+                &template.binding_members,
+                portable.clone(),
+                cancel,
+            )
+            .await?
+            && sample
+                .prepared
+                .solve
+                .seed_preparation_identity()
+                .map(|identity| identity.to_string())
+                .as_deref()
+                == Some(header.preparation.as_str())
+        {
+            return Ok(Some(sample));
+        }
         let operation = package
             .prepare_bound_operation(&definition.operation, &definition.binding, cancel)
             .await?;
@@ -629,6 +883,7 @@ impl Runtime {
             prepared: *source,
             runtime: self.clone(),
             point: portable,
+            _projection_owner: None,
             root: Err(pse_backend_native::square_response::Withheld::Neighborhood(
                 "no retained original root factor".into(),
             )),
@@ -1019,10 +1274,12 @@ impl Runtime {
         result: &super::RunResult,
         record: &super::DurableRecord,
     ) -> Result<CanonicalPoint, WorkflowError> {
-        let terminal = record
-            .attempt
-            .as_ref()
-            .map_err(|error| contract(format!("study result retention failed: {error}")))?;
+        let terminal = record.attempt.as_ref().map_err(|error| {
+            super::diagnostics::operation_context(
+                WorkflowError::Shared(error.clone()),
+                "study.record_study_attempt.retained_result",
+            )
+        })?;
         if point.attempt.as_deref() != Some(terminal.key.as_str()) {
             return Err(contract(
                 "study observation does not name its actual canonical attempt",
@@ -1221,6 +1478,18 @@ impl StudyHandle {
     }
     /// Sealed canonical handles; incomplete private staging is never returned as a result.
     pub async fn result(&self) -> Result<Option<StudyResults>, WorkflowError> {
+        // Completion polling needs only the guarded header. Hydrating every occurrence
+        // while a study is open amplifies one wait into a whole-study read on every poll.
+        // The terminal path below still checks the authoritative run and complete facts.
+        let study = self
+            .runtime
+            .canonical_store()
+            .canonical_study(&self.study_id.to_string())
+            .await?
+            .ok_or_else(|| contract("canonical study absent"))?;
+        if !study.terminal {
+            return Ok(None);
+        }
         let status = self.status().await?;
         let Some(attempt) = status.result_attempt else {
             return Ok(None);

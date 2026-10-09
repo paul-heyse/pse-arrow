@@ -180,9 +180,10 @@ pub use modeling::{
     ConditionalUnitInventory, Derivation, Derived, FlowConnectionDocument, FlowSelectionDocument,
     ImplicitAlgorithm, ImplicitCapabilities, ImplicitMeaning, ImplicitScale, ImplicitSelection,
     ModelingBodyRetention, ModelingCaseBindings, ModelingExpectationResult, ModelingFlowSelection,
-    ModelingHint, ModelingOutput, ModelingPointChecks, ModelingRevision, ModelingTestValue,
-    ModelingValidityResult, ModelingVariableState, ObjectiveBound, PreparedModeling,
-    SelectionEquivalence, SelectionNeighborhood, SemanticModeling,
+    ModelingHint, ModelingOutput, ModelingPointChecks, ModelingPreparationFrontier,
+    ModelingRevision, ModelingTestValue, ModelingValidityResult, ModelingVariableState,
+    ObjectiveBound, PreparedModeling, SelectionEquivalence, SelectionNeighborhood,
+    SemanticModeling,
 };
 #[salsa::db]
 trait CompilerDb: Database {
@@ -411,7 +412,7 @@ impl ArtifactRequest {
     /// limits remain independent; opaque control/provider bodies return None.
     pub fn construction_allocation_bound(&self) -> std::result::Result<Option<usize>, MathError> {
         self.support
-            .compilation_allocation_bound(self.evaluation)?
+            .compilation_allocation_bound(self.evaluation, self.demand.directional)?
             .map(|body| {
                 body.checked_add(self.descriptor_bytes())
                     .ok_or(MathError::Limit("artifact construction extent"))
@@ -646,7 +647,7 @@ impl PreparedCase {
     /// # Errors
     /// Overflow or unsupported structural dimensions before allocation.
     pub fn initialization_allocation_bound(&self) -> Result<Option<usize>> {
-        let Some(support) = self.support_upgrade_allocation_bound()? else {
+        let Some(support) = self.support_upgrade_allocation_bound(DerivativeOrder::Second)? else {
             return Ok(None);
         };
         let rows = self.plan.structure().rows().len();
@@ -705,12 +706,18 @@ impl PreparedCase {
     /// compilation remains in independently admitted artifact flights.
     /// # Errors
     /// Overflow in support, demand or artifact descriptor populations.
-    pub fn support_upgrade_allocation_bound(&self) -> Result<Option<usize>> {
+    pub fn support_upgrade_allocation_bound(
+        &self,
+        order: DerivativeOrder,
+    ) -> Result<Option<usize>> {
         let evaluation = self
             .artifacts
             .first()
             .map_or(EvaluationLimits::default(), |a| a.evaluation);
-        let Some(plan) = self.plan.support_upgrade_allocation_bound(evaluation)? else {
+        let Some(plan) = self
+            .plan
+            .support_upgrade_allocation_bound(evaluation, order)?
+        else {
             return Ok(None);
         };
         let count = self

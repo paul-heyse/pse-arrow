@@ -5950,6 +5950,7 @@ dependencies = [
  "pse-engine",
  "pse-ids",
  "pse-kernels",
+ "pse-math",
  "pse-model",
  "pse-modeling",
  "pse-operations",

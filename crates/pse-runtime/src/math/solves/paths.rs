@@ -161,7 +161,10 @@ impl MathService {
         let control = FlightCancellation::default();
         let demand = base
             .assembly
-            .support_upgrade_allocation_bound(pse_math::jets::EvaluationLimits::default())?
+            .support_upgrade_allocation_bound(
+                pse_math::jets::EvaluationLimits::default(),
+                DerivativeOrder::Second,
+            )?
             .unwrap_or(self.policy.workspace_bytes);
         if demand > self.policy.worker_bytes {
             return Err(MathRuntimeError::Limit(

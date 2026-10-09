@@ -233,13 +233,13 @@ def managed_observer_settings(
     through the normal runtime; its native work belongs to the primary process.
     """
     return EngineSettings(
-        memory_limit_bytes=2 << 30,
+        memory_limit_bytes=3 << 30,
         threads=2,
         target_partitions=1,
         spill_dir=str(tmp_path_factory.mktemp("managed-observer-spill")),
         max_spill_bytes=1 << 30,
         batch_size=7,
-        math_workspace_bytes=64 << 20,
+        math_workspace_bytes=1 << 30,
         math_worker_bytes=256 << 20,
         math_artifact_bytes=128 << 20,
         cache=CacheSettings(

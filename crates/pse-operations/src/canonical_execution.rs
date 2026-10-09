@@ -4,7 +4,7 @@
 //! Fenced durable execution and immutable closed result selections.
 
 use crate::{
-    canonical::{CanonicalError, CanonicalStore, bounded_query, protected_query},
+    canonical::{CanonicalError, CanonicalStore, REQUEST_TIMEOUT, bounded_query},
     canonical_codec,
     generated::surreal as wire,
 };
@@ -19,7 +19,7 @@ use pse_model::generated::runtime::{
     canonical_result_sets::Row as ResultSet,
 };
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
+use std::{future::IntoFuture, time::Duration};
 use surrealdb::types::{Bytes, Object, Value};
 
 /// Independently submitted scientific block limit, below the protocol envelope.
@@ -502,6 +502,185 @@ mod canonical_execution_server_unit {
                 .read_results("run", fence.attempt(), Duration::from_secs(30))
                 .await
                 .is_ok()
+        );
+        remove(&store, &database).await;
+    }
+
+    #[tokio::test]
+    async fn canonical_execution_sixteen_retention_roundtrips_overlap_source_staging_and_private_pins()
+     {
+        use std::sync::Arc;
+        let (store, database, revision) = fixture().await;
+        let barrier = Arc::new(tokio::sync::Barrier::new(18));
+        let mut jobs = tokio::task::JoinSet::new();
+        let writer = store.clone();
+        let writer_barrier = barrier.clone();
+        jobs.spawn(async move {
+            writer_barrier.wait().await;
+            let payload = vec![37; crate::canonical_staging::SOURCE_BLOCK_BYTES + 17];
+            writer
+                .edit(
+                    "problem",
+                    Some("initial-source"),
+                    "concurrent-source",
+                    &[crate::canonical::ObjectEdit {
+                        logical: "unconsumed".into(),
+                        scope: "root".into(),
+                        name: "Other".into(),
+                        references: vec![],
+                        version: Some(crate::canonical::ObjectVersion {
+                            key: "other-version".into(),
+                            logical: "unconsumed".into(),
+                            kind: "test".into(),
+                            payload: payload.into(),
+                            interpretation: wire::INTERPRETATION.into(),
+                        }),
+                    }],
+                )
+                .await
+                .unwrap();
+        });
+        let reader = store.clone();
+        let reader_barrier = barrier.clone();
+        let old_revision = revision.clone();
+        jobs.spawn(async move {
+            reader_barrier.wait().await;
+            for _ in 0..16 {
+                let protection = reader
+                    .protect(old_revision.clone(), Duration::from_secs(60))
+                    .await
+                    .unwrap();
+                let mut selected = crate::canonical_selection::SelectedRead::new(protection);
+                assert!(
+                    reader
+                        .resolve_logicals(&mut selected, &["absent".into()])
+                        .await
+                        .unwrap()
+                        .is_empty()
+                );
+                reader.release(selected.selection()).await.unwrap();
+            }
+        });
+        for index in 0..16 {
+            let store = store.clone();
+            let revision = revision.clone();
+            let barrier = barrier.clone();
+            jobs.spawn(async move {
+                barrier.wait().await;
+                let key = format!("concurrent-run-{index}");
+                let saved = run(&store, &revision, &key).await;
+                assert_eq!(saved.revision, revision.key);
+                let fence = store
+                    .claim_run(
+                        &key,
+                        &format!("concurrent-claim-{index}"),
+                        "worker",
+                        Duration::from_secs(60),
+                    )
+                    .await
+                    .unwrap();
+                store
+                    .renew_attempt(&fence, Duration::from_secs(60))
+                    .await
+                    .unwrap();
+                // These original physical observations belong to the synthetic
+                // scientific writer. The independently specified Celsius facts
+                // below check their retained meaning, as well as exact bytes.
+                let kelvin = [273.15_f64, 298.15, 333.15, 373.15];
+                let original = kelvin
+                    .iter()
+                    .flat_map(|value| value.to_le_bytes())
+                    .collect::<Vec<_>>();
+                store
+                    .append_result_batch(
+                        &fence,
+                        &format!("concurrent-batch-{index}"),
+                        "temperature_kelvin",
+                        0,
+                        &original,
+                        4,
+                    )
+                    .await
+                    .unwrap();
+                let closed = store
+                    .close_result_ingestion(&fence, &format!("concurrent-close-{index}"))
+                    .await
+                    .unwrap();
+                let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+                let descriptors = decode_result_descriptors(manifest.row()).unwrap();
+                assert_eq!(descriptors.len(), 1);
+                assert_eq!(descriptors[0].batch_count, 1);
+                assert_eq!(descriptors[0].row_count, 4);
+                // SAFETY: this synthetic writer owns these four original physical observations and their specified completion.
+                let terminal = unsafe {
+                    store
+                        .seal_attempt(
+                            &manifest,
+                            &format!("concurrent-seal-{index}"),
+                            TerminalClass::Succeeded,
+                            b"four original temperatures",
+                        )
+                        .await
+                }
+                .unwrap();
+                assert_eq!(terminal.outcome.as_deref(), Some("succeeded"));
+                let read = store
+                    .read_results(&key, fence.attempt(), Duration::from_secs(60))
+                    .await
+                    .unwrap();
+                assert_eq!(read.run().revision, revision.key);
+                let payload = store
+                    .result_payload(&read, &descriptors[0].key, 0)
+                    .await
+                    .unwrap();
+                assert_eq!(payload.batch.payload.as_slice(), original);
+                assert_eq!(payload.batch.row_count, 4);
+                for (encoded, celsius) in payload
+                    .batch
+                    .payload
+                    .chunks_exact(8)
+                    .zip([0.0, 25.0, 60.0, 100.0])
+                {
+                    let actual = f64::from_le_bytes(encoded.try_into().unwrap());
+                    assert!((actual - 273.15 - celsius).abs() < 1e-12);
+                }
+                assert!(
+                    store
+                        .append_result_batch(
+                            &fence,
+                            &format!("concurrent-late-{index}"),
+                            "temperature_kelvin",
+                            1,
+                            &[0],
+                            1
+                        )
+                        .await
+                        .is_err()
+                );
+                drop(payload);
+                drop(read);
+            });
+        }
+        while let Some(result) = jobs.join_next().await {
+            result.unwrap();
+        }
+        store.result_read_drain.drain().await.unwrap();
+        assert_eq!(
+            store
+                .execution_run_page("problem", None, 64)
+                .await
+                .unwrap()
+                .len(),
+            16
+        );
+        assert_eq!(
+            store
+                .revision("concurrent-source")
+                .await
+                .unwrap()
+                .unwrap()
+                .sequence,
+            revision.sequence + 1
         );
         remove(&store, &database).await;
     }
@@ -1179,19 +1358,52 @@ fn same_run_receipt(expected: &CanonicalRun, saved: &CanonicalRun) -> bool {
 }
 
 impl CanonicalStore {
+    /// Resolve only immutable pacing ownership. Actual run/fence authority is still
+    /// checked by every rebuilt server transaction; lookup and queuing consume the
+    /// same original request clock, without retaining a turn through settlement.
+    pub(crate) async fn protected_execution_query<F, Q>(
+        &self,
+        run: &str,
+        operation: &'static str,
+        build: F,
+    ) -> Result<surrealdb::IndexedResults, CanonicalError>
+    where
+        F: FnMut() -> Result<Q, CanonicalError>,
+        Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
+    {
+        tokio::time::timeout(REQUEST_TIMEOUT, async {
+            let mut response = bounded_query(
+                self.db
+                    .query("SELECT problem FROM ONLY type::record('canonical_runs',$run);")
+                    .bind(("run", run.to_owned())),
+            )
+            .await?;
+            let mut row = response
+                .take::<Option<Object>>(0)?
+                .ok_or(CanonicalError::IncompleteResponse)?;
+            let problem = canonical_codec::decode_string(
+                row.remove("problem")
+                    .ok_or(CanonicalError::IncompleteResponse)?,
+            )?;
+            self.protected_query(&problem, operation, build).await
+        })
+        .await
+        .map_err(|_| CanonicalError::Timeout)?
+    }
     /// Retain selected inputs and provenance atomically before native execution.
     pub async fn begin_run(&self, request: &RunRequest) -> Result<CanonicalRun, CanonicalError> {
         let (row, sources) = run_request_receipt(request)?;
         let encoded = wire::encode_canonical_runs(&row)?;
         self.ensure_writes()?;
-        let response = protected_query("canonical_execution::begin_run", || {
-            Ok(self
-                .db
-                .query("RETURN fn::pse_execution_v1::begin_run($row,$sources);")
-                .bind(("row", encoded.clone()))
-                .bind(("sources", sources.clone())))
-        })
-        .await;
+        let response = self
+            .protected_query(&row.problem, "canonical_execution::begin_run", || {
+                Ok(self
+                    .db
+                    .query("RETURN fn::pse_execution_v1::begin_run($row,$sources);")
+                    .bind(("row", encoded.clone()))
+                    .bind(("sources", sources.clone())))
+            })
+            .await;
         match response {
             Ok(mut response) => Ok(wire::decode_canonical_runs(
                 response
@@ -1327,16 +1539,19 @@ impl CanonicalStore {
         }
         let generation = canonical_codec::encode_uint(fence.generation)?;
         self.ensure_writes()?;
-        let mut response = protected_query("canonical_execution::renew_attempt", || {
-            Ok(self
-                .db
-                .query("RETURN fn::pse_execution_v1::renew($run,$attempt,$generation,$lifetime);")
-                .bind(("run", fence.run.clone()))
-                .bind(("attempt", fence.attempt.clone()))
-                .bind(("generation", generation.clone()))
-                .bind(("lifetime", lifetime)))
-        })
-        .await?;
+        let mut response = self
+            .protected_execution_query(&fence.run, "canonical_execution::renew_attempt", || {
+                Ok(self
+                    .db
+                    .query(
+                        "RETURN fn::pse_execution_v1::renew($run,$attempt,$generation,$lifetime);",
+                    )
+                    .bind(("run", fence.run.clone()))
+                    .bind(("attempt", fence.attempt.clone()))
+                    .bind(("generation", generation.clone()))
+                    .bind(("lifetime", lifetime)))
+            })
+            .await?;
         Ok(wire::decode_canonical_attempts(
             response
                 .take::<Option<Object>>(0)?
@@ -1374,7 +1589,7 @@ impl CanonicalStore {
         ))?;
         let generation = canonical_codec::encode_uint(fence.generation)?;
         self.ensure_writes()?;
-        let result=protected_query("canonical_execution::register_result_seed", ||Ok(self.db.query("RETURN fn::pse_execution_v1::seed($run,$attempt,$generation,$operation,$request,$seed);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("seed",encoded.clone())))).await;
+        let result=self.protected_execution_query(&fence.run, "canonical_execution::register_result_seed", ||Ok(self.db.query("RETURN fn::pse_execution_v1::seed($run,$attempt,$generation,$operation,$request,$seed);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("seed",encoded.clone())))).await;
         match result {
             Ok(mut response) => {
                 let saved = wire::decode_canonical_result_seeds(
@@ -1548,7 +1763,7 @@ impl CanonicalStore {
         let attempt = execution_attempt_key(run, operation);
         let request = json(&(run, operation, worker, lifetime, wire::INTERPRETATION))?;
         self.ensure_writes()?;
-        let result = protected_query("canonical_execution::claim_run", || Ok(self.db.query("RETURN fn::pse_execution_v1::claim($run,$operation,$request,$attempt,$worker,$lifetime,$interpretation);").bind(("run",run.to_owned())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)).bind(("interpretation",wire::INTERPRETATION)))).await;
+        let result = self.protected_execution_query(run, "canonical_execution::claim_run", || Ok(self.db.query("RETURN fn::pse_execution_v1::claim($run,$operation,$request,$attempt,$worker,$lifetime,$interpretation);").bind(("run",run.to_owned())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)).bind(("interpretation",wire::INTERPRETATION)))).await;
         let row = match result {
             Ok(mut response) => wire::decode_canonical_attempts(
                 response
@@ -1886,7 +2101,7 @@ impl CanonicalStore {
             return Err(CanonicalError::PayloadLimit);
         }
         self.ensure_writes()?;
-        let result = protected_query("canonical_execution::append_execution_batch", || Ok(self.db.query("RETURN fn::pse_execution_v1::append($run,$attempt,$generation,$operation,$request,$set,$batch,$block,$cells,$outputs);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("set",encoded_set.clone())).bind(("batch",encoded_batch.clone())).bind(("block",block.clone().map(Value::Object).unwrap_or(Value::None))).bind(("cells",cells.clone())).bind(("outputs",outputs.clone())))).await;
+        let result = self.protected_execution_query(&fence.run, "canonical_execution::append_execution_batch", || Ok(self.db.query("RETURN fn::pse_execution_v1::append($run,$attempt,$generation,$operation,$request,$set,$batch,$block,$cells,$outputs);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("set",encoded_set.clone())).bind(("batch",encoded_batch.clone())).bind(("block",block.clone().map(Value::Object).unwrap_or(Value::None))).bind(("cells",cells.clone())).bind(("outputs",outputs.clone())))).await;
         match result {
             Ok(mut response) => {
                 let saved = response
@@ -1925,7 +2140,7 @@ impl CanonicalStore {
         let request = json(&(&fence.run, &fence.attempt, fence.generation))?;
         let generation = canonical_codec::encode_uint(fence.generation)?;
         self.ensure_writes()?;
-        let result = protected_query("canonical_execution::close_result_ingestion", || Ok(self.db.query("RETURN fn::pse_execution_v1::close($run,$attempt,$generation,$operation,$request);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))))).await;
+        let result = self.protected_execution_query(&fence.run, "canonical_execution::close_result_ingestion", || Ok(self.db.query("RETURN fn::pse_execution_v1::close($run,$attempt,$generation,$operation,$request);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))))).await;
         self.closed_response(result, operation, "close", &request)
             .await
     }
@@ -1994,15 +2209,16 @@ impl CanonicalStore {
         identity(operation)?;
         let request = json(&(run, operation))?;
         self.ensure_writes()?;
-        let result = protected_query("canonical_execution::cancel_run", || {
-            Ok(self
-                .db
-                .query("RETURN fn::pse_execution_v1::cancel($run,$operation,$request);")
-                .bind(("run", run.to_owned()))
-                .bind(("operation", operation.to_owned()))
-                .bind(("request", Bytes::from(request.clone()))))
-        })
-        .await;
+        let result = self
+            .protected_execution_query(run, "canonical_execution::cancel_run", || {
+                Ok(self
+                    .db
+                    .query("RETURN fn::pse_execution_v1::cancel($run,$operation,$request);")
+                    .bind(("run", run.to_owned()))
+                    .bind(("operation", operation.to_owned()))
+                    .bind(("request", Bytes::from(request.clone()))))
+            })
+            .await;
         match result {
             Ok(mut response) => Ok(wire::decode_canonical_runs(
                 response
@@ -2033,15 +2249,16 @@ impl CanonicalStore {
         identity(operation)?;
         let request = json(&(run, operation))?;
         self.ensure_writes()?;
-        let result = protected_query("canonical_execution::recover_closed_attempt", || {
-            Ok(self
-                .db
-                .query("RETURN fn::pse_execution_v1::recover($run,$operation,$request);")
-                .bind(("run", run.to_owned()))
-                .bind(("operation", operation.to_owned()))
-                .bind(("request", Bytes::from(request.clone()))))
-        })
-        .await;
+        let result = self
+            .protected_execution_query(run, "canonical_execution::recover_closed_attempt", || {
+                Ok(self
+                    .db
+                    .query("RETURN fn::pse_execution_v1::recover($run,$operation,$request);")
+                    .bind(("run", run.to_owned()))
+                    .bind(("operation", operation.to_owned()))
+                    .bind(("request", Bytes::from(request.clone()))))
+            })
+            .await;
         self.closed_response(result, operation, "recover", &request)
             .await
     }
@@ -2185,14 +2402,19 @@ impl CanonicalStore {
         };
         let encoded = wire::encode_canonical_result_manifests(&row)?;
         self.ensure_writes()?;
-        let result = protected_query("canonical_execution::reconcile_closed_attempt", || {
-            Ok(self
-                .db
-                .query("RETURN fn::pse_execution_v1::manifest($run,$manifest);")
-                .bind(("run", closed.fence.run.clone()))
-                .bind(("manifest", encoded.clone())))
-        })
-        .await;
+        let result = self
+            .protected_execution_query(
+                &closed.fence.run,
+                "canonical_execution::reconcile_closed_attempt",
+                || {
+                    Ok(self
+                        .db
+                        .query("RETURN fn::pse_execution_v1::manifest($run,$manifest);")
+                        .bind(("run", closed.fence.run.clone()))
+                        .bind(("manifest", encoded.clone())))
+                },
+            )
+            .await;
         match result {
             Ok(mut response) => {
                 let saved = wire::decode_canonical_result_manifests(
@@ -2289,22 +2511,23 @@ impl CanonicalStore {
         } else {
             "RETURN fn::pse_execution_v1::seal($run,$attempt,$authority,$operation,$request,$manifest,$digest,$outcome,$completion);"
         };
-        let result = protected_query("canonical_execution::seal_execution", || {
-            Ok(self
-                .db
-                .query(query)
-                .bind(("study", study.map(str::to_owned)))
-                .bind(("run", fence.run.clone()))
-                .bind(("attempt", fence.attempt.clone()))
-                .bind(("authority", authority.clone()))
-                .bind(("operation", operation.to_owned()))
-                .bind(("request", Bytes::from(request.clone())))
-                .bind(("manifest", manifest.row.key.clone()))
-                .bind(("digest", manifest.row.digest.clone()))
-                .bind(("outcome", outcome.as_str()))
-                .bind(("completion", Bytes::from(completion.to_vec()))))
-        })
-        .await;
+        let result = self
+            .protected_execution_query(&fence.run, "canonical_execution::seal_execution", || {
+                Ok(self
+                    .db
+                    .query(query)
+                    .bind(("study", study.map(str::to_owned)))
+                    .bind(("run", fence.run.clone()))
+                    .bind(("attempt", fence.attempt.clone()))
+                    .bind(("authority", authority.clone()))
+                    .bind(("operation", operation.to_owned()))
+                    .bind(("request", Bytes::from(request.clone())))
+                    .bind(("manifest", manifest.row.key.clone()))
+                    .bind(("digest", manifest.row.digest.clone()))
+                    .bind(("outcome", outcome.as_str()))
+                    .bind(("completion", Bytes::from(completion.to_vec()))))
+            })
+            .await;
         match result {
             Ok(mut response) => Ok(wire::decode_canonical_attempts(
                 response

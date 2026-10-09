@@ -637,6 +637,8 @@ where
     F: FnOnce(crate::CancelSource) -> Fut,
     Fut: Future<Output = Result<T, WorkflowError>>,
 {
+    let child = cancel.child_with_deadline(deadline);
+    let deadline = child.deadline();
     let interruption = |class, rule| BoundaryDiagnostic::new(class, scope, [], rule);
     if cancel.token().is_cancelled() {
         return (Err(crate::math::MathRuntimeError::Cancelled.into()), None);
@@ -651,7 +653,6 @@ where
             None,
         );
     }
-    let child = crate::CancelSource::new();
     let operation = work(child.clone());
     tokio::pin!(operation);
     let expiry = async {
@@ -676,6 +677,41 @@ where
 mod tests {
     use super::*;
     use std::time::Duration;
+
+    #[tokio::test]
+    async fn bounded_child_inherits_original_clock_and_drains_without_cancelling_parent() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let deadline = Instant::now() + Duration::from_millis(100);
+        let cancel = crate::CancelSource::new().with_deadline(Some(deadline));
+        let joined = &AtomicBool::new(false);
+        let (result, interruption) = bounded(
+            pse_diagnostics::DiagnosticStage::Initialization,
+            Some(Instant::now() + Duration::from_secs(60)),
+            &cancel,
+            |child| async move {
+                assert_eq!(child.clone().deadline(), Some(deadline));
+                child.cancelled().await;
+                joined.store(true, Ordering::SeqCst);
+                Ok(42)
+            },
+        )
+        .await;
+        assert_eq!(result.unwrap(), 42);
+        assert!(joined.load(Ordering::SeqCst));
+        assert!(!cancel.token().is_cancelled());
+        assert_eq!(interruption.unwrap().class, BoundaryClass::ResourceLimit);
+
+        let expired = crate::CancelSource::new().with_deadline(Some(Instant::now()));
+        let (result, interruption) = bounded::<(), _, _>(
+            pse_diagnostics::DiagnosticStage::Initialization,
+            None,
+            &expired,
+            |_| async { panic!("expired parent must refuse before polling child work") },
+        )
+        .await;
+        assert!(result.is_err());
+        assert!(interruption.is_none());
+    }
 
     #[tokio::test]
     async fn step_deadline_and_cancellation_join_work() {

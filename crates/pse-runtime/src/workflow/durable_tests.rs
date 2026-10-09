@@ -64,6 +64,11 @@ pub(super) fn quick() -> LeasePolicy {
 /// Attach the same isolated canonical source store and accounted pool to the worker.
 pub(super) fn durable_runtime() -> Runtime {
     let runtime = tests::runtime_with_workspace(32 << 20);
+    durable_runtime_on(runtime)
+}
+
+/// Attach durable operations to an existing worker runtime without changing its budget.
+pub(super) fn durable_runtime_on(runtime: Runtime) -> Runtime {
     let operations = Operations::from_store(
         runtime.canonical().store().clone(),
         "native-fixture",

@@ -1,11 +1,29 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Public finite modeling packages are immutable inputs to the existing compiler service.
+// An unscoped caller has no scientific operation clock to inherit. Its shared pure loader
+// still needs a finite lifetime; this omission policy is separate from SDK request and
+// native solver limits. Scoped operations always retain their original absolute clock.
+const UNSCOPED_PREPARATION_LIMIT: std::time::Duration = std::time::Duration::from_secs(600);
+
+fn preparation_deadline(cancel: &crate::CancelSource) -> Result<std::time::Instant, WorkflowError> {
+    cancel.deadline().map_or_else(
+        || {
+            std::time::Instant::now()
+                .checked_add(UNSCOPED_PREPARATION_LIMIT)
+                .ok_or_else(|| {
+                    crate::math::MathRuntimeError::Limit("preparation deadline extent").into()
+                })
+        },
+        Ok,
+    )
+}
 mod canonical;
 pub(super) mod cases;
 mod conformance;
 pub(super) mod declared;
 mod path_pipeline;
+mod preparation;
 pub use declared::{DeclaredExecution, DeclaredProcedure, InitializationOverrides};
 mod knowledge;
 mod pure;
@@ -145,15 +163,16 @@ pub(crate) struct SelectedAdmission {
     pub(crate) request: Arc<SelectedRequest>,
     pub(crate) revision: crate::math::modeling::ModelingRevision,
     pub(crate) dependencies: Arc<pse_operations::canonical_selection::SelectedDependencies>,
+    pub(crate) qualification: Arc<pse_operations::canonical_selection::SelectionDependencyReceipt>,
     pub(crate) versions: Arc<BTreeMap<String, String>>,
     pub(crate) metadata: Arc<pse_columnar::AllocationLease>,
-    _validation_owner: Arc<pse_engine::session::EngineFactory>,
-    _registry_owner: Arc<pse_schema::Registry>,
+    pub(crate) _validation_owner: Arc<pse_engine::session::EngineFactory>,
+    pub(crate) _registry_owner: Arc<pse_schema::Registry>,
 }
 impl SelectedAdmission {
     pub(crate) fn retained_bytes(&self) -> usize {
         self.revision.retained_bytes()
-            + self.dependencies.retained_bytes()
+            + self.qualification.retained_bytes()
             + self.request.retained_bytes()
             + size_of::<Self>()
             + 256
@@ -790,13 +809,18 @@ impl ModelingPackage {
         selection: pse_compiler::workspace::ModelingFlowSelection,
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::flows::PreparedFlow, WorkflowError> {
-        let selected = self.checked_selection(&[analysis.root], cancel).await?;
+        let deadline = preparation_deadline(cancel)?;
+        let scoped_driver = cancel.with_deadline(Some(deadline));
+        let cancel = &scoped_driver;
+        let selected = self
+            .checked_selection_scoped(&[analysis.root], cancel, deadline)
+            .await?;
         let prepared = (|| {
-            let (workspace, watch) = self.canonical_workspace(&selected.read, cancel)?;
+            let workspace = self.pure_workspace()?;
             let revision = selected.admission.revision.clone();
-            Ok::<_, WorkflowError>((workspace, watch, revision))
+            Ok::<_, WorkflowError>((workspace, revision))
         })();
-        let (workspace, _watch, revision) = match prepared {
+        let (workspace, revision) = match prepared {
             Ok(value) => value,
             Err(error) => {
                 let _ = self
@@ -882,30 +906,19 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPreparation, WorkflowError> {
-        let selected = self.checked_selection(&[root], cancel).await?;
-        let prepared = (|| {
-            let (workspace, watch) = self.canonical_workspace(&selected.read, cancel)?;
-            let revision = selected.admission.revision.clone();
-            Ok::<_, WorkflowError>((workspace, watch, revision))
-        })();
-        let (workspace, _watch, revision) = match prepared {
-            Ok(revision) => revision,
-            Err(error) => {
-                let _ = self
-                    .runtime
-                    .canonical
-                    .store()
-                    .release(selected.read.selection())
-                    .await;
-                return Err(error);
-            }
-        };
+        let deadline = preparation_deadline(cancel)?;
+        let mut selected = self
+            .checked_selection_scoped(&[root], cancel, deadline)
+            .await?;
         let result = self
-            .runtime
-            .shared
-            .math()
-            .prepare_modeling_revision(
-                workspace, revision, root, instance, bindings, limits, cancel,
+            .prepare_selected(
+                &mut selected,
+                root,
+                instance,
+                bindings,
+                limits,
+                cancel,
+                deadline,
             )
             .await;
         let release = self
@@ -916,10 +929,7 @@ impl ModelingPackage {
             .await;
         let result = result?;
         release?;
-        Ok(result.with_consumed_source_versions(
-            selected.admission.versions.clone(),
-            selected.admission.metadata.clone(),
-        ))
+        Ok(result)
     }
 }
 

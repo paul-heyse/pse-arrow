@@ -127,7 +127,9 @@ async fn scoped_preparation_deadline_includes_cpu_wait_and_late_join() {
             ..
         }))
     ));
-    assert!(!control.flag().load(Ordering::Acquire));
+    // Postdispatch expiry signals native checkpoints and keeps the typed deadline
+    // cause while the supervisor retains the native owners through actual join.
+    assert!(control.flag().load(Ordering::Acquire));
     assert_eq!(s.pool.reserved(), baseline);
     assert_eq!(s.cpu.available_permits(), 2);
 }
@@ -640,7 +642,7 @@ async fn general_rebind_admits_small_projection_with_generous_worker_capacity() 
         .model
         .case
         .compiled()
-        .support_upgrade_allocation_bound()
+        .support_upgrade_allocation_bound(pse_kernels::DerivativeOrder::Second)
         .unwrap()
         .unwrap();
     assert!(demand < 8 << 20);

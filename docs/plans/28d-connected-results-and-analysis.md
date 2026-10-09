@@ -56,13 +56,22 @@ an earlier run by itself. Source problem/revision/run identities and method/conf
 versions accompany derived outputs. Pre-simulation and post-simulation graph selections use
 the same substrate without erasing these distinct provenances.
 
-Streaming uses the qualified gRPC SDK route with bounded queues. Rows before statement-end
+The initial implemented streaming path uses the gRPC SDK route with bounded queues. Rows before statement-end
 success are provisional. An Arrow stream surfaces final failure to its consumer, and any
 durable derived analysis seals only after successful completion. Cancellation closes/drains
 the stream; it cannot assume every server execution phase stops immediately. Export writes
 use an explicit incomplete/complete lifecycle so an interrupted file is not announced as a
 successful export. Multi-page reads pin their immutable selection through A3; they do not
 mix current heads from different pages.
+
+The [Plan 30 replacement](30a-native-websocket-rpc-and-operation-lifetimes.md#bounded-realization-and-completed-reads)
+uses completed bounded WS pages with native values; the checked SDK does not provide
+incremental query streaming on that path. D2 consumes its statement completion,
+payload/decoded-memory limits and original-clock/drain contract while retaining
+scientific interpretation, coordinates, protected exact selection and incomplete export
+refusal. Existing gRPC passes do not qualify this migration. 30a owns replacement
+adapter work and deletion; [30d D3](30d-host-admission-and-timing-qualification.md#packages-and-scope-end-acceptance)
+owns new-scope environment acceptance and 28e retains broader scientific qualification.
 
 ## Scientific result organization
 

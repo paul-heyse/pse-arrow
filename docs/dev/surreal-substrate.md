@@ -136,7 +136,11 @@ then `just surreal reconfigure --execution-profile plan28-reference
 Memory overrides cannot accompany this profile selection. Offline readmission observes
 the current supervisor and receiver bytes and preserves the database, endpoint,
 credentials and interpretation. A changed executable or supervisor cannot silently
-inherit a live primary's recorded association. Use `just py-test --managed-primary-route`
+inherit a live primary's recorded association. Quiesce verifies the admitted running
+receiver through its actual process executable, launch identity and allocation, so a
+replacement disk binary does not prevent cooperative drain. Serving readiness still
+requires the currently admitted disk bytes; stop and readmission require empty worker
+groups. Use `just py-test --managed-primary-route`
 for managed Python consumers, or the explicit managed partition of the native assessment;
 ordinary test processes retain their separate finite budgets.
 

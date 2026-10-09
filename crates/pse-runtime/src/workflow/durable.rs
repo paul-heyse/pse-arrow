@@ -110,6 +110,12 @@ impl Operations {
     pub(super) fn same_physical_owner(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.worker, &other.worker) && Arc::ptr_eq(&self.pool, &other.pool)
     }
+    pub(super) fn physical_owner_identity(&self) -> (usize, usize) {
+        (
+            Arc::as_ptr(&self.worker) as *const () as usize,
+            Arc::as_ptr(&self.pool) as *const () as usize,
+        )
+    }
     /// Stable native worker identity for this runtime owner.
     pub fn worker(&self) -> &str {
         &self.worker

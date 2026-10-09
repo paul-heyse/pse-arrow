@@ -570,9 +570,29 @@ impl MathService {
                             pse_math::construction::scoped(construction, || work(flag)))
                     }).map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
                 // Joining witnesses thread-local and native destructor completion.
-                let result = tokio::task::spawn_blocking(move || handle.join()).await
-                    .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?
-                    .map_err(|_| MathRuntimeError::Panic("native worker panic".into()))?;
+                let mut joining = tokio::task::spawn_blocking(move || handle.join());
+                let result = match deadline {
+                    Some(deadline) => tokio::select! {
+                        biased;
+                        () = cancel.cancelled() => {
+                            let _ = joining.await;
+                            Err(MathRuntimeError::Cancelled)
+                        },
+                        () = tokio::time::sleep_until(deadline.into()) => {
+                            // Signal checkpoints immediately, but retain every native owner
+                            // until the actual thread and its foreign destructors have joined.
+                            cancel.cancel();
+                            let _ = joining.await;
+                            Err(Self::admission_timeout())
+                        },
+                        joined = &mut joining => joined
+                            .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?
+                            .map_err(|_| MathRuntimeError::Panic("native worker panic".into()))?,
+                    },
+                    None => joining.await
+                        .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?
+                        .map_err(|_| MathRuntimeError::Panic("native worker panic".into()))?,
+                };
                 let result = result.and_then(|(value, retained)| {
                     if cancel.flag().load(Ordering::Acquire) { return Err(MathRuntimeError::Cancelled); }
                     // The admission-only clock ends at dispatch. Preserve actual task expiry.
@@ -606,6 +626,86 @@ mod construction_tests {
     use super::*;
     use datafusion::execution::memory_pool::{FairSpillPool, MemoryConsumer, MemoryPool};
     use pse_math::construction::ConstructionAdmission;
+    async fn gated_scoped_job_stops_after_native_join(explicit_cancel: bool) {
+        let (service, _cache) = super::super::tests::service_with_policy(
+            256 << 20,
+            super::super::MathPolicy::default(),
+        );
+        let baseline = service.pool.reserved();
+        let jobs = service.jobs.available_permits();
+        let cores = service.cpu.available_permits();
+        let cancel = FlightCancellation::default();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(1);
+        let (started, start) = tokio::sync::oneshot::channel();
+        let (observed, observation) = tokio::sync::oneshot::channel();
+        let (release, gate) = std::sync::mpsc::channel();
+        let worker_service = service.clone();
+        let worker_cancel = cancel.clone();
+        let task = tokio::spawn(async move {
+            worker_service
+                .job_scoped(1, 1024, worker_cancel, Some(deadline), move |flag| {
+                    let _ = started.send(());
+                    let cutoff = std::time::Instant::now() + std::time::Duration::from_secs(5);
+                    while !flag.load(Ordering::Acquire) {
+                        if std::time::Instant::now() >= cutoff {
+                            return Err(MathRuntimeError::Infrastructure(
+                                "native cancellation was not observed".into(),
+                            ));
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(1));
+                    }
+                    let _ = observed.send(());
+                    // Cancellation has been observed, but native teardown is deliberately held.
+                    gate.recv_timeout(std::time::Duration::from_secs(10))
+                        .map_err(|error| MathRuntimeError::Infrastructure(error.to_string()))?;
+                    Err::<(), _>(MathRuntimeError::Cancelled)
+                })
+                .await
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(5), start)
+            .await
+            .unwrap()
+            .unwrap();
+        if explicit_cancel {
+            cancel.cancel();
+        }
+        tokio::time::timeout(std::time::Duration::from_secs(5), observation)
+            .await
+            .unwrap()
+            .unwrap();
+        // An earlier cancellation must remain cancellation even if join crosses the deadline.
+        tokio::time::sleep_until((deadline + std::time::Duration::from_millis(20)).into()).await;
+        assert!(!task.is_finished());
+        assert_eq!(service.jobs.available_permits(), jobs - 1);
+        assert_eq!(service.cpu.available_permits(), cores - 1);
+        assert!(service.pool.reserved() > baseline);
+        release.send(()).unwrap();
+        let result = task.await.unwrap();
+        if explicit_cancel {
+            assert!(matches!(result, Err(MathRuntimeError::Cancelled)));
+        } else {
+            assert!(matches!(
+                result,
+                Err(MathRuntimeError::Solve(
+                    pse_backend_native::ProblemError::Limit {
+                        kind: pse_backend_native::LimitKind::Time,
+                        ..
+                    }
+                ))
+            ));
+        }
+        assert_eq!(service.jobs.available_permits(), jobs);
+        assert_eq!(service.cpu.available_permits(), cores);
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+    #[tokio::test(flavor = "current_thread")]
+    async fn scoped_deadline_signals_native_worker_and_retains_owners_until_join() {
+        gated_scoped_job_stops_after_native_join(false).await;
+    }
+    #[tokio::test(flavor = "current_thread")]
+    async fn scoped_cancellation_before_deadline_preserves_cause_through_native_join() {
+        gated_scoped_job_stops_after_native_join(true).await;
+    }
     #[tokio::test(flavor = "current_thread")]
     async fn synchronous_submission_burst_refuses_thirty_third_before_spawn() {
         let (service, _cache) = super::super::tests::service_with_policy(

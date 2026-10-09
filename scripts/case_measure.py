@@ -10,13 +10,15 @@ import hashlib
 import json
 import math
 import os
+import select
+import signal
 import statistics
 import subprocess
 import time
 from pathlib import Path
 
 from scripts import validation, validation_receipts
-from scripts.native_tests import FEATURES, native_provenance
+from scripts.native_tests import FEATURES, MANAGED_FEATURES, native_provenance
 from scripts.validation_scope import (
     FUNCTIONAL_SCOPES,
     RUST_INPUTS,
@@ -94,6 +96,140 @@ def build_benchmark(
     return build
 
 
+def stop_managed_primary(state: Path, database: str) -> None:
+    """Cooperatively drain this fixture's exact receiver before removing its DB."""
+    from scripts import (  # noqa: PLC0415 -- load supervisor policy only for managed drain
+        surreal_server,
+    )
+
+    state = state.resolve()
+    with surreal_server.state_lock(state):
+        config = surreal_server.config_for(state)
+        observed = surreal_server.primary_observation(state)
+        group = observed.get("ControlGroup", "")
+        if observed["ActiveState"] in {"inactive", "failed"} and (
+            not group or not surreal_server.group_populated(group)
+        ):
+            return
+        marker = surreal_server.read_json(state / "primary-receiver.json")
+        if marker.get(
+            "canonical_database"
+        ) != database or not surreal_server.primary_ready(
+            state, config, observed, database
+        ):
+            raise ValueError(
+                "refuse to stop a primary not associated with this fixture"
+            )
+        pid = surreal_server.integer(marker["pid"])
+        process = Path(f"/proc/{pid}")
+        start = process.joinpath("stat").read_text().rsplit(")", 1)[1].split()[19]
+        descriptor = os.pidfd_open(pid)
+        try:
+            current = surreal_server.read_json(state / "primary-receiver.json")
+            if (
+                current != marker
+                or process.joinpath("stat").read_text().rsplit(")", 1)[1].split()[19]
+                != start
+                or not surreal_server.primary_ready(
+                    state, config, surreal_server.primary_observation(state), database
+                )
+            ):
+                raise ValueError("managed receiver association changed before drain")
+            signal.pidfd_send_signal(descriptor, signal.SIGINT)
+            poller = select.poll()
+            poller.register(descriptor, select.POLLIN)
+            deadline = time.monotonic() + 45
+            while not poller.poll(100):
+                if time.monotonic() >= deadline:
+                    raise ValueError("managed receiver cooperative drain timed out")
+        finally:
+            os.close(descriptor)
+        # The installation wrapper and service group must also release before
+        # a later iteration can acquire the same finite primary allocation.
+        while group and surreal_server.group_populated(group):
+            if time.monotonic() >= deadline:
+                raise ValueError(
+                    "managed primary service did not release its allocation"
+                )
+            time.sleep(0.02)
+
+
+def process_command(binary: str, mode: str, workload: dict) -> list[str]:
+    """Compilation has finished before a managed observer enters its 4 GiB scope."""
+    if workload.get("adapter") != "managed-durable":
+        return [binary, mode]
+    from scripts import (  # noqa: PLC0415 -- load supervisor policy only for managed adapter
+        surreal_server,
+    )
+
+    state_value = os.environ.get("PSE_SURREAL_STATE")
+    if not state_value:
+        raise ValueError("managed measurement requires PSE_SURREAL_STATE")
+    state = Path(state_value).resolve()
+    config = surreal_server.config_for(state)
+    if config["resources"] != surreal_server.reference_resources():
+        raise ValueError("managed measurement requires the exact reference allocation")
+    receiver = surreal_server.checked_primary(config)
+    # The receiving supervisor checks placement, interpreter/worker bytes and
+    # actual readiness; package.study then uses its production ensure-primary.
+    return [
+        receiver["supervisor_executable"],
+        receiver["supervisor_script"],
+        "observer",
+        "--state",
+        str(state),
+        "--observer-command",
+        binary,
+        mode,
+    ]
+
+
+def managed_receiver_provenance(workloads: list[dict], profile: str) -> dict | None:
+    if not any(workload.get("adapter") == "managed-durable" for workload in workloads):
+        return None
+    from scripts import (  # noqa: PLC0415 -- load supervisor policy only for managed provenance
+        surreal_server,
+    )
+
+    state = Path(os.environ["PSE_SURREAL_STATE"]).resolve()
+    config = surreal_server.config_for(state)
+    if config["resources"] != surreal_server.reference_resources():
+        raise ValueError("managed measurement requires the exact reference allocation")
+    receiver = surreal_server.checked_primary(config)
+    return {
+        "state": str(state),
+        "resources": config["resources"],
+        "deployment": {
+            key: config[key]
+            for key in ("instance_id", "server", "endpoint", "schema_interpretation")
+        },
+        "receiver": receiver,
+        "native": native_provenance(
+            {"cargo_profile": profile, "features": MANAGED_FEATURES.split(",")},
+            [receiver["worker_executable"]],
+        ),
+        "metrics_scope": "benchmark counters/RSS belong to the observer; primary counters/RSS are unobserved",
+    }
+
+
+def verify_managed_receiver(receiver: dict | None) -> None:
+    if receiver is None:
+        return
+    from scripts import (  # noqa: PLC0415 -- load supervisor policy only for managed verification
+        surreal_server,
+    )
+
+    config = surreal_server.config_for(Path(receiver["state"]))
+    if (
+        config["resources"] != receiver["resources"]
+        or {key: config[key] for key in receiver["deployment"]}
+        != receiver["deployment"]
+        or surreal_server.checked_primary(config) != receiver["receiver"]
+    ):
+        raise ValueError("managed measurement deployment changed during execution")
+    validation_receipts.verify_native(receiver["native"])
+
+
 def samples(path: Path) -> dict:
     """Read Criterion's public CSV format; retain the original Criterion report."""
     values = []
@@ -159,20 +295,33 @@ def require_functional(
     observations = {check["gate"]: check for check in evidence["checks"]}
     consumed = {}
     for name in sorted(required):
-        if name not in FUNCTIONAL_SCOPES:
+        managed = name == "managed-primary"
+        if name not in FUNCTIONAL_SCOPES and not managed:
             raise ValueError("unknown functional prerequisite scope")
-        exact = FUNCTIONAL_SCOPES[name]
+        exact = (
+            next(gate for gate in comprehensive("dev") if gate.name == "managed-native")
+            if managed
+            else FUNCTIONAL_SCOPES[name]
+        )
         # The assembled invocation adds its setup dependency without changing
         # nextest's selection. Accept its exact declared form as well as the
         # standalone gate; arbitrary dependency/selection edits still refuse.
         assembled = [
-            next(gate for gate in comprehensive(selected) if gate.name == "native-test")
+            next(
+                gate
+                for gate in comprehensive(selected)
+                if gate.name == ("managed-native" if managed else "native-test")
+            )
             for selected in ("dev", "producer")
         ]
         gate = next(
             (
                 candidate
-                for candidate in (exact, native_gate(), *assembled)
+                for candidate in (
+                    (exact, *assembled)
+                    if managed
+                    else (exact, native_gate(), *assembled)
+                )
                 if declarations.get(candidate.name)
                 == json.loads(json.dumps(validation.asdict(candidate)))
             ),
@@ -224,7 +373,7 @@ def require_functional(
         validation_receipts.verify_native(native)
         if native.get("profile", {}).get("cargo_profile") != profile:
             raise ValueError("functional Cargo profile differs from measurement")
-        expected_features = set(FEATURES.split(","))
+        expected_features = set((MANAGED_FEATURES if managed else FEATURES).split(","))
         if set(native.get("profile", {}).get("features", [])) != expected_features:
             raise ValueError("functional native feature graph differs")
         origin = Path(check.get("origin", report.parent))
@@ -324,6 +473,10 @@ def smoke_campaign(
     }
     if set(binaries) != targets:
         raise ValueError("all selected benchmark control executables must be built")
+    receiver = managed_receiver_provenance(
+        [workload for workload in process["workloads"] if workload["id"] in selected],
+        profile,
+    )
     for declaration, target in (
         (process, "native_process"),
         (preparation, "modeling_preparation"),
@@ -346,19 +499,21 @@ def smoke_campaign(
             }
             with (directory / "process.log").open("w") as log:
                 subprocess.run(
-                    [binaries[target], "--test"],
+                    process_command(binaries[target], "--test", workload),
                     cwd=ROOT,
                     env=env,
                     check=True,
                     stdout=log,
                     stderr=subprocess.STDOUT,
                 )
+    verify_managed_receiver(receiver)
     validation.write_json(
         output / "case-smoke.json",
         {
             "schema": "case-smoke-v1",
             "measured": False,
             "selected_cases": sorted(selected),
+            "managed_receiver": receiver,
             "native": native_provenance(
                 {
                     "cargo_profile": profile,
@@ -471,7 +626,11 @@ def preparation_campaign(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("output", type=Path)
+    parser.add_argument("output", type=Path, nargs="?")
+    parser.add_argument(
+        "--stop-managed-primary", metavar="DATABASE", help=argparse.SUPPRESS
+    )
+    parser.add_argument("--state", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--functional-from", type=Path)
     parser.add_argument(
         "--smoke",
@@ -485,6 +644,13 @@ def main() -> int:
         help="Declared process, preparation or document-admission case; repeat to select several. Defaults to all.",
     )
     args = parser.parse_args()
+    if args.stop_managed_primary:
+        if args.state is None or args.output is not None:
+            parser.error("fixture drain requires --state and no output")
+        stop_managed_primary(args.state, args.stop_managed_primary)
+        return 0
+    if args.output is None:
+        parser.error("measurement output is required")
     declaration = json.loads((ROOT / ".config/process-cases.json").read_text())
     preparation = json.loads((ROOT / ".config/preparation-cases.json").read_text())
     admission = {
@@ -549,6 +715,9 @@ def main() -> int:
     binary = Path(binaries.pop())
     native = native_provenance(profile, [str(binary)])
     compatible_native(functional, native)
+    receiver = managed_receiver_provenance(selection, profile["cargo_profile"])
+    if receiver is not None:
+        compatible_native(functional, receiver["native"])
     cases = []
     for workload in declaration["workloads"]:
         name = workload["id"]
@@ -564,7 +733,7 @@ def main() -> int:
         }
         with (directory / "process.log").open("w") as log:
             subprocess.run(
-                [str(binary), "--bench"],
+                process_command(str(binary), "--bench", workload),
                 cwd=ROOT,
                 env=env,
                 check=True,
@@ -598,6 +767,7 @@ def main() -> int:
         "binary_digest": native["files"][str(binary.resolve())],
         "toolchain": native["toolchain"],
         "native": native,
+        "managed_receiver": receiver,
         "thread_environment": {
             k: os.environ.get(k)
             for k in ["OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"]
@@ -620,6 +790,7 @@ def main() -> int:
         compatible_native(functional, preparation_report["native"])
     if snapshot_digest(measurement_inputs(validation.sources(ROOT))) != before:
         raise ValueError("sources changed during preparation measurement")
+    verify_managed_receiver(receiver)
     validation.write_json(output / "case-measure.json", report)
     return 0
 

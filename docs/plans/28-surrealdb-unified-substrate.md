@@ -3,7 +3,7 @@ title: SurrealDB unified simulation substrate
 status: in-progress
 date: 2026-10-05
 adrs: [ADR-0164, ADR-0166]
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md, docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -55,6 +55,8 @@ qualify the new store, codec, compiler boundary or durable lifecycle.
 | [28f — Shared numerical projections and preparation](28f-shared-numerical-preparation.md) | Ordered identity projections, immutable checked preparation and compatible library/native owners across scientific workflows. |
 | [28g — Bulk data operations](28g-bulk-data-operations.md) | Shared physical admission, sufficient acknowledgments, composed protected acquisition and comparable source/analysis/authoring migrations. |
 | [28h — Native setup and artifact identity](28h-native-setup-and-artifact-identity.md) | Operation-scoped verified installations, actual capability setup and separated artifact/outer-provenance association. |
+| [28i — Receiving-runtime validity and interruption](28i-runtime-validity-and-interruption.md) | Actual receiving premises, protected validity/trust-transition lifetimes, interruptible observation and shared completion ownership. |
+| [28j — Pure preparation and explicit publication](28j-pure-preparation-and-publication.md) | Complete immutable basis and fresh attribution; pure/effect separation, reusable descriptions and explicit publication contract. |
 
 The document division expresses responsibilities, not sequential phases. Conceptual
 products do not require a new crate/type/service for each concept. Root coordinates shared
@@ -63,10 +65,10 @@ declarations, generated outputs, manifests and integration.
 ## Combined target and foundation decisions
 
 Repurpose `pse-operations` as the concrete substrate boundary with the remote client there.
-Retire `pse-operations-queries` and `pse-catalog` after their consumers move. Select a supervised
-authenticated loopback server using RocksDB, synchronous transaction acknowledgment and
-explicit gRPC streaming. [28a](28a-canonical-substrate-and-revisions.md#server-profile-and-acknowledgment-contract)
-owns the exact profile and qualification limits. This isolates engine builds/resources from
+Retire `pse-operations-queries` and `pse-catalog` after their consumers move. The initial implemented
+profile selected authenticated loopback RocksDB, synchronous transaction acknowledgment and
+gRPC. [28a](28a-canonical-substrate-and-revisions.md#server-profile-and-acknowledgment-contract)
+retains its original profile evidence; Plan 30 owns the proposed replacement below. This isolates engine builds/resources from
 semantic crates and serves multiple workers without a second storage abstraction.
 
 Existing semantic declarations, scientific kernels, solver routing, native attempt ownership
@@ -109,6 +111,28 @@ The benefit is a unified operation route and less repeated/induced machinery. Ca
 database beneath the unchanged full pipeline would not supply it. Structural removal is
 required without a database timing premise. Build/preparation/dispatch/read gains remain
 **Proposed** until E4 measures comparable operations.
+
+## WebSocket and persistent environment integration
+
+[Plan 30](30-websocket-and-persistent-agent-environment.md) owns the separately authorized
+plan-document work following the [WebSocket/environment review](../design_review/reviews/design_review_websocket-and-persistent-agent-environment_2026-10-08.md).
+Its [confirmed rules](30-websocket-and-persistent-agent-environment.md#confirmed-rule-changes)
+replace the prospective application transport and environment lifecycle/admission target.
+Its [dispositions](30-websocket-and-persistent-agent-environment.md#finding-dispositions)
+are the sole current WP01–WP08/AE-25/AE-26 status owner; this coordinator retains its
+existing scientific/substrate findings and package status.
+
+30a supplies native RPC, original-clock settlement and bounded complete pages to A/C/D/G.
+30b supplies separately admitted service/receiver generations; 30c supplies explicit
+test contexts and final-outcome disposal; 30d supplies coordinated host admission and
+its own new-scope environment qualification. H's exact reference profile, I's receiving
+validity, J's pure/fresh-effect separation and canonical guards/acknowledgments remain
+required inputs. Their earlier implementation evidence is not a WS qualification.
+
+Future affected assembled substrate qualification consumes the working Plan 30 handoff
+at [28e](28e-rebuild-retirement-and-qualification.md#websocket-environment-qualification-handoff).
+Plan authoring changes no production service or science and does not resume the
+existing failure-only continuation, full former Python selection or E4/E5 campaign.
 
 ## Rule changes confirmed by the maintainer
 
@@ -537,11 +561,11 @@ the supported mixed-backend execution strategy remain consequential questions.
 
 | Finding | Review scenarios | Disposition | Work owner | Required evidence or question |
 |---|---|---|---|---|
-| [Parallel F01](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f01) | S01/S03/S06 | In progress; targeted foundations pass, public managed/E3 acceptance pending | A4; B6; T7; E3 | Reliable sixteen complete cases and original report/result meaning; protected reclamation and uncertain-acknowledgment safety. Select the correction with adequate operation attribution; RC01 is accepted conditionally; A4 selects the actual route. |
-| [Parallel F02](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f02) | S02/S03 | In progress; targeted foundations pass, public managed/E3 acceptance pending | N8; B6; E3 | Small nested-provider/rebind work completes under the finite pool without maximum-capacity reservation amplification; retain oversized refusal, clocks, cancellation and bounded progress under retained pressure. RC02 is accepted; N8 owns the changed behavior. |
-| [Parallel F03](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f03) | S04 | In progress; targeted foundations pass, public managed/E3 acceptance pending | N10; L7; C7; E3 | Explicit supported independent-instance, internal-team and process strategies, with exclusion/waiting, cancellation, teardown and aggregate CPU/memory scope. RC03 is accepted; no deadlock or universal backend concurrency is claimed. |
-| [Parallel F04](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f04) | S05 | In progress; targeted foundations pass, public managed/E3 acceptance pending | N9; C6/C7; E3 | Additional POUNCE team stacks reserved before creation, retained while the team exists and released after scope teardown/join; finite refusal before creation. This is existing-contract accounting, not an RSS claim or a new allocator contract. |
-| [Parallel F05](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f05) | S07/S03 | In progress; targeted foundations pass, public managed/E3 acceptance pending | C6/C7; N8–N10; L7; E3 | One ordinary study executes sixteen independent non-batching cases concurrently with exact occurrences, starts, result placement and original scientific checks; retain dependent sequence order, failed-point isolation, bounded admission and cancel/drain. Select/account for durable worker deployment; RC04 is accepted; C6/C7 own the realization. |
+| [Parallel F01](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f01) | S01/S03/S06 | In progress; focused managed Rust controls pass, Python/assembled E3 acceptance pending | A4; B6; T7; E3 | Reliable sixteen complete cases and original report/result meaning; protected reclamation and uncertain-acknowledgment safety. Select the correction with adequate operation attribution; RC01 is accepted conditionally; A4 selects the actual route. |
+| [Parallel F02](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f02) | S02/S03 | In progress; focused managed Rust controls pass, Python/assembled E3 acceptance pending | N8; B6; E3 | Small nested-provider/rebind work completes under the finite pool without maximum-capacity reservation amplification; retain oversized refusal, clocks, cancellation and bounded progress under retained pressure. RC02 is accepted; N8 owns the changed behavior. |
+| [Parallel F03](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f03) | S04 | In progress; focused managed Rust controls pass, Python/assembled E3 acceptance pending | N10; L7; C7; E3 | Explicit supported independent-instance, internal-team and process strategies, with exclusion/waiting, cancellation, teardown and aggregate CPU/memory scope. RC03 is accepted; no deadlock or universal backend concurrency is claimed. |
+| [Parallel F04](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f04) | S05 | In progress; focused managed Rust controls pass, Python/assembled E3 acceptance pending | N9; C6/C7; E3 | Additional POUNCE team stacks reserved before creation, retained while the team exists and released after scope teardown/join; finite refusal before creation. This is existing-contract accounting, not an RSS claim or a new allocator contract. |
+| [Parallel F05](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f05) | S07/S03 | In progress; focused managed Rust controls pass, Python/assembled E3 acceptance pending | C6/C7; N8–N10; L7; E3 | One ordinary study executes sixteen independent non-batching cases concurrently with exact occurrences, starts, result placement and original scientific checks; retain dependent sequence order, failed-point isolation, bounded admission and cancel/drain. Select/account for durable worker deployment; RC04 is accepted; C6/C7 own the realization. |
 
 The selected A4 staging correction, N8 demand admission, N9 team accounting, N10 exclusion
 coordination and C6/C7 dispatchers are integrated. Their targeted controls establish only
@@ -552,6 +576,79 @@ no accepted ADR or architecture section is changed by plan publication. This coo
 keeps the single finding ledger; companions own package progress and
 [28e](28e-rebuild-retirement-and-qualification.md#parallel-extension-acceptance-and-campaign-restart)
 owns campaign restart and later qualification evidence.
+
+## Preparation assurance and reuse review
+
+The [2026-10-08 preparation review](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md)
+returns **Revise** for complete preparation operations across ordinary solves, studies,
+initialization, dynamics, fitting, restart and interruption. Its
+[supporting evidence](../design_review/evidence/preparation-assurance-and-reuse-2026-10-08.md)
+separates the live frozen Python extension from the evolving source and records the bounded
+CPU/file-read observations. Existing native setup's once-per-operation admission and exact
+canonical acknowledgment reuse are strengths; neither proves complete preparation reuse.
+
+The maintainer accepted RC01–RC04 and extending this series on **2026-10-08** during
+plan creation. [28i](28i-runtime-validity-and-interruption.md) develops receiving validity
+and interruption; [28j](28j-pure-preparation-and-publication.md) develops pure preparation,
+explicit publication and reusable descriptions. Existing A/B/C/F companions integrate
+their actual canonical/selected/workflow/numerical consumers; H retains native setup and
+E retains qualification. This coordinator owns the current dispositions below. Document
+adoption schedules decisions and packages, not production implementation or acceptance.
+
+| Finding | Disposition | Prospective owner | Required resolution |
+|---|---|---|---|
+| [PA01](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md#pa01): runtime observation at body boundaries | Implemented; scoped qualification pending | 28i I0/I1; 28b B7; 28h root integration | Establish actual consumed premises and the supported validity lifetime; preserve trust-transition checks and refuse unknown replay contexts. |
+| [PA02](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md#pa02): repeated compiler/preparation composition | Implemented; scoped qualification pending | 28j J0/J2; B7/C8/N11 | Reuse complete immutable preparation with fresh case meaning and effects; structural, demand, provider and physical changes remain consequential. |
+| [PA03](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md#pa03): memoized mathematics carries publication effects | Implemented; scoped qualification pending | 28j J0/J1/J2; 28a A5; 28b B7 | Separate pure computation from protected dependency/root publication; preserve exact rooted acknowledgment reuse and expiry/recovery while removing repeated encoding. |
+| [PA04](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md#pa04): observation/cohort interruption gap | Implemented; drain qualification pending | 28i I2; runtime jobs / 28c C8 drain | Make owned capture and waits interruptible while retaining charges through drain and preserving other live consumers; state foreign lock-wait limits honestly. |
+| U01: receiving-runtime premise coverage | Settled for controlled worker/imported-Python roots; arbitrary embedding remains unqualified | 28i I0 with actual receiving roots / 28h / B7 | Trace reconstruction and subsequent product-use inputs and actual protection; consider independently valid immutable products before requiring a whole-host freeze. |
+| U02: corrective scientific composition | Unresolved | 28e with affected scientific owners | Qualify the implemented composition at its real scientific boundaries; plan adoption supplies no new product pass or speedup. |
+
+The review preserves the earlier findings' scope and dispositions. It establishes related
+remaining obligations rather than reopening every historical review. 28e remains the sole
+assembled qualification owner; no new full campaign is authorized by this plan-authoring handoff.
+
+### Preparation rule decisions, 2026-10-08
+
+The maintainer explicitly accepted all four items below and selected two new companions
+within Plan 28. These are operator target decisions. Accepted ADR status and production
+implementation remain separate; no authoritative section or ADR is changed by this publication.
+
+| Review item | Decision and consequence | Route before dependent implementation |
+|---|---|---|
+| [Preparation RC01](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md#rc01) | Accepted: reuse runtime validity at a demonstrably owned lifetime; retain full trust-transition checks and fresh preparation for unowned premises. I0 must establish the supported-root argument before broader reuse. | Amend proposed ADR-0164 and blueprint §14.3–§14.4 through R0's decision/design route once I0 selects the actual profile. Accepted historical records remain immutable. |
+| [Preparation RC02](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md#rc02) | Accepted: separate pure preparation from current protection/publication effects; complete immutable basis reuse is the default, with bounded library incrementality eligible for a concrete gap. | J0 settles identity, fresh attribution and description/effect contracts; record the operation/effect and lifetime amendment in the relevant mathematics owner through the decision/design route before J1/J2. |
+| [Preparation RC03](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md#rc03) | Accepted: reuse encoded descriptions and compatible grouped effects while preserving exact dependencies, roots and uncertainty recovery. Existing exact rooted acknowledgment settlement need not create a row/root for every current selection. | A5/J0 decide whether existing identity/metadata/commit contracts suffice. Optimization within them needs its ordinary owner; a changed contract requires its decision/design amendment before implementation. |
+| [Preparation RC04](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md#rc04) | Accepted: observations and waits consume actual stop/original-clock control, with per-consumer cancellation and charges through real drain. No solver stop or historical-accuracy policy change. | I2 updates the owning APIs/jobs with C8/H; follow the lifecycle decision route only if the accepted guarantee changes. |
+
+I0 examines trust-transition qualification followed by independently valid immutable
+mathematics before selecting wider operation/generation protection. The existing installation
+generation does not own the whole receiving context. J0 examines complete basis/attribution
+and canonical description discovery before reusing current products wholesale. A pure memo
+must expose every required description even when its query does not run. Exact committed
+acknowledgment recovery after protection expiry remains distinct from new admission after expiry.
+
+### Preparation execution dependencies
+
+The first executable investigations are I0 and J0; they can proceed independently and
+receive focused evidence/advice without another whole-system review. I2's interruption
+design can proceed against existing controls while I0 settles lifetime ownership; integrate
+it with the selected owner rather than retaining two observation protocols. R0 records the
+necessary selected contract amendments before their dependent implementation.
+
+| Working prerequisite | Enables | Boundary that remains open |
+|---|---|---|
+| I0 supported receiving profile and protection/product-independence argument | I1 validity integration and B7 receiving reuse | Unsupported roots retain fresh preparation; upstream loader facts alone do not close U01. |
+| J0 complete basis, fresh attribution and description/effect contract | A5 canonical integration and J1 pure/effect separation | A settled design is not a working admission/publication API. |
+| A5 working canonical slice plus J1 explicit effects | J2 basis/encoding retention and B7 adoption | A memo hit cannot skip exact current effect settlement; retention is not permission. |
+| J2/B7 working compatible basis and applicable I1/I2 receiving controls | C8 ordinary study/worker consumers and N11 analysis/mode/experiment consumers | Changed structure/demand/provider/physical meaning still requires affected preparation; mutable numerical state stays private. |
+| Consumer migrations and targeted controls | 28e's affected assembled acceptance/U02 route | Quantitative benefit requires measurement; current failure-only continuation does not authorize another full campaign. |
+
+Shared edit surfaces in compiler/workspace, runtime math/workflow and canonical selection
+need one integration owner during execution, independently of logical package readiness.
+Existing bounded retention, flights, allocation owners, native generation pins and original
+scientific checks are foundations. No new global compiler, generic cache, solver controller,
+store pivot, mandatory benchmark matrix or permanent assurance framework is selected.
 
 ## Verification
 
@@ -571,6 +668,85 @@ N4/T5/L4 caller/coverage reconciliation: no confirmed comparable variant remains
 mechanism, and justified distinct contracts and conditional retained-design decisions are explicit.
 
 ## Current checkpoint
+
+The maintainer authorized detailed execution of 28i/28j and then implementation on
+2026-10-08, before remaining unrelated Plan 28 scope. I0/J0 selected trust-transition
+receiving qualification followed by independent immutable mathematics in the protected
+append-only mathematical symbol universe, an exact instance-qualified complete preparation
+basis, and explicit acquisition/publication outside tracked queries. Proposed ADR-0164 and
+blueprint revision 137 record the selected amendment before dependent implementation.
+The supported controlled worker/imported-Python profile excludes opaque symbol callbacks,
+live state reset, interposition and uncontrolled executable-map mutation; arbitrary embedding
+is not qualified. Strict relevant-source and deployment-local guarantees remain distinct.
+
+The scoped implementation is present. Canonical descriptions retain their exact immutable
+encoding/provenance and query actual rooted acknowledgment before new admission work. Local
+namespace v2 and runtime envelope v3 preserve historical meanings; recipe/product/blob frames
+are unchanged. Pure compiler frontiers and complete basis reuse use the existing bounded
+cache, generation fence, allocation owners and completion-owned flights. Current selection,
+acquisition dependencies, Solved lineage and source versions remain current operations.
+Compiler callbacks no longer perform store I/O or host observation. All ordinary worker,
+study, solve, diagnostic, mode and experiment paths reach the migrated package preparation;
+flow and conformance inspection use pure workspaces.
+
+The stalled assessment was interrupted and preserved at
+`/tmp/pse-plan28-preparation-start-20261008T231501Z`. Its final native-Python log reports
+202 passed, 2 failed and two selected identities without recorded outcomes; managed Python
+reports seven failures. Those receipts describe the original frozen artifacts. Follow-up
+qualification targets those identities and new preparation controls, not another full
+assessment. The managed observer pool was raised from 2 to 3 GiB within its existing 4 GiB
+placement, and its actual modeling workspace from 64 MiB to 1 GiB, after recorded admission
+refusals. Two temporary source-only worktrees
+were used for isolated interfaces and remain pending integration acceptance/cleanup.
+Independent implementation review exposed private reconstruction-drain ordering and shared
+loader clocks; those corrections are implemented and the final source reinspection found
+no remaining material finding. Actual scoped cancellation/drain controls pass. The affected continuation exposed a misplaced SDK preparation clock and protected-read
+contention; original driver clocks, guarded identical-revision premise adoption and bounded
+short transaction pacing now have positive targeted controls. Rebuilt artifact readmission
+has completed. The ephemeral thousand-point sweep passed; the remaining managed sweep
+completed cold preparation but exposed unpaced result-ingestion transaction conflicts.
+The affected execution/study writers and typed failure projection are corrected, with
+positive actual sibling-study retention controls. The rebuilt managed identity settled
+27 points before an HTTP/2 protocol failure; its transport investigation and failure-only
+qualification remain open. No U02 scientific closure or speedup is claimed before its
+positive outcome.
+
+The maintainer narrowed the current execution on 2026-10-08 to fixing the failing
+tests, obtaining successful execution of the selected tests, preserving materials
+while cleaning existing worktree registrations, updating documentation and then
+stopping. E4 measurements, E5 assessment and whole-plan adoption/retirement are not
+part of this continuation. Their open obligations remain with their existing owners.
+Once the complete Python failure set is available, fix and rerun only those failed
+identities until they pass. The maintainer accepts that repaired composite as fully
+passing for this continuation; no repeat of the full Python selection is requested.
+Final comparisons against historical IDAES/reference results use ±10% relative
+allowance; ordinary engineering solver stopping budgets and physical checks remain
+unchanged. The [qualification guide](../dev/validation-assessment.md) records that
+distinction; [E's Outcome](28e-rebuild-retirement-and-qualification.md#outcome-recorded-after-implementation)
+owns the executed test evidence and its composite scope.
+
+Before the preparation correction, the assembled development run completed its native
+selection and continued into Python. Its resource-fixture, supervised-worker fixture and
+historical flash comparison failures were repaired through targeted tests against the then
+installed artifacts. The original assessment retains its raw results under its original
+conditions; source changes prevent claiming it as a fresh successful assembled E3
+qualification. The resource and historical flash comparisons now pass their targeted
+checks, and all six worker journeys now have positive composite follow-up results.
+Cold loaded-file identity verification required a separate finite setup watchdog;
+solver, lease, cancellation and recovery assertions remain unchanged. The separate
+managed native selection also passed. The current rebuilt failure-only continuation is
+described above; those historical receipts do not exercise the new preparation source.
+
+The maintainer subsequently authorized deleting inactive worktrees to recover disk
+space. All seven former Plan 28 worktrees were removed after their dirty, untracked
+and ignored source files, binary patches and Git administrative metadata were copied
+and verified. Their branches remain. Preserved changes are at
+`/home/paul/pse-arrow-wt-preserved/20261008T210936Z`; at that cleanup only main remained
+registered. The removed trees had no build caches and occupied approximately 470 MiB;
+the preserved changes occupy 11 MiB. This cleanup does not complete outstanding tests.
+
+The earlier implementation handoff below retains its original scope and resume order;
+it does not expand the narrowed current execution.
 
 Execution started from committed `84a1caf17656f00f38b22e703c7cbc2b63a44d2d`, preserving the
 existing Plan 28 documentation edits. R0's parallel contract is recorded in proposed

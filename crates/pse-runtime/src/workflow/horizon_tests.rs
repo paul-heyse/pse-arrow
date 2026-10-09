@@ -16,6 +16,20 @@ use pse_compiler::workspace::{ModelingCaseBindings, ModelingVariableState};
 use pse_modeling::{Bindings, DeclarationId, Limits, analysis::Route};
 use std::sync::Arc;
 
+/// Horizon fixtures exercise retained native artifacts and value rebinds at a realistic
+/// worker scale while remaining within a bounded shared test pool.
+fn horizon_runtime() -> Runtime {
+    crate::workflow::tests::runtime_on(
+        2 << 30,
+        crate::math::MathPolicy {
+            worker_bytes: 1 << 30,
+            workspace_bytes: 1 << 30,
+            foreign_bytes: 1 << 20,
+            ..Default::default()
+        },
+    )
+}
+
 /// The antiwindup loop of the `control_fixtures` package (`SaturatedPID`): an actuator
 /// saturated to the control library PID's output limits [0, 1] drives a first-order process
 /// `x' = (2u − x)/1 s` from `x(0) = x0`. On the simultaneous route (backward-Euler Radau
@@ -383,7 +397,7 @@ fn controller_objective(step: &crate::workflow::ModelingResult) {
 #[tokio::test]
 async fn nmpc_closed_loop_on_antiwindup() {
     const STEPS: usize = 20;
-    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let runtime = horizon_runtime();
     let (package, [root, whole, _]) = package(runtime.clone()).await;
     let (plant, actuator, x) = plant(&package, whole, 0., STEPS).await;
     let setpoints = (0..STEPS)
@@ -500,7 +514,7 @@ async fn horizon_reuses_prepared_view() {
         ));
     }
     for (backend, settings) in backends {
-        let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+        let runtime = horizon_runtime();
         let (package, [root, whole, _]) = package(runtime.clone()).await;
         let (plant, actuator, x) = plant(&package, whole, 0.2, STEPS).await;
         let mut controller = controller(&package, root, x, vec![1.; STEPS]);
@@ -619,7 +633,7 @@ fn estimation(package: &ModelingPackage, root: DeclarationId, x: SemanticId) -> 
 #[tokio::test]
 async fn mhe_recovers_initial_state() {
     const STEPS: usize = 8;
-    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let runtime = horizon_runtime();
     let (package, [_, whole, estimator]) = package(runtime.clone()).await;
     let (plant, actuator, x) = plant(&package, whole, 0.8, STEPS).await;
     let plant_budget = crate::workflow::tests::engineering_target(
@@ -734,7 +748,7 @@ async fn mhe_recovers_initial_state() {
 async fn horizon_records_one_durable_attempt() {
     use crate::workflow::RunDurability;
     const STEPS: usize = 4;
-    let runtime = crate::workflow::durable_tests::durable_runtime();
+    let runtime = crate::workflow::durable_tests::durable_runtime_on(horizon_runtime());
     let (package, [root, whole, _]) = package(runtime.clone()).await;
     let (plant, actuator, x) = plant(&package, whole, 0.2, STEPS).await;
     let handle = runtime
@@ -801,7 +815,7 @@ async fn horizon_records_one_durable_attempt() {
 /// input that is not a plant parameter, and a plant profile that ends before the loop.
 #[tokio::test]
 async fn horizon_refuses_inconsistent_loops() {
-    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let runtime = horizon_runtime();
     let (package, [root, whole, _]) = package(runtime.clone()).await;
     let (plant, actuator, x) = plant(&package, whole, 0., 4).await;
     let horizon = |controller: HorizonController, steps: usize, input: SemanticId| Horizon {
@@ -873,7 +887,7 @@ async fn antiwindup_with_start_policy(
     start: StartPolicy,
     steps: usize,
 ) -> Arc<RunResult> {
-    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let runtime = horizon_runtime();
     let (package, [root, whole, _]) = package(runtime.clone()).await;
     let (plant, actuator, x) = plant(&package, whole, 0., steps).await;
     let setpoints = (0..steps)
@@ -1123,7 +1137,7 @@ async fn horizon_proposal_queue_preserves_the_original_clock_and_cancellation_ow
         sync::atomic::{AtomicBool, Ordering},
         time::{Duration, Instant},
     };
-    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let runtime = horizon_runtime();
     let staged = crate::workflow::staged::Staged::open(&runtime, None).unwrap();
     let cancel = crate::CancelSource::new();
     let flag = Arc::new(AtomicBool::new(false));

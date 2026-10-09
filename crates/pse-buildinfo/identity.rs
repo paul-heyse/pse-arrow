@@ -122,6 +122,15 @@ pub struct FileObservation {
 impl FileObservation {
     /// Observe bytes through one handle and refuse replacement while reading.
     pub fn capture(path: &Path) -> std::io::Result<Self> {
+        Self::capture_scoped(path, &|| Ok(()))
+    }
+    /// Observe through one handle, checking the owning operation before each read
+    /// chunk and before sealing. The checkpoint retains cancellation/deadline identity.
+    pub fn capture_scoped(
+        path: &Path,
+        checkpoint: &dyn Fn() -> std::io::Result<()>,
+    ) -> std::io::Result<Self> {
+        checkpoint()?;
         use sha2::{Digest, Sha256};
         use std::io::Read;
         let mut file = fs::File::open(path)?;
@@ -135,6 +144,7 @@ impl FileObservation {
         let mut bytes = [0u8; 65_536];
         let mut extent = 0u64;
         loop {
+            checkpoint()?;
             let count = file.read(&mut bytes)?;
             if count == 0 {
                 break;
@@ -142,6 +152,7 @@ impl FileObservation {
             extent += count as u64;
             hash.update(&bytes[..count]);
         }
+        checkpoint()?;
         let after = file.metadata()?;
         if extent != before.len()
             || before.len() != after.len()
@@ -179,7 +190,14 @@ impl FileObservation {
     }
     /// Verify the current bytes, mode and resolved path.
     pub fn verify(&self) -> std::io::Result<()> {
-        if Self::capture(&self.path)? != *self {
+        self.verify_scoped(&|| Ok(()))
+    }
+    /// Reobserve with the same operation checkpoint throughout the full capture.
+    pub fn verify_scoped(
+        &self,
+        checkpoint: &dyn Fn() -> std::io::Result<()>,
+    ) -> std::io::Result<()> {
+        if Self::capture_scoped(&self.path, checkpoint)? != *self {
             return Err(std::io::Error::other(format!(
                 "consumed file changed: {}",
                 self.path.display()
@@ -599,15 +617,72 @@ pub struct LocalRuntimeObservation {
     current_environment: std::collections::BTreeMap<String, String>,
 }
 impl LocalRuntimeObservation {
+    /// Owned observation metadata; file contents are streamed rather than retained.
+    pub fn retained_bytes(&self) -> usize {
+        fn file(value: &FileObservation) -> usize {
+            size_of::<FileObservation>()
+                + value.path.capacity()
+                + value.canonical.capacity()
+                + value.sha256.capacity()
+                + 128
+        }
+        size_of::<Self>()
+            + 256
+            + self.kernel_release.capacity()
+            + self.kernel_version.capacity()
+            + file(&self.artifact)
+            + file(&self.executable)
+            + self.loaded.capacity() * size_of::<FileObservation>()
+            + self.loaded.iter().map(file).sum::<usize>()
+            + self.loader_files.capacity()
+                * size_of::<(std::path::PathBuf, Option<FileObservation>)>()
+            + self
+                .loader_files
+                .iter()
+                .map(|(path, value)| path.capacity() + value.as_ref().map_or(0, file) + 128)
+                .sum::<usize>()
+            + self
+                .startup_environment
+                .iter()
+                .chain(&self.current_environment)
+                .map(|(key, value)| key.capacity() + value.capacity() + 128)
+                .sum::<usize>()
+    }
     /// Observe the actual anchor, executable, every executable-backed ELF and effective
     /// loader/runtime environment. Addresses/inodes establish association but do not enter
     /// restart identity. Unknown executable mappings refuse this narrower guarantee.
     pub fn capture(role: LocalRuntimeRole, anchor: usize) -> std::io::Result<Self> {
+        Self::capture_scoped(role, anchor, &|| Ok(()))
+    }
+    /// Capture the receiving boundary under its original stop/clock checkpoint.
+    /// Foreign loader-lock acquisition itself remains outside cooperative interruption.
+    pub fn capture_scoped(
+        role: LocalRuntimeRole,
+        anchor: usize,
+        checkpoint: &dyn Fn() -> std::io::Result<()>,
+    ) -> std::io::Result<Self> {
+        checkpoint()?;
         #[cfg(target_os = "linux")]
         {
             let before = executable_mapping_files(&fs::read_to_string("/proc/self/maps")?)?;
-            let artifact = FileObservation::capture(&loaded_module_path(anchor)?)?;
-            let executable = FileObservation::capture(&std::env::current_exe()?)?;
+            // Several authority paths normally name the same running ELF: the
+            // caller's anchor, current_exe, and its executable mapping. Observe
+            // each exact path once, then retain the independent end-of-capture
+            // verification below. Hashing the same large worker binary for each
+            // alias needlessly lengthens the loader exclusion held by the caller.
+            let mut observations =
+                std::collections::BTreeMap::<std::path::PathBuf, FileObservation>::new();
+            let mut observe = |path: &Path| -> std::io::Result<FileObservation> {
+                if let Some(observation) = observations.get(path) {
+                    return Ok(observation.clone());
+                }
+                let observation = FileObservation::capture_scoped(path, checkpoint)?;
+                observations.insert(path.to_path_buf(), observation.clone());
+                checkpoint()?;
+                Ok(observation)
+            };
+            let artifact = observe(&loaded_module_path(anchor)?)?;
+            let executable = observe(&std::env::current_exe()?)?;
             verify_loaded_module(&executable.canonical)?;
             if role == LocalRuntimeRole::Worker && artifact.canonical != executable.canonical {
                 return Err(std::io::Error::other(
@@ -617,6 +692,7 @@ impl LocalRuntimeObservation {
             let loaded = before
                 .iter()
                 .map(|path| {
+                    checkpoint()?;
                     use std::io::Read;
                     let mut magic = [0; 4];
                     fs::File::open(path)?.read_exact(&mut magic)?;
@@ -626,14 +702,16 @@ impl LocalRuntimeObservation {
                         ));
                     }
                     verify_loaded_module(path)?;
-                    FileObservation::capture(path)
+                    observe(path)
                 })
                 .collect::<std::io::Result<Vec<_>>>()?;
+            drop(observe);
             let mut loader_files = Vec::new();
             for path in ["/etc/ld.so.cache", "/etc/ld.so.preload"] {
+                checkpoint()?;
                 let path = std::path::PathBuf::from(path);
                 let observation = match fs::symlink_metadata(&path) {
-                    Ok(_) => Some(FileObservation::capture(&path)?),
+                    Ok(_) => Some(FileObservation::capture_scoped(&path, checkpoint)?),
                     Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
                     Err(error) => return Err(error),
                 };
@@ -666,14 +744,19 @@ impl LocalRuntimeObservation {
                     },
                 ))?,
             };
+            checkpoint()?;
             if before != executable_mapping_files(&fs::read_to_string("/proc/self/maps")?)? {
                 return Err(std::io::Error::other(
                     "loaded executable context changed during observation",
                 ));
             }
+            let mut verified_paths = std::collections::BTreeSet::new();
             for file in &observation.loaded {
-                file.verify()?;
+                if verified_paths.insert(&file.path) {
+                    file.verify_scoped(checkpoint)?;
+                }
             }
+            checkpoint()?;
             Ok(observation)
         }
         #[cfg(not(target_os = "linux"))]
@@ -687,7 +770,15 @@ impl LocalRuntimeObservation {
     /// Reobserve the complete context. This closes changed files/configuration and
     /// persistent late loading, but does not by itself exclude transient late loading.
     pub fn verify(&self, anchor: usize) -> std::io::Result<()> {
-        if Self::capture(self.role, anchor)? != *self {
+        self.verify_scoped(anchor, &|| Ok(()))
+    }
+    /// Verify receiving inputs without resetting the enclosing operation clock.
+    pub fn verify_scoped(
+        &self,
+        anchor: usize,
+        checkpoint: &dyn Fn() -> std::io::Result<()>,
+    ) -> std::io::Result<()> {
+        if Self::capture_scoped(self.role, anchor, checkpoint)? != *self {
             return Err(std::io::Error::other("local runtime observation changed"));
         }
         Ok(())
@@ -911,6 +1002,51 @@ pub(crate) fn digest(mut entries: Vec<(String, Vec<u8>)>) -> pse_ids::ContentHas
 #[cfg(test)]
 mod foundation_unit {
     use super::fs;
+    #[test]
+    fn file_observation_cancellation_checks_each_read_chunk_and_never_seals() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("receiving-input");
+        fs::write(&path, vec![37; 4 * 65_536]).unwrap();
+        let polls = AtomicUsize::new(0);
+        let error = super::FileObservation::capture_scoped(&path, &|| {
+            if polls.fetch_add(1, Ordering::Relaxed) == 3 {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Interrupted,
+                    "stopped",
+                ))
+            } else {
+                Ok(())
+            }
+        })
+        .unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::Interrupted);
+        assert_eq!(polls.load(Ordering::Relaxed), 4);
+        let complete = super::FileObservation::capture_scoped(&path, &|| Ok(())).unwrap();
+        assert_eq!(complete, super::FileObservation::capture(&path).unwrap());
+    }
+    #[test]
+    fn receiving_observation_preserves_expired_operation_clock_before_io() {
+        let expired = || {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "original deadline",
+            ))
+        };
+        let error = super::LocalRuntimeObservation::capture_scoped(
+            super::LocalRuntimeRole::Worker,
+            0,
+            &expired,
+        )
+        .unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
+        let error = super::FileObservation::capture_scoped(
+            std::path::Path::new("absent-is-not-the-cause"),
+            &expired,
+        )
+        .unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
+    }
     #[cfg(all(target_os = "linux", target_env = "gnu"))]
     #[test]
     #[allow(

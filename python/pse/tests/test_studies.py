@@ -3,6 +3,8 @@
 """Immutable occurrences, scientific permissions and durable study retention."""
 
 import math
+import sys
+import time
 from pathlib import Path
 
 import msgspec
@@ -30,6 +32,14 @@ from pse.contracts.enums import (
     StudyState,
 )
 from pse.contracts.identities import DeclarationId
+from pse.tests.managed_study_fixture import (
+    CallerStarted,
+    ManagedStudyFixture,
+    NativeEntries,
+    _read_object,
+    _read_private,
+    _write_private,
+)
 from pse.tests.study_fixtures import assignment, physical_ids, point
 from pse.tests.study_fixtures import request as study_request
 
@@ -98,6 +108,272 @@ def _physical_ids(quantity: str, unit: str) -> tuple[str, str]:
         / "tests/fixtures/packages/physical-primitives/materials/physical.yaml",
         quantity,
         unit,
+    )
+
+
+def _assert_sixteen_held_native_owners(observation: NativeEntries) -> None:
+    assert observation.active == observation.maximum == 16
+    assert len(observation.entries) == 16
+    assert len({entry.thread for entry in observation.entries}) == 16
+    assert all(not entry.released for entry in observation.entries)
+    assert all(not entry.stop_observed for entry in observation.entries)
+
+
+def _run_managed_public_study(
+    settings: pse.EngineSettings, state: str, *, cancel: bool
+) -> None:
+    assert settings.memory_limit_bytes <= 4 << 30
+    with ManagedStudyFixture(state) as fixture:
+        # Transfer the fixture's selected settings, never a second allocation.
+        _write_private(
+            fixture.directory / "caller-settings.json",
+            {
+                "state": state,
+                "nonce": fixture.nonce,
+                "database": fixture.database,
+                "worker_pid": fixture.worker_pid,
+                "observer_group": fixture.observer_group,
+                "spill_dir": settings.spill_dir,
+                "engine": {
+                    key: getattr(settings, key)
+                    for key in (
+                        "memory_limit_bytes",
+                        "threads",
+                        "target_partitions",
+                        "max_spill_bytes",
+                        "batch_size",
+                        "math_workspace_bytes",
+                        "math_worker_bytes",
+                        "math_artifact_bytes",
+                    )
+                },
+                "cache": {
+                    key: getattr(settings.cache, key)
+                    for key in (
+                        "working_bytes",
+                        "metadata_bytes",
+                        "concurrent_loads",
+                        "inflight_bytes",
+                        "inspection_bytes",
+                    )
+                },
+            },
+        )
+        fixture.call(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import sys; from pse.tests.test_studies "
+                    "import _managed_public_study_caller; "
+                    "_managed_public_study_caller(sys.argv[1], sys.argv[2])"
+                ),
+                str(fixture.directory),
+                "cancel" if cancel else "complete",
+            ],
+            _assert_sixteen_held_native_owners,
+            cancel=cancel,
+        )
+        drained = fixture.observation(lambda value: value.active == 0, timeout=0)
+        assert drained.maximum == 16
+        assert len(drained.entries) == 16
+        assert all(
+            entry.released and entry.stop_observed == cancel
+            for entry in drained.entries
+        )
+        assert (fixture.directory / "release.json").exists() != cancel
+
+
+def _managed_public_study_caller(directory: str, mode: str) -> None:
+    """All public result assertions run in the supervised synchronous caller."""
+    document = _read_object(Path(directory) / "caller-settings.json")
+    engine = msgspec.convert(document["engine"], type=dict[str, int])
+    cache = msgspec.convert(document["cache"], type=dict[str, int])
+    settings = pse.EngineSettings(
+        memory_limit_bytes=engine["memory_limit_bytes"],
+        threads=engine["threads"],
+        target_partitions=engine["target_partitions"],
+        spill_dir=msgspec.convert(document["spill_dir"], type=str),
+        max_spill_bytes=engine["max_spill_bytes"],
+        batch_size=engine["batch_size"],
+        math_workspace_bytes=engine["math_workspace_bytes"],
+        math_worker_bytes=engine["math_worker_bytes"],
+        math_artifact_bytes=engine["math_artifact_bytes"],
+        cache=pse.CacheSettings(
+            working_bytes=cache["working_bytes"],
+            metadata_bytes=cache["metadata_bytes"],
+            concurrent_loads=cache["concurrent_loads"],
+            inflight_bytes=cache["inflight_bytes"],
+            inspection_bytes=cache["inspection_bytes"],
+        ),
+    )
+    assert settings.memory_limit_bytes <= 4 << 30
+    fixture = ManagedStudyFixture(msgspec.convert(document["state"], type=str))
+    fixture.directory = Path(directory)
+    fixture.nonce = msgspec.convert(document["nonce"], type=str)
+    fixture.database = msgspec.convert(document["database"], type=str)
+    fixture.worker_pid = msgspec.convert(document["worker_pid"], type=int)
+    group = next(
+        line.removeprefix("0::")
+        for line in Path("/proc/self/cgroup").read_text().splitlines()
+        if line.startswith("0::")
+    )
+    assert group == document["observer_group"], (
+        "public caller must inherit the aggregate observer group"
+    )
+    runtime = pse.Runtime(settings, substrate=str(fixture.state))
+    package, case = _package(runtime)
+    solve = pse.SolveSettings(
+        backend=NativeBackend.IPOPT,
+        intent=NativeSolveIntent.FEASIBLE_POINT,
+        presolve=PresolvePolicyKind.OFF,
+    )
+    assert mode in {"complete", "cancel"}
+    keys = (
+        tuple(7 + 4 * index for index in range(16))
+        if mode == "complete"
+        else tuple(3 + 4 * index for index in range(20))
+    )
+    definition = package.admit_study(
+        study_request(*(point(case, solve, key) for key in keys))
+    )
+    assert len({item.binding_hash for item in definition.points}) == 1
+    # The parent uses this original clock, including every result assertion.
+    _write_private(
+        fixture.directory / "calling.json",
+        CallerStarted(fixture.nonce, time.monotonic()),
+    )
+    if mode == "complete":
+        study = package.study(definition)
+        _assert_completed_managed_study(fixture, study, keys)
+        return
+    handle = package.study(definition, runtime=runtime)
+    assert isinstance(handle, pse.StudyHandle)
+    deadline = time.monotonic() + 90
+    while not (fixture.directory / "cancel.json").exists():
+        assert time.monotonic() < deadline, (
+            "public cancellation authorization timed out"
+        )
+        time.sleep(0.02)
+    assert (
+        msgspec.json.decode(_read_private(fixture.directory / "cancel.json"), type=str)
+        == fixture.nonce
+    )
+    _assert_cancelled_managed_study(fixture, runtime, handle, keys)
+
+
+def _assert_completed_managed_study(
+    fixture: ManagedStudyFixture, study: pse.StudyReport, keys: tuple[int, ...]
+) -> None:
+    assert isinstance(study, pse.StudyReport)
+    assert study.count == 16
+    assert study.unattempted == 0
+    assert study.conclusion.availability == "complete"
+    assert study.conclusion.lifecycle == "terminal"
+    assert tuple(study.outcome(index).key for index in range(16)) == keys
+    runs = set()
+    attempts = set()
+    for index in range(16):
+        outcome = study.outcome(index)
+        assert outcome.lifecycle == StudyPointState.COMPLETED
+        assert outcome.scientific.usable
+        assert len(outcome.attempts) == 1
+        assert outcome.attempts[0].attempt_id is not None
+        assert outcome.diagnostic is None
+        assert study.failure(index) is None
+        result = study.result(index)
+        assert isinstance(result, pse.StoredResult)
+        assert result.usable
+        runs.add(result.run_id)
+        attempts.add(result.attempt_key)
+        (attempt,) = pa.table(result.attempt_record()).to_pylist()
+        assert attempt["key"] == result.attempt_key
+        assert attempt["run"] == result.run_key
+        values = pa.table(result.table("runtime.solve_variables"))
+        _assert_scalar_root(values, 2.0)
+        assert [row["value"] for row in values.to_pylist() if row["parameter"]] == [4.0]
+    assert len(runs) == len(attempts) == 16
+    assert (
+        tuple(row["point_index"] for row in pa.table(study.table()).to_pylist()) == keys
+    )
+    drained = fixture.observation(lambda value: value.active == 0)
+    assert drained.maximum == 16
+    assert len(drained.entries) == 16
+    assert all(entry.released and not entry.stop_observed for entry in drained.entries)
+    # The caller's preparation counters exclude the external primary's work.
+    preparations = study.preparations
+    assert (
+        preparations.views,
+        preparations.rebuilt,
+        preparations.shared,
+        preparations.observations,
+    ) == (0, 0, 0, 0)
+
+
+def _assert_cancelled_managed_study(
+    fixture: ManagedStudyFixture,
+    runtime: pse.Runtime,
+    handle: pse.StudyHandle,
+    keys: tuple[int, ...],
+) -> None:
+    issued = handle.status()
+    assert tuple(item.point_index for item in issued.points) == keys
+    assert all(item.attempt is not None for item in issued.points[:16])
+    assert all(item.attempt is None for item in issued.points[16:])
+    cancelled = handle.cancel()
+    assert not cancelled.already_concluded
+    assert cancelled.study_id == handle.study_id.to_hex()
+    # Do not release the barrier: the actual native stop flags must wake all
+    # sixteen admitted owners, while the effect-free tail never enters it.
+    drained = fixture.observation(lambda value: value.active == 0)
+    assert drained.maximum == 16
+    assert len(drained.entries) == 16
+    assert all(entry.released and entry.stop_observed for entry in drained.entries)
+    assert not (fixture.directory / "release.json").exists()
+    retained = handle.wait(controls=pse.StudyWaitControls(timeout_seconds=90))
+    status = runtime.study(handle.study_id).status()
+    assert status.state == StudyState.CONCLUDED
+    assert status.cancelled
+    assert tuple(item.point_index for item in status.points) == keys
+    assert len({item.run for item in status.points}) == 20
+    assert retained.run == status.run
+    assert retained.attempt == status.result_attempt
+    assert retained.points == tuple(
+        (item.point_index, item.run, item.attempt) for item in status.points
+    )
+    for item in status.points:
+        assert item.settled
+        assert item.state == StudyPointState.CANCELLED
+        assert item.outcome is not None
+        assert item.outcome.key == item.point_index
+        assert item.outcome.lifecycle == StudyPointState.CANCELLED
+        assert not item.outcome.scientific.usable
+    assert all(item.attempt is not None for item in status.points[:16])
+    for item in status.points[16:]:
+        assert item.attempt is None
+        assert item.outcome is not None
+        assert item.outcome.attempts == ()
+
+
+@pytest.mark.integration
+@pytest.mark.managed_primary
+def test_public_study_sixteen_native_owners_retain_equal_occurrences_and_original_roots(
+    managed_observer_settings: pse.EngineSettings, canonical_substrate: str
+) -> None:
+    """One ordinary Python call drives sixteen fresh non-batching Ipopt owners."""
+    _run_managed_public_study(
+        managed_observer_settings, canonical_substrate, cancel=False
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.managed_primary
+def test_public_study_cancel_drains_sixteen_native_owners_and_never_starts_tail(
+    managed_observer_settings: pse.EngineSettings, canonical_substrate: str
+) -> None:
+    """Cancel through the public durable handle after sixteen of twenty enter."""
+    _run_managed_public_study(
+        managed_observer_settings, canonical_substrate, cancel=True
     )
 
 

@@ -467,25 +467,172 @@ impl PreparedSupport {
             owner: self.owner.clone(),
         })
     }
-    /// Initial selected numeric construction population. The compact body contains
-    /// only demanded outputs/coordinates and their scalar requirements. Bounding
-    /// all input axes through Second also covers a First directional layout.
+    /// Initial selected numeric construction population. Fixed inputs remain value
+    /// parameters, while only the demanded coordinates contribute Taylor axes.
+    /// Each arithmetic block conservatively uses the compact slot population and
+    /// selected coordinate count. This preflight constructs no selection metadata.
     /// Positive optimized excess grows the installed runtime owner before floats.
     pub fn compilation_allocation_bound(
         &self,
         limits: EvaluationLimits,
+        directional: bool,
     ) -> Result<Option<usize>, MathError> {
-        let Some(body) = self
-            .body()
-            .arithmetic_compilation_allocation_bound(limits)?
+        self.selected_compilation_allocation_bound(limits, self.order(), directional)
+    }
+    fn selected_compilation_allocation_bound(
+        &self,
+        limits: EvaluationLimits,
+        requested: DerivativeOrder,
+        directional: bool,
+    ) -> Result<Option<usize>, MathError> {
+        if directional && requested != DerivativeOrder::First {
+            return Err(MathError::Contract(
+                "directional support must admit exactly First".into(),
+            ));
+        }
+        if !self.body().is_flat_arithmetic() {
+            return Ok(None);
+        }
+        let overflow = || MathError::Limit("selected compilation construction extent");
+        let add = |a: usize, b: usize| a.checked_add(b).ok_or_else(overflow);
+        let mul = |a: usize, b: usize| a.checked_mul(b).ok_or_else(overflow);
+        let body = self.body();
+        let coordinates = self.coordinates().len();
+        let axes = if directional { 1 } else { coordinates };
+        // Construction admission precedes every coordinate/read/reachability map.
+        // The compact slot population and global selected axes upper-bound every
+        // block-local selection without allocating those selections in preflight.
+        let mut numeric_bytes = 0usize;
+        let mut instructions = 0usize;
+        let mut descriptors = 0usize;
+        for order in [
+            DerivativeOrder::Value,
+            DerivativeOrder::First,
+            DerivativeOrder::Second,
+        ]
+        .into_iter()
+        .filter(|order| *order <= requested)
+        {
+            let width = construction_taylor_width(axes, order)?;
+            let output_width = add(
+                add(
+                    1,
+                    if order >= DerivativeOrder::First {
+                        axes
+                    } else {
+                        0
+                    },
+                )?,
+                if order >= DerivativeOrder::Second {
+                    mul(axes, axes)?
+                } else {
+                    0
+                },
+            )?;
+            let mut entries = add(
+                mul(body.slots, width)?,
+                mul(body.outputs.len(), output_width)?,
+            )?;
+            // Global layouts persist in the immutable program. Growing shape and
+            // pair vectors, plus a construction copy, retain separate headroom.
+            descriptors = add(descriptors, construction_layout_bytes(axes, order)?)?;
+            for stage in &body.stages {
+                let Stage::Block {
+                    expressions,
+                    outputs,
+                    ..
+                } = stage
+                else {
+                    descriptors = add(descriptors, 2 * size_of::<CompiledStage>())?;
+                    continue;
+                };
+                let local_axes = if order > DerivativeOrder::Value {
+                    axes
+                } else {
+                    0
+                };
+                let local_width = construction_taylor_width(local_axes, order)?;
+                let block =
+                    library::evaluator_construction(expressions, body.slots, local_axes, order)?;
+                entries = add(
+                    entries,
+                    add(
+                        block.entries,
+                        mul(add(body.slots, outputs.len())?, local_width)?,
+                    )?,
+                )?;
+                entries = add(entries, local_width)?;
+                instructions = add(instructions, block.instructions)?;
+                // A block's local layout/zero-component list exists only while it
+                // compiles; summing them also covers their temporary coexistence
+                // with every prior retained stage and the full outer layout.
+                descriptors = add(descriptors, construction_layout_bytes(local_axes, order)?)?;
+                descriptors = add(
+                    descriptors,
+                    mul(
+                        mul(body.slots, local_width)?,
+                        2 * size_of::<(usize, usize)>(),
+                    )?,
+                )?;
+                descriptors = add(
+                    descriptors,
+                    mul(
+                        add(add(body.slots, outputs.len())?, local_width)?,
+                        2 * size_of::<usize>(),
+                    )?,
+                )?;
+                descriptors = add(descriptors, 2 * size_of::<CompiledStage>())?;
+            }
+            numeric_bytes = add(numeric_bytes, mul(entries, size_of::<f64>())?)?;
+        }
+        // The scientific scratch guard limits the combined known numeric programs,
+        // frames and output buffers. Instructions and descriptors are independent.
+        numeric_bytes = numeric_bytes.min(limits.scratch_bytes);
+        let metadata = add(
+            mul(add(body.inputs, coordinates)?, 4 * size_of::<usize>())?,
+            mul(mul(body.slots, add(axes, 3)?)?, size_of::<usize>())?,
+        )?;
+        let bytes = add(
+            add(add(mul(numeric_bytes, 2)?, instructions)?, descriptors)?,
+            add(add(metadata, mul(self.retained_bytes(), 4)?)?, 4096)?,
+        )?;
+        Ok(Some(bytes))
+    }
+    /// Support/order upgrades retain the selected outputs and coordinates. Bound
+    /// their requested order and finite intermediate support facts, including the
+    /// immutable source and current support beside the new products.
+    pub fn support_upgrade_allocation_bound(
+        &self,
+        limits: EvaluationLimits,
+        order: DerivativeOrder,
+    ) -> Result<Option<usize>, MathError> {
+        let Some(compilation) = self.selected_compilation_allocation_bound(limits, order, false)?
         else {
             return Ok(None);
         };
+        let axes = self.coordinates().len();
+        let support_width = axes.checked_add(1).and_then(|width| {
+            if order >= DerivativeOrder::Second {
+                axes.checked_mul(axes)
+                    .and_then(|pairs| width.checked_add(pairs))
+            } else {
+                Some(width)
+            }
+        });
+        let population = self
+            .body()
+            .slots
+            .checked_add(self.body().inputs)
+            .and_then(|slots| slots.checked_add(self.outputs().len()))
+            .and_then(|slots| slots.checked_mul(support_width?))
+            .and_then(|slots| slots.checked_mul(4))
+            .ok_or(MathError::Limit("selected support construction extent"))?;
         Ok(Some(
-            self.retained_bytes()
-                .checked_mul(2)
-                .and_then(|support| body.checked_add(support))
-                .ok_or(MathError::Limit("selected compilation construction extent"))?,
+            population
+                .min(self.remaining_occurrences())
+                .checked_mul(256)
+                .and_then(|support| compilation.checked_add(support))
+                .ok_or(MathError::Limit("selected support construction extent"))?,
         ))
     }
     /// Compile numerical products after independent selected-closure capability admission.
@@ -2194,6 +2341,57 @@ fn coordinate_reachability(
     Ok(())
 }
 
+fn construction_taylor_width(n: usize, order: DerivativeOrder) -> Result<usize, MathError> {
+    let first = if order >= DerivativeOrder::First {
+        n
+    } else {
+        0
+    };
+    let second = if order >= DerivativeOrder::Second {
+        n.checked_add(1)
+            .and_then(|next| n.checked_mul(next))
+            .map(|pairs| pairs / 2)
+    } else {
+        Some(0)
+    };
+    second
+        .and_then(|pairs| pairs.checked_add(first))
+        .and_then(|width| width.checked_add(1))
+        .ok_or(MathError::Limit("selected Taylor construction extent"))
+}
+
+fn construction_layout_bytes(n: usize, order: DerivativeOrder) -> Result<usize, MathError> {
+    let width = construction_taylor_width(n, order)?;
+    let shape = n
+        .checked_mul(size_of::<usize>())
+        .and_then(|bytes| bytes.checked_add(size_of::<Vec<usize>>() + size_of::<(usize, usize)>()));
+    shape
+        .and_then(|bytes| width.checked_mul(bytes))
+        .and_then(|bytes| bytes.checked_add(n.checked_mul(size_of::<usize>())?))
+        .and_then(|bytes| bytes.checked_mul(4))
+        .and_then(|bytes| bytes.checked_add(size_of::<JetLayout>()))
+        .ok_or(MathError::Limit(
+            "selected Taylor layout construction extent",
+        ))
+}
+
+fn active_block_axes(
+    inputs: &[usize],
+    outputs: &[usize],
+    numeric: &BTreeSet<usize>,
+    support: &[Vec<bool>],
+    axes: usize,
+    order: DerivativeOrder,
+) -> Vec<usize> {
+    (0..axes)
+        .filter(|&axis| {
+            order > DerivativeOrder::Value
+                && outputs.iter().any(|output| numeric.contains(output))
+                && inputs.iter().any(|&input| support[input][axis])
+        })
+        .collect()
+}
+
 fn numeric_slots(
     stages: &[Stage],
     outputs: &[usize],
@@ -2541,17 +2739,17 @@ fn compile_stages(
                     .iter()
                     .map(|&i| parameters[i].clone())
                     .collect::<Vec<_>>();
-                let active: Vec<_> = layout
-                    .coordinates
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, &slot)| {
-                        (layout.order > DerivativeOrder::Value
-                            && outputs.iter().any(|i| numeric.contains(i))
-                            && inputs.iter().any(|&input| coordinate_support[input][i]))
-                        .then_some((i, slot))
-                    })
-                    .collect();
+                let active = active_block_axes(
+                    &inputs,
+                    outputs,
+                    numeric,
+                    coordinate_support,
+                    layout.coordinates.len(),
+                    layout.order,
+                )
+                .into_iter()
+                .map(|axis| (axis, layout.coordinates[axis]))
+                .collect::<Vec<_>>();
                 let local = JetLayout::new(
                     active.iter().map(|&(_, slot)| slot).collect(),
                     layout.order,
@@ -4053,7 +4251,7 @@ mod compact_tests {
             provider_calls: 1_000_000,
         };
         let demand = support
-            .compilation_allocation_bound(limits)
+            .compilation_allocation_bound(limits, false)
             .unwrap()
             .unwrap();
         assert!(demand < 1 << 20);
@@ -4065,6 +4263,221 @@ mod compact_tests {
         let result = eval(&mut worker, &[2., 3., 1.], DerivativeOrder::First).unwrap();
         assert_eq!(result.values, [22.]);
         assert_eq!(result.jacobian, [13., 6.]);
+    }
+    #[test]
+    fn selected_artifact_fixed_parameters_do_not_become_taylor_axes() {
+        crate::initialize().unwrap();
+        let x = library::formal(0).unwrap();
+        let sum = (1..=128)
+            .map(|slot| library::formal(slot).unwrap())
+            .fold(Atom::num(0), |sum, parameter| sum + parameter);
+        let body = PreparedBody::new(
+            129,
+            130,
+            vec![129],
+            vec![Stage::Block {
+                expressions: vec![x - sum],
+                outputs: vec![129],
+                source: SemanticId::NIL,
+            }],
+            DerivativeOrder::Second,
+        )
+        .unwrap();
+        let limits = EvaluationLimits {
+            scratch_bytes: 1 << 20,
+            ..Default::default()
+        };
+        let cancel = Arc::new(AtomicBool::new(false));
+        // All 128 parameters are required value inputs, but x is the only
+        // derivative coordinate. The unselected owner must remain distinct.
+        assert!(
+            body.arithmetic_compilation_allocation_bound(limits)
+                .unwrap()
+                .unwrap()
+                > 8 << 20
+        );
+        let value = body
+            .prepare_support(&[0], &[0], DerivativeOrder::Value, &cancel)
+            .unwrap();
+        let first = value.upgrade(DerivativeOrder::First, &cancel).unwrap();
+        let second = first.upgrade(DerivativeOrder::Second, &cancel).unwrap();
+        let value_bound = value
+            .compilation_allocation_bound(limits, false)
+            .unwrap()
+            .unwrap();
+        let first_bound = first
+            .compilation_allocation_bound(limits, false)
+            .unwrap()
+            .unwrap();
+        let second_bound = second
+            .compilation_allocation_bound(limits, false)
+            .unwrap()
+            .unwrap();
+        assert!(value_bound < first_bound);
+        assert!(first_bound < second_bound);
+        assert!(second_bound < 8 << 20, "selected bound {second_bound}");
+        let upgrade_bound = value
+            .support_upgrade_allocation_bound(limits, DerivativeOrder::Second)
+            .unwrap()
+            .unwrap();
+        assert!(second.retained_bytes() < upgrade_bound);
+        let program = second
+            .compile(Optimization::default(), limits, &cancel)
+            .unwrap();
+        assert_eq!(program.input_formals().len(), 129);
+        assert_eq!(program.coordinates(), &[0]);
+        assert!(program.retained_bytes() + program.worker_bytes() < second_bound);
+        let mut inputs = vec![1.0; 129];
+        inputs[0] = 128.0;
+        let result = eval(&mut program.worker(), &inputs, DerivativeOrder::Second).unwrap();
+        assert_eq!(result.values, [0.0]);
+        assert_eq!(result.jacobian, [1.0]);
+        assert_eq!(result.hessians, [0.0]);
+        inputs[0] = 129.0;
+        assert_eq!(
+            eval(&mut program.worker(), &inputs, DerivativeOrder::Second)
+                .unwrap()
+                .values,
+            [1.0]
+        );
+    }
+    #[test]
+    fn selected_artifact_sparse_horizon_population_preserves_orders_and_axes() {
+        crate::initialize().unwrap();
+        // Eight backward-Euler intervals: nine states, nine controls (the first
+        // fixed), and initial-state/reference/time-step parameters. Each rate
+        // reads only its two states, one control and the time-step parameter.
+        let inputs = (0..21)
+            .map(|slot| library::formal(slot).unwrap())
+            .collect::<Vec<_>>();
+        let mut stages = Vec::new();
+        for interval in 1..=8 {
+            stages.push(Stage::Block {
+                expressions: vec![
+                    (&inputs[interval] - &inputs[interval - 1]) / &inputs[20]
+                        - (Atom::num(2) * &inputs[9 + interval] - &inputs[interval]),
+                ],
+                outputs: vec![20 + interval],
+                source: SemanticId::NIL,
+            });
+        }
+        stages.push(Stage::Block {
+            expressions: vec![&inputs[0] - &inputs[18]],
+            outputs: vec![29],
+            source: SemanticId::NIL,
+        });
+        let cost = (1..=8)
+            .map(|interval| {
+                let error = &inputs[interval] - &inputs[19];
+                &error * &error * &inputs[20]
+            })
+            .fold(Atom::num(0), |sum, cost| sum + cost);
+        stages.push(Stage::Block {
+            expressions: vec![cost],
+            outputs: vec![30],
+            source: SemanticId::NIL,
+        });
+        let body =
+            PreparedBody::new(21, 31, (21..31).collect(), stages, DerivativeOrder::Second).unwrap();
+        let coordinates = (0..9).chain(10..18).collect::<Vec<_>>();
+        let outputs = (0..10).collect::<Vec<_>>();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let limits = EvaluationLimits {
+            scratch_bytes: 1 << 20,
+            ..Default::default()
+        };
+        let first = body
+            .prepare_support(&outputs, &coordinates, DerivativeOrder::First, &cancel)
+            .unwrap();
+        let second = first.upgrade(DerivativeOrder::Second, &cancel).unwrap();
+        let first_bound = first
+            .compilation_allocation_bound(limits, false)
+            .unwrap()
+            .unwrap();
+        let second_bound = second
+            .compilation_allocation_bound(limits, false)
+            .unwrap()
+            .unwrap();
+        let directional_bound = first
+            .compilation_allocation_bound(limits, true)
+            .unwrap()
+            .unwrap();
+        assert!(directional_bound < first_bound);
+        assert!(first_bound < second_bound);
+        let body_bound = body
+            .arithmetic_compilation_allocation_bound(limits)
+            .unwrap()
+            .unwrap();
+        assert!(
+            second_bound < body_bound,
+            "selected {second_bound}, body-wide {body_bound}"
+        );
+        let mut reordered = coordinates.clone();
+        reordered.reverse();
+        let reordered = body
+            .prepare_support(&outputs, &reordered, DerivativeOrder::Second, &cancel)
+            .unwrap();
+        assert_eq!(
+            reordered
+                .compilation_allocation_bound(limits, false)
+                .unwrap(),
+            Some(second_bound)
+        );
+        let program = second
+            .compile(Optimization::default(), limits, &cancel)
+            .unwrap();
+        let direction = first
+            .compile_directional(Optimization::default(), limits, &cancel)
+            .unwrap();
+        assert!(program.retained_bytes() + program.worker_bytes() < second_bound);
+        assert!(direction.retained_bytes() + direction.worker_bytes() < directional_bound);
+        let values = program
+            .input_formals()
+            .iter()
+            .map(|&formal| match formal {
+                0..=8 => formal as f64 / 10.0,
+                9..=17 => 0.5,
+                18 => 0.0,
+                19 => 1.0,
+                20 => 0.25,
+                _ => panic!("unexpected compact horizon formal {formal}"),
+            })
+            .collect::<Vec<_>>();
+        let result = eval(&mut program.worker(), &values, DerivativeOrder::Second).unwrap();
+        let axes = coordinates.len();
+        // Independently known rate coefficients and quadratic tracking Hessian.
+        assert_eq!(result.jacobian[0], -4.0);
+        assert_eq!(result.jacobian[1], 5.0);
+        assert_eq!(result.jacobian[9], -2.0);
+        for axis in 0..axes {
+            for other in 0..axes {
+                assert_eq!(
+                    result.hessians[9 * axes * axes + axis * axes + other],
+                    if axis == other && (1..=8).contains(&axis) {
+                        0.5
+                    } else {
+                        0.0
+                    }
+                );
+            }
+        }
+        let seeds = (0..axes).map(|axis| (axis + 1) as f64).collect::<Vec<_>>();
+        let action = direction
+            .worker()
+            .evaluate_directional(&values, &seeds, &mut BTreeMap::new(), &cancel)
+            .unwrap();
+        for (row, &actual) in action.jacobian.iter().enumerate() {
+            let expected = result.jacobian[row * axes..(row + 1) * axes]
+                .iter()
+                .zip(&seeds)
+                .map(|(partial, seed)| partial * seed)
+                .sum::<f64>();
+            assert!((actual - expected).abs() < 1e-12);
+        }
+        assert!(matches!(
+            second.compilation_allocation_bound(limits, true),
+            Err(MathError::Contract(_))
+        ));
     }
     #[test]
     fn compact_sparse_analytic_derivatives_reordering_and_unused_axis() {

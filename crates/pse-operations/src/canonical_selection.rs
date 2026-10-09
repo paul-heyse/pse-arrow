@@ -4,9 +4,7 @@
 //! Protected selected reads and semantic premises for durable compilation products.
 
 use crate::{
-    canonical::{
-        CanonicalError, CanonicalStore, PROTECTED_BEGIN, ProtectedSelection, protected_query,
-    },
+    canonical::{CanonicalError, CanonicalStore, PROTECTED_BEGIN, ProtectedSelection},
     generated::surreal as wire,
 };
 use pse_model::generated::runtime::{
@@ -21,11 +19,18 @@ use surrealdb::types::Object;
 pub const SCIENTIFIC_PRODUCER_PREFIX: &str = "pse.qualified-math-producer.v1:";
 
 /// Reserved independently observed exact deployment-local replay admission.
-pub const LOCAL_RUNTIME_PRODUCER_PREFIX: &str = "pse.local-runtime.v1:";
+pub const LOCAL_RUNTIME_PRODUCER_PREFIX: &str = "pse.local-runtime.v2:";
+const HISTORICAL_LOCAL_RUNTIME_PRODUCER_PREFIX: &str = "pse.local-runtime.v1:";
 
-/// Both namespaces require the controlled scientific writer; generic safe publication
-/// cannot confer either guarantee from caller-selected producer bytes.
+/// Scientific and both current/historical local namespaces are reserved. Generic
+/// publication cannot confer their guarantees from caller-selected producer bytes.
 pub fn is_replay_producer(producer: &str) -> bool {
+    producer.starts_with(SCIENTIFIC_PRODUCER_PREFIX)
+        || producer.starts_with(LOCAL_RUNTIME_PRODUCER_PREFIX)
+        || producer.starts_with(HISTORICAL_LOCAL_RUNTIME_PRODUCER_PREFIX)
+}
+
+fn scientific_producer(producer: &str) -> bool {
     producer.starts_with(SCIENTIFIC_PRODUCER_PREFIX)
         || producer.starts_with(LOCAL_RUNTIME_PRODUCER_PREFIX)
 }
@@ -99,6 +104,25 @@ pub struct SelectedDependencies {
 }
 impl SelectedDependencies {
     /// Conservative owned premise extent; callers reserve this before snapshotting.
+    pub fn retained_bytes(&self) -> usize {
+        self.retained_bytes
+    }
+}
+
+/// Operations-issued immutable premise receipt for one exact actual canonical row.
+/// It retains no pin or publication authority; adoption checks a new live pin.
+#[derive(Clone, Debug)]
+pub struct SelectionDependencyReceipt {
+    revision: crate::canonical::Revision,
+    dependencies: std::sync::Arc<SelectedDependencies>,
+    retained_bytes: usize,
+}
+impl SelectionDependencyReceipt {
+    /// The owned premise snapshot, shared with the consuming admission.
+    pub fn dependencies(&self) -> &std::sync::Arc<SelectedDependencies> {
+        &self.dependencies
+    }
+    /// Complete owned receipt extent, including its snapshot and actual revision.
     pub fn retained_bytes(&self) -> usize {
         self.retained_bytes
     }
@@ -353,6 +377,35 @@ impl SelectedRead {
             dependencies: self.dependencies(),
         })
     }
+    /// Reserve this extent before snapshotting the actual-row premise receipt.
+    pub fn snapshot_receipt_scratch_bytes(&self) -> Result<usize, CanonicalError> {
+        let revision = self.selection.revision();
+        let mut bytes = self.publication_scratch_bytes()?;
+        for extent in [
+            size_of::<SelectionDependencyReceipt>() + 128,
+            revision.key.len(),
+            revision.problem.len(),
+            revision.parent.as_ref().map_or(0, String::len),
+            revision.operation.len(),
+            revision.request.len(),
+            revision.interpretation.len(),
+        ] {
+            bytes = bytes
+                .checked_add(extent)
+                .ok_or(CanonicalError::PayloadLimit)?;
+        }
+        Ok(bytes)
+    }
+    /// Capture only completed qualified premises and their store-issued actual row.
+    /// The caller reserves `snapshot_receipt_scratch_bytes` before this allocation.
+    pub fn snapshot_receipt(&self) -> Result<SelectionDependencyReceipt, CanonicalError> {
+        let retained_bytes = self.snapshot_receipt_scratch_bytes()?;
+        Ok(SelectionDependencyReceipt {
+            revision: self.selection.revision().clone(),
+            dependencies: std::sync::Arc::new(self.snapshot_dependencies()?),
+            retained_bytes,
+        })
+    }
     fn dependencies(&self) -> Dependencies {
         let premises =
             self.names
@@ -408,6 +461,142 @@ impl SelectedRead {
     }
 }
 
+/// Owned exact encoding, independent of a selected pin, revision and write permission.
+/// Clones share immutable material. Every consumer must recheck `selected_dependencies`
+/// under its current protected read; this value is never replay or publication authority.
+#[derive(Clone, Debug)]
+pub struct ProductDescription {
+    material: std::sync::Arc<DescriptionMaterial>,
+}
+#[derive(Debug)]
+struct DescriptionMaterial {
+    proposed_key: String,
+    product: Product,
+    dependencies: SelectedDependencies,
+    blob: crate::canonical_staging::ProductBlob,
+    edit: crate::canonical::ObjectEdit,
+    retained_bytes: usize,
+}
+impl ProductDescription {
+    /// Encode a complete selected body once without accessing or admitting to a store.
+    pub fn prepare(read: &SelectedRead, mut product: Product) -> Result<Self, CanonicalError> {
+        if [
+            &product.key,
+            &product.problem,
+            &product.revision,
+            &product.producer,
+            &product.interpretation,
+        ]
+        .iter()
+        .any(|value| value.len() > crate::canonical_staging::IDENTITY_BYTES)
+        {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        if product.problem != read.selection().revision().problem
+            || product.revision != read.selection().revision().key
+            || product.interpretation != wire::INTERPRETATION
+        {
+            return Err(CanonicalError::Configuration(
+                "product selection/interpretation mismatch".into(),
+            ));
+        }
+        if product.payload.len() > 65 * 1024 * 1024 + 4096
+            || product.request.len() > crate::canonical::PAYLOAD_BYTES
+        {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        read.dependency_bytes()?;
+        let dependencies = read.snapshot_dependencies()?;
+        let encoded_dependencies = serde_json::to_vec(&BorrowedDependencies(read))
+            .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
+        let (blob, edit) = crate::canonical_staging::product_blob(
+            product.payload.as_slice(),
+            &encoded_dependencies,
+        )?;
+        product.payload = serde_json::to_vec(&blob)
+            .map_err(|error| CanonicalError::Configuration(error.to_string()))?
+            .into();
+        product.dependencies = Vec::new().into();
+        if product.request.len().saturating_add(product.payload.len())
+            > crate::canonical::PAYLOAD_BYTES
+        {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let retained_bytes = blob
+            .bytes
+            .checked_add(dependencies.retained_bytes())
+            .and_then(|n| n.checked_add(product.request.len()))
+            .and_then(|n| n.checked_add(product.payload.len()))
+            .and_then(|n| n.checked_add(8 * crate::canonical_staging::IDENTITY_BYTES))
+            .ok_or(CanonicalError::PayloadLimit)?;
+        let proposed_key = std::mem::take(&mut product.key);
+        product.revision = String::new();
+        Ok(Self {
+            material: std::sync::Arc::new(DescriptionMaterial {
+                proposed_key,
+                product,
+                dependencies,
+                blob,
+                edit,
+                retained_bytes,
+            }),
+        })
+    }
+    /// Immutable complete premises, without protection or permission.
+    pub fn selected_dependencies(&self) -> &SelectedDependencies {
+        &self.material.dependencies
+    }
+    /// Conservative owned encoded material and complete premise allocation extent.
+    pub fn retained_bytes(&self) -> usize {
+        self.material.retained_bytes
+    }
+    /// Exact stored descriptor; acknowledgment does not hydrate its referenced blocks.
+    pub fn descriptor(&self) -> &[u8] {
+        self.material.product.payload.as_slice()
+    }
+    /// Check the exact complete consumer premises without cloning or reencoding them.
+    pub fn matches_read(&self, read: &SelectedRead) -> Result<bool, CanonicalError> {
+        read.complete()?;
+        let dependencies = &self.material.dependencies.dependencies;
+        let mut premises = dependencies.premises.iter();
+        Ok(self.material.product.problem == read.selection().revision().problem
+            && dependencies.interpretation == wire::INTERPRETATION
+            && read.names.iter().all(|((s, n), v)| matches!(premises.next(),
+                Some(Premise::Name { scope, name, version }) if s == scope && n == name && v == version))
+            && read.scopes.iter().all(|(s, m)| matches!(premises.next(),
+                Some(Premise::Scope { scope, members }) if s == scope && m == members))
+            && read.interpretations.iter().all(|(r, i)| matches!(premises.next(),
+                Some(Premise::Interpretation { role, identity }) if r == role && i == identity))
+            && read.logicals.iter().all(|(l, v)| matches!(premises.next(),
+                Some(Premise::Logical { logical, version }) if l == logical && v == version))
+            && read.kinds.iter().all(|((s, k), m)| matches!(premises.next(),
+                Some(Premise::KindScope { scope, source_kind, members }) if s == scope && k == source_kind && m == members))
+            && read.references.iter().all(|((s, n, k), m)| matches!(premises.next(),
+                Some(Premise::References { scope, name, source_kind, members }) if s == scope && n == name && k == source_kind && m == members))
+            && premises.next().is_none())
+    }
+    fn publication(&self, read: &SelectedRead) -> Result<Product, CanonicalError> {
+        let material = &self.material;
+        let version = material.edit.version.as_ref().ok_or_else(|| {
+            CanonicalError::Configuration("encoded product blob unavailable".into())
+        })?;
+        let (payload, dependencies) = material.blob.encoded_parts(version.payload.as_slice())?;
+        let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalProductV1);
+        hash.str(&material.proposed_key)
+            .str(read.selection.key())
+            .str(&material.product.problem)
+            .str(&material.product.interpretation)
+            .str(&material.product.producer)
+            .part(material.product.request.as_slice())
+            .part(payload)
+            .part(dependencies);
+        let mut product = material.product.clone();
+        product.key = hash.finish_hash().to_hex();
+        product.revision = read.selection().revision().key.clone();
+        Ok(product)
+    }
+}
+
 /// Small discovery receipt. Its private header permits budgeting, never replay authority.
 #[derive(Debug)]
 pub struct ProductCandidate {
@@ -448,6 +637,75 @@ impl ReusableProduct {
 }
 
 impl CanonicalStore {
+    /// Adopt qualified immutable premises only for the same exact actual revision.
+    /// One thin guarded RPC verifies the new pin and actual stored row; changed
+    /// revisions still require full dependency qualification. No new product is admitted.
+    pub async fn adopt_dependencies_from_same_revision(
+        &self,
+        read: &mut SelectedRead,
+        receipt: &SelectionDependencyReceipt,
+    ) -> Result<bool, CanonicalError> {
+        read.complete()?;
+        if read.selection.revision() != &receipt.revision {
+            return Ok(false);
+        }
+        let mut response = self.protected_query(
+            &read.selection.revision().problem,
+            "canonical_selection::adopt_dependencies_from_same_revision",
+            || Ok(self.db.query(format!(
+                "{PROTECTED_BEGIN}\nSELECT * FROM ONLY type::record('canonical_revisions', $revision);\nCOMMIT;"
+            ))
+                .bind(("problem", read.selection.revision().problem.clone()))
+                .bind(("revision", read.selection.revision().key.clone()))
+                .bind(("sequence", crate::canonical_codec::encode_uint(read.selection.revision().sequence)?))
+                .bind(("protection", read.selection.key().to_owned()))),
+        ).await?;
+        let actual: Option<Object> = response.take(response.num_statements().saturating_sub(2))?;
+        let Some(actual) = actual.map(wire::decode_canonical_revisions).transpose()? else {
+            return Ok(false);
+        };
+        if actual != receipt.revision {
+            return Ok(false);
+        }
+        let mut delta = SelectedRead::new(read.selection.clone());
+        for premise in &receipt.dependencies.dependencies.premises {
+            match premise.clone() {
+                Premise::Name {
+                    scope,
+                    name,
+                    version,
+                } => {
+                    delta.names.insert((scope, name), version);
+                }
+                Premise::Scope { scope, members } => {
+                    delta.scopes.insert(scope, members);
+                }
+                Premise::Logical { logical, version } => {
+                    delta.logicals.insert(logical, version);
+                }
+                Premise::KindScope {
+                    scope,
+                    source_kind,
+                    members,
+                } => {
+                    delta.kinds.insert((scope, source_kind), members);
+                }
+                Premise::References {
+                    scope,
+                    name,
+                    source_kind,
+                    members,
+                } => {
+                    delta.references.insert((scope, name, source_kind), members);
+                }
+                Premise::Interpretation { role, identity } => {
+                    delta.interpretations.insert(role, identity);
+                }
+            }
+        }
+        read.merge_delta(delta)?;
+        Ok(true)
+    }
     /// Resolve exact authored identities, including inspected absent identities.
     pub async fn resolve_logicals(
         &self,
@@ -457,7 +715,7 @@ impl CanonicalStore {
         if logicals.len() > 256 {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = protected_query("canonical_selection::resolve_logicals", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND logical IN $logicals AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nCOMMIT;"))
+        let mut response = self.protected_query(&read.selection.revision().problem, "canonical_selection::resolve_logicals", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND logical IN $logicals AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nCOMMIT;"))
             .bind(("problem", read.selection.revision().problem.clone())).bind(("revision", read.selection.revision().key.clone())).bind(("protection", read.selection.key().to_owned())).bind(("logicals", logicals.to_vec())).bind(("sequence", crate::canonical_codec::encode_uint(read.selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         let members = rows
@@ -611,34 +869,41 @@ impl CanonicalStore {
             sql.push_str(&format!("\nSELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope{index} = NONE OR scope = $scope{index}) AND key > $after{index} AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($kind{index} = NONE OR (out.kind = $kind{index} AND out.closed = true)) AND ($target_scope{index} = NONE OR (SELECT VALUE key FROM canonical_edges WHERE source_version = $parent.version AND target_scope = $target_scope{index} AND target_name = $target_name{index} LIMIT 1) != []) ORDER BY key LIMIT {limit};"));
         }
         sql.push_str("\nCOMMIT;");
-        let mut response = protected_query("canonical_selection::next_membership_pages", || {
-            let mut query = self
-                .db
-                .query(sql.clone())
-                .bind(("problem", read.selection.revision().problem.clone()))
-                .bind(("revision", read.selection.revision().key.clone()))
-                .bind(("protection", read.selection.key().to_owned()))
-                .bind((
-                    "sequence",
-                    crate::canonical_codec::encode_uint(read.selection.revision().sequence)?,
-                ));
-            for (index, cursor) in cursors.iter().enumerate() {
-                query = query
-                    .bind((format!("scope{index}"), cursor.scope.clone()))
-                    .bind((format!("after{index}"), cursor.after.clone()))
-                    .bind((format!("kind{index}"), cursor.source_kind.clone()))
-                    .bind((
-                        format!("target_scope{index}"),
-                        cursor.target.as_ref().map(|(scope, _)| scope.clone()),
-                    ))
-                    .bind((
-                        format!("target_name{index}"),
-                        cursor.target.as_ref().map(|(_, name)| name.clone()),
-                    ));
-            }
-            Ok(query)
-        })
-        .await?;
+        let mut response = self
+            .protected_query(
+                &read.selection.revision().problem,
+                "canonical_selection::next_membership_pages",
+                || {
+                    let mut query = self
+                        .db
+                        .query(sql.clone())
+                        .bind(("problem", read.selection.revision().problem.clone()))
+                        .bind(("revision", read.selection.revision().key.clone()))
+                        .bind(("protection", read.selection.key().to_owned()))
+                        .bind((
+                            "sequence",
+                            crate::canonical_codec::encode_uint(
+                                read.selection.revision().sequence,
+                            )?,
+                        ));
+                    for (index, cursor) in cursors.iter().enumerate() {
+                        query = query
+                            .bind((format!("scope{index}"), cursor.scope.clone()))
+                            .bind((format!("after{index}"), cursor.after.clone()))
+                            .bind((format!("kind{index}"), cursor.source_kind.clone()))
+                            .bind((
+                                format!("target_scope{index}"),
+                                cursor.target.as_ref().map(|(scope, _)| scope.clone()),
+                            ))
+                            .bind((
+                                format!("target_name{index}"),
+                                cursor.target.as_ref().map(|(_, name)| name.clone()),
+                            ));
+                    }
+                    Ok(query)
+                },
+            )
+            .await?;
         let first = response
             .num_statements()
             .checked_sub(cursors.len() + 1)
@@ -763,7 +1028,7 @@ impl CanonicalStore {
         target: Option<(&str, &str)>,
         after: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
-        let mut response = protected_query("canonical_selection::selection_membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope = NONE OR scope = $scope) AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($source_kind = NONE OR (out.kind = $source_kind AND out.closed = true)) AND ($target_scope = NONE OR (SELECT VALUE key FROM canonical_edges WHERE source_version = $parent.version AND target_scope = $target_scope AND target_name = $target_name LIMIT 1) != []) ORDER BY key LIMIT 64;\nCOMMIT;"))
+        let mut response = self.protected_query(&selection.revision().problem, "canonical_selection::selection_membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope = NONE OR scope = $scope) AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($source_kind = NONE OR (out.kind = $source_kind AND out.closed = true)) AND ($target_scope = NONE OR (SELECT VALUE key FROM canonical_edges WHERE source_version = $parent.version AND target_scope = $target_scope AND target_name = $target_name LIMIT 1) != []) ORDER BY key LIMIT 64;\nCOMMIT;"))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("protection", selection.key().to_owned())).bind(("scope", scope.map(str::to_owned))).bind(("source_kind", source_kind.map(str::to_owned))).bind(("after", after.to_owned())).bind(("target_scope", target.map(|(scope,_)| scope.to_owned()))).bind(("target_name", target.map(|(_,name)| name.to_owned()))).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
@@ -866,25 +1131,32 @@ impl CanonicalStore {
         let sql = format!(
             "{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND ({predicate}) AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nCOMMIT;"
         );
-        let mut response = protected_query("canonical_selection::resolve_name_pairs", || {
-            let mut query = self
-                .db
-                .query(sql.clone())
-                .bind(("problem", read.selection.revision().problem.clone()))
-                .bind(("revision", read.selection.revision().key.clone()))
-                .bind(("protection", read.selection.key().to_owned()))
-                .bind((
-                    "sequence",
-                    crate::canonical_codec::encode_uint(read.selection.revision().sequence)?,
-                ));
-            for (index, (scope, name)) in pairs.iter().enumerate() {
-                query = query
-                    .bind((format!("scope{index}"), scope.clone()))
-                    .bind((format!("name{index}"), name.clone()));
-            }
-            Ok(query)
-        })
-        .await?;
+        let mut response = self
+            .protected_query(
+                &read.selection.revision().problem,
+                "canonical_selection::resolve_name_pairs",
+                || {
+                    let mut query = self
+                        .db
+                        .query(sql.clone())
+                        .bind(("problem", read.selection.revision().problem.clone()))
+                        .bind(("revision", read.selection.revision().key.clone()))
+                        .bind(("protection", read.selection.key().to_owned()))
+                        .bind((
+                            "sequence",
+                            crate::canonical_codec::encode_uint(
+                                read.selection.revision().sequence,
+                            )?,
+                        ));
+                    for (index, (scope, name)) in pairs.iter().enumerate() {
+                        query = query
+                            .bind((format!("scope{index}"), scope.clone()))
+                            .bind((format!("name{index}"), name.clone()));
+                    }
+                    Ok(query)
+                },
+            )
+            .await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         let members = rows
             .into_iter()
@@ -916,7 +1188,7 @@ impl CanonicalStore {
         scope: Option<&str>,
         after: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
-        let mut response = protected_query("canonical_selection::membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope = NONE OR scope = $scope) AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) ORDER BY key LIMIT 64;\nCOMMIT;"))
+        let mut response = self.protected_query(&selection.revision().problem, "canonical_selection::membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope = NONE OR scope = $scope) AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) ORDER BY key LIMIT 64;\nCOMMIT;"))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("protection", selection.key().to_owned())).bind(("scope", scope.map(str::to_owned))).bind(("after", after.to_owned())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
@@ -950,121 +1222,212 @@ impl CanonicalStore {
     ) -> Result<Option<ObjectVersion>, CanonicalError> {
         self.assemble_selected_object(selection, version).await
     }
-    /// Publish the kernel's description together with the actual selected read premises.
+    /// Encode the selected description without a store effect or publication permission.
+    pub fn prepare_description(
+        &self,
+        read: &SelectedRead,
+        product: Product,
+    ) -> Result<ProductDescription, CanonicalError> {
+        ProductDescription::prepare(read, product)
+    }
+    /// Resolve only an already committed exact rooted descriptor. No pin is required,
+    /// no row is admitted, and referenced blob corruption is checked by receiving qualification.
+    pub async fn acknowledge_description(
+        &self,
+        description: &ProductDescription,
+    ) -> Result<Option<String>, CanonicalError> {
+        self.acknowledge_description_until(
+            description,
+            tokio::time::Instant::now() + crate::canonical::REQUEST_TIMEOUT,
+        )
+        .await
+    }
+    /// Exact settlement on the caller's original operation clock. Dropping the future
+    /// stops retries; it cannot undo a transaction already committed by the server.
+    pub async fn acknowledge_description_until(
+        &self,
+        description: &ProductDescription,
+        deadline: tokio::time::Instant,
+    ) -> Result<Option<String>, CanonicalError> {
+        if tokio::time::Instant::now() >= deadline {
+            return Err(CanonicalError::Timeout);
+        }
+        tokio::time::timeout_at(
+            deadline,
+            self.product_acknowledged(&description.material.product),
+        )
+        .await
+        .map_err(|_| CanonicalError::Timeout)?
+    }
+    /// Settle or publish reusable material against the exact current consumer read.
+    pub async fn publish_description(
+        &self,
+        read: &SelectedRead,
+        description: &ProductDescription,
+    ) -> Result<String, CanonicalError> {
+        self.publish_description_until(
+            read,
+            description,
+            tokio::time::Instant::now() + crate::canonical::REQUEST_TIMEOUT,
+        )
+        .await
+    }
+    /// Generic publication on the caller's original clock, including staging and waiters.
+    pub async fn publish_description_until(
+        &self,
+        read: &SelectedRead,
+        description: &ProductDescription,
+        deadline: tokio::time::Instant,
+    ) -> Result<String, CanonicalError> {
+        if is_replay_producer(&description.material.product.producer) {
+            return Err(CanonicalError::Configuration(
+                "generic product publication cannot impersonate scientific admission".into(),
+            ));
+        }
+        self.publish_description_inner(read, description, deadline)
+            .await
+    }
+    /// Publish compiler-issued immutable material through the controlled writer.
+    ///
+    /// # Safety
+    /// Payload, request and exact dependencies must be issued by the owning successfully
+    /// admitted compiler, with its construction receipts and qualified current producer.
+    /// Caller-created receipts or claimed hashes cannot establish scientific admission.
+    #[allow(
+        unsafe_code,
+        reason = "ADR-0164 explicit scientific writer trust assertion; no unsafe memory operation"
+    )]
+    pub async unsafe fn publish_scientific_description(
+        &self,
+        read: &SelectedRead,
+        description: &ProductDescription,
+    ) -> Result<String, CanonicalError> {
+        self.publish_scientific_description_inner(
+            read,
+            description,
+            tokio::time::Instant::now() + crate::canonical::REQUEST_TIMEOUT,
+        )
+        .await
+    }
+    /// Controlled publication with the original enclosing operation deadline.
+    ///
+    /// # Safety
+    /// The same compiler admission and producer requirements as `publish_scientific_description`.
+    #[allow(
+        unsafe_code,
+        reason = "ADR-0164 explicit scientific writer trust assertion; no unsafe memory operation"
+    )]
+    pub async unsafe fn publish_scientific_description_until(
+        &self,
+        read: &SelectedRead,
+        description: &ProductDescription,
+        deadline: tokio::time::Instant,
+    ) -> Result<String, CanonicalError> {
+        self.publish_scientific_description_inner(read, description, deadline)
+            .await
+    }
+    async fn publish_scientific_description_inner(
+        &self,
+        read: &SelectedRead,
+        description: &ProductDescription,
+        deadline: tokio::time::Instant,
+    ) -> Result<String, CanonicalError> {
+        if !scientific_producer(&description.material.product.producer) {
+            return Err(CanonicalError::Configuration(
+                "scientific publication requires its current reserved qualified producer".into(),
+            ));
+        }
+        self.publish_description_inner(read, description, deadline)
+            .await
+    }
+    /// Publish the kernel's description together with actual selected read premises.
     pub async fn publish_product(
         &self,
         read: &SelectedRead,
         product: Product,
     ) -> Result<String, CanonicalError> {
+        let deadline = tokio::time::Instant::now() + crate::canonical::REQUEST_TIMEOUT;
         if is_replay_producer(&product.producer) {
             return Err(CanonicalError::Configuration(
                 "generic product publication cannot impersonate scientific admission".into(),
             ));
         }
-        self.publish_product_inner(read, product).await
+        let description = self.prepare_description(read, product)?;
+        self.publish_description_inner(read, &description, deadline)
+            .await
     }
     /// Publish a description issued by the scientific admission owner.
     ///
     /// # Safety
-    /// The payload and request must come from the owning compiler's successfully admitted
-    /// immutable body, with its exact construction receipts and scientific interpretation.
-    /// The reserved producer must be qualified for that implementation. Arbitrary decoded
-    /// DTOs, caller-created receipts and claimed hashes are insufficient. This operation
-    /// establishes the controlled writer role trusted by strict scientific reconstruction.
-    ///
-    /// # Errors
-    /// Missing reserved producer role or ordinary guarded publication refusal.
+    /// Payload and request must come from the owning compiler's successfully admitted
+    /// immutable body with exact construction receipts and qualified current producer.
     #[allow(
         unsafe_code,
-        reason = "ADR-0164 explicit inter-crate scientific writer trust assertion; no unsafe memory operation"
+        reason = "ADR-0164 explicit scientific writer trust assertion; no unsafe memory operation"
     )]
     pub async unsafe fn publish_scientific_product(
         &self,
         read: &SelectedRead,
         product: Product,
     ) -> Result<String, CanonicalError> {
-        if !is_replay_producer(&product.producer) {
+        let deadline = tokio::time::Instant::now() + crate::canonical::REQUEST_TIMEOUT;
+        if !scientific_producer(&product.producer) {
             return Err(CanonicalError::Configuration(
-                "scientific publication requires its reserved qualified producer".into(),
+                "scientific publication requires its current reserved qualified producer".into(),
             ));
         }
-        self.publish_product_inner(read, product).await
+        let description = self.prepare_description(read, product)?;
+        self.publish_description_inner(read, &description, deadline)
+            .await
     }
-    async fn publish_product_inner(
+    async fn publish_description_inner(
         &self,
         read: &SelectedRead,
-        mut product: Product,
+        description: &ProductDescription,
+        deadline: tokio::time::Instant,
     ) -> Result<String, CanonicalError> {
-        if [
-            &product.key,
-            &product.problem,
-            &product.revision,
-            &product.producer,
-            &product.interpretation,
-        ]
-        .iter()
-        .any(|value| value.len() > crate::canonical_staging::IDENTITY_BYTES)
-        {
-            return Err(CanonicalError::PayloadLimit);
+        if tokio::time::Instant::now() >= deadline {
+            return Err(CanonicalError::Timeout);
         }
-        if product.problem != read.selection().revision().problem
-            || product.revision != read.selection().revision().key
-            || product.interpretation != wire::INTERPRETATION
-        {
-            return Err(CanonicalError::Configuration(
-                "product selection/interpretation mismatch".into(),
-            ));
-        }
-        if product.payload.len() > 65 * 1024 * 1024 + 4096
-            || product.request.len() > crate::canonical::PAYLOAD_BYTES
-        {
-            return Err(CanonicalError::PayloadLimit);
-        }
-        read.dependency_bytes()?;
-        product.dependencies = serde_json::to_vec(&BorrowedDependencies(read))
-            .map_err(|error| CanonicalError::Configuration(error.to_string()))?
-            .into();
-        let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalProductV1);
-        hash.str(&product.key)
-            .str(read.selection.key())
-            .str(&product.problem)
-            .str(&product.interpretation)
-            .str(&product.producer)
-            .part(product.request.as_slice())
-            .part(product.payload.as_slice())
-            .part(product.dependencies.as_slice());
-        product.key = hash.finish_hash().to_hex();
-        let (descriptor, edit) = crate::canonical_staging::product_blob(
-            product.payload.as_slice(),
-            product.dependencies.as_slice(),
-        )?;
-        product.payload = serde_json::to_vec(&descriptor)
-            .map_err(|error| CanonicalError::Configuration(error.to_string()))?
-            .into();
-        product.dependencies = Vec::new().into();
-        if product.request.len().saturating_add(product.payload.len())
-            > crate::canonical::PAYLOAD_BYTES
-        {
-            return Err(CanonicalError::PayloadLimit);
-        }
-        // A committed exact acknowledgment settles before touching an activated stage.
-        if let Some(key) = self.product_acknowledged(&product).await? {
-            return Ok(key);
-        }
-        let stage = self
-            .stage_product_blob(&product.problem, &product.key, edit)
-            .await?;
-        if let Some(stage) = stage {
-            return self.admit_product(&read.selection, &product, &stage).await;
-        }
-        // Native acquisition identified the exact live/activated writer. No
-        // second writer token escapes; only its immutable acknowledgment settles.
-        tokio::time::timeout(crate::canonical::REQUEST_TIMEOUT, async {
+        tokio::time::timeout_at(deadline, async {
+            if !description.matches_read(read)? {
+                return Err(CanonicalError::Configuration(
+                    "product description dependencies differ from current read".into(),
+                ));
+            }
+            // The thin exact lookup precedes selection-bound hashing, payload copies,
+            // stage acquisition and permission checks for any new admission.
+            if let Some(key) = self
+                .product_acknowledged(&description.material.product)
+                .await?
+            {
+                return Ok(key);
+            }
+            self.ensure_writes()?;
+            if tokio::time::Instant::now() >= deadline {
+                return Err(CanonicalError::Timeout);
+            }
+            let product = description.publication(read)?;
+            if tokio::time::Instant::now() >= deadline {
+                return Err(CanonicalError::Timeout);
+            }
+            let stage = self
+                .stage_product_blob(
+                    &product.problem,
+                    &product.key,
+                    description.material.edit.clone(),
+                )
+                .await?;
+            if let Some(stage) = stage {
+                return self.admit_product(&read.selection, &product, &stage).await;
+            }
+            // A concurrent writer owns this stage. Poll immutable acknowledgment only;
+            // never acquire its generation or renew the original operation clock.
             loop {
-                self.ensure_writes()?;
                 if let Some(key) = self.product_acknowledged(&product).await? {
                     return Ok(key);
                 }
+                self.ensure_writes()?;
                 tokio::time::sleep(std::time::Duration::from_millis(10)).await;
             }
         })
@@ -1095,6 +1458,66 @@ impl CanonicalStore {
         .await?;
         Ok(())
     }
+    /// Corrupt an isolated fixture's product descriptor without touching protected roots.
+    #[cfg(feature = "canonical-tests")]
+    pub async fn corrupt_product_descriptor(&self, key: &str) -> Result<(), CanonicalError> {
+        if !self.database().starts_with("canonical_test_") {
+            return Err(CanonicalError::Configuration(
+                "corruption requires isolated canonical fixture".into(),
+            ));
+        }
+        crate::canonical::bounded_query(
+            self.db
+                .query("UPDATE type::record('canonical_products', $key) SET payload = $payload;")
+                .bind(("key", key.to_owned()))
+                .bind((
+                    "payload",
+                    surrealdb::types::Bytes::from(b"corrupt descriptor".to_vec()),
+                )),
+        )
+        .await?;
+        Ok(())
+    }
+    /// Probe for one protected product key without decoding its bounded blob descriptor.
+    /// This lets a receiving owner decide whether a producer-context check is needed
+    /// before it spends that cost; a present key still requires full candidate qualification.
+    pub async fn product_candidate_presence(
+        &self,
+        selection: &ProtectedSelection,
+        request: &[u8],
+        producer: &str,
+        after: &str,
+    ) -> Result<bool, CanonicalError> {
+        if request.len() > crate::canonical::PAYLOAD_BYTES
+            || producer.len() > crate::canonical_staging::IDENTITY_BYTES
+            || after.len() > crate::canonical_staging::IDENTITY_BYTES
+        {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let mut response = self.protected_query(
+            &selection.revision().problem,
+            "canonical_selection::product_candidate_presence",
+            || {
+                Ok(self
+                    .db
+                    .query(format!("{PROTECTED_BEGIN}\nSELECT VALUE true FROM canonical_products WHERE problem = $problem AND producer = $producer AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1;\nCOMMIT;"))
+                    .bind(("problem", selection.revision().problem.clone()))
+                    .bind(("revision", selection.revision().key.clone()))
+                    .bind((
+                        "sequence",
+                        crate::canonical_codec::encode_uint(selection.revision().sequence)?,
+                    ))
+                    .bind(("protection", selection.key().to_owned()))
+                    .bind(("producer", producer.to_owned()))
+                    .bind(("request", surrealdb::types::Bytes::from(request.to_vec())))
+                    .bind(("after", after.to_owned()))
+                    .bind(("interpretation", wire::INTERPRETATION.to_owned())))
+            },
+        )
+        .await?;
+        let rows: Vec<bool> = response.take(response.num_statements().saturating_sub(2))?;
+        Ok(rows.into_iter().next().unwrap_or(false))
+    }
     /// Discover one eligible request/producer header without hydrating its scientific bytes.
     pub async fn product_candidate(
         &self,
@@ -1109,7 +1532,7 @@ impl CanonicalStore {
         {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = protected_query("canonical_selection::product_candidate", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_products WHERE problem = $problem AND producer = $producer AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1;\nCOMMIT;"))
+        let mut response = self.protected_query(&selection.revision().problem, "canonical_selection::product_candidate", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_products WHERE problem = $problem AND producer = $producer AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1;\nCOMMIT;"))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?))
             .bind(("protection", selection.key().to_owned())).bind(("producer", producer.to_owned())).bind(("request", surrealdb::types::Bytes::from(request.to_vec()))).bind(("after", after.to_owned())).bind(("interpretation", wire::INTERPRETATION.to_owned())))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
@@ -1302,6 +1725,22 @@ impl CanonicalStore {
     }
 }
 
+#[cfg(test)]
+mod producer_namespace_unit {
+    use super::*;
+    #[test]
+    fn historical_local_claims_are_reserved_but_cannot_be_new_scientific_admissions() {
+        assert!(is_replay_producer("pse.local-runtime.v1:old-receipt"));
+        assert!(!scientific_producer("pse.local-runtime.v1:old-receipt"));
+        assert!(is_replay_producer("pse.local-runtime.v2:current-receipt"));
+        assert!(scientific_producer("pse.local-runtime.v2:current-receipt"));
+        assert!(scientific_producer(
+            "pse.qualified-math-producer.v1:compiler"
+        ));
+        assert!(!is_replay_producer("ordinary-producer"));
+    }
+}
+
 #[cfg(all(test, feature = "canonical-tests"))]
 impl CanonicalStore {
     async fn test_reuse_product(
@@ -1385,6 +1824,233 @@ mod canonical_server_unit {
             producer: "qualified-fixture".into(),
             interpretation: wire::INTERPRETATION.into(),
         }
+    }
+
+    #[tokio::test]
+    async fn same_actual_revision_receipt_requires_live_pin_and_preserves_changed_inventory_refusal()
+     {
+        let store = fixture().await;
+        let revision = store
+            .edit(
+                "p",
+                None,
+                "receipt-first",
+                &[edit("Root", "root1", "definition", Vec::new())],
+            )
+            .await
+            .unwrap();
+        let mut first = read(&store, revision.clone()).await;
+        store.resolve_scope(&mut first, "p").await.unwrap();
+        store
+            .resolve_logicals(&mut first, &["missing".into()])
+            .await
+            .unwrap();
+        first
+            .interpretation("physical".into(), "exact-provider".into())
+            .unwrap();
+        let scratch = first.snapshot_receipt_scratch_bytes().unwrap();
+        let receipt = first.snapshot_receipt().unwrap();
+        assert_eq!(receipt.retained_bytes(), scratch);
+        store.release(first.selection()).await.unwrap();
+        let mut second = read(&store, revision.clone()).await;
+        assert!(
+            store
+                .adopt_dependencies_from_same_revision(&mut second, &receipt)
+                .await
+                .unwrap()
+        );
+        assert_eq!(
+            second.snapshot_dependencies().unwrap(),
+            **receipt.dependencies()
+        );
+        let accepted = second.snapshot_dependencies().unwrap();
+        store.release(second.selection()).await.unwrap();
+        assert!(
+            store
+                .adopt_dependencies_from_same_revision(&mut second, &receipt)
+                .await
+                .is_err(),
+            "a cloned released selection cannot adopt qualified premises"
+        );
+        assert_eq!(second.snapshot_dependencies().unwrap(), accepted);
+        let mut expired = read(&store, revision.clone()).await;
+        crate::canonical::bounded_query(
+            store
+                .db
+                .query("UPDATE type::record('canonical_protections', $pin) SET expires_at = 0;")
+                .bind(("pin", expired.selection().key().to_owned())),
+        )
+        .await
+        .unwrap();
+        assert!(
+            store
+                .adopt_dependencies_from_same_revision(&mut expired, &receipt)
+                .await
+                .is_err(),
+            "an expired new pin cannot inherit an old qualification"
+        );
+        assert!(
+            expired
+                .snapshot_dependencies()
+                .unwrap()
+                .dependencies
+                .premises
+                .is_empty()
+        );
+        store.release(expired.selection()).await.unwrap();
+        let changed = store
+            .edit(
+                "p",
+                Some("receipt-first"),
+                "receipt-second",
+                &[edit("Other", "other1", "definition", Vec::new())],
+            )
+            .await
+            .unwrap();
+        let mut current = read(&store, changed).await;
+        let before = current.snapshot_dependencies().unwrap();
+        assert!(
+            !store
+                .adopt_dependencies_from_same_revision(&mut current, &receipt)
+                .await
+                .unwrap()
+        );
+        assert_eq!(current.snapshot_dependencies().unwrap(), before);
+        assert!(
+            !store
+                .recheck_selection_dependencies(&mut current, receipt.dependencies())
+                .await
+                .unwrap(),
+            "the changed complete scope must still reject through full qualification"
+        );
+        assert_eq!(current.snapshot_dependencies().unwrap(), before);
+        store.release(current.selection()).await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn sixteen_same_problem_protected_readers_share_short_turns_with_staging_and_exact_ack() {
+        let store = fixture().await;
+        let revision = store
+            .edit(
+                "p",
+                None,
+                "paced-first",
+                &[edit("Root", "root1", "definition", Vec::new())],
+            )
+            .await
+            .unwrap();
+        let mut seed = read(&store, revision.clone()).await;
+        store
+            .resolve_logicals(&mut seed, &["Root".into(), "missing".into()])
+            .await
+            .unwrap();
+        let description = store
+            .prepare_description(&seed, product(&seed, b"complete body"))
+            .unwrap();
+        let key = store
+            .publish_description(&seed, &description)
+            .await
+            .unwrap();
+        store.release(seed.selection()).await.unwrap();
+        let barrier = std::sync::Arc::new(tokio::sync::Barrier::new(17));
+        let mut jobs = tokio::task::JoinSet::new();
+        let writer = store.clone();
+        let writer_barrier = barrier.clone();
+        jobs.spawn(async move {
+            writer_barrier.wait().await;
+            writer
+                .edit(
+                    "p",
+                    Some("paced-first"),
+                    "paced-second",
+                    &[edit("Other", "other1", "definition", Vec::new())],
+                )
+                .await
+                .unwrap();
+        });
+        for _ in 0..16 {
+            let store = store.clone();
+            let revision = revision.clone();
+            let barrier = barrier.clone();
+            let description = description.clone();
+            let key = key.clone();
+            jobs.spawn(async move {
+                barrier.wait().await;
+                for _ in 0..2 {
+                    let mut selected = read(&store, revision.clone()).await;
+                    store
+                        .resolve_logicals(&mut selected, &["Root".into(), "missing".into()])
+                        .await
+                        .unwrap();
+                    assert!(description.matches_read(&selected).unwrap());
+                    assert_eq!(
+                        store
+                            .assemble_selected_object(selected.selection(), "root1")
+                            .await
+                            .unwrap()
+                            .unwrap()
+                            .payload
+                            .as_slice(),
+                        b"Root"
+                    );
+                    let receipt = selected.snapshot_receipt().unwrap();
+                    let mut adopted = read(&store, revision.clone()).await;
+                    assert!(
+                        store
+                            .adopt_dependencies_from_same_revision(&mut adopted, &receipt)
+                            .await
+                            .unwrap()
+                    );
+                    assert_eq!(
+                        adopted.snapshot_dependencies().unwrap(),
+                        **receipt.dependencies()
+                    );
+                    let mut qualified = read(&store, revision.clone()).await;
+                    assert!(
+                        store
+                            .recheck_selection_dependencies(&mut qualified, receipt.dependencies())
+                            .await
+                            .unwrap()
+                    );
+                    assert_eq!(
+                        store.acknowledge_description(&description).await.unwrap(),
+                        Some(key.clone())
+                    );
+                    assert_eq!(
+                        store
+                            .test_reuse_product(
+                                &mut qualified,
+                                b"exact-request",
+                                "qualified-fixture",
+                                ""
+                            )
+                            .await
+                            .unwrap()
+                            .unwrap()
+                            .payload(),
+                        b"complete body"
+                    );
+                    store.release(selected.selection()).await.unwrap();
+                    assert!(
+                        store
+                            .resolve_logicals(&mut selected, &["Root".into()])
+                            .await
+                            .is_err()
+                    );
+                    store.release(adopted.selection()).await.unwrap();
+                    store.release(qualified.selection()).await.unwrap();
+                }
+            });
+        }
+        while let Some(result) = jobs.join_next().await {
+            result.unwrap();
+        }
+        assert_eq!(
+            store.acknowledge_description(&description).await.unwrap(),
+            Some(key)
+        );
+        store.remove_isolated_fixture().await.unwrap();
     }
     async fn current_head(store: &CanonicalStore) -> String {
         let row: Option<Object> =
@@ -1865,15 +2531,17 @@ mod canonical_server_unit {
         // Multiple transport blocks keep both discoveries in staging while their
         // exact immutable payload and selected-read operation identity coincide.
         let payload = vec![37_u8; 2 * 1024 * 1024];
-        let proposed = product(&selected, &payload);
+        let description = store
+            .prepare_description(&selected, product(&selected, &payload))
+            .unwrap();
         let start = tokio::sync::Barrier::new(2);
         let first = async {
             start.wait().await;
-            store.publish_product(&selected, proposed.clone()).await
+            store.publish_description(&selected, &description).await
         };
         let second = async {
             start.wait().await;
-            store.publish_product(&selected, proposed.clone()).await
+            store.publish_description(&selected, &description).await
         };
         let (first, second) = tokio::join!(first, second);
         // Read the real native generation/state and server clock before asserting
@@ -1947,7 +2615,10 @@ mod canonical_server_unit {
         assert_eq!(roots.take::<Vec<Object>>(0).unwrap().len(), 1);
         assert_eq!(current_head(&store).await, revision.key);
         assert_eq!(
-            store.publish_product(&selected, proposed).await.unwrap(),
+            store
+                .publish_description(&selected, &description)
+                .await
+                .unwrap(),
             key,
             "a completed repeat settles without reopening the stage"
         );
@@ -1959,6 +2630,136 @@ mod canonical_server_unit {
         assert_eq!(repeated.generation, stage.generation);
         assert_eq!(repeated.expires_at, stage.expires_at);
         store.release(selected.selection()).await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn reusable_description_settles_exact_root_after_revision_change_and_pin_expiry() {
+        let store = fixture().await;
+        let first_revision = store
+            .edit(
+                "p",
+                None,
+                "description-first",
+                &[edit("Root", "root1", "definition", Vec::new())],
+            )
+            .await
+            .unwrap();
+        let mut first = read(&store, first_revision.clone()).await;
+        store
+            .resolve_logicals(&mut first, &["Root".into()])
+            .await
+            .unwrap();
+        let offered = product(&first, b"retained recipe");
+        let description = store.prepare_description(&first, offered.clone()).unwrap();
+        let dependencies = serde_json::to_vec(&first.dependencies()).unwrap();
+        let mut original_hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalProductV1);
+        original_hash
+            .str(&offered.key)
+            .str(first.selection().key())
+            .str(&offered.problem)
+            .str(&offered.interpretation)
+            .str(&offered.producer)
+            .part(offered.request.as_slice())
+            .part(offered.payload.as_slice())
+            .part(&dependencies);
+        let key = store
+            .publish_description(&first, &description)
+            .await
+            .unwrap();
+        assert_eq!(
+            key,
+            original_hash.finish_hash().to_hex(),
+            "new admission keeps the exact original framing"
+        );
+        let second_revision = store
+            .edit(
+                "p",
+                Some("description-first"),
+                "description-second",
+                &[edit("Other", "other1", "definition", Vec::new())],
+            )
+            .await
+            .unwrap();
+        let mut second = read(&store, second_revision).await;
+        assert!(
+            store
+                .recheck_selection_dependencies(&mut second, description.selected_dependencies())
+                .await
+                .unwrap()
+        );
+        assert!(description.matches_read(&second).unwrap());
+        assert_eq!(
+            store
+                .publish_description(&second, &description)
+                .await
+                .unwrap(),
+            key
+        );
+        crate::canonical::bounded_query(
+            store
+                .db
+                .query("UPDATE type::record('canonical_protections', $pin) SET expires_at = 0;")
+                .bind(("pin", second.selection().key().to_owned())),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            store.acknowledge_description(&description).await.unwrap(),
+            Some(key.clone())
+        );
+        assert_eq!(
+            store
+                .publish_description(&second, &description)
+                .await
+                .unwrap(),
+            key,
+            "exact rooted settlement does not require another proposed revision or live pin"
+        );
+        let uncommitted = store
+            .prepare_description(&second, product(&second, b"new body"))
+            .unwrap();
+        assert_eq!(
+            store.acknowledge_description(&uncommitted).await.unwrap(),
+            None
+        );
+        assert!(
+            store
+                .publish_description(&second, &uncommitted)
+                .await
+                .is_err(),
+            "expired consumer protection cannot admit new material"
+        );
+        let deadline = tokio::time::Instant::now();
+        assert!(
+            matches!(
+                store
+                    .publish_description_until(&second, &description, deadline)
+                    .await,
+                Err(CanonicalError::Timeout)
+            ),
+            "an elapsed operation clock is never restarted"
+        );
+        store
+            .drop_retained_root(
+                &first_revision,
+                &crate::canonical_retention::RetentionOwner::Product(key),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            store.acknowledge_description(&description).await.unwrap(),
+            None,
+            "cached bytes cannot revive a released exact root"
+        );
+        assert!(
+            store
+                .publish_description(&second, &description)
+                .await
+                .is_err()
+        );
+        store.release(first.selection()).await.unwrap();
+        store.release(second.selection()).await.unwrap();
         store.remove_isolated_fixture().await.unwrap();
     }
 
@@ -2182,6 +2983,65 @@ mod canonical_server_unit {
             "released roots never resurrect through acknowledgment"
         );
         assert_eq!(current_head(&store).await, revision.key);
+    }
+
+    #[tokio::test]
+    async fn product_presence_does_not_decode_corrupt_descriptor() {
+        let store = fixture().await;
+        let revision = store.edit("p", None, "source", &[]).await.unwrap();
+        let selected = read(&store, revision).await;
+        let key = store
+            .publish_product(&selected, product(&selected, b"immutable recipe"))
+            .await
+            .unwrap();
+        assert!(
+            store
+                .product_candidate_presence(
+                    selected.selection(),
+                    b"exact-request",
+                    "qualified-fixture",
+                    "",
+                )
+                .await
+                .unwrap()
+        );
+        assert!(
+            !store
+                .product_candidate_presence(
+                    selected.selection(),
+                    b"other-request",
+                    "qualified-fixture",
+                    "",
+                )
+                .await
+                .unwrap()
+        );
+        store.corrupt_product_descriptor(&key).await.unwrap();
+        assert!(
+            store
+                .product_candidate_presence(
+                    selected.selection(),
+                    b"exact-request",
+                    "qualified-fixture",
+                    "",
+                )
+                .await
+                .unwrap(),
+            "presence uses protected row identity without decoding payload bytes"
+        );
+        assert!(
+            store
+                .product_candidate(
+                    selected.selection(),
+                    b"exact-request",
+                    "qualified-fixture",
+                    ""
+                )
+                .await
+                .is_err()
+        );
+        store.release(selected.selection()).await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
     }
 
     #[tokio::test]

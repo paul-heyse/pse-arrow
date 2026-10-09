@@ -13,7 +13,10 @@ use std::sync::atomic::Ordering;
 enum Key {
     Package(AdmittedClosureHash),
     Selected(Arc<crate::workflow::modeling::SelectedRequest>),
-    Body(SemanticBodyHash, Option<String>),
+    Body(SemanticBodyHash),
+    EncodedBody(SemanticBodyHash),
+    Basis(Arc<modeling::BasisKey>),
+    Frontier(Arc<modeling::BasisKey>),
     Solver(PreparedViewHash),
     Observation(PreparedViewHash),
     Parametric(PreparedViewHash),
@@ -24,7 +27,7 @@ impl CacheKey for Key {
             + 128
             + match self {
                 Self::Selected(request) => request.retained_bytes(),
-                Self::Body(_, producer) => producer.as_ref().map_or(0, String::capacity),
+                Self::Basis(key) | Self::Frontier(key) => key.retained_bytes(),
                 _ => 0,
             }
     }
@@ -37,6 +40,9 @@ enum Product {
     Package(crate::workflow::PackageAdmission),
     Selected(Arc<Vec<Arc<crate::workflow::modeling::SelectedAdmission>>>),
     Body(Arc<pse_compiler::typed_math::AdmittedBody>),
+    EncodedBody(Arc<portable::EncodedBody>),
+    Basis(Arc<modeling::PreparedBasis>),
+    Frontier(Arc<modeling::OwnedModelingFrontier>),
     Solver(Preparation),
     Program(Arc<ExecutableCase>),
 }
@@ -54,6 +60,9 @@ impl CacheValue for Product {
                         + values.iter().map(|p| p.retained_bytes()).sum::<usize>()
                 }
                 Self::Body(body) => body.math().retained_bytes() + body.descriptor_bytes(),
+                Self::EncodedBody(body) => body.retained_bytes(),
+                Self::Basis(basis) => basis.retained_bytes(),
+                Self::Frontier(frontier) => frontier.retained_bytes(),
                 Self::Solver(p) => p.compiled().retained_bytes(),
                 Self::Program(p) => p.assembly.retained_bytes(),
             }
@@ -154,6 +163,71 @@ impl ModelingCache {
     pub(crate) fn generation(&self) -> u64 {
         self.fence.generation()
     }
+    /// Pure sealed-body lookup; receiving-host eligibility is checked by the consumer.
+    pub(crate) fn body(
+        &self,
+        key: SemanticBodyHash,
+    ) -> Option<Arc<pse_compiler::typed_math::AdmittedBody>> {
+        match self.get(&Key::Body(key))? {
+            Product::Body(body) => Some(body),
+            _ => None,
+        }
+    }
+    /// Exact immutable portable encoding under the compiler-sealed semantic body identity.
+    /// Current producer qualification and canonical settlement are separate consumer effects.
+    pub(super) fn encoded_body(&self, key: SemanticBodyHash) -> Option<Arc<portable::EncodedBody>> {
+        match self.get(&Key::EncodedBody(key))? {
+            Product::EncodedBody(body) => Some(body),
+            _ => None,
+        }
+    }
+    pub(super) fn retain_encoded_body(
+        &self,
+        generation: u64,
+        key: SemanticBodyHash,
+        body: Arc<portable::EncodedBody>,
+    ) {
+        self.put(
+            generation,
+            Key::EncodedBody(key),
+            Product::EncodedBody(body),
+        );
+    }
+    /// A completed immutable preparation basis shares the same finite cache owner.
+    pub(crate) fn frontier(
+        &self,
+        key: &Arc<modeling::BasisKey>,
+    ) -> Option<Arc<modeling::OwnedModelingFrontier>> {
+        match self.get(&Key::Frontier(key.clone()))? {
+            Product::Frontier(frontier) => Some(frontier),
+            _ => None,
+        }
+    }
+    pub(crate) fn retain_frontier(
+        &self,
+        generation: u64,
+        key: Arc<modeling::BasisKey>,
+        frontier: Arc<modeling::OwnedModelingFrontier>,
+    ) {
+        self.put(generation, Key::Frontier(key), Product::Frontier(frontier));
+    }
+    pub(crate) fn basis(
+        &self,
+        key: &Arc<modeling::BasisKey>,
+    ) -> Option<Arc<modeling::PreparedBasis>> {
+        match self.get(&Key::Basis(key.clone()))? {
+            Product::Basis(basis) => Some(basis),
+            _ => None,
+        }
+    }
+    pub(crate) fn retain_basis(
+        &self,
+        generation: u64,
+        key: Arc<modeling::BasisKey>,
+        basis: Arc<modeling::PreparedBasis>,
+    ) {
+        self.put(generation, Key::Basis(key), Product::Basis(basis));
+    }
     pub(crate) fn solver(&self, key: PreparedViewHash) -> Option<Preparation> {
         match self.get(&Key::Solver(key))? {
             Product::Solver(p) => Some(p),
@@ -239,60 +313,6 @@ pub(super) struct BodyRetention(pub std::sync::Weak<MathService>);
 // Cancellation can unwind admission. Published entries are immutable; lease transfer,
 // cache insertion and ownership tables use their own guarded operations and RAII.
 impl std::panic::RefUnwindSafe for BodyRetention {}
-impl BodyRetention {
-    // Clone the namespaced candidate before entering the loader scope. Cache locks
-    // must never be acquired from inside that scope; the canonical attachment
-    // checks current admission before exposing a candidate for mathematical use.
-    pub(super) fn get_for_producer(
-        &self,
-        key: SemanticBodyHash,
-        producer: Option<&portable::ReplayAdmission>,
-    ) -> Result<Option<Arc<pse_compiler::typed_math::AdmittedBody>>, pse_math::MathError> {
-        let Some(service) = self.0.upgrade() else {
-            return Ok(None);
-        };
-        Ok(
-            match service.modeling_cache.get(&Key::Body(
-                key,
-                producer.map(portable::ReplayAdmission::key),
-            )) {
-                Some(Product::Body(body)) => Some(body),
-                _ => None,
-            },
-        )
-    }
-    pub(super) fn retain_for_producer(
-        &self,
-        generation: u64,
-        key: SemanticBodyHash,
-        body: Arc<pse_compiler::typed_math::AdmittedBody>,
-        producer: Option<&portable::ReplayAdmission>,
-    ) -> Result<Arc<pse_compiler::typed_math::AdmittedBody>, pse_math::MathError> {
-        let Some(service) = self.0.upgrade() else {
-            return Ok(body);
-        };
-        // Tag this fill only while its exact admission is current. Commit no cache
-        // side effects until the scope's before/after validation has succeeded.
-        // A stale admission can still retain fresh mathematical output, but only
-        // in the ordinary unqualified namespace, never under its historical key.
-        let (body, namespace) = producer
-            .and_then(|producer| producer.with_current(|| (body.clone(), producer.key())))
-            .map_or_else(|| (body, None), |(body, key)| (body, Some(key)));
-        let owned =
-            service
-                .own_semantic_body(body)
-                .map_err(|error| pse_math::MathError::Typed {
-                    retained: size_of::<MathRuntimeError>(),
-                    cause: pse_model::diagnostic::DiagnosticCause::new(error),
-                })?;
-        service.modeling_cache.put(
-            generation,
-            Key::Body(key, namespace),
-            Product::Body(owned.clone()),
-        );
-        Ok(owned)
-    }
-}
 impl ModelingBodyRetention for BodyRetention {
     fn generation(&self) -> u64 {
         self.0
@@ -303,129 +323,10 @@ impl ModelingBodyRetention for BodyRetention {
         &self,
         key: SemanticBodyHash,
     ) -> Result<Option<Arc<pse_compiler::typed_math::AdmittedBody>>, pse_math::MathError> {
-        self.get_for_producer(key, None)
-    }
-    fn retain(
-        &self,
-        generation: u64,
-        key: SemanticBodyHash,
-        body: Arc<pse_compiler::typed_math::AdmittedBody>,
-    ) -> Result<Arc<pse_compiler::typed_math::AdmittedBody>, pse_math::MathError> {
-        self.retain_for_producer(generation, key, body, None)
-    }
-}
-/// Protected selected-demand attachment; immutable math alone enters memory retention.
-#[derive(Debug)]
-pub(super) struct CanonicalBodyRetention {
-    pub(super) memory: BodyRetention,
-    pub(super) store: Arc<pse_operations::canonical::CanonicalStore>,
-    pub(super) read: Arc<Mutex<pse_operations::canonical_selection::SelectedRead>>,
-    pub(super) producer: Option<portable::ReplayAdmission>,
-    pub(super) outer_build: pse_ids::ContentHash,
-    pub(super) inputs: CompilerContext,
-    pub(super) cancelled: Arc<std::sync::atomic::AtomicBool>,
-    pub(super) handle: tokio::runtime::Handle,
-}
-impl std::panic::RefUnwindSafe for CanonicalBodyRetention {}
-fn portable_error(error: portable::PortableError) -> pse_math::MathError {
-    match error {
-        portable::PortableError::Math(error) => error,
-        error => {
-            // Keep the storage owner's exact typed identity and facts in an owned,
-            // accounted envelope rather than classifying its rendered native message.
-            let diagnostic = pse_model::diagnostic::project_typed(
-                &error,
-                pse_diagnostics::DiagnosticStage::ModelingAdmission,
-            );
-            let retained = size_of::<pse_model::diagnostic::BoundaryDiagnostic>()
-                + pse_model::HeapUsage::heap_bytes(&diagnostic);
-            pse_math::MathError::Typed {
-                retained,
-                cause: pse_model::diagnostic::DiagnosticCause::new(diagnostic),
-            }
-        }
-    }
-}
-async fn canonical_request<T>(
-    cancelled: &std::sync::atomic::AtomicBool,
-    timeout: std::time::Duration,
-    operation: impl Future<Output = Result<T, portable::PortableError>>,
-) -> Result<T, pse_math::MathError> {
-    let cancellation = async {
-        loop {
-            if cancelled.load(Ordering::Relaxed) {
-                break;
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        }
-    };
-    tokio::pin!(operation);
-    tokio::select! {
-        biased;
-        ()=cancellation=>Err(pse_math::MathError::Cancelled),
-        ()=tokio::time::sleep(timeout)=>Err(portable_error(portable::PortableError::Store(pse_operations::canonical::CanonicalError::Timeout))),
-        result=&mut operation=>result.map_err(portable_error),
-    }
-}
-impl ModelingBodyRetention for CanonicalBodyRetention {
-    fn generation(&self) -> u64 {
-        self.memory.generation()
-    }
-    fn get(
-        &self,
-        key: SemanticBodyHash,
-    ) -> Result<Option<Arc<pse_compiler::typed_math::AdmittedBody>>, pse_math::MathError> {
-        if self.cancelled.load(Ordering::Relaxed) {
-            return Err(pse_math::MathError::Cancelled);
-        }
-        // A cache probe only clones an immutable candidate; no mathematical use
-        // escapes until admission is checked. Empty probes need no loader scope.
-        if let Some(candidate) = self.memory.get_for_producer(key, self.producer.as_ref())? {
-            let body = match &self.producer {
-                Some(admission) => {
-                    let Some(body) = admission.with_current(|| candidate) else {
-                        return Ok(None);
-                    };
-                    body
-                }
-                None => candidate,
-            };
-            // A memory hit still makes this revision's durable reachability concrete.
-            self.publish(&body)?;
-            return Ok(Some(body));
-        }
-        let Some(producer) = &self.producer else {
+        let Some(service) = self.0.upgrade() else {
             return Ok(None);
         };
-        let service = self.memory.0.upgrade().ok_or_else(|| {
-            pse_math::MathError::Contract("canonical replay memory owner is unavailable".into())
-        })?;
-        let mut read = self.read.lock().map_err(|_| {
-            pse_math::MathError::Contract("canonical selection lock poisoned".into())
-        })?;
-        let body = self.handle.block_on(canonical_request(
-            &self.cancelled,
-            pse_operations::canonical::REQUEST_TIMEOUT,
-            portable::reuse_body(
-                &service,
-                &self.store,
-                &mut read,
-                producer,
-                key,
-                &self.inputs,
-                &self.cancelled,
-            ),
-        ))?;
-        drop(read);
-        body.map(|body| {
-            self.memory.retain_for_producer(
-                self.generation(),
-                key,
-                Arc::new(body),
-                self.producer.as_ref(),
-            )
-        })
-        .transpose()
+        Ok(service.modeling_cache.body(key))
     }
     fn retain(
         &self,
@@ -433,125 +334,41 @@ impl ModelingBodyRetention for CanonicalBodyRetention {
         key: SemanticBodyHash,
         body: Arc<pse_compiler::typed_math::AdmittedBody>,
     ) -> Result<Arc<pse_compiler::typed_math::AdmittedBody>, pse_math::MathError> {
-        let body =
-            self.memory
-                .retain_for_producer(generation, key, body, self.producer.as_ref())?;
-        self.publish(&body)?;
-        Ok(body)
+        // Only compiler-sealed immutable mathematics enters this pure owner. Producer
+        // identities, receiving qualification and publication never partition its meaning.
+        if body.semantic_identity() != Some(key) {
+            return Err(pse_math::MathError::Contract(
+                "body retention requires its exact compiler-sealed semantic identity".into(),
+            ));
+        }
+        let Some(service) = self.0.upgrade() else {
+            return Ok(body);
+        };
+        let owned =
+            service
+                .own_semantic_body(body)
+                .map_err(|error| pse_math::MathError::Typed {
+                    retained: size_of::<MathRuntimeError>(),
+                    cause: pse_model::diagnostic::DiagnosticCause::new(error),
+                })?;
+        service
+            .modeling_cache
+            .put(generation, Key::Body(key), Product::Body(owned.clone()));
+        Ok(owned)
     }
 }
-impl CanonicalBodyRetention {
-    fn publish(
-        &self,
-        body: &pse_compiler::typed_math::AdmittedBody,
-    ) -> Result<(), pse_math::MathError> {
-        if self.cancelled.load(Ordering::Relaxed) {
-            return Err(pse_math::MathError::Cancelled);
-        }
-        let service = self.memory.0.upgrade().ok_or_else(|| {
-            pse_math::MathError::Contract(
-                "canonical publication memory owner is unavailable".into(),
-            )
-        })?;
-        let read = self.read.lock().map_err(|_| {
-            pse_math::MathError::Contract("canonical selection lock poisoned".into())
-        })?;
-        self.handle.block_on(canonical_request(
-            &self.cancelled,
-            pse_operations::canonical::REQUEST_TIMEOUT,
-            async {
-                match &self.producer {
-                    Some(producer) if producer.is_current() => {
-                        portable::publish_body(
-                            &service,
-                            &self.store,
-                            &read,
-                            producer,
-                            body,
-                            &self.inputs,
-                        )
-                        .await
-                    }
-                    _ => {
-                        portable::publish_unqualified_body(
-                            &service,
-                            &self.store,
-                            &read,
-                            self.outer_build,
-                            body,
-                            &self.inputs,
-                        )
-                        .await
-                    }
-                }
-            },
-        ))?;
-        Ok(())
-    }
-}
-#[cfg(test)]
-mod canonical_portable_body_callback_tests {
-    use super::*;
-    use std::sync::atomic::AtomicBool;
-    use std::time::Duration;
-    struct DropProbe(Arc<AtomicBool>);
-    impl Drop for DropProbe {
-        fn drop(&mut self) {
-            self.0.store(true, Ordering::Relaxed);
-        }
-    }
-    #[tokio::test]
-    async fn canonical_portable_body_callback_cancellation_drops_pending_operation() {
-        let cancelled = Arc::new(AtomicBool::new(false));
-        let dropped = Arc::new(AtomicBool::new(false));
-        let probe = DropProbe(dropped.clone());
-        let operation = async move {
-            let _probe = probe;
-            std::future::pending::<Result<(), portable::PortableError>>().await
-        };
-        let trigger = cancelled.clone();
-        let cancel = tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(15)).await;
-            trigger.store(true, Ordering::Relaxed);
-        });
-        assert!(matches!(
-            canonical_request(&cancelled, Duration::from_secs(1), operation).await,
-            Err(pse_math::MathError::Cancelled)
-        ));
-        cancel.await.unwrap();
-        assert!(dropped.load(Ordering::Relaxed));
-    }
-    #[tokio::test]
-    async fn canonical_portable_body_callback_deadline_refuses_and_drops_pending_operation() {
-        use pse_diagnostics::{DiagnosticCode, TypedDiagnostic};
-        let cancelled = AtomicBool::new(false);
-        let dropped = Arc::new(AtomicBool::new(false));
-        let probe = DropProbe(dropped.clone());
-        let operation = async move {
-            let _probe = probe;
-            std::future::pending::<Result<(), portable::PortableError>>().await
-        };
-        let error = canonical_request(&cancelled, Duration::from_millis(15), operation)
-            .await
-            .unwrap_err();
-        assert_eq!(
-            error.diagnostic_code(),
-            Some(DiagnosticCode::RuntimeInfrastructure)
-        );
-        assert!(dropped.load(Ordering::Relaxed));
-    }
-    #[tokio::test]
-    async fn canonical_portable_body_callback_preexisting_cancellation_prevents_poll() {
-        let cancelled = AtomicBool::new(true);
-        let polled = AtomicBool::new(false);
-        let operation = async {
-            polled.store(true, Ordering::Relaxed);
-            Ok::<(), portable::PortableError>(())
-        };
-        assert!(matches!(
-            canonical_request(&cancelled, Duration::from_secs(1), operation).await,
-            Err(pse_math::MathError::Cancelled)
-        ));
-        assert!(!polled.load(Ordering::Relaxed));
+
+impl MathService {
+    /// Transfer an explicitly received sealed body through the same pure retention
+    /// and allocation owner used by compiler preparation. A clear fences late fills.
+    pub(crate) fn retain_received_body(
+        self: &Arc<Self>,
+        generation: u64,
+        key: SemanticBodyHash,
+        body: Arc<pse_compiler::typed_math::AdmittedBody>,
+    ) -> Result<Arc<pse_compiler::typed_math::AdmittedBody>, MathRuntimeError> {
+        BodyRetention(Arc::downgrade(self))
+            .retain(generation, key, body)
+            .map_err(MathRuntimeError::from)
     }
 }

@@ -6,8 +6,29 @@
 // A concrete synchronous code address in this actual worker composition module.
 fn local_code_anchor() {}
 
+/// Signals the owned native job if its startup future is dropped.
+struct StartupInterrupt {
+    listener: tokio::task::JoinHandle<()>,
+    cancellation: pse_runtime::CancelSource,
+}
+
+impl StartupInterrupt {
+    async fn finish(mut self) {
+        self.listener.abort();
+        let _ = (&mut self.listener).await;
+    }
+}
+
+impl Drop for StartupInterrupt {
+    fn drop(&mut self) {
+        self.cancellation.cancel();
+        self.listener.abort();
+    }
+}
+
 pub(super) async fn open(
     database: Option<&str>,
+    math: &std::sync::Arc<pse_runtime::math::MathService>,
 ) -> Result<pse_runtime::workflow::CanonicalDeployment, String> {
     let state = std::env::var_os("PSE_SURREAL_STATE")
         .ok_or("PSE_SURREAL_STATE must select a supervised canonical deployment")?;
@@ -41,6 +62,27 @@ pub(super) async fn open(
     let producer = if receipt.is_some() {
         strict.map(Into::into)
     } else {
+        use pse_runtime::math::portable::{PortableError, ReplayAdmission};
+
+        let deadline = std::time::Instant::now()
+            .checked_add(ReplayAdmission::STARTUP_OBSERVATION_LIMIT)
+            .ok_or("local replay startup deadline extent")?;
+        let cancelled = pse_runtime::CancelSource::new();
+        // The serving cancellation source does not exist until runtime startup
+        // completes. Register this startup listener before entering the loader scope.
+        let mut interrupt =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
+                .map_err(|error| format!("local replay startup interrupt listener: {error}"))?;
+        let stopped = cancelled.clone();
+        let listener = tokio::spawn(async move {
+            if interrupt.recv().await.is_some() {
+                stopped.cancel();
+            }
+        });
+        let interrupt = StartupInterrupt {
+            listener,
+            cancellation: cancelled.clone(),
+        };
         // SAFETY: the controlled worker's own code observes its receiving artifact.
         // Reconstruction is immutable Rust math without caller/plugin/provider
         // callbacks or direct executable-map mutation. Native operations retain
@@ -51,14 +93,22 @@ pub(super) async fn open(
         )]
         // SAFETY: this actual worker module supplies its own observed code address;
         // reconstruction follows the controlled immutable contract described above.
-        unsafe {
-            pse_runtime::math::portable::ReplayAdmission::observe_local(
+        let observed = unsafe {
+            math.observe_local_runtime(
                 pse_runtime::math::portable::ExpectedProducerTarget::WORKER,
                 local_code_anchor as *const () as usize,
                 std::sync::Arc::new(|| Ok(Vec::new())),
+                deadline,
+                &cancelled,
             )
         }
-        .ok()
+        .await;
+        interrupt.finish().await;
+        match observed {
+            Ok(admission) => Some(admission),
+            Err(PortableError::Qualification(_)) => None,
+            Err(error) => return Err(error.to_string()),
+        }
     };
     Ok(pse_runtime::workflow::CanonicalDeployment::new(
         store,

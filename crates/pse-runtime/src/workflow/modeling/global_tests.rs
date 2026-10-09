@@ -98,7 +98,7 @@ const PRICE_TAKER: &str =
 async fn selected_scip_preparation_budget_refuses_resource_without_relaxing_or_rerouting() {
     use pse_model::diagnostic::BoundaryClass;
     let source = "package p { def Root { var x:Scalar; eq root:x*x==1; annotation bounds x(-2,2); annotation start x(1); } }";
-    for worker_bytes in [512, 8 << 20] {
+    for worker_bytes in [512, 1 << 30] {
         let rows = pse_authoring::language::parse(
             source,
             SemanticId::NIL,
@@ -115,7 +115,7 @@ async fn selected_scip_preparation_budget_refuses_resource_without_relaxing_or_r
             2 << 30,
             crate::math::MathPolicy {
                 worker_bytes,
-                workspace_bytes: 16 << 20,
+                workspace_bytes: 1 << 30,
                 foreign_bytes: 16 << 20,
                 ..Default::default()
             },
@@ -131,8 +131,9 @@ async fn selected_scip_preparation_budget_refuses_resource_without_relaxing_or_r
                 SolverSelection::Explicit(Backend::Scip),
             ),
         );
-        // The same compiler policy admits the small numeric template. Complete
-        // attempt storage has a distinct gate and must refuse before publishing a route.
+        // Artifact construction is admitted before complete attempt storage. The
+        // low-capacity leg must refuse before publishing a route, while the same
+        // scientific compiler policy succeeds with an ordinary resource allowance.
         request.compiler.evaluation.scratch_bytes = 512;
         let prepared = package
             .prepare_analysis(&request, &crate::CancelSource::new())
@@ -145,7 +146,10 @@ async fn selected_scip_preparation_budget_refuses_resource_without_relaxing_or_r
                 BoundaryClass::ResourceLimit,
                 "{diagnostic:?}"
             );
-            assert!(error.to_string().contains("worker storage"), "{error}");
+            assert!(
+                error.to_string().contains("artifact construction capacity"),
+                "{error}"
+            );
         } else {
             let prepared = prepared.unwrap();
             assert_eq!(

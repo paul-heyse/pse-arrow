@@ -2178,7 +2178,7 @@ fn support_upgrade_extent_covers_original_sparse_duplicate_contributions() {
         provider_calls: 1_000_000,
     };
     let demand = value
-        .support_upgrade_allocation_bound(evaluation)
+        .support_upgrade_allocation_bound(evaluation, DerivativeOrder::Second)
         .unwrap()
         .unwrap();
     assert!(demand < 4 << 20);

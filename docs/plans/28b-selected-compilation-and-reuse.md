@@ -3,7 +3,7 @@ title: Selected compilation and durable reuse
 status: in-progress
 date: 2026-10-05
 adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md]
+review_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md, docs/design_review/reviews/design_review_execution-efficiency-and-surrealdb_2026-10-05.md, docs/design_review/reviews/design_review_plan-28-completion_2026-10-06.md, docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md, docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-unified-simulation-substrate_2026-10-05.md#representative-journeys]
 ---
 
@@ -18,6 +18,12 @@ guarded revisions; [28c](28c-durable-execution-and-studies.md) consumes admitted
 to execute runs. Database queries perform structural selection and dependency operations;
 existing scientific kernels retain physical interpretation, inference and finite specialization.
 Current shared decisions and finding dispositions belong to the coordinator.
+
+The [preparation integration](28-surrealdb-unified-substrate.md#preparation-assurance-and-reuse-review)
+adds B7 after confirmed rule decisions. [28i](28i-runtime-validity-and-interruption.md) owns
+receiving validity/interruption and [28j](28j-pure-preparation-and-publication.md) owns the
+pure basis/effect contract. This companion adopts their working contracts at selected
+preparation and reconstruction; the coordinator owns PA01–PA04 dispositions.
 
 The affected foundations are `pse-compiler::workspace`, `pse-modeling`, the runtime's
 `workflow/modeling`, `authoring_driver`, `artifact_requests` and `math` owners, and
@@ -223,7 +229,7 @@ N4/T5/L4 consumer closure precedes E3. Earlier B package Outcomes remain at thei
 
 B6 consumes [A4](28a-canonical-substrate-and-revisions.md#parallel-canonical-protection-and-contention)
 and [N8](28f-shared-numerical-preparation.md#parallel-admission-and-native-lifetimes) to correct
-Parallel F01/F02 preparation composition. Its baseline is `84a1caf`: `checked_selection`
+Parallel F01/F02 preparation composition. Its baseline is `84a1caf17656f00f38b22e703c7cbc2b63a44d2d`: `checked_selection`
 protects each call before dependency recheck/selection and later selected-admission flights.
 `CanonicalBodyRetention` may publish durable reachability even on a memory hit. Those are
 necessary effects whose equivalent operation/lifetime scope should be assessed, not removed
@@ -253,6 +259,35 @@ not only the conformance fixtures.
 | Package | Inputs and delivered behavior | Migration, deletion and focused acceptance | Status |
 |---|---|---|---|
 | B6 — Parallel selected preparation | A4's working protection/publication slice where changed; N8 temporary admission. Compose exact selection/reachability effects at their valid reuse lifetime and move affected preparation/rebind callers to demand-based admission. | Remove displaced per-call equivalent protection/publication work only when replacement semantics are demonstrated; preserve receipts/eligibility. Test sixteen small consumers, mixed compatible/incompatible demands, changed revision/absence/provider, cancelled shared waiter, expiry, retained pressure and original scientific results. | A4 retains protection/identity and paces staging; N8 callers migrated with targeted demand controls; N4 and E3 acceptance pending. |
+
+## Complete selected-preparation adoption
+
+B7 moves `checked_selection`/`canonical_workspace`/`prepare_modeling_revision` composition
+to explicit current selection effects plus J's reusable basis. The current preparation
+includes values and lineage: neither the entire `PreparedModeling` nor its runtime wrapper
+may be shared under an incomplete structural key. J0 defines the substitutable subset and
+fresh attribution before B7 integrates it. Complete positive, absent, membership, physical,
+provider and demanded-input dependencies remain authoritative.
+
+Canonical discovery and reconstruction run outside tracked queries. Qualified admitted
+products populate pure retention; exact receiving and persisted-payload admission remain
+explicit. Every warm or cold selection discovers all required descriptions and publishes or
+settles them before new protection is released. Exact existing acknowledgment reuse does not
+require a new row/root for each selection. Root validity and current revision/instance/spans
+are separate from immutable mathematical meaning.
+
+| Package | Prerequisite and target behavior | Completion and status |
+|---|---|---|
+| B7 — Selected basis and receiving adoption | J0/J1/J2 and A5's working canonical slice; applicable I0/I1/I2 receiving profile/control. Integrate current source eligibility, description acquisition, pure basis lookup, fresh binding and explicit effects at actual Rust/worker/Python entries. | Implemented; Tested complete-basis/current-attribution, A/B/A, changed dependencies/provider/root, acquired absence and pin/ack controls. Displaced callbacks and canonical compiler workspace are removed. 28e owns the rebuilt affected journeys and qualification boundary. |
+
+Pure same-process work need not wait for an unsupported-root replay guarantee. B7 can design
+against the settled J contract while I0 investigates receiving protection; actual replay
+integration waits for its supported premise argument. B7 supplies C8/N11 rather than
+reimplementing their workflow policies or numerical state ownership.
+Existing source selection/reconstruction primitives and an early J0-defined B7 interface
+slice supply J1/I1 before full B7 migration. This breaks the apparent whole-package cycle:
+J1/I1 need those specific contracts, while B7's completed consumer adoption needs working J2
+and the applicable receiving implementation.
 
 ## Work packages
 
@@ -298,6 +333,13 @@ Do not claim a compile-time or solve-time gain from these structural controls. E
 quantitative comparison; B4 may conclude that some dense library input is necessary.
 
 ## Checkpoint and next step
+
+B7 is implemented against the settled I0/J0 contracts. Current selected reads acquire
+persisted bodies explicitly before pure frontier completion; exact complete bases share
+immutable mathematics with fresh Solved/source wrappers. Publication remains a current
+operation and the displaced canonical compiler callback is removed. New targeted controls
+and rebuilt journeys are being qualified; B5/B6 evidence retains its original scope.
+The coordinator owns the preparation finding ledger.
 
 B6 is integrated with A4 staging pacing and N8 source-demand admission. Existing protection,
 publication and scientific identity contracts remain authoritative. Flat rebind and selected

@@ -160,7 +160,7 @@ struct ResidualProjection {
 pub(super) struct Projection {
     selection: SelectionProjection,
     algorithm: ImplicitAlgorithm,
-    id: SemanticId,
+    pub(super) id: SemanticId,
     unknowns: Vec<SemanticId>,
     formals: Vec<Formal>,
     residuals: Vec<ResidualProjection>,
@@ -1762,11 +1762,40 @@ pub(super) fn admit(
     db: &dyn CompilerDb,
     inventory: Inventory,
     p: &super::Projection,
+    supplied: BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
 ) -> Result<Admitted> {
     let registry = inventory.quantities(db);
     let checker = inventory.preconditions(db);
-    let mut definitions = BTreeMap::new();
+    let physical = physical_identity(registry, checker);
+    let mut definitions = supplied;
     let mut calls = BTreeMap::new();
+    // Promoted original suppliers are already admitted. Make their exact provider
+    // descriptors available before admitting any remaining nested consumer, without
+    // rebuilding their residuals or deriving a new semantic identity.
+    for (id, supplier) in &definitions {
+        let spec = supplier.descriptor.spec();
+        if spec.id != *id
+            || spec
+                .outputs
+                .iter()
+                .map(|port| port.id)
+                .ne(supplier.unknowns.iter().copied())
+            || supplier.bodies().any(|body| body.spec.physical != physical)
+        {
+            return Err(CompileError::from(MathError::Contract(
+                "supplied implicit system has a different admitted compiler inventory".into(),
+            )));
+        }
+        for output in 0..supplier.unknowns.len() {
+            calls.insert(
+                call_name(*id, output),
+                ProviderCall {
+                    descriptor: supplier.descriptor.clone(),
+                    output,
+                },
+            );
+        }
+    }
     let mut external_calls = BTreeMap::new();
     for function in p.functions.values() {
         if let Some(external) = &function.external {
@@ -1783,6 +1812,11 @@ pub(super) fn admit(
     }
     for implicit in &p.implicit {
         checkpoint(db);
+        if definitions.contains_key(&implicit.id) {
+            return Err(CompileError::from(MathError::Contract(
+                "supplied implicit system cannot be admitted again".into(),
+            )));
+        }
         let mut available = external_calls.clone();
         available.extend(calls.clone());
         let admit_body = |definition,
@@ -1798,7 +1832,7 @@ pub(super) fn admit(
                     groups: &BTreeMap::new(),
                     providers: &available,
                     literals: &BTreeMap::new(),
-                    physical: physical_identity(registry, checker),
+                    physical,
                     structure: implicit.spec.revision,
                     limits: p.body_limits,
                 }

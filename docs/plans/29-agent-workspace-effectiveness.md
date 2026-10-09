@@ -390,6 +390,12 @@ the proposed remedies.
 
 ## Finding dispositions
 
+The prospective AE-25/AE-26 follow-ups transferred on 2026-10-08 to
+[Plan 30's disposition owner](30-websocket-and-persistent-agent-environment.md#finding-dispositions).
+Their original observations remain above and the recorded Outcome remains historical.
+Plan 30 also owns the prospective replacement of the uncapped aggregate admission
+policy; this completed plan does not claim that replacement was part of P9.
+
 | Finding reference | Scenario reference | Disposition | Decision / work owner | Evidence or revisit trigger |
 |---|---|---|---|---|
 | AE-01, AE-24 | S1, S6 | scheduled | P2 | W1 P4–P5 counts; `env -i` login-shell probe; `native_operation.environment` source |
@@ -406,8 +412,6 @@ the proposed remedies.
 | AE-18, AE-19, AE-21, AE-22 | all | scheduled | P8 | Codex 0.160 source limits; instruction audit |
 | AE-20 | all | scheduled | P1 | Instruction and config audit |
 | AE-23 | S5, S7 | scheduled | P9 | Journal; cgroup placement; systemd 255 manuals |
-| AE-26 | S5 | deferred | Maintainer decision between 28e (fixture schema creation retry or serialization; server write-buffer profile) and a follow-up sharding database-only consumers across run-owned per-slot servers | Revisit when the shared server wait point is identified or 28e next qualifies the store subset |
-| AE-25 | S5, S7 | deferred | 28e (canonical fixture contract) | Revisit when 28e qualifies Python canonical consumers or a shared-database interference is observed |
 | Review F01 | S1, S4, S6 | scheduled | P2 (with P9) | Precedence, export and native-lifetime contract in D1 |
 | Review F02 | S7 | scheduled | P3 | Locking claims scoped to checks; observational `just activity` |
 | Review F03 | S5, S7 | scheduled | P5, with 28e | Effect-based scheduling with run-owned resources (D5) |

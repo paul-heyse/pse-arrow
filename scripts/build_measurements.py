@@ -500,6 +500,99 @@ def capability_environment(
     )
 
 
+def prepare_inputs(
+    root: Path,
+    output: Path,
+    original: dict[str, str],
+    *,
+    native: bool,
+    workflow: bool,
+    conditions: dict[str, object],
+) -> tuple[Path, dict[str, str], dict[str, object]]:
+    """Time the snapshot and admission actually executed after target entry.
+
+    The operation record proves existing admission/generation state, not elapsed
+    setup time or a cache hit. Initial launcher setup has already happened here.
+    """
+    owner = native_operation.owner_record()
+
+    def observation() -> dict[str, object] | None:
+        if owner is None:
+            return None
+        with native_operation.record_lock(owner):
+            return json.loads(owner.read_text())
+
+    operation: dict[str, object] = {
+        "preexisting_at_measurement_target_entry": owner is not None,
+        "record_path": str(owner) if owner is not None else None,
+        "before": observation(),
+        "evidence_scope": "authentic existing admissions and generation pins; no setup durations or cache-hit inference",
+    }
+    receipt: dict[str, object] = {
+        "scope": "measurement target snapshot and capability_environment call only",
+        "excludes": [
+            "native operation launch and capability setup before target entry",
+            "Cargo samples and compiler-cache server startup/shutdown",
+            "receipt serialization and final operation drain",
+        ],
+        "conditions": conditions,
+        "requested_capabilities": ["solver", "klu", "isolation", "uno", "petsc"]
+        if native or workflow
+        else [],
+        "phase_order": ["snapshot", "capability_environment"],
+        "phases": {},
+        "native_operation": operation,
+        "cache_scope": "native prerequisites follow the existing operation; cold-cache selects a downstream empty compiler cache only",
+    }
+    phases: dict[str, object] = {}
+    receipt["phases"] = phases
+    phase = "snapshot"
+    started = time.monotonic()
+    try:
+        source = snapshot(root, output)
+        phases[phase] = {"wall_seconds": time.monotonic() - started, "status": "passed"}
+        phase = "capability_environment"
+        started = time.monotonic()
+        env = capability_environment(original, native=native, workflow=workflow)
+        phases[phase] = {"wall_seconds": time.monotonic() - started, "status": "passed"}
+        operation["after"] = observation()
+        receipt["native_environment"] = {
+            name: env.get(name)
+            for name in (
+                "PSE_NATIVE_CACHE",
+                "PSE_NATIVE_COMPILER_CACHE",
+                "RUSTC_WRAPPER",
+                "SCCACHE_DIR",
+                "SCCACHE_CACHE_SIZE",
+                "IPOPT_DIR",
+                "SUITESPARSE_LIBRARY_DIR",
+                "PSE_ROOT_ISOLATION_DIR",
+                "UNO_DIR",
+                "PETSC_DIR",
+                "CLANG_PATH",
+                "CMAKE_TOOLCHAIN_FILE",
+                "OMP_NUM_THREADS",
+                "OPENBLAS_NUM_THREADS",
+                "MKL_NUM_THREADS",
+            )
+        }
+        receipt["status"] = "passed"
+    except BaseException as error:
+        if phase not in phases:
+            phases[phase] = {
+                "wall_seconds": time.monotonic() - started,
+                "status": "failed",
+                "error_type": type(error).__name__,
+            }
+        receipt["status"] = "failed"
+        receipt["error_type"] = type(error).__name__
+        raise
+    else:
+        return source, env, receipt
+    finally:
+        validation.write_json(output / "preparation.json", receipt)
+
+
 def ensure_capability_operation(root: Path, *, native: bool, workflow: bool) -> None:
     """Start the real operation before setup, snapshot creation and child builds."""
     if not native and not workflow:
@@ -562,6 +655,7 @@ def main() -> None:
     parser.add_argument("--recovery", action="store_true")
     parser.add_argument("--second-worktree", action="store_true")
     args = parser.parse_args()
+    target_started = time.monotonic()
     if args.repetitions < 3:
         parser.error("warm/edit workloads require at least three repetitions")
     if args.execute and args.native:
@@ -574,13 +668,31 @@ def main() -> None:
             "insufficient free space; inventory and reclaim inactive outputs first"
         )
     output = validation.fresh_output(root, args.output)
-    source = snapshot(root, output)
+    source, capability_env, preparation = prepare_inputs(
+        root,
+        output,
+        validation.command_env(),
+        native=args.native,
+        workflow=args.workflow,
+        conditions={
+            "native": args.native,
+            "workflow": args.workflow,
+            "compiler_cache_selection": args.cache,
+            "cold_compiler_cache": args.cold_cache,
+            "frontend": args.frontend,
+            "jobs": args.jobs,
+            "dependency_opt": args.dependency_opt,
+            "repetitions": args.repetitions,
+            "screen": args.screen,
+            "execute": args.execute,
+            "recovery": args.recovery,
+            "second_worktree": args.second_worktree,
+        },
+    )
     profile_override(source, args.dependency_opt)
     env = build_environment.configure(
         root,
-        capability_environment(
-            validation.command_env(), native=args.native, workflow=args.workflow
-        ),
+        capability_env,
         cache=args.cache,
         frontend=args.frontend,
         jobs=args.jobs,
@@ -712,7 +824,28 @@ def main() -> None:
     if args.second_worktree:
         second = output / "second"
         second.mkdir()
-        source = snapshot(root, second)
+        phases = preparation["phases"]
+        phase_order = preparation["phase_order"]
+        if not isinstance(phases, dict) or not isinstance(phase_order, list):
+            raise ValueError("measurement preparation has invalid phase records")
+        phase_order.append("second_snapshot")
+        started = time.monotonic()
+        try:
+            source = snapshot(root, second)
+            phases["second_snapshot"] = {
+                "wall_seconds": time.monotonic() - started,
+                "status": "passed",
+            }
+        except BaseException as error:
+            phases["second_snapshot"] = {
+                "wall_seconds": time.monotonic() - started,
+                "status": "failed",
+                "error_type": type(error).__name__,
+            }
+            preparation["status"] = "failed"
+            raise
+        finally:
+            validation.write_json(output / "preparation.json", preparation)
         profile_override(source, args.dependency_opt)
         env["CARGO_TARGET_DIR"] = str(output / "second-target")
         sample("second-worktree")
@@ -745,6 +878,16 @@ def main() -> None:
             "cache_state": "new target; shared downloaded sources, native prerequisites and selected compiler cache",
             "critical_path": "retained Cargo HTML; summed CPU is not the critical path",
             "correctness_execution": args.execute or args.workflow,
+            "preparation": preparation,
+            "target_operation": {
+                "wall_seconds": time.monotonic() - target_started,
+                "scope": "actual measurement target after argument parsing through summary assembly",
+                "excludes": [
+                    "launcher and initial native capability setup before measurement target entry",
+                    "final summary serialization and operation drain after target return",
+                ],
+                "setup_inclusive": False,
+            },
         },
     )
 

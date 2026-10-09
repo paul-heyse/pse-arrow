@@ -87,36 +87,60 @@ impl WorkflowRuntime {
         workers: NonZeroUsize,
         math: pse_runtime::math::MathPolicy,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        Self::with_budget(workers, math, workflow_budget::MEMORY_LIMIT_BYTES)
+        Self::with_budget(workers, math, workflow_budget::MEMORY_LIMIT_BYTES, false)
     }
-    /// Reference campaign: one 128 GiB shared pool, sixteen CPU permits and
-    /// thirty-two total preparation/session slots. Ordinary fixtures are unchanged.
-    pub(crate) fn parallel_reference() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    /// Reference campaign: one 128 GiB shared pool, sixteen partitions, a 16 GiB
+    /// worker capacity and thirty-two preparation/session slots. Only CPU dispatch
+    /// permits vary for the same-science serial comparison.
+    pub(crate) fn independent_reference(
+        workers: NonZeroUsize,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         Self::with_budget(
-            NonZeroUsize::new(16).ok_or("sixteen positive CPU permits")?,
+            workers,
             pse_runtime::math::MathPolicy {
                 jobs: 32,
+                worker_bytes: 16_usize << 30,
                 ..Default::default()
             },
             workflow_budget::PARALLEL_REFERENCE_MEMORY_BYTES,
+            true,
+        )
+    }
+    /// The observer admits sources and reads canonical results; native work runs
+    /// exclusively in the managed reference primary's pool.
+    pub(crate) fn managed_observer() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        Self::with_budget(
+            NonZeroUsize::new(1).ok_or("one observer CPU permit")?,
+            pse_runtime::math::MathPolicy {
+                workspace_bytes: 64 << 20,
+                ..Default::default()
+            },
+            256 << 20,
+            false,
         )
     }
     fn with_budget(
         workers: NonZeroUsize,
         math: pse_runtime::math::MathPolicy,
         memory_limit_bytes: usize,
+        reference: bool,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let registry = pse_schema::shared_registry()?;
         let spill = tempfile::tempdir()?;
         let threads = ThreadBudget {
             pool_threads: workers,
-            target_partitions: workers,
+            target_partitions: if reference {
+                NonZeroUsize::new(16).ok_or("positive reference partitions")?
+            } else {
+                workers
+            },
         };
         let mut cache = pse_runtime::CacheBudget::for_memory(memory_limit_bytes);
+        let cache_workers = if reference { 16 } else { workers.get() };
         cache.concurrent_queries =
-            NonZeroUsize::new(workers.get().min(2)).ok_or("positive queries")?;
+            NonZeroUsize::new(cache_workers.min(2)).ok_or("positive queries")?;
         cache.concurrent_outputs =
-            NonZeroUsize::new(workers.get().min(4)).ok_or("positive outputs")?;
+            NonZeroUsize::new(cache_workers.min(4)).ok_or("positive outputs")?;
         let runtime = SharedRuntime::build(ResourceBudget {
             memory_limit_bytes: NonZeroUsize::new(memory_limit_bytes)
                 .ok_or("positive memory limit")?,

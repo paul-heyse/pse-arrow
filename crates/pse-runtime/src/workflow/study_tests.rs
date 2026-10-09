@@ -570,8 +570,9 @@ async fn managed_primary_reopened_continuation_uses_shared_secant_and_original_c
     let runtime = fixture.runtime.clone();
     let operations = runtime.operations().unwrap().clone();
     let (package, definition) = related_definition(&runtime).await;
-    let study = package
-        .study(&definition, 3, &crate::CancelSource::new())
+    let cancel = crate::CancelSource::new();
+    let study = fixture
+        .dispatch(&cancel, package.study(&definition, 3, &cancel))
         .await
         .unwrap();
     assert!(
@@ -702,6 +703,10 @@ async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_s
         .start_defined_study(physical, definition, &crate::CancelSource::new())
         .await
         .unwrap();
+    assert!(
+        handle.result().await.unwrap().is_none(),
+        "open study has no sealed result"
+    );
     assert!(matches!(
         runtime.work_once().await.unwrap(),
         Processed::Ran { .. }
@@ -787,6 +792,9 @@ async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_s
         .unwrap()
         .unwrap();
     assert_eq!(final_attempt.outcome.as_deref(), Some("succeeded"));
+    let results = handle.result().await.unwrap().unwrap();
+    assert_eq!(results.attempt, status.result_attempt.unwrap());
+    assert_eq!(results.points.len(), 1);
     drop(package);
 }
 
@@ -1474,6 +1482,114 @@ async fn ephemeral_study_continuation_reuses_one_private_native_session() {
         assert!(matches!(report.outcomes[index].start,
             Some(StartProvenance::Continuation { predecessor, .. }) if predecessor == definition.points[index - 1].policy.key));
     }
+
+    let StudyOccurrenceResult::Ephemeral(first) = report.results[0].as_ref().unwrap() else {
+        panic!("ephemeral source result expected");
+    };
+    let StudyOccurrenceResult::Ephemeral(third) = report.results[2].as_ref().unwrap() else {
+        panic!("ephemeral target result expected");
+    };
+    let RunReport::Modeling(first_results) = first.report().unwrap() else {
+        panic!("modeling source result expected");
+    };
+    let RunReport::Modeling(third_results) = third.report().unwrap() else {
+        panic!("modeling target result expected");
+    };
+    let portable = first_results[0].portable_prediction().unwrap().unwrap();
+    let lease = runtime
+        .shared
+        .math()
+        .reserve("test:rebound-continuation-source", 8192)
+        .unwrap();
+    let portable = Arc::new(pse_columnar::Leased::new(Arc::new(portable), lease));
+    let binding_members = definition.points[2]
+        .binding
+        .entries
+        .keys()
+        .copied()
+        .collect::<Vec<_>>();
+    let target = &third_results[0].prepared;
+    assert_eq!(
+        definition.points[0]
+            .binding
+            .entries
+            .keys()
+            .copied()
+            .collect::<Vec<_>>(),
+        binding_members,
+        "source and target bind the same members"
+    );
+    assert!(
+        definition.points[0]
+            .binding
+            .entries
+            .values()
+            .all(|entry| entry.parameter)
+    );
+    assert!(target.profile.reconstruction.is_none());
+    assert!(target.profile.numerics.goals.is_empty());
+    assert!(target.providers.is_empty());
+    assert!(
+        target
+            .model
+            .model
+            .compiled()
+            .admitted
+            .implicit_systems()
+            .next()
+            .is_none()
+    );
+    assert!(target.profile.sensitivity.is_none());
+    assert_eq!(
+        portable.key.numerical_policy,
+        Some(target.solve.numerics().key),
+        "the point must carry the same resolved numeric policy"
+    );
+    let rebound = study::rebind_prediction_source(
+        &package,
+        target,
+        &definition.points[0].binding,
+        &binding_members,
+        portable.clone(),
+        &crate::CancelSource::new(),
+    )
+    .await
+    .unwrap()
+    .expect("the exact parameter-only source is eligible for a bounded view rebind");
+    let source_parameter = definition.points[0]
+        .binding
+        .entries
+        .iter()
+        .find(|(_, entry)| entry.parameter)
+        .map(|(member, entry)| (*member, entry.canonical.into_inner()))
+        .unwrap();
+    assert_eq!(
+        rebound.prepared.model.values.scalars[&source_parameter.0],
+        source_parameter.1
+    );
+    assert_eq!(
+        rebound.prepared.solve.seed_preparation_identity(),
+        first_results[0].prepared.solve.seed_preparation_identity(),
+        "rebound source keeps its original seed compatibility identity"
+    );
+    let primal = portable
+        .primal
+        .iter()
+        .copied()
+        .map(f64::from_bits)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        rebound.prepared.solve.semantic_point_key(&primal).unwrap(),
+        portable.key,
+        "the original portable point remains bound to the rebuilt source solve"
+    );
+    assert!(
+        third_results[0]
+            .prepared
+            .solve
+            .related_target_parameters(&rebound.prepared.solve, &[source_parameter])
+            .is_ok()
+    );
 }
 
 #[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
@@ -1594,6 +1710,7 @@ struct ManagedStudyFixture {
     nonce: String,
     worker_pid: u32,
     finished: bool,
+    drain_deadline: std::sync::Mutex<Option<std::time::Instant>>,
 }
 #[cfg(feature = "canonical-tests")]
 fn managed_private_json(path: &std::path::Path, value: &impl serde::Serialize) {
@@ -1675,7 +1792,7 @@ impl ManagedStudyFixture {
         managed_private_json(
             &directory.join("request.json"),
             &serde_json::json!({
-                "nonce": nonce, "canonical_database": store.database(), "entries": 16, "timeout_ms": 120_000,
+                "nonce": nonce, "canonical_database": store.database(), "entries": 16, "entry_timeout_ms": 90_000,
             }),
         );
         let operations = Operations::from_store(
@@ -1691,6 +1808,7 @@ impl ManagedStudyFixture {
             nonce,
             worker_pid: 0,
             finished: false,
+            drain_deadline: std::sync::Mutex::new(None),
         };
         if !hold_entries {
             fixture.signal("release.json");
@@ -1746,6 +1864,64 @@ impl ManagedStudyFixture {
     fn signal(&self, name: &str) {
         managed_private_json(&self.directory.join(name), &self.nonce);
     }
+    fn drain_deadline(&self) -> std::time::Instant {
+        let mut deadline = self.drain_deadline.lock().unwrap();
+        *deadline.get_or_insert_with(|| std::time::Instant::now() + Duration::from_secs(45))
+    }
+    async fn dispatch<T>(
+        &self,
+        cancel: &crate::CancelSource,
+        operation: impl Future<Output = T>,
+    ) -> T {
+        tokio::pin!(operation);
+        let failure = tokio::select! {
+            result = &mut operation => return result,
+            failure = async {
+                let deadline = std::time::Instant::now() + Duration::from_secs(90);
+                loop {
+                    let failure = self.directory.join("failure.json");
+                    if failure.exists() {
+                        return format!("native qualification controller failed: {:?}", managed_read_json(&failure));
+                    }
+                    if !std::path::Path::new(&format!("/proc/{}", self.worker_pid)).exists() {
+                        return String::from("qualified primary exited during public study dispatch");
+                    }
+                    if std::time::Instant::now() >= deadline {
+                        return String::from("public managed study dispatch exceeded its 90 second operation bound");
+                    }
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                }
+            } => failure,
+        };
+        cancel.cancel();
+        for name in ["release.json", "stop.json"] {
+            if !self.directory.join(name).exists() {
+                self.signal(name);
+            }
+        }
+        // Keep the public future and its cancellation owner alive while the real
+        // primary drains. A timeout drops neither the fixture nor its cleanup lock;
+        // Drop retains the actual worker drain ownership during the explicit failure.
+        let drained = tokio::time::timeout_at(
+            tokio::time::Instant::from_std(self.drain_deadline()),
+            async {
+                tokio::join!(
+                    async {
+                        let _ = (&mut operation).await;
+                    },
+                    async {
+                        while std::path::Path::new(&format!("/proc/{}", self.worker_pid)).exists() {
+                            tokio::time::sleep(Duration::from_millis(20)).await;
+                        }
+                    }
+                );
+            },
+        )
+        .await
+        .is_ok();
+        panic!("{failure}; public cancellation and primary drain completed: {drained}");
+    }
+    #[cfg(feature = "solver-ipopt")]
     async fn observation(
         &self,
         predicate: impl Fn(&serde_json::Value) -> bool,
@@ -1758,7 +1934,16 @@ impl ManagedStudyFixture {
                     "native qualification failed: {:?}",
                     failure.exists().then(|| managed_read_json(&failure))
                 );
-                let value = managed_read_json(&self.directory.join("entries.json"));
+                assert!(
+                    std::path::Path::new(&format!("/proc/{}", self.worker_pid)).exists(),
+                    "qualified primary exited before its native observation"
+                );
+                let entries = self.directory.join("entries.json");
+                if !entries.exists() {
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                    continue;
+                }
+                let value = managed_read_json(&entries);
                 assert_eq!(value["nonce"], self.nonce);
                 assert_eq!(
                     value["canonical_database"],
@@ -1776,16 +1961,29 @@ impl ManagedStudyFixture {
             }
         })
         .await
-        .unwrap()
+        .unwrap_or_else(|_| {
+            let entries = self.directory.join("entries.json");
+            let last = entries.exists().then(|| managed_read_json(&entries));
+            panic!(
+                "native entry observation exceeded 90 seconds: active {:?}, maximum {:?}, observed entries {:?}, worker {}",
+                last.as_ref().and_then(|value| value["active"].as_u64()),
+                last.as_ref().and_then(|value| value["maximum"].as_u64()),
+                last.as_ref().and_then(|value| value["entries"].as_array().map(Vec::len)),
+                self.worker_pid,
+            )
+        })
     }
     async fn finish(mut self) {
         self.signal("release.json");
         self.signal("stop.json");
-        tokio::time::timeout(Duration::from_secs(45), async {
-            while std::path::Path::new(&format!("/proc/{}", self.worker_pid)).exists() {
-                tokio::time::sleep(Duration::from_millis(20)).await;
-            }
-        })
+        tokio::time::timeout_at(
+            tokio::time::Instant::from_std(self.drain_deadline()),
+            async {
+                while std::path::Path::new(&format!("/proc/{}", self.worker_pid)).exists() {
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                }
+            },
+        )
         .await
         .unwrap();
         let final_entries = managed_read_json(&self.directory.join("entries.json"));
@@ -1825,7 +2023,7 @@ impl Drop for ManagedStudyFixture {
             if !self.directory.join("stop.json").exists() {
                 self.signal("stop.json");
             }
-            let deadline = std::time::Instant::now() + Duration::from_secs(45);
+            let deadline = self.drain_deadline();
             while self.worker_pid != 0
                 && std::path::Path::new(&format!("/proc/{}", self.worker_pid)).exists()
                 && std::time::Instant::now() < deadline
@@ -1874,7 +2072,11 @@ async fn managed_primary_study_enters_sixteen_native_owners_and_retains_original
         );
         fixture.signal("release.json");
     };
-    let (report, ()) = tokio::join!(package.study(&definition, 16, &cancel), control);
+    let (report, ()) = fixture
+        .dispatch(&cancel, async {
+            tokio::join!(package.study(&definition, 16, &cancel), control)
+        })
+        .await;
     let report = report.unwrap();
     assert!(
         report
@@ -1975,11 +2177,11 @@ async fn managed_primary_study_cancellation_drains_admitted_sixteen_and_refuses_
             "actual admitted owners exit their entry barrier through the native stop flag"
         );
     };
-    let (report, ()) = tokio::time::timeout(Duration::from_secs(90), async {
-        tokio::join!(package.study(&definition, 20, &cancel), control)
-    })
-    .await
-    .unwrap();
+    let (report, ()) = fixture
+        .dispatch(&cancel, async {
+            tokio::join!(package.study(&definition, 20, &cancel), control)
+        })
+        .await;
     let report = report.unwrap();
     assert!(
         report
@@ -1996,6 +2198,417 @@ async fn managed_primary_study_cancellation_drains_admitted_sixteen_and_refuses_
         "the unissued tail settles through the existing effect-free cancellation policy"
     );
     assert!(report.results[16..].iter().all(Option::is_none));
+    fixture.finish().await;
+}
+
+#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[allow(
+    unsafe_code,
+    reason = "separate finite Arrow transport fixture asserts Partial only; sixteen ordinary native roots retain their actual scientific qualification"
+)]
+#[tokio::test]
+async fn managed_primary_publication_serves_exact_partial_history_and_escaped_arrow_retirement() {
+    use datafusion::arrow::array::{Array, Float64Array};
+    use pse_columnar::CancellationToken;
+    use pse_operations::canonical_analyses::{Analysis, AnalysisNode};
+    use pse_operations::canonical_execution::{RunRequest, TerminalClass};
+    use pse_relations::generated::{
+        enums::NativeMetricKind,
+        runtime::{solve_metrics, solve_variables},
+    };
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    let fixture = ManagedStudyFixture::start(true).await;
+    let runtime = &fixture.runtime;
+    let store = runtime.canonical_store();
+    let pool = runtime.shared.pool();
+    let validation = runtime.validation_context().unwrap();
+    let transport_run = format!("serving-transport-{}", fixture.nonce);
+    let revision = store
+        .edit(&transport_run, None, "partial Arrow transport fixture", &[])
+        .await
+        .unwrap();
+    store
+        .begin_run(&RunRequest {
+            key: transport_run.clone(),
+            revision: revision.clone(),
+            sources: vec![],
+            request: vec![1],
+            source_selection: vec![2],
+            attestation: vec![3],
+        })
+        .await
+        .unwrap();
+    let mut attempts = Vec::new();
+    // These two transport-only attempts exercise actual typed publication and
+    // exact current/history selection; neither fabricates scientific success.
+    for (ordinal, temperature) in [273.15, 300.0].into_iter().enumerate() {
+        let fence = store
+            .claim_run(
+                &transport_run,
+                &format!("serving-claim-{ordinal}"),
+                "serving-transport-fixture",
+                Duration::from_secs(60),
+            )
+            .await
+            .unwrap();
+        let run_id = pse_operations::mint_id();
+        let mut builder =
+            solve_metrics::Builder::with_registry(&runtime.registry, 3, &validation).unwrap();
+        for (step, real) in [Some(-0.0), None, Some(temperature)]
+            .into_iter()
+            .enumerate()
+        {
+            builder
+                .push(solve_metrics::Row {
+                    run_id,
+                    step: step as i64,
+                    namespace: "partial-serving-transport".into(),
+                    name: "temperature".into(),
+                    kind: if real.is_some() {
+                        NativeMetricKind::Real
+                    } else {
+                        NativeMetricKind::Unavailable
+                    },
+                    real,
+                    integer: None,
+                    boolean: None,
+                    text: None,
+                    unavailable: real.is_none().then_some(
+                        pse_model::generated::enums::EvidenceUnavailableReason::Nonfinite,
+                    ),
+                })
+                .unwrap();
+        }
+        let table = builder.finish().unwrap();
+        result_projection::store_result_table(
+            store,
+            &fence,
+            solve_metrics::RELATION_ID,
+            &table,
+            &pool,
+        )
+        .await
+        .unwrap();
+        let closed = store
+            .close_result_ingestion(&fence, &format!("serving-close-{ordinal}"))
+            .await
+            .unwrap();
+        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        let seal = format!("serving-seal-{ordinal}");
+        // SAFETY: these finite generated transport rows establish Partial only.
+        unsafe { store.seal_attempt(&manifest, &seal, TerminalClass::Partial, &[1]) }
+            .await
+            .unwrap();
+        attempts.push(fence.attempt().to_owned());
+    }
+
+    let (package, definition) = parallel_study_definition(runtime, 16, None).await;
+    let cancel = crate::CancelSource::new();
+    let published = AtomicBool::new(false);
+    let science = async {
+        let report = package.study(&definition, 16, &cancel).await.unwrap();
+        published.store(true, Ordering::Release);
+        report
+    };
+    let serving = async {
+        let held = fixture.observation(|value| value["active"] == 16).await;
+        let owners = held["entries"].as_array().unwrap();
+        assert_eq!(owners.len(), 16);
+        assert_eq!(held["maximum"], 16);
+        assert_eq!(
+            owners
+                .iter()
+                .map(|entry| entry["thread"].as_str().unwrap())
+                .collect::<std::collections::BTreeSet<_>>()
+                .len(),
+            16
+        );
+        assert!(owners.iter().all(|entry| entry["released"] == false));
+        assert!(!published.load(Ordering::Acquire));
+        assert!(
+            runtime
+                .latest_results(
+                    &transport_run,
+                    &[TerminalClass::Succeeded],
+                    "runtime.solve_metrics",
+                    0,
+                    3,
+                    CancellationToken::new(),
+                )
+                .await
+                .is_err(),
+            "a partial transport observation cannot be substituted for scientific success"
+        );
+        let mut current = runtime
+            .latest_results(
+                &transport_run,
+                &[TerminalClass::Partial],
+                "runtime.solve_metrics",
+                1,
+                3,
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        let mut historical = runtime
+            .results(
+                &transport_run,
+                &attempts[0],
+                "runtime.solve_metrics",
+                0,
+                3,
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(current.selection().attempt().key, attempts[1]);
+        assert_eq!(historical.selection().attempt().key, attempts[0]);
+        assert_eq!(
+            current.selection().attempt().outcome.as_deref(),
+            Some("partial")
+        );
+        assert_eq!(
+            historical.selection().attempt().outcome.as_deref(),
+            Some("partial")
+        );
+        let current_batch = current.next_batch().await.unwrap().unwrap();
+        let historical_batch = historical.next_batch().await.unwrap().unwrap();
+        assert_eq!(current_batch.num_rows(), 2);
+        assert_eq!(historical_batch.num_rows(), 3);
+        let current_values = current_batch.column_by_name("real").unwrap().clone();
+        let historical_values = historical_batch.column_by_name("real").unwrap().clone();
+        let values = current_values
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
+        assert!(values.is_null(0));
+        assert_eq!(values.value(1), 300.0);
+        let values = historical_values
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
+        assert_eq!(values.value(0).to_bits(), (-0.0f64).to_bits());
+        assert!(values.is_null(1));
+        assert_eq!(values.value(2), 273.15);
+        assert!(current.next_batch().await.unwrap().is_none());
+        assert!(historical.next_batch().await.unwrap().is_none());
+        assert!(store.forget_run_results(&transport_run).await.is_err());
+
+        let analysis = Analysis {
+            key: format!("serving-transport-analysis-{}", fixture.nonce),
+            revision: revision.key.clone(),
+            method: "partial-transport-reader-handoff-fixture:v1".into(),
+            configuration: vec![1].into(),
+            input_digest: current.selection().manifest().digest.clone(),
+            interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
+            node_count: 1,
+            edge_count: 0,
+            active: false,
+        };
+        let node = AnalysisNode {
+            key: format!("serving-transport-node-{}", fixture.nonce),
+            analysis: analysis.key.clone(),
+            semantic: "partial-transport-temperature".into(),
+            kind: "result".into(),
+        };
+        let inputs = [current.selection().clone(), historical.selection().clone()];
+        assert!(
+            store
+                .persist_analysis(
+                    &analysis,
+                    std::slice::from_ref(&revision),
+                    &inputs,
+                    &[node],
+                    &[]
+                )
+                .await
+                .unwrap()
+                .active
+        );
+        drop(inputs);
+        // Both exact protected selections are open before any native owner is
+        // released, and remain open throughout all sixteen real publications.
+        fixture.signal("release.json");
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(90);
+        let mut serving_reads = 0;
+        loop {
+            let mut reopened = runtime
+                .results(
+                    &transport_run,
+                    &attempts[0],
+                    "runtime.solve_metrics",
+                    2,
+                    3,
+                    CancellationToken::new(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(reopened.selection().attempt().key, attempts[0]);
+            let batch = reopened.next_batch().await.unwrap().unwrap();
+            assert_eq!(batch.num_rows(), 1);
+            assert_eq!(
+                batch
+                    .column_by_name("real")
+                    .unwrap()
+                    .as_any()
+                    .downcast_ref::<Float64Array>()
+                    .unwrap()
+                    .value(0),
+                273.15
+            );
+            assert!(reopened.next_batch().await.unwrap().is_none());
+            serving_reads += 1;
+            if published.load(Ordering::Acquire) {
+                break;
+            }
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "scientific publication did not finish"
+            );
+        }
+        assert!(serving_reads > 0);
+        fixture.observation(|value| value["active"] == 0).await;
+        drop(current_batch);
+        drop(historical_batch);
+        drop(current);
+        drop(historical);
+        assert!(
+            store.forget_run_results(&transport_run).await.is_err(),
+            "analysis retention takes over before the readers release their exact inputs"
+        );
+        runtime
+            .forget_analysis_results(&analysis.key)
+            .await
+            .unwrap();
+        let mut retired = false;
+        for _ in 0..32 {
+            if store.forget_run_results(&transport_run).await.is_ok() {
+                retired = true;
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(retired, "reader release did not permit bounded retirement");
+        let mut reclaimed = 0;
+        let mut complete = false;
+        for _ in 0..8 {
+            let page = store.reclaim_result_page(&transport_run).await.unwrap();
+            reclaimed += page.batches;
+            if page.complete {
+                complete = true;
+                break;
+            }
+        }
+        assert!(complete);
+        assert_eq!(reclaimed, 2);
+        assert!(
+            runtime
+                .results(
+                    &transport_run,
+                    &attempts[0],
+                    "runtime.solve_metrics",
+                    0,
+                    3,
+                    CancellationToken::new(),
+                )
+                .await
+                .is_err()
+        );
+        // Escaped decoded Arrow buffers need no storage access after reader,
+        // publication, analysis and result cleanup have all finished.
+        let values = current_values
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
+        assert!(values.is_null(0));
+        assert_eq!(values.value(1), 300.0);
+        let values = historical_values
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
+        assert_eq!(values.value(0).to_bits(), (-0.0f64).to_bits());
+        assert!(values.is_null(1));
+        assert_eq!(values.value(2), 273.15);
+        let retained_bytes = pool.reserved();
+        drop(current_values);
+        drop(historical_values);
+        assert!(
+            pool.reserved() < retained_bytes,
+            "escaping arrays retain real accounted allocation owners"
+        );
+    };
+    let (report, ()) = fixture
+        .dispatch(&cancel, async { tokio::join!(science, serving) })
+        .await;
+    assert_eq!(report.outcomes.len(), 16);
+    assert!(
+        report
+            .outcomes
+            .iter()
+            .all(|outcome| outcome.scientific.usable)
+    );
+    assert_eq!(
+        report
+            .outcomes
+            .iter()
+            .map(|outcome| outcome.key)
+            .collect::<Vec<_>>(),
+        definition
+            .points
+            .iter()
+            .map(|point| point.policy.key)
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        report
+            .results
+            .iter()
+            .map(|result| result.as_ref().unwrap().run_id())
+            .collect::<std::collections::BTreeSet<_>>()
+            .len(),
+        16
+    );
+    for result in &report.results {
+        let (run, attempt) = result.as_ref().unwrap().stored_keys().unwrap();
+        let mut reader = runtime
+            .results(
+                run,
+                attempt,
+                "runtime.solve_variables",
+                0,
+                u64::MAX,
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            reader.selection().attempt().outcome.as_deref(),
+            Some("succeeded")
+        );
+        let mut roots = 0;
+        while let Some(batch) = reader.next_batch().await.unwrap() {
+            let view = solve_variables::View::try_from_batch_with_registry(
+                &runtime.registry,
+                &batch,
+                &validation,
+            )
+            .unwrap();
+            for row in view.rows().unwrap() {
+                let value = row.value.unwrap();
+                if row.parameter {
+                    assert_eq!(value, 4.0);
+                } else {
+                    let allowance = row.tolerance.unwrap();
+                    assert!(value.is_finite() && allowance.is_finite() && allowance > 0.0);
+                    assert!((value - 2.0).abs() <= allowance);
+                    assert!(value > 1.0, "original authored root check");
+                    roots += 1;
+                }
+            }
+        }
+        assert_eq!(roots, 1);
+    }
     fixture.finish().await;
 }
 

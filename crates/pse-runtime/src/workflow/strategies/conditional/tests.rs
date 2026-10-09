@@ -5,6 +5,349 @@ use super::*;
 use crate::workflow::tests::{compiler_profile, id, physical, runtime};
 use pse_structural::flowsheet::{Decision, Policy};
 
+/// Actual arithmetic source with a growing local row/support/binding population.
+async fn construction_source(runtime: Runtime, internal_rows: usize) -> PreparedRecycle {
+    let mut source = String::from(
+        "package demand {def Root {var x:Scalar; var y:Scalar; eq local:y==x/2+1; annotation start x(4); annotation start y(1);",
+    );
+    for row in 0..internal_rows {
+        source.push_str(&format!(
+            "var hidden{row}:Scalar; eq internal{row}:hidden{row}==y+{}; annotation start hidden{row}(1);",
+            row + 3
+        ));
+    }
+    source.push_str("state incoming supplied(true) {coordinate value=x; transport value=x tolerance 1e-7{1};} state outgoing supplied(false) {coordinate value=y; transport value=y tolerance 1e-7{1};} state_port inlet=incoming; state_port outlet=outgoing; annotation connectivity inlet(1,0); annotation connectivity outlet(0,1); connect outlet -> inlet;}}");
+    let declarations = pse_authoring::language::parse(
+        &source,
+        id(96),
+        pse_authoring::language::IdentityPolicy::Named,
+        Default::default(),
+    )
+    .unwrap();
+    let root = declarations
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let package = runtime
+        .modeling_package(declarations, physical())
+        .await
+        .unwrap();
+    let cancel = crate::CancelSource::new();
+    let analysis = package
+        .declared_execution(
+            root,
+            compiler_profile(),
+            super::super::tests::profile(SolveIntent::Root),
+            Default::default(),
+            Default::default(),
+            &cancel,
+        )
+        .await
+        .unwrap()
+        .analysis;
+    let model = package
+        .prepare(
+            root,
+            analysis.instance,
+            analysis.bindings.clone(),
+            analysis.limits,
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let model = &model.compiled().model;
+    let port = |name: &str| {
+        model
+            .material_ports
+            .values()
+            .find(|port| port.lineage.path.ends_with(&format!(".{name}")))
+            .unwrap()
+            .id
+    };
+    let selection = ModelingFlowSelection {
+        nodes: BTreeSet::from([analysis.instance]),
+        connections: model
+            .connections
+            .keys()
+            .map(|edge| {
+                (
+                    *edge,
+                    Decision {
+                        id: *edge,
+                        cost: 1.0,
+                        policy: Policy::Mandatory,
+                    },
+                )
+            })
+            .collect(),
+    };
+    let request = RecycleRequest {
+        tears: selection.connections.keys().copied().collect(),
+        units: vec![CausalUnitRequest {
+            node: analysis.instance.as_id(),
+            inputs: BTreeSet::from([port("inlet")]),
+            outputs: BTreeSet::from([port("outlet")]),
+            realization: CausalUnitRealization::Conditional {
+                residuals: model
+                    .equations
+                    .iter()
+                    .filter(|row| {
+                        row.lineage.path.ends_with(".local")
+                            || row
+                                .lineage
+                                .path
+                                .rsplit('.')
+                                .next()
+                                .unwrap()
+                                .starts_with("internal")
+                    })
+                    .map(|row| row.id)
+                    .collect(),
+                unknowns: model
+                    .symbols
+                    .values()
+                    .filter(|symbol| {
+                        symbol.lineage.path.ends_with(".y")
+                            || symbol
+                                .lineage
+                                .path
+                                .rsplit('.')
+                                .next()
+                                .unwrap()
+                                .starts_with("hidden")
+                    })
+                    .map(|symbol| symbol.id)
+                    .collect(),
+                solver: Box::new(crate::math::settings::SolveSettings {
+                    intent: SolveIntent::Root,
+                    ..Default::default()
+                }),
+            },
+        }],
+        anderson: 0,
+        damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
+    };
+    package
+        .prepare_recycle(&analysis, selection, request, &cancel)
+        .await
+        .unwrap()
+}
+
+fn construction_runtime() -> Runtime {
+    crate::workflow::tests::runtime_on(
+        1 << 30,
+        crate::math::MathPolicy {
+            worker_bytes: 512 << 20,
+            workspace_bytes: 128 << 20,
+            foreign_bytes: 1 << 20,
+            ..Default::default()
+        },
+    )
+}
+
+#[tokio::test]
+async fn conditional_construction_bounds_follow_source_and_binding_populations() {
+    let runtime = construction_runtime();
+    let small = construction_source(runtime.clone(), 1).await;
+    let larger = construction_source(runtime.clone(), 4).await;
+    assert!(small.providers.is_empty());
+    assert!(larger.providers.is_empty());
+    let compiled = small._source.case.compiled();
+    let grown = larger._source.case.compiled();
+    assert!(grown.plan.structure().rows().len() > compiled.plan.structure().rows().len());
+    assert!(grown.plan.columns().len() > compiled.plan.columns().len());
+    let support = compiled
+        .support_upgrade_allocation_bound(DerivativeOrder::Second)
+        .unwrap()
+        .unwrap();
+    let schedule = compiled.initialization_allocation_bound().unwrap().unwrap();
+    assert!(
+        grown
+            .support_upgrade_allocation_bound(DerivativeOrder::Second)
+            .unwrap()
+            .unwrap()
+            > support
+    );
+    assert!(grown.initialization_allocation_bound().unwrap().unwrap() > schedule);
+    // Matching has an actual stack allowance; it is included in source demand,
+    // independently of the generous configured worker/workspace maxima.
+    assert!(schedule >= pse_structural::incidence::MATCHING_STACK);
+    assert!(schedule < runtime.shared.budget().math.workspace_bytes);
+    let factory = small.factory_allocation_bound().unwrap().unwrap();
+    assert!(larger.factory_allocation_bound().unwrap().unwrap() > factory);
+    assert!(factory < runtime.shared.budget().math.worker_bytes);
+    let program = &small.programs[0];
+    let view = &program.conditional.as_ref().unwrap().view;
+    let binding = view
+        .binding_allocation_bound(&program.values)
+        .unwrap()
+        .unwrap();
+    assert!(
+        larger.programs[0]
+            .conditional
+            .as_ref()
+            .unwrap()
+            .view
+            .binding_allocation_bound(&larger.programs[0].values)
+            .unwrap()
+            .unwrap()
+            > binding
+    );
+    let mut changed_values = program.values.clone();
+    *changed_values.scalars.values_mut().next().unwrap() += 1.0;
+    assert_eq!(
+        view.binding_allocation_bound(&changed_values).unwrap(),
+        Some(binding)
+    );
+    changed_values.scalars.insert(id(97), 3.0);
+    assert!(
+        view.binding_allocation_bound(&changed_values)
+            .unwrap()
+            .unwrap()
+            > binding
+    );
+}
+
+#[tokio::test]
+async fn conditional_schedule_and_first_binding_enter_with_source_demand() {
+    let runtime = construction_runtime();
+    let prepared = construction_source(runtime.clone(), 1).await;
+    let compiled = prepared._source.case.compiled().clone();
+    let demand = compiled.initialization_allocation_bound().unwrap().unwrap();
+    let pool = runtime.shared.pool();
+    let policy = &runtime.shared.budget().math;
+    let fixed = policy.stack_bytes + policy.foreign_bytes + policy.inner_session_bytes;
+    // Less free space than either maximum-sized entry: the real source schedule
+    // must enter immediately with its demand and preserve matching's full stack.
+    let free = fixed + demand + (8 << 20);
+    assert!(free < fixed + policy.workspace_bytes);
+    assert!(free < fixed + policy.worker_bytes);
+    let pressure = runtime
+        .native()
+        .reserve(
+            "test:conditional-source-pressure",
+            runtime.shared.budget().memory_limit_bytes.get() - pool.reserved() - free,
+        )
+        .unwrap();
+    let baseline = pool.reserved();
+    let observed = pool.clone();
+    let blocks = runtime
+        .native()
+        .submit(1, demand, move |flag, _| {
+            assert_eq!(observed.reserved(), baseline + fixed + demand);
+            let pse_compiler::workspace::Alternative::Available(blocks) =
+                compiled.automatic_blocks(&flag)?
+            else {
+                panic!("authored arithmetic source must have a complete schedule");
+            };
+            let retained = blocks
+                .iter()
+                .map(|block| block.plan.retained_bytes() + block.structure.retained_bytes())
+                .sum();
+            Ok((blocks, retained))
+        })
+        .unwrap()
+        .finish()
+        .await
+        .unwrap();
+    assert!(blocks.0.len() >= 2);
+    drop(blocks);
+    assert_eq!(pool.reserved(), baseline);
+    let program = &prepared.programs[0];
+    let view = program.conditional.as_ref().unwrap().view.clone();
+    let values = program.values.clone();
+    let quantities = prepared._source.case.compiled().quantities.clone();
+    let demand = view.binding_allocation_bound(&values).unwrap().unwrap();
+    let expected = view.plan.columns().to_vec();
+    let observed = pool.clone();
+    runtime
+        .native()
+        .job(
+            1,
+            demand,
+            pse_columnar::flight::FlightCancellation::default(),
+            move |flag| {
+                assert_eq!(observed.reserved(), baseline + fixed + demand);
+                let bound = view.bind(quantities, &values, &flag)?;
+                assert_eq!(bound.plan.columns(), expected);
+                assert!(bound.values_match(&values));
+                Ok(())
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(pool.reserved(), baseline);
+    // The public recycle constructor consumes the same source-issued factory
+    // bound, including its first conditional binding and live unit evaluators.
+    let original = prepared._source.values.identity();
+    let result = prepared.start().unwrap().finish().await.unwrap();
+    let candidate = result.original_candidate.as_ref().unwrap();
+    assert_eq!(
+        candidate.scalars.len(),
+        prepared._source.values.scalars.len()
+    );
+    assert_eq!(prepared._source.values.identity(), original);
+    assert_eq!(
+        result.candidate_use(),
+        pse_model::generated::enums::CandidateUse::Usable
+    );
+    drop(result);
+    assert_eq!(pool.reserved(), baseline);
+    drop(pressure);
+}
+
+#[tokio::test]
+async fn conditional_construction_oversized_and_overflow_refuse_before_dispatch() {
+    let prepared = construction_source(construction_runtime(), 1).await;
+    let demand = prepared.factory_allocation_bound().unwrap().unwrap();
+    let limited = crate::workflow::tests::runtime_on(
+        512 << 20,
+        crate::math::MathPolicy {
+            worker_bytes: demand - 1,
+            workspace_bytes: 128 << 20,
+            foreign_bytes: 1 << 20,
+            ..Default::default()
+        },
+    );
+    let mut oversized = prepared.clone();
+    oversized.runtime = limited.clone();
+    let baseline = limited.shared.pool().reserved();
+    assert!(matches!(
+        oversized.start(),
+        Err(WorkflowError::Math(MathRuntimeError::Limit(
+            "declared root construction capacity"
+        )))
+    ));
+    assert_eq!(limited.shared.pool().reserved(), baseline);
+    assert!(
+        CausalMap::construction_allocation_bound(&prepared.graph, usize::MAX, prepared.fixed.len())
+            .is_err()
+    );
+    for (rows, columns, contributions) in [
+        (pse_structural::incidence::MATCHING_ROWS + 1, 1, 1),
+        (1, i32::MAX as usize + 1, 1),
+        (1, 1, usize::MAX),
+        (usize::MAX, 1, 1),
+    ] {
+        assert!(matches!(
+            pse_structural::incidence::CaseIncidence::memory_extent(rows, columns, contributions),
+            Err(pse_structural::projection::ProjectionError::Limit)
+        ));
+    }
+    let called = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let observed = called.clone();
+    assert!(matches!(
+        limited.native().submit(1, usize::MAX, move |_, _| {
+            observed.store(true, std::sync::atomic::Ordering::Release);
+            Ok(((), 0))
+        }),
+        Err(MathRuntimeError::Limit("native allowance overflow"))
+    ));
+    assert!(!called.load(std::sync::atomic::Ordering::Acquire));
+    assert_eq!(limited.shared.pool().reserved(), baseline);
+}
+
 #[tokio::test]
 async fn automatic_workflow_causal_acyclic_refusal_retains_original_alternatives() {
     use pse_model::strategy::MechanismKind;

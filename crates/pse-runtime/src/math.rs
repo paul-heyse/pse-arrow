@@ -10,6 +10,7 @@ mod jobs;
 pub mod modeling;
 pub mod portable;
 pub mod prediction;
+mod preparation;
 mod products;
 pub(crate) mod retention;
 pub mod settings;
@@ -33,7 +34,7 @@ use pse_engine::cache_service::CacheComponent;
 use pse_kernels::{Provider, ProviderKey};
 use pse_math::assembly::{CaseAssembly, CaseWorker};
 pub(crate) use staged::NativeSession;
-#[cfg(all(test, not(feature = "canonical-tests")))]
+#[cfg(all(test, feature = "native-solvers", not(feature = "canonical-tests")))]
 pub(crate) use staged::observed_native_entry;
 pub(crate) use staged::{SessionDisposition, StepRetention};
 #[cfg(feature = "canonical-tests")]
@@ -328,12 +329,87 @@ pub struct MathService {
         modeling::ModelingRevision,
         MathRuntimeError,
     >,
+    pub(crate) selected_qualifications: SelectedQualificationTurns,
+    pub(crate) frontier_flights:
+        Flights<Arc<modeling::BasisKey>, preparation::OwnedModelingFrontier, MathRuntimeError>,
+    pub(crate) basis_flights: Flights<
+        (
+            Arc<modeling::BasisKey>,
+            Arc<pse_operations::canonical_selection::SelectedDependencies>,
+        ),
+        modeling::PreparedBasis,
+        MathRuntimeError,
+    >,
     retention: pse_columnar::retention::RetentionFence,
     live: Arc<AtomicUsize>,
     hits: AtomicUsize,
     misses: AtomicUsize,
     products: Mutex<BTreeMap<Vec<usize>, std::sync::Weak<products::ProductOwner>>>,
     preparations: Preparations,
+}
+/// Weak, bounded ownership of one exact cold selected qualification at a time.
+/// Current reads remain private; only completed immutable admissions are reused.
+#[derive(Default)]
+pub(crate) struct SelectedQualificationTurns {
+    live: Mutex<Vec<std::sync::Weak<SelectedQualificationTurn>>>,
+    #[cfg(test)]
+    hydrations: AtomicUsize,
+}
+pub(crate) struct SelectedQualificationTurn {
+    request: Arc<crate::workflow::modeling::SelectedRequest>,
+    revision: pse_operations::canonical::Revision,
+    gate: Arc<tokio::sync::Mutex<()>>,
+    _metadata: Arc<pse_columnar::AllocationLease>,
+}
+pub(crate) struct SelectedQualificationGuard {
+    _turn: Arc<SelectedQualificationTurn>,
+    _permit: tokio::sync::OwnedMutexGuard<()>,
+}
+impl SelectedQualificationTurn {
+    pub(crate) async fn acquire(
+        self: &Arc<Self>,
+        cancel: &crate::CancelSource,
+        deadline: std::time::Instant,
+    ) -> Result<SelectedQualificationGuard, MathRuntimeError> {
+        let deadline = cancel
+            .deadline()
+            .map_or(deadline, |parent| parent.min(deadline));
+        if cancel.token().is_cancelled() {
+            return Err(MathRuntimeError::Cancelled);
+        }
+        if std::time::Instant::now() >= deadline {
+            return Err(Self::time_limit());
+        }
+        let permit = tokio::select! {
+            biased;
+            () = cancel.cancelled() => return Err(MathRuntimeError::Cancelled),
+            () = tokio::time::sleep_until(deadline.into()) => return Err(Self::time_limit()),
+            permit = self.gate.clone().lock_owned() => permit,
+        };
+        if std::time::Instant::now() >= deadline {
+            return Err(Self::time_limit());
+        }
+        Ok(SelectedQualificationGuard {
+            _turn: self.clone(),
+            _permit: permit,
+        })
+    }
+    fn time_limit() -> MathRuntimeError {
+        MathRuntimeError::Solve(pse_backend_native::ProblemError::Limit {
+            kind: pse_backend_native::LimitKind::Time,
+            detail: "selected qualification deadline".into(),
+        })
+    }
+}
+#[cfg(test)]
+impl SelectedQualificationTurns {
+    pub(crate) fn record_hydration(&self) {
+        self.hydrations
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+    pub(crate) fn hydrations(&self) -> usize {
+        self.hydrations.load(std::sync::atomic::Ordering::Relaxed)
+    }
 }
 /// Compiler preparations and value rebinds this service performed (A6). Observation only:
 /// nothing decides on them.
@@ -506,6 +582,9 @@ impl MathService {
             modeling_cache: retention::ModelingCache::new(policy.artifact_bytes),
             flights: Flights::new(policy.flights),
             selected_flights: Flights::new(policy.flights),
+            selected_qualifications: Default::default(),
+            frontier_flights: Flights::new(policy.flights),
+            basis_flights: Flights::new(policy.flights),
             policy,
             retention: Default::default(),
             live: Arc::default(),
@@ -527,6 +606,49 @@ impl MathService {
         r.try_grow(bytes)?;
         Ok(pse_columnar::AllocationLease::new(r))
     }
+    pub(crate) fn selected_qualification_turn(
+        &self,
+        request: Arc<crate::workflow::modeling::SelectedRequest>,
+        revision: &pse_operations::canonical::Revision,
+    ) -> Result<Arc<SelectedQualificationTurn>, MathRuntimeError> {
+        let mut live = self.selected_qualifications.live.lock().map_err(|_| {
+            MathRuntimeError::Infrastructure("selected qualification owner poisoned".into())
+        })?;
+        live.retain(|turn| turn.strong_count() != 0);
+        if let Some(turn) = live
+            .iter()
+            .filter_map(std::sync::Weak::upgrade)
+            .find(|turn| turn.request == request && turn.revision == *revision)
+        {
+            return Ok(turn);
+        }
+        if live.len() >= self.policy.flights {
+            return Err(MathRuntimeError::Limit("selected qualification population"));
+        }
+        let mut bytes = size_of::<SelectedQualificationTurn>() + 256;
+        for extent in [
+            request.retained_bytes(),
+            revision.key.len(),
+            revision.problem.len(),
+            revision.parent.as_ref().map_or(0, String::len),
+            revision.operation.len(),
+            revision.request.len(),
+            revision.interpretation.len(),
+        ] {
+            bytes = bytes
+                .checked_add(extent)
+                .ok_or(MathRuntimeError::Limit("selected qualification extent"))?;
+        }
+        let metadata = self.reserve("modeling:selected-qualification-turn", bytes)?;
+        let turn = Arc::new(SelectedQualificationTurn {
+            request,
+            revision: revision.clone(),
+            gate: Arc::new(tokio::sync::Mutex::new(())),
+            _metadata: metadata,
+        });
+        live.push(Arc::downgrade(&turn));
+        Ok(turn)
+    }
     /// Reserve a workspace before constructing its Salsa generation.
     pub fn workspace(
         self: &Arc<Self>,
@@ -538,47 +660,6 @@ impl MathService {
         let lease = self.reserve("math:compiler-workspace", self.policy.workspace_bytes)?;
         let mut compiler = CompilerWorkspace::new(inputs, limits)?;
         compiler.attach_body_retention(Arc::new(retention::BodyRetention(Arc::downgrade(self))))?;
-        Ok(Workspace {
-            compiler: Arc::new(Mutex::new(compiler)),
-            lease,
-        })
-    }
-    /// Fresh selected-demand workspace. Durable scientific meaning is looked up before
-    /// admission and published before the caller releases its selection protection.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "one selected workspace binds compiler inputs and limits to its canonical store, protected read, qualified producer, outer build and cancellation owner"
-    )]
-    pub fn canonical_workspace(
-        self: &Arc<Self>,
-        inputs: CompilerContext,
-        mut limits: WorkspaceLimits,
-        store: Arc<pse_operations::canonical::CanonicalStore>,
-        read: Arc<Mutex<pse_operations::canonical_selection::SelectedRead>>,
-        producer: Option<portable::ReplayAdmission>,
-        outer_build: pse_ids::ContentHash,
-        cancelled: Arc<std::sync::atomic::AtomicBool>,
-    ) -> Result<Workspace, MathRuntimeError> {
-        limits.input_bytes = limits.input_bytes.min(self.policy.workspace_bytes / 2);
-        limits.retained_bytes = limits.retained_bytes.min(self.policy.workspace_bytes / 2);
-        let lease = self.reserve(
-            "math:canonical-compiler-workspace",
-            self.policy.workspace_bytes,
-        )?;
-        let handle = tokio::runtime::Handle::try_current().map_err(|e| {
-            MathRuntimeError::Infrastructure(format!("canonical workspace requires runtime: {e}"))
-        })?;
-        let mut compiler = CompilerWorkspace::new(inputs.clone(), limits)?;
-        compiler.attach_body_retention(Arc::new(retention::CanonicalBodyRetention {
-            memory: retention::BodyRetention(Arc::downgrade(self)),
-            store,
-            read,
-            producer,
-            outer_build,
-            inputs,
-            cancelled,
-            handle,
-        }))?;
         Ok(Workspace {
             compiler: Arc::new(Mutex::new(compiler)),
             lease,

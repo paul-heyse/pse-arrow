@@ -314,7 +314,7 @@ def managed_rust_arguments(extra: list[str]) -> tuple[list[str], list[str]]:
     }
     execution: list[str] = []
     metadata: list[str] = []
-    features = [MANAGED_FEATURES]
+    features: list[str] = [MANAGED_FEATURES]
     index = 0
     while index < len(extra):
         argument = extra[index]

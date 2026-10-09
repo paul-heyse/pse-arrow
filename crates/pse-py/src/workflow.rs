@@ -465,7 +465,15 @@ impl NativeRuntime {
         let producer = if producer.is_some() {
             strict.map(Into::into)
         } else {
+            use pse_runtime::math::portable::{PortableError, ReplayAdmission};
+
             let anchor = Self::new as *const () as usize;
+            let deadline = std::time::Instant::now()
+                .checked_add(ReplayAdmission::STARTUP_OBSERVATION_LIMIT)
+                .ok_or_else(|| invalid(py, "local replay startup deadline extent"))?;
+            let cancelled = CancelSource::new();
+            let captured_stop = cancelled.clone();
+            let math = owner.shared.math().clone();
             // SAFETY: this actual imported Rust composition root observes its own
             // interpreter/module context. Reconstruction is immutable Rust math,
             // with no Python/plugin/provider callbacks or uncontrolled executable
@@ -476,14 +484,33 @@ impl NativeRuntime {
             )]
             // SAFETY: the actual imported composition root and effective interpreter
             // are observed under the controlled reconstruction contract above.
-            unsafe {
-                pse_runtime::math::portable::ReplayAdmission::observe_local(
-                    pse_runtime::math::portable::ExpectedProducerTarget::PYTHON,
-                    anchor,
-                    Arc::new(move || local_python_configuration(anchor)),
-                )
+            let observed = blocking(
+                py,
+                &owner,
+                async move {
+                    // The signal bridge cancels the completion-owned math job and
+                    // waits for its native drain. Python attaches outside the loader scope.
+                    // SAFETY: this actual imported composition root observes its own
+                    // interpreter and module under the controlled reconstruction profile.
+                    let observation = unsafe {
+                        math.observe_local_runtime(
+                            pse_runtime::math::portable::ExpectedProducerTarget::PYTHON,
+                            anchor,
+                            Arc::new(move || local_python_configuration(anchor)),
+                            deadline,
+                            &captured_stop,
+                        )
+                    }
+                    .await;
+                    Ok(observation)
+                },
+                || cancelled.cancel(),
+            )?;
+            match observed {
+                Ok(admission) => Some(admission),
+                Err(PortableError::Qualification(_)) => None,
+                Err(error) => return Err(errors::diagnostic(py, &error)),
             }
-            .ok()
         };
         let inner = native::Runtime::from_shared(
             owner.shared.clone(),

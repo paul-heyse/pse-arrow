@@ -191,50 +191,96 @@ fn verify_placement(
         .ok_or("unified managed worker cgroup required")?;
     let root = std::path::Path::new("/sys/fs/cgroup");
     let own = root.join(relative.trim_start_matches('/'));
-    let cap = std::fs::read_to_string(own.join("memory.max")).map_err(|error| error.to_string())?;
-    if cap.trim().parse::<usize>().ok() != Some(allocation.native_worker_memory_bytes) {
-        return Err("managed worker process cap differs from its profile".into());
-    }
-    let mut group = own.as_path();
-    while group != root {
-        let memory =
-            std::fs::read_to_string(group.join("memory.max")).map_err(|error| error.to_string())?;
-        if memory.trim() != "max"
-            && memory
-                .trim()
-                .parse::<usize>()
-                .map_err(|error| error.to_string())?
-                < allocation.native_worker_memory_bytes
-        {
-            return Err("ancestor memory cap cannot admit the exact worker profile".into());
-        }
-        let cpu =
-            std::fs::read_to_string(group.join("cpu.max")).map_err(|error| error.to_string())?;
-        let fields = cpu.split_whitespace().collect::<Vec<_>>();
-        if fields.len() != 2 {
-            return Err("invalid managed CPU quota".into());
-        }
-        if fields[0] != "max" {
-            let quota = fields[0]
-                .parse::<u64>()
-                .map_err(|error| error.to_string())?;
-            let period = fields[1]
-                .parse::<u64>()
-                .map_err(|error| error.to_string())?;
-            if period == 0 || quota / period < execution.cpu_threads as u64 {
-                return Err("ancestor CPU quota cannot admit sixteen case lanes".into());
-            }
-        }
-        group = group
-            .parent()
-            .ok_or("worker placement has no cgroup ancestor")?;
-    }
+    verify_placement_hierarchy(
+        root,
+        &own,
+        allocation.native_worker_memory_bytes,
+        execution.cpu_threads,
+    )?;
     if std::thread::available_parallelism()
         .map_err(|error| error.to_string())?
         .get()
         < execution.cpu_threads
     {
         return Err("worker affinity cannot admit sixteen case lanes".into());
+    }
+    Ok(())
+}
+
+fn verify_placement_hierarchy(
+    root: &std::path::Path,
+    own: &std::path::Path,
+    worker_bytes: usize,
+    cpu_threads: usize,
+) -> Result<(), String> {
+    let read = |group: &std::path::Path, name: &str| {
+        let path = group.join(name);
+        std::fs::read_to_string(&path)
+            .map_err(|error| format!("read managed placement {}: {error}", path.display()))
+    };
+    let cap = read(own, "memory.max")?;
+    if cap.trim().parse::<usize>().ok() != Some(worker_bytes) {
+        return Err("managed worker process cap differs from its profile".into());
+    }
+    let mut group = own;
+    let mut selected_cpu_quota = false;
+    while group != root {
+        let memory = read(group, "memory.max")?;
+        if memory.trim() != "max"
+            && memory
+                .trim()
+                .parse::<usize>()
+                .map_err(|error| error.to_string())?
+                < worker_bytes
+        {
+            return Err("ancestor memory cap cannot admit the exact worker profile".into());
+        }
+        // A service can inherit its parent's quota without enabling the CPU
+        // controller locally. Missing controls are known only from kernel readback;
+        // an active controller with an unreadable limit still refuses admission.
+        let cpu = match std::fs::read_to_string(group.join("cpu.max")) {
+            Ok(cpu) => Some(cpu),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                let controllers = read(group, "cgroup.controllers")?;
+                if controllers.split_whitespace().any(|name| name == "cpu") {
+                    return Err(format!(
+                        "active CPU controller lacks quota readback: {}",
+                        group.display()
+                    ));
+                }
+                None
+            }
+            Err(error) => {
+                return Err(format!(
+                    "read managed CPU quota {}: {error}",
+                    group.display()
+                ));
+            }
+        };
+        if let Some(cpu) = cpu {
+            let fields = cpu.split_whitespace().collect::<Vec<_>>();
+            if fields.len() != 2 {
+                return Err("invalid managed CPU quota".into());
+            }
+            if fields[0] != "max" {
+                let quota = fields[0]
+                    .parse::<u64>()
+                    .map_err(|error| error.to_string())?;
+                let period = fields[1]
+                    .parse::<u64>()
+                    .map_err(|error| error.to_string())?;
+                if period == 0 || quota / period < cpu_threads as u64 {
+                    return Err("ancestor CPU quota cannot admit sixteen case lanes".into());
+                }
+                selected_cpu_quota |= period.checked_mul(cpu_threads as u64) == Some(quota);
+            }
+        }
+        group = group
+            .parent()
+            .ok_or("worker placement has no cgroup ancestor")?;
+    }
+    if !selected_cpu_quota {
+        return Err("selected finite ancestor CPU quota was not observed".into());
     }
     Ok(())
 }
@@ -332,8 +378,8 @@ async fn runtime(cli: &Cli) -> Result<Runtime, String> {
         .ok_or("PSE_SURREAL_STATE must select a supervised canonical deployment")?;
     let options =
         pse_operations::canonical::CanonicalOptions::from_state(std::path::Path::new(&state))
-            .map_err(|e| e.to_string())?;
-    verify_placement(&options.native)?;
+            .map_err(|e| format!("managed canonical configuration: {e}"))?;
+    verify_placement(&options.native).map_err(|e| format!("managed placement: {e}"))?;
     let shared = SharedRuntime::build(resource_budget(cli, options.native)?)
         .map_err(|e| format!("runtime budget: {e}"))?;
     let registry = pse_schema::shared_registry().map_err(|e| format!("registry: {e}"))?;
@@ -342,7 +388,9 @@ async fn runtime(cli: &Cli) -> Result<Runtime, String> {
             .session_factory(pse_engine::session::native_engine_profile())
             .map_err(|e| format!("session factory: {e}"))?,
     );
-    let deployment = deployment::open(cli.canonical_database.as_deref()).await?;
+    let deployment = deployment::open(cli.canonical_database.as_deref(), shared.math())
+        .await
+        .map_err(|e| format!("canonical deployment admission: {e}"))?;
     let policy = LeasePolicy {
         lease: Duration::from_secs(cli.lease_seconds),
         heartbeat: Duration::from_millis(cli.heartbeat_ms),
@@ -363,11 +411,16 @@ async fn runtime(cli: &Cli) -> Result<Runtime, String> {
         .with_durability(Durability::Durable(operations)))
 }
 
+fn diagnostic_report(error: &WorkflowError) -> String {
+    format!("{:#?}", error.boundary_diagnostic())
+}
+
 fn report(error: &WorkflowError) {
     let code = miette::Diagnostic::code(error)
         .map(|code| format!(" [{code}]"))
         .unwrap_or_default();
     eprintln!("error{code}: {error}");
+    eprintln!("diagnostic: {}", diagnostic_report(error));
     if let Some(help) = miette::Diagnostic::help(error) {
         eprintln!("help: {help}");
     }
@@ -431,7 +484,7 @@ fn main() -> ExitCode {
     let runtime = match executor.block_on(runtime(&cli)) {
         Ok(runtime) => runtime,
         Err(error) => {
-            eprintln!("error: {error}");
+            eprintln!("error: runtime initialization: {error}");
             return ExitCode::FAILURE;
         }
     };
@@ -444,7 +497,7 @@ fn main() -> ExitCode {
     {
         Ok(qualification) => qualification,
         Err(error) => {
-            eprintln!("error: {error}");
+            eprintln!("error: native entry qualification: {error}");
             return ExitCode::FAILURE;
         }
     };
@@ -461,7 +514,7 @@ fn main() -> ExitCode {
         }
     }
     if let Err(error) = publish_ready(&cli) {
-        eprintln!("error: {error}");
+        eprintln!("error: primary readiness publication: {error}");
         return ExitCode::FAILURE;
     }
     #[cfg(feature = "canonical-tests")]
@@ -487,6 +540,118 @@ fn main() -> ExitCode {
 )]
 mod tests {
     use super::*;
+
+    #[test]
+    fn workflow_error_diagnostic_report_retains_typed_detail_and_nested_cause() {
+        use pse_model::diagnostic::{
+            BoundaryClass, BoundaryDiagnostic, DiagnosticRule, DiagnosticStage,
+        };
+
+        let cause = pse_runtime::math::MathRuntimeError::Infrastructure(
+            "specific native admission failure".into(),
+        );
+        let diagnostic = BoundaryDiagnostic::new(
+            BoundaryClass::Infrastructure,
+            DiagnosticStage::ModelingAdmission,
+            [],
+            DiagnosticRule::WorkflowUnclassified,
+        )
+        .with_code(pse_model::diagnostic::DiagnosticCode::RuntimeInfrastructure);
+        let error = WorkflowError::ModelingAdmission {
+            diagnostic: Box::new(diagnostic),
+            cause: Box::new(cause),
+        };
+
+        let rendered = diagnostic_report(&error);
+        assert!(rendered.contains("ModelingAdmission"), "{rendered}");
+        assert!(rendered.contains("WorkflowUnclassified"), "{rendered}");
+        assert!(
+            rendered.contains("specific native admission failure"),
+            "{rendered}"
+        );
+        assert!(rendered.contains("RuntimeInfrastructure"), "{rendered}");
+    }
+    fn placement_fixture() -> (tempfile::TempDir, std::path::PathBuf, std::path::PathBuf) {
+        let directory = tempfile::tempdir().unwrap();
+        let parent = directory.path().join("reference.slice");
+        let leaf = parent.join("primary.service");
+        std::fs::create_dir_all(&leaf).unwrap();
+        std::fs::write(leaf.join("memory.max"), (140_usize << 30).to_string()).unwrap();
+        std::fs::write(leaf.join("cgroup.controllers"), "memory pids\n").unwrap();
+        std::fs::write(parent.join("memory.max"), (160_usize << 30).to_string()).unwrap();
+        std::fs::write(parent.join("cgroup.controllers"), "cpu memory pids\n").unwrap();
+        std::fs::write(parent.join("cpu.max"), "1600000 100000\n").unwrap();
+        (directory, parent, leaf)
+    }
+
+    #[test]
+    fn managed_placement_inherits_exact_finite_cpu_quota_with_disabled_leaf_controller() {
+        let (root, _, leaf) = placement_fixture();
+        assert!(!leaf.join("cpu.max").exists());
+        assert_eq!(
+            verify_placement_hierarchy(root.path(), &leaf, 140_usize << 30, 16),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn managed_placement_refuses_active_cpu_controller_without_quota_readback() {
+        let (root, _, leaf) = placement_fixture();
+        std::fs::write(leaf.join("cgroup.controllers"), "cpu memory pids\n").unwrap();
+        let error =
+            verify_placement_hierarchy(root.path(), &leaf, 140_usize << 30, 16).unwrap_err();
+        assert!(
+            error.contains("active CPU controller lacks quota readback"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn managed_placement_refuses_narrower_cpu_ancestor_even_with_exact_leaf_quota() {
+        let (root, parent, leaf) = placement_fixture();
+        std::fs::write(leaf.join("cgroup.controllers"), "cpu memory pids\n").unwrap();
+        std::fs::write(leaf.join("cpu.max"), "1600000 100000\n").unwrap();
+        std::fs::write(parent.join("cpu.max"), "800000 100000\n").unwrap();
+        let error =
+            verify_placement_hierarchy(root.path(), &leaf, 140_usize << 30, 16).unwrap_err();
+        assert!(error.contains("ancestor CPU quota cannot admit"), "{error}");
+    }
+
+    #[test]
+    fn managed_placement_refuses_narrower_memory_ancestor() {
+        let (root, parent, leaf) = placement_fixture();
+        std::fs::write(parent.join("memory.max"), (139_usize << 30).to_string()).unwrap();
+        let error =
+            verify_placement_hierarchy(root.path(), &leaf, 140_usize << 30, 16).unwrap_err();
+        assert!(
+            error.contains("ancestor memory cap cannot admit"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn managed_placement_requires_an_observed_exact_finite_ancestor_cpu_quota() {
+        for quota in ["max 100000\n", "3200000 100000\n"] {
+            let (root, parent, leaf) = placement_fixture();
+            std::fs::write(parent.join("cpu.max"), quota).unwrap();
+            let error =
+                verify_placement_hierarchy(root.path(), &leaf, 140_usize << 30, 16).unwrap_err();
+            assert!(
+                error.contains("selected finite ancestor CPU quota was not observed"),
+                "quota={quota:?}, error={error}"
+            );
+        }
+        let (root, parent, leaf) = placement_fixture();
+        std::fs::remove_file(parent.join("cpu.max")).unwrap();
+        std::fs::write(parent.join("cgroup.controllers"), "memory pids\n").unwrap();
+        let error =
+            verify_placement_hierarchy(root.path(), &leaf, 140_usize << 30, 16).unwrap_err();
+        assert!(
+            error.contains("selected finite ancestor CPU quota was not observed"),
+            "{error}"
+        );
+    }
+
     fn legacy_allocation(bytes: usize) -> pse_operations::canonical::NativeAllocation {
         pse_operations::canonical::NativeAllocation {
             native_workers: 2,
@@ -598,7 +763,7 @@ mod qualification {
         nonce: String,
         canonical_database: String,
         entries: usize,
-        timeout_ms: u64,
+        entry_timeout_ms: u64,
     }
     #[derive(Default)]
     struct Entries {
@@ -610,7 +775,7 @@ mod qualification {
     pub(super) struct Controller {
         directory: PathBuf,
         request: Request,
-        deadline: Instant,
+        fallback_deadline: Instant,
         entries: Mutex<Entries>,
     }
     fn private_metadata(path: &Path, directory: bool) -> Result<std::fs::Metadata, String> {
@@ -704,21 +869,28 @@ mod qualification {
                         .canonical_database
                         .as_deref()
                         .unwrap_or(&options.database)
-                || request.timeout_ms == 0
-                || request.timeout_ms > 120_000
+                || request.entry_timeout_ms == 0
+                || request.entry_timeout_ms > 90_000
             {
                 return Err(
                     "qualification extent, original database association or deadline differs"
                         .into(),
                 );
             }
-            let deadline = Instant::now()
-                .checked_add(Duration::from_millis(request.timeout_ms))
+            let startup = Duration::from_secs(45);
+            let entry = Duration::from_secs(90);
+            let operation = Duration::from_secs(90);
+            let drain = Duration::from_secs(45);
+            let fallback_deadline = Instant::now()
+                // A crashed observer still has a finite receiver owner. Startup,
+                // entry, public operation and drain keep their separate bounds;
+                // startup cannot consume an actual native owner's entry clock.
+                .checked_add(startup + entry + operation + drain)
                 .ok_or("qualification deadline overflow")?;
             let controller = Arc::new(Self {
                 directory,
                 request,
-                deadline,
+                fallback_deadline,
                 entries: Mutex::new(Entries::default()),
             });
             controller.snapshot(&Entries::default())?;
@@ -750,6 +922,9 @@ mod qualification {
             }
         }
         fn observe(&self, stop: &AtomicBool) -> Result<(), String> {
+            let entry_deadline = Instant::now()
+                .checked_add(Duration::from_millis(self.request.entry_timeout_ms))
+                .ok_or("qualification native entry deadline overflow")?;
             let thread = format!("{:?}", std::thread::current().id());
             let ordinal = {
                 let mut entries = self
@@ -778,7 +953,7 @@ mod qualification {
                     if self.signal("release.json")? {
                         return Ok(false);
                     }
-                    if Instant::now() >= self.deadline {
+                    if Instant::now() >= entry_deadline {
                         return Err("qualification native entry release deadline expired".into());
                     }
                     std::thread::sleep(Duration::from_millis(10));
@@ -812,7 +987,7 @@ mod qualification {
                     )?)
                     .into_owned());
                 }
-                if Instant::now() >= self.deadline {
+                if Instant::now() >= self.fallback_deadline {
                     return Err("qualification receiver stop deadline expired".into());
                 }
                 tokio::time::sleep(Duration::from_millis(20)).await;

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Allocation and retention controls through the admitted ModelingPackage production route.
 use super::*;
-use std::sync::Arc;
+use std::{collections::BTreeSet, sync::Arc};
 fn declarations(source: &str) -> Vec<Declaration> {
     pse_authoring::language::parse(
         source,
@@ -111,7 +111,10 @@ async fn refused_allocation_leaves_the_same_admitted_package_retryable() {
         .unwrap()
         .declaration_id;
     let pressure = service
-        .reserve("test:held-allocation", (512 << 20) - pool.reserved() - 1024)
+        .reserve(
+            "test:held-allocation",
+            runtime.shared.budget().memory_limit_bytes.get() - pool.reserved() - 1024,
+        )
         .unwrap();
     let refusal = package
         .prepare(
@@ -1182,4 +1185,1001 @@ async fn checked_selected_admission_cancelled_before_native_entry_retains_owners
     drop(retry);
     drop(package);
     assert_eq!(pool.reserved(), baseline);
+}
+
+async fn retained_preparation_basis(
+    package: &ModelingPackage,
+    root: DeclarationId,
+    instance: InstanceId,
+    bindings: Bindings,
+    limits: Limits,
+) -> Option<Arc<crate::math::modeling::PreparedBasis>> {
+    let selected = package
+        .checked_selection(&[root], &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let math = package.runtime.shared.math();
+    let key = math
+        .basis_key(&selected.admission, root, instance, bindings, limits)
+        .unwrap();
+    let basis = math.modeling_cache.basis(&key);
+    package
+        .runtime
+        .canonical
+        .store()
+        .release(selected.read.selection())
+        .await
+        .unwrap();
+    basis
+}
+
+#[tokio::test]
+async fn ordinary_preparation_rechecks_additional_acquisition_absence_before_basis_reuse() {
+    let runtime = super::super::tests::runtime();
+    let rows = declarations(
+        "package p {def Root {var x:Scalar; eq e:x*x==1;} def Other {var z:Scalar; eq other:z==2; eq acquired:z==3;}}",
+    );
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let acquired = rows
+        .iter()
+        .find(|row| row.name == "acquired")
+        .unwrap()
+        .declaration_id;
+    // Preserve all existing source fields, including parent spans. Only this
+    // unconsumed sibling's exact missing logical becomes present later.
+    let package = runtime
+        .modeling_package(
+            rows.iter()
+                .filter(|row| row.declaration_id != acquired)
+                .cloned()
+                .collect(),
+            super::super::tests::physical(),
+        )
+        .await
+        .unwrap();
+    let math = runtime.shared.math();
+    let store = runtime.canonical.store();
+    let mut selected = package
+        .checked_selection(&[root], &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let key = math
+        .basis_key(
+            &selected.admission,
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Bindings::default(),
+            Limits::default(),
+        )
+        .unwrap();
+    assert!(math.modeling_cache.basis(&key).is_none());
+    let logical = canonical::logical(acquired);
+    let resolved = store
+        .resolve_logicals(&mut selected.read, std::slice::from_ref(&logical))
+        .await
+        .unwrap();
+    assert!(
+        resolved.is_empty(),
+        "the acquired source premise is actually absent"
+    );
+    let extra_dependencies = Arc::new(selected.read.snapshot_dependencies().unwrap());
+    assert_ne!(extra_dependencies, selected.admission.dependencies);
+    // Complete through the production preparation boundary after acquisition
+    // adds an actual inspected premise to the already checked selection.
+    let original = package
+        .prepare_selected(
+            &mut selected,
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Bindings::default(),
+            Limits::default(),
+            &crate::CancelSource::new(),
+            std::time::Instant::now() + std::time::Duration::from_secs(60),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        math.modeling_cache
+            .basis(&key)
+            .unwrap()
+            .acquisition_dependencies,
+        extra_dependencies
+    );
+    store.release(selected.read.selection()).await.unwrap();
+    let eligible = prepared(&package).await;
+    assert!(pse_math::SharedAllocation::ptr_eq(
+        &original.compiled().admitted,
+        &eligible.compiled().admitted
+    ));
+    let qualified = math.modeling_cache.basis(&key).unwrap();
+    assert_eq!(qualified.acquisition_dependencies, extra_dependencies);
+    assert!(
+        qualified.descriptions.iter().all(|description| {
+            description.description.selected_dependencies() == extra_dependencies.as_ref()
+        }),
+        "new publication descriptions must carry the fully merged acquisition premises"
+    );
+    let changed = package.with_declarations(rows).await.unwrap();
+    let current = changed
+        .checked_selection(&[root], &crate::CancelSource::new())
+        .await
+        .unwrap();
+    assert_eq!(
+        current.admission.dependencies, selected.admission.dependencies,
+        "ordinary selection still proves the exact same Root premises"
+    );
+    assert_eq!(
+        math.basis_key(
+            &current.admission,
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Bindings::default(),
+            Limits::default(),
+        )
+        .unwrap(),
+        key,
+        "the refusal must come from additional acquisition premises, not another basis key"
+    );
+    store.release(current.read.selection()).await.unwrap();
+    let actual = prepared(&changed).await;
+    assert!(
+        !pse_math::SharedAllocation::ptr_eq(
+            &eligible.compiled().admitted,
+            &actual.compiled().admitted
+        ),
+        "the basis requiring an absent acquired source cannot be rebound after that source appears"
+    );
+    let replacement = math.modeling_cache.basis(&key).unwrap();
+    assert_ne!(replacement.acquisition_dependencies, extra_dependencies);
+    assert_eq!(
+        replacement.acquisition_dependencies,
+        current.admission.dependencies
+    );
+    for (identity, body) in &eligible.compiled().admitted.bodies {
+        assert!(
+            Arc::ptr_eq(
+                body.math(),
+                actual.compiled().admitted.bodies[identity].math()
+            ),
+            "unchanged Root body mathematics remains eligible independently of the rejected acquisition receipt"
+        );
+    }
+    math.clear_program_cache();
+}
+
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
+#[tokio::test]
+#[allow(
+    unsafe_code,
+    reason = "controlled native test root owns and mutates its observed effective configuration; no provider or import runs inside observation"
+)]
+async fn ordinary_preparation_exact_basis_hit_rebinds_current_attribution_and_settles_released_roots()
+ {
+    use crate::math::portable::{ExpectedProducerTarget, ReplayAdmission};
+    use std::sync::{
+        Mutex,
+        atomic::{AtomicUsize, Ordering},
+    };
+    let mut runtime = super::super::tests::runtime();
+    let effective = Arc::new(Mutex::new(vec![1_u8]));
+    let observations = Arc::new(AtomicUsize::new(0));
+    let observed = observations.clone();
+    let configuration = effective.clone();
+    fn anchor() {}
+    // SAFETY: this actual test binary is the controlled root of immutable mathematics;
+    // the observer below supplies its actual owned configuration and imports no code.
+    let producer = unsafe {
+        ReplayAdmission::observe_local(
+            ExpectedProducerTarget::WORKER,
+            anchor as *const () as usize,
+            Arc::new(move || {
+                observed.fetch_add(1, Ordering::SeqCst);
+                Ok(configuration.lock().unwrap().clone())
+            }),
+        )
+    }
+    .unwrap();
+    runtime.canonical = super::super::canonical::CanonicalDeployment::new(
+        runtime.canonical.store().clone(),
+        runtime.canonical.attestation(),
+        Some(producer),
+    );
+    let source = "package p {def Root {var x:Scalar; eq e:x*x==1;} def Other {var z:Scalar; eq other:z==2;}}";
+    let rows = declarations(source);
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let instance = pse_modeling::specialize::root_instance(root);
+    let package = runtime
+        .modeling_package(rows, super::super::tests::physical())
+        .await
+        .unwrap();
+    let first = prepared(&package).await;
+    let original = retained_preparation_basis(
+        &package,
+        root,
+        instance,
+        Bindings::default(),
+        Limits::default(),
+    )
+    .await
+    .unwrap();
+    assert!(!original.descriptions.is_empty());
+    let old_description = original.descriptions[0].clone();
+    let store = runtime.canonical.store();
+    let old_key = store
+        .acknowledge_description(&old_description.description)
+        .await
+        .unwrap()
+        .unwrap();
+    let after_first_observation = observations.load(Ordering::SeqCst);
+    *effective.lock().unwrap() = vec![2];
+    // An unrelated immutable source change gives this consumer a fresh canonical revision.
+    // Exact mathematical premises and the previously rooted acknowledgment still coincide.
+    let unrelated = package.with_declarations(declarations(
+        "package p {def Root {var x:Scalar; eq e:x*x==1;} def Other {var z:Scalar; eq other:z==3;}}"
+    )).await.unwrap();
+    assert_ne!(package.canonical_revision(), unrelated.canonical_revision());
+    let second = prepared(&unrelated).await;
+    assert!(
+        pse_math::SharedAllocation::ptr_eq(&first.compiled().admitted, &second.compiled().admitted),
+        "ordinary exact basis hits retain the complete admitted mathematical allocation"
+    );
+    for (key, body) in &first.compiled().admitted.bodies {
+        assert!(Arc::ptr_eq(
+            body.math(),
+            second.compiled().admitted.bodies[key].math()
+        ));
+    }
+    assert_eq!(second.solved().model(), root);
+    assert_eq!(second.solved().instance(), instance);
+    let current = unrelated
+        .checked_selection(&[root], &crate::CancelSource::new())
+        .await
+        .unwrap();
+    assert_eq!(
+        second.consumed_source_versions(),
+        current.admission.versions.as_ref(),
+        "the new wrapper reports this consumer's actually selected source versions"
+    );
+    store.release(current.read.selection()).await.unwrap();
+    let warm = retained_preparation_basis(
+        &unrelated,
+        root,
+        instance,
+        Bindings::default(),
+        Limits::default(),
+    )
+    .await
+    .unwrap();
+    let warm_description = warm
+        .descriptions
+        .iter()
+        .find(|description| description.semantic_identity == old_description.semantic_identity)
+        .unwrap();
+    assert!(
+        Arc::ptr_eq(warm_description, &old_description),
+        "warm settlement reuses owned encoded description material"
+    );
+    assert_eq!(
+        store
+            .acknowledge_description(&old_description.description)
+            .await
+            .unwrap(),
+        Some(old_key.clone())
+    );
+    assert_eq!(
+        observations.load(Ordering::SeqCst),
+        after_first_observation,
+        "an exact committed old-namespace acknowledgment requires no new receiving observation"
+    );
+    store
+        .drop_retained_root(
+            package.canonical_revision(),
+            &pse_operations::canonical_retention::RetentionOwner::Product(old_key.clone()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        store
+            .acknowledge_description(&old_description.description)
+            .await
+            .unwrap(),
+        None
+    );
+    let after_release = prepared(&unrelated).await;
+    assert!(pse_math::SharedAllocation::ptr_eq(
+        &first.compiled().admitted,
+        &after_release.compiled().admitted
+    ));
+    assert!(
+        observations.load(Ordering::SeqCst) > after_first_observation,
+        "a released root requires actual current receiving qualification before new publication"
+    );
+    let fresh = retained_preparation_basis(
+        &unrelated,
+        root,
+        instance,
+        Bindings::default(),
+        Limits::default(),
+    )
+    .await
+    .unwrap();
+    let fresh_description = fresh
+        .descriptions
+        .iter()
+        .find(|description| description.semantic_identity == old_description.semantic_identity)
+        .unwrap();
+    let new_key = store
+        .acknowledge_description(&fresh_description.description)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_ne!(new_key, old_key);
+    assert_eq!(
+        store
+            .acknowledge_description(&old_description.description)
+            .await
+            .unwrap(),
+        None,
+        "changed actual configuration cannot revive the released old producer's rooted claim"
+    );
+    runtime.shared.math().clear_program_cache();
+}
+
+#[tokio::test]
+async fn ordinary_preparation_basis_separates_actual_instance_and_complete_bindings_and_limits() {
+    use pse_modeling::specialize::Value;
+    let runtime = super::super::tests::runtime();
+    let rows = declarations("package p {def Root {var x:Scalar; eq e:x*x==1;}}");
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let instance = pse_modeling::specialize::root_instance(root);
+    let package = runtime
+        .modeling_package(rows, super::super::tests::physical())
+        .await
+        .unwrap();
+    let first = prepared(&package).await;
+    let selected = package
+        .checked_selection(&[root], &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let math = runtime.shared.math();
+    let original = math
+        .basis_key(
+            &selected.admission,
+            root,
+            instance,
+            Bindings::default(),
+            Limits::default(),
+        )
+        .unwrap();
+    assert!(math.modeling_cache.basis(&original).is_some());
+    let mut variants = Vec::new();
+    let mut arguments = Bindings::default();
+    arguments
+        .arguments
+        .insert("explicit".into(), Value::Integer(1));
+    variants.push(arguments);
+    let mut scope = Bindings::default();
+    scope.scope.insert("ancestor".into(), Value::Boolean(true));
+    variants.push(scope);
+    let mut facts = Bindings::default();
+    facts.facts.insert(
+        pse_modeling::analysis::Fact::Stage("selected".into()),
+        Value::Boolean(true),
+    );
+    variants.push(facts);
+    let demand = Bindings {
+        demand: vec!["x".into()],
+        ..Bindings::default()
+    };
+    variants.push(demand.clone());
+    let mut omission = Bindings::default();
+    omission
+        .formulation
+        .omitted
+        .insert(SemanticId::from_bytes([91; 16]));
+    variants.push(omission);
+    let mut elastic = Bindings::default();
+    elastic
+        .formulation
+        .elastic
+        .insert(SemanticId::from_bytes([91; 16]), Value::Integer(1));
+    variants.push(elastic);
+    for bindings in variants {
+        let changed = math
+            .basis_key(
+                &selected.admission,
+                root,
+                instance,
+                bindings,
+                Limits::default(),
+            )
+            .unwrap();
+        assert_ne!(changed, original);
+        assert!(
+            math.modeling_cache.basis(&changed).is_none(),
+            "every complete binding field must prevent a hit on the different retained request"
+        );
+    }
+    let default = Limits::default();
+    let limits = [
+        Limits {
+            depth: default.depth - 1,
+            ..default
+        },
+        Limits {
+            items: default.items - 1,
+            ..default
+        },
+        Limits {
+            members: default.members - 1,
+            ..default
+        },
+        Limits {
+            body_occurrences: Some(100_000),
+            ..default
+        },
+        Limits {
+            body_slots: Some(100_000),
+            ..default
+        },
+    ];
+    for limit in limits {
+        let changed = math
+            .basis_key(
+                &selected.admission,
+                root,
+                instance,
+                Bindings::default(),
+                limit,
+            )
+            .unwrap();
+        assert_ne!(changed, original);
+        assert!(
+            math.modeling_cache.basis(&changed).is_none(),
+            "every limit remains part of the exact retained request"
+        );
+    }
+    store_release(&runtime, selected.read.selection()).await;
+    drop(selected);
+    let other_instance = InstanceId::from_id(SemanticId::from_bytes([92; 16]));
+    assert!(
+        retained_preparation_basis(&package, root, other_instance, Bindings::default(), default)
+            .await
+            .is_none()
+    );
+    let other = package
+        .prepare(
+            root,
+            other_instance,
+            Bindings::default(),
+            default,
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(other.solved().instance(), other_instance);
+    assert_ne!(other.solved(), first.solved());
+    assert!(!pse_math::SharedAllocation::ptr_eq(
+        &other.compiled().admitted,
+        &first.compiled().admitted
+    ));
+    let demanded = package
+        .prepare(
+            root,
+            instance,
+            demand.clone(),
+            default,
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    assert!(
+        retained_preparation_basis(&package, root, instance, demand, default)
+            .await
+            .is_some()
+    );
+    assert_eq!(demanded.solved(), first.solved());
+    let bounded = package
+        .prepare(
+            root,
+            instance,
+            Bindings::default(),
+            limits[1],
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(bounded.solved(), first.solved());
+    assert!(
+        retained_preparation_basis(&package, root, instance, Bindings::default(), limits[1])
+            .await
+            .is_some()
+    );
+    let refused = package
+        .prepare(
+            root,
+            instance,
+            Bindings::default(),
+            Limits {
+                items: 0,
+                ..default
+            },
+            &crate::CancelSource::new(),
+        )
+        .await;
+    assert!(
+        refused.is_err(),
+        "a warm basis cannot bypass a current finite specialization refusal"
+    );
+    math.clear_program_cache();
+}
+
+async fn store_release(runtime: &Runtime, pin: &pse_operations::canonical::ProtectedSelection) {
+    runtime.canonical.store().release(pin).await.unwrap();
+}
+
+#[tokio::test]
+async fn ordinary_preparation_source_spans_and_exact_dependencies_prevent_stale_basis_hits() {
+    let runtime = super::super::tests::runtime();
+    let source = "package p {def Root {var x:Scalar; eq e:x*x==1;}}";
+    let rows = declarations(source);
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let instance = pse_modeling::specialize::root_instance(root);
+    let package = runtime
+        .modeling_package(rows, super::super::tests::physical())
+        .await
+        .unwrap();
+    let first = prepared(&package).await;
+    let shifted = package
+        .with_declarations(declarations(&format!("\n\n{source}")))
+        .await
+        .unwrap();
+    assert!(
+        retained_preparation_basis(
+            &shifted,
+            root,
+            instance,
+            Bindings::default(),
+            Limits::default()
+        )
+        .await
+        .is_none()
+    );
+    let rebound = prepared(&shifted).await;
+    assert!(!pse_math::SharedAllocation::ptr_eq(
+        &first.compiled().admitted,
+        &rebound.compiled().admitted
+    ));
+    assert_ne!(
+        first.compiled().occurrences(),
+        rebound.compiled().occurrences()
+    );
+    assert_ne!(
+        first.consumed_source_versions(),
+        rebound.consumed_source_versions()
+    );
+    for (key, body) in &first.compiled().admitted.bodies {
+        assert!(
+            Arc::ptr_eq(body.math(), rebound.compiled().admitted.bodies[key].math()),
+            "source attribution changes do not force duplication of unchanged immutable body math"
+        );
+    }
+    let changed = shifted
+        .with_declarations(declarations(
+            "\n\npackage p {def Root {var x:Scalar; eq e:x*x==2;}}",
+        ))
+        .await
+        .unwrap();
+    assert!(
+        retained_preparation_basis(
+            &changed,
+            root,
+            instance,
+            Bindings::default(),
+            Limits::default()
+        )
+        .await
+        .is_none()
+    );
+    let actual = prepared(&changed).await;
+    assert!(!pse_math::SharedAllocation::ptr_eq(
+        &rebound.compiled().admitted,
+        &actual.compiled().admitted
+    ));
+    assert_ne!(
+        rebound.consumed_source_versions(),
+        actual.consumed_source_versions()
+    );
+    // This inventory contains the complete residual and independent original terms.
+    // The unchanged x*x term may share mathematics; the consumed changed residual may not.
+    fn body_for_row(
+        model: &ModelingPreparation,
+        row: SemanticId,
+    ) -> &Arc<pse_compiler::typed_math::AdmittedBody> {
+        let mut contributing =
+            model
+                .compiled()
+                .admitted
+                .case()
+                .instances()
+                .iter()
+                .filter(|instance| {
+                    instance.contributions.iter().any(|contribution| {
+                        contribution.target == pse_math::binding::Target::Row(row)
+                    })
+                });
+        let instance = contributing
+            .next()
+            .expect("fixture row has one consumed mathematical body");
+        assert!(
+            contributing.next().is_none(),
+            "fixture row must identify its exact body"
+        );
+        &model.compiled().admitted.bodies[&instance.body]
+    }
+    fn equation(model: &ModelingPreparation) -> SemanticId {
+        let mut equations = model
+            .compiled()
+            .admitted
+            .outputs
+            .iter()
+            .filter_map(|output| match output {
+                pse_compiler::workspace::ModelingOutput::Equation { id, .. } => Some(*id),
+                _ => None,
+            });
+        let id = equations
+            .next()
+            .expect("fixture has its authored equality residual");
+        assert!(equations.next().is_none());
+        id
+    }
+    let row = equation(&rebound);
+    assert_eq!(equation(&actual), row);
+    let old_residual = body_for_row(&rebound, row);
+    let new_residual = body_for_row(&actual, row);
+    assert_ne!(
+        old_residual.semantic_identity(),
+        new_residual.semantic_identity(),
+        "x*x-1 and x*x-2 are different complete scientific residual descriptions"
+    );
+    assert!(
+        !Arc::ptr_eq(old_residual.math(), new_residual.math()),
+        "the changed equality residual cannot reuse the old immutable mathematical body"
+    );
+    let old_term = rebound.compiled().admitted.term_outputs[&row][0].0;
+    let new_term = actual.compiled().admitted.term_outputs[&row][0].0;
+    assert!(
+        Arc::ptr_eq(
+            body_for_row(&rebound, old_term).math(),
+            body_for_row(&actual, new_term).math()
+        ),
+        "the independent unchanged x*x inspection term remains eligible for mathematical sharing"
+    );
+    let x = rebound
+        .compiled()
+        .model
+        .symbols
+        .values()
+        .find(|symbol| symbol.lineage.path == "x" || symbol.lineage.path.ends_with(".x"))
+        .unwrap()
+        .id;
+    let values = pse_math::binding::CaseValues {
+        scalars: BTreeMap::from([(x, 2.0)]),
+    };
+    assert_eq!(rebound.compiled().admitted.term_outputs[&row][0].1, 1.0);
+    assert_eq!(actual.compiled().admitted.term_outputs[&row][0].1, 1.0);
+    let old_value = shifted
+        .observe(
+            rebound.clone(),
+            BTreeSet::from([row, old_term]),
+            values.clone(),
+            super::super::tests::compiler_profile(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let new_value = changed
+        .observe(
+            actual.clone(),
+            BTreeSet::from([row, new_term]),
+            values,
+            super::super::tests::compiler_profile(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        old_value[&old_term], 4.0,
+        "the unchanged positive original term evaluates independently as x*x"
+    );
+    assert_eq!(new_value[&new_term], 4.0);
+    assert_eq!(
+        old_value[&row], 3.0,
+        "the original residual at x=2 is independently x*x-1"
+    );
+    assert_eq!(
+        new_value[&row], 2.0,
+        "the current consumed scientific residual is independently x*x-2"
+    );
+    let selected = changed
+        .checked_selection(&[root], &crate::CancelSource::new())
+        .await
+        .unwrap();
+    assert_eq!(
+        actual.consumed_source_versions(),
+        selected.admission.versions.as_ref()
+    );
+    store_release(&runtime, selected.read.selection()).await;
+    runtime.shared.math().clear_program_cache();
+}
+
+#[tokio::test]
+async fn selected_qualification_turn_sixteen_cold_readers_hydrate_once_with_private_pins() {
+    let runtime = super::super::tests::runtime();
+    let rows = declarations("package p {def Root {var x:Scalar; eq e:x*x==1;}}");
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let package = runtime
+        .modeling_package(rows, super::super::tests::physical())
+        .await
+        .unwrap();
+    let service = runtime.shared.math();
+    let before = service.selected_qualifications.hydrations();
+    let barrier = Arc::new(tokio::sync::Barrier::new(16));
+    let mut readers = tokio::task::JoinSet::new();
+    for _ in 0..16 {
+        let package = package.clone();
+        let barrier = barrier.clone();
+        readers.spawn(async move {
+            barrier.wait().await;
+            package
+                .checked_selection(&[root], &crate::CancelSource::new())
+                .await
+                .unwrap()
+        });
+    }
+    let mut selected = Vec::new();
+    while let Some(result) = readers.join_next().await {
+        selected.push(result.unwrap());
+    }
+    assert_eq!(service.selected_qualifications.hydrations() - before, 1);
+    assert!(
+        selected
+            .iter()
+            .all(|read| Arc::ptr_eq(&selected[0].admission, &read.admission))
+    );
+    let store = runtime.canonical.store();
+    let mut first = selected.remove(0);
+    let baseline = selected[0].read.snapshot_dependencies().unwrap();
+    store
+        .resolve_logicals(&mut first.read, &["private-reader-absence".into()])
+        .await
+        .unwrap();
+    for read in &selected {
+        assert_eq!(read.read.snapshot_dependencies().unwrap(), baseline);
+    }
+    store.release(first.read.selection()).await.unwrap();
+    let logical = canonical::logical(root);
+    assert!(
+        store
+            .resolve_logicals(&mut first.read, std::slice::from_ref(&logical))
+            .await
+            .is_err()
+    );
+    for mut read in selected {
+        let rows = store
+            .resolve_logicals(&mut read.read, std::slice::from_ref(&logical))
+            .await
+            .unwrap();
+        assert!(
+            !rows.is_empty(),
+            "another consumer's release cannot revoke this current read"
+        );
+        store.release(read.read.selection()).await.unwrap();
+    }
+    service.clear_program_cache();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn selected_qualification_turn_waiter_cancel_and_deadline_leave_changed_revision_independent()
+{
+    use std::time::{Duration, Instant};
+    let runtime = super::super::tests::runtime();
+    let rows = declarations("package p {def Root {var x:Scalar; eq e:x*x==1;}}");
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let package = runtime
+        .modeling_package(rows, super::super::tests::physical())
+        .await
+        .unwrap();
+    let service = runtime.shared.math();
+    let selected = package
+        .checked_selection(&[root], &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let turn = service
+        .selected_qualification_turn(
+            selected.admission.request.clone(),
+            selected.read.selection().revision(),
+        )
+        .unwrap();
+    runtime
+        .canonical
+        .store()
+        .release(selected.read.selection())
+        .await
+        .unwrap();
+    service.clear_program_cache();
+    let owner_cancel = crate::CancelSource::new();
+    let owner = turn
+        .acquire(&owner_cancel, Instant::now() + Duration::from_secs(60))
+        .await
+        .unwrap();
+    let before = service.selected_qualifications.hydrations();
+    let roots = [root];
+    for expired in [false, true] {
+        let cancel = crate::CancelSource::new();
+        let baseline = runtime.shared.pool().reserved();
+        let deadline = Instant::now() + Duration::from_secs(if expired { 2 } else { 30 });
+        let mut operation = Box::pin(package.checked_selection_scoped(&roots, &cancel, deadline));
+        // Actual gate ownership, rather than a delay, proves the private protected
+        // reader reached the occupied turn before cancellation or expiry.
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while Arc::strong_count(&turn) == 2 {
+                assert!(futures_util::poll!(operation.as_mut()).is_pending());
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        if !expired {
+            cancel.cancel();
+        }
+        let result = operation.await;
+        if expired {
+            assert!(matches!(
+                result,
+                Err(WorkflowError::Math(crate::math::MathRuntimeError::Solve(
+                    pse_backend_native::ProblemError::Limit {
+                        kind: pse_backend_native::LimitKind::Time,
+                        ..
+                    }
+                )))
+            ));
+        } else {
+            assert!(matches!(
+                result,
+                Err(WorkflowError::Math(
+                    crate::math::MathRuntimeError::Cancelled
+                ))
+            ));
+        }
+        assert_eq!(
+            Arc::strong_count(&turn),
+            2,
+            "failed wait releases its turn owner"
+        );
+        assert_eq!(
+            runtime.shared.pool().reserved(),
+            baseline,
+            "failed wait releases its private premise allocation"
+        );
+        assert_eq!(service.selected_qualifications.hydrations(), before);
+    }
+    // The old actual revision remains occupied. A changed actual revision must
+    // nevertheless qualify its own changed scientific input and complete.
+    let changed = package
+        .with_declarations(declarations(
+            "package p {def Root {var x:Scalar; eq e:x*x==2;}}",
+        ))
+        .await
+        .unwrap();
+    let current = tokio::time::timeout(
+        Duration::from_secs(10),
+        changed.checked_selection(&roots, &crate::CancelSource::new()),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_ne!(
+        current.read.selection().revision(),
+        selected.read.selection().revision()
+    );
+    assert!(
+        !current
+            .admission
+            .revision
+            .same_admission(&selected.admission.revision)
+    );
+    assert_eq!(service.selected_qualifications.hydrations() - before, 1);
+    runtime
+        .canonical
+        .store()
+        .release(current.read.selection())
+        .await
+        .unwrap();
+    drop(owner);
+    // Releasing the leader turn lets a later old-revision consumer retry, rather
+    // than inheriting either waiter's cancellation or deadline failure.
+    let retry = package
+        .checked_selection(&roots, &crate::CancelSource::new())
+        .await
+        .unwrap();
+    assert!(retry.admission.dependencies == selected.admission.dependencies);
+    runtime
+        .canonical
+        .store()
+        .release(retry.read.selection())
+        .await
+        .unwrap();
+    service.clear_program_cache();
+}
+
+#[tokio::test]
+async fn selected_qualification_turn_failed_hydration_retries_without_cached_failure() {
+    let runtime = super::super::tests::runtime();
+    let rows = declarations("package p {def Root {var x:Scalar; eq e:x*x==1;}}");
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let absent = declarations("package p {def Absent {var y:Scalar; eq e:y==1;}}")
+        .into_iter()
+        .find(|row| row.name == "Absent")
+        .unwrap()
+        .declaration_id;
+    let package = runtime
+        .modeling_package(rows, super::super::tests::physical())
+        .await
+        .unwrap();
+    let service = runtime.shared.math();
+    let before = service.selected_qualifications.hydrations();
+    for _ in 0..2 {
+        assert!(
+            package
+                .checked_selection(&[absent], &crate::CancelSource::new())
+                .await
+                .is_err()
+        );
+    }
+    assert_eq!(
+        service.selected_qualifications.hydrations() - before,
+        2,
+        "failed source qualifications are retried under fresh pins"
+    );
+    let valid = package
+        .checked_selection(&[root], &crate::CancelSource::new())
+        .await
+        .unwrap();
+    assert_eq!(service.selected_qualifications.hydrations() - before, 3);
+    runtime
+        .canonical
+        .store()
+        .release(valid.read.selection())
+        .await
+        .unwrap();
+    service.clear_program_cache();
 }

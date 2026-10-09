@@ -1501,6 +1501,89 @@ fn register_query_admission(
 mod durability_unit {
     use super::*;
     use datafusion::execution::{config::SessionConfig, session_state::SessionStateBuilder};
+
+    #[tokio::test]
+    async fn scoped_query_width_uses_the_same_deployment_cpu_and_cache_owners() {
+        let pool: Arc<dyn datafusion::execution::memory_pool::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
+        let mut cache_policy = crate::cache_service::CacheBudget::for_memory(64 << 20);
+        cache_policy.concurrent_outputs = std::num::NonZeroUsize::new(4).unwrap();
+        let caches = crate::cache_service::NativeCacheService::new(cache_policy, &pool).unwrap();
+        let permits = Arc::new(tokio::sync::Semaphore::new(16));
+        let factory = super::super::EngineFactory::new(
+            Arc::new(datafusion::execution::runtime_env::RuntimeEnv::default()),
+            pool.clone(),
+            super::super::ExecutionSettings::default(),
+            super::super::ThreadBudget {
+                pool_threads: std::num::NonZeroUsize::new(16).unwrap(),
+                target_partitions: std::num::NonZeroUsize::new(16).unwrap(),
+            },
+            super::super::native_engine_profile(),
+        )
+        .unwrap()
+        .with_cache_service(caches.clone())
+        .with_extension(caches.clone())
+        .with_extension(Arc::new(crate::resources::CpuAdmission {
+            permits: permits.clone(),
+            workers: std::num::NonZeroU32::new(16).unwrap(),
+        }));
+        let generation = factory.implementation_generation();
+        let scoped = factory
+            .clone()
+            .with_target_partitions(std::num::NonZeroUsize::MIN);
+        assert_eq!(
+            factory
+                .native_state()
+                .config()
+                .options()
+                .execution
+                .target_partitions,
+            16
+        );
+        assert_eq!(
+            scoped
+                .native_state()
+                .config()
+                .options()
+                .execution
+                .target_partitions,
+            1
+        );
+        assert_eq!(scoped.implementation_generation(), generation);
+        assert!(Arc::ptr_eq(factory.pool(), scoped.pool()));
+        let factory_cpu = factory
+            .native_state()
+            .config()
+            .get_extension::<crate::resources::CpuAdmission>()
+            .unwrap();
+        let scoped_cpu = scoped
+            .native_state()
+            .config()
+            .get_extension::<crate::resources::CpuAdmission>()
+            .unwrap();
+        assert!(Arc::ptr_eq(&factory_cpu.permits, &scoped_cpu.permits));
+        let factory_caches = factory
+            .native_state()
+            .config()
+            .get_extension::<crate::cache_service::NativeCacheService>()
+            .unwrap();
+        let scoped_caches = scoped
+            .native_state()
+            .config()
+            .get_extension::<crate::cache_service::NativeCacheService>()
+            .unwrap();
+        assert!(Arc::ptr_eq(&factory_caches, &scoped_caches));
+
+        let cancel = CancellationToken::new();
+        let permit = query_admission(scoped.native_state(), &cancel)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(permits.available_permits(), 15);
+        drop(permit);
+        assert_eq!(permits.available_permits(), 16);
+    }
+
     #[tokio::test]
     async fn roots_admit_partition_capacity_and_nested_work_borrows_the_owner() {
         let cpu = Arc::new(tokio::sync::Semaphore::new(2));

@@ -1013,12 +1013,17 @@ async fn shared_driver_retains_actual_localized_event_under_original_completion(
 async fn actual_compiled_branch_singularity_is_unresolved_despite_second_curvature_and_source_mismatch_refuses()
  {
     let (runtime,package,analysis,preparation)=prepared("package p { def Root { param p:Scalar=0; var x:Scalar; annotation start x(0); eq root:x*x-p*p==0; } }").await;
+    let (_other_runtime,other_package,_other_analysis,other)=prepared("package p { def Root { param p:Scalar=0; var x:Scalar; annotation start x(0); eq root:x*x-p*p==1; } }").await;
     let original = preparation.solve.clone();
     let parameter = preparation.model.model.compiled().model.paths["p"];
     let cancel = crate::CancelSource::new();
     let task = scope();
     let curvature = package
         .prepare_path_curvature(&preparation, task.clone(), &cancel)
+        .await
+        .unwrap();
+    let other_curvature = other_package
+        .prepare_path_curvature(&other, task.clone(), &cancel)
         .await
         .unwrap();
     let base = package
@@ -1055,28 +1060,29 @@ async fn actual_compiled_branch_singularity_is_unresolved_despite_second_curvatu
             .iter()
             .any(|event| event.kind == arclength::EventKind::SimpleFold)
     );
-    let (_other_runtime,other_package,_other_analysis,other)=prepared("package p { def Root { param p:Scalar=0; var x:Scalar; annotation start x(0); eq root:x*x-p*p==1; } }").await;
-    let other_curvature = other_package
-        .prepare_path_curvature(&other, task.clone(), &cancel)
+    task.check().unwrap();
+    let refused = runtime
+        .native()
+        .prepare_path_curvature(
+            original.clone(),
+            other_curvature.0.program.clone(),
+            task.clone(),
+            &cancel,
+        )
         .await
-        .unwrap();
+        .unwrap_err();
     assert!(
-        runtime
-            .native()
-            .prepare_path_curvature(
-                original.clone(),
-                other_curvature.0.program.clone(),
-                task.clone(),
-                &cancel
-            )
-            .await
-            .is_err()
+        matches!(&refused, MathRuntimeError::Solve(ProblemError::Contract(_))),
+        "{refused}"
     );
     requested.curvature = Some(other_curvature);
+    task.check().unwrap();
+    let refused = runtime
+        .native()
+        .prepare_path(original, requested, task, &cancel)
+        .unwrap_err();
     assert!(
-        runtime
-            .native()
-            .prepare_path(original, requested, task, &cancel)
-            .is_err()
+        matches!(&refused, MathRuntimeError::Solve(ProblemError::Contract(_))),
+        "{refused}"
     );
 }

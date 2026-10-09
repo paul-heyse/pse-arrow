@@ -154,8 +154,8 @@ impl NativeAllocation {
                 "finite native-worker allocation required".into(),
             ));
         }
-        if let Some(profile) = self.execution {
-            if self.native_workers != 1
+        if let Some(profile) = self.execution
+            && (self.native_workers != 1
                 || profile.pool_memory_bytes == 0
                 || profile.worker_bytes == 0
                 || profile.worker_bytes > profile.pool_memory_bytes
@@ -174,12 +174,11 @@ impl NativeAllocation {
                 || profile
                     .pool_memory_bytes
                     .checked_add(profile.process_headroom_bytes)
-                    .is_none_or(|bytes| bytes > self.native_worker_memory_bytes)
-            {
-                return Err(CanonicalError::Configuration(
-                    "shared execution profile exceeds the managed allocation".into(),
-                ));
-            }
+                    .is_none_or(|bytes| bytes > self.native_worker_memory_bytes))
+        {
+            return Err(CanonicalError::Configuration(
+                "shared execution profile exceeds the managed allocation".into(),
+            ));
         }
         Ok(())
     }
@@ -339,7 +338,7 @@ impl ProtectedSelection {
     }
 }
 
-/// Local pacing of independent short staging decisions sharing one server guard.
+/// Local pacing of complete short decisions sharing one problem's server guards.
 /// The server's guarded predicates and generations remain the distributed authority.
 #[derive(Default)]
 struct StagingTurns {
@@ -348,6 +347,29 @@ struct StagingTurns {
     >,
 }
 impl StagingTurns {
+    async fn run<F, T>(
+        &self,
+        problem: &str,
+        deadline: tokio::time::Instant,
+        operation: F,
+    ) -> Result<T, CanonicalError>
+    where
+        F: Future<Output = Result<T, CanonicalError>>,
+    {
+        if tokio::time::Instant::now() >= deadline {
+            return Err(CanonicalError::Timeout);
+        }
+        let gate = self.gate(problem)?;
+        tokio::time::timeout_at(deadline, async {
+            let _turn = gate.lock_owned().await;
+            if tokio::time::Instant::now() >= deadline {
+                return Err(CanonicalError::Timeout);
+            }
+            operation.await
+        })
+        .await
+        .map_err(|_| CanonicalError::Timeout)?
+    }
     fn gate(&self, problem: &str) -> Result<Arc<tokio::sync::Mutex<()>>, CanonicalError> {
         let mut problems = self.problems.lock().map_err(|_| {
             CanonicalError::Configuration("staging admission owner poisoned".into())
@@ -402,7 +424,7 @@ impl CanonicalStore {
     ) -> Result<Option<ManagedPrimaryReceiver>, CanonicalError> {
         Ok(CanonicalOptions::from_state(&self.state_path)?.primary_receiver)
     }
-    /// One owner-local staging turn covers only a bounded RPC, never hydration or
+    /// One owner-local turn covers only a bounded RPC, never hydration or
     /// scientific work. Its original request clock includes queueing; dropping a
     /// waiter or request releases local ownership without inferring remote completion.
     pub(crate) async fn staging_query<F>(
@@ -413,13 +435,35 @@ impl CanonicalStore {
     where
         F: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
     {
-        let gate = self.staging_turns.gate(problem)?;
-        tokio::time::timeout(REQUEST_TIMEOUT, async {
-            let _turn = gate.lock_owned().await;
-            bounded_query(future).await
-        })
-        .await
-        .map_err(|_| CanonicalError::Timeout)?
+        self.staging_turns
+            .run(
+                problem,
+                tokio::time::Instant::now() + REQUEST_TIMEOUT,
+                bounded_query(future),
+            )
+            .await
+    }
+
+    /// Pace a complete protected RPC alongside staging under its original request
+    /// clock. Definite conflicts rebuild the checked query; uncertain completion
+    /// retains its typed failure. No turn escapes into hydration or scientific work.
+    pub(crate) async fn protected_query<F, Q>(
+        &self,
+        problem: &str,
+        operation: &'static str,
+        build: F,
+    ) -> Result<surrealdb::IndexedResults, CanonicalError>
+    where
+        F: FnMut() -> Result<Q, CanonicalError>,
+        Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
+    {
+        self.staging_turns
+            .run(
+                problem,
+                tokio::time::Instant::now() + REQUEST_TIMEOUT,
+                protected_query(operation, build),
+            )
+            .await
     }
 
     /// Exact configured canonical database selected by this deployment handle.
@@ -691,7 +735,7 @@ impl CanonicalStore {
             ));
         }
         let key = uuid::Uuid::new_v4().to_string();
-        let mut response = protected_query("canonical::protect", || Ok(self.db.query(r#"BEGIN;
+        let mut response = self.protected_query(&revision.problem, "canonical::protect", || Ok(self.db.query(r#"BEGIN;
             SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE;
             LET $revision = SELECT * FROM ONLY type::record('canonical_revisions', $revision);
             IF $revision = NONE OR $revision.problem != $problem { THROW 'revision unavailable'; };
@@ -717,7 +761,7 @@ impl CanonicalStore {
         if names.len() > 256 {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = protected_query("canonical::select_names", || Ok(self.db.query(format!("{}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND scope = $scope AND name IN $names AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nCOMMIT;", PROTECTED_BEGIN))
+        let mut response = self.protected_query(&selection.revision.problem, "canonical::select_names", || Ok(self.db.query(format!("{}\nSELECT * FROM canonical_memberships WHERE problem = $problem AND scope = $scope AND name IN $names AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nCOMMIT;", PROTECTED_BEGIN))
             .bind(("problem", selection.revision.problem.clone())).bind(("revision", selection.revision.key.clone())).bind(("protection", selection.key.clone())).bind(("scope", scope.to_owned())).bind(("names", names.to_vec())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision.sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
@@ -753,45 +797,51 @@ impl CanonicalStore {
         }
         for attempt in 0..GUARDED_ATTEMPTS {
             self.ensure_writes()?;
-            let result = request(
-                self.db
-                    .query(format!("{PROTECTED_BEGIN}\n{ADMIT_PRODUCT}\nCOMMIT;"))
-                    .bind(("problem", selection.revision.problem.clone()))
-                    .bind(("revision", selection.revision.key.clone()))
-                    .bind(("protection", selection.key.clone()))
-                    .bind((
-                        "sequence",
-                        crate::canonical_codec::encode_uint(selection.revision.sequence)?,
-                    ))
-                    .bind(("product", wire::encode_canonical_products(product)?))
-                    .bind(("operation", stage.operation.clone()))
-                    .bind((
-                        "generation",
-                        crate::canonical_codec::encode_uint(stage.generation)?,
-                    ))
-                    .bind(("request_digest", stage.request_digest.clone()))
-                    .bind((
-                        "blob",
-                        crate::canonical_staging::ProductBlob::decode(product.payload.as_slice())?
-                            .version,
-                    ))
-                    .bind((
-                        "blob_digest",
-                        crate::canonical_staging::ProductBlob::decode(product.payload.as_slice())?
-                            .digest,
-                    ))
-                    .bind((
-                        "blob_bytes",
-                        crate::canonical_codec::encode_uint(
+            let result = self
+                .staging_query(
+                    &selection.revision.problem,
+                    self.db
+                        .query(format!("{PROTECTED_BEGIN}\n{ADMIT_PRODUCT}\nCOMMIT;"))
+                        .bind(("problem", selection.revision.problem.clone()))
+                        .bind(("revision", selection.revision.key.clone()))
+                        .bind(("protection", selection.key.clone()))
+                        .bind((
+                            "sequence",
+                            crate::canonical_codec::encode_uint(selection.revision.sequence)?,
+                        ))
+                        .bind(("product", wire::encode_canonical_products(product)?))
+                        .bind(("operation", stage.operation.clone()))
+                        .bind((
+                            "generation",
+                            crate::canonical_codec::encode_uint(stage.generation)?,
+                        ))
+                        .bind(("request_digest", stage.request_digest.clone()))
+                        .bind((
+                            "blob",
                             crate::canonical_staging::ProductBlob::decode(
                                 product.payload.as_slice(),
                             )?
-                            .bytes as u64,
-                        )?,
-                    )),
-            )
-            .await
-            .and_then(|response| checked(response).map_err(Into::into));
+                            .version,
+                        ))
+                        .bind((
+                            "blob_digest",
+                            crate::canonical_staging::ProductBlob::decode(
+                                product.payload.as_slice(),
+                            )?
+                            .digest,
+                        ))
+                        .bind((
+                            "blob_bytes",
+                            crate::canonical_codec::encode_uint(
+                                crate::canonical_staging::ProductBlob::decode(
+                                    product.payload.as_slice(),
+                                )?
+                                .bytes as u64,
+                            )?,
+                        )),
+                )
+                .await
+                .and_then(|response| checked(response).map_err(Into::into));
             match result {
                 Ok(mut response) => {
                     return Ok(crate::canonical_codec::decode_string(
@@ -826,7 +876,7 @@ impl CanonicalStore {
         // Admission can reuse a previously rooted exact product rather than create
         // the proposed publication key. Settle both branches after a lost response,
         // without requiring a still-live preparation pin or admitting anything new.
-        let mut response = protected_query("canonical::product_acknowledged", || Ok(self.db.query("BEGIN; SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; LET $saved = SELECT key FROM canonical_products WHERE problem = $problem AND request = $product.request AND payload = $product.payload AND dependencies = $product.dependencies AND producer = $product.producer AND interpretation = $product.interpretation AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key ORDER BY key LIMIT 1; RETURN IF array::len($saved) = 0 { NONE } ELSE { $saved[0].key }; COMMIT;")
+        let mut response = self.protected_query(&product.problem, "canonical::product_acknowledged", || Ok(self.db.query("BEGIN; SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; LET $saved = SELECT key FROM canonical_products WHERE problem = $problem AND request = $product.request AND payload = $product.payload AND dependencies = $product.dependencies AND producer = $product.producer AND interpretation = $product.interpretation AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key ORDER BY key LIMIT 1; RETURN IF array::len($saved) = 0 { NONE } ELSE { $saved[0].key }; COMMIT;")
             .bind(("problem", product.problem.clone())).bind(("product", wire::encode_canonical_products(product)?)))).await?;
         let value = response.take::<Value>(response.num_statements().saturating_sub(2))?;
         if matches!(value, Value::None) {
@@ -837,7 +887,7 @@ impl CanonicalStore {
     /// End a selection protection under its retention conflict guard.
     pub async fn release(&self, selection: &ProtectedSelection) -> Result<(), CanonicalError> {
         // Quiescing scientific writes must still let in-flight readers drain.
-        protected_query("canonical::release", || Ok(self.db.query("BEGIN; SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; UPDATE type::record('canonical_protections', $protection) SET released = true; UPSERT type::record('canonical_guards', 'retention:' + $problem) SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec; COMMIT;")
+        self.protected_query(&selection.revision.problem, "canonical::release", || Ok(self.db.query("BEGIN; SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; UPDATE type::record('canonical_protections', $protection) SET released = true; UPSERT type::record('canonical_guards', 'retention:' + $problem) SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec; COMMIT;")
             .bind(("problem", selection.revision.problem.clone())).bind(("protection", selection.key.clone())))).await?;
         Ok(())
     }
@@ -1211,6 +1261,159 @@ mod staging_turn_unit {
             "dead problem keys must not accumulate in the local owner"
         );
     }
+
+    #[tokio::test]
+    async fn protected_turn_queue_preserves_deadline_and_does_not_start_expired_work() {
+        let turns = StagingTurns::default();
+        let gate = turns.gate("problem").unwrap();
+        let held = gate.clone().lock_owned().await;
+        let started = std::sync::atomic::AtomicBool::new(false);
+        let result = turns
+            .run(
+                "problem",
+                tokio::time::Instant::now() + std::time::Duration::from_millis(1),
+                async {
+                    started.store(true, std::sync::atomic::Ordering::Relaxed);
+                    Ok(())
+                },
+            )
+            .await;
+        assert!(matches!(result, Err(CanonicalError::Timeout)));
+        assert!(!started.load(std::sync::atomic::Ordering::Relaxed));
+        drop(held);
+        let result = turns
+            .run("problem", tokio::time::Instant::now(), async {
+                started.store(true, std::sync::atomic::Ordering::Relaxed);
+                Ok(())
+            })
+            .await;
+        assert!(matches!(result, Err(CanonicalError::Timeout)));
+        assert!(!started.load(std::sync::atomic::Ordering::Relaxed));
+        turns
+            .run(
+                "problem",
+                tokio::time::Instant::now() + std::time::Duration::from_secs(1),
+                async { Ok(()) },
+            )
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn protected_turn_cancelled_waiter_releases_queue_without_blocking_other_problems() {
+        let turns = StagingTurns::default();
+        let gate = turns.gate("problem").unwrap();
+        let held = gate.clone().lock_owned().await;
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(1);
+        let cancelled_started = std::sync::atomic::AtomicBool::new(false);
+        let mut cancelled = Box::pin(turns.run("problem", deadline, async {
+            cancelled_started.store(true, std::sync::atomic::Ordering::Relaxed);
+            Ok(())
+        }));
+        std::future::poll_fn(|context| {
+            assert!(cancelled.as_mut().poll(context).is_pending());
+            std::task::Poll::Ready(())
+        })
+        .await;
+        let mut following = Box::pin(turns.run("problem", deadline, async { Ok(()) }));
+        std::future::poll_fn(|context| {
+            assert!(following.as_mut().poll(context).is_pending());
+            std::task::Poll::Ready(())
+        })
+        .await;
+        turns
+            .run("independent", deadline, async { Ok(()) })
+            .await
+            .unwrap();
+        drop(cancelled);
+        drop(held);
+        following.await.unwrap();
+        assert!(!cancelled_started.load(std::sync::atomic::Ordering::Relaxed));
+        assert!(gate.try_lock_owned().is_ok());
+    }
+}
+
+#[cfg(test)]
+mod description_unit {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "pure description identity assertions fail on unexpected encoding errors"
+    )]
+    use super::*;
+    use crate::canonical_selection::{ProductDescription, SelectedRead};
+    use pse_model::generated::runtime::canonical_products::Row as Product;
+
+    fn read(revision: &str, protection: &str) -> SelectedRead {
+        let mut read = SelectedRead::new(ProtectedSelection {
+            key: protection.into(),
+            revision: Revision {
+                key: revision.into(),
+                problem: "problem".into(),
+                sequence: 1,
+                parent: None,
+                operation: revision.into(),
+                request: Vec::new().into(),
+                interpretation: wire::INTERPRETATION.into(),
+            },
+        });
+        read.interpretation("physical".into(), "provider-v1".into())
+            .unwrap();
+        read
+    }
+    fn product(read: &SelectedRead, key: &str, payload: &[u8]) -> Product {
+        Product {
+            key: key.into(),
+            problem: "problem".into(),
+            revision: read.selection().revision().key.clone(),
+            request: b"request".to_vec().into(),
+            payload: payload.to_vec().into(),
+            // Preparation always takes complete actual premises rather than this caller field.
+            dependencies: b"untrusted caller dependencies".to_vec().into(),
+            producer: "producer".into(),
+            interpretation: wire::INTERPRETATION.into(),
+        }
+    }
+    #[test]
+    fn description_encoding_reuses_exact_material_across_selection_attribution() {
+        let first = read("revision-one", "pin-one");
+        let second = read("revision-two", "pin-two");
+        let description =
+            ProductDescription::prepare(&first, product(&first, "offer-one", b"body")).unwrap();
+        let separately_prepared =
+            ProductDescription::prepare(&second, product(&second, "offer-two", b"body")).unwrap();
+        assert_eq!(description.descriptor(), separately_prepared.descriptor());
+        assert_eq!(
+            description.selected_dependencies(),
+            separately_prepared.selected_dependencies()
+        );
+        assert!(description.matches_read(&second).unwrap());
+        let shared = description.clone();
+        assert_eq!(
+            description.descriptor().as_ptr(),
+            shared.descriptor().as_ptr(),
+            "retained descriptions share owned encoded material"
+        );
+        let changed_body =
+            ProductDescription::prepare(&first, product(&first, "offer-one", b"other body"))
+                .unwrap();
+        assert_ne!(description.descriptor(), changed_body.descriptor());
+        let mut changed_dependencies = read("revision-three", "pin-three");
+        changed_dependencies
+            .interpretation("demand".into(), "derivatives".into())
+            .unwrap();
+        assert!(!description.matches_read(&changed_dependencies).unwrap());
+        let changed = ProductDescription::prepare(
+            &changed_dependencies,
+            product(&changed_dependencies, "offer-one", b"body"),
+        )
+        .unwrap();
+        assert_ne!(description.descriptor(), changed.descriptor());
+        assert!(
+            description.retained_bytes()
+                >= description.descriptor().len()
+                    + description.selected_dependencies().retained_bytes()
+        );
+    }
 }
 
 #[cfg(all(test, feature = "canonical-tests"))]
@@ -1238,6 +1441,162 @@ mod canonical_server_unit {
         options.database = format!("canonical_test_init_{}", uuid::Uuid::new_v4().simple());
         (CanonicalStore::connect(&options).await.unwrap(), options)
     }
+    #[tokio::test]
+    #[allow(
+        clippy::print_stderr,
+        reason = "bounded explicit transport qualification emits only finite case counts and typed failures, never bindings or payload"
+    )]
+    async fn actual_sdk_stream_query_serial_and_sixteen_concurrent_readonly_control()
+    -> Result<(), CanonicalError> {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use surrealdb::types::Bytes;
+        use tokio::time::Instant;
+
+        async fn echo(
+            store: &CanonicalStore,
+            payload: &[u8],
+            deadline: Instant,
+        ) -> Result<(), (&'static str, CanonicalError)> {
+            let deadline = deadline.min(Instant::now() + REQUEST_TIMEOUT);
+            tokio::time::timeout_at(deadline, async {
+                // Exercise the actual SDK indexed-query StreamQuery/End path.
+                // There is no repository retry helper or replacement transport.
+                let mut response = store
+                    .db
+                    .query("RETURN $payload;")
+                    .bind(("payload", Bytes::from(payload.to_vec())))
+                    .await
+                    .map_err(|error| ("query.await", CanonicalError::from(error)))?
+                    .check()
+                    .map_err(|error| ("response.check", CanonicalError::from(error)))?;
+                if response.num_statements() != 1 {
+                    return Err(("statement_count", CanonicalError::IncompleteResponse));
+                }
+                let returned = response
+                    .take::<Value>(0)
+                    .map_err(|error| ("response.take", CanonicalError::from(error)))?;
+                match returned {
+                    Value::Bytes(bytes) if &bytes[..] == payload => Ok(()),
+                    _ => Err((
+                        "exact_payload",
+                        CanonicalError::Configuration("readonly SDK echo differs".into()),
+                    )),
+                }
+            })
+            .await
+            .map_err(|_| ("original_request_deadline", CanonicalError::Timeout))?
+        }
+
+        let started = Instant::now();
+        let deadline = started + std::time::Duration::from_secs(120);
+        let state =
+            std::env::var("PSE_SURREAL_STATE").expect("explicit native transport fixture required");
+        let mut options = CanonicalOptions::from_state(Path::new(&state))?;
+        options.database = format!("canonical_test_transport_{}", uuid::Uuid::new_v4().simple());
+        // TEST ONLY: an explicit bounded opaque loopback relay may forward the
+        // configured actual server. Ordinary native controls keep their fixture route.
+        if let Ok(endpoint) = std::env::var("PSE_CANONICAL_TEST_ENDPOINT") {
+            if endpoint != "grpc://127.0.0.1:18089" {
+                return Err(CanonicalError::Configuration(
+                    "transport fixture relay must be the assigned loopback endpoint".into(),
+                ));
+            }
+            options.endpoint = endpoint;
+        }
+        let store = tokio::time::timeout_at(deadline, CanonicalStore::connect(&options))
+            .await
+            .map_err(|_| CanonicalError::Timeout)??;
+        tokio::time::timeout_at(deadline, store.create())
+            .await
+            .map_err(|_| CanonicalError::Timeout)??;
+        let mut cases = Vec::new();
+        let mut original_failure = None;
+        for (case, bytes, lanes) in [
+            ("serial-small", 64, 1),
+            ("serial-inventory", 256 * 1024, 1),
+            ("sixteen-small", 64, 16),
+            ("sixteen-inventory", 256 * 1024, 16),
+        ] {
+            let case_started = Instant::now();
+            // Existing UUID randomness avoids making the inventory control a tiny
+            // compressed message; only bounded lengths/counts are reported.
+            let mut material = Vec::with_capacity(bytes);
+            while material.len() < bytes {
+                let block = uuid::Uuid::new_v4();
+                let count = (bytes - material.len()).min(block.as_bytes().len());
+                material.extend_from_slice(&block.as_bytes()[..count]);
+            }
+            let payload = Arc::new(material);
+            let attempted = Arc::new(AtomicUsize::new(0));
+            let completed = Arc::new(AtomicUsize::new(0));
+            let barrier = Arc::new(tokio::sync::Barrier::new(lanes));
+            let mut jobs = tokio::task::JoinSet::new();
+            for lane in 0..lanes {
+                let store = store.clone();
+                let payload = payload.clone();
+                let attempted = attempted.clone();
+                let completed = completed.clone();
+                let barrier = barrier.clone();
+                jobs.spawn(async move {
+                    barrier.wait().await;
+                    for iteration in 0..1024 / lanes {
+                        attempted.fetch_add(1, Ordering::Relaxed);
+                        if let Err((operation, error)) = echo(&store, &payload, deadline).await {
+                            return Err((lane, iteration, operation, error));
+                        }
+                        completed.fetch_add(1, Ordering::Relaxed);
+                    }
+                    Ok(())
+                });
+            }
+            // Drain every already-issued bounded read before cleanup. A failed lane
+            // is never retried, and the first fully typed native cause is returned.
+            while let Some(result) = jobs.join_next().await {
+                if let Err((lane, iteration, operation, error)) = result.unwrap() {
+                    eprintln!(
+                        "{}",
+                        serde_json::json!({
+                            "probe": "actual-sdk-stream-query", "case": case,
+                            "lane": lane, "iteration": iteration, "operation": operation,
+                            "error_type": format!("{error:?}"), "error": error.to_string(),
+                        })
+                    );
+                    if original_failure.is_none() {
+                        original_failure = Some(error);
+                    }
+                }
+            }
+            let report = serde_json::json!({
+                "probe": "actual-sdk-stream-query", "case": case, "lanes": lanes,
+                "expected_rpc": 1024, "attempted_rpc": attempted.load(Ordering::Relaxed),
+                "completed_rpc": completed.load(Ordering::Relaxed), "payload_bytes_per_rpc": bytes,
+                "completed_payload_bytes_each_direction": completed.load(Ordering::Relaxed) * bytes,
+                "elapsed_ms": case_started.elapsed().as_millis(), "passed": original_failure.is_none(),
+            });
+            eprintln!("{report}");
+            cases.push(report);
+            if original_failure.is_some() {
+                break;
+            }
+            assert_eq!(completed.load(Ordering::Relaxed), 1024);
+        }
+        eprintln!(
+            "{}",
+            serde_json::json!({
+                "probe": "actual-sdk-stream-query", "fixture_database": options.database,
+                "expected_rpc": 4096, "deadline_seconds": 120, "elapsed_ms": started.elapsed().as_millis(),
+                "cases": cases, "passed": original_failure.is_none(),
+            })
+        );
+        let cleanup = store.remove_isolated_fixture().await;
+        if let Some(error) = original_failure {
+            return Err(error);
+        }
+        cleanup?;
+        assert_eq!(cases.len(), 4);
+        Ok(())
+    }
+
     fn rejected_initialization() -> CanonicalError {
         surrealdb::Error::query(
             "definitely rejected installation".into(),

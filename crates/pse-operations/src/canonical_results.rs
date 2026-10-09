@@ -7,7 +7,6 @@
 use crate::{
     canonical::{
         CanonicalError, CanonicalStore, PROTECTED_BEGIN, ProtectedSelection, bounded_query,
-        protected_query,
     },
     canonical_codec,
     canonical_execution::{ResultSetDescriptor, result_batch_key},
@@ -183,7 +182,7 @@ impl ResultRead {
             return Err(invalid("positive read protection lifetime required"));
         }
         let selection = &self.owner.selection;
-        protected_query("canonical_results::renew", ||Ok(self.owner.store.db.query(format!("{PROTECTED_BEGIN}\nUPDATE type::record('canonical_protections',$protection) SET expires_at=time::micros()+$lifetime;\nUPSERT type::record('canonical_guards','retention:'+$problem) SET key='retention:'+$problem,generation=(generation ?? 0dec)+1dec;\nCOMMIT;"))
+        self.owner.store.protected_query(&selection.revision().problem, "canonical_results::renew", ||Ok(self.owner.store.db.query(format!("{PROTECTED_BEGIN}\nUPDATE type::record('canonical_protections',$protection) SET expires_at=time::micros()+$lifetime;\nUPSERT type::record('canonical_guards','retention:'+$problem) SET key='retention:'+$problem,generation=(generation ?? 0dec)+1dec;\nCOMMIT;"))
             .bind(("problem",selection.revision().problem.clone())).bind(("revision",selection.revision().key.clone()))
             .bind(("sequence",canonical_codec::encode_uint(selection.revision().sequence)?))
             .bind(("protection",selection.key().to_owned())).bind(("lifetime",micros)))).await?;
@@ -418,34 +417,39 @@ impl CanonicalStore {
                 .map(|v| Value::Number(surrealdb::types::Number::Float(v)))
                 .unwrap_or(Value::None)
         };
-        let mut response = protected_query("canonical_results::result_output_page", || {
-            Ok(self
-                .db
-                .query(query.clone())
-                .bind(("problem", read.run.problem.clone()))
-                .bind(("revision", read.run.revision.clone()))
-                .bind((
-                    "sequence",
-                    canonical_codec::encode_uint(read.owner.selection.revision().sequence)?,
-                ))
-                .bind(("protection", read.owner.selection.key().to_owned()))
-                .bind(("result_set", set.key.clone()))
-                .bind(("output", output.to_owned()))
-                .bind(("partition", partition.to_owned()))
-                .bind(("start", canonical_codec::encode_uint(start)?))
-                .bind(("end", canonical_codec::encode_uint(end)?))
-                .bind((
-                    "after",
-                    after
-                        .map(canonical_codec::encode_uint)
-                        .transpose()?
-                        .unwrap_or(Value::None),
-                ))
-                .bind(("minimum", finite(minimum)))
-                .bind(("maximum", finite(maximum)))
-                .bind(("missing", missing.map(Value::Bool).unwrap_or(Value::None))))
-        })
-        .await?;
+        let mut response = self
+            .protected_query(
+                &read.run.problem,
+                "canonical_results::result_output_page",
+                || {
+                    Ok(self
+                        .db
+                        .query(query.clone())
+                        .bind(("problem", read.run.problem.clone()))
+                        .bind(("revision", read.run.revision.clone()))
+                        .bind((
+                            "sequence",
+                            canonical_codec::encode_uint(read.owner.selection.revision().sequence)?,
+                        ))
+                        .bind(("protection", read.owner.selection.key().to_owned()))
+                        .bind(("result_set", set.key.clone()))
+                        .bind(("output", output.to_owned()))
+                        .bind(("partition", partition.to_owned()))
+                        .bind(("start", canonical_codec::encode_uint(start)?))
+                        .bind(("end", canonical_codec::encode_uint(end)?))
+                        .bind((
+                            "after",
+                            after
+                                .map(canonical_codec::encode_uint)
+                                .transpose()?
+                                .unwrap_or(Value::None),
+                        ))
+                        .bind(("minimum", finite(minimum)))
+                        .bind(("maximum", finite(maximum)))
+                        .bind(("missing", missing.map(Value::Bool).unwrap_or(Value::None))))
+                },
+            )
+            .await?;
         let index = response.num_statements().saturating_sub(2);
         let mut object = response
             .take::<Option<Object>>(index)?
@@ -633,7 +637,7 @@ impl CanonicalStore {
             .closed_manifest
             .as_deref()
             .ok_or_else(|| invalid("terminal attempt lacks closed manifest"))?;
-        let mut response=protected_query("canonical_results::read_results", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nfn::pse_execution_v1::available($run);\nLET $attempt_record=SELECT * FROM ONLY type::record('canonical_attempts',$attempt);
+        let mut response=self.protected_query(&owner.selection.revision().problem, "canonical_results::read_results", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nfn::pse_execution_v1::available($run);\nLET $attempt_record=SELECT * FROM ONLY type::record('canonical_attempts',$attempt);
 LET $manifest_record=SELECT * FROM ONLY type::record('canonical_result_manifests',$manifest);
 IF $attempt_record=NONE OR $attempt_record.run!=$run OR !$attempt_record.terminal OR !$attempt_record.closed OR $attempt_record.ingestion_open OR $attempt_record.closed_manifest!=$manifest OR $manifest_record=NONE OR $manifest_record.attempt!=$attempt OR $manifest_record.generation!=$attempt_record.generation {{ THROW 'terminal result selection unavailable'; }};
 UPSERT type::record('canonical_result_protections',$protection) SET key=$protection,run=$run,attempt=$attempt,manifest=$manifest;
@@ -699,7 +703,7 @@ SELECT * FROM ONLY type::record('canonical_result_manifests',$manifest);\nCOMMIT
         } else {
             ""
         };
-        let mut response=protected_query("canonical_results::result_block_page", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND output=$output AND partition=$partition AND {cursor}ordinal<$count AND end>$start AND start<$end ORDER BY ordinal LIMIT {PAGE};\nCOMMIT;"))
+        let mut response=self.protected_query(&read.run.problem, "canonical_results::result_block_page", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND output=$output AND partition=$partition AND {cursor}ordinal<$count AND end>$start AND start<$end ORDER BY ordinal LIMIT {PAGE};\nCOMMIT;"))
             .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone()))
             .bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?))
             .bind(("protection",read.owner.selection.key().to_owned()))
@@ -750,7 +754,7 @@ SELECT * FROM ONLY type::record('canonical_result_manifests',$manifest);\nCOMMIT
             return Err(invalid("payload outside admitted descriptor"));
         }
         let key = result_batch_key(&read.attempt.key, &set.key, ordinal);
-        let mut response=protected_query("canonical_results::result_payload", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM ONLY type::record('canonical_result_batches',$batch);\nCOMMIT;"))
+        let mut response=self.protected_query(&read.run.problem, "canonical_results::result_payload", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nSELECT * FROM ONLY type::record('canonical_result_batches',$batch);\nCOMMIT;"))
             .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone()))
             .bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?))
             .bind(("protection",read.owner.selection.key().to_owned())).bind(("batch",key.clone())))).await?;
@@ -790,7 +794,7 @@ SELECT * FROM ONLY type::record('canonical_result_manifests',$manifest);\nCOMMIT
         {
             return Err(invalid("block outside admitted descriptor"));
         }
-        let mut response=protected_query("canonical_results::result_block", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nRETURN {{metadata:(SELECT * FROM ONLY type::record('canonical_result_blocks',$key)),batch:(SELECT * FROM ONLY type::record('canonical_result_batches',$batch))}};\nCOMMIT;"))
+        let mut response=self.protected_query(&read.run.problem, "canonical_results::result_block", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nRETURN {{metadata:(SELECT * FROM ONLY type::record('canonical_result_blocks',$key)),batch:(SELECT * FROM ONLY type::record('canonical_result_batches',$batch))}};\nCOMMIT;"))
             .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone()))
             .bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?))
             .bind(("protection",read.owner.selection.key().to_owned())).bind(("key",metadata.key.clone())).bind(("batch",metadata.batch.clone())))).await?;
