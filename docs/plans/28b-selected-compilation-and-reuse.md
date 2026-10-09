@@ -293,7 +293,7 @@ and the applicable receiving implementation.
 
 ## Graph/hash extension — B8 retained supplier topology
 
-This **Proposed** extension supplies the compiler portion of
+This **Implemented** extension supplies the compiler portion of
 [Graph/hash F03](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#f03).
 The [coordinator](28-surrealdb-unified-substrate.md#graph-and-hashing-review-integration)
 owns the finding; [28f/N13](28f-shared-numerical-preparation.md#n13--demand-specific-supplier-registration)
@@ -302,19 +302,22 @@ to reimplement. Earlier baseline descriptions retain their original scope.
 
 ### Foundation assessment and target
 
-Current `AdmittedModeling::implicit_order_for` constructs nodes and supplier edges from
-every implicit body's value-level output demands on each use. For selected rows it derives
-observation roots, traverses reversed dependencies, removes unrequested nodes and only then
-topologically sorts. Immutable admitted bodies and existing shared allocation owners make
+At the investigation baseline, `AdmittedModeling::implicit_order_for` constructed nodes and
+supplier edges from every implicit body's value-level output demands on each use. Selected
+requests derived observation roots, traversed reversed dependencies, removed unrequested nodes
+and only then topologically sorted. Immutable admitted bodies and existing shared allocation owners make
 this topology suitable for preparation once. Fresh requested scope and numerical demand
 remain separate decisions. AP-07 supports retaining discovery; AP-04/G6 require preserving
 the distinctions that govern selection and execution.
 
-Prepare immutable supplier adjacency, stable identity-to-node correspondence and
-observation-to-root mappings with the admitted product. Use the existing petgraph traversal
+Retain immutable supplier adjacency and stable identity-to-node correspondence with the
+admitted product; derive observation roots for each selected request. Use the existing petgraph traversal
 and topological algorithms first; a compact representation is eligible if it preserves the
-consumed relation and reduces total machinery. [28k/GH1](28k-graph-kernels-and-hashing-investigations.md#gh1)
-investigates broader layouts but does not block this correction. Supplier edges express
+consumed relation and reduces total machinery. The completed
+[28k/GH1 inquiry](28k-graph-kernels-and-hashing-investigations.md#gh1) supports retaining
+petgraph for this correction: case preparation can rediscover the immutable topology at Value
+and again after binding at a higher derivative order, and observations also consume it.
+No CSR or cross-call flow-cache benefit was established. Supplier edges express
 dependency reachability, not physical connection occurrences; any deduplication must preserve
 this particular consumer's meaning rather than establish a universal graph policy.
 
@@ -340,11 +343,11 @@ Construction and retained/transient containers use current source bounds and all
 owners, including escaping child aliases. Update retained-byte accounting before adoption;
 sharing an Arc does not exempt adjacency/index storage from its charge.
 
-### Package and proposed acceptance
+### Package and scoped acceptance
 
 | Package | Prerequisites and delivered capability | Consumer boundary | Progress |
 |---|---|---|---|
-| B8 — Retained supplier topology | Working B7/J2 and compiler admitted-body/view owners. Build reusable dependency discovery and select closure/order under existing semantics. | All compiler `implicit_order`/`implicit_order_for` views, original views and N13 registration consumers; remove per-use graph/body-demand reconstruction after migration. | Proposed; not implemented. |
+| B8 — Retained supplier topology | Working B7/J2 and compiler admitted-body/view owners. Build reusable dependency discovery and select closure/order under existing semantics. | All compiler `implicit_order`/`implicit_order_for` views, original views and N13 registration consumers; remove per-use graph/body-demand reconstruction after migration. | Implemented; targeted compiler/native-runtime controls passed; affected journey status is owned by 28e. |
 
 Use independent small graphs with known predecessor relations/order constraints, including
 isolates, sibling/nested suppliers, reordered identities, empty/full selections, changed
@@ -361,6 +364,58 @@ alone does not establish runtime integration or close F03. Delete the displaced 
 path when callers migrate, retaining independent expected-graph and scientific checks.
 [28e](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance)
 owns assembled evidence; no timing gain or broader scientific qualification is asserted.
+
+### Implementation checkpoint — 2026-10-09
+
+**Implemented:** each admitted primary/original product owns an
+`Arc<once_cell::sync::OnceCell<SupplierTopology>>`. Successful initialization occurs at the
+existing `implicit_order_for` boundary; a failed or panicking fill leaves the memo empty for
+retry. Inventory-wide implicit-body Value-demand discovery still precedes selected observation
+lookup. Observation roots and missing-body failures remain selection-local. The derived memo
+is excluded from mathematical equality and shared by owner attachments.
+
+Selected requests traverse reversed dependencies and topologically sort a borrowed filtered
+view of the retained graph; full requests sort the complete graph. Unrelated cycles remain
+excluded from a valid selected closure. No graph clone/rebuild or `retain_nodes` path remains.
+Node-filtered traversal retains the complete node index space, so this is not a claim of cost
+proportional only to selected nodes.
+
+Checked accounting reserves graph/node-index storage and one peak synchronous body-demand
+allowance, accumulated request roots and whole-index traversal scratch before the product
+escapes. It counts full formal-slot/compaction work, not only outputs/provider references.
+Sequential body scratch is not summed as if simultaneously live. Owner attachment retains one
+shared memo charge; primary and original views retain distinct topology identities.
+
+<a id="b8-scoped-functional-evidence"></a>
+
+### Scoped functional evidence
+
+**Tested:** `just check-package pse-compiler -p pse-runtime` passed with zero failures and
+warnings against a zero baseline. The targeted force-validation command below passed **6/6**
+compiler tests on 2026-10-09:
+
+```bash
+just unit-package pse-compiler 'test(owned_frontier_inventory) | test(selected_shared_observation_body_demands_only_its_implicit_provider_output) | test(supplied_promoted_implicit_descriptors_precede_nested_consumer_planning) | test(supplier_topology_)'
+```
+
+Those controls exercise retained portable inventory/original views, selected output demands,
+known ancestor/isolated/parallel-edge topology, selected versus unrelated cycles, empty scope,
+initialization error/panic retry, synchronized first fill, owner sharing, and request-local
+missing-body failure/retry. Owner controls check unchanged memo reservation, shared memo
+identity and absence of a second charge independently of vector capacity changes during owner
+attachment; lazy-fill accounting stability is checked separately.
+
+**Tested:** the final native runtime selection passed 24/24 controls against a zero-failure
+baseline, including selected nested observations, sibling-hint ordering, Value-demand
+propagation and composed child second derivatives. The current registration consumers use
+B8 ordering without sharing mutable evaluator state or replacing their derivative demands.
+[28e's graph/hash acceptance](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance)
+owns the exact commands/native/force-validation conditions and remaining affected journeys;
+[28k's followup outcome](28k-graph-kernels-and-hashing-investigations.md#followup-verification-and-outcome-2026-10-09)
+records integrated implementation and inquiry conclusions. Finding dispositions remain at the
+coordinator. These scoped results establish neither a latency improvement nor broader
+E3/E4/E5 or scientific qualification. Portable reconstruction remains the production restart
+path; the real Recipe persistence inquiry does not select an RC03 cutover.
 
 ## Work packages
 

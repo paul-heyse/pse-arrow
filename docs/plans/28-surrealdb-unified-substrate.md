@@ -657,9 +657,11 @@ store pivot, mandatory benchmark matrix or permanent assurance framework is sele
 The [2026-10-09 graph compilation, kernels and hashing review](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md)
 assesses further graph preparation, fast hashing independently and their combined reuse role.
 The maintainer selected bounded investigations alongside planning the concrete corrections.
-This integration is **Proposed**: it supplies plan documents, not authorization to implement
-production changes or restart the narrowed qualification continuation. The review retains
-its Revise verdict and source/evidence limits; its conditional alternatives are not adopted
+The maintainer authorized the concrete corrections, bounded followup inquiries and Graph/hash
+RC04 V2 framing on 2026-10-09. The earlier GH1–GH4 investigation Outcome remains at
+[28k](28k-graph-kernels-and-hashing-investigations.md); current implementation and scoped
+acceptance extend that owner without restarting the narrowed qualification continuation.
+The review retains its Revise verdict and source/evidence limits; its conditional alternatives are not adopted
 merely because they have investigation packages.
 
 Authoring refreshed `main` at `d0f2c41818a34539a910654dfea4760771603f45` with the preserved
@@ -676,7 +678,7 @@ constraints. Earlier implementation receipts and paused campaign obligations kee
 | [28f/N12](28f-shared-numerical-preparation.md#n12--indexed-flow-decision-policy) | Binary search over existing sorted decisions removes per-edge full policy scans, preserving physical occurrence graphs and cycle witnesses. Independent of J3/B8. |
 | [28b/B8](28b-selected-compilation-and-reuse.md#b8-retained-supplier-topology) | Compiler-owned supplier discovery, admitted-view identity mapping and selected closure/order. Preserve failure scope; no global cycle admission is imposed on valid selected closures. |
 | [28f/N13](28f-shared-numerical-preparation.md#n13--demand-specific-supplier-registration) | Working B8 supplies ordering while current output/coordinate/derivative demands, starts/policies and private registrations remain runtime operations. |
-| [28k/GH1–GH4](28k-graph-kernels-and-hashing-investigations.md#packages-evidence-and-completion) | Bounded graph/layout/placement, hash-role, invalidation and framing/persistence decisions. GH3 consumes N0's catalog investigation; no duplicate authority. |
+| [28k/GH1–GH4](28k-graph-kernels-and-hashing-investigations.md#followup-verification-and-outcome-2026-10-09) | Bounded investigations and authorized followups: retained supplier topology, local Fx interning/prehash/key reuse, explicit V2 framing; complete checker dependencies/backdating and qualified portable reconstruction retained. GH3 supplies N0's typed-checker investigation proposal. |
 | [28e](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance) | Sole affected assembled acceptance and later authorized measurement route. Local controls and investigation completion do not restart E4/E5. |
 
 J3 and N12 can proceed independently after their existing contracts. B8's working supplier
@@ -686,28 +688,37 @@ persistent adoption depends on GH2/GH3's complete encoding/dependency conclusion
 do not block the three source-supported corrections. One integration owner coordinates shared
 compiler/runtime product declarations, lifetime accounting, manifests and tests.
 
-**Selected rule changes: none (2026-10-09).** The correction packages preserve current identity,
-dependency, physical, numerical and publication contracts. GH1–GH4 investigate alternatives
-without selecting a universal graph/task compiler or changing durable hashes, frames or runtime
-persistence. [28k's rule-change boundary](28k-graph-kernels-and-hashing-investigations.md#rule-change-boundary)
-records Graph/hash RC01–RC04 as conditional notes, not accepted/rejected amendments. Before a
-dependent target uses an actual rule change, present its consequence for explicit accept/reject,
-record the outcome/date/route here and schedule the required decision/design amendment first.
-Keeping current rules leaves J3/B8/N12/N13 and role-specific local alternatives available.
+**Selected rule changes, 2026-10-09:** Graph/hash RC04 is accepted for new explicitly
+framed FlowProjectionV2 identities. [ADR-0167](../adr/0167-frame-flow-projection-v2.md) remains
+proposed under the decision-PR route; its [independent formal review](../design_review/reviews/design_review_flow-projection-v2_2026-10-09.md)
+accepted the bounded target before implementation. Blueprint §5.3/§17.4 own current framing
+and physical-context equality limits. No current V1 fallback or historical reinterpretation
+is permitted. Full graph equality, BLAKE3 and fresh native/runtime state remain.
+Graph/hash RC02 durable fast hashing and RC03 persisted incremental runtime remain unselected;
+probes may produce a concrete adoption proposal, not an automatic production cutover.
+
+**Selected local optimization criterion, 2026-10-09:** adopt the targeted technically
+supported changes unless they fail correctness or clearly and significantly impair performance.
+Concurrent repository testing makes small timing differences inconclusive; slight impairment
+does not exclude an expected improvement or its future integration. Fx factorable interning,
+one structure-key computation per projection and a cached preparation-key table prehash are
+selected under this criterion. Full equality and durable identity remain unchanged. This
+supersedes the initial GH2 retained-hashing decision at these bounded sites only.
 
 ### Graph and hashing finding dispositions
 
 This table is the sole finding-status owner for this review. The qualified labels below
 distinguish it from other reviews' F01/U01; they do not rename the original identifiers.
-Packages own their progress and evidence at the linked companions. Open records describe
-planned work awaiting execution selection, not implementation acceptance.
+Packages own their progress and evidence at the linked companions. The following dispositions
+consume working corrections and affected functional acceptance; inquiry publication alone
+did not close them. Broader E3/E4/E5 and scope-end check status keep their separate owners.
 
 | Finding or premise | Review scenarios | Disposition | Work/decision owner | Required evidence or question |
 |---|---|---|---|---|
-| [Graph/hash F01](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#f01) | S01/S02 | Open | 28j/J3; 28e affected acceptance | Canonical view inventory and exact indexed settlement replace repeated discovery while current acknowledgment, lineage, protection and allocation ownership remain. |
-| [Graph/hash F02](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#f02) | S03 | Open | 28f/N12; 28e affected acceptance | No full decision scan per edge; reordered/parallel/policy cases retain physical contracts and independent forbidden-cycle witness. |
-| [Graph/hash F03](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#f03) | S02/S04 | Open | 28b/B8 plus 28f/N13; 28e affected acceptance | Immutable supplier discovery shared across registrations; selected cycle/failure scope and actual derivative/private-state obligations preserved at all affected callers. |
-| [Graph/hash U01](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#u01--flow-fingerprint-structural-framing-remains-a-bounded-open-premise) | S03/S07 | Open premise, not a fourth defect | 28k/GH4 with identity/structural owners | Establish supported identity-role/framing premise or a legitimate supported counterexample and affected consumers; no sole-key equivalence or scientific misreuse claim by default. |
+| [Graph/hash F01](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#f01) | S01/S02 | Resolved, 2026-10-09 | 28j/J3; [28e acceptance](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance) | Retained canonical inventories/indexed settlement replace repeated discovery. Compiler inventory controls, final native runtime many-body/exact-basis attribution/released-root controls, public Python retention and actual portable restart passed with current effects and owner charges preserved. |
+| [Graph/hash F02](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#f02) | S03 | Resolved, 2026-10-09 | 28f/N12; [28e acceptance](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance) | Binary search removes per-edge full decision scans. Structural flow 6/6, backend tears 3/3, final runtime flow/recycle selection and public authored recycle passed, preserving parallel occurrences, policy and forbidden-cycle witnesses. |
+| [Graph/hash F03](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#f03) | S02/S04 | Resolved, 2026-10-09 | 28b/B8 plus 28f/N13; [28e acceptance](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance) | Success-only shared immutable discovery replaces per-registration construction. Compiler selection/cycle/retry/owner controls and final native nested/sibling/value-demand/second-derivative consumers passed; current registrations and private evaluator state remain. |
+| [Graph/hash U01](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#u01--flow-fingerprint-structural-framing-remains-a-bounded-open-premise) | S03/S07 | Resolved for V2 sequence framing, 2026-10-09 | Identity/structural and compiler flow owners; proposed ADR-0167 | New domain tags/counts frame every collection and parent, with independent golden preimage and supported low-level parent-repartition controls plus native/runtime consumers. This does not demonstrate a compiler-authored V1 scientific collision or establish sole-key physical-registry equivalence. Full graph/current-context checks remain required. |
 
 Broader opportunities are GH decision packages, not additional demonstrated defects.
 Retained-design decisions, adoption proposals and bounded unresolved premises have explicit
@@ -734,12 +745,20 @@ mechanism, and justified distinct contracts and conditional retained-design deci
 
 ## Current checkpoint
 
-**Graph/hash planning handoff, 2026-10-09:** J3/B8/N12/N13 and draft 28k are documented at
-the [integration above](#graph-and-hashing-review-integration), with Open finding dispositions.
-No new correction/investigation has been executed and no rule change selected. The following
-qualification continuation retains its authorization boundary; this planning handoff neither
-restarts it nor replaces its historical evidence. Select future execution scope from the
-package dependencies above rather than treating document creation as a campaign restart.
+**Graph/hash followup execution, 2026-10-09:** [28k](28k-graph-kernels-and-hashing-investigations.md)
+owns implementation and bounded inquiry evidence at baseline
+`46545b2ad3e2999b4335692ac49af6091438c3fc`. J3/B8/N12/N13 and selected RC04 V2 are
+implemented with Fx interning, local structure-key reuse and immutable basis-key prehash.
+Compiler/structural/identity/backend controls and final native factorable/runtime plus four
+Python journeys and the production portable-restart control passed; feature-matrix and final
+documentation publication remain in progress. Real Recipe
+persistence and authored checker probes retain current production mechanisms and identify
+complete design prerequisites. Scalar diagnostic measurements are recorded with their operation
+boundaries. Graph/hash F01–F03 and V2 sequence framing have affected functional acceptance;
+other scope-end checks passed, including repaired composite hygiene acceptance. The PC-SAFT fixture's four scientific refusals have a
+separate numerical-fact investigation owner at 28f and supply no prepared-product claim. No RC02/RC03
+cutover or broader campaign restart is selected. N0 retains the catalog conclusion and the
+following paused continuation retains its authorization boundary and historical evidence.
 
 The maintainer authorized detailed execution of 28i/28j and then implementation on
 2026-10-08, before remaining unrelated Plan 28 scope. I0/J0 selected trust-transition

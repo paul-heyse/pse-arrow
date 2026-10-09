@@ -3300,7 +3300,7 @@ class FlowGraphDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     connections: tuple[FlowEdgeDocument, ...]
     #: Grouped tear decisions.
     decisions: tuple[FlowDecisionDocument, ...]
-    #: Identity of the exact admitted flow graph.
+    #: Versioned flow projection fingerprint; full physical-context equality remains separate.
     identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
     #: Selected graph nodes.
     nodes: tuple[FlowNodeDocument, ...]

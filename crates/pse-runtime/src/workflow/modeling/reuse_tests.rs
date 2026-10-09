@@ -2183,3 +2183,255 @@ async fn selected_qualification_turn_failed_hydration_retries_without_cached_fai
         .unwrap();
     service.clear_program_cache();
 }
+
+#[tokio::test]
+async fn ordinary_preparation_many_body_inventory_settles_partial_descriptions_by_identity() {
+    let runtime = super::super::tests::runtime();
+    let mut source = String::from("package p {def Root {var x:Scalar;");
+    for degree in 1..=12 {
+        let expression = std::iter::repeat_n("x", degree)
+            .collect::<Vec<_>>()
+            .join("*");
+        source.push_str(&format!("eq e{degree}:{expression}=={degree};"));
+    }
+    source.push_str("}}");
+    let rows = declarations(&source);
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let instance = pse_modeling::specialize::root_instance(root);
+    let package = runtime
+        .modeling_package(rows, super::super::tests::physical())
+        .await
+        .unwrap();
+    let first = prepared(&package).await;
+    let basis = retained_preparation_basis(
+        &package,
+        root,
+        instance,
+        Bindings::default(),
+        Limits::default(),
+    )
+    .await
+    .unwrap();
+    assert!(basis.descriptions.len() >= 12);
+    let missing = basis.descriptions[0].semantic_identity;
+    let retained = basis.descriptions[1..]
+        .iter()
+        .rev()
+        .cloned()
+        .collect::<Vec<_>>();
+    let service = runtime.shared.math();
+    let partial = Arc::new(basis.with_descriptions(service, retained).unwrap());
+    assert!(partial.description(missing).is_none());
+    assert!(
+        partial
+            .descriptions
+            .windows(2)
+            .all(|pair| pair[0].semantic_identity < pair[1].semantic_identity)
+    );
+    let selected = package
+        .checked_selection(&[root], &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let key = service
+        .basis_key(
+            &selected.admission,
+            root,
+            instance,
+            Bindings::default(),
+            Limits::default(),
+        )
+        .unwrap();
+    runtime
+        .canonical
+        .store()
+        .release(selected.read.selection())
+        .await
+        .unwrap();
+    service
+        .modeling_cache
+        .retain_basis(service.modeling_cache.generation(), key, partial.clone());
+    let second = prepared(&package).await;
+    assert!(pse_math::SharedAllocation::ptr_eq(
+        &first.compiled().admitted,
+        &second.compiled().admitted
+    ));
+    let settled = retained_preparation_basis(
+        &package,
+        root,
+        instance,
+        Bindings::default(),
+        Limits::default(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(settled.descriptions.len(), basis.descriptions.len());
+    assert!(settled.description(missing).is_some());
+    for old in &partial.descriptions {
+        assert!(Arc::ptr_eq(
+            old,
+            settled.description(old.semantic_identity).unwrap()
+        ));
+    }
+    service.clear_program_cache();
+}
+
+#[tokio::test]
+async fn ordinary_preparation_basis_prehash_preserves_exact_identity_under_forced_collisions() {
+    use std::hash::{Hash, Hasher};
+    #[derive(Debug, Default)]
+    struct HashWrites {
+        writes: usize,
+        bytes: usize,
+    }
+    impl Hasher for HashWrites {
+        fn finish(&self) -> u64 {
+            0
+        }
+        fn write(&mut self, bytes: &[u8]) {
+            self.writes += 1;
+            self.bytes += bytes.len();
+        }
+    }
+    fn hash(key: &crate::math::modeling::BasisKey) -> u64 {
+        let mut hash = std::collections::hash_map::DefaultHasher::new();
+        key.hash(&mut hash);
+        hash.finish()
+    }
+    let runtime = super::super::tests::runtime();
+    let original_rows = declarations("package p {def Root {var x:Scalar; eq e:x*x==1;}}");
+    let root = original_rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let instance = pse_modeling::specialize::root_instance(root);
+    let package = runtime
+        .modeling_package(original_rows, super::super::tests::physical())
+        .await
+        .unwrap();
+    let first = prepared(&package).await;
+    let first_basis = retained_preparation_basis(
+        &package,
+        root,
+        instance,
+        Bindings::default(),
+        Limits::default(),
+    )
+    .await
+    .unwrap();
+    let changed = package
+        .with_declarations(declarations(
+            "package p {def Root {var x:Scalar; eq e:x*x==2;}}",
+        ))
+        .await
+        .unwrap();
+    let second = prepared(&changed).await;
+    let second_basis = retained_preparation_basis(
+        &changed,
+        root,
+        instance,
+        Bindings::default(),
+        Limits::default(),
+    )
+    .await
+    .unwrap();
+    assert!(
+        !Arc::ptr_eq(&first_basis, &second_basis),
+        "the collision control must use two distinct prepared products"
+    );
+    let selected = package
+        .checked_selection(&[root], &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let different = changed
+        .checked_selection(&[root], &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let service = runtime.shared.math();
+    let mut first_key = service
+        .basis_key(
+            &selected.admission,
+            root,
+            instance,
+            Bindings::default(),
+            Limits::default(),
+        )
+        .unwrap();
+    let mut equal_key = service
+        .basis_key(
+            &selected.admission,
+            root,
+            instance,
+            Bindings::default(),
+            Limits::default(),
+        )
+        .unwrap();
+    let mut second_key = service
+        .basis_key(
+            &different.admission,
+            root,
+            instance,
+            Bindings::default(),
+            Limits::default(),
+        )
+        .unwrap();
+    assert_eq!(first_key, equal_key);
+    assert_eq!(hash(&first_key), hash(&equal_key));
+    assert_ne!(
+        first_key, second_key,
+        "changed exact source dependencies remain unequal"
+    );
+    let mut writes = HashWrites::default();
+    first_key.hash(&mut writes);
+    assert_eq!(
+        (writes.writes, writes.bytes),
+        (1, size_of::<u64>()),
+        "table callbacks consume the cached hash rather than traversing source fields"
+    );
+    // Install only forced keys in the cleared cache: every equal test key gets the
+    // same forced prehash before publication, preserving Hash/Eq's table contract.
+    for key in [&mut first_key, &mut equal_key, &mut second_key] {
+        Arc::get_mut(key).unwrap().force_prehash_for_test(7);
+    }
+    assert_eq!(hash(&first_key), hash(&second_key));
+    assert_eq!(first_key, equal_key);
+    assert_ne!(first_key, second_key);
+    service.clear_program_cache();
+    let generation = service.modeling_cache.generation();
+    service
+        .modeling_cache
+        .retain_basis(generation, first_key.clone(), first_basis.clone());
+    service
+        .modeling_cache
+        .retain_basis(generation, second_key.clone(), second_basis.clone());
+    assert!(Arc::ptr_eq(
+        &service.modeling_cache.basis(&first_key).unwrap(),
+        &first_basis
+    ));
+    assert!(Arc::ptr_eq(
+        &service.modeling_cache.basis(&equal_key).unwrap(),
+        &first_basis
+    ));
+    assert!(Arc::ptr_eq(
+        &service.modeling_cache.basis(&second_key).unwrap(),
+        &second_basis
+    ));
+    runtime
+        .canonical
+        .store()
+        .release(selected.read.selection())
+        .await
+        .unwrap();
+    runtime
+        .canonical
+        .store()
+        .release(different.read.selection())
+        .await
+        .unwrap();
+    drop((first, second));
+    service.clear_program_cache();
+}

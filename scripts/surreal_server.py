@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import base64
 import contextlib
+import errno
 import fcntl
 import hashlib
 import http.client
@@ -49,7 +50,7 @@ from scripts import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Mapping
+    from collections.abc import Callable, Generator, Mapping
 
 
 MIB = 1024 * 1024
@@ -211,8 +212,11 @@ def publish_generation(
             {"version": 1, "identity": identity, "files": entries},
         )
         # Concurrent complete generations have identical content; preserve pending.
-        with contextlib.suppress(FileExistsError):
+        try:
             pending.rename(destination)
+        except OSError as error:
+            if error.errno not in {errno.EEXIST, errno.ENOTEMPTY}:
+                raise
     verify_generation(destination)
     return {
         "supervisor_executable": str(Path(sys.executable).resolve()),
@@ -1976,6 +1980,219 @@ def reference_state(selected: Path) -> Path:
     return state
 
 
+class ObserverControlScope:
+    """The exact caller lifetime and finite cap borrowed by one observer."""
+
+    __slots__ = (
+        "group",
+        "inode",
+        "invocation",
+        "memory",
+        "nonce",
+        "observer",
+        "temporary_memory",
+        "unit",
+    )
+
+    def __init__(
+        self,
+        unit: str,
+        group: str,
+        invocation: str,
+        inode: int,
+        observer: str,
+    ) -> None:
+        self.unit = unit
+        self.group = group
+        self.invocation = invocation
+        self.inode = inode
+        self.memory = 0
+        self.temporary_memory = 0
+        self.nonce = uuid.uuid4().hex
+        self.observer = observer
+
+
+def observer_control_reservation(
+    owner: host_admission.Allocation, scope: ObserverControlScope, action: str
+) -> None:
+    """Exclude overlapping cap borrowers without holding a lock through execution."""
+    expected = {
+        "owner": owner.nonce,
+        "nonce": scope.nonce,
+        "observer": scope.observer,
+        "group": scope.group,
+        "invocation": scope.invocation,
+        "inode": scope.inode,
+    }
+    path = owner.directory / "observer-control-borrows.json"
+    with host_admission.allocation_metadata(owner.directory) as ledger:
+        current = ledger["owners"].get(owner.nonce)
+        if current is None:
+            raise SupervisorError("Observer host allocation is no longer live")
+        registered = object_mapping(
+            object_mapping(current.get("units")).get(scope.unit)
+        )
+        if registered != {
+            "group": scope.group,
+            "invocation": scope.invocation,
+            "inode": scope.inode,
+        }:
+            raise SupervisorError("Observer registered control identity changed")
+        if path.is_symlink():
+            raise SupervisorError("Unsafe observer control borrow metadata")
+        reservations = read_json(path) if path.exists() else {}
+        if action == "claim":
+            if scope.unit in reservations:
+                raise SupervisorError(
+                    "Observer control scope already has a cap borrower"
+                )
+            reservations[scope.unit] = expected
+        elif reservations.get(scope.unit) != expected:
+            raise SupervisorError("Observer control borrow identity changed")
+        elif action == "release":
+            del reservations[scope.unit]
+        elif action != "verify":
+            raise SupervisorError("Unknown observer control borrow action")
+        if action != "verify":
+            write_json(path, reservations)
+
+
+def observer_control_observation(scope: ObserverControlScope) -> dict[str, str]:
+    """Refuse to change a replaced unit or a caller outside its original group."""
+    result = systemctl(
+        "show",
+        "--property=LoadState,ActiveState,ControlGroup,InvocationID,MemoryMax",
+        scope.unit,
+    )
+    observed = dict(
+        line.split("=", 1) for line in result.stdout.splitlines() if "=" in line
+    )
+    caller = native_operation.process_group(os.getpid())
+    if (
+        observed.get("LoadState") != "loaded"
+        or observed.get("ActiveState") != "active"
+        or observed.get("ControlGroup") != scope.group
+        or observed.get("InvocationID") != scope.invocation
+        or host_admission.group_identity(scope.group) != scope.inode
+        or not (caller == scope.group or caller.startswith(scope.group + "/"))
+    ):
+        raise SupervisorError("Observer control scope identity changed")
+    return observed
+
+
+def observer_allocation_drained(owner: host_admission.Allocation, unit: str) -> bool:
+    """Use the existing registered kernel lifetime, never guess an empty launch."""
+    with host_admission.allocation_metadata(owner.directory) as ledger:
+        current = ledger["owners"].get(owner.nonce)
+        if current is None:
+            raise SupervisorError("Observer host allocation is no longer live")
+        record = dict(current)
+        units = object_mapping(current.get("units"))
+        bound = object_mapping(units.get(unit, {}))
+        group = bound.get("group")
+        invocation = bound.get("invocation")
+        if (
+            not isinstance(group, str)
+            or not group
+            or not isinstance(invocation, str)
+            or not re.fullmatch(r"[a-f0-9]{32}", invocation)
+            or type(bound.get("inode")) is not int
+        ):
+            return False
+        record["units"] = {unit: dict(bound)}
+        record["released"] = True
+    return host_admission.drained(record)
+
+
+@contextlib.contextmanager
+def observer_control_limit(
+    owner: host_admission.Allocation,
+    unit: str,
+    profile: str | None,
+    *,
+    launch_attempted: Callable[[], bool] | None = None,
+) -> Generator[None, None, None]:
+    """Borrow the caller's control cap only for the observer's verified lifetime."""
+    scope = None
+    if profile is not None and profile != "reference":
+        caller = native_operation.process_group(os.getpid())
+        with host_admission.allocation_metadata(owner.directory) as ledger:
+            units = dict(object_mapping(ledger["owners"][owner.nonce].get("units")))
+        for control, value in units.items():
+            registered = object_mapping(value)
+            group = registered.get("group", "")
+            if not isinstance(group, str):
+                raise SupervisorError("Observer control group is invalid")
+            if group and (caller == group or caller.startswith(group + "/")):
+                invocation = registered.get("invocation")
+                inode = registered.get("inode")
+                if (
+                    not isinstance(invocation, str)
+                    or not re.fullmatch(r"[a-f0-9]{32}", invocation)
+                    or not isinstance(inode, int)
+                    or isinstance(inode, bool)
+                ):
+                    raise SupervisorError("Observer control scope is not bound")
+                scope = ObserverControlScope(control, group, invocation, inode, unit)
+                break
+        if scope is None:
+            raise SupervisorError("Observer caller has no registered control scope")
+    if scope is not None:
+        observer_control_reservation(owner, scope, "claim")
+    captured = False
+    yielded = False
+    try:
+        if scope is not None and profile is not None:
+            memory = observer_control_observation(scope).get("MemoryMax", "")
+            if not memory.isdecimal() or int(memory) <= 0:
+                raise SupervisorError("Observer control cap must be finite")
+            scope.memory = int(memory)
+            ceiling = host_admission.settings(profile)["control_gib"] * GIB
+            scope.temporary_memory = min(scope.memory, ceiling)
+            captured = True
+            systemctl(
+                "set-property",
+                "--runtime",
+                scope.unit,
+                f"MemoryMax={scope.temporary_memory}",
+                "MemorySwapMax=0",
+            )
+            if observer_control_observation(scope).get("MemoryMax") != str(
+                scope.temporary_memory
+            ):
+                raise SupervisorError("Observer control cap readback differs")
+        yielded = True
+        yield
+    finally:
+        never_launched = not yielded or (
+            launch_attempted is not None and not launch_attempted()
+        )
+        if scope is not None and (
+            never_launched or observer_allocation_drained(owner, unit)
+        ):
+            observer_control_reservation(owner, scope, "verify")
+            if captured:
+                current = observer_control_observation(scope).get("MemoryMax")
+                if current not in {str(scope.temporary_memory), str(scope.memory)}:
+                    raise SupervisorError(
+                        "Observer control cap changed before restoration"
+                    )
+                if current != str(scope.memory):
+                    systemctl(
+                        "set-property",
+                        "--runtime",
+                        scope.unit,
+                        f"MemoryMax={scope.memory}",
+                    )
+                if observer_control_observation(scope).get("MemoryMax") != str(
+                    scope.memory
+                ):
+                    raise SupervisorError(
+                        "Observer control cap restoration readback differs"
+                    )
+            observer_control_reservation(owner, scope, "release")
+
+
 def observer(state: Path, command: list[str], profile: str | None = None) -> int:
     """Run one foreground observer in the same finite primary/server envelope."""
     config_for(state)
@@ -2037,55 +2254,34 @@ def observer(state: Path, command: list[str], profile: str | None = None) -> int
     owner = host_admission.inherit(os.environ)
     if owner is None:
         raise SupervisorError("Observer must belong to an admitted host allocation")
-    if profile is not None and profile != "reference":
-        group = native_operation.process_group(os.getpid())
-        with host_admission.allocation_metadata(owner.directory) as ledger:
-            units = dict(ledger["owners"][owner.nonce]["units"])
-        for control, observed in units.items():
-            if observed.get("group") and (
-                group == observed["group"] or group.startswith(observed["group"] + "/")
-            ):
-                ceiling = host_admission.settings(profile)["control_gib"] * GIB
-                systemctl(
-                    "set-property",
-                    "--runtime",
-                    control,
-                    f"MemoryMax={ceiling}",
-                    "MemorySwapMax=0",
-                )
-                break
-    owner.register(unit)
-    handoff = native_operation.prepare_handoff(unit)
-    environment = systemd_environment()
-    for key in (
-        "PSE_NATIVE_OPERATION",
-        "PSE_NATIVE_HANDOFF",
-        "PSE_NATIVE_WORKER_SLOT",
-        "PSE_NATIVE_WORKER_MEMORY_BYTES",
-        "PSE_MEMORY_MAX",
-    ):
-        environment.pop(key, None)
-    if handoff is not None:
-        environment["PSE_NATIVE_HANDOFF"] = str(handoff)
-    environment["PSE_SURREAL_STATE"] = str(state)
-    if profile is not None:
-        environment["PSE_TEST_EXECUTION_PROFILE"] = profile
+    attempted = False
     try:
-        return subprocess.call(
-            observer_scope_command(state, allocation, unit, command), env=environment
-        )
+        with observer_control_limit(
+            owner, unit, profile, launch_attempted=lambda: attempted
+        ):
+            owner.register(unit)
+            handoff = native_operation.prepare_handoff(unit)
+            environment = systemd_environment()
+            for key in (
+                "PSE_NATIVE_OPERATION",
+                "PSE_NATIVE_HANDOFF",
+                "PSE_NATIVE_WORKER_SLOT",
+                "PSE_NATIVE_WORKER_MEMORY_BYTES",
+                "PSE_MEMORY_MAX",
+            ):
+                environment.pop(key, None)
+            if handoff is not None:
+                environment["PSE_NATIVE_HANDOFF"] = str(handoff)
+            environment["PSE_SURREAL_STATE"] = str(state)
+            if profile is not None:
+                environment["PSE_TEST_EXECUTION_PROFILE"] = profile
+            selected_command = observer_scope_command(state, allocation, unit, command)
+            attempted = True
+            return subprocess.call(selected_command, env=environment)
     finally:
-        # A surviving populated scope remains an allocation owner after launcher loss.
-        result = systemctl("show", "--property=ControlGroup", unit, check=False)
-        group = next(
-            (
-                line.removeprefix("ControlGroup=")
-                for line in result.stdout.splitlines()
-                if line.startswith("ControlGroup=")
-            ),
-            "",
-        )
-        if not group or not group_populated(group):
+        # Keep launch exclusion through the control-scope restoration attempt.
+        # Surviving or unbound scopes retain launch metadata and host charge.
+        if not attempted or observer_allocation_drained(owner, unit):
             with state_lock(state):
                 launch = read_json(state / "observer-launch.json")
                 if launch.get("unit") == unit:

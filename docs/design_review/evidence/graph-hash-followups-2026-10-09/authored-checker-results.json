@@ -1,0 +1,338 @@
+{
+  "direct_checker_is_separate_comparator_not_internal_publication_timer": true,
+  "fixture": "authored-scalar-32-unselected-functions",
+  "measurements": [
+    {
+      "case": "unchanged",
+      "declarations": 37,
+      "direct_no_document_checker_ns": [
+        5026437,
+        5044196,
+        4906793,
+        5865320,
+        5122182,
+        5073565,
+        5133132
+      ],
+      "downstream_preparation_ns": [
+        1021923,
+        977145,
+        959646,
+        1165764,
+        1023692,
+        980454,
+        1039952
+      ],
+      "failed_publication_previous_inventory_still_prepares": false,
+      "publication_ns": [
+        5949,
+        5399,
+        4260,
+        17289,
+        6870,
+        6280,
+        6769
+      ],
+      "publication_succeeds": true
+    },
+    {
+      "case": "unrelated",
+      "declarations": 37,
+      "direct_no_document_checker_ns": [
+        5436354,
+        5059385,
+        5347278,
+        5085813,
+        5113002,
+        5039446,
+        6655635
+      ],
+      "downstream_preparation_ns": [
+        1555692,
+        1394681,
+        1413110,
+        1411560,
+        1485156,
+        1395751,
+        1422780
+      ],
+      "failed_publication_previous_inventory_still_prepares": false,
+      "publication_ns": [
+        5528109,
+        5159560,
+        5224945,
+        5112492,
+        5172079,
+        5031916,
+        5201156
+      ],
+      "publication_succeeds": true
+    },
+    {
+      "case": "selected",
+      "declarations": 37,
+      "direct_no_document_checker_ns": [
+        5022396,
+        6045579,
+        5040045,
+        5493480,
+        5388316,
+        5072244,
+        5014237
+      ],
+      "downstream_preparation_ns": [
+        1577041,
+        1685844,
+        1980028,
+        1735802,
+        1867225,
+        1664486,
+        1591451
+      ],
+      "failed_publication_previous_inventory_still_prepares": false,
+      "publication_ns": [
+        5098802,
+        5315760,
+        5445793,
+        5329380,
+        5528339,
+        5170968,
+        5755165
+      ],
+      "publication_succeeds": true
+    },
+    {
+      "case": "span",
+      "declarations": 37,
+      "direct_no_document_checker_ns": [
+        4982579,
+        4954881,
+        4990348,
+        4965319,
+        4933731,
+        4921473,
+        4950851
+      ],
+      "downstream_preparation_ns": [
+        1492576,
+        1341284,
+        1342354,
+        1339744,
+        1326255,
+        1330195,
+        1343775
+      ],
+      "failed_publication_previous_inventory_still_prepares": false,
+      "publication_ns": [
+        5269262,
+        5047776,
+        5040976,
+        5322900,
+        5072304,
+        5067394,
+        5067765
+      ],
+      "publication_succeeds": true
+    },
+    {
+      "case": "revert",
+      "declarations": 37,
+      "direct_no_document_checker_ns": [
+        5036856,
+        5023037,
+        5065324,
+        5605313,
+        5198576,
+        5326089,
+        4975069
+      ],
+      "downstream_preparation_ns": [
+        1439428,
+        1385872,
+        1547172,
+        1410230,
+        1460028,
+        1393791,
+        1331084
+      ],
+      "failed_publication_previous_inventory_still_prepares": false,
+      "publication_ns": [
+        5113832,
+        5091863,
+        5542848,
+        5155019,
+        5271472,
+        5244434,
+        5035856
+      ],
+      "publication_succeeds": true
+    },
+    {
+      "case": "membership-insert",
+      "declarations": 38,
+      "direct_no_document_checker_ns": [
+        5258754,
+        5204786,
+        5255903,
+        5423194,
+        5284372,
+        6135524,
+        5398526
+      ],
+      "downstream_preparation_ns": [
+        1314236,
+        1455128,
+        1365033,
+        1405850,
+        1647667,
+        1428139,
+        1528884
+      ],
+      "failed_publication_previous_inventory_still_prepares": false,
+      "publication_ns": [
+        5311041,
+        5382046,
+        5331119,
+        5502380,
+        6496823,
+        5496740,
+        5565416
+      ],
+      "publication_succeeds": true
+    },
+    {
+      "case": "membership-delete",
+      "declarations": 37,
+      "direct_no_document_checker_ns": [
+        5086792,
+        5080764,
+        5031436,
+        5130530,
+        5593744,
+        5207216,
+        5630492
+      ],
+      "downstream_preparation_ns": [
+        1572251,
+        1415820,
+        1446548,
+        1406901,
+        1673136,
+        1330605,
+        1522794
+      ],
+      "failed_publication_previous_inventory_still_prepares": false,
+      "publication_ns": [
+        5225155,
+        5101422,
+        5227905,
+        5181788,
+        5734876,
+        5247494,
+        5354848
+      ],
+      "publication_succeeds": true
+    },
+    {
+      "case": "absent",
+      "declarations": 37,
+      "direct_no_document_checker_ns": [
+        3197059,
+        3189680,
+        3524911,
+        3634265,
+        3404648,
+        3162301,
+        5200166
+      ],
+      "downstream_preparation_ns": [
+        994244,
+        1053851,
+        1016412,
+        1021832,
+        1009413,
+        968495,
+        1104167
+      ],
+      "failed_publication_previous_inventory_still_prepares": true,
+      "publication_ns": [
+        3152152,
+        3143662,
+        3209849,
+        3226068,
+        3391209,
+        3178391,
+        4013114
+      ],
+      "publication_succeeds": false
+    },
+    {
+      "case": "absence-to-present",
+      "declarations": 38,
+      "direct_no_document_checker_ns": [
+        5298831,
+        5386766,
+        5444392,
+        5330339,
+        5329608,
+        5368807,
+        5414714
+      ],
+      "downstream_preparation_ns": [
+        1567011,
+        1566511,
+        1569951,
+        1504975,
+        1456478,
+        1560572,
+        1559821
+      ],
+      "failed_publication_previous_inventory_still_prepares": false,
+      "publication_ns": [
+        5538908,
+        5470841,
+        5451842,
+        5385866,
+        5349287,
+        5424533,
+        5466861
+      ],
+      "publication_succeeds": true
+    },
+    {
+      "case": "context-denied",
+      "declarations": 37,
+      "direct_no_document_checker_ns": [
+        219738,
+        282374,
+        273764,
+        256296,
+        227967,
+        285094,
+        260785
+      ],
+      "downstream_preparation_ns": [
+        942457,
+        1268488,
+        957306,
+        971015,
+        945367,
+        1058290,
+        957096
+      ],
+      "failed_publication_previous_inventory_still_prepares": true,
+      "publication_ns": [
+        206228,
+        212958,
+        278864,
+        248696,
+        212928,
+        270145,
+        225187
+      ],
+      "publication_succeeds": false
+    }
+  ],
+  "parse_and_initialization_excluded": true,
+  "samples_per_case": 7
+}

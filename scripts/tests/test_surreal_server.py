@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import errno
 import json
 import os
 import shutil
@@ -267,6 +269,55 @@ class SurrealSupervisorTests(unittest.TestCase):
         server.write_json(self.state / "config.json", config)
         return config
 
+    def test_generation_publish_verifies_identical_concurrent_winner(self) -> None:
+        for collision in (errno.EEXIST, errno.ENOTEMPTY):
+            with self.subTest(errno=collision):
+                state = self.root / str(collision)
+                state.mkdir()
+
+                def concurrent_winner(
+                    pending: Path, destination: Path, collision: int = collision
+                ) -> Path:
+                    self.assertFalse(destination.exists())
+                    shutil.copytree(pending, destination)
+                    raise OSError(collision, "concurrent immutable generation")
+
+                with patch.object(Path, "rename", new=concurrent_winner):
+                    generation = server.publish_generation(state)
+                destination = Path(generation["supervisor_script"]).parents[1]
+                server.verify_generation(destination)
+                pending = list((state / ".generations").glob("pending-*"))
+                self.assertEqual(len(pending), 1)
+                self.assertTrue((pending[0] / "generation.json").exists())
+
+    def test_generation_publish_rejects_corrupt_concurrent_winner(self) -> None:
+        self.state.mkdir()
+
+        def concurrent_winner(pending: Path, destination: Path) -> Path:
+            self.assertFalse(destination.exists())
+            shutil.copytree(pending, destination)
+            (destination / "scripts/surreal_server.py").write_text("corrupt winner")
+            raise OSError(errno.ENOTEMPTY, "concurrent immutable generation")
+
+        with (
+            patch.object(Path, "rename", new=concurrent_winner),
+            self.assertRaisesRegex(server.SupervisorError, "closure changed"),
+        ):
+            server.publish_generation(self.state)
+        self.assertEqual(len(list((self.state / ".generations").glob("pending-*"))), 1)
+
+    def test_generation_publish_propagates_other_rename_errors(self) -> None:
+        self.state.mkdir()
+        with (
+            patch.object(
+                Path, "rename", side_effect=OSError(errno.EACCES, "rename denied")
+            ),
+            self.assertRaises(OSError) as failure,
+        ):
+            server.publish_generation(self.state)
+        self.assertEqual(failure.exception.errno, errno.EACCES)
+        self.assertEqual(len(list((self.state / ".generations").glob("pending-*"))), 1)
+
     def test_changed_primary_executable_requires_readmission(self) -> None:
         config = self.reference_fixture()
         server.checked_primary(config)
@@ -513,6 +564,326 @@ class SurrealSupervisorTests(unittest.TestCase):
             server.observer_scope_command(
                 self.state, allocation, "pse-observer-owned.scope", []
             )
+
+    @contextlib.contextmanager
+    def observer_control_fixture(
+        self, memory: int = 144 * server.GIB
+    ) -> Generator[tuple[dict[str, object], MagicMock, MagicMock], None, None]:
+        group = "/owned/control"
+        control = "pse-owned-control.scope"
+        self.allocation.directory = Path(
+            tempfile.mkdtemp(prefix="admission-", dir=self.root)
+        )
+        state: dict[str, object] = {
+            "memory": memory,
+            "group": group,
+            "invocation": "b" * 32,
+            "inode": 17,
+        }
+        ledger: dict[str, object] = {
+            "owners": {
+                self.allocation.nonce: {
+                    "units": {
+                        control: {"group": group, "invocation": "b" * 32, "inode": 17}
+                    }
+                }
+            }
+        }
+
+        @contextlib.contextmanager
+        def metadata(_directory: Path) -> Generator[dict[str, object], None, None]:
+            yield ledger
+
+        def manager(*arguments: str) -> subprocess.CompletedProcess[str]:
+            if arguments[0] == "set-property":
+                for argument in arguments:
+                    if argument.startswith("MemoryMax="):
+                        state["memory"] = int(argument.removeprefix("MemoryMax="))
+                output = ""
+            else:
+                output = (
+                    "LoadState=loaded\nActiveState=active\n"
+                    f"ControlGroup={state['group']}\nInvocationID={state['invocation']}\n"
+                    f"MemoryMax={state['memory']}\n"
+                )
+            return subprocess.CompletedProcess([], 0, output, "")
+
+        with (
+            patch.object(host, "allocation_metadata", side_effect=metadata),
+            patch.object(server.native_operation, "process_group", return_value=group),
+            patch.object(host, "group_identity", side_effect=lambda _: state["inode"]),
+            patch.object(server, "systemctl", side_effect=manager) as calls,
+            patch.object(
+                server, "observer_allocation_drained", return_value=True
+            ) as drained,
+        ):
+            yield state, calls, drained
+
+    def test_observer_control_cap_restored_after_verified_drain(self) -> None:
+        self.reference_fixture()
+        with (
+            self.observer_control_fixture() as (state, _calls, _drained),
+            patch.object(server, "ensure_execution_placement"),
+            patch.object(server.native_operation, "prepare_handoff", return_value=None),
+            patch.object(server, "systemd_environment", return_value={}),
+            patch.object(server, "observer_scope_command", return_value=["probe"]),
+            patch.object(server.subprocess, "call", return_value=0) as launch,
+        ):
+            self.assertEqual(
+                server.observer(self.state, ["probe"], "exclusive-observer"), 0
+            )
+            self.assertEqual(state["memory"], 144 * server.GIB)
+        launch.assert_called_once()
+        self.allocation.release.assert_not_called()
+        self.assertFalse((self.state / "observer-launch.json").exists())
+
+    def test_observer_control_cap_restored_when_launch_raises(self) -> None:
+        with self.observer_control_fixture() as (state, _calls, _drained):
+            with (
+                self.assertRaisesRegex(OSError, "launch failed"),
+                server.observer_control_limit(
+                    self.allocation, "pse-observer-owned.scope", "exclusive-observer"
+                ),
+            ):
+                self.assertEqual(state["memory"], 8 * server.GIB)
+                raise OSError("launch failed")
+            self.assertEqual(state["memory"], 144 * server.GIB)
+
+    def test_observer_control_survivor_retains_launch_guard(self) -> None:
+        self.reference_fixture()
+        with (
+            self.observer_control_fixture() as (state, _calls, drained),
+            patch.object(server, "ensure_execution_placement"),
+            patch.object(server.native_operation, "prepare_handoff", return_value=None),
+            patch.object(server, "systemd_environment", return_value={}),
+            patch.object(server, "observer_scope_command", return_value=["probe"]),
+            patch.object(server.subprocess, "call", return_value=0),
+        ):
+            drained.return_value = False
+            self.assertEqual(
+                server.observer(self.state, ["probe"], "exclusive-observer"), 0
+            )
+            self.assertEqual(state["memory"], 8 * server.GIB)
+        self.allocation.release.assert_not_called()
+        self.assertTrue((self.state / "observer-launch.json").exists())
+
+    def test_observer_control_cap_kept_when_observer_survives(self) -> None:
+        with self.observer_control_fixture() as (state, _calls, drained):
+            drained.return_value = False
+            with server.observer_control_limit(
+                self.allocation, "pse-observer-owned.scope", "exclusive-observer"
+            ):
+                self.assertEqual(state["memory"], 8 * server.GIB)
+            self.assertEqual(state["memory"], 8 * server.GIB)
+        self.allocation.release.assert_not_called()
+
+    def test_observer_control_cap_refuses_replaced_scope_before_restoration(
+        self,
+    ) -> None:
+        for field, replacement in (
+            ("group", "/replaced/control"),
+            ("invocation", "c" * 32),
+            ("inode", 18),
+        ):
+            with (
+                self.subTest(field=field),
+                self.observer_control_fixture() as (state, calls, _drained),
+            ):
+                with (
+                    self.assertRaisesRegex(server.SupervisorError, "identity changed"),
+                    server.observer_control_limit(
+                        self.allocation,
+                        "pse-observer-owned.scope",
+                        "exclusive-observer",
+                    ),
+                ):
+                    state[field] = replacement
+                self.assertEqual(state["memory"], 8 * server.GIB)
+                self.assertEqual(
+                    sum(
+                        call.args[0] == "set-property" for call in calls.call_args_list
+                    ),
+                    1,
+                )
+
+    def test_observer_control_cap_never_widens_an_originally_smaller_limit(
+        self,
+    ) -> None:
+        with self.observer_control_fixture(2 * server.GIB) as (state, calls, _drained):
+            with server.observer_control_limit(
+                self.allocation, "pse-observer-owned.scope", "exclusive-observer"
+            ):
+                self.assertEqual(state["memory"], 2 * server.GIB)
+            self.assertEqual(state["memory"], 2 * server.GIB)
+            for call in calls.call_args_list:
+                for argument in call.args:
+                    if argument.startswith("MemoryMax="):
+                        self.assertLessEqual(
+                            int(argument.removeprefix("MemoryMax=")), 2 * server.GIB
+                        )
+
+    def test_observer_control_cap_excludes_overlapping_borrowers(self) -> None:
+        with self.observer_control_fixture() as (state, calls, _drained):
+            with server.observer_control_limit(
+                self.allocation, "first-observer.scope", "exclusive-observer"
+            ):
+                with (
+                    self.assertRaisesRegex(
+                        server.SupervisorError, "already has a cap borrower"
+                    ),
+                    server.observer_control_limit(
+                        self.allocation,
+                        "different-state-observer.scope",
+                        "exclusive-observer",
+                    ),
+                ):
+                    self.fail("An overlapping observer must never launch")
+                self.assertEqual(state["memory"], 8 * server.GIB)
+                self.assertEqual(
+                    sum(
+                        call.args[0] == "set-property" for call in calls.call_args_list
+                    ),
+                    1,
+                )
+            self.assertEqual(state["memory"], 144 * server.GIB)
+            self.assertEqual(
+                server.read_json(
+                    self.allocation.directory / "observer-control-borrows.json"
+                ),
+                {},
+            )
+
+    def test_observer_control_survivor_retains_borrow_reservation(self) -> None:
+        with self.observer_control_fixture() as (state, _calls, drained):
+            drained.return_value = False
+            with server.observer_control_limit(
+                self.allocation, "first-observer.scope", "exclusive-observer"
+            ):
+                pass
+            self.assertEqual(state["memory"], 8 * server.GIB)
+            with (
+                self.assertRaisesRegex(
+                    server.SupervisorError, "already has a cap borrower"
+                ),
+                server.observer_control_limit(
+                    self.allocation,
+                    "different-state-observer.scope",
+                    "exclusive-observer",
+                ),
+            ):
+                self.fail("A surviving observer must retain its reservation")
+
+    def test_observer_control_cap_refuses_replaced_borrow_nonce(self) -> None:
+        with self.observer_control_fixture() as (state, calls, _drained):
+            with (
+                self.assertRaisesRegex(
+                    server.SupervisorError, "borrow identity changed"
+                ),
+                server.observer_control_limit(
+                    self.allocation, "first-observer.scope", "exclusive-observer"
+                ),
+            ):
+                path = self.allocation.directory / "observer-control-borrows.json"
+                reservations = server.read_json(path)
+                server.object_mapping(reservations["pse-owned-control.scope"])[
+                    "nonce"
+                ] = "c" * 32
+                server.write_json(path, reservations)
+            self.assertEqual(state["memory"], 8 * server.GIB)
+            self.assertEqual(
+                sum(call.args[0] == "set-property" for call in calls.call_args_list), 1
+            )
+
+    def test_observer_drain_requires_bound_kernel_lifetime(self) -> None:
+        unit = "observer.scope"
+        bound = {"group": "/owned/observer", "invocation": "b" * 32, "inode": 17}
+        for label, units, identity, populated, invocation, expected in (
+            ("absent", {}, 17, False, "b" * 32, False),
+            ("unbound-not-found", {unit: {}}, 17, False, "", False),
+            ("bound-empty", {unit: bound}, 17, False, "b" * 32, True),
+            ("bound-populated", {unit: bound}, 17, True, "b" * 32, False),
+            ("replaced-inode", {unit: bound}, 18, True, "c" * 32, True),
+            ("changed-invocation", {unit: bound}, 17, False, "c" * 32, False),
+        ):
+            with self.subTest(lifetime=label):
+                record = {
+                    "boot": "d" * 8 + "-" + "-".join(["d" * 4] * 3) + "-" + "d" * 12,
+                    "units": units,
+                }
+                original = json.loads(json.dumps(record))
+                ledger: dict[str, object] = {"owners": {self.allocation.nonce: record}}
+
+                @contextlib.contextmanager
+                def metadata(
+                    _directory: Path,
+                    captured: dict[str, object] = ledger,
+                ) -> Generator[dict[str, object], None, None]:
+                    yield captured
+
+                with (
+                    patch.object(host, "allocation_metadata", side_effect=metadata),
+                    patch.object(host, "boot", return_value=record["boot"]),
+                    patch.object(host, "group_identity", return_value=identity),
+                    patch.object(host.operation, "populated", return_value=populated),
+                    patch.object(
+                        host.operation,
+                        "unit_observation",
+                        return_value={
+                            "LoadState": "not-found"
+                            if label in {"absent", "unbound-not-found"}
+                            else "loaded",
+                            "ActiveState": "active",
+                            "InvocationID": invocation,
+                        },
+                    ),
+                ):
+                    self.assertEqual(
+                        server.observer_allocation_drained(self.allocation, unit),
+                        expected,
+                    )
+                self.assertEqual(record, original)
+
+    def test_observer_unbound_launch_retains_cap_and_reservation(self) -> None:
+        actual_drained = server.observer_allocation_drained
+        with self.observer_control_fixture() as (state, _calls, drained):
+            drained.side_effect = actual_drained
+            with server.observer_control_limit(
+                self.allocation, "unbound-observer.scope", "exclusive-observer"
+            ):
+                pass
+            self.assertEqual(state["memory"], 8 * server.GIB)
+            reservations = server.read_json(
+                self.allocation.directory / "observer-control-borrows.json"
+            )
+            self.assertIn("pse-owned-control.scope", reservations)
+
+    def test_observer_known_prelaunch_failure_restores_and_clears_reservations(
+        self,
+    ) -> None:
+        self.reference_fixture()
+        actual_drained = server.observer_allocation_drained
+        with (
+            self.observer_control_fixture() as (state, _calls, drained),
+            patch.object(server, "ensure_execution_placement"),
+            patch.object(
+                server.native_operation,
+                "prepare_handoff",
+                side_effect=OSError("handoff failed"),
+            ),
+            patch.object(server.subprocess, "call") as launch,
+        ):
+            drained.side_effect = actual_drained
+            with self.assertRaisesRegex(OSError, "handoff failed"):
+                server.observer(self.state, ["probe"], "exclusive-observer")
+            self.assertEqual(state["memory"], 144 * server.GIB)
+            self.assertEqual(
+                server.read_json(
+                    self.allocation.directory / "observer-control-borrows.json"
+                ),
+                {},
+            )
+        launch.assert_not_called()
+        self.assertFalse((self.state / "observer-launch.json").exists())
 
     def test_qualification_control_requires_private_owned_state_directory(self) -> None:
         self.reference_fixture()

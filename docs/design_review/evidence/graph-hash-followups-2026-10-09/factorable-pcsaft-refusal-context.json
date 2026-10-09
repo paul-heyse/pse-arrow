@@ -1,0 +1,22 @@
+{
+  "baseline_head": "46545b2ad3e2999b4335692ac49af6091438c3fc",
+  "artifact": "/home/paul/pse-arrow/target/debug/build/pse-benches/5e6b630b0ce4eede/out/modeling_preparation-5e6b630b0ce4eede",
+  "artifact_sha256": "d1280c62f98232a621e0c3d44bc847e13770991e0c0cdf30ea7ecdaa70b28fee",
+  "profile": "dev",
+  "features": [
+    "native-process",
+    "pse-relations/force-validate"
+  ],
+  "execution_profile": "timing",
+  "policy": "std",
+  "source_files_sha256": {
+    "Cargo.toml": "3ee91855cea8440be80460a821d4db8a0be3a52c6882f97237aa8775a6839c96",
+    "Cargo.lock": "47fe1d9e93dac392b8e474e54d70ee06f60ab49b3a5613e1827cf9a126397253",
+    "rust-toolchain.toml": "aad0b1d0327380aefb1164d9e294540dd93be66a0f7f923d24e421912f982049",
+    "crates/pse-math/src/factorable.rs": "0cbce1ef2ea59fde64979e246457e29ffa9bac32c0fd6a04e28afd15bb6dc5dc",
+    "benches/benches/modeling_preparation.rs": "e7beef9141aa51c578801db3f6dd956d393a5b75f308877d6e737904c145020e",
+    "docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs": "7021067138d0508fc460921b85a0bd319949007718b1915c44bb1f68054c5fc8"
+  },
+  "outcome": "scientific fixture refused before factorable projection; no std/Fx comparison",
+  "result_file": "pcsaft-02-inquiry-refusal.json"
+}

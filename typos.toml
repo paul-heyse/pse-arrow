@@ -81,6 +81,9 @@ Datas = "Datas"
 compilability = "compilability"
 Serializeable = "Serializeable"
 overrideable = "overrideable"   # Accepted spelling variant in the physical-semantics design page.
+restat = "restat"               # Ninja's restat policy, preserved in the hashing reference.
+canonicalizations = "canonicalizations" # Plural: independent canonicalization executions.
+thr = "thr"                     # Thread-count column abbreviation in captured benchmark tables.
 
 [default.extend-identifiers]
 # Header-defined PETSc ABI symbol, preserved exactly in Rust and C bindings.
@@ -100,3 +103,5 @@ methd = "methd"
 sucess = "sucess"
 # Accepted spelling variant.
 requeueing = "requeueing"
+HyperANF = "HyperANF" # Published graph cardinality algorithm name.
+ths = "ths"           # Captured Python harness variable holding threads.

@@ -16,6 +16,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+rustc-hash.workspace = true
 schemars.workspace = true
 gmp-mpfr-sys.workspace = true
 pse-model.workspace = true

@@ -349,6 +349,8 @@ mod tests {
         let demand = construction_allocation_bound(&graph).unwrap();
         assert!(demand < 1 << 20);
         let problem = compile(&graph).unwrap();
+        assert_eq!(problem.problem.contract.identity, graph.key());
+        assert_eq!(problem.problem.assumptions, graph.key());
         assert_eq!(problem.problem.contract.variables.len(), 6);
         assert_eq!(problem.problem.constraints.nrows(), 3);
         assert_eq!(problem.problem.constraints.compute_nnz(), 9);

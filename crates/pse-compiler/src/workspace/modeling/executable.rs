@@ -297,7 +297,7 @@ pub enum ModelingOutput {
     },
 }
 /// Finite typed mathematics with semantic input/output coordinates.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct AdmittedModeling {
     /// CompilerContext in the math body's exact order. Values are supplied separately.
     pub inputs: Vec<SemanticId>,
@@ -309,8 +309,20 @@ pub struct AdmittedModeling {
     pub(super) case: Arc<CaseStructure>,
     /// Nested residual definitions, independent of mutable native workers.
     pub(super) implicit: BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
+    supplier_topology: Arc<once_cell::sync::OnceCell<implicit::SupplierTopology>>,
+    supplier_topology_bytes: usize,
     /// Auxiliary original term rows and signs, outside public observable ordering.
     pub term_outputs: BTreeMap<SemanticId, Vec<(SemanticId, f64)>>,
+}
+impl PartialEq for AdmittedModeling {
+    fn eq(&self, other: &Self) -> bool {
+        self.inputs == other.inputs
+            && self.outputs == other.outputs
+            && self.bodies == other.bodies
+            && self.case == other.case
+            && self.implicit == other.implicit
+            && self.term_outputs == other.term_outputs
+    }
 }
 #[derive(Clone, Debug, PartialEq)]
 struct Projection {
@@ -1410,6 +1422,8 @@ pub struct PreparedModeling {
         Arc<Projection>,
         pse_math::SharedAllocation<AdmittedModeling>,
     )>,
+    portable: Arc<[Arc<AdmittedBody>]>,
+    original_portable: Option<Arc<[Arc<AdmittedBody>]>>,
     /// Instantiated members, demand chains, values and original closure terms.
     pub model: pse_math::SharedAllocation<SpecializedModel>,
     /// Typed finite math with stable semantic input/output coordinates.
@@ -1430,17 +1444,7 @@ impl PreparedModeling {
     /// Primary and original views share one entry per sealed semantic identity; direct
     /// implicit bodies are retained by their systems and have no invented portable key.
     pub fn portable_bodies(&self) -> impl Iterator<Item = &Arc<AdmittedBody>> {
-        self.admitted
-            .bodies
-            .values()
-            .chain(
-                self.original
-                    .iter()
-                    .flat_map(|(_, admitted)| admitted.bodies.values()),
-            )
-            .filter_map(|body| body.semantic_identity().map(|identity| (identity, body)))
-            .collect::<BTreeMap<_, _>>()
-            .into_values()
+        self.portable.iter()
     }
     /// Original coordinates and equations for eligible selected suppliers. Other
     /// selected operations retain their existing nested guards, regimes and descriptors.
@@ -1451,6 +1455,8 @@ impl PreparedModeling {
         model.admitted = admitted.clone();
         model.owned_implicit_view = None;
         model.original = None;
+        model.portable = self.original_portable.as_ref()?.clone();
+        model.original_portable = None;
         Some(model)
     }
     /// Semantic process meaning with no dependency on numerical projection.
@@ -1649,10 +1655,23 @@ impl CompilerWorkspace {
                 })
                 .transpose()?;
             checkpoint(&self.db);
+            let original_portable = original.as_ref().map(
+                |(_, view): &(_, pse_math::SharedAllocation<AdmittedModeling>)| {
+                    portable_inventory(view.bodies.values())
+                },
+            );
+            let portable = portable_inventory(
+                admitted
+                    .bodies
+                    .values()
+                    .chain(original.iter().flat_map(|(_, view)| view.bodies.values())),
+            );
             Ok(PreparedModeling {
                 semantic: frontier.semantic,
                 projection: frontier.projection,
                 original,
+                portable,
+                original_portable,
                 owned_implicit_view: None,
                 model: frontier.model.into(),
                 admitted: admitted.into(),
@@ -1687,6 +1706,12 @@ impl PreparedModeling {
         2 * size_of::<Self>()
             + 256
             + self.semantic.descriptor_bytes()
+            + size_of_val(self.portable.as_ref())
+            + 32
+            + self
+                .original_portable
+                .as_ref()
+                .map_or(0, |inventory| size_of_val(inventory.as_ref()) + 32)
             + self.model.retained_bytes()
             + projection_heap(&Ok(self.projection.clone()))
             + admitted_allocation_bytes(&self.admitted)
@@ -1695,6 +1720,20 @@ impl PreparedModeling {
                 projection_heap(&Ok(p.clone())) + admitted_allocation_bytes(a)
             })
     }
+}
+
+fn portable_inventory<'a>(
+    bodies: impl Iterator<Item = &'a Arc<AdmittedBody>>,
+) -> Arc<[Arc<AdmittedBody>]> {
+    bodies
+        .filter_map(|body| {
+            body.semantic_identity()
+                .map(|identity| (identity, body.clone()))
+        })
+        .collect::<BTreeMap<_, _>>()
+        .into_values()
+        .collect::<Vec<_>>()
+        .into()
 }
 
 impl CompilerWorkspace {
@@ -1878,6 +1917,7 @@ fn projection_body_bytes(p: &Projection) -> usize {
 
 fn admitted_allocation_bytes(p: &AdmittedModeling) -> usize {
     size_of::<AdmittedModeling>()
+        + p.supplier_topology_bytes
         + p.inputs.capacity() * size_of::<SemanticId>()
         + p.outputs.capacity() * size_of::<ModelingOutput>()
         + p.outputs

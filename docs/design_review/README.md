@@ -15,16 +15,27 @@ findings have one disposition owner in the relevant plan. A review stays here wh
 or a pending decision depends on it and then retires to Git history (ADR-0096); retained ADRs
 cite retired reviews as `git:<commit>:<path>`.
 
+The [workspace content-lifecycle review](reviews/design_review_workspace-content-lifecycle_2026-10-09.md)
+assesses document relevance, publication, agent discovery and repo-linked storage.
+It proposes typed lifecycle metadata, explicit asset delivery and producer-owned disposal,
+with a bounded disposition inventory and concrete retirement candidates. The correction
+remains Proposed; the review performs no cleanup or policy implementation.
+
 The [graph compilation, reusable kernels and hashing review](reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md)
 assesses further graph preparation, fast hashing and their combined reuse/invalidation role.
 It recommends indexed description and tear-policy access plus retained implicit-provider
 topology, preserving existing exact preparation reuse and fresh execution effects.
 Its [Plan 28 integration](../plans/28-surrealdb-unified-substrate.md#graph-and-hashing-review-integration)
-owns the Open finding dispositions and links the proposed corrections at their existing
-companions. [28k](../plans/28k-graph-kernels-and-hashing-investigations.md) plans bounded
-graph/hash investigations; broader fingerprints and persistent graph products remain
-conditional alternatives. Plan publication does not authorize product execution or qualify
-the proposed corrections.
+owns finding dispositions and links correction owners.
+[28k's followup outcome](../plans/28k-graph-kernels-and-hashing-investigations.md#followup-verification-and-outcome-2026-10-09)
+records implementation and bounded followup inquiries, including the typed-checker proposal and
+retained portable reconstruction. Broader durable fast fingerprints and persistent runtimes
+remain unselected; inquiry evidence does not qualify the enclosing Plan 28 campaign.
+
+The [FlowProjectionV2 review](reviews/design_review_flow-projection-v2_2026-10-09.md)
+accepts ADR-0167's bounded tagged/count-framed target. The maintainer selected original
+Graph/hash RC04; implementation and consumer acceptance remain at Plan 28k. This supplies
+explicit collection/parent boundaries without claiming complete physical-registry equivalence.
 
 The [agent effectiveness enhancement review](reviews/design_review_agent-effectiveness-enhancements_2026-10-09.md)
 assesses the personal Codex environment, recent activity, command interfaces,

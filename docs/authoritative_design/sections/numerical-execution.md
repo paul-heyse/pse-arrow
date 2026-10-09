@@ -709,6 +709,12 @@ adapter capability refuse before iteration. The affected workflow diagnostic ret
 unit/source identities and original mathematical cause. Each evaluation uses an immutable
 original-case overlay, so temporary inputs and starts cannot escape into another call.
 
+> Decision: [ADR-0167](../../adr/0167-frame-flow-projection-v2.md) (proposed; maintainer-authorized implementation).
+
+Current flow fingerprints use the tagged, count-framed V2 projection in blueprint §5.3.
+Physical bindings, full equality and independent tear witnesses remain authoritative;
+identity propagation does not permit reuse of mutable native sessions or prior starts.
+
 `pse-structural::flowsheet::FlowGraph` is the admitted physical flow projection:
 explicit connection occurrences (parallel occurrences are never merged), node isolates,
 declared decision groups with finite nonnegative costs and `Free`/`Mandatory`/`Forbidden`

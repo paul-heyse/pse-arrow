@@ -303,22 +303,30 @@ impl FlowGraph {
         let mut ports = BTreeMap::new();
         let mut graph = Graph::new();
         let mut nodes = BTreeMap::new();
-        let mut h = FramedHasher::new(pse_ids::Frame::FlowProjectionV1);
+        let mut h = FramedHasher::new(pse_ids::Frame::FlowProjectionV2);
+        h.str("nodes").u64(d.nodes.len() as u64);
         for n in &mut d.nodes {
             n.ports.sort_by_key(|p| p.id);
             nodes.insert(n.id, graph.add_node(n.id));
-            h.id(&n.id);
+            h.str("node")
+                .id(&n.id)
+                .str("ports")
+                .u64(n.ports.len() as u64);
             for p in &n.ports {
                 if ports.insert(p.id, (n.id, p)).is_some() {
                     return Err(ProjectionError::Invalid("duplicate flow port".into()));
                 }
-                h.id(&p.id).id(&p.quantity.as_id()).id(&p.unit.as_id());
+                h.str("port")
+                    .id(&p.id)
+                    .id(&p.quantity.as_id())
+                    .id(&p.unit.as_id());
             }
         }
         let groups: BTreeSet<_> = d.decisions.iter().map(|g| g.id).collect();
         let mut used = BTreeSet::new();
         let mut destinations = BTreeSet::new();
         let mut bindings = BTreeMap::new();
+        h.str("connections").u64(d.connections.len() as u64);
         for (i, e) in d.connections.iter_mut().enumerate() {
             let from = *nodes.get(&e.from).ok_or(ProjectionError::Missing(e.from))?;
             let to = *nodes.get(&e.to).ok_or(ProjectionError::Missing(e.to))?;
@@ -332,7 +340,13 @@ impl FlowGraph {
                     "connection has no physical bindings".into(),
                 ));
             }
-            h.id(&e.id).id(&e.from).id(&e.to).id(&e.decision);
+            h.str("connection")
+                .id(&e.id)
+                .id(&e.from)
+                .id(&e.to)
+                .id(&e.decision)
+                .str("bindings")
+                .u64(e.bindings.len() as u64);
             for (source, target) in &e.bindings {
                 let (source_node, source_port) =
                     ports.get(source).ok_or(ProjectionError::Missing(*source))?;
@@ -365,7 +379,8 @@ impl FlowGraph {
                 let binding = check().map_err(|e| {
                     ProjectionError::Invalid(format!("flow binding {source}->{target}: {e}"))
                 })?;
-                h.id(source)
+                h.str("binding")
+                    .id(source)
                     .id(target)
                     .u64(pse_ids::canonical_f64_bits(binding.conversion.scale))
                     .u64(pse_ids::canonical_f64_bits(binding.conversion.offset));
@@ -376,16 +391,18 @@ impl FlowGraph {
         if used != groups {
             return Err(ProjectionError::Invalid("unused tear decision".into()));
         }
+        h.str("decisions").u64(d.decisions.len() as u64);
         for g in &d.decisions {
-            h.id(&g.id)
+            h.str("decision")
+                .id(&g.id)
                 .u64(pse_ids::canonical_f64_bits(g.cost))
                 .u64(g.policy as u64);
         }
         let mut forbidden = graph.clone();
         forbidden.retain_edges(|g, e| {
-            d.decisions.iter().any(|decision| {
-                decision.id == d.connections[g[e]].decision && decision.policy == Policy::Forbidden
-            })
+            d.decisions
+                .binary_search_by_key(&d.connections[g[e]].decision, |decision| decision.id)
+                .is_ok_and(|index| d.decisions[index].policy == Policy::Forbidden)
         });
         let cycle = cycle_connections(&forbidden, &d.connections);
         if !cycle.is_empty() {
@@ -552,6 +569,210 @@ mod tests {
         ));
     }
     #[test]
+    fn flow_projection_v2_frames_empty_collections_under_its_own_domain() {
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let graph = FlowGraph::admit(
+            Declaration {
+                nodes: vec![],
+                connections: vec![],
+                decisions: vec![],
+            },
+            &registry,
+            GraphLimits { nodes: 8, edges: 8 },
+        )
+        .unwrap();
+        let expected = pse_ids::derive_hash(
+            pse_ids::Frame::FlowProjectionV2,
+            &[
+                b"nodes",
+                &0u64.to_le_bytes(),
+                b"connections",
+                &0u64.to_le_bytes(),
+                b"decisions",
+                &0u64.to_le_bytes(),
+            ],
+        );
+        assert_eq!(graph.key(), expected);
+        assert_ne!(
+            graph.key(),
+            pse_ids::derive_hash(pse_ids::Frame::FlowProjectionV1, &[])
+        );
+    }
+    #[test]
+    fn flow_projection_v2_distinguishes_raw_id_parent_boundaries() {
+        // A raw-ID encoding control, not an authored/compiler-derived physical
+        // collision claim. Unconnected ports do not require registry resolution.
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let port = |p, q, u| pse_kernels::Port {
+            id: id(p),
+            quantity: id(q).into(),
+            unit: id(u).into(),
+        };
+        let a = Declaration {
+            nodes: vec![
+                Node {
+                    id: id(1),
+                    ports: vec![port(2, 3, 4)],
+                },
+                Node {
+                    id: id(5),
+                    ports: vec![port(6, 7, 8)],
+                },
+            ],
+            connections: vec![],
+            decisions: vec![],
+        };
+        let b = Declaration {
+            nodes: vec![
+                Node {
+                    id: id(1),
+                    ports: vec![],
+                },
+                Node {
+                    id: id(2),
+                    ports: vec![port(3, 4, 5), port(6, 7, 8)],
+                },
+            ],
+            connections: vec![],
+            decisions: vec![],
+        };
+        let untagged_identifiers = |d: &Declaration| {
+            d.nodes
+                .iter()
+                .flat_map(|n| {
+                    std::iter::once(n.id).chain(
+                        n.ports
+                            .iter()
+                            .flat_map(|p| [p.id, p.quantity.as_id(), p.unit.as_id()]),
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(a.nodes.len(), b.nodes.len());
+        assert_eq!(untagged_identifiers(&a), untagged_identifiers(&b));
+        let a = FlowGraph::admit(a, &registry, GraphLimits { nodes: 8, edges: 8 }).unwrap();
+        let b = FlowGraph::admit(b, &registry, GraphLimits { nodes: 8, edges: 8 }).unwrap();
+        assert_eq!(
+            a.key(),
+            pse_ids::derive_hash(
+                pse_ids::Frame::FlowProjectionV2,
+                &[
+                    b"nodes",
+                    &2u64.to_le_bytes(),
+                    b"node",
+                    id(1).as_bytes(),
+                    b"ports",
+                    &1u64.to_le_bytes(),
+                    b"port",
+                    id(2).as_bytes(),
+                    id(3).as_bytes(),
+                    id(4).as_bytes(),
+                    b"node",
+                    id(5).as_bytes(),
+                    b"ports",
+                    &1u64.to_le_bytes(),
+                    b"port",
+                    id(6).as_bytes(),
+                    id(7).as_bytes(),
+                    id(8).as_bytes(),
+                    b"connections",
+                    &0u64.to_le_bytes(),
+                    b"decisions",
+                    &0u64.to_le_bytes(),
+                ],
+            )
+        );
+        assert_ne!(a.key(), b.key());
+    }
+    #[test]
+    fn flow_projection_v2_canonicalizes_inventories_and_keeps_full_equality() {
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let quantity = pse_quantity::standard::ids::quantity("neutral");
+        let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+        let port = |n| pse_kernels::Port {
+            id: id(n),
+            quantity,
+            unit,
+        };
+        let declaration = Declaration {
+            nodes: vec![
+                Node {
+                    id: id(1),
+                    ports: vec![port(10), port(12), port(14)],
+                },
+                Node {
+                    id: id(2),
+                    ports: vec![port(11), port(13), port(15)],
+                },
+                Node {
+                    id: id(3),
+                    ports: vec![],
+                },
+            ],
+            connections: vec![
+                Connection {
+                    id: id(20),
+                    from: id(1),
+                    to: id(2),
+                    decision: id(30),
+                    bindings: vec![(id(10), id(11)), (id(12), id(13))],
+                },
+                Connection {
+                    id: id(21),
+                    from: id(2),
+                    to: id(1),
+                    decision: id(31),
+                    bindings: vec![(id(15), id(14))],
+                },
+            ],
+            decisions: vec![
+                Decision {
+                    id: id(30),
+                    cost: 0.0,
+                    policy: Policy::Forbidden,
+                },
+                Decision {
+                    id: id(31),
+                    cost: 2.0,
+                    policy: Policy::Free,
+                },
+            ],
+        };
+        let admit = |d| FlowGraph::admit(d, &registry, GraphLimits { nodes: 8, edges: 8 }).unwrap();
+        let graph = admit(declaration.clone());
+        let mut reordered = declaration.clone();
+        reordered.nodes.reverse();
+        for node in &mut reordered.nodes {
+            node.ports.reverse();
+        }
+        reordered.connections.reverse();
+        for connection in &mut reordered.connections {
+            connection.bindings.reverse();
+        }
+        reordered.decisions.reverse();
+        assert_eq!(graph, admit(reordered));
+        assert_eq!(
+            graph.unweighted_heuristic().unwrap(),
+            BTreeSet::from([id(31)])
+        );
+        assert_eq!(graph.witness(&BTreeSet::from([id(31)])).unwrap().len(), 3);
+        let mut signed_zero = declaration.clone();
+        signed_zero.decisions[0].cost = -0.0;
+        assert_ne!(graph.key(), admit(signed_zero).key());
+        let mut nonfinite = declaration;
+        nonfinite.decisions[0].cost = f64::NAN;
+        assert!(
+            FlowGraph::admit(nonfinite, &registry, GraphLimits { nodes: 8, edges: 8 }).is_err()
+        );
+        // The scoped fingerprint does not replace full physical-context equality.
+        let mut different_context = graph.clone();
+        different_context.bindings.get_mut(&id(20)).unwrap()[0]
+            .quantity
+            .name = Some("different-context-name".into());
+        assert_eq!(graph.key(), different_context.key());
+        assert_ne!(graph, different_context);
+    }
+    #[test]
     fn forbidden_cycles_retain_actual_connection_and_decision_identities() {
         let registry = pse_quantity::standard::standard_registry().unwrap();
         let quantity = pse_quantity::standard::ids::quantity("neutral");
@@ -603,8 +824,12 @@ mod tests {
         };
         let mut mixed = declaration.clone();
         mixed.decisions[1].policy = Policy::Free;
+        let canonical =
+            FlowGraph::admit(mixed.clone(), &registry, GraphLimits { nodes: 8, edges: 8 }).unwrap();
+        mixed.decisions.reverse();
         let admitted =
             FlowGraph::admit(mixed, &registry, GraphLimits { nodes: 8, edges: 8 }).unwrap();
+        assert_eq!(admitted, canonical);
         let selected = admitted.unweighted_heuristic().unwrap();
         assert_eq!(selected, BTreeSet::from([id(31)]));
         assert_eq!(admitted.witness(&selected).unwrap(), vec![id(1), id(2)]);
@@ -676,6 +901,54 @@ mod tests {
         )
         .unwrap();
         let b = &g.bindings()[&id(20)][0];
+        let expected = pse_ids::derive_hash(
+            pse_ids::Frame::FlowProjectionV2,
+            &[
+                b"nodes",
+                &3u64.to_le_bytes(),
+                b"node",
+                id(1).as_bytes(),
+                b"ports",
+                &1u64.to_le_bytes(),
+                b"port",
+                id(10).as_bytes(),
+                q.as_id().as_bytes(),
+                pse_quantity::standard::ids::unit("degC").as_id().as_bytes(),
+                b"node",
+                id(2).as_bytes(),
+                b"ports",
+                &1u64.to_le_bytes(),
+                b"port",
+                id(11).as_bytes(),
+                q.as_id().as_bytes(),
+                pse_quantity::standard::ids::unit("K").as_id().as_bytes(),
+                b"node",
+                id(3).as_bytes(),
+                b"ports",
+                &0u64.to_le_bytes(),
+                b"connections",
+                &1u64.to_le_bytes(),
+                b"connection",
+                id(20).as_bytes(),
+                id(1).as_bytes(),
+                id(2).as_bytes(),
+                id(30).as_bytes(),
+                b"bindings",
+                &1u64.to_le_bytes(),
+                b"binding",
+                id(10).as_bytes(),
+                id(11).as_bytes(),
+                &1.0f64.to_bits().to_le_bytes(),
+                &273.15f64.to_bits().to_le_bytes(),
+                b"decisions",
+                &1u64.to_le_bytes(),
+                b"decision",
+                id(30).as_bytes(),
+                &2.0f64.to_bits().to_le_bytes(),
+                &(Policy::Free as u64).to_le_bytes(),
+            ],
+        );
+        assert_eq!(g.key(), expected);
         let conversion =
             pse_quantity::CanonicalConversionPlan::registered(&r, b.quantity.id, b.conversion.from)
                 .unwrap();

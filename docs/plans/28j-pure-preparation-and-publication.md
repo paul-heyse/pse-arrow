@@ -151,7 +151,7 @@ and its observable revisit trigger. A type name or a solver-view hit counter is 
 
 ## Graph/hash extension — J3 indexed description settlement
 
-This **Proposed** extension addresses [Graph/hash F01](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#f01).
+This **Implemented** extension addresses [Graph/hash F01](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#f01).
 The [coordinator](28-surrealdb-unified-substrate.md#graph-and-hashing-review-integration)
 owns its disposition. The earlier baseline above describes the original preparation
 correction; current J1/J2/B7 complete-basis reuse is implemented. This extension removes
@@ -159,10 +159,10 @@ residual identity discovery on that working path, rather than rebuilding its arc
 
 ### Foundation assessment and target
 
-At `d0f2c41818a34539a910654dfea4760771603f45` plus the preserved working tree,
-`settle_preparation` iterates portable bodies and linearly searches `PreparedBasis.descriptions`
-for each identity. `PreparedModeling::portable_bodies` constructs a new ordered map over
-primary and original body inventories each time. Exact basis reuse, immutable descriptions,
+At the investigation baseline, `d0f2c41818a34539a910654dfea4760771603f45` plus the
+preserved working tree, `settle_preparation` iterated portable bodies and linearly searched
+`PreparedBasis.descriptions` for each identity. `PreparedModeling::portable_bodies` constructed
+a new ordered map over primary and original body inventories each time. Exact basis reuse, immutable descriptions,
 current `matches_read` and actual-store acknowledgment are suitable foundations. Under AP-07,
 the repeated immutable discovery should be removed without weakening those current effects.
 
@@ -190,11 +190,11 @@ include their retained storage in product/basis accounting, and keep charges ali
 escaping views, eviction and drain. Avoid independently charging shared mathematical payloads.
 There is no schema, persisted frame or Python API change.
 
-### Package and proposed acceptance
+### Package and scoped acceptance
 
 | Package | Prerequisites and migration | Completion boundary | Progress |
 |---|---|---|---|
-| J3 — Indexed description settlement | Working J1/J2/B7; update compiler portable-view construction, runtime basis description attachment and every settlement caller together. | Canonical inventory and exact indexed access replace per-use map construction and nested description searches; current effects and owned storage remain. | Proposed; not implemented. |
+| J3 — Indexed description settlement | Working J1/J2/B7; update compiler portable-view construction, runtime basis description attachment and every settlement caller together. | Canonical inventory and exact indexed access replace per-use map construction and nested description searches; current effects and owned storage remain. | Implemented; targeted compiler/native-runtime controls passed; affected journey status is owned by 28e. |
 
 Extend focused compiler/runtime controls for primary/original inventory overlap, reordered
 bodies, partial/empty descriptions, many distinct warm bodies and changed read/dependencies.
@@ -212,6 +212,42 @@ retain independent scientific/current-effect checks. No legacy comparison path i
 [28e](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance)
 owns affected assembled acceptance and any later benefit measurement. Source reasoning is
 not new product-test evidence. J3's progress lives here; finding status remains at Plan 28.
+
+### Implementation checkpoint — 2026-10-09
+
+**Implemented:** completion constructs sorted immutable portable inventories once: the normal
+view uses the primary/original union, with the original representative winning an equal sealed
+identity, and the derived original view uses its separate original-only inventory. Direct
+implicit bodies remain outside portable identity. `portable_bodies` now borrows the retained
+slice; repeated map construction is removed. Pointer inventories are included in product
+accounting without charging their shared mathematical payload again.
+
+`PreparedBasis::with_descriptions` establishes identity order, and settlement uses exact binary
+lookup. Empty or partial inventories retain the existing qualified publication path. Current
+read matching, actual-store acknowledgment, receiving qualification, fresh attribution and the
+original stop/clock remain in the operation; no remembered publication flag was introduced.
+The displaced linear description search is removed.
+
+**Tested:** the inventory/original-view compiler controls passed within
+[B8's scoped compiler run](28b-selected-compilation-and-reuse.md#b8-scoped-functional-evidence).
+The final native runtime selection passed 24/24 controls against a zero-failure baseline,
+including many-body settlement with reversed partial descriptions, exact-basis current
+attribution/released roots, portable acquisition/ownership and nested providers. Its commands,
+native/force-validation conditions and remaining affected journeys are owned by
+[28e's graph/hash acceptance](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance).
+[28k's followup outcome](28k-graph-kernels-and-hashing-investigations.md#followup-verification-and-outcome-2026-10-09)
+records the integrated changes and bounded inquiries. The four affected native Python journeys
+also passed 4/4 against the zero-failure baseline, covering public preparation/conformance
+policy, solve/join warm-start retention and authored recycle under the canonical-owner group.
+The selected commands, pinned environment and remaining smoke/qualification status stay with
+28e. This scoped evidence does not close broader Plan 28 E3/E4/E5 or establish a measured
+end-to-end speedup.
+
+**Implemented:** the same immutable basis key now computes a process-local Fx prehash once
+and supplies it to table hash callbacks; full request/dependency/context/binding/limit equality remains the
+reuse authority. The final runtime selection includes forced-collision separation of two
+actual retained basis products and equal-key reuse. No cached hash supplies publication
+permission, durable identity or an alternative equality contract.
 
 ## Packages, integration and retirement
 

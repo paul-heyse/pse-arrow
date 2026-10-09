@@ -1,0 +1,381 @@
+{
+  "measured": false,
+  "harness": {
+    "schema": "case-smoke-v1",
+    "measured": false,
+    "selected_cases": [
+      "pcsaft-02"
+    ],
+    "managed_receiver": null,
+    "native": {
+      "schema": "native-profile-v1",
+      "profile": {
+        "cargo_profile": "dev",
+        "features": [
+          "native-process",
+          "pse-relations/force-validate"
+        ]
+      },
+      "captured": 1791583699.427863,
+      "files": {
+        "/home/paul/pse-arrow/target/debug/build/pse-benches/5e6b630b0ce4eede/out/modeling_preparation-5e6b630b0ce4eede": "a118fc57aac18bc8f96ee9c566e473171a7875105d1a458155038306678975f1",
+        "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11",
+        "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_intel_lp64.so.3": "9dbdb7d4193679f028787da6b9b2b545e0e16b87a95a64ee7318f544da8b08ac",
+        "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0": "135f3c8f006d2fe5e68e51281c7974cb991a03de3bfb3593d68d174dfcf854d1",
+        "/usr/lib/x86_64-linux-gnu/libm.so.6": "fce00b6f25f459cf4ae0b7fae4257909a1a8a86f9149e7c029a5d617baf1ccd0",
+        "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libscip.so.10.0.2": "05f75cc69fe578104045901aff099da52b2d10c2dd75334e56aa96c85da70e09",
+        "/home/paul/.cache/pse-arrow/native/petsc/99432a873af62e1dc2149c6d08187a5cdb269bed0177c1a9bf513b0b9b1d47fc/generations/16088f9780a34f13b19c871aa05809ae/lib/libpetsc.so.3.24.0": "07739a4c011fcce848c86b036fb9e40bf1fd5b74ffeb442ec71cde6cda80767a",
+        "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libipopt.so.3.14.20": "cfe2df574f39a4264f36ef1301d9f54dbe542fa8d37cf0e2bd55c594a9ab11e5",
+        "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb",
+        "/usr/lib/x86_64-linux-gnu/libc.so.6": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
+        "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da",
+        "/usr/lib/x86_64-linux-gnu/libdl.so.2": "c2994527172cc23b7fb0f7d611b71e00a37da27af12c2e5e9e0dc1a742886c96",
+        "/usr/lib/x86_64-linux-gnu/libz.so.1.3": "86200da370f20476a2507e9097a789b5ef97269b4ca8d5e164ad82dab9d99892",
+        "/usr/lib/x86_64-linux-gnu/libgmp.so.10.5.0": "0ccdfb6d6f5c039465f6d002cf7e4c072d48ac6a2cffc8dd6c748dec31592804",
+        "/usr/lib/x86_64-linux-gnu/libmpfr.so.6.2.1": "2156351fa3dedd04a7381c6ac7a8a26efa2d6fb08b80f8a2d644ccdd653710ae",
+        "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_gnu_thread.so.3": "444288ca845ec374f0435c887f0b4f745bf6bb68bc84059a11ddb0926de196b6",
+        "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_core.so.3": "b4f086651ee5a8471140d53fedfdbbaba606287784763b0739f282872c31aa9b",
+        "/usr/lib/x86_64-linux-gnu/libgfortran.so.5.0.0": "342618ccfebe840446e4ef2b7893f4161b2084845e570f42d68a70bfde58a58d",
+        "/usr/lib/x86_64-linux-gnu/libX11.so.6.4.0": "c5b5d782bd9cab3420a62df88f5c991507edf3331a89f98464ddbc538c37b879",
+        "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libcoinmumps.so.3.0.14": "a316e71e32841fa61a12701919e19ee28c62f046755960c6bc49428797887f57",
+        "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libspral.so": "b0cc823b1dd54b6a8b8553c38fe2efe638ed2e07ce7ce3eb91290a7b0010b239",
+        "/usr/lib/x86_64-linux-gnu/libpthread.so.0": "90491a21ce44efcf3bd4b65ec82501c091d7ebe7f8d9b341dd01d721001d9ecd",
+        "/usr/lib/x86_64-linux-gnu/libxcb.so.1.1.0": "7958a0136b121bdc4c708968569ad152a9ed208ab026e2537b1005dde64ca440",
+        "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmetis.so": "44bd51ad42de15e3259cf97fe66c2b14693feaff4e44d32cad549886a14e5865",
+        "/usr/lib/x86_64-linux-gnu/libhwloc.so.15.7.0": "86dff44a023254d997cea910b9a51f35afefe6780f4b5530f974a2009ba47487",
+        "/usr/lib/x86_64-linux-gnu/libXau.so.6.0.0": "8040da3f8516c1acfe39f04ff022480cdb273705ba5e7a4ca70bbdb1527cd67a",
+        "/usr/lib/x86_64-linux-gnu/libXdmcp.so.6.0.0": "667d97d6da16016400ab10de9f83ef4ab209ceb6adf68ff9650225ec13e723b0",
+        "/usr/lib/x86_64-linux-gnu/libudev.so.1.7.8": "4298228175fa62a36af88b1afd4406cdd8b1bf166621f957d0dbbde45a698fe5",
+        "/usr/lib/x86_64-linux-gnu/libbsd.so.0.12.1": "e86cd4f0019f42c2ba5e60602e0edc8694d2948377d98c3654d0f6bddb5254bb",
+        "/usr/lib/x86_64-linux-gnu/libcap.so.2.66": "6ac6abc86ac891c6e13486470e26f1d939f47fda9e6b5d5508a7f5ec881adc84",
+        "/usr/lib/x86_64-linux-gnu/libmd.so.0.1.0": "423e18586b6ea740f4465afd64f7a9a4cb7264ed979c8e7256f9085af5345fef",
+        "/home/paul/pse-arrow/build/graph-hash-followups-20261009-producer-rebuilt.json": "5ef7835fb0fb174f51802a6b6db769550f30d7ebb52c679a993f24d9d19f1232"
+      },
+      "links": {
+        "/home/paul/pse-arrow/target/debug/build/pse-benches/5e6b630b0ce4eede/out/modeling_preparation-5e6b630b0ce4eede": "\tlinux-vdso.so.1 (0x000070eaaadbf000)\n\tlibstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x000070ea9bc00000)\n\tlibmkl_intel_lp64.so.3 => /home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_intel_lp64.so.3 (0x000070ea9aa00000)\n\tlibgomp.so.1 => /lib/x86_64-linux-gnu/libgomp.so.1 (0x000070eaaad3c000)\n\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x000070ea9bf17000)\n\tlibscip.so.10.0 => /home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libscip.so.10.0 (0x000070ea99600000)\n\tlibpetsc.so.3.24 => /home/paul/.cache/pse-arrow/native/petsc/99432a873af62e1dc2149c6d08187a5cdb269bed0177c1a9bf513b0b9b1d47fc/generations/16088f9780a34f13b19c871aa05809ae/lib/libpetsc.so.3.24 (0x000070ea97c00000)\n\tlibipopt.so.3 => /home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libipopt.so.3 (0x000070ea97800000)\n\tlibgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x000070eaaad0c000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x000070ea97400000)\n\t/lib64/ld-linux-x86-64.so.2 (0x000070eaaadc1000)\n\tlibdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x000070eaaad05000)\n\tlibz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x000070eaaace9000)\n\tlibgmp.so.10 => /lib/x86_64-linux-gnu/libgmp.so.10 (0x000070ea9be93000)\n\tlibmpfr.so.6 => /lib/x86_64-linux-gnu/libmpfr.so.6 (0x000070ea9bb46000)\n\tlibmkl_gnu_thread.so.3 => /home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_gnu_thread.so.3 (0x000070ea95800000)\n\tlibmkl_core.so.3 => /home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_core.so.3 (0x000070ea91000000)\n\tlibgfortran.so.5 => /lib/x86_64-linux-gnu/libgfortran.so.5 (0x000070ea90c00000)\n\tlibX11.so.6 => /lib/x86_64-linux-gnu/libX11.so.6 (0x000070ea9ba09000)\n\tlibcoinmumps.so.3 => /home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libcoinmumps.so.3 (0x000070ea90800000)\n\tlibspral.so => /home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libspral.so (0x000070ea99538000)\n\tlibpthread.so.0 => /lib/x86_64-linux-gnu/libpthread.so.0 (0x000070eaaace0000)\n\tlibxcb.so.1 => /lib/x86_64-linux-gnu/libxcb.so.1 (0x000070eaaacb7000)\n\tlibmetis.so => /home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmetis.so (0x000070ea9a98d000)\n\tlibhwloc.so.15 => /lib/x86_64-linux-gnu/libhwloc.so.15 (0x000070ea994d7000)\n\tlibXau.so.6 => /lib/x86_64-linux-gnu/libXau.so.6 (0x000070eaaacb1000)\n\tlibXdmcp.so.6 => /lib/x86_64-linux-gnu/libXdmcp.so.6 (0x000070eaaaca7000)\n\tlibudev.so.1 => /lib/x86_64-linux-gnu/libudev.so.1 (0x000070eaaac74000)\n\tlibbsd.so.0 => /lib/x86_64-linux-gnu/libbsd.so.0 (0x000070ea9a977000)\n\tlibcap.so.2 => /lib/x86_64-linux-gnu/libcap.so.2 (0x000070ea9be86000)\n\tlibmd.so.0 => /lib/x86_64-linux-gnu/libmd.so.0 (0x000070ea9a968000)\n"
+      },
+      "toolchain": "rustc 1.101.0-nightly (c1070d693 2026-09-28)\nbinary: rustc\ncommit-hash: c1070d69382b8d2f2eb65119c738a77d9e324c9e\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.101.0-nightly\nLLVM version: 23.1.1\n",
+      "environment": {
+        "RUSTC_WRAPPER": "/home/paul/pse-arrow/scripts/sccache",
+        "SUITESPARSE_LIBRARY_DIR": "/home/paul/.cache/pse-arrow/native/klu/cc70749c84ba4d7e3ac8cd673840df995a4332c3a96fe56d1836287035befc9a/generations/21920edb71364a50a8cf57f7053d5a23/lib",
+        "IPOPT_DIR": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1",
+        "SCIPOPTDIR": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1",
+        "PSE_ROOT_ISOLATION_DIR": "/home/paul/.cache/pse-arrow/native/isolation/9dfe6609b0f11727120b4f9982d280d4ecc3abcb64e6e8bcddc009e2b64b0fa0/generations/c91bde8c5a494e73b1171f45b56254d4",
+        "LD_LIBRARY_PATH": "/home/paul/.cache/pse-arrow/native/petsc/99432a873af62e1dc2149c6d08187a5cdb269bed0177c1a9bf513b0b9b1d47fc/generations/16088f9780a34f13b19c871aa05809ae/lib:/home/paul/.cache/pse-arrow/native/uno/d6db507b24250d5d5f269ca89b56163972e9989890d26f24e838f8905e0d9ea1/generations/7382cacd65eb40b08ceacf0a7dab3344/lib:/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib",
+        "PSE_LLVM_PREFIX": "/opt/llvm-current",
+        "LIBCLANG_PATH": "/opt/llvm-current/lib",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "PSE_SURREAL_STATE": "/home/paul/.local/state/pse-arrow/surreal-functional-v2",
+        "PSE_WORKER_BINARY": "/home/paul/pse-arrow/target/debug/pse-worker",
+        "PSE_PRODUCER_FIXTURE_RECEIPT": "/home/paul/pse-arrow/build/graph-hash-followups-20261009-producer-rebuilt.json",
+        "SYMBOLICA_LICENSE": "3ffc34e40203661f2f33d1b2e270a0f32b4de1d4225b34fe2b6f932404b95a93",
+        "UV_PROJECT_ENVIRONMENT": ".venv",
+        "SCCACHE_DIR": "/home/paul/.cache/pse-arrow/sccache",
+        "CARGO_BUILD_JOBS": "16",
+        "LOCAL_NATIVE_ENVIRONMENT": "edfd0274557485ef4449fe0adbf75b40a7f8262b71dc499a50eca5b081eb237b"
+      },
+      "threads": {
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1"
+      }
+    }
+  },
+  "result": {
+    "experiment": "modeling_preparation",
+    "id": "pcsaft-02",
+    "stages": [
+      {
+        "experiment": "modeling_preparation",
+        "id": "pcsaft-02",
+        "stage": "cold",
+        "compiler_phases": {
+          "pse.case.compiled_body_construction": {
+            "calls": 2,
+            "total_seconds": 0.000313797,
+            "seconds_per_attempt": 0.000313797
+          },
+          "pse.case.compiled_order_construction": {
+            "calls": 2,
+            "total_seconds": 0.00018081,
+            "seconds_per_attempt": 0.00018081
+          },
+          "pse.case.function_assembly": {
+            "calls": 2,
+            "total_seconds": 1.5931e-05,
+            "seconds_per_attempt": 1.5931e-05
+          },
+          "pse.case.program_optimization": {
+            "calls": 2,
+            "total_seconds": 0.000408871,
+            "seconds_per_attempt": 0.000408871
+          },
+          "pse.case.semantic_body_admission": {
+            "calls": 17,
+            "total_seconds": 1.236602617,
+            "seconds_per_attempt": 1.236602617
+          },
+          "pse.case.semantic_body_reuse": {
+            "calls": 15,
+            "total_seconds": 8.942e-06,
+            "seconds_per_attempt": 8.942e-06
+          },
+          "pse.case.structural_analysis": {
+            "calls": 1,
+            "total_seconds": 0.058357467,
+            "seconds_per_attempt": 0.058357467
+          },
+          "pse.case.support_construction": {
+            "calls": 10,
+            "total_seconds": 0.096291117,
+            "seconds_per_attempt": 0.096291117
+          }
+        },
+        "preparations": {
+          "views": 1,
+          "observations": 2,
+          "rebuilt": 0,
+          "shared": 0
+        },
+        "workload": {
+          "id": "pcsaft-02",
+          "model": "pcsaft",
+          "components": 2,
+          "smoke": true,
+          "body_slots": 65536,
+          "body_occurrences": 1048576,
+          "functional_scopes": [
+            "preparation"
+          ]
+        },
+        "seconds": {
+          "specialization_lowering": 54.111906336,
+          "total": 63.51183586
+        },
+        "derivative_order": "first",
+        "pool_peak_bytes": 5014069785,
+        "process_peak_rss_bytes": 501751808,
+        "scope": "specialization, lowering, case resolution and first-order derivative program assembly; ordered cold, warm, value and structural changes; no solve",
+        "memory_scope": "pool observation of this preparation; process-lifetime VmHWM, per case only when PSE_PREPARATION_CASE selects one case per process",
+        "outcome": "refused",
+        "refusal": {
+          "phase": "case_resolution",
+          "message": "quantity inference rule `operation.unestablished_invariant` rejected the operation: no applicable fact checker was supplied",
+          "diagnostic": {
+            "code": "compile.math.quantity_operation_unsupported",
+            "causes": [],
+            "class": "invalid_model",
+            "severity": "error",
+            "stage": "workflow",
+            "sources": [],
+            "rule": "math.quantity",
+            "observations": {
+              "detail": {
+                "kind": "text",
+                "value": "quantity inference rule `operation.unestablished_invariant` rejected the operation: no applicable fact checker was supplied"
+              }
+            },
+            "locations": [],
+            "validity": null,
+            "applicability": []
+          }
+        }
+      },
+      {
+        "experiment": "modeling_preparation",
+        "id": "pcsaft-02",
+        "stage": "warm",
+        "compiler_phases": {},
+        "preparations": {
+          "views": 0,
+          "observations": 0,
+          "rebuilt": 0,
+          "shared": 1
+        },
+        "workload": {
+          "id": "pcsaft-02",
+          "model": "pcsaft",
+          "components": 2,
+          "smoke": true,
+          "body_slots": 65536,
+          "body_occurrences": 1048576,
+          "functional_scopes": [
+            "preparation"
+          ]
+        },
+        "seconds": {
+          "specialization_lowering": 0.279626441,
+          "total": 0.557266889
+        },
+        "derivative_order": "first",
+        "pool_peak_bytes": 722696327,
+        "process_peak_rss_bytes": 501751808,
+        "scope": "specialization, lowering, case resolution and first-order derivative program assembly; ordered cold, warm, value and structural changes; no solve",
+        "memory_scope": "pool observation of this preparation; process-lifetime VmHWM, per case only when PSE_PREPARATION_CASE selects one case per process",
+        "outcome": "refused",
+        "refusal": {
+          "phase": "case_resolution",
+          "message": "quantity inference rule `operation.unestablished_invariant` rejected the operation: no applicable fact checker was supplied",
+          "diagnostic": {
+            "code": "compile.math.quantity_operation_unsupported",
+            "causes": [],
+            "class": "invalid_model",
+            "severity": "error",
+            "stage": "workflow",
+            "sources": [],
+            "rule": "math.quantity",
+            "observations": {
+              "detail": {
+                "kind": "text",
+                "value": "quantity inference rule `operation.unestablished_invariant` rejected the operation: no applicable fact checker was supplied"
+              }
+            },
+            "locations": [],
+            "validity": null,
+            "applicability": []
+          }
+        }
+      },
+      {
+        "experiment": "modeling_preparation",
+        "id": "pcsaft-02",
+        "stage": "value",
+        "compiler_phases": {
+          "pse.case.semantic_body_reuse": {
+            "calls": 17,
+            "total_seconds": 8.91e-06,
+            "seconds_per_attempt": 8.91e-06
+          },
+          "pse.case.value_rebind": {
+            "calls": 1,
+            "total_seconds": 0.043431453,
+            "seconds_per_attempt": 0.043431453
+          }
+        },
+        "preparations": {
+          "views": 0,
+          "observations": 0,
+          "rebuilt": 1,
+          "shared": 0
+        },
+        "workload": {
+          "id": "pcsaft-02",
+          "model": "pcsaft",
+          "components": 2,
+          "smoke": true,
+          "body_slots": 65536,
+          "body_occurrences": 1048576,
+          "functional_scopes": [
+            "preparation"
+          ]
+        },
+        "seconds": {
+          "specialization_lowering": 0.308561638,
+          "total": 10.082665992999999
+        },
+        "derivative_order": "first",
+        "pool_peak_bytes": 9525546686,
+        "process_peak_rss_bytes": 521347072,
+        "scope": "specialization, lowering, case resolution and first-order derivative program assembly; ordered cold, warm, value and structural changes; no solve",
+        "memory_scope": "pool observation of this preparation; process-lifetime VmHWM, per case only when PSE_PREPARATION_CASE selects one case per process",
+        "outcome": "refused",
+        "refusal": {
+          "phase": "case_resolution",
+          "message": "quantity inference rule `operation.unestablished_invariant` rejected the operation: no applicable fact checker was supplied",
+          "diagnostic": {
+            "code": "compile.math.quantity_operation_unsupported",
+            "causes": [],
+            "class": "invalid_model",
+            "severity": "error",
+            "stage": "workflow",
+            "sources": [],
+            "rule": "math.quantity",
+            "observations": {
+              "detail": {
+                "kind": "text",
+                "value": "quantity inference rule `operation.unestablished_invariant` rejected the operation: no applicable fact checker was supplied"
+              }
+            },
+            "locations": [],
+            "validity": null,
+            "applicability": []
+          }
+        }
+      },
+      {
+        "experiment": "modeling_preparation",
+        "id": "pcsaft-02",
+        "stage": "structural",
+        "compiler_phases": {
+          "pse.case.semantic_body_reuse": {
+            "calls": 17,
+            "total_seconds": 1.0240999999999997e-05,
+            "seconds_per_attempt": 1.0240999999999997e-05
+          },
+          "pse.case.structural_analysis": {
+            "calls": 1,
+            "total_seconds": 0.053220492,
+            "seconds_per_attempt": 0.053220492
+          },
+          "pse.case.support_construction": {
+            "calls": 8,
+            "total_seconds": 0.08890609499999999,
+            "seconds_per_attempt": 0.08890609499999999
+          }
+        },
+        "preparations": {
+          "views": 1,
+          "observations": 0,
+          "rebuilt": 0,
+          "shared": 0
+        },
+        "workload": {
+          "id": "pcsaft-02",
+          "model": "pcsaft",
+          "components": 2,
+          "smoke": true,
+          "body_slots": 65536,
+          "body_occurrences": 1048576,
+          "functional_scopes": [
+            "preparation"
+          ]
+        },
+        "seconds": {
+          "specialization_lowering": 0.314344164,
+          "total": 8.931158663
+        },
+        "derivative_order": "first",
+        "pool_peak_bytes": 5443504801,
+        "process_peak_rss_bytes": 540565504,
+        "scope": "specialization, lowering, case resolution and first-order derivative program assembly; ordered cold, warm, value and structural changes; no solve",
+        "memory_scope": "pool observation of this preparation; process-lifetime VmHWM, per case only when PSE_PREPARATION_CASE selects one case per process",
+        "outcome": "refused",
+        "refusal": {
+          "phase": "case_resolution",
+          "message": "quantity inference rule `operation.unestablished_invariant` rejected the operation: no applicable fact checker was supplied",
+          "diagnostic": {
+            "code": "compile.math.quantity_operation_unsupported",
+            "causes": [],
+            "class": "invalid_model",
+            "severity": "error",
+            "stage": "workflow",
+            "sources": [],
+            "rule": "math.quantity",
+            "observations": {
+              "detail": {
+                "kind": "text",
+                "value": "quantity inference rule `operation.unestablished_invariant` rejected the operation: no applicable fact checker was supplied"
+              }
+            },
+            "locations": [],
+            "validity": null,
+            "applicability": []
+          }
+        }
+      }
+    ],
+    "iterations": 1
+  }
+}

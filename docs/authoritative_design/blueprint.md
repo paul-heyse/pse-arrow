@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 138
+revision: 139
 date: 2026-10-09
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 139 | 2026-10-09 | ADR-0167: explicit V2 flow collection/item tags and parent counts (§5.3/§17.4), historical V1 meaning and physical-context equality limits. | Maintainer-selected Graph/hash RC04; independent scoped target review Accept; proposed ADR status; visible `.design-edit`; implementation and scoped acceptance owned by Plan 28k. |
 | 138 | 2026-10-09 | Proposed ADR-0164/0166, Plan 30 RC01–RC06: §20.6 bounded native WebSocket operation lifetimes, independent persistent services/receiver generations and shared host admission; §24.1 explicit isolated context and terminal-outcome/reference-protected disposal. | Maintainer-authorized Plan 30 implementation; visible `.design-edit`; target contracts and runtime qualification remain distinct. |
 | 137 | 2026-10-08 | Proposed ADR-0164, preparation RC01–RC04: §5.3/§14.3 trust-transition qualification and independent immutable mathematics in a stable symbol universe; §14.4 exact prepared products with fresh attribution and guarded identical-revision premise adoption; explicit acknowledgment/publication, short transaction pacing and original-clock interruption. | Maintainer-authorized Plan 28i/28j execution; visible `.design-edit`; implementation and scoped qualification remain in Plan 28. |
 | 136 | 2026-10-08 | Proposed ADR-0166: §18.8 bounded demand admission, original task clocks and persistent team ownership; §19.3 concurrent independent study sequences; §20.6 one coordinated durable group and finite aggregate placement. Parallel RC01–RC04 and execution defaults are maintainer-confirmed; implementation and E3–E5 qualification remain in Plan 28. | Maintainer-authorized Plan 28 execution; visible `.design-edit` authorization; no ADR acceptance or performance claim. |

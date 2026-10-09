@@ -301,10 +301,7 @@ impl ModelingPackage {
             let identity = body
                 .semantic_identity()
                 .ok_or_else(|| contract("portable body is not sealed"))?;
-            if let Some(old) = basis
-                .descriptions
-                .iter()
-                .find(|old| old.semantic_identity == identity)
+            if let Some(old) = basis.description(identity)
                 && old.description.matches_read(read)?
                 && scoped(cancel, deadline, async {
                     Ok(store

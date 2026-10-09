@@ -71,6 +71,7 @@ Derived in: pse-structural.
 | Frame | Spelling | Meaning |
 |---|---|---|
 | `FlowProjectionV1` | `pse.flow.projection.v1` | A flowsheet projection over canonicalized inventories. |
+| `FlowProjectionV2` | `pse.flow.projection.v2` | Flow projection with explicit collection/item tags and parent-specific counts. |
 | `StructuralBlockV1` | `pse.structural.block.v1` | A structural block's canonical membership. |
 | `StructuralScopeV1` | `pse.structural.scope.v1` | A structural analysis scope, independent of traversal order. |
 

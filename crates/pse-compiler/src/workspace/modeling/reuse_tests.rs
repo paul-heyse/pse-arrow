@@ -502,6 +502,33 @@ fn owned_frontier_inventory_includes_promoted_original_and_retains_direct_implic
             .collect()
     );
     assert_eq!(requests.len(), completed.portable_bodies().count());
+    assert_eq!(
+        original_ids,
+        original
+            .portable_bodies()
+            .map(|body| body.semantic_identity().unwrap())
+            .collect()
+    );
+    let first_inventory = completed
+        .portable_bodies()
+        .map(Arc::as_ptr)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        first_inventory,
+        completed
+            .clone()
+            .portable_bodies()
+            .map(Arc::as_ptr)
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        completed
+            .portable_bodies()
+            .map(|body| body.semantic_identity().unwrap())
+            .collect::<Vec<_>>()
+            .windows(2)
+            .all(|pair| pair[0] < pair[1])
+    );
     let supplier = completed.admitted.implicit_systems().next().unwrap();
     assert!(supplier.retained_bytes() > 0);
     assert!(

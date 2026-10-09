@@ -30,6 +30,7 @@ use crate::{
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_kernels::{DerivativeOrder, ProviderKey, ProviderSpec};
 use pse_model::generated::enums::ModelingVariableDomain;
+use rustc_hash::FxHashMap;
 use std::{
     cell::Cell,
     collections::{BTreeMap, BTreeSet, HashMap},
@@ -1573,8 +1574,9 @@ impl CasePlan {
             None => None,
         };
         let native = project_native(self, &columns, &rows, values, &mut consumed)?;
+        let structure_key = self.structure().key();
         let mut h = FramedHasher::new(pse_ids::Frame::MathFactorableV2);
-        h.hash(&self.structure().key())
+        h.hash(&structure_key)
             .str(match request.branches {
                 BranchPolicy::Auxiliary => "branches:auxiliary",
                 BranchPolicy::Disjunctive => "branches:disjunctive",
@@ -1651,7 +1653,7 @@ impl CasePlan {
         let mut program = FactorableProgram {
             key: h.finish_hash(),
             require_exact: request.require_exact,
-            structure: self.structure().key(),
+            structure: structure_key,
             values: consumed,
             nodes: builder.nodes,
             variables,
@@ -2280,7 +2282,8 @@ struct Builder<'a> {
     limit: usize,
     symbols: HashMap<Symbol, usize>,
     nodes: Vec<Node>,
-    interned: HashMap<Node, NodeId>,
+    // Process-local buckets retain full Node equality; durable identity is framed separately.
+    interned: FxHashMap<Node, NodeId>,
     auxiliaries: Vec<Auxiliary>,
     obligations: Vec<ProjectedObligation>,
     implicit: Vec<ProjectedImplicit>,
@@ -2312,7 +2315,7 @@ impl<'a> Builder<'a> {
             symbols,
             // The neutral constant exists before any budgeted node so that empty rows stay exact.
             nodes: vec![zero.clone()],
-            interned: HashMap::from([(zero, 0)]),
+            interned: FxHashMap::from_iter([(zero, 0)]),
             auxiliaries: vec![],
             obligations: vec![],
             implicit: vec![],
@@ -3700,6 +3703,44 @@ fn constant(view: CoefficientView<'_>) -> Option<Constant> {
 #[cfg(test)]
 mod exact_constant_tests {
     use super::*;
+    #[test]
+    fn process_local_interner_preserves_exact_node_identity() {
+        let request = FactorableRequest::default();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut builder = Builder::new(&request, &cancel, 32, 0).unwrap();
+        let x = builder.push(Node::Var(0)).unwrap();
+        let y = builder.push(Node::Var(1)).unwrap();
+        assert_ne!(x, y);
+        assert_eq!(x, builder.push(Node::Var(0)).unwrap());
+        let forward = builder.push(Node::Sum(vec![x, y])).unwrap();
+        assert_eq!(forward, builder.push(Node::Sum(vec![x, y])).unwrap());
+        assert_ne!(forward, builder.push(Node::Sum(vec![y, x])).unwrap());
+        let positive_zero = builder.float(0.0).unwrap();
+        let negative_zero = builder.float(-0.0).unwrap();
+        assert_ne!(positive_zero, negative_zero);
+        assert_ne!(
+            positive_zero, 0,
+            "binary64 zero is not the neutral rational zero"
+        );
+        let half = builder
+            .constant(Constant::Rational(Rational::new(1, 2)))
+            .unwrap();
+        assert_eq!(
+            half,
+            builder
+                .constant(Constant::Rational(Rational::new(2, 4)))
+                .unwrap()
+        );
+        let huge = Rational::from(i64::MAX).pow(4);
+        let adjacent = &huge + &Rational::one();
+        assert_eq!(huge.to_f64(), adjacent.to_f64());
+        let huge_node = builder.constant(Constant::Rational(huge)).unwrap();
+        assert_ne!(
+            huge_node,
+            builder.constant(Constant::Rational(adjacent)).unwrap()
+        );
+    }
+
     #[test]
     fn flat_projection_accounts_for_variable_power_and_scaled_binding_populations() {
         crate::initialize().unwrap();

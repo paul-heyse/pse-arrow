@@ -273,6 +273,8 @@ feral = { git = "https://github.com/paul-heyse/pounce", rev = "ff6386944421e8037
 # off: its nalgebra 0.33 and rand would split the pinned graph.
 statrs = { version = "=0.18.0", default-features = false }
 rayon = "=1.12.0"
+once_cell = "=1.21.4"
+rustc-hash = "=2.1.3"
 # Typed dense index spaces at coordinate boundaries (ADR-0115, Plan 22 B6).
 typed-index-collections = "=3.5.0"
 # Enum-indexed storage; its MSRV (1.95) is below the workspace's.

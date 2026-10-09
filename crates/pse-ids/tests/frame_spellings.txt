@@ -22,6 +22,7 @@ pse.fit.coordinate.v1
 pse.fit.prepared.v1
 pse.fit.source.v1
 pse.flow.projection.v1
+pse.flow.projection.v2
 pse.highs.iis-relaxation.v1
 pse.implicit.configuration.v1
 pse.implicit.fixed-configuration.v1

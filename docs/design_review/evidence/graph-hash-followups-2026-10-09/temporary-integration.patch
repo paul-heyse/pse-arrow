@@ -1,0 +1,31 @@
+diff --git a/crates/pse-compiler/Cargo.toml b/crates/pse-compiler/Cargo.toml
+--- a/crates/pse-compiler/Cargo.toml
++++ b/crates/pse-compiler/Cargo.toml
+@@ -16,6 +16,9 @@
+ [lints]
+ workspace = true
+ 
++[features]
++persistence-probe = ["salsa/persistence"]
++
+ [dependencies]
+ schemars.workspace = true
+ serde.workspace = true
+diff --git a/crates/pse-compiler/src/typed_math_portable.rs b/crates/pse-compiler/src/typed_math_portable.rs
+--- a/crates/pse-compiler/src/typed_math_portable.rs
++++ b/crates/pse-compiler/src/typed_math_portable.rs
+@@ -474,6 +474,14 @@
+ mod tests {
+     use super::*;
+     use pse_quantity::standard::{StandardInvariantChecker, standard_registry};
++    #[cfg(feature = "persistence-probe")]
++    mod recipe_persistence_probe {
++        include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/design_review/evidence/graph-hash-followups-2026-10-09/recipe-persistence-probe.rs"));
++    }
++    #[cfg(feature = "persistence-probe")]
++    mod authored_checker_probe {
++        include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/design_review/evidence/graph-hash-followups-2026-10-09/authored-checker-probe.rs"));
++    }
+     #[derive(Debug, Default)]
+     struct Capture(std::sync::Mutex<Vec<Arc<AdmittedBody>>>);
+     impl crate::workspace::ModelingBodyRetention for Capture {

@@ -29,6 +29,8 @@ pub(crate) struct BasisKey {
     instance: InstanceId,
     bindings: Bindings,
     limits: Limits,
+    /// Process-local bucket hint; complete fields above remain the equality authority.
+    prehash: u64,
     _validation_owner: Arc<pse_engine::session::EngineFactory>,
     _registry_owner: Arc<pse_schema::Registry>,
     _selected_metadata: Arc<AllocationLease>,
@@ -47,6 +49,11 @@ impl PartialEq for BasisKey {
 impl Eq for BasisKey {}
 impl Hash for BasisKey {
     fn hash<H: Hasher>(&self, hash: &mut H) {
+        hash.write_u64(self.prehash);
+    }
+}
+impl BasisKey {
+    fn hash_fields<H: Hasher>(&self, hash: &mut H) {
         self.request.hash(hash);
         self.dependencies.hash(hash);
         self.root.hash(hash);
@@ -88,6 +95,10 @@ fn bindings_bytes(bindings: &Bindings) -> usize {
             .sum::<usize>()
 }
 impl BasisKey {
+    #[cfg(test)]
+    pub(crate) fn force_prehash_for_test(&mut self, prehash: u64) {
+        self.prehash = prehash;
+    }
     pub(crate) fn retained_bytes(&self) -> usize {
         size_of::<Self>()
             + 128
@@ -164,8 +175,9 @@ impl PreparedBasis {
     pub(crate) fn with_descriptions(
         &self,
         service: &MathService,
-        descriptions: Vec<Arc<super::portable::BodyDescription>>,
+        mut descriptions: Vec<Arc<super::portable::BodyDescription>>,
     ) -> Result<Self, MathRuntimeError> {
+        descriptions.sort_unstable_by_key(|description| description.semantic_identity);
         let metadata = service.reserve(
             "math:prepared-basis-description-inventory",
             size_of::<Self>()
@@ -182,6 +194,15 @@ impl PreparedBasis {
             owner: self.owner.clone(),
             _metadata: metadata,
         })
+    }
+    pub(crate) fn description(
+        &self,
+        identity: pse_ids::roles::SemanticBodyHash,
+    ) -> Option<&Arc<super::portable::BodyDescription>> {
+        self.descriptions
+            .binary_search_by_key(&identity, |description| description.semantic_identity)
+            .ok()
+            .map(|index| &self.descriptions[index])
     }
     /// Bind the current revision's lineage; consumed source versions are supplied afterward.
     pub(crate) fn bind(
@@ -226,18 +247,23 @@ impl MathService {
     ) -> Result<Arc<BasisKey>, MathRuntimeError> {
         let bytes = size_of::<BasisKey>() + 128 + bindings_bytes(&bindings);
         let owner = self.reserve("math:exact-preparation-key", bytes)?;
-        Ok(Arc::new(BasisKey {
+        let mut key = BasisKey {
             request: selected.request.clone(),
             dependencies: selected.dependencies.clone(),
             root,
             instance,
             bindings,
             limits,
+            prehash: 0,
             _validation_owner: selected._validation_owner.clone(),
             _registry_owner: selected._registry_owner.clone(),
             _selected_metadata: selected.metadata.clone(),
             _owner: owner,
-        }))
+        };
+        let mut hash = rustc_hash::FxHasher::default();
+        key.hash_fields(&mut hash);
+        key.prehash = hash.finish();
+        Ok(Arc::new(key))
     }
     #[expect(
         clippy::too_many_arguments,

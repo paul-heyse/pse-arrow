@@ -1,0 +1,72 @@
+{
+  "experiment": "modeling_preparation",
+  "id": "pcsaft-02",
+  "stages": [
+    {
+      "experiment": "modeling_preparation",
+      "id": "pcsaft-02",
+      "stage": "cold",
+      "compiler_phases": {},
+      "preparations": {
+        "views": 0,
+        "observations": 0,
+        "rebuilt": 0,
+        "shared": 0
+      },
+      "workload": {
+        "id": "pcsaft-02",
+        "model": "pcsaft",
+        "components": 2,
+        "smoke": true,
+        "body_slots": 65536,
+        "body_occurrences": 1048576,
+        "functional_scopes": [
+          "preparation"
+        ]
+      },
+      "seconds": {
+        "total": 13.510790983
+      },
+      "derivative_order": "first",
+      "pool_peak_bytes": 4532539616,
+      "process_peak_rss_bytes": 401207296,
+      "scope": "specialization, lowering, case resolution and first-order derivative program assembly; ordered cold, warm, value and structural changes; no solve",
+      "memory_scope": "pool observation of this preparation; process-lifetime VmHWM, per case only when PSE_PREPARATION_CASE selects one case per process",
+      "outcome": "refused",
+      "refusal": {
+        "phase": "specialization_lowering",
+        "message": "modeling declaration 2d15f9d5fd00823bb4114d31cf75caf8: equation side physical types differ",
+        "diagnostic": {
+          "code": "validation.invariant",
+          "causes": [],
+          "class": "invalid_model",
+          "severity": "error",
+          "stage": "modeling",
+          "sources": [
+            "2d15f9d5fd00823bb4114d31cf75caf8"
+          ],
+          "rule": "modeling.contract",
+          "observations": {
+            "detail": {
+              "kind": "text",
+              "value": "equation side physical types differ"
+            }
+          },
+          "locations": [
+            {
+              "source": "2d15f9d5fd00823bb4114d31cf75caf8",
+              "revision": null,
+              "path": "document/686620c08bf9190fa347df3086d296d5",
+              "name": "enthalpy_binding",
+              "start": 524,
+              "end": 573
+            }
+          ],
+          "validity": null,
+          "applicability": []
+        }
+      }
+    }
+  ],
+  "iterations": 1
+}

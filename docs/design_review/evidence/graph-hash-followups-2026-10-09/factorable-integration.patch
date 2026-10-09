@@ -1,0 +1,212 @@
+--- a/crates/pse-math/src/factorable.rs
++++ b/crates/pse-math/src/factorable.rs
+@@ -30,7 +30,6 @@
+ use pse_ids::{ContentHash, FramedHasher, SemanticId};
+ use pse_kernels::{DerivativeOrder, ProviderKey, ProviderSpec};
+ use pse_model::generated::enums::ModelingVariableDomain;
+-use rustc_hash::FxHashMap;
+ use std::{
+     cell::Cell,
+     collections::{BTreeMap, BTreeSet, HashMap},
+@@ -57,6 +56,9 @@
+ /// Candidate factors α of the absolute-value identity, as `(numerator, denominator)`.
+ const IDENTITY_FACTORS: [(i64, i64); 6] = [(1, 1), (-1, 1), (-2, 1), (2, 1), (1, 2), (-1, 2)];
+ 
++#[path = "../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs"]
++pub mod inquiry;
++
+ /// Library-owned arbitrary precision rational; no local arithmetic authority.
+ pub use symbolica::domains::rational::Rational;
+ 
+@@ -1574,9 +1576,8 @@
+             None => None,
+         };
+         let native = project_native(self, &columns, &rows, values, &mut consumed)?;
+-        let structure_key = self.structure().key();
+         let mut h = FramedHasher::new(pse_ids::Frame::MathFactorableV2);
+-        h.hash(&structure_key)
++        h.hash(&self.structure().key())
+             .str(match request.branches {
+                 BranchPolicy::Auxiliary => "branches:auxiliary",
+                 BranchPolicy::Disjunctive => "branches:disjunctive",
+@@ -1653,7 +1654,7 @@
+         let mut program = FactorableProgram {
+             key: h.finish_hash(),
+             require_exact: request.require_exact,
+-            structure: structure_key,
++            structure: self.structure().key(),
+             values: consumed,
+             nodes: builder.nodes,
+             variables,
+@@ -2282,8 +2283,7 @@
+     limit: usize,
+     symbols: HashMap<Symbol, usize>,
+     nodes: Vec<Node>,
+-    // Process-local buckets retain full Node equality; durable identity is framed separately.
+-    interned: FxHashMap<Node, NodeId>,
++    interned: inquiry::Interner,
+     auxiliaries: Vec<Auxiliary>,
+     obligations: Vec<ProjectedObligation>,
+     implicit: Vec<ProjectedImplicit>,
+@@ -2315,7 +2315,7 @@
+             symbols,
+             // The neutral constant exists before any budgeted node so that empty rows stay exact.
+             nodes: vec![zero.clone()],
+-            interned: FxHashMap::from_iter([(zero, 0)]),
++            interned: inquiry::Interner::new((zero, 0)),
+             auxiliaries: vec![],
+             obligations: vec![],
+             implicit: vec![],
+@@ -2385,6 +2385,7 @@
+     }
+     /// Intern a node, folding constant operands and trivial arities.
+     fn push(&mut self, node: Node) -> Result<NodeId, FactorableError> {
++        self.interned.capture_input(&node);
+         let node = match node {
+             Node::Sum(mut c) | Node::Product(mut c) if c.len() == 1 => return Ok(c.remove(0)),
+             Node::Sum(c) if c.is_empty() => Node::Const(Constant::integer(0)),
+@@ -3704,44 +3705,6 @@
+ mod exact_constant_tests {
+     use super::*;
+     #[test]
+-    fn process_local_interner_preserves_exact_node_identity() {
+-        let request = FactorableRequest::default();
+-        let cancel = Arc::new(AtomicBool::new(false));
+-        let mut builder = Builder::new(&request, &cancel, 32, 0).unwrap();
+-        let x = builder.push(Node::Var(0)).unwrap();
+-        let y = builder.push(Node::Var(1)).unwrap();
+-        assert_ne!(x, y);
+-        assert_eq!(x, builder.push(Node::Var(0)).unwrap());
+-        let forward = builder.push(Node::Sum(vec![x, y])).unwrap();
+-        assert_eq!(forward, builder.push(Node::Sum(vec![x, y])).unwrap());
+-        assert_ne!(forward, builder.push(Node::Sum(vec![y, x])).unwrap());
+-        let positive_zero = builder.float(0.0).unwrap();
+-        let negative_zero = builder.float(-0.0).unwrap();
+-        assert_ne!(positive_zero, negative_zero);
+-        assert_ne!(
+-            positive_zero, 0,
+-            "binary64 zero is not the neutral rational zero"
+-        );
+-        let half = builder
+-            .constant(Constant::Rational(Rational::new(1, 2)))
+-            .unwrap();
+-        assert_eq!(
+-            half,
+-            builder
+-                .constant(Constant::Rational(Rational::new(2, 4)))
+-                .unwrap()
+-        );
+-        let huge = Rational::from(i64::MAX).pow(4);
+-        let adjacent = &huge + &Rational::one();
+-        assert_eq!(huge.to_f64(), adjacent.to_f64());
+-        let huge_node = builder.constant(Constant::Rational(huge)).unwrap();
+-        assert_ne!(
+-            huge_node,
+-            builder.constant(Constant::Rational(adjacent)).unwrap()
+-        );
+-    }
+-
+-    #[test]
+     fn flat_projection_accounts_for_variable_power_and_scaled_binding_populations() {
+         crate::initialize().unwrap();
+         let x = library::formal(0).unwrap();
+--- a/benches/benches/modeling_preparation.rs
++++ b/benches/benches/modeling_preparation.rs
+@@ -85,7 +85,9 @@
+ /// The seed reference closure, loaded through the declared package document paths, with the
+ /// bench package from its authored texts.
+ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> ModelingPackage {
+-    use pse_runtime::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
++    use pse_runtime::authoring_driver::document::{
++        OwnedDocumentSet, load_package_documents_owned,
++    };
+     let root = repository().join("packages/reference");
+     let pool = owner.runtime.pool();
+     let validation = owner.sessions.validation_context(&owner.registry).unwrap();
+@@ -195,16 +197,9 @@
+         .flat_map(|rows| rows.iter())
+         .find(|row| row.name == "normal_alkanes")
+         .unwrap();
+-    let StaticValue::Set(values) = parse_static(
+-        row.value
+-            .binding
+-            .as_ref()
+-            .unwrap()
+-            .expression
+-            .as_deref()
+-            .unwrap(),
+-    )
+-    .unwrap() else {
++    let StaticValue::Set(values) =
++        parse_static(row.value.binding.as_ref().unwrap().expression.as_deref().unwrap()).unwrap()
++    else {
+         panic!("bank membership is not explicit");
+     };
+     values
+@@ -260,8 +255,8 @@
+          param components:Set<chemistry.species>=selected;\n\
+          child phase:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=selected,law=pcsaft_data.potential);\n\
+          param pressure:Pressure={PRESSURE};\n\
+-         var h_residual:ResidualMolarEnthalpy;\n\
+-         var ln_phi[j in components]:LogFugacityCoefficient;\n\
++         var h_residual:DeltaH;\n\
++         var ln_phi[j in components]:Scalar;\n\
+          eq pressure_binding:phase.pressure==pressure;\n\
+          eq enthalpy_binding:h_residual==phase.h_residual;\n\
+          eq fugacity_binding[j in components]:ln_phi[j]==phase.ln_phi[j];\n\
+@@ -425,7 +420,17 @@
+             )
+             .collect();
+         let plan = &prepared.model.case.compiled().plan;
++        let factorable_inquiry = std::env::var("PSE_HASH_INQUIRY").ok().map(|policy| {
++            let policy = match policy.as_str() {
++                "std" => 0,
++                "fx" => 1,
++                _ => panic!("unknown hash inquiry policy"),
++            };
++            let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
++            pse_math::factorable::inquiry::measure(plan, &prepared.model.values, &cancel, policy)
++        });
+         Ok(json!({
++            "factorable_inquiry": factorable_inquiry,
+             "bodies": bodies.len(),
+             "formal_slots": {
+                 "max": bodies.iter().map(|b| b.slot_count()).max(),
+@@ -557,7 +562,12 @@
+                     let package = executor.block_on(seed(&owner, &bench));
+                     let case = executor.block_on(case(&package, workload));
+                     let mut stages = Vec::new();
+-                    for stage in ["cold", "warm", "value", "structural"] {
++                    let inquiry_stages: &[&str] = if std::env::var_os("PSE_HASH_INQUIRY").is_some() {
++                        &["cold"]
++                    } else {
++                        &["cold", "warm", "value", "structural"]
++                    };
++                    for &stage in inquiry_stages {
+                         let (elapsed, record) = executor
+                             .block_on(prepare(&owner, &package, case, workload, stage, &phases));
+                         timed += elapsed;
+--- a/benches/benches/k4/preparation.rs
++++ b/benches/benches/k4/preparation.rs
+@@ -119,6 +119,21 @@
+         "binding-a-return",
+     ] {
+         let (elapsed, record, prepared) = stage(owner, &original, name, phases).await;
++        if let Ok(policy) = std::env::var("PSE_HASH_INQUIRY") {
++            let policy = match policy.as_str() {
++                "std" => 0,
++                "fx" => 1,
++                _ => panic!("unknown hash inquiry policy"),
++            };
++            let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
++            let report = pse_math::factorable::inquiry::measure(
++                &prepared.model.case.compiled().plan,
++                &prepared.model.values,
++                &cancel,
++                policy,
++            );
++            return (elapsed, json!({"source_admission_seconds": setup_seconds, "stages": [record], "factorable_inquiry": report}));
++        }
+         timed += elapsed;
+         records.push(record);
+         retained.push(prepared);

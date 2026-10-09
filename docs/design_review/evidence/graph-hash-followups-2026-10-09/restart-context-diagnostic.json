@@ -1,0 +1,700 @@
+{
+  "seed": {
+    "version": 1,
+    "role": "Worker",
+    "kernel_release": [
+      55,
+      46,
+      48,
+      46,
+      48,
+      45,
+      51,
+      56,
+      45,
+      103,
+      101,
+      110,
+      101,
+      114,
+      105,
+      99,
+      10
+    ],
+    "kernel_version": [
+      35,
+      51,
+      56,
+      126,
+      50,
+      52,
+      46,
+      48,
+      52,
+      46,
+      52,
+      45,
+      85,
+      98,
+      117,
+      110,
+      116,
+      117,
+      32,
+      83,
+      77,
+      80,
+      32,
+      80,
+      82,
+      69,
+      69,
+      77,
+      80,
+      84,
+      95,
+      68,
+      89,
+      78,
+      65,
+      77,
+      73,
+      67,
+      32,
+      77,
+      111,
+      110,
+      32,
+      83,
+      101,
+      112,
+      32,
+      49,
+      52,
+      32,
+      49,
+      54,
+      58,
+      51,
+      55,
+      58,
+      49,
+      49,
+      32,
+      85,
+      84,
+      67,
+      32,
+      50,
+      10
+    ],
+    "artifact": {
+      "path": "/home/paul/pse-arrow/target/debug/build/pse-benches/d4fd719e316da81f/out/native_process-d4fd719e316da81f",
+      "sha256": "a97b39a1cbae45d6d14f3e9fb85e950f46c3a73b23ffedfb62ee8d3a3d1276c7",
+      "canonical": "/home/paul/pse-arrow/target/debug/build/pse-benches/d4fd719e316da81f/out/native_process-d4fd719e316da81f",
+      "mode": 33277
+    },
+    "executable": {
+      "path": "/home/paul/pse-arrow/target/debug/build/pse-benches/d4fd719e316da81f/out/native_process-d4fd719e316da81f",
+      "sha256": "a97b39a1cbae45d6d14f3e9fb85e950f46c3a73b23ffedfb62ee8d3a3d1276c7",
+      "canonical": "/home/paul/pse-arrow/target/debug/build/pse-benches/d4fd719e316da81f/out/native_process-d4fd719e316da81f",
+      "mode": 33277
+    },
+    "loaded": [
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/petsc/99432a873af62e1dc2149c6d08187a5cdb269bed0177c1a9bf513b0b9b1d47fc/generations/16088f9780a34f13b19c871aa05809ae/lib/libpetsc.so.3.24.0",
+        "sha256": "07739a4c011fcce848c86b036fb9e40bf1fd5b74ffeb442ec71cde6cda80767a",
+        "canonical": "/home/paul/.cache/pse-arrow/native/petsc/99432a873af62e1dc2149c6d08187a5cdb269bed0177c1a9bf513b0b9b1d47fc/generations/16088f9780a34f13b19c871aa05809ae/lib/libpetsc.so.3.24.0",
+        "mode": 33133
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libcoinmumps.so.3.0.14",
+        "sha256": "a316e71e32841fa61a12701919e19ee28c62f046755960c6bc49428797887f57",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libcoinmumps.so.3.0.14",
+        "mode": 33133
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libipopt.so.3.14.20",
+        "sha256": "cfe2df574f39a4264f36ef1301d9f54dbe542fa8d37cf0e2bd55c594a9ab11e5",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libipopt.so.3.14.20",
+        "mode": 33133
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmetis.so",
+        "sha256": "44bd51ad42de15e3259cf97fe66c2b14693feaff4e44d32cad549886a14e5865",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmetis.so",
+        "mode": 33060
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_core.so.3",
+        "sha256": "b4f086651ee5a8471140d53fedfdbbaba606287784763b0739f282872c31aa9b",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_core.so.3",
+        "mode": 33133
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_def.so.3",
+        "sha256": "4bc51353a8473a08f18fabefdf5ab79efd98dbf337e2913a23d215748a780782",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_def.so.3",
+        "mode": 33133
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_gnu_thread.so.3",
+        "sha256": "444288ca845ec374f0435c887f0b4f745bf6bb68bc84059a11ddb0926de196b6",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_gnu_thread.so.3",
+        "mode": 33133
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_intel_lp64.so.3",
+        "sha256": "9dbdb7d4193679f028787da6b9b2b545e0e16b87a95a64ee7318f544da8b08ac",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_intel_lp64.so.3",
+        "mode": 33133
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_vml_cmpt.so.3",
+        "sha256": "6b3daa4c0719328bb9a13c004b2f9b34c6b63bc704c840e11b1f41d64983c120",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_vml_cmpt.so.3",
+        "mode": 33133
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libscip.so.10.0.2",
+        "sha256": "05f75cc69fe578104045901aff099da52b2d10c2dd75334e56aa96c85da70e09",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libscip.so.10.0.2",
+        "mode": 33060
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libspral.so",
+        "sha256": "b0cc823b1dd54b6a8b8553c38fe2efe638ed2e07ce7ce3eb91290a7b0010b239",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libspral.so",
+        "mode": 33133
+      },
+      {
+        "path": "/home/paul/pse-arrow/target/debug/build/pse-benches/d4fd719e316da81f/out/native_process-d4fd719e316da81f",
+        "sha256": "a97b39a1cbae45d6d14f3e9fb85e950f46c3a73b23ffedfb62ee8d3a3d1276c7",
+        "canonical": "/home/paul/pse-arrow/target/debug/build/pse-benches/d4fd719e316da81f/out/native_process-d4fd719e316da81f",
+        "mode": 33277
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+        "sha256": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da",
+        "canonical": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+        "mode": 33261
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libX11.so.6.4.0",
+        "sha256": "c5b5d782bd9cab3420a62df88f5c991507edf3331a89f98464ddbc538c37b879",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libX11.so.6.4.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libXau.so.6.0.0",
+        "sha256": "8040da3f8516c1acfe39f04ff022480cdb273705ba5e7a4ca70bbdb1527cd67a",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libXau.so.6.0.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libXdmcp.so.6.0.0",
+        "sha256": "667d97d6da16016400ab10de9f83ef4ab209ceb6adf68ff9650225ec13e723b0",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libXdmcp.so.6.0.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libbsd.so.0.12.1",
+        "sha256": "e86cd4f0019f42c2ba5e60602e0edc8694d2948377d98c3654d0f6bddb5254bb",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libbsd.so.0.12.1",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+        "sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+        "mode": 33261
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libcap.so.2.66",
+        "sha256": "6ac6abc86ac891c6e13486470e26f1d939f47fda9e6b5d5508a7f5ec881adc84",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libcap.so.2.66",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libdl.so.2",
+        "sha256": "c2994527172cc23b7fb0f7d611b71e00a37da27af12c2e5e9e0dc1a742886c96",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libdl.so.2",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1",
+        "sha256": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libgfortran.so.5.0.0",
+        "sha256": "342618ccfebe840446e4ef2b7893f4161b2084845e570f42d68a70bfde58a58d",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libgfortran.so.5.0.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libgmp.so.10.5.0",
+        "sha256": "0ccdfb6d6f5c039465f6d002cf7e4c072d48ac6a2cffc8dd6c748dec31592804",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libgmp.so.10.5.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0",
+        "sha256": "135f3c8f006d2fe5e68e51281c7974cb991a03de3bfb3593d68d174dfcf854d1",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libhwloc.so.15.7.0",
+        "sha256": "86dff44a023254d997cea910b9a51f35afefe6780f4b5530f974a2009ba47487",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libhwloc.so.15.7.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libm.so.6",
+        "sha256": "fce00b6f25f459cf4ae0b7fae4257909a1a8a86f9149e7c029a5d617baf1ccd0",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libm.so.6",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libmd.so.0.1.0",
+        "sha256": "423e18586b6ea740f4465afd64f7a9a4cb7264ed979c8e7256f9085af5345fef",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libmd.so.0.1.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libmpfr.so.6.2.1",
+        "sha256": "2156351fa3dedd04a7381c6ac7a8a26efa2d6fb08b80f8a2d644ccdd653710ae",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libmpfr.so.6.2.1",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libnss_mdns4_minimal.so.2",
+        "sha256": "53faea6504231025eaa74458f89690d1c5872d2bbef22c53bbb946696fb58cdf",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libnss_mdns4_minimal.so.2",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libpthread.so.0",
+        "sha256": "90491a21ce44efcf3bd4b65ec82501c091d7ebe7f8d9b341dd01d721001d9ecd",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libpthread.so.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33",
+        "sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libudev.so.1.7.8",
+        "sha256": "4298228175fa62a36af88b1afd4406cdd8b1bf166621f957d0dbbde45a698fe5",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libudev.so.1.7.8",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libxcb.so.1.1.0",
+        "sha256": "7958a0136b121bdc4c708968569ad152a9ed208ab026e2537b1005dde64ca440",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libxcb.so.1.1.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libz.so.1.3",
+        "sha256": "86200da370f20476a2507e9097a789b5ef97269b4ca8d5e164ad82dab9d99892",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libz.so.1.3",
+        "mode": 33188
+      }
+    ],
+    "loader_files": [
+      [
+        "/etc/ld.so.cache",
+        {
+          "path": "/etc/ld.so.cache",
+          "sha256": "f5cd5c763ffadc239e70f36f8f676ebaea706293c102cbcbc406a40f51fcac62",
+          "canonical": "/etc/ld.so.cache",
+          "mode": 33188
+        }
+      ],
+      [
+        "/etc/ld.so.preload",
+        null
+      ]
+    ],
+    "startup_environment": {
+      "LANG": "65ce8c93514741c928d27fcdbe7b0a754dfcaebcb2292111cd60305dc983f51f",
+      "LC_ALL": "99fed2d548c2eb1022f4067f97fe838a2c3ea60ee0e0f53086788505c3ababad",
+      "LD_LIBRARY_PATH": "c643ea2f7133d31b558c2afa9b8d5f285cead71cb306360c76a60515f1ada2f6",
+      "MKL_CBWR": "c17d3a795086009ca64241903020d89b293241ee308ccd3448b2ed7c952d8c61",
+      "MKL_DYNAMIC": "4e523a5ae5b4636c75901b79fafbd3912e41dc7987414e688b09d4b436ff22b3",
+      "MKL_NUM_THREADS": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "OMP_CANCELLATION": "dfe88090c5ed7ac2f32571f0fc822fda4d8cd281fc7138c7cd6db656f6e2d081",
+      "OMP_NUM_THREADS": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "OMP_PLACES": "f24383b89891240bff71b98ce53555d329c6adefb877cd0d0723cca259769022",
+      "OMP_PROC_BIND": "dfe88090c5ed7ac2f32571f0fc822fda4d8cd281fc7138c7cd6db656f6e2d081",
+      "SYMBOLICA_LICENSE": "3ffc34e40203661f2f33d1b2e270a0f32b4de1d4225b34fe2b6f932404b95a93"
+    },
+    "current_environment": {
+      "LANG": "65ce8c93514741c928d27fcdbe7b0a754dfcaebcb2292111cd60305dc983f51f",
+      "LC_ALL": "99fed2d548c2eb1022f4067f97fe838a2c3ea60ee0e0f53086788505c3ababad",
+      "LD_LIBRARY_PATH": "c643ea2f7133d31b558c2afa9b8d5f285cead71cb306360c76a60515f1ada2f6",
+      "MKL_CBWR": "c17d3a795086009ca64241903020d89b293241ee308ccd3448b2ed7c952d8c61",
+      "MKL_DYNAMIC": "4e523a5ae5b4636c75901b79fafbd3912e41dc7987414e688b09d4b436ff22b3",
+      "MKL_NUM_THREADS": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "OMP_CANCELLATION": "dfe88090c5ed7ac2f32571f0fc822fda4d8cd281fc7138c7cd6db656f6e2d081",
+      "OMP_NUM_THREADS": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "OMP_PLACES": "f24383b89891240bff71b98ce53555d329c6adefb877cd0d0723cca259769022",
+      "OMP_PROC_BIND": "dfe88090c5ed7ac2f32571f0fc822fda4d8cd281fc7138c7cd6db656f6e2d081",
+      "SYMBOLICA_LICENSE": "3ffc34e40203661f2f33d1b2e270a0f32b4de1d4225b34fe2b6f932404b95a93"
+    }
+  },
+  "receiving": {
+    "version": 1,
+    "role": "Worker",
+    "kernel_release": [
+      55,
+      46,
+      48,
+      46,
+      48,
+      45,
+      51,
+      56,
+      45,
+      103,
+      101,
+      110,
+      101,
+      114,
+      105,
+      99,
+      10
+    ],
+    "kernel_version": [
+      35,
+      51,
+      56,
+      126,
+      50,
+      52,
+      46,
+      48,
+      52,
+      46,
+      52,
+      45,
+      85,
+      98,
+      117,
+      110,
+      116,
+      117,
+      32,
+      83,
+      77,
+      80,
+      32,
+      80,
+      82,
+      69,
+      69,
+      77,
+      80,
+      84,
+      95,
+      68,
+      89,
+      78,
+      65,
+      77,
+      73,
+      67,
+      32,
+      77,
+      111,
+      110,
+      32,
+      83,
+      101,
+      112,
+      32,
+      49,
+      52,
+      32,
+      49,
+      54,
+      58,
+      51,
+      55,
+      58,
+      49,
+      49,
+      32,
+      85,
+      84,
+      67,
+      32,
+      50,
+      10
+    ],
+    "artifact": {
+      "path": "/home/paul/pse-arrow/target/debug/build/pse-benches/d4fd719e316da81f/out/native_process-d4fd719e316da81f",
+      "sha256": "a97b39a1cbae45d6d14f3e9fb85e950f46c3a73b23ffedfb62ee8d3a3d1276c7",
+      "canonical": "/home/paul/pse-arrow/target/debug/build/pse-benches/d4fd719e316da81f/out/native_process-d4fd719e316da81f",
+      "mode": 33277
+    },
+    "executable": {
+      "path": "/home/paul/pse-arrow/target/debug/build/pse-benches/d4fd719e316da81f/out/native_process-d4fd719e316da81f",
+      "sha256": "a97b39a1cbae45d6d14f3e9fb85e950f46c3a73b23ffedfb62ee8d3a3d1276c7",
+      "canonical": "/home/paul/pse-arrow/target/debug/build/pse-benches/d4fd719e316da81f/out/native_process-d4fd719e316da81f",
+      "mode": 33277
+    },
+    "loaded": [
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/petsc/99432a873af62e1dc2149c6d08187a5cdb269bed0177c1a9bf513b0b9b1d47fc/generations/16088f9780a34f13b19c871aa05809ae/lib/libpetsc.so.3.24.0",
+        "sha256": "07739a4c011fcce848c86b036fb9e40bf1fd5b74ffeb442ec71cde6cda80767a",
+        "canonical": "/home/paul/.cache/pse-arrow/native/petsc/99432a873af62e1dc2149c6d08187a5cdb269bed0177c1a9bf513b0b9b1d47fc/generations/16088f9780a34f13b19c871aa05809ae/lib/libpetsc.so.3.24.0",
+        "mode": 33133
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libcoinmumps.so.3.0.14",
+        "sha256": "a316e71e32841fa61a12701919e19ee28c62f046755960c6bc49428797887f57",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libcoinmumps.so.3.0.14",
+        "mode": 33133
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libipopt.so.3.14.20",
+        "sha256": "cfe2df574f39a4264f36ef1301d9f54dbe542fa8d37cf0e2bd55c594a9ab11e5",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libipopt.so.3.14.20",
+        "mode": 33133
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmetis.so",
+        "sha256": "44bd51ad42de15e3259cf97fe66c2b14693feaff4e44d32cad549886a14e5865",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmetis.so",
+        "mode": 33060
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_core.so.3",
+        "sha256": "b4f086651ee5a8471140d53fedfdbbaba606287784763b0739f282872c31aa9b",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_core.so.3",
+        "mode": 33133
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_def.so.3",
+        "sha256": "4bc51353a8473a08f18fabefdf5ab79efd98dbf337e2913a23d215748a780782",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_def.so.3",
+        "mode": 33133
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_gnu_thread.so.3",
+        "sha256": "444288ca845ec374f0435c887f0b4f745bf6bb68bc84059a11ddb0926de196b6",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_gnu_thread.so.3",
+        "mode": 33133
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_intel_lp64.so.3",
+        "sha256": "9dbdb7d4193679f028787da6b9b2b545e0e16b87a95a64ee7318f544da8b08ac",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_intel_lp64.so.3",
+        "mode": 33133
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_vml_cmpt.so.3",
+        "sha256": "6b3daa4c0719328bb9a13c004b2f9b34c6b63bc704c840e11b1f41d64983c120",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libmkl_vml_cmpt.so.3",
+        "mode": 33133
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libscip.so.10.0.2",
+        "sha256": "05f75cc69fe578104045901aff099da52b2d10c2dd75334e56aa96c85da70e09",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libscip.so.10.0.2",
+        "mode": 33060
+      },
+      {
+        "path": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libspral.so",
+        "sha256": "b0cc823b1dd54b6a8b8553c38fe2efe638ed2e07ce7ce3eb91290a7b0010b239",
+        "canonical": "/home/paul/.cache/pse-arrow/native/solver/e4d7ed315ed8b7d432b114578f649e2fd2398f4bf99d0d6e1803a98c6c0ac09a/generations/d5adbc912f774e359eb5666e825ba8f1/lib/libspral.so",
+        "mode": 33133
+      },
+      {
+        "path": "/home/paul/pse-arrow/target/debug/build/pse-benches/d4fd719e316da81f/out/native_process-d4fd719e316da81f",
+        "sha256": "a97b39a1cbae45d6d14f3e9fb85e950f46c3a73b23ffedfb62ee8d3a3d1276c7",
+        "canonical": "/home/paul/pse-arrow/target/debug/build/pse-benches/d4fd719e316da81f/out/native_process-d4fd719e316da81f",
+        "mode": 33277
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+        "sha256": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da",
+        "canonical": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+        "mode": 33261
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libX11.so.6.4.0",
+        "sha256": "c5b5d782bd9cab3420a62df88f5c991507edf3331a89f98464ddbc538c37b879",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libX11.so.6.4.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libXau.so.6.0.0",
+        "sha256": "8040da3f8516c1acfe39f04ff022480cdb273705ba5e7a4ca70bbdb1527cd67a",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libXau.so.6.0.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libXdmcp.so.6.0.0",
+        "sha256": "667d97d6da16016400ab10de9f83ef4ab209ceb6adf68ff9650225ec13e723b0",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libXdmcp.so.6.0.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libbsd.so.0.12.1",
+        "sha256": "e86cd4f0019f42c2ba5e60602e0edc8694d2948377d98c3654d0f6bddb5254bb",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libbsd.so.0.12.1",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+        "sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+        "mode": 33261
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libcap.so.2.66",
+        "sha256": "6ac6abc86ac891c6e13486470e26f1d939f47fda9e6b5d5508a7f5ec881adc84",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libcap.so.2.66",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libdl.so.2",
+        "sha256": "c2994527172cc23b7fb0f7d611b71e00a37da27af12c2e5e9e0dc1a742886c96",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libdl.so.2",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1",
+        "sha256": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libgfortran.so.5.0.0",
+        "sha256": "342618ccfebe840446e4ef2b7893f4161b2084845e570f42d68a70bfde58a58d",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libgfortran.so.5.0.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libgmp.so.10.5.0",
+        "sha256": "0ccdfb6d6f5c039465f6d002cf7e4c072d48ac6a2cffc8dd6c748dec31592804",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libgmp.so.10.5.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0",
+        "sha256": "135f3c8f006d2fe5e68e51281c7974cb991a03de3bfb3593d68d174dfcf854d1",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libgomp.so.1.0.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libhwloc.so.15.7.0",
+        "sha256": "86dff44a023254d997cea910b9a51f35afefe6780f4b5530f974a2009ba47487",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libhwloc.so.15.7.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libm.so.6",
+        "sha256": "fce00b6f25f459cf4ae0b7fae4257909a1a8a86f9149e7c029a5d617baf1ccd0",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libm.so.6",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libmd.so.0.1.0",
+        "sha256": "423e18586b6ea740f4465afd64f7a9a4cb7264ed979c8e7256f9085af5345fef",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libmd.so.0.1.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libmpfr.so.6.2.1",
+        "sha256": "2156351fa3dedd04a7381c6ac7a8a26efa2d6fb08b80f8a2d644ccdd653710ae",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libmpfr.so.6.2.1",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libnss_mdns4_minimal.so.2",
+        "sha256": "53faea6504231025eaa74458f89690d1c5872d2bbef22c53bbb946696fb58cdf",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libnss_mdns4_minimal.so.2",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libpthread.so.0",
+        "sha256": "90491a21ce44efcf3bd4b65ec82501c091d7ebe7f8d9b341dd01d721001d9ecd",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libpthread.so.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33",
+        "sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libudev.so.1.7.8",
+        "sha256": "4298228175fa62a36af88b1afd4406cdd8b1bf166621f957d0dbbde45a698fe5",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libudev.so.1.7.8",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libxcb.so.1.1.0",
+        "sha256": "7958a0136b121bdc4c708968569ad152a9ed208ab026e2537b1005dde64ca440",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libxcb.so.1.1.0",
+        "mode": 33188
+      },
+      {
+        "path": "/usr/lib/x86_64-linux-gnu/libz.so.1.3",
+        "sha256": "86200da370f20476a2507e9097a789b5ef97269b4ca8d5e164ad82dab9d99892",
+        "canonical": "/usr/lib/x86_64-linux-gnu/libz.so.1.3",
+        "mode": 33188
+      }
+    ],
+    "loader_files": [
+      [
+        "/etc/ld.so.cache",
+        {
+          "path": "/etc/ld.so.cache",
+          "sha256": "f5cd5c763ffadc239e70f36f8f676ebaea706293c102cbcbc406a40f51fcac62",
+          "canonical": "/etc/ld.so.cache",
+          "mode": 33188
+        }
+      ],
+      [
+        "/etc/ld.so.preload",
+        null
+      ]
+    ],
+    "startup_environment": {
+      "LANG": "65ce8c93514741c928d27fcdbe7b0a754dfcaebcb2292111cd60305dc983f51f",
+      "LC_ALL": "99fed2d548c2eb1022f4067f97fe838a2c3ea60ee0e0f53086788505c3ababad",
+      "LD_LIBRARY_PATH": "c643ea2f7133d31b558c2afa9b8d5f285cead71cb306360c76a60515f1ada2f6",
+      "MKL_CBWR": "c17d3a795086009ca64241903020d89b293241ee308ccd3448b2ed7c952d8c61",
+      "MKL_DYNAMIC": "4e523a5ae5b4636c75901b79fafbd3912e41dc7987414e688b09d4b436ff22b3",
+      "MKL_NUM_THREADS": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "OMP_CANCELLATION": "dfe88090c5ed7ac2f32571f0fc822fda4d8cd281fc7138c7cd6db656f6e2d081",
+      "OMP_NUM_THREADS": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "OMP_PLACES": "f24383b89891240bff71b98ce53555d329c6adefb877cd0d0723cca259769022",
+      "OMP_PROC_BIND": "dfe88090c5ed7ac2f32571f0fc822fda4d8cd281fc7138c7cd6db656f6e2d081",
+      "SYMBOLICA_LICENSE": "3ffc34e40203661f2f33d1b2e270a0f32b4de1d4225b34fe2b6f932404b95a93"
+    },
+    "current_environment": {
+      "LANG": "65ce8c93514741c928d27fcdbe7b0a754dfcaebcb2292111cd60305dc983f51f",
+      "LC_ALL": "99fed2d548c2eb1022f4067f97fe838a2c3ea60ee0e0f53086788505c3ababad",
+      "LD_LIBRARY_PATH": "c643ea2f7133d31b558c2afa9b8d5f285cead71cb306360c76a60515f1ada2f6",
+      "MKL_CBWR": "c17d3a795086009ca64241903020d89b293241ee308ccd3448b2ed7c952d8c61",
+      "MKL_DYNAMIC": "4e523a5ae5b4636c75901b79fafbd3912e41dc7987414e688b09d4b436ff22b3",
+      "MKL_NUM_THREADS": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "OMP_CANCELLATION": "dfe88090c5ed7ac2f32571f0fc822fda4d8cd281fc7138c7cd6db656f6e2d081",
+      "OMP_NUM_THREADS": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "OMP_PLACES": "f24383b89891240bff71b98ce53555d329c6adefb877cd0d0723cca259769022",
+      "OMP_PROC_BIND": "dfe88090c5ed7ac2f32571f0fc822fda4d8cd281fc7138c7cd6db656f6e2d081",
+      "SYMBOLICA_LICENSE": "3ffc34e40203661f2f33d1b2e270a0f32b4de1d4225b34fe2b6f932404b95a93"
+    }
+  }
+}

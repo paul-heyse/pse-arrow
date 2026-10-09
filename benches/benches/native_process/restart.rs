@@ -17,6 +17,19 @@ use std::sync::Arc;
 
 fn local_anchor() {}
 
+async fn wait_for_release<T>(runtime: &std::sync::Weak<T>, pool_released: impl Fn() -> bool) {
+    // Completion publication can precede the supervisor's final Arc drop. Wait
+    // for actual owner release, not one scheduler yield. The timeout is only a
+    // deadlock watchdog; the weak owner and pool assertions establish teardown.
+    tokio::time::timeout(Duration::from_secs(10), async {
+        while runtime.strong_count() != 0 || !pool_released() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("completed native run supervisor released its runtime");
+}
+
 #[allow(
     unsafe_code,
     reason = "controlled benchmark composition independently observes its immutable native reconstruction context"
@@ -262,7 +275,7 @@ async fn native_warmup(phases: &phases::Phases, build: ContentHash) -> Value {
     drop(package);
     drop(runtime);
     drop(owner);
-    tokio::task::yield_now().await;
+    wait_for_release(&warmup, || pool.reserved() == 0).await;
     assert!(
         warmup.upgrade().is_none(),
         "native warmup runtime survived release"
@@ -341,7 +354,7 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
     drop(package);
     drop(runtime);
     drop(owner);
-    tokio::task::yield_now().await;
+    wait_for_release(&origin, || origin_pool.reserved() == 0).await;
     assert!(
         origin.upgrade().is_none(),
         "source runtime survived restart boundary"
@@ -435,7 +448,7 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
     drop(package);
     drop(runtime);
     drop(owner);
-    tokio::task::yield_now().await;
+    wait_for_release(&receiving, || pool.reserved() == 0).await;
     assert!(
         receiving.upgrade().is_none(),
         "reopened runtime escaped teardown"
@@ -486,7 +499,7 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
     drop(package);
     drop(runtime);
     drop(owner);
-    tokio::task::yield_now().await;
+    wait_for_release(&fresh, || fresh_pool.reserved() == 0).await;
     assert!(fresh.upgrade().is_none());
     assert_eq!(fresh_pool.reserved(), 0);
     let fresh_control_seconds = fresh_started.elapsed().as_secs_f64();

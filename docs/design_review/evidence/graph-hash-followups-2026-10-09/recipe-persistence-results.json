@@ -1,0 +1,72 @@
+{
+  "context_change_reexecutions": 1,
+  "corrupt_truncated_restore_refused": true,
+  "decode_iterations_per_sample": 100,
+  "decode_ns_per_operation": [
+    56368,
+    58115,
+    56503,
+    62205,
+    56867,
+    59784,
+    56903
+  ],
+  "fresh_restore_persisted_query_executions": 0,
+  "fresh_restore_unpersisted_query_executions": 1,
+  "lru_recomputation": true,
+  "mathematical_reconstruction_avoided": false,
+  "original_body_descriptor_bytes": 37535,
+  "original_body_evaluator_compile_ns_per_operation": [
+    10490,
+    10440,
+    10409,
+    10730,
+    10409,
+    11350,
+    9840
+  ],
+  "original_body_math_retained_bytes": 871,
+  "payload_bytes": 24652,
+  "payload_change_reexecutions": 1,
+  "protected_read_and_runtime_qualification_measured": false,
+  "qualified_fixture_reconstruction_ns_per_operation": [
+    2485940,
+    2590395,
+    2559906,
+    2713278,
+    2562375,
+    2496969,
+    2527777
+  ],
+  "recipe_retained_bytes": 58883,
+  "reconstructed_body_evaluator_compile_ns_per_operation": [
+    69476,
+    60786,
+    61347,
+    59246,
+    60047,
+    69726,
+    56137
+  ],
+  "reconstructed_body_worker_and_evaluation_ns_per_operation": [
+    7110,
+    6809,
+    6380,
+    6679,
+    5900,
+    7039,
+    6329
+  ],
+  "reconstruction_and_evaluator_iterations_per_sample": 1,
+  "restore_and_fetch_ns_per_operation": [
+    972312,
+    965544,
+    964015,
+    977147,
+    979445,
+    964141,
+    961080
+  ],
+  "restore_iterations_per_sample": 10,
+  "snapshot_bytes": 109261
+}

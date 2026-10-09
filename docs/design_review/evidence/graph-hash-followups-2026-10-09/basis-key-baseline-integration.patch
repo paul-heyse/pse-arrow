@@ -1,0 +1,87 @@
+diff --git a/crates/pse-runtime/src/math/preparation.rs b/crates/pse-runtime/src/math/preparation.rs
+--- a/crates/pse-runtime/src/math/preparation.rs
++++ b/crates/pse-runtime/src/math/preparation.rs
+@@ -29,8 +29,6 @@
+     instance: InstanceId,
+     bindings: Bindings,
+     limits: Limits,
+-    /// Process-local bucket hint; complete fields above remain the equality authority.
+-    prehash: u64,
+     _validation_owner: Arc<pse_engine::session::EngineFactory>,
+     _registry_owner: Arc<pse_schema::Registry>,
+     _selected_metadata: Arc<AllocationLease>,
+@@ -49,11 +47,6 @@
+ impl Eq for BasisKey {}
+ impl Hash for BasisKey {
+     fn hash<H: Hasher>(&self, hash: &mut H) {
+-        hash.write_u64(self.prehash);
+-    }
+-}
+-impl BasisKey {
+-    fn hash_fields<H: Hasher>(&self, hash: &mut H) {
+         self.request.hash(hash);
+         self.dependencies.hash(hash);
+         self.root.hash(hash);
+@@ -95,10 +88,6 @@
+             .sum::<usize>()
+ }
+ impl BasisKey {
+-    #[cfg(test)]
+-    pub(crate) fn force_prehash_for_test(&mut self, prehash: u64) {
+-        self.prehash = prehash;
+-    }
+     pub(crate) fn retained_bytes(&self) -> usize {
+         size_of::<Self>()
+             + 128
+@@ -247,23 +236,18 @@
+     ) -> Result<Arc<BasisKey>, MathRuntimeError> {
+         let bytes = size_of::<BasisKey>() + 128 + bindings_bytes(&bindings);
+         let owner = self.reserve("math:exact-preparation-key", bytes)?;
+-        let mut key = BasisKey {
++        Ok(Arc::new(BasisKey {
+             request: selected.request.clone(),
+             dependencies: selected.dependencies.clone(),
+             root,
+             instance,
+             bindings,
+             limits,
+-            prehash: 0,
+             _validation_owner: selected._validation_owner.clone(),
+             _registry_owner: selected._registry_owner.clone(),
+             _selected_metadata: selected.metadata.clone(),
+             _owner: owner,
+-        };
+-        let mut hash = rustc_hash::FxHasher::default();
+-        key.hash_fields(&mut hash);
+-        key.prehash = hash.finish();
+-        Ok(Arc::new(key))
++        }))
+     }
+     #[expect(
+         clippy::too_many_arguments,
+diff --git a/crates/pse-runtime/src/workflow/modeling/reuse_tests.rs b/crates/pse-runtime/src/workflow/modeling/reuse_tests.rs
+--- a/crates/pse-runtime/src/workflow/modeling/reuse_tests.rs
++++ b/crates/pse-runtime/src/workflow/modeling/reuse_tests.rs
+@@ -3,6 +3,13 @@
+ //! Allocation and retention controls through the admitted ModelingPackage production route.
+ use super::*;
+ use std::{collections::BTreeSet, sync::Arc};
++
++mod graph_hash_key_probe {
++    include!(concat!(
++        env!("CARGO_MANIFEST_DIR"),
++        "/../../docs/design_review/evidence/graph-hash-followups-2026-10-09/basis-key-cost-probe.rs"
++    ));
++}
+ fn declarations(source: &str) -> Vec<Declaration> {
+     pse_authoring::language::parse(
+         source,
+@@ -2279,6 +2286,8 @@
+     service.clear_program_cache();
+ }
+ 
++// Replay-only: this cached-prehash control is inapplicable to the earlier implementation.
++#[cfg(any())]
+ #[tokio::test]
+ async fn ordinary_preparation_basis_prehash_preserves_exact_identity_under_forced_collisions() {
+     use std::hash::{Hash, Hasher};

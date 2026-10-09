@@ -153,6 +153,18 @@ observations; it does not constitute a separate publication or certify numerical
 
 ### 5.3 Canonical framing and hashing
 
+> Decision: [ADR-0167](../../adr/0167-frame-flow-projection-v2.md) (proposed; maintainer-authorized implementation).
+
+Current physical flow projections use `pse.flow.projection.v2`, with explicit collection
+and item tags, top-level inventory counts, and separate port/binding counts under each
+node/connection. Canonical fields, sorted order and canonical floating-point bits retain
+their existing interpretations. Historical `pse.flow.projection.v1` identities retain
+their original meaning; current admission does not emit or fall back to V1. A flow key is
+a versioned projection fingerprint, not complete physical-registry equivalence: retained
+binding quantities and the current checked context remain part of full graph equality.
+Tear assumptions/compatibility and recycle causal identities consume the current key;
+this evolution introduces no sole-fingerprint cache or durable fast-hash replacement.
+
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Versioned relevant producer identities replace whole-tree build hashes in scientific product eligibility. Actual consumed source/generated/native inputs and Cargo units govern those identities; unknown inputs block persistent reuse. Complete executable attestation remains at the run boundary.
 
 Relevant producer capture uses the actual selected Cargo production root and its units, resolved source/version,

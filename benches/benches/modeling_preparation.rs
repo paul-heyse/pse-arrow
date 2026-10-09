@@ -54,12 +54,38 @@ fn repository() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()
 }
 
+/// Inventory the declared document formats, as in the canonical reference fixtures.
+/// Archival source files remain provenance inputs rather than package documents.
+fn package_documents(root: &Path) -> BTreeMap<String, Vec<u8>> {
+    fn visit(root: &Path, path: &Path, documents: &mut BTreeMap<String, Vec<u8>>) {
+        for entry in std::fs::read_dir(path).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                visit(root, &path, documents);
+            } else if matches!(
+                path.extension().and_then(|extension| extension.to_str()),
+                Some("toml" | "yaml" | "yml" | "pse" | "parquet")
+            ) {
+                documents.insert(
+                    path.strip_prefix(root)
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .replace('\\', "/"),
+                    std::fs::read(&path).unwrap(),
+                );
+            }
+        }
+    }
+    let mut documents = BTreeMap::new();
+    visit(root, root, &mut documents);
+    documents
+}
+
 /// The seed reference closure, loaded through the declared package document paths, with the
 /// bench package from its authored texts.
 async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> ModelingPackage {
-    use pse_runtime::authoring_driver::document::{
-        load_bundles_owned, load_package, load_package_documents,
-    };
+    use pse_runtime::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
     let root = repository().join("packages/reference");
     let pool = owner.runtime.pool();
     let validation = owner.sessions.validation_context(&owner.registry).unwrap();
@@ -67,10 +93,12 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
         let mut bundles = names
             .iter()
             .map(|name| {
-                load_package(
-                    &root.join(name),
+                load_package_documents_owned(
+                    &package_documents(&root.join(name)),
                     &owner.registry,
                     Default::default(),
+                    &pool,
+                    &owner.cancel,
                     &validation,
                 )
             })
@@ -78,19 +106,21 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
             .unwrap();
         if let Some(texts) = bench {
             bundles.push(
-                load_package_documents(
-                    texts
+                load_package_documents_owned(
+                    &texts
                         .iter()
                         .map(|(path, text)| (path.clone(), text.as_bytes().to_vec()))
                         .collect(),
                     &owner.registry,
                     Default::default(),
+                    &pool,
+                    &owner.cancel,
                     &validation,
                 )
                 .unwrap(),
             );
         }
-        load_bundles_owned(&bundles, &owner.registry, &pool, &owner.cancel, &validation).unwrap()
+        OwnedDocumentSet::try_from_bundles(bundles, &pool, &owner.cancel).unwrap()
     };
     let store = pse_operations::testing::canonical_fixture_store().unwrap();
     owner.register_fixture(store.clone()).unwrap();
@@ -144,13 +174,12 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
 /// Ordered membership of the published bank, read from its authored set declaration.
 fn bank_members(owner: &WorkflowRuntime) -> Vec<String> {
     use pse_authoring::language::{StaticValue, parse_static};
-    use pse_relations::{
-        columnar::RelationRow, generated::authored::modeling_declarations as wire,
-    };
-    let bundle = pse_runtime::authoring_driver::document::load_package(
-        &repository().join("packages/reference/data/gross-sadowski-2001"),
+    let bundle = pse_runtime::authoring_driver::document::load_package_documents_owned(
+        &package_documents(&repository().join("packages/reference/data/gross-sadowski-2001")),
         &owner.registry,
         Default::default(),
+        &owner.runtime.pool(),
+        &owner.cancel,
         owner
             .sessions
             .validation_context(&owner.registry)
@@ -158,14 +187,24 @@ fn bank_members(owner: &WorkflowRuntime) -> Vec<String> {
             .as_ref(),
     )
     .unwrap();
-    let row = wire::Row::rows(&bundle.batches[&wire::RELATION_ID])
-        .unwrap()
-        .into_iter()
+    let row = bundle
+        .bundle()
+        .documents
+        .iter()
+        .filter_map(|document| document.modeling_rows())
+        .flat_map(|rows| rows.iter())
         .find(|row| row.name == "normal_alkanes")
         .unwrap();
-    let StaticValue::Set(values) =
-        parse_static(row.value.binding.unwrap().expression.as_deref().unwrap()).unwrap()
-    else {
+    let StaticValue::Set(values) = parse_static(
+        row.value
+            .binding
+            .as_ref()
+            .unwrap()
+            .expression
+            .as_deref()
+            .unwrap(),
+    )
+    .unwrap() else {
         panic!("bank membership is not explicit");
     };
     values
@@ -197,6 +236,7 @@ fn bench_package(seed: &[String], workloads: &[Value]) -> BTreeMap<String, Strin
          dependencies = [\n\
          {{ package_id = \"01a0e1461e93764398a669e208f425e7\", version_req = {{ operator = \"exact\", major = 1, minor = 0, patch = 0 }} }},\n\
          {{ package_id = \"01a0e169482c760bbd985b849a06417d\", version_req = {{ operator = \"exact\", major = 1, minor = 0, patch = 0 }} }},\n\
+         {{ package_id = \"01a0f12be021704f9c94b091c341dfc3\", version_req = {{ operator = \"exact\", major = 1, minor = 0, patch = 0 }} }},\n\
          {{ package_id = \"ce317b088cc74ac89873845b0c086ea8\", version_req = {{ operator = \"exact\", major = 1, minor = 0, patch = 0 }} }},\n\
          {{ package_id = \"b27409be5572b8712e47db271fae28cd\", version_req = {{ operator = \"exact\", major = 1, minor = 0, patch = 0 }} }},\n\
          {{ package_id = \"01a0ef5e3bc973bb9bcd6df429506c6a\", version_req = {{ operator = \"exact\", major = 1, minor = 0, patch = 0 }} }},\n\
@@ -220,8 +260,8 @@ fn bench_source(seed: &[String], workloads: &[Value]) -> String {
          param components:Set<chemistry.species>=selected;\n\
          child phase:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=selected,law=pcsaft_data.potential);\n\
          param pressure:Pressure={PRESSURE};\n\
-         var h_residual:DeltaH;\n\
-         var ln_phi[j in components]:Scalar;\n\
+         var h_residual:ResidualMolarEnthalpy;\n\
+         var ln_phi[j in components]:LogFugacityCoefficient;\n\
          eq pressure_binding:phase.pressure==pressure;\n\
          eq enthalpy_binding:h_residual==phase.h_residual;\n\
          eq fugacity_binding[j in components]:ln_phi[j]==phase.ln_phi[j];\n\

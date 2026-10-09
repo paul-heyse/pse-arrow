@@ -1,0 +1,44 @@
+{
+  "workload": "scalar-authored-exact-preparation",
+  "hash_bytes": 1430,
+  "hash_writes": 103,
+  "retained_bytes": 48016,
+  "samples": [
+    {
+      "hash_seconds": 5.3509165e-07,
+      "key_construction_seconds": 2.723731e-07,
+      "warm_preparation_seconds": 0.15033201405000002
+    },
+    {
+      "hash_seconds": 6.3440795e-07,
+      "key_construction_seconds": 2.7025505e-07,
+      "warm_preparation_seconds": 0.1508569937
+    },
+    {
+      "hash_seconds": 5.4715205e-07,
+      "key_construction_seconds": 2.6846704999999996e-07,
+      "warm_preparation_seconds": 0.14678587035
+    },
+    {
+      "hash_seconds": 5.140991e-07,
+      "key_construction_seconds": 2.8229050000000004e-07,
+      "warm_preparation_seconds": 0.15552685255
+    },
+    {
+      "hash_seconds": 7.889301e-07,
+      "key_construction_seconds": 2.7036700000000003e-07,
+      "warm_preparation_seconds": 0.151710367
+    },
+    {
+      "hash_seconds": 4.823255999999999e-07,
+      "key_construction_seconds": 2.6538855e-07,
+      "warm_preparation_seconds": 0.15162468165
+    },
+    {
+      "hash_seconds": 5.294055500000001e-07,
+      "key_construction_seconds": 2.702075e-07,
+      "warm_preparation_seconds": 0.14888361914999998
+    }
+  ],
+  "limits": "same-process operation timings; no candidate hash or end-to-end speedup claim"
+}

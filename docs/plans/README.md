@@ -46,14 +46,13 @@ campaign obligations from 25k/27. Earlier evidence and scientific finding dispos
 their original owners; obsolete storage qualification is not a pivot prerequisite.
 
 The [graph and hashing integration](28-surrealdb-unified-substrate.md#graph-and-hashing-review-integration)
-routes the 2026-10-09 review through proposed J3 indexed description settlement,
-B8/N13 retained supplier topology and fresh registrations, and N12 flow-policy lookup.
-[28k](28k-graph-kernels-and-hashing-investigations.md) develops bounded graph placement,
-hash-role, complete-invalidation and framing/persistence investigations; GH3 links the existing
-N0 catalog decision rather than duplicating it. The coordinator owns the new Open findings,
-and [28e](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance)
-owns affected acceptance. This planning extension selects no rule changes or product execution
-and does not restart the paused qualification campaign.
+routes the 2026-10-09 review through J3 indexed description settlement, B8/N13 retained
+supplier topology and fresh registrations, N12 flow-policy lookup, and the selected RC04 V2
+framing extension. [28k's followup outcome](28k-graph-kernels-and-hashing-investigations.md#followup-verification-and-outcome-2026-10-09)
+owns the implementation, bounded measured inquiries and scoped evidence; the coordinator owns finding
+dispositions. [28e](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance)
+owns affected acceptance. RC02/RC03 production cutovers and the broader paused campaign remain
+outside this selected followup scope.
 
 [Plan 29: Agent workspace effectiveness](29-agent-workspace-effectiveness.md) is done (2026-10-07): every command runs through `scripts/pse-env` (environment, capped scopes in `pse.slice`), with effect-based canonical test scheduling, composable selection (`just affected`), run logs and preflight, and compact agent instructions with mechanics in [the agent environment guide](../dev/agent-environment.md). Its Outcome records the historical evidence; the prospective AE-25/AE-26 follow-ups now route to Plan 30.
 
@@ -185,7 +184,7 @@ search was excluded, and native SurrealDB MCP is opt-in per fresh Codex session.
 
 ## Workflow entrypoints
 
-Use the [local process skills](../../.codex/skills/README.md) to prepare or conduct reviews,
+Use the [local process skills](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/README.md) to prepare or conduct reviews,
 create implementation plans, and plan or execute authorized work. This index routes to the
 owning plan or active packet checkpoint for current state, decisions and next steps; it does
 not duplicate packet status. Handoff updates that owner when the actual tree changes.

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="nextest-run" tests="61" skipped="0" failures="0" errors="0" uuid="1c78342d-1409-47e6-866f-58e8dd91c605" timestamp="2026-10-09T16:31:48.196-04:00" time="0.015">
+    <testsuite name="pse-ids" tests="46" skipped="0" errors="0" failures="0">
+        <testcase name="derive::consolidation_unit::the_framed_hasher_equals_the_slice_form_on_the_same_parts" classname="pse-ids" timestamp="2026-10-09T16:31:48.196-04:00" time="0.002"/>
+        <testcase name="derive::consolidation_unit::a_keyed_digest_is_not_a_plain_one" classname="pse-ids" timestamp="2026-10-09T16:31:48.196-04:00" time="0.003"/>
+        <testcase name="derive::consolidation_unit::a_derived_id_is_the_prefix_of_the_derived_hash_under_the_same_context" classname="pse-ids" timestamp="2026-10-09T16:31:48.196-04:00" time="0.003"/>
+        <testcase name="derive::consolidation_unit::frame_spellings_unique" classname="pse-ids" timestamp="2026-10-09T16:31:48.196-04:00" time="0.003"/>
+        <testcase name="document::tests::frozen_canonical_float_document_vectors" classname="pse-ids" timestamp="2026-10-09T16:31:48.196-04:00" time="0.003"/>
+        <testcase name="derive::consolidation_unit::an_empty_part_is_not_no_part" classname="pse-ids" timestamp="2026-10-09T16:31:48.196-04:00" time="0.003"/>
+        <testcase name="derive::consolidation_unit::a_changed_context_changes_every_derived_value" classname="pse-ids" timestamp="2026-10-09T16:31:48.196-04:00" time="0.003"/>
+        <testcase name="derive::consolidation_unit::a_derived_id_is_the_first_sixteen_bytes_of_the_extendable_output" classname="pse-ids" timestamp="2026-10-09T16:31:48.196-04:00" time="0.003"/>
+        <testcase name="encoding::tests::a_truncated_object_does_not_check_out" classname="pse-ids" timestamp="2026-10-09T16:31:48.196-04:00" time="0.003"/>
+        <testcase name="document::tests::identity_ignores_type_names_and_newtype_wrappers" classname="pse-ids" timestamp="2026-10-09T16:31:48.196-04:00" time="0.003"/>
+        <testcase name="derive::consolidation_unit::framing_distinguishes_a_split_that_concatenation_would_not" classname="pse-ids" timestamp="2026-10-09T16:31:48.196-04:00" time="0.003"/>
+        <testcase name="document::tests::canonical_float_roles_collapse_nan_payloads_and_preserve_other_values" classname="pse-ids" timestamp="2026-10-09T16:31:48.196-04:00" time="0.003"/>
+        <testcase name="derive::consolidation_unit::the_framed_hasher_and_derive_id_agree_on_identity_too" classname="pse-ids" timestamp="2026-10-09T16:31:48.196-04:00" time="0.003"/>
+        <testcase name="document::tests::identity_frames_every_field_and_exact_float_bits" classname="pse-ids" timestamp="2026-10-09T16:31:48.196-04:00" time="0.003"/>
+        <testcase name="encoding::tests::chunking_does_not_change_the_checksum" classname="pse-ids" timestamp="2026-10-09T16:31:48.196-04:00" time="0.003"/>
+        <testcase name="derive::consolidation_unit::frame_catalog_documents_every_frame" classname="pse-ids" timestamp="2026-10-09T16:31:48.196-04:00" time="0.004"/>
+        <testcase name="encoding::tests::the_tee_writes_everything_it_is_given" classname="pse-ids" timestamp="2026-10-09T16:31:48.199-04:00" time="0.002"/>
+        <testcase name="float::tests::every_nan_payload_hashes_as_one_pattern" classname="pse-ids" timestamp="2026-10-09T16:31:48.199-04:00" time="0.002"/>
+        <testcase name="float::tests::f32_nan_variants_collapse_too" classname="pse-ids" timestamp="2026-10-09T16:31:48.199-04:00" time="0.002"/>
+        <testcase name="float::tests::distinct_non_nan_bits_stay_distinct" classname="pse-ids" timestamp="2026-10-09T16:31:48.199-04:00" time="0.002"/>
+        <testcase name="encoding::tests::the_checksum_is_plain_blake3_over_the_bytes" classname="pse-ids" timestamp="2026-10-09T16:31:48.199-04:00" time="0.003"/>
+        <testcase name="float::tests::f32_canonicalization_is_nan_collapse_and_otherwise_identity" classname="pse-ids" timestamp="2026-10-09T16:31:48.199-04:00" time="0.002"/>
+        <testcase name="float::tests::signed_zero_is_preserved_and_distinguished" classname="pse-ids" timestamp="2026-10-09T16:31:48.199-04:00" time="0.002"/>
+        <testcase name="frame::consolidation_unit::fixed_width_components_carry_no_length" classname="pse-ids" timestamp="2026-10-09T16:31:48.200-04:00" time="0.002"/>
+        <testcase name="frame::consolidation_unit::a_length_prefix_is_eight_little_endian_bytes" classname="pse-ids" timestamp="2026-10-09T16:31:48.200-04:00" time="0.002"/>
+        <testcase name="id::tests::ids_order_by_raw_bytes" classname="pse-ids" timestamp="2026-10-09T16:31:48.200-04:00" time="0.002"/>
+        <testcase name="id::tests::content_hash_hex_and_prefixed_round_trip" classname="pse-ids" timestamp="2026-10-09T16:31:48.200-04:00" time="0.002"/>
+        <testcase name="frame::consolidation_unit::the_two_sinks_frame_identically" classname="pse-ids" timestamp="2026-10-09T16:31:48.200-04:00" time="0.003"/>
+        <testcase name="frame::consolidation_unit::length_prefixing_separates_a_split_that_concatenation_would_not" classname="pse-ids" timestamp="2026-10-09T16:31:48.200-04:00" time="0.003"/>
+        <testcase name="id::tests::a_missing_prefix_is_refused_rather_than_guessed" classname="pse-ids" timestamp="2026-10-09T16:31:48.200-04:00" time="0.003"/>
+        <testcase name="float::tests::f64_canonicalization_is_nan_collapse_and_otherwise_identity" classname="pse-ids" timestamp="2026-10-09T16:31:48.199-04:00" time="0.003"/>
+        <testcase name="id::tests::hex_parsing_reports_length_and_digit_faults" classname="pse-ids" timestamp="2026-10-09T16:31:48.200-04:00" time="0.003"/>
+        <testcase name="id::tests::nil_is_all_zero_and_renders_as_zeros" classname="pse-ids" timestamp="2026-10-09T16:31:48.201-04:00" time="0.002"/>
+        <testcase name="id::tests::ordinal_and_schema_version_frame_little_endian" classname="pse-ids" timestamp="2026-10-09T16:31:48.201-04:00" time="0.002"/>
+        <testcase name="id::tests::semantic_id_hex_round_trips_every_byte_value" classname="pse-ids" timestamp="2026-10-09T16:31:48.201-04:00" time="0.002"/>
+        <testcase name="id::tests::uppercase_hex_parses_and_renders_lowercase" classname="pse-ids" timestamp="2026-10-09T16:31:48.202-04:00" time="0.003"/>
+        <testcase name="newtype::tests::newtype_bytes_are_const" classname="pse-ids" timestamp="2026-10-09T16:31:48.202-04:00" time="0.002"/>
+        <testcase name="newtype::tests::newtype_ordering_follows_the_identity_bytes" classname="pse-ids" timestamp="2026-10-09T16:31:48.202-04:00" time="0.002"/>
+        <testcase name="newtype::tests::newtype_round_trips_through_its_identity" classname="pse-ids" timestamp="2026-10-09T16:31:48.202-04:00" time="0.002"/>
+        <testcase name="newtype::tests::newtype_display_renders_the_underlying_hexadecimal" classname="pse-ids" timestamp="2026-10-09T16:31:48.202-04:00" time="0.003"/>
+        <testcase name="id::tests::try_from_slice_reports_the_offered_length" classname="pse-ids" timestamp="2026-10-09T16:31:48.201-04:00" time="0.003"/>
+        <testcase name="id::tests::role_newtypes_expose_their_digest_without_being_interchangeable" classname="pse-ids" timestamp="2026-10-09T16:31:48.201-04:00" time="0.003"/>
+        <testcase name="newtype::tests::newtype_serializes_exactly_as_its_base" classname="pse-ids" timestamp="2026-10-09T16:31:48.202-04:00" time="0.002"/>
+        <testcase name="scientific_replay::tests::scientific_replay_authority_binds_exact_records" classname="pse-ids" timestamp="2026-10-09T16:31:48.203-04:00" time="0.002"/>
+        <testcase name="roles::tests::recorded_frames_do_not_grant_current_role_proof" classname="pse-ids" timestamp="2026-10-09T16:31:48.202-04:00" time="0.003"/>
+        <testcase name="scientific_replay::tests::scientific_replay_large_logical_description_preserves_record_binding" classname="pse-ids" timestamp="2026-10-09T16:31:48.203-04:00" time="0.009"/>
+    </testsuite>
+    <testsuite name="pse-ids::golden_vectors" tests="15" skipped="0" errors="0" failures="0">
+        <testcase name="frame_spellings_unchanged" classname="pse-ids::golden_vectors" timestamp="2026-10-09T16:31:48.203-04:00" time="0.002"/>
+        <testcase name="a_derived_id_is_the_prefix_of_the_derived_hash_under_one_context" classname="pse-ids::golden_vectors" timestamp="2026-10-09T16:31:48.203-04:00" time="0.002"/>
+        <testcase name="the_canonical_float_bits_are_frozen" classname="pse-ids::golden_vectors" timestamp="2026-10-09T16:31:48.203-04:00" time="0.002"/>
+        <testcase name="the_data_document_frame_variants_are_frozen" classname="pse-ids::golden_vectors" timestamp="2026-10-09T16:31:48.204-04:00" time="0.002"/>
+        <testcase name="the_derive_key_contexts_are_frozen" classname="pse-ids::golden_vectors" timestamp="2026-10-09T16:31:48.204-04:00" time="0.002"/>
+        <testcase name="the_encoding_checksum_is_frozen" classname="pse-ids::golden_vectors" timestamp="2026-10-09T16:31:48.204-04:00" time="0.002"/>
+        <testcase name="the_framed_hasher_reproduces_the_frozen_vectors" classname="pse-ids::golden_vectors" timestamp="2026-10-09T16:31:48.204-04:00" time="0.002"/>
+        <testcase name="the_lineage_frame_variants_are_frozen" classname="pse-ids::golden_vectors" timestamp="2026-10-09T16:31:48.204-04:00" time="0.002"/>
+        <testcase name="the_temporal_source_revision_frame_is_frozen" classname="pse-ids::golden_vectors" timestamp="2026-10-09T16:31:48.205-04:00" time="0.002"/>
+        <testcase name="the_registry_package_id_is_frozen" classname="pse-ids::golden_vectors" timestamp="2026-10-09T16:31:48.204-04:00" time="0.002"/>
+        <testcase name="the_entity_record_frame_variants_are_frozen" classname="pse-ids::golden_vectors" timestamp="2026-10-09T16:31:48.204-04:00" time="0.002"/>
+        <testcase name="the_typed_measurement_fit_source_frame_is_frozen" classname="pse-ids::golden_vectors" timestamp="2026-10-09T16:31:48.205-04:00" time="0.002"/>
+        <testcase name="the_structured_ir_frame_variants_are_frozen" classname="pse-ids::golden_vectors" timestamp="2026-10-09T16:31:48.204-04:00" time="0.002"/>
+        <testcase name="the_registry_digest_is_frozen" classname="pse-ids::golden_vectors" timestamp="2026-10-09T16:31:48.204-04:00" time="0.002"/>
+        <testcase name="the_unit_product_identity_is_frozen" classname="pse-ids::golden_vectors" timestamp="2026-10-09T16:31:48.205-04:00" time="0.002"/>
+    </testsuite>
+</testsuites>

@@ -2,8 +2,8 @@
 title: Shared numerical projections and preparation
 status: in-progress
 date: 2026-10-07
-adrs: [ADR-0164]
-review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md, docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md, docs/design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md]
+adrs: [ADR-0164, ADR-0167]
+review_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md, docs/design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md, docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md, docs/design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md, docs/design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md, docs/design_review/reviews/design_review_flow-projection-v2_2026-10-09.md]
 scenario_sources: [docs/design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#4-revealing-scenarios]
 ---
 
@@ -125,7 +125,7 @@ strengths, not missing capabilities to reimplement.
 |---|---|
 | Structural Taylor zeros | Inspect per-input structural support for value/First/Second/directional stages, branches and composed providers. Symbolica 3.0.1 consumes `(parameter index, component index)` zero slots. Adopt proven-zero suppression in the existing dualizer when this removes applicable work; preserve complete external Taylor shape, factorial conventions and ordered axes. Unknown or numerical trial zeros remain present. |
 | Numeric factor and scratch reuse | Inspect implicit differentiation, Diffsol `FaerLu`, square-response actions and continuation. faer 0.24.4 supports caller-owned numeric LU and scratch; fitting Gram workers already retain buffers. Adopt compatible retained storage where refresh currently reconstructs it. Always factor the current matrix; preserve pattern/profile identity, pivot/rank/nonfinite recovery and backward-error assessment. Buffer reuse does not promise allocation-free factorization. |
-| Catalog invalidation | Inspect `Catalog.checked`, equal publication and actual selection work for unrelated/selected edits, additions/deletions and visibility changes. Keep current Salsa 0.28.4 backdating unless repeated selection warrants finer complete inputs. A short execution-event observation is sufficient if source cannot settle the choice; no new query engine or persistence rewrite. |
+| Catalog invalidation | Retained-design decision, 2026-10-09: keep complete canonical premises and current Salsa backdating. Already admitted revision publication avoids authored checking; changed `publish_modeling_with` still calls the full checker before Salsa, even if downstream math backdates. Narrowing only `Catalog.checked` or changing hashes does not remove that work. [GH3](28k-graph-kernels-and-hashing-investigations.md#gh3) owns the supporting comparison. The bounded authored-edit probe now establishes material changed-publication cost for its scalar fixture; the [typed checker candidate](../design_review/evidence/graph-hash-followups-2026-10-09/typed-checker-proposal.md) supplies complete-domain design questions and independent acceptance. N0/compiler admission owns selection of that proposal and representative complete-operation comparison, including positive/absent lookups, membership/visibility, deletion and consumed physical/provider/policy/structural context. No parallel graph, narrower checker or persistence rewrite is selected. |
 | Native session consumption | The staged owner already retains native state on its scope/thread. Fitting oracle/profile and shooting paths create fresh `Retained` values. Determine which repeat sequences satisfy adapter compatibility, changing pin/bound/data requirements and destruction ownership. Extend the existing scoped owner only for useful compatible sequences. |
 
 N0 ends with an adopted change or a supported retained-design decision for each row, with
@@ -352,7 +352,7 @@ they resolve an actual consumed-contract gap.
 
 ## Graph/hash extension — flow policy and supplier registration
 
-This **Proposed** extension uses the implemented N11/B7 exact-basis foundation.
+This implemented correction and selected V2 extension use the working N11/B7 exact-basis foundation.
 [Plan 28](28-surrealdb-unified-substrate.md#graph-and-hashing-review-integration) owns
 Graph/hash F02/F03 dispositions. The earlier baseline describes its original migration,
 not a reason to reconstruct the already shared preparation basis.
@@ -360,7 +360,7 @@ not a reason to reconstruct the already shared preparation basis.
 ### N12 — Indexed flow decision policy
 
 [Graph/hash F02](../design_review/reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md#f02)
-arises in `FlowGraph::admit`: sorted tear decisions are linearly searched for every edge
+arose in `FlowGraph::admit`: sorted tear decisions were linearly searched for every edge
 when constructing the forbidden-cycle witness graph. The existing physical binding checks,
 occurrence graph and independent cycle witness are suitable foundations. Replace only policy
 discovery with binary search over the already sorted unique decisions. This removes the
@@ -369,8 +369,9 @@ nested full scan without another map/cache or hash change.
 Inputs remain the admitted declaration, registry and limits; outputs remain the same graph,
 physical bindings or typed refusal. Keep isolates, parallel connection occurrences, unused
 and missing decision rejection, canonical ordering and the complete forbidden-cycle witness.
-Preserve existing construction/resource admission. Graph/hash U01 is independent: N12 changes
-neither FlowProjectionV1 bytes nor equality. No global graph container migration is required.
+Preserve existing construction/resource admission. N12 itself changes neither identity framing
+nor equality. The separately selected N14 below changes new admission to FlowProjectionV2;
+it does not reinterpret V1. No global graph container migration is required.
 
 Extend `pse-structural` flowsheet controls for reordered decisions, many decision groups,
 parallel occurrences and every policy, including forbidden cycles with expected connection
@@ -403,18 +404,102 @@ with force-validation and the current native environment. After all callers use 
 displaced discovery/registration helpers and their mechanism-specific fixtures. Independent
 provider/scientific tests remain applicable.
 
+<a id="n14-explicit-flowprojection-v2-framing"></a>
+
+### N14 — Explicit FlowProjectionV2 framing
+
+The maintainer selected Graph/hash RC04 on 2026-10-09.
+[ADR-0167](../adr/0167-frame-flow-projection-v2.md) records the change, and the
+[independent formal review](../design_review/reviews/design_review_flow-projection-v2_2026-10-09.md)
+accepted the bounded target before dependent implementation. The ADR remains proposed until
+the decision-PR route; operator implementation authorization and design acceptance do not
+change its status. Blueprint §5.3/§17.4 own the enduring contract.
+
+**Implemented:** new flow admission emits FlowProjectionV2 with explicit collection/item tags,
+top-level counts and separate port/binding counts for every parent. Canonical field ordering,
+float encoding, BLAKE3 and existing physical admission remain. Current paths emit no V1
+fallback; the V1 catalog spelling and historical identity meaning remain. Existing flow
+fingerprints feed runtime documents, native tear assumptions/compatibility and recycle causal
+identity, preserving fresh session/start state and complete witnesses.
+
+This resolves sequence/parent framing only. Quantity/unit identifiers and conversion values
+do not encode every physical-registry fact; full graph equality and current checked context
+remain necessary. Neither a sole-key cross-context flow cache nor durable fast hashing is
+selected. Targeted structural, identity, native tear and runtime fingerprint/recycle controls
+passed; complete affected journey status remains at
+[28e](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance).
+
+<a id="pc-saft-numerical-fact-investigation-boundary"></a>
+
+### PC-SAFT numerical-fact investigation boundary
+
+The graph/hash production smoke exercised the corrected PC-SAFT fixture through cold,
+warm, value and structural preparation. All four stages returned the preserved typed
+`operation.unestablished_invariant` refusal, rather than a prepared product; the completed
+harness is not accepted PC-SAFT preparation or a performance result. Raw results and
+artifact conditions are at [28k's evidence](../design_review/evidence/graph-hash-followups-2026-10-09/pcsaft-02-production-smoke.json).
+
+**Interface-checked investigation lead:** default numerical allowances derive the
+self-difference of point quantities using `NoInvariantFacts` in
+`pse-math::numerics::engineering_error_quantity`. The correctly declared
+`LogFugacityCoefficient` targets require operand-contract prerequisites for their registered
+subtraction, and those facts are present in the fixture's loaded physical inventory.
+Conditional-boundary difference projection has an analogous no-facts path. The diagnostic
+does not attribute the first failing caller, so source reasoning identifies a concrete
+guaranteed refusal path without claiming to have uniquely located the observed first failure.
+
+**Proposed next investigation:** the numerical-policy/physical-context owners should trace
+the actual failing call and thread current immutable `PhysicalPreconditions` through numerical
+difference inference where its contract consumes them. Preserve typed quantities and proof
+requirements; arbitrary tolerances or scalar substitution are not corrections. Before the
+next accepted PC-SAFT preparation/performance claim, exercise present, missing and changed
+operand facts and the existing exact numerical allowances, then rerun this unchanged
+scientific fixture. This newly exposed checker-wiring question is outside the selected
+graph/hash implementation and adds no scientific acceptance claim or new production path.
+
 | Package | Working prerequisite | Completion boundary | Progress |
 |---|---|---|---|
-| N12 — Indexed flow policy | Existing admitted flowsheet contracts; independent of J3/B8/GH investigations. | Exact policy access replaces the nested scan; physical occurrence and witness outcomes preserved. | Proposed; not implemented. |
-| N13 — Supplier registration integration | B8 selection/order implementation plus existing N11/private numerical owners. | All confirmed registration variants use retained discovery; actual demand/state remain fresh; displaced path removed. | Proposed; not implemented. |
+| N12 — Indexed flow policy | Existing admitted flowsheet contracts; independent of J3/B8/GH investigations. | Exact policy access replaces the nested scan; physical occurrence and witness outcomes preserved. | Implemented; targeted structural/consumer controls passed; affected journey status is owned by 28e. |
+| N13 — Supplier registration integration | B8 selection/order implementation plus existing N11/private numerical owners. | All confirmed registration variants use retained discovery; actual demand/state remain fresh; displaced path removed. | Implemented through retained B8 ordering; targeted compiler/native-runtime controls passed; affected journey status is owned by 28e. |
+| N14 — Explicit V2 framing | Selected Graph/hash RC04; ADR-0167 and formal target review before implementation. | New tagged/count-framed admission and affected fingerprint consumers; preserve historical V1 meaning, full equality and fresh numerical state. | Implemented; targeted structural/identity/native-runtime controls passed; affected journey status is owned by 28e. |
 
-[28k](28k-graph-kernels-and-hashing-investigations.md) owns broader compact-layout/hash
-investigations; its results are not prerequisites for these packages. Reuse 28f/N0's catalog
-invalidation question through GH3 rather than opening a competing investigation. Root
-coordinates shared compiler/runtime edits; logical independence does not authorize concurrent
-edits to the same product declaration. [28e](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance)
-owns affected assembled acceptance and later measurement. Package progress lives here;
-whole-finding closure stays at the coordinator.
+[28k](28k-graph-kernels-and-hashing-investigations.md) records the completed broader
+compact-layout/hash decisions. GH1 supports B8's existing petgraph mechanics and N13's fresh
+registration boundary. GH2's original retained-hash conclusion predates the implemented local
+hashing followups below; durable BLAKE3 remains. GH3 supplies N0's retained catalog decision
+above rather than opening a competing investigation. The full authored checker and complete
+canonical dependency premises remain production authority; finer checker-domain work remains
+a proposal. Real Recipe persistence demonstrates a bounded pure-memo capability without
+selecting RC03 or replacing qualified portable reconstruction. Those historical inquiry
+conclusions alone did not implement the corrections. N12/N13 source migration is now
+implemented: binary policy lookup replaces the edge-by-decision scan, and observation/case/derivative registration
+consumers share B8 ordering while calculating current demand and creating private state.
+[B8's scoped compiler controls](28b-selected-compilation-and-reuse.md#b8-scoped-functional-evidence)
+passed.
+
+**Tested:** the final targeted native runtime selection passed 24/24, including nested demand,
+portable ownership/receiving controls, exact-basis/partial-description settlement, forced
+prehash collisions, flow waits and causal recycle. Structural flow controls passed 6/6, native
+tear controls 3/3 and identity controls 61/61 against the zero-failure baseline. The commands
+and their exact modes belong to
+[28e's graph/hash acceptance](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance),
+which also owns remaining affected journeys and assembled acceptance. Root coordinates shared
+declarations and integration. Package progress lives here; whole-finding closure stays at the
+coordinator, and these scoped results do not close broader E3/E4/E5. The four affected native
+Python journeys passed 4/4 against the zero-failure baseline, including authored recycle,
+solve/join warm-start retention and public preparation/conformance policy; 28e retains their
+canonical-owner command/environment details and remaining smoke/qualification status.
+
+**Implemented:** the factorable interner uses Fx with complete `Node` equality; a projection computes its structure key once, and immutable `BasisKey` computes a
+process-local Fx prehash once while retaining complete equality. The maintainer selected these
+targeted improvements unless incorrect or substantially regressive; marginal gains suffice.
+**Tested:** the final native factorable selection passed 47/47 controls, while the runtime
+selection above exercises exact-key collision separation. Table callbacks, complete equality
+and one initial key traversal remain costs; no end-to-end speedup is inferred from isolated hashing.
+[28k's followup outcome](28k-graph-kernels-and-hashing-investigations.md#followup-verification-and-outcome-2026-10-09)
+owns inquiry evidence, adoption conclusions and remaining investigation avenues. RC02 durable
+hash replacement remains unselected; only the separately selected N14 changes durable flow
+framing.
 
 ## Work packages and dependencies
 

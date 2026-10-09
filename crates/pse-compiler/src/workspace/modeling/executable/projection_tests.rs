@@ -82,3 +82,70 @@ fn projection_size_grows_linearly_with_replicas() {
     // every output in every member a factor of sixteen.
     assert!(large <= 5 * small, "{small} -> {large}");
 }
+
+#[test]
+fn supplier_topology_owner_attachment_shares_memo_and_keeps_original_view_separate() {
+    let rows = crate::authored_transfer_tests::rows(
+        "package p { def Root { param p:Scalar=2; implicit a { var selected_value:Scalar; eq selected:selected_value==p; annotation start selected_value(1); annotation bounds selected_value(0,4); } realize ra on a using nested; var y:Scalar; eq e:y==a.selected_value; } }",
+    );
+    let root = crate::authored_transfer_tests::root(&rows, "p", "Root");
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    workspace
+        .publish_modeling(rows, PhysicalScope::default())
+        .unwrap();
+    let prepared = workspace
+        .prepare_modeling_cancellable(
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Bindings::default(),
+            Limits::default(),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+    let original = prepared.original_equations().unwrap();
+    assert!(!Arc::ptr_eq(
+        &prepared.admitted.supplier_topology,
+        &original.admitted.supplier_topology
+    ));
+    let before = prepared.retained_bytes();
+    let attached = prepared.clone().with_owner(Arc::new("topology-owner"));
+    assert!(Arc::ptr_eq(
+        &prepared.admitted.supplier_topology,
+        &attached.admitted.supplier_topology
+    ));
+    assert!(Arc::ptr_eq(
+        &original.admitted.supplier_topology,
+        &attached
+            .original_equations()
+            .unwrap()
+            .admitted
+            .supplier_topology
+    ));
+    assert_eq!(
+        prepared.admitted.supplier_topology_bytes, attached.admitted.supplier_topology_bytes,
+        "owner attachment retains one unchanged memo reservation"
+    );
+    assert_eq!(
+        original.admitted.supplier_topology_bytes,
+        attached
+            .original_equations()
+            .unwrap()
+            .admitted
+            .supplier_topology_bytes
+    );
+    assert!(
+        attached.retained_bytes() <= before,
+        "owner attachment does not add a second memo charge"
+    );
+    attached.implicit_order_for(Some(&BTreeSet::new())).unwrap();
+    assert!(prepared.admitted.supplier_topology.get().is_some());
+    assert!(
+        original.admitted.supplier_topology.get().is_none(),
+        "view selection does not fill another view's memo"
+    );
+    assert_eq!(before, prepared.retained_bytes());
+}

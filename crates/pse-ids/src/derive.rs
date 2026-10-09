@@ -196,6 +196,8 @@ frames! {
     "structure" ("pse-structural") {
         /// A flowsheet projection over canonicalized inventories.
         FlowProjectionV1 => "pse.flow.projection.v1",
+        /// Flow projection with explicit collection/item tags and parent-specific counts.
+        FlowProjectionV2 => "pse.flow.projection.v2",
         /// A structural block's canonical membership.
         StructuralBlockV1 => "pse.structural.block.v1",
         /// A structural analysis scope, independent of traversal order.

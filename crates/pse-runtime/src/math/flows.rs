@@ -190,7 +190,7 @@ impl MathService {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FlowGraphDocument {
-    #[doc = "Identity of the exact admitted flow graph."]
+    #[doc = "Versioned flow projection fingerprint; full physical-context equality remains separate."]
     pub identity: pse_ids::ContentHash,
     #[doc = "Selected graph nodes."]
     pub nodes: Vec<FlowNodeDocument>,
@@ -357,6 +357,7 @@ mod tests {
             graph,
             _owner: owner,
         };
+        assert_eq!(flow.document().identity, flow.graph().key());
         let permit = service.cpu.clone().acquire_many_owned(2).await.unwrap();
         let controls = Controls {
             time_limit: std::time::Duration::from_millis(25),

@@ -125,6 +125,12 @@ shows dedicated-state setup and owns the stopped reconfiguration, readmission an
 recovery routes. Recovery qualification uses its own administrative probe database,
 so it also works when isolated tests have never created the base canonical database.
 
+An ordinary native observer temporarily borrows its caller's control-memory limit. After
+verified observer drain, it restores the exact prior finite limit only while the caller's
+unit, cgroup, invocation and inode still match. A surviving or unobservable observer keeps
+its charge and the control limit. Compilation and scientific execution still require their
+respective admitted profiles; restoring a limit does not enlarge an allocation.
+
 `just activity` (read-only; `--json`) lists the `pse-*` scopes and services with memory, age
 and command, canonical servers and workers, Cargo processes in this checkout and the slice
 limits. It is not a lock: a bare Cargo lock owner is reported as unknown.

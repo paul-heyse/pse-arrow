@@ -1600,6 +1600,159 @@ fn ordered_bindings(bindings: Vec<(String, Expr)>) -> Result<Vec<(String, Expr)>
         .map(|node| bindings[graph[node]].clone())
         .collect())
 }
+/// Immutable supplier identities and edges; request selection never mutates this graph.
+#[derive(Debug)]
+pub(super) struct SupplierTopology {
+    graph: DiGraph<SemanticId, ()>,
+    nodes: BTreeMap<SemanticId, petgraph::graph::NodeIndex>,
+}
+impl SupplierTopology {
+    fn edge_capacity(implicit: &BTreeMap<SemanticId, Arc<AdmittedImplicit>>) -> Result<usize> {
+        implicit
+            .values()
+            .flat_map(|inner| inner.bodies())
+            .try_fold(0_usize, |sum, body| {
+                sum.checked_add(body.math.providers().len())
+                    .ok_or_else(|| MathError::Limit("supplier topology extent").into())
+            })
+    }
+    /// Reserve the maximum retained graph and index before a lazy fill can allocate.
+    /// Every edge requires one provider reference; inventory demand can only reduce it.
+    pub(super) fn reservation(
+        implicit: &BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
+        bodies: &BTreeMap<ContentHash, Arc<AdmittedBody>>,
+        case: &CaseStructure,
+    ) -> Result<usize> {
+        let edges = Self::edge_capacity(implicit)?;
+        let overflow = || CompileError::from(MathError::Limit("supplier topology traversal"));
+        // NodeFiltered retains the complete index space: reserve whole-inventory
+        // DFS/toposort visit maps, stacks, result and the selected-identity tree.
+        let mut scratch = implicit.len().checked_mul(512).ok_or_else(overflow)?;
+        // DFS can queue parallel edges before discovering their shared target.
+        // Bound both edge-sized stack capacities, including geometric Vec growth.
+        scratch = edges
+            .checked_add(1)
+            .and_then(|count| count.checked_mul(4 * size_of::<petgraph::graph::NodeIndex>()))
+            .and_then(|bytes| scratch.checked_add(bytes))
+            .ok_or_else(overflow)?;
+        // Value-demand discovery compacts stages and constructs formal/symbol,
+        // offset, numeric-slot and reachability inventories. One body is queried
+        // at a time, so retain one peak allowance, not a sum of sequential work.
+        let mut peak_demand = 0;
+        for body in implicit
+            .values()
+            .flat_map(|inner| inner.bodies())
+            .chain(bodies.values())
+        {
+            let demand = body
+                .math
+                .slot_count()
+                .checked_mul(512)
+                .and_then(|bytes| bytes.checked_add(body.math.retained_bytes().checked_mul(2)?))
+                .and_then(|bytes| {
+                    bytes.checked_add(body.math.output_count().checked_mul(size_of::<usize>())?)
+                })
+                .and_then(|bytes| bytes.checked_add(body.math.providers().len().checked_mul(192)?))
+                .ok_or_else(overflow)?;
+            peak_demand = peak_demand.max(demand);
+        }
+        scratch = scratch.checked_add(peak_demand).ok_or_else(overflow)?;
+        // Do not look up observation bodies at admission: a missing selected
+        // body must retain its request-time failure boundary. This maximum
+        // bounds accumulated roots even for a body shared by many instances.
+        let providers = bodies
+            .values()
+            .map(|body| body.math.providers().len())
+            .max()
+            .unwrap_or(0);
+        let mut peak_outputs = 0;
+        for instance in case.instances() {
+            peak_outputs = peak_outputs.max(
+                instance
+                    .contributions
+                    .len()
+                    .checked_mul(64)
+                    .ok_or_else(overflow)?,
+            );
+            scratch = scratch
+                .checked_add(
+                    providers
+                        .checked_mul(2 * size_of::<petgraph::graph::NodeIndex>())
+                        .ok_or_else(overflow)?,
+                )
+                .ok_or_else(overflow)?;
+        }
+        scratch = scratch.checked_add(peak_outputs).ok_or_else(overflow)?;
+        implicit
+            .len()
+            .checked_mul(
+                size_of::<petgraph::graph::Node<SemanticId>>()
+                    + size_of::<(SemanticId, petgraph::graph::NodeIndex)>()
+                    + 128,
+            )
+            .and_then(|bytes| {
+                bytes.checked_add(edges.checked_mul(size_of::<petgraph::graph::Edge<()>>())?)
+            })
+            .and_then(|bytes| bytes.checked_add(size_of::<once_cell::sync::OnceCell<Self>>() + 64))
+            .and_then(|bytes| bytes.checked_add(scratch))
+            .ok_or_else(|| MathError::Limit("supplier topology allocation").into())
+    }
+    fn order(
+        &self,
+        roots: Option<Vec<petgraph::graph::NodeIndex>>,
+    ) -> Result<Vec<petgraph::graph::NodeIndex>> {
+        let graph = &self.graph;
+        let order = if let Some(roots) = roots {
+            let mut required = BTreeSet::new();
+            let reversed = petgraph::visit::Reversed(graph);
+            let mut traversal = petgraph::visit::Dfs::empty(reversed);
+            for root in roots {
+                traversal.move_to(root);
+                while let Some(node) = traversal.next(reversed) {
+                    required.insert(graph[node]);
+                }
+            }
+            drop(traversal);
+            toposort(
+                &petgraph::visit::NodeFiltered::from_fn(graph, |node| {
+                    required.contains(&graph[node])
+                }),
+                None,
+            )
+        } else {
+            toposort(graph, None)
+        };
+        order.map_err(|_| CompileError::Missing("cyclic implicit provider dependency".into()))
+    }
+    fn build(implicit: &BTreeMap<SemanticId, Arc<AdmittedImplicit>>) -> Result<Self> {
+        let edges = Self::edge_capacity(implicit)?;
+        let mut graph = DiGraph::<SemanticId, ()>::with_capacity(implicit.len(), edges);
+        let nodes = implicit
+            .keys()
+            .map(|id| (*id, graph.add_node(*id)))
+            .collect::<BTreeMap<_, _>>();
+        for (id, inner) in implicit {
+            for body in inner.bodies() {
+                let demanded = body.math.provider_demands_for_outputs(
+                    &(0..body.math.output_count()).collect::<Vec<_>>(),
+                    DerivativeOrder::Value,
+                )?;
+                for provider in body
+                    .math
+                    .providers()
+                    .iter()
+                    .filter(|provider| demanded.contains_key(&provider.key()))
+                {
+                    if let Some(dependency) = nodes.get(&provider.id) {
+                        graph.add_edge(*dependency, nodes[id], ());
+                    }
+                }
+            }
+        }
+        Ok(Self { graph, nodes })
+    }
+}
+
 impl AdmittedModeling {
     /// Provider demand from the bound case's actual output and formal-coordinate maps.
     /// Fixed inputs remain Value unless an authored partial or explicit response consumes them.
@@ -1679,31 +1832,12 @@ impl AdmittedModeling {
         &self,
         rows: Option<&BTreeSet<SemanticId>>,
     ) -> Result<Vec<Arc<AdmittedImplicit>>> {
-        let mut graph = DiGraph::<SemanticId, ()>::new();
-        let nodes = self
-            .implicit
-            .keys()
-            .map(|id| (*id, graph.add_node(*id)))
-            .collect::<BTreeMap<_, _>>();
-        for (id, inner) in &self.implicit {
-            for body in inner.bodies() {
-                let demanded = body.math.provider_demands_for_outputs(
-                    &(0..body.math.output_count()).collect::<Vec<_>>(),
-                    DerivativeOrder::Value,
-                )?;
-                for provider in body
-                    .math
-                    .providers()
-                    .iter()
-                    .filter(|provider| demanded.contains_key(&provider.key()))
-                {
-                    if let Some(dependency) = nodes.get(&provider.id) {
-                        graph.add_edge(*dependency, nodes[id], ());
-                    }
-                }
-            }
-        }
-        if let Some(rows) = rows {
+        let topology = self
+            .supplier_topology
+            .get_or_try_init(|| SupplierTopology::build(&self.implicit))?;
+        let graph = &topology.graph;
+        let nodes = &topology.nodes;
+        let order = if let Some(rows) = rows {
             let mut pending = Vec::new();
             for instance in self
                 .case
@@ -1733,19 +1867,10 @@ impl AdmittedModeling {
                         .filter_map(|provider| nodes.get(&provider.id).copied()),
                 );
             }
-            let mut required = BTreeSet::new();
-            let reversed = petgraph::visit::Reversed(&graph);
-            let mut traversal = petgraph::visit::Dfs::empty(reversed);
-            for root in pending {
-                traversal.move_to(root);
-                while let Some(node) = traversal.next(reversed) {
-                    required.insert(graph[node]);
-                }
-            }
-            graph.retain_nodes(|graph, node| required.contains(&graph[node]));
-        }
-        let order = toposort(&graph, None)
-            .map_err(|_| CompileError::Missing("cyclic implicit provider dependency".into()))?;
+            topology.order(Some(pending))
+        } else {
+            topology.order(None)
+        }?;
         Ok(order
             .into_iter()
             .map(|node| self.implicit[&graph[node]].clone())
@@ -2121,4 +2246,70 @@ pub(super) fn admit(
 }
 fn call_name(id: SemanticId, output: usize) -> String {
     format!("implicit_{}_{}", id.to_hex(), output)
+}
+
+#[cfg(test)]
+mod topology_tests {
+    use super::*;
+
+    #[test]
+    fn supplier_topology_parallel_edges_need_edge_sized_traversal_scratch() {
+        let mut graph = DiGraph::new();
+        let supplier = SemanticId::from_bytes([1; 16]);
+        let consumer = SemanticId::from_bytes([2; 16]);
+        let first = graph.add_node(supplier);
+        let second = graph.add_node(consumer);
+        for _ in 0..4096 {
+            graph.add_edge(first, second, ());
+        }
+        let reversed = petgraph::visit::Reversed(&graph);
+        let mut traversal = petgraph::visit::Dfs::new(reversed, second);
+        assert_eq!(traversal.next(reversed), Some(second));
+        assert_eq!(traversal.stack.len(), graph.edge_count());
+        assert!(traversal.stack.len() > graph.node_count());
+        drop(traversal);
+        let topology = SupplierTopology {
+            graph,
+            nodes: BTreeMap::from([(supplier, first), (consumer, second)]),
+        };
+        assert_eq!(
+            topology.order(Some(vec![second])).unwrap(),
+            vec![first, second]
+        );
+        assert_eq!(topology.order(None).unwrap(), vec![first, second]);
+        assert_eq!(topology.graph.edge_count(), 4096);
+    }
+
+    #[test]
+    fn supplier_topology_selects_ancestors_without_admitting_unrelated_cycles() {
+        let mut graph = DiGraph::new();
+        let ids = (1..=5)
+            .map(|value| SemanticId::from_bytes([value; 16]))
+            .collect::<Vec<_>>();
+        let nodes = ids
+            .iter()
+            .map(|id| (*id, graph.add_node(*id)))
+            .collect::<BTreeMap<_, _>>();
+        graph.add_edge(nodes[&ids[0]], nodes[&ids[1]], ());
+        graph.add_edge(nodes[&ids[2]], nodes[&ids[3]], ());
+        graph.add_edge(nodes[&ids[3]], nodes[&ids[2]], ());
+        let topology = SupplierTopology { graph, nodes };
+        let selected = topology.order(Some(vec![topology.nodes[&ids[1]]])).unwrap();
+        assert_eq!(
+            selected
+                .iter()
+                .map(|node| topology.graph[*node])
+                .collect::<Vec<_>>(),
+            ids[..2]
+        );
+        assert!(topology.order(Some(Vec::new())).unwrap().is_empty());
+        assert_eq!(
+            topology.order(Some(vec![topology.nodes[&ids[4]]])).unwrap(),
+            vec![topology.nodes[&ids[4]]]
+        );
+        assert!(topology.order(Some(vec![topology.nodes[&ids[2]]])).is_err());
+        assert!(topology.order(None).is_err());
+        assert_eq!(topology.graph.node_count(), 5);
+        assert_eq!(topology.graph.edge_count(), 3);
+    }
 }

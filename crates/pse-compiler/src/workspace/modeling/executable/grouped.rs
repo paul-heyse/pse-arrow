@@ -1033,6 +1033,12 @@ pub(super) fn complete(
             .with_requirements(planned.requirements),
     );
     Ok(Arc::new(AdmittedModeling {
+        supplier_topology_bytes: implicit::SupplierTopology::reservation(
+            &planned.implicit,
+            &bodies,
+            &case,
+        )?,
+        supplier_topology: Arc::new(once_cell::sync::OnceCell::new()),
         inputs: planned.inputs,
         outputs: planned.outputs,
         term_outputs: planned.term_outputs,
@@ -1111,7 +1117,60 @@ mod dependency_tests {
             "nested admission consumes the supplied provider descriptor"
         );
         let admitted = complete(&workspace.db, workspace.inventory, retained).unwrap();
+        assert!(admitted.supplier_topology.get().is_none());
+        let before = admitted.as_ref().clone();
+        let bytes = admitted_allocation_bytes(&admitted);
+        let refused = admitted.supplier_topology.get_or_try_init(|| {
+            Err::<implicit::SupplierTopology, _>(CompileError::Missing(
+                "transient topology initialization refusal".into(),
+            ))
+        });
+        assert!(refused.is_err());
+        assert!(
+            admitted.supplier_topology.get().is_none(),
+            "failure does not poison or fill the success memo"
+        );
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let _ = admitted.supplier_topology.get_or_try_init(
+                    || -> Result<implicit::SupplierTopology> {
+                        panic!("interrupted topology fill")
+                    },
+                );
+            }))
+            .is_err()
+        );
+        assert!(admitted.supplier_topology.get().is_none());
+        let barrier = std::sync::Barrier::new(4);
+        std::thread::scope(|scope| {
+            let calls = (0..4)
+                .map(|_| {
+                    scope.spawn(|| {
+                        barrier.wait();
+                        admitted.implicit_order_for(None).unwrap().len()
+                    })
+                })
+                .collect::<Vec<_>>();
+            for call in calls {
+                assert_eq!(call.join().unwrap(), 2);
+            }
+        });
+        assert_eq!(before, *admitted, "memo state is not mathematical meaning");
+        assert!(Arc::ptr_eq(
+            &before.supplier_topology,
+            &admitted.supplier_topology
+        ));
+        assert_eq!(
+            bytes,
+            admitted_allocation_bytes(&admitted),
+            "lazy fill is already charged"
+        );
+        let topology = std::ptr::from_ref(admitted.supplier_topology.get().unwrap());
         assert_eq!(admitted.implicit_order_for(None).unwrap().len(), 2);
+        assert_eq!(
+            topology,
+            std::ptr::from_ref(admitted.supplier_topology.get().unwrap())
+        );
     }
 
     #[test]

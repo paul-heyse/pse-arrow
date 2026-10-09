@@ -559,8 +559,8 @@ Historical-result assessment remains ±10%; solver stopping and physical checks 
 
 ## Graph and hashing extension acceptance
 
-The [coordinator's proposed extension](28-surrealdb-unified-substrate.md#graph-and-hashing-review-integration)
-adds J3/B8/N12/N13 and bounded GH investigations. This document remains the sole assembled
+The [coordinator's selected extension](28-surrealdb-unified-substrate.md#graph-and-hashing-review-integration)
+adds J3/B8/N12/N13, selected RC04 V2 and bounded GH investigations. This document remains the sole assembled
 evidence owner; correction progress and investigation decisions stay at their companions.
 The narrowed original qualification continuation, historical Outcomes and paused E4/E5
 obligations retain their current authority. Planning the following acceptance does not run
@@ -569,7 +569,7 @@ or authorize a new campaign.
 | Boundary | Proposed revealing acceptance after working correction |
 |---|---|
 | J3 inventory/settlement | Warm many-body primary/original views expose complete exact descriptions without repeated discovery. Changed reads, acknowledgment errors/absence, expiry, released roots and new admission preserve current outcomes; fresh lineage and escaped-owner charges remain. |
-| N12 physical flow | Reordered decision/connection declarations and parallel occurrences retain physical bindings, policies, typed refusals and an independently expected forbidden-cycle witness. Existing identity bytes are unchanged. |
+| N12 physical flow | Reordered decision/connection declarations and parallel occurrences retain physical bindings, policies, typed refusals and an independently expected forbidden-cycle witness. N12 preserves identity bytes; separately selected V2 adds explicit role/count framing under ADR-0167. |
 | B8/N13 supplier composition | Selected versus full scope, an unrequested cycle, nested/sibling providers and missing unselected observations preserve scope. Actual derivative upgrades, starts/policy and new mutable case state remain current across reused topology. |
 | Ownership/interruption | New retained/transient inventories and adjacency are admitted/accounted before allocation; aliases survive eviction/clear and charges last through drain. Caller cancellation and current effect clocks remain unchanged. |
 | Adopted later GH alternative | Only a separately selected working realization adds its relevant encoding/collision, complete negative/membership invalidation, topology, receiving or restart controls. An investigation decision alone is not product qualification. |
@@ -596,6 +596,43 @@ add no mandatory benchmark framework, SLA or unrequested campaign.
 Closure of each Graph/hash finding stays at the coordinator and consumes linked package plus
 affected acceptance evidence. Existing PA/U02 and earlier scientific findings keep their own
 obligations; the new review/plan neither resolves them nor reopens them without new evidence.
+
+### Graph/hash scoped acceptance — 2026-10-09
+
+**Implemented:** J3/B8/N12/N13, FlowProjectionV2 and the selected local interner/prehash/key
+reuse changes are integrated, with displaced discovery/lookup paths and temporary inquiry
+hooks removed. [28k's followup outcome](28k-graph-kernels-and-hashing-investigations.md#followup-verification-and-outcome-2026-10-09)
+owns the implementation account, commands, diagnostic measurements and corrected mistakes.
+The companion packages own their mechanism-specific evidence; this section owns affected
+acceptance and its limits.
+
+**Tested:** compiler 6/6, structural flow 6/6, identity 61/61 and backend tears 3/3 controls
+passed. After the maintainer cleared target artifacts, current-source native factorable
+controls passed 47/47 and runtime controls 24/24, followed by all four selected native Python
+journeys. All used the pinned checkout environment, explicit force-validation where applicable
+and a zero-failure baseline. The native Python extension was rebuilt before those journeys.
+The exact commands and test conditions are linked in 28k; local and public consumers exercise
+indexed settlement, exact/colliding key reuse, selected/nested derivative demands, flows/recycle,
+warm starts, retention and public preparation/conformance limits. Tooling repairs passed
+539/539 controls, including 85 supervisor tests, and actual native observer drain restored
+the original 144 GiB allocation cap.
+
+**Tested:** final production `just bench-case-smoke build/graph-hash-followups-20261009-restart-final --case k4-restart-local-1`
+passed with native-process, force-validation, one native thread and `measured: false`.
+It demonstrates actual portable reuse after runtime-owner/pool release, fresh reconstruction
+without eligibility, original historical rows and exact floating-point bits. The benchmark
+now waits for both actual owner release and zero pool reservations, preserving original
+assertions; one scheduler yield was a racy teardown assumption. This remains a same-executable,
+warmed-loader control rather than managed-worker, process/Python startup, crash, server restart
+or strict deployment qualification.
+
+The PC-SAFT smoke harness completed with four typed refusals at case resolution, zero prepared
+products. [28f's numerical-fact boundary](28f-shared-numerical-preparation.md#pc-saft-numerical-fact-investigation-boundary)
+owns the newly exposed checker-wiring investigation. Scope-end static/manual checks remain
+in progress. These selected journeys do not establish full library/scientific qualification,
+an end-to-end speedup, managed-primary deployment identity or complete Plan 28 E3 acceptance.
+The broader E3/E4/E5 campaign remains paused. RC02 durable fast hashes and RC03 production
+persisted incremental runtime remain unselected.
 
 ## WebSocket environment qualification handoff
 

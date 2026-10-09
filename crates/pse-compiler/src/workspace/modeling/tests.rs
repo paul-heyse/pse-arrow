@@ -6549,4 +6549,21 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
             .len(),
         2
     );
+    let observation_bodies = std::mem::take(&mut shared.bodies);
+    assert!(
+        shared
+            .implicit_order_for(Some(&BTreeSet::new()))
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        shared.implicit_order_for(Some(&selected)).is_err(),
+        "a selected missing observation still fails at request time"
+    );
+    shared.bodies = observation_bodies;
+    assert_eq!(
+        shared.implicit_order_for(Some(&selected)).unwrap().len(),
+        1,
+        "a request-local failure never poisons the retained supplier topology"
+    );
 }
