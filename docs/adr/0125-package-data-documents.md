@@ -108,7 +108,7 @@ implementation status.
 
 ## More information
 
-- [Plan 23](../plans/23-thermodynamic-domain-and-campaign.md).
+- [Plan 23](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/23-thermodynamic-domain-and-campaign.md).
 - ADR-0116 (typed boundary documents) and ADR-0123.
 - The [design review](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md): its findings F01, F09 and F10 are incorporated in this record.
 

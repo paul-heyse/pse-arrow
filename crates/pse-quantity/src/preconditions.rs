@@ -27,6 +27,24 @@ impl PhysicalPreconditions {
         }
         Ok(Self { declarations })
     }
+    /// Known retained allocation, including operand selections and shared-owner overhead.
+    pub fn allocation_extent(&self) -> usize {
+        self.declarations.iter().fold(
+            (size_of::<Self>() + 2 * size_of::<usize>()).saturating_add(
+                self.declarations
+                    .capacity()
+                    .saturating_mul(size_of::<PhysicalPrecondition>()),
+            ),
+            |bytes, declaration| {
+                bytes.saturating_add(
+                    declaration
+                        .operand_positions
+                        .capacity()
+                        .saturating_mul(size_of::<u16>()),
+                )
+            },
+        )
+    }
     /// Exact declared prerequisite values.
     pub fn declarations(&self) -> &[PhysicalPrecondition] {
         &self.declarations

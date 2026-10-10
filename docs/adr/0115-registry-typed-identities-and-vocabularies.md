@@ -14,7 +14,7 @@ superseded-by: null
 revisit: An entity needs two identity types at once (for example a run that is also a study point) and the declaration cannot express that; or a generated typed id forces a conversion inside a hot numerical kernel; or a frame spelling must change for an existing identity, which would need a new frame version rather than an edit.
 verification: Architecture scenario S22, settled by Plan 22 B3, B4 and B7. B3 tests: compile_fail doctests for an attempt/run swap and a workspace/publication swap, frame_spellings_unique, and the pse-ids golden vectors unchanged. B4 tests: extrapolation_policy_typed, source_owned_vocabularies_have_one_rust_type, test_solve_settings_enum_types. B7 tests: a compile_fail doctest for a root/instance swap. Also just codegen-check leaving no drift.
 standard: core-3.1/process-simulator-1.1
-scenarios: [docs/plans/22-solver-capabilities-architecture.md#s22]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s22]
 ---
 
 # ADR-0115: Declare entity identities in the registry, keep one Rust type per vocabulary, and catalog hash frames
@@ -125,7 +125,7 @@ packets.
 ## More information
 
 - [Typed data contracts review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md): TD04, TD06, TD08, TD10.
-- Architecture companion [§12.2 and §12.4](../plans/22-solver-capabilities-architecture.md#12-typed-data-contracts).
+- Architecture companion [§12.2 and §12.4](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#12-typed-data-contracts).
 - [ADR-0114](0114-typed-operational-store.md) (store domains and ENUM types).
 - [ADR-0116](0116-typed-boundary-documents.md) (Python boundary).
 - Plan 22 packets B1, B3, B4 and B7.

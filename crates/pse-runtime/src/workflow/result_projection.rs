@@ -5,7 +5,7 @@
 //! original admitted Arrow row remains the scientific result authority.
 
 use super::{WorkflowError, contract, relation, result_blocks};
-use pse_columnar::{CancellationToken, MemoryConsumer, MemoryPool};
+use pse_columnar::{MemoryConsumer, MemoryPool};
 use pse_ids::SemanticId;
 use pse_model::generated::runtime::{
     canonical_result_block_outputs::Row as Output, canonical_result_blocks::Row as Block,
@@ -117,16 +117,57 @@ fn cell(
     })
 }
 
-/// Derive only explicitly declared finite fields, retaining owning declaration,
-/// occurrence partition and exact original row coordinates in each index.
-pub(super) fn scalar_cells(
+/// Reconstruct one requested scalar index from its exact original columns.
+/// Unselected rows and fields cannot contribute validation work or failures.
+pub(super) fn selected_scalar_cell(
     table: &FieldCheckedBatch,
     set: &str,
     batch: &str,
-    start: usize,
-    count: usize,
-) -> Result<Vec<Cell>, WorkflowError> {
-    scalar_cells_at(table, set, batch, start, count, 0)
+    index: usize,
+    origin: u64,
+    field: &str,
+) -> Result<Cell, WorkflowError> {
+    use datafusion::arrow::array::{Array, Float64Array};
+    use pse_relations::columnar::ArrowValue;
+    let id = table.relation_id();
+    check_output_field(id, field)?;
+    if index >= table.batch().num_rows() {
+        return Err(contract("selected scalar row outside original block"));
+    }
+    let (owner, partition) = if id == solve_variables::RELATION_ID {
+        let view = solve_variables::View::from_checked(table).map_err(relation)?;
+        let owner: SemanticId =
+            ArrowValue::read(view.symbol_id_column(), index).map_err(relation)?;
+        (owner, format!("step:{}", view.step_column().value(index)))
+    } else if id == solve_constraints::RELATION_ID {
+        let view = solve_constraints::View::from_checked(table).map_err(relation)?;
+        let owner: SemanticId = ArrowValue::read(view.row_id_column(), index).map_err(relation)?;
+        (owner, format!("step:{}", view.step_column().value(index)))
+    } else if id == fit_parameters::RELATION_ID {
+        let view = fit_parameters::View::from_checked(table).map_err(relation)?;
+        let owner: SemanticId =
+            ArrowValue::read(view.parameter_id_column(), index).map_err(relation)?;
+        (owner, "0".into())
+    } else if id == fit_observations::RELATION_ID {
+        let view = fit_observations::View::from_checked(table).map_err(relation)?;
+        let owner: SemanticId =
+            ArrowValue::read(view.observation_id_column(), index).map_err(relation)?;
+        let experiment: SemanticId =
+            ArrowValue::read(view.experiment_id_column(), index).map_err(relation)?;
+        (owner, format!("experiment:{experiment}"))
+    } else {
+        return Err(contract("relation has no scalar-cell index"));
+    };
+    let values = table
+        .batch()
+        .column_by_name(field)
+        .and_then(|column| column.as_any().downcast_ref::<Float64Array>())
+        .ok_or_else(|| contract("declared scientific scalar column absent"))?;
+    let value = (!values.is_null(index)).then(|| values.value(index));
+    let row = origin
+        .checked_add(index as u64)
+        .ok_or_else(|| contract("scientific row coordinate overflow"))?;
+    cell(set, batch, id, owner, field, &partition, row, value)
 }
 pub(super) fn scalar_cells_at(
     table: &FieldCheckedBatch,
@@ -254,8 +295,34 @@ pub(super) async fn store_result_table(
     store: &CanonicalStore,
     fence: &AttemptFence,
     id: SemanticId,
+    mut cursor: super::ResultCursor<'_>,
+    pool: &Arc<dyn MemoryPool>,
+) -> Result<(), WorkflowError> {
+    let mut origin = 0_u64;
+    let mut ordinal = 0_u64;
+    while let Some(table) = cursor.next_batch().await.map_err(WorkflowError::Shared)? {
+        let end = origin
+            .checked_add(table.batch().num_rows() as u64)
+            .ok_or_else(|| contract("result global row overflow"))?;
+        store_result_chunk(store, fence, id, &table, pool, origin, &mut ordinal).await?;
+        origin = end;
+    }
+    if !cursor.complete() || ordinal == 0 {
+        return Err(contract(
+            "result relation did not complete with schema membership",
+        ));
+    }
+    Ok(())
+}
+
+async fn store_result_chunk(
+    store: &CanonicalStore,
+    fence: &AttemptFence,
+    id: SemanticId,
     table: &FieldCheckedBatch,
     pool: &Arc<dyn MemoryPool>,
+    origin: u64,
+    ordinal: &mut u64,
 ) -> Result<(), WorkflowError> {
     if id != table.relation_id() {
         return Err(contract("result table relation identity mismatch"));
@@ -267,7 +334,7 @@ pub(super) async fn store_result_table(
             .map_err(pse_engine::EngineError::from)?;
         let name = id.to_string();
         let set = result_set_key(fence.attempt(), &name);
-        let key = result_batch_key(fence.attempt(), &set, 0);
+        let key = result_batch_key(fence.attempt(), &set, *ordinal);
         let payload = result_blocks::encode_result_block(table.batch())?;
         let block = Block {
             key: key.clone(),
@@ -275,9 +342,9 @@ pub(super) async fn store_result_table(
             result_set: set,
             output: name.clone(),
             partition: "0".into(),
-            ordinal: 0,
-            start: 0,
-            end: 0,
+            ordinal: *ordinal,
+            start: origin,
+            end: origin,
             rows: 0,
             columns: table.batch().num_columns() as u64,
             coordinate_min: None,
@@ -291,16 +358,17 @@ pub(super) async fn store_result_table(
                 fence,
                 &format!("table:{}:{}", fence.attempt(), block.key),
                 &name,
-                0,
+                *ordinal,
                 &payload,
                 0,
                 &block,
             )
             .await?;
+        *ordinal += 1;
         return Ok(());
     }
     if id == simulation_samples::RELATION_ID {
-        return store_trajectory(store, fence, table, pool).await;
+        return store_trajectory(store, fence, table, pool, origin, ordinal).await;
     }
     let reservation = MemoryConsumer::new("canonical:result-scalar-index").register(pool);
     // Live prepared cells, encoded metadata, Arrow writer/protobuf scratch and
@@ -319,29 +387,30 @@ pub(super) async fn store_result_table(
                 + 4 * result_blocks::RESULT_BLOCK_BYTES,
         )
         .map_err(pse_engine::EngineError::from)?;
-    let mut ordinal = 0_u64;
     for base in (0..table.batch().num_rows()).step_by(window) {
         let count = window.min(table.batch().num_rows() - base);
-        let initial_key = result_batch_key(fence.attempt(), &set, ordinal);
-        let prepared = scalar_cells(table, &set, &initial_key, base, count)?;
+        let initial_key = result_batch_key(fence.attempt(), &set, *ordinal);
+        let prepared = scalar_cells_at(table, &set, &initial_key, base, count, origin)?;
         let mut extents = vec![0_usize; count];
         for cell in &prepared {
             let extent = pse_operations::canonical_execution::result_cell_metadata_extent(cell)?;
-            extents[cell.row as usize - base] += extent;
+            extents[(cell.row - origin) as usize - base] += extent;
         }
         let mut offset = 0;
         while offset < count {
-            let current = ordinal;
+            let current = *ordinal;
             let key = result_batch_key(fence.attempt(), &set, current);
             // Descriptor envelope allowance includes maximum encoded actual
             // identity lengths below. Cell extents are prepared once per window.
             let rows = metadata_prefix(&extents[offset..])?;
             let (payload, rows) =
                 result_blocks::encode_result_prefix(table.batch(), base + offset, rows)?;
-            let start = base + offset;
+            let start = origin
+                .checked_add((base + offset) as u64)
+                .ok_or_else(|| contract("result global row overflow"))?;
             let cells = prepared
                 .iter()
-                .filter(|cell| cell.row >= start as u64 && cell.row < (start + rows) as u64)
+                .filter(|cell| cell.row >= start && cell.row < start + rows as u64)
                 .map(|cell| {
                     let mut cell = cell.clone();
                     cell.key = format!("{key}{}", &cell.key[initial_key.len()..]);
@@ -356,8 +425,8 @@ pub(super) async fn store_result_table(
                 output: name.clone(),
                 partition: "0".into(),
                 ordinal: current,
-                start: start as u64,
-                end: (start + rows) as u64,
+                start,
+                end: start + rows as u64,
                 rows: rows as u64,
                 columns: table.batch().num_columns() as u64,
                 coordinate_min: None,
@@ -378,7 +447,7 @@ pub(super) async fn store_result_table(
                     &cells,
                 )
                 .await?;
-            ordinal += 1;
+            *ordinal += 1;
             offset += rows;
         }
     }
@@ -408,53 +477,18 @@ fn metadata_prefix(extents: &[usize]) -> Result<usize, WorkflowError> {
     Ok(rows)
 }
 
-/// Sort storage by the declared output and sample keys. Original scientific
-/// sample/time coordinates and all exact value/metadata columns remain intact.
-fn grouped_trajectory(
-    table: &FieldCheckedBatch,
-    pool: &Arc<dyn MemoryPool>,
-) -> Result<FieldCheckedBatch, WorkflowError> {
-    let extent = table
-        .batch()
-        .num_rows()
-        .checked_mul(64)
-        .ok_or_else(|| contract("trajectory order extent overflow"))?;
-    let owner = MemoryConsumer::new("canonical:trajectory-order").register(pool);
-    owner
-        .try_grow(extent)
-        .map_err(pse_engine::EngineError::from)?;
-    let view = simulation_samples::View::from_checked(table).map_err(relation)?;
-    let mut order = Vec::with_capacity(view.len());
-    for index in 0..view.len() {
-        let row = view.row(index).map_err(relation)?;
-        order.push((
-            row.symbol_id,
-            row.sample,
-            u32::try_from(index)
-                .map_err(|_| contract("trajectory sort row exceeds Arrow take extent"))?,
-        ));
-    }
-    order.sort_unstable_by_key(|&(symbol, sample, _)| (symbol, sample));
-    let indices = datafusion::arrow::array::UInt32Array::from(
-        order.into_iter().map(|(_, _, row)| row).collect::<Vec<_>>(),
-    );
-    table
-        .take_reserved(&indices, pool, &CancellationToken::new())
-        .map_err(relation)
-}
-
 async fn store_trajectory(
     store: &CanonicalStore,
     fence: &AttemptFence,
     table: &FieldCheckedBatch,
     pool: &Arc<dyn MemoryPool>,
+    origin: u64,
+    ordinal: &mut u64,
 ) -> Result<(), WorkflowError> {
-    let table = grouped_trajectory(table, pool)?;
-    let view = simulation_samples::View::from_checked(&table).map_err(relation)?;
+    let view = simulation_samples::View::from_checked(table).map_err(relation)?;
     let id = table.relation_id();
     let name = id.to_string();
     let set = result_set_key(fence.attempt(), &name);
-    let mut ordinal = 0_u64;
     let mut base = 0;
     let owner = MemoryConsumer::new("canonical:trajectory-output-index").register(pool);
     owner
@@ -469,8 +503,8 @@ async fn store_trajectory(
         let batch = table.batch().slice(base, end - base);
         result_blocks::visit_result_blocks_async(&batch, |offset, rows, payload| {
             let start = base + offset;
-            let current = ordinal;
-            ordinal += 1;
+            let current = *ordinal;
+            *ordinal += 1;
             let key = result_batch_key(fence.attempt(), &set, current);
             let extrema = (start..start + rows).try_fold(
                 (f64::INFINITY, f64::NEG_INFINITY),
@@ -486,8 +520,8 @@ async fn store_trajectory(
                 output: name.clone(),
                 partition: "0".into(),
                 ordinal: current,
-                start: start as u64,
-                end: (start + rows) as u64,
+                start: origin + start as u64,
+                end: origin + (start + rows) as u64,
                 rows: rows as u64,
                 columns: table.batch().num_columns() as u64,
                 coordinate_min: None,
@@ -502,8 +536,8 @@ async fn store_trajectory(
                 result_set: set.clone(),
                 output: format!("{id}:{symbol}:value"),
                 partition: "0".into(),
-                start: start as u64,
-                end: (start + rows) as u64,
+                start: origin + start as u64,
+                end: origin + (start + rows) as u64,
                 coordinate_min: None,
                 coordinate_max: None,
                 interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
@@ -540,6 +574,75 @@ async fn store_trajectory(
 #[cfg(test)]
 mod result_projection_unit {
     use super::*;
+    #[test]
+    fn selected_scalar_verification_preserves_exact_bits_missing_and_coordinates() {
+        let registry = pse_schema::registry().unwrap();
+        let validation = pse_relations::validate::ValidationContext::new(
+            registry,
+            pse_engine::validation::NativeValidation(
+                datafusion::prelude::SessionContext::new().state(),
+            ),
+        );
+        let mut builder =
+            fit_parameters::Builder::with_registry(registry, 1024, &validation).unwrap();
+        let parameter = SemanticId::NIL;
+        for index in 0..1024 {
+            builder
+                .push(fit_parameters::Row {
+                    run_id: pse_operations::mint_id(),
+                    parameter_id: parameter,
+                    fixed: false,
+                    value: match index {
+                        1022 => None,
+                        1023 => Some(-0.0),
+                        _ => Some(index as f64),
+                    },
+                    unit_id: SemanticId::NIL,
+                    scale: 2.0,
+                    at_bound: None,
+                })
+                .unwrap();
+        }
+        let table = builder.finish().unwrap();
+        let zero = selected_scalar_cell(&table, "set", "block", 1023, 10000, "value").unwrap();
+        assert_eq!(zero.row, 11023);
+        assert_eq!(zero.coordinate, "11023");
+        assert_eq!(zero.key, "block:11023:value");
+        assert_eq!(
+            zero.output,
+            format!("{}:{parameter}:value", fit_parameters::RELATION_ID)
+        );
+        assert_eq!(zero.partition, "0");
+        assert_eq!(
+            zero.bits.as_ref().unwrap().as_slice(),
+            (-0.0_f64).to_bits().to_be_bytes()
+        );
+        assert_eq!(zero.projection.unwrap().to_bits(), 0.0_f64.to_bits());
+        let missing = selected_scalar_cell(&table, "set", "block", 1022, 10000, "value").unwrap();
+        assert_eq!(missing.cell_kind, "missing");
+        assert!(missing.bits.is_none() && missing.projection.is_none());
+        let indexed = scalar_cells_at(&table, "set", "block", 1022, 2, 10000).unwrap();
+        assert_eq!(
+            indexed.iter().map(|cell| cell.row).collect::<Vec<_>>(),
+            vec![11022, 11022, 11023, 11023]
+        );
+        let indexed_zero = indexed
+            .iter()
+            .find(|cell| cell.row == zero.row && cell.output == zero.output)
+            .unwrap();
+        assert_eq!(indexed_zero.bits, zero.bits);
+        assert_eq!(indexed_zero.coordinate, zero.coordinate);
+        let scale = selected_scalar_cell(&table, "set", "block", 1023, 10000, "scale").unwrap();
+        assert_eq!(
+            scale.bits.as_ref().unwrap().as_slice(),
+            2.0_f64.to_bits().to_be_bytes()
+        );
+        assert!(selected_scalar_cell(&table, "set", "block", 1024, 0, "value").is_err());
+        assert!(selected_scalar_cell(&table, "set", "block", 0, u64::MAX, "value").is_ok());
+        assert!(selected_scalar_cell(&table, "set", "block", 1, u64::MAX, "value").is_err());
+        assert!(selected_scalar_cell(&table, "set", "block", 0, 0, "fixed").is_err());
+    }
+
     #[test]
     fn result_metadata_prefix_uses_encoded_extent_and_keeps_exact_cells() {
         let relation = solve_variables::RELATION_ID;

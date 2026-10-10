@@ -22,7 +22,7 @@ records the requested interpretation rather than silently applying a later Auto 
 | Tier / purpose | Bounded design tier / target purpose; new shared request and native observation boundaries, rather than a whole-product foundation review |
 | Reviewer / date | Independent delegated design reviewer / 2026-10-04 |
 | Baseline | HEAD `58b700bc36d59517d77886496c6ad4072ed4a560`, preserved pending plan/review documents, and the N0 proposed ADR revisions inspected during this review |
-| Disposition owner | [Plan 25n](../../plans/25n-automatic-simulation-solve-pipeline.md); Plan 25m retains its original evidence; [Plan 25k](../../plans/25k-integrated-qualification-and-closure.md) owns assembled qualification |
+| Disposition owner | [Plan 25n](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25n-automatic-simulation-solve-pipeline.md); Plan 25m retains its original evidence; [Plan 25k](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25k-integrated-qualification-and-closure.md) owns assembled qualification |
 | Behavioral/semantic adequacy | Accepted for the proposed changed contracts; execution adequacy remains unqualified |
 | Architectural fitness | Accepted for the proposed changed boundaries; existing implementation findings retain their original force |
 

@@ -634,10 +634,12 @@ mod canonical_execution_server_unit {
                 for (encoded, celsius) in payload
                     .batch
                     .payload
-                    .chunks_exact(8)
+                    .as_chunks::<8>()
+                    .0
+                    .iter()
                     .zip([0.0, 25.0, 60.0, 100.0])
                 {
-                    let actual = f64::from_le_bytes(encoded.try_into().unwrap());
+                    let actual = f64::from_le_bytes(*encoded);
                     assert!((actual - 273.15 - celsius).abs() < 1e-12);
                 }
                 assert!(

@@ -40,6 +40,7 @@ pub(super) fn declared_accuracy(model: &ModelingPreparation, policy: &NumericalP
 struct TrialHints {
     identity: pse_ids::ContentHash,
     quantities: Arc<pse_quantity::QuantityRegistry>,
+    preconditions: Arc<pse_quantity::PhysicalPreconditions>,
     /// What its requirements name: the enclosing model and case, and the block's
     /// instance (`pse_model::lineage::Solved::stage`).
     lineage: pse_model::lineage::Lineage,
@@ -63,6 +64,7 @@ impl HintResolver for TrialHints {
     }
     fn retained_bytes(&self) -> usize {
         size_of::<Self>()
+            + self.preconditions.allocation_extent()
             + self.hints.len() * 128
             + self.scales.len() * 128
             + self.unknowns.len() * 256
@@ -130,6 +132,7 @@ impl HintResolver for TrialHints {
         }
         let numerics = pse_math::numerics::resolve(
             &self.quantities,
+            &self.preconditions,
             &self.targets,
             &declarations,
             &self.policy,
@@ -437,6 +440,7 @@ impl ModelingPackage {
                     Configuration::Hints(Arc::new(TrialHints {
                         identity: hash.finish_hash(),
                         quantities: self.quantities.clone(),
+                        preconditions: self.physical.preconditions.clone(),
                         lineage: model.solved().stage(stage_instance(&inner)),
                         unknowns: inner.unknowns.clone(),
                         rows: residual.rows.clone(),
@@ -869,6 +873,7 @@ mod tests {
         let mut resolver = TrialHints {
             identity: pse_ids::ContentHash::from_bytes([0; 32]),
             quantities: physical.quantities,
+            preconditions: physical.preconditions,
             lineage: solved(source).stage(Some(InstanceId::from_id(source))),
             unknowns: vec![x],
             rows: vec![row],

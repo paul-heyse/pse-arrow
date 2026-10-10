@@ -65,7 +65,7 @@ The target directs work to useful outputs without imposing no-goal estimation. I
 
 ## More information
 
-[Plan 27](../plans/27-contextual-engineering-accuracy.md), [qualification and finding owner](../plans/25k-integrated-qualification-and-closure.md#contextual-accuracy-review-dispositions), [source review](../design_review/reviews/design_review_contextual-accuracy-policy_2026-10-05.md).
+[Plan 27](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/27-contextual-engineering-accuracy.md), [qualification and finding owner](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25k-integrated-qualification-and-closure.md#contextual-accuracy-review-dispositions), [source review](../design_review/reviews/design_review_contextual-accuracy-policy_2026-10-05.md).
 
 ## Status history
 

@@ -149,7 +149,7 @@ impl PreparedModeling {
     pub(super) fn observation_structure_over(
         &self,
         rows: &BTreeSet<SemanticId>,
-        variables: &[Variable],
+        variables: pse_math::binding::VariableView<'_>,
     ) -> Result<Arc<CaseStructure>> {
         if rows
             .iter()
@@ -291,6 +291,7 @@ impl PreparedModeling {
         structure: Arc<CaseStructure>,
         values: &CaseValues,
         quantities: Arc<QuantityRegistry>,
+        preconditions: Arc<PhysicalPreconditions>,
         order: DerivativeOrder,
         profile: Profile,
         environment: &ContentHash,
@@ -322,6 +323,7 @@ impl PreparedModeling {
         Ok(PreparedCase {
             class_proof_work: profile.class_proof_work,
             quantities: quantities.into(),
+            preconditions: preconditions.into(),
             presolve: bound.presolve.into(),
             coefficient_values: Arc::new(bound.assumptions).into(),
             facts: bound.facts,
@@ -627,6 +629,7 @@ impl CompilerWorkspace {
             structure,
             values,
             self.inputs.quantities.clone(),
+            self.inputs.preconditions.clone(),
             order,
             profile,
             self.inventory.environment(&self.db),

@@ -14,7 +14,7 @@ superseded-by: null
 revisit: HiGHS changes the semantics of its multi-objective interface, or a staged NLP level fails qualification because of its objective-bound constraint on a fixture where the degradation tolerance is declared.
 verification: Plan 22 C3 tests lexicographic_milp_native and lexicographic_nlp_staged_matches_weighted_limit, plus the refusal controls for a dimensional weighted sum and for competing objectives without priority or weight.
 standard: core-3.0/process-simulator-1.1
-scenarios: [docs/plans/22-solver-capabilities-architecture.md#s10]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s10]
 ---
 
 # ADR-0111: Author multiple objectives by priority and weight; lexicographic natively on HiGHS, staged elsewhere
@@ -95,7 +95,7 @@ declaration. A staged route costs one solve per level, which the value-only rebi
 
 ## More information
 
-- Architecture companion [§8](../plans/22-solver-capabilities-architecture.md#8-coefficient-and-conic-extensions).
+- Architecture companion [§8](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#8-coefficient-and-conic-extensions).
 - Target review [T12](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t12).
 - Related: ADR-0101 (objective clause refined), ADR-0105. Plan 22 packet C3.
 

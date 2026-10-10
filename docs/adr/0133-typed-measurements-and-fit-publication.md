@@ -13,7 +13,7 @@ supersedes: []
 superseded-by: null
 revisit: A fit needs measurement semantics that cannot be expressed as typed admitted attributes and explicit observation selection.
 verification: Typed measurement units cover canonical quantities, declared and column uncertainties, measured origins, test-only reads and wrong quantities; solver regression and covariance tests consume the same admitted records; DM6 tests explicit fitted publication and missing fit lineage refusal.
-scenarios: [docs/plans/23-thermodynamic-domain-and-campaign.md#current-execution]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/23-thermodynamic-domain-and-campaign.md#current-execution]
 ---
 
 # ADR-0133: Consume admitted measurements and publish fitted parameter lineage

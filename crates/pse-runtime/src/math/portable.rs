@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use std::sync::{Arc, atomic::AtomicBool};
 
-const INTERPRETATION: &str = "pse.runtime.admitted-body-product.v3";
+const INTERPRETATION: &str = "pse.runtime.admitted-body-product.v4";
 const OBSERVATION_WORK_BYTES: usize = 4 << 20;
 /// Refusals preserve scientific reconstruction and storage failures distinctly.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
@@ -699,7 +699,7 @@ struct Envelope {
 }
 // Keep the compiler payload as opaque bytes. Nesting it as a JSON number array
 // would duplicate and expand the same semantic description at the transport boundary.
-const ENVELOPE_MAGIC: &[u8] = b"pse-admitted-body-product-v3\0";
+const ENVELOPE_MAGIC: &[u8] = b"pse-admitted-body-product-v4\0";
 // Framing metadata is bounded independently of the scientific recipe and storage wire blocks.
 const MAX_METADATA_BYTES: usize = 1024 * 1024;
 const MAX_PRODUCT_BYTES: usize = ENVELOPE_MAGIC.len()
@@ -1719,6 +1719,13 @@ mod portable_frame_tests {
         assert!(
             matches!(mint(&historical,&artifact,ExpectedProducerTarget::WORKER),Err(PortableError::Qualification(reason)) if reason=="unsupported deployment receipt interpretation")
         );
+    }
+    #[test]
+    fn portable_body_relative_envelope_refuses_historical_v3_frame() {
+        assert_eq!(INTERPRETATION, "pse.runtime.admitted-body-product.v4");
+        let mut historical = b"pse-admitted-body-product-v3\0".to_vec();
+        historical.extend_from_slice(&0u32.to_be_bytes());
+        assert!(split_frame(&historical).is_err());
     }
     #[test]
     fn portable_envelope_over_wire_block_preserves_hash_and_refuses_forged_extent() {

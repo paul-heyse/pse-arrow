@@ -294,6 +294,30 @@ fn blocking_on<T: Send, F: Future<Output = Result<T, native::WorkflowError>> + S
     future: F,
     cancel: impl Fn(),
 ) -> PyResult<T> {
+    blocking_on_with_recovery(py, executor, future, cancel, |_| None)
+}
+fn blocking_analysis<
+    F: Future<Output = Result<native::AnalysisHandle, native::WorkflowError>> + Send,
+>(
+    py: Python<'_>,
+    runtime: &runtime::Runtime,
+    future: F,
+    cancel: impl Fn(),
+) -> PyResult<native::AnalysisHandle> {
+    blocking_on_with_recovery(py, runtime.executor, future, cancel, |value| {
+        Some(value.key().to_owned())
+    })
+}
+fn blocking_on_with_recovery<
+    T: Send,
+    F: Future<Output = Result<T, native::WorkflowError>> + Send,
+>(
+    py: Python<'_>,
+    executor: &tokio::runtime::Runtime,
+    future: F,
+    cancel: impl Fn(),
+    recovery_key: impl Fn(&T) -> Option<String>,
+) -> PyResult<T> {
     if tokio::runtime::Handle::try_current().is_ok() {
         return Err(invalid(
             py,
@@ -301,7 +325,7 @@ fn blocking_on<T: Send, F: Future<Output = Result<T, native::WorkflowError>> + S
         ));
     }
     let mut future = Box::pin(future);
-    let mut signal = None;
+    let mut signal: Option<PyErr> = None;
     loop {
         let ready = py.detach(|| {
             executor.block_on(async {
@@ -310,7 +334,20 @@ fn blocking_on<T: Send, F: Future<Output = Result<T, native::WorkflowError>> + S
         });
         if let Ok(value) = ready {
             return match signal {
-                Some(e) => Err(e),
+                Some(e) => {
+                    use errors::ReportSource;
+                    let key = match &value {
+                        Ok(value) => recovery_key(value),
+                        Err(error) => error.report_analysis_key(),
+                    };
+                    if let Some(key) = key {
+                        e.value(py).setattr("analysis_key", key)?;
+                    }
+                    if let Err(error) = &value {
+                        e.set_cause(py, Some(errors::diagnostic(py, error)));
+                    }
+                    Err(e)
+                }
                 None => value.map_err(|e| errors::diagnostic(py, &e)),
             };
         }
@@ -664,7 +701,7 @@ impl NativeRuntime {
             documents::decode(py, "analysis controls", controls, 128 * 1024)?;
         let cancel = pse_columnar::CancellationToken::new();
         Ok(NativeAnalysis {
-            inner: blocking(
+            inner: blocking_analysis(
                 py,
                 &self.owner,
                 self.inner
@@ -682,7 +719,7 @@ impl NativeRuntime {
             || {},
         )
     }
-    fn forget_analysis_results(&self, py: Python<'_>, analysis: &str) -> PyResult<()> {
+    fn forget_analysis_results(&self, py: Python<'_>, analysis: &str) -> PyResult<bool> {
         blocking(
             py,
             &self.owner,
@@ -961,23 +998,16 @@ impl NativeRunHandle {
         self.inner.cancel();
     }
     fn result(&self) -> Option<NativeRunResult> {
-        self.inner.result().map(|inner| NativeRunResult {
-            owner: self.owner.clone(),
-            inner,
-        })
+        self.inner.result().map(|inner| NativeRunResult { inner })
     }
     fn wait(&self, py: Python<'_>) -> PyResult<NativeRunResult> {
         let inner = blocking(py, &self.owner, self.inner.wait(), || self.inner.cancel())?;
-        Ok(NativeRunResult {
-            owner: self.owner.clone(),
-            inner,
-        })
+        Ok(NativeRunResult { inner })
     }
     #[pyo3(signature=() -> "typing.Awaitable[NativeRunResult]")]
     fn wait_async<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let locals = pyo3_async_runtimes::tokio::get_current_locals(py)?;
         let handle = self.inner.clone();
-        let owner = self.owner.clone();
         let guard = CancelWait(Some(handle.clone()));
         pyo3_async_runtimes::tokio::future_into_py_with_locals(py, locals, async move {
             let mut guard = guard;
@@ -985,7 +1015,7 @@ impl NativeRunHandle {
             guard.0.take();
             Python::attach(|py| {
                 let inner = value.map_err(|e| errors::diagnostic(py, &e))?;
-                Py::new(py, NativeRunResult { owner, inner })
+                Py::new(py, NativeRunResult { inner })
             })
         })
     }
@@ -1019,7 +1049,6 @@ impl NativeRunHandle {
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct NativeRunResult {
-    owner: Arc<runtime::Runtime>,
     inner: Arc<native::RunResult>,
 }
 #[pymethods]
@@ -1078,32 +1107,17 @@ impl NativeRunResult {
         }
     }
     fn tables(&self, py: Python<'_>) -> PyResult<Vec<String>> {
-        py.detach(|| {
-            self.inner.tables().map(|tables| {
-                tables
-                    .keys()
-                    .filter_map(|id| {
-                        self.owner
-                            .registry
-                            .relation_by_id(*id)
-                            .map(|s| format!("{}.{}", s.key.namespace.as_str(), s.key.name))
-                    })
-                    .collect()
-            })
-        })
-        .map_err(|e| errors::diagnostic(py, e.as_ref()))
+        Ok(py.detach(|| self.inner.table_names()))
     }
     fn table(&self, py: Python<'_>, name: &str) -> PyResult<inspection::TableStream> {
-        py.detach(|| self.inner.table(name))
-            .map(inspection::TableStream::from_batch)
-            .map_err(|e| errors::diagnostic(py, e.as_ref()))?
-            .map_err(|e| errors::diagnostic(py, &e))
+        py.detach(|| self.inner.clone().into_table_cursor(name, 1024))
+            .map(inspection::TableStream::from_result)
+            .map_err(|error| errors::diagnostic(py, error.as_ref()))
     }
     fn export_fit_parameters(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
-        py.detach(|| self.inner.export_fit_parameters())
-            .map(inspection::TableStream::from_batch)
-            .map_err(|error| errors::diagnostic(py, &error))?
-            .map_err(|e| errors::diagnostic(py, &e))
+        py.detach(|| self.inner.clone().into_fit_parameters_cursor(1024))
+            .map(inspection::TableStream::from_result)
+            .map_err(|error| errors::diagnostic(py, &error))
     }
 }
 /// Actual admitted physical source rows and compiler context.
@@ -1464,7 +1478,7 @@ impl NativePreparedOperation {
             documents::decode(py, "analysis controls", controls, 128 * 1024)?;
         let cancel = pse_columnar::CancellationToken::new();
         Ok(NativeAnalysis {
-            inner: blocking(
+            inner: blocking_analysis(
                 py,
                 &self.owner,
                 prepared.dependency_analysis(&controls, cancel.clone()),

@@ -23,6 +23,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+if not __package__:
+    sys.path.insert(0, str(ROOT))
+from scripts.arrow_validation import compose  # noqa: E402 -- script bootstrap
+
 WORKSPACE_WIDE = (
     "Cargo.toml",
     "Cargo.lock",
@@ -143,10 +147,9 @@ def main(argv: list[str] | None = None) -> int:
         print("affected: nothing changed")
         return 0
     selected = sorted(closure(seeds, dependents)) if not wide else sorted(roots)
-    features = ",".join(
-        item for item in ("pse-relations/force-validate", args.features) if item
-    )
-    command = ["cargo", "nextest", "run", "--locked", "--features", features]
+    command = ["cargo", "nextest", "run", "--locked"]
+    if args.features:
+        command += ["--features", args.features]
     if wide:
         command.append("--workspace")
         print(
@@ -154,12 +157,14 @@ def main(argv: list[str] | None = None) -> int:
             + ", ".join(wide[:5])
         )
     else:
-        for name in [*selected, "pse-relations"]:
+        for name in selected:
             command += ["-p", name]
         if seeds:
             filterset = " | ".join(f"rdeps({name})" for name in sorted(seeds))
             command += ["-E", filterset]
     command += extra
+    if seeds or wide:
+        command = compose(command)
     print("affected: changed packages: " + (", ".join(sorted(seeds)) or "none"))
     if not wide:
         print(

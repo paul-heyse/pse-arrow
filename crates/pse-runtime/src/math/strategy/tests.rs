@@ -12,6 +12,189 @@ fn hash(n: u8) -> ContentHash {
     ContentHash::from_bytes([n; 32])
 }
 
+#[test]
+fn event_export_admits_current_copy_before_projection() {
+    use datafusion::execution::memory_pool::GreedyMemoryPool;
+    use pse_columnar::MemoryPool;
+    let mut trace = Trace {
+        owner: None,
+        publication_request: None,
+        declaration: strategy(),
+        original: hash(1),
+        backend: None,
+        profile: hash(2),
+        start: StartOrigin::Specification,
+        starts: Vec::new(),
+        products: vec![RungProducts::default()],
+        events: vec![Event {
+            mechanism: 0,
+            kind: EventKind::Refused,
+            phase: Phase::Preparation,
+            original: None,
+            decision: None,
+            observation: Some(Observation::CapabilityRefusal),
+            transition: Some(Transition::Stop),
+            permission: None,
+            work: None,
+            cause: Some(Arc::new(ProblemError::Unsupported(
+                "retained cause".repeat(1024),
+            ))),
+        }],
+    };
+    let run = pse_model::generated::identities::RunId::from_bytes([8; 16]);
+    let tiny: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(64));
+    assert!(
+        trace
+            .rows(run, 0, tiny.clone(), 0..usize::MAX)
+            .unwrap()
+            .next()
+            .unwrap()
+            .is_err()
+    );
+    assert_eq!(tiny.reserved(), 0);
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(1 << 20));
+    let mut rows = trace.rows(run, 0, pool.clone(), 0..usize::MAX).unwrap();
+    assert_eq!(
+        pool.reserved(),
+        0,
+        "constructing a lazy export performs no row work"
+    );
+    let row = rows.next().unwrap().unwrap();
+    assert_eq!(row.event, 0);
+    assert!(
+        pool.reserved() > 0,
+        "copy admission remains until publication and next demand"
+    );
+    drop(row);
+    assert!(rows.next().is_none());
+    drop(rows);
+    assert_eq!(pool.reserved(), 0);
+    trace.events.clear();
+    assert!(
+        trace
+            .rows(run, 0, tiny, 0..usize::MAX)
+            .unwrap()
+            .next()
+            .is_none()
+    );
+}
+
+#[test]
+fn strategy_export_windows_skip_malformed_events_products_and_empty_ranges() {
+    use pse_model::strategy::{
+        AccuracyClass, AccuracyEvidence, BranchPolicy, ProductEvidence, SemanticProductKey,
+    };
+    let event = Event {
+        mechanism: 0,
+        kind: EventKind::Refused,
+        phase: Phase::Preparation,
+        original: None,
+        decision: None,
+        observation: None,
+        transition: None,
+        permission: None,
+        work: None,
+        cause: None,
+    };
+    let good = ProductEvidence {
+        source: SemanticProductKey {
+            structure: hash(1),
+            binding: hash(2),
+            numerical_policy: Some(hash(3)),
+            normalization: Some(hash(4)),
+            point: Some(hash(5)),
+            parameters: None,
+            derivation: None,
+            branch: None,
+            accuracy: Some(hash(8)),
+        },
+        derivative_order: 1,
+        branch: BranchPolicy::any_qualified(),
+        accuracy: AccuracyEvidence {
+            product: hash(8),
+            normalization: hash(4),
+            class: AccuracyClass::Certified,
+            error: Some(1e-8),
+        },
+    };
+    let mut bad = good.clone();
+    bad.source.point = None;
+    let trace = Trace {
+        owner: None,
+        publication_request: None,
+        declaration: strategy(),
+        original: hash(1),
+        backend: None,
+        profile: hash(2),
+        start: StartOrigin::Specification,
+        starts: Vec::new(),
+        products: vec![
+            RungProducts {
+                evidence: vec![bad],
+                ..Default::default()
+            },
+            RungProducts {
+                evidence: vec![good],
+                ..Default::default()
+            },
+        ],
+        events: vec![
+            Event {
+                mechanism: usize::MAX,
+                ..event.clone()
+            },
+            event,
+        ],
+    };
+    let run = pse_model::generated::identities::RunId::from_bytes([8; 16]);
+    let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(
+        datafusion::execution::memory_pool::GreedyMemoryPool::new(1 << 20),
+    );
+    assert_eq!(trace.event_count(), 2);
+    assert_eq!(trace.product_count().unwrap(), 2);
+    assert!(
+        trace
+            .rows(run, 0, pool.clone(), 0..1)
+            .unwrap()
+            .next()
+            .unwrap()
+            .is_err()
+    );
+    let rows = trace
+        .rows(run, 0, pool.clone(), 1..2)
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].event, 1);
+    assert!(
+        trace
+            .product_rows(run, 0, 0..1)
+            .unwrap()
+            .next()
+            .unwrap()
+            .is_err()
+    );
+    let rows = trace
+        .product_rows(run, 0, 1..2)
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!((rows[0].mechanism, rows[0].product), (1, 0));
+    for range in [0..0, 1..1, 2..2, 50..100] {
+        assert!(
+            trace
+                .rows(run, 0, pool.clone(), range.clone())
+                .unwrap()
+                .next()
+                .is_none()
+        );
+        assert!(trace.product_rows(run, 0, range).unwrap().next().is_none());
+    }
+    assert_eq!(pool.reserved(), 0);
+}
+
 #[tokio::test]
 async fn engineering_refinement_original_success_stops_catalog_without_promoting_goal_permission() {
     let declaration = strategy();
@@ -123,8 +306,27 @@ async fn automatic_refusal_only_trace_publishes_without_admitting_empty_executio
         events: Vec::new(),
     };
     let run_id = pse_operations::mint_id();
-    assert!(trace.rows(run_id, 0).unwrap().is_empty());
-    assert!(trace.product_rows(run_id, 0).unwrap().is_empty());
+    assert!(
+        trace
+            .rows(
+                run_id,
+                0,
+                Arc::new(datafusion::execution::memory_pool::UnboundedMemoryPool::default()),
+                0..usize::MAX
+            )
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        trace
+            .product_rows(run_id, 0, 0..usize::MAX)
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap()
+            .is_empty()
+    );
     let mut preparation = prepared.solve.numerical_strategy().mechanisms.remove(0);
     preparation.position = Position::Preparation;
     preparation.kind = MechanismKind::BoundedFeasibility;
@@ -149,7 +351,16 @@ async fn automatic_refusal_only_trace_publishes_without_admitting_empty_executio
         work: None,
         cause: Some(cause),
     });
-    let rows = trace.rows(run_id, 0).unwrap();
+    let rows = trace
+        .rows(
+            run_id,
+            0,
+            Arc::new(datafusion::execution::memory_pool::UnboundedMemoryPool::default()),
+            0..usize::MAX,
+        )
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].strategy_identity, request.as_id());
     assert_eq!(rows[0].kind, EventKind::Refused);
@@ -189,7 +400,14 @@ async fn automatic_refusal_only_trace_publishes_without_admitting_empty_executio
     );
     trace.publication_request = None;
     assert!(
-        trace.rows(run_id, 0).is_err(),
+        trace
+            .rows(
+                run_id,
+                0,
+                Arc::new(datafusion::execution::memory_pool::UnboundedMemoryPool::default()),
+                0..usize::MAX
+            )
+            .is_err(),
         "explicit declaration publication retains admission validation"
     );
 }

@@ -135,6 +135,7 @@ impl FitOracle {
             adjoint: gradient.then(|| vec![0.; x.len()]),
         };
         for (ei, e) in p.experiments.iter().enumerate() {
+            let mapping = &p.layout.mappings[ei];
             match e {
                 Experiment::Steady(s) => {
                     let worker = self.workers[ei]
@@ -149,7 +150,6 @@ impl FitOracle {
                     for &(row, global) in &s.constraints {
                         point.constraints[global.get()] = outputs[row.get()];
                     }
-                    let mapping = &p.layout.mappings[ei];
                     for &(source, target) in &mapping.constraints {
                         point.jacobian.add(target, j.val()[source])?;
                     }
@@ -159,22 +159,14 @@ impl FitOracle {
                             .responses
                             .add(term.contribution, j.val()[term.local])?;
                     }
-                    for (i, o) in p
-                        .measurements
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, o)| o.experiment == ei && o.included)
-                    {
+                    for &i in &mapping.observations {
+                        let o = &p.measurements[i];
                         point.predictions[i] = outputs[o.row];
                     }
                     point.blocks.push(Some(j.to_owned()));
                 }
                 Experiment::Transient(s) => {
-                    if !p
-                        .measurements
-                        .iter()
-                        .any(|o| o.experiment == ei && o.included)
-                    {
+                    if mapping.observations.is_empty() {
                         point.blocks.push(None);
                         continue;
                     }
@@ -182,10 +174,7 @@ impl FitOracle {
                     {
                         let forward = self.derivatives == FitDerivatives::Responses
                             && s.profile.sensitivity != native::dynamics::DynamicSensitivity::None;
-                        let combined = gradient
-                            && s.bindings
-                                .iter()
-                                .any(|b| p.parameter_columns[b.parameter].is_some());
+                        let combined = gradient && !mapping.free_bindings.is_empty();
                         #[cfg(test)]
                         {
                             self.transient_passes.0 += 1;
@@ -217,11 +206,8 @@ impl FitOracle {
                                     &self.execution,
                                     &report,
                                 )?;
-                                for o in p
-                                    .measurements
-                                    .iter()
-                                    .filter(|o| o.experiment == ei && o.included)
-                                {
+                                for &i in &mapping.observations {
+                                    let o = &p.measurements[i];
                                     let sample = o.sample_index.ok_or_else(|| {
                                         ProblemError::internal("fit upgrade sample")
                                     })?;
@@ -264,12 +250,8 @@ impl FitOracle {
                                 },
                             )?
                         };
-                        for (i, o) in p
-                            .measurements
-                            .iter()
-                            .enumerate()
-                            .filter(|(_, o)| o.experiment == ei && o.included)
-                        {
+                        for &i in &mapping.observations {
+                            let o = &p.measurements[i];
                             let sample = o
                                 .sample_index
                                 .and_then(|i| report.samples.get(i))
@@ -277,26 +259,22 @@ impl FitOracle {
                                     ProblemError::internal("missing prepared transient sample")
                                 })?;
                             point.predictions[i] = sample.outputs[o.row];
-                            if !forward {
-                                continue;
-                            }
-                            for term in p.layout.mappings[ei]
-                                .responses
-                                .iter()
-                                .filter(|t| t.observation == i)
-                            {
-                                let binding = s
-                                    .bindings
-                                    .iter()
-                                    .find(|b| b.local == term.local)
+                        }
+                        if forward {
+                            // Each term directly names its measurement and local binding;
+                            // retain binding-major contribution order without relationship searches.
+                            for term in &mapping.responses {
+                                let o = &p.measurements[term.observation];
+                                let sample = o
+                                    .sample_index
+                                    .and_then(|i| report.samples.get(i))
                                     .ok_or_else(|| {
-                                        ProblemError::internal(
-                                            "transient response parameter binding",
-                                        )
+                                        ProblemError::internal("missing prepared transient sample")
                                     })?;
-                                point
-                                    .responses
-                                    .add(term.contribution, s.response(sample, o.row, binding)?)?;
+                                point.responses.add(
+                                    term.contribution,
+                                    s.response(sample, o.row, &s.bindings[term.local])?,
+                                )?;
                             }
                         }
                         point.trajectories.insert(
@@ -396,11 +374,8 @@ impl FitOracle {
         report: &native::dynamics::Report,
     ) -> Result<Vec<f64>, ProblemError> {
         let mut weights = vec![0.0; report.samples.len() * outputs];
-        for o in p
-            .measurements
-            .iter()
-            .filter(|o| o.experiment == ei && o.included)
-        {
+        for &i in &p.layout.mappings[ei].observations {
+            let o = &p.measurements[i];
             let index = o
                 .sample_index
                 .ok_or_else(|| ProblemError::internal("missing prepared transient sample"))?;
@@ -427,22 +402,12 @@ impl FitOracle {
                 let Experiment::Transient(s) = e else {
                     return Ok(None);
                 };
-                let free = s
-                    .bindings
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, b)| p.parameter_columns[b.parameter].is_some())
-                    .map(|(i, _)| i)
-                    .collect::<Vec<_>>();
-                if free.is_empty()
-                    || !p
-                        .measurements
-                        .iter()
-                        .any(|o| o.experiment == ei && o.included)
-                {
+                let mapping = &p.layout.mappings[ei];
+                if mapping.free_bindings.is_empty() || mapping.observations.is_empty() {
                     return Ok(None);
                 }
-                self.transient_curvature(&p, ei, s, x, &free).map(Some)
+                self.transient_curvature(&p, ei, s, x, &mapping.free_bindings)
+                    .map(Some)
             })
             .collect()
     }
@@ -674,12 +639,8 @@ impl NlpOracle for FitOracle {
                 lambda[local.get()] += multipliers[global.get()];
             }
             if exact {
-                for (i, o) in p
-                    .measurements
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, o)| o.experiment == ei && o.included)
-                {
+                for &i in &p.layout.mappings[ei].observations {
+                    let o = &p.measurements[i];
                     let (r, w) = Self::residual(o, point.predictions[i])?;
                     lambda[o.row] += objective_weight * r * w;
                 }
@@ -1184,12 +1145,8 @@ impl FitOracle {
                 )
                 .map_err(|e| ProblemError::numerical(e.to_string()))?;
                 let dx = qualified_response.values;
-                for (i, o) in p
-                    .measurements
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, o)| o.experiment == ei && o.included)
-                {
+                for &i in &p.layout.mappings[ei].observations {
+                    let o = &p.measurements[i];
                     for j in 0..np {
                         for k in 0..nx {
                             response[(i, j)] +=

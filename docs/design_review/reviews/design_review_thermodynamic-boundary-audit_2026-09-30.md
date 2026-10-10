@@ -6,7 +6,7 @@ Author review by Codex, 2026-09-30. Design tier, conformance purpose; Core 3.3,
 process-simulator profile 1.3 and the pse-arrow binding. The boundary is Plan 23's
 changed production Rust, registry, package declarations and their Python consumers.
 Concurrent agent policy changes and Plan 24 are excluded. The disposition owner is
-[Plan 23](../../plans/23-thermodynamic-domain-and-campaign.md#current-execution).
+[Plan 23](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/23-thermodynamic-domain-and-campaign.md#current-execution).
 
 The drivers are package-only scientific extension, shared admission for inline and
 binary banks, immutable revision reuse, owned physical conventions and truthful native

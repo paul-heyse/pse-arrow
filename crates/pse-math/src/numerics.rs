@@ -10,7 +10,7 @@ use pse_model::{
     },
     numerics::*,
 };
-use pse_quantity::{QuantityRegistry, QuantityTypeId, UnitId};
+use pse_quantity::{PhysicalPreconditions, QuantityRegistry, QuantityTypeId, UnitId};
 use std::collections::BTreeMap;
 
 /// Resolved kind/identity access shared by coordinate transport and original quality.
@@ -102,25 +102,31 @@ pub fn project(
 /// representations and all invalid projections also refused by [`project`].
 pub fn project_difference(
     registry: &QuantityRegistry,
+    preconditions: &PhysicalPreconditions,
     source: &ResolvedNumericalPolicy,
     projections: &[TargetProjection],
 ) -> Result<ResolvedNumericalPolicy, MathError> {
-    project_with(registry, source, projections, ProjectionMeaning::Difference)
+    project_with(
+        registry,
+        source,
+        projections,
+        ProjectionMeaning::Difference(preconditions),
+    )
 }
 #[derive(Clone, Copy)]
-enum ProjectionMeaning {
+enum ProjectionMeaning<'a> {
     Coordinate,
-    Difference,
+    Difference(&'a PhysicalPreconditions),
 }
 fn project_with(
     registry: &QuantityRegistry,
     source: &ResolvedNumericalPolicy,
     projections: &[TargetProjection],
-    meaning: ProjectionMeaning,
+    meaning: ProjectionMeaning<'_>,
 ) -> Result<ResolvedNumericalPolicy, MathError> {
     let frame = match meaning {
         ProjectionMeaning::Coordinate => pse_ids::Frame::NumericalProjectionV2,
-        ProjectionMeaning::Difference => pse_ids::Frame::NumericalDifferenceProjectionV1,
+        ProjectionMeaning::Difference(_) => pse_ids::Frame::NumericalDifferenceProjectionV1,
     };
     let mut key = FramedHasher::new(frame);
     key.hash(&source.key);
@@ -143,7 +149,7 @@ fn project_with(
         let original = access.get(projection.source_kind, projection.source)?;
         let projected_quantity = match meaning {
             ProjectionMeaning::Coordinate => original.quantity.into(),
-            ProjectionMeaning::Difference => {
+            ProjectionMeaning::Difference(preconditions) => {
                 let value = pse_quantity::ResolvedPhysicalContract::named(
                     original.quantity.into(),
                     pse_quantity::IndexSet::default(),
@@ -154,7 +160,7 @@ fn project_with(
                     &[value.clone(), value],
                     None,
                     registry,
-                    &pse_quantity::infer::NoInvariantFacts,
+                    preconditions,
                 )?
                 .result
                 .require_named()?
@@ -262,10 +268,11 @@ fn engineering_rank(source: NumericalSource) -> Option<u8> {
 /// offsets never become engineering characteristic magnitudes.
 fn engineering_magnitude(
     registry: &QuantityRegistry,
+    preconditions: &PhysicalPreconditions,
     target: &TargetSpec,
     unit: UnitId,
 ) -> Result<f64, MathError> {
-    let difference = engineering_error_quantity(registry, target)?;
+    let difference = engineering_error_quantity(registry, preconditions, target)?;
     Ok(pse_quantity::convert_spec_for_type(
         registry.unit(unit)?,
         registry.unit(target.unit)?,
@@ -278,6 +285,7 @@ fn engineering_magnitude(
 /// Error allowances use the complete legal difference contract of affine points.
 fn engineering_error_quantity(
     registry: &QuantityRegistry,
+    preconditions: &PhysicalPreconditions,
     target: &TargetSpec,
 ) -> Result<QuantityTypeId, MathError> {
     Ok(
@@ -293,7 +301,7 @@ fn engineering_error_quantity(
                 &[physical.clone(), physical],
                 None,
                 registry,
-                &pse_quantity::infer::NoInvariantFacts,
+                preconditions,
             )?
             .result
             .require_named()?
@@ -309,6 +317,7 @@ fn engineering_error_quantity(
 /// Missing strict context, ambiguous full-quantity rules or invalid tagged scale.
 pub fn operational_output_context(
     registry: &QuantityRegistry,
+    preconditions: &PhysicalPreconditions,
     target: &TargetSpec,
     policy: &NumericalPolicy,
 ) -> Result<EngineeringContext, MathError> {
@@ -324,11 +333,19 @@ pub fn operational_output_context(
             declaration: declaration.clone(),
             source: NumericalSource::Analysis,
         });
-    engineering_default(registry, target, policy, selected.as_ref(), true)
+    engineering_default(
+        registry,
+        preconditions,
+        target,
+        policy,
+        selected.as_ref(),
+        true,
+    )
 }
 
 fn engineering_default(
     registry: &QuantityRegistry,
+    preconditions: &PhysicalPreconditions,
     target: &TargetSpec,
     policy: &NumericalPolicy,
     selected: Option<&SourcedRequirement>,
@@ -343,7 +360,7 @@ fn engineering_default(
             .ok_or_else(|| failure(target.id, "engineering rule reference is unavailable"))?;
         pse_quantity::admission::require_same_contract(
             rule.quantity_id.into(),
-            engineering_error_quantity(registry, target)?,
+            engineering_error_quantity(registry, preconditions, target)?,
             registry,
         )?;
         Some(rule)
@@ -352,7 +369,7 @@ fn engineering_default(
             .engineering_rules
             .iter()
             .filter(|r| {
-                engineering_error_quantity(registry, target).is_ok_and(|quantity| {
+                engineering_error_quantity(registry, preconditions, target).is_ok_and(|quantity| {
                     pse_quantity::admission::require_same_contract(
                         r.quantity_id.into(),
                         quantity,
@@ -376,6 +393,7 @@ fn engineering_default(
             Ok::<f64, MathError>(
                 v * engineering_magnitude(
                     registry,
+                    preconditions,
                     target,
                     rule.map_or(target.unit, |r| r.unit_id.into()),
                 )?,
@@ -401,7 +419,8 @@ fn engineering_default(
                     "conditioning or canonical nominal is not an engineering scale",
                 )
             })?;
-            let magnitude = s.value * engineering_magnitude(registry, target, s.unit_id.into())?;
+            let magnitude =
+                s.value * engineering_magnitude(registry, preconditions, target, s.unit_id.into())?;
             if !magnitude.is_finite() || magnitude < 0.0 {
                 return Err(failure(target.id, "engineering scale is not representable"));
             }
@@ -438,7 +457,8 @@ fn engineering_default(
             ));
         }
         let canonical = registry.quantity_type(target.quantity)?.canonical_unit;
-        DEFAULT_ENGINEERING_ACCURACY * engineering_magnitude(registry, target, canonical)?
+        DEFAULT_ENGINEERING_ACCURACY
+            * engineering_magnitude(registry, preconditions, target, canonical)?
     } else {
         budget
     };
@@ -529,6 +549,7 @@ pub fn term_scale(
 /// Resolve all selected targets, refusing unknown requirements and equal-priority conflicts.
 pub fn resolve(
     registry: &QuantityRegistry,
+    preconditions: &PhysicalPreconditions,
     targets: &[TargetSpec],
     declarations: &[SourcedRequirement],
     policy: &NumericalPolicy,
@@ -551,7 +572,7 @@ pub fn resolve(
             target.quantity,
             registry,
         )?;
-        engineering_magnitude(registry, target, scale.unit_id.into())?;
+        engineering_magnitude(registry, preconditions, target, scale.unit_id.into())?;
     }
     for rule in &policy.engineering_rules {
         let quantity = registry.quantity_type(rule.quantity_id.into())?;
@@ -771,8 +792,14 @@ pub fn resolve(
             .enumerate()
             .map(|(index, r)| {
                 if r.declaration.shared_engineering_allowance == Some(true) {
-                    let context =
-                        engineering_default(registry, target, policy, Some(r), index == 0)?;
+                    let context = engineering_default(
+                        registry,
+                        preconditions,
+                        target,
+                        policy,
+                        Some(r),
+                        index == 0,
+                    )?;
                     let budget = context.budget;
                     if index == 0 {
                         selected_engineering = Some(context);
@@ -799,7 +826,8 @@ pub fn resolve(
             if let Some(explicit) = target.declared_tolerance {
                 explicit
             } else {
-                let context = engineering_default(registry, target, policy, None, true)?;
+                let context =
+                    engineering_default(registry, preconditions, target, policy, None, true)?;
                 let budget = context.budget;
                 selected_engineering = Some(context);
                 budget
@@ -981,6 +1009,9 @@ mod tests {
     use super::*;
     use pse_model::generated::enums::EngineeringScaleKind;
     use pse_quantity::standard::{ids, standard_registry};
+    fn facts() -> PhysicalPreconditions {
+        PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap()
+    }
     fn id(n: u8) -> SemanticId {
         SemanticId::from_bytes([n; 16])
     }
@@ -1001,6 +1032,7 @@ mod tests {
         row.kind = NumericalTarget::Row;
         let policy = resolve(
             &registry,
+            &facts(),
             &[row, target()],
             &[],
             &NumericalPolicy::default(),
@@ -1091,14 +1123,14 @@ mod tests {
             engineering_rules: vec![rule(4, Some(0.1))],
             ..Default::default()
         };
-        let output = operational_output_context(&registry, &target(), &policy).unwrap();
+        let output = operational_output_context(&registry, &facts(), &target(), &policy).unwrap();
         assert_eq!(output.budget, 0.1);
         let mut changed = policy.clone();
         changed.requirements[0].absolute_tolerance = Some(10.);
         changed.kkt.stationarity = 1e-12;
         changed.kkt.complementarity = 0.5;
         assert_eq!(
-            operational_output_context(&registry, &target(), &changed).unwrap(),
+            operational_output_context(&registry, &facts(), &target(), &changed).unwrap(),
             output
         );
     }
@@ -1119,7 +1151,14 @@ mod tests {
                 unit: ids::unit(unit),
                 ..target()
             };
-            let resolved = resolve(&registry, &[coordinate], &[scale.clone()], &policy).unwrap();
+            let resolved = resolve(
+                &registry,
+                &facts(),
+                &[coordinate],
+                &[scale.clone()],
+                &policy,
+            )
+            .unwrap();
             let value = &resolved.targets[0];
             assert!((value.nominal - 300.0 * magnitude).abs() < 1e-12);
             assert!((value.budget - 0.3 * magnitude).abs() < 1e-12);
@@ -1147,6 +1186,7 @@ mod tests {
         authored.declaration.provenance = "design temperature decision resolution: 0.01 K".into();
         let resolved = resolve(
             &registry,
+            &facts(),
             &[target()],
             &[authored.clone()],
             &Default::default(),
@@ -1160,7 +1200,7 @@ mod tests {
         verification.provenance =
             "analytic derivative verification requires 1e-8 K evaluation accuracy".into();
         policy.requirements.push(verification);
-        let resolved = resolve(&registry, &[target()], &[authored], &policy).unwrap();
+        let resolved = resolve(&registry, &facts(), &[target()], &[authored], &policy).unwrap();
         assert_eq!(resolved.targets[0].budget, 1e-8);
         assert!(resolved.targets[0].provenance.iter().any(|p| p.field
             == NumericalProvenanceField::AbsoluteTolerance
@@ -1171,7 +1211,7 @@ mod tests {
             declared_tolerance: Some(0.005),
             ..target()
         };
-        let resolved = resolve(&registry, &[declared], &[], &Default::default()).unwrap();
+        let resolved = resolve(&registry, &facts(), &[declared], &[], &Default::default()).unwrap();
         assert_eq!(resolved.targets[0].budget, 0.005);
     }
     #[test]
@@ -1186,7 +1226,8 @@ mod tests {
             let mut conditioning = requirement(2, NumericalSource::Model, nominal);
             conditioning.declaration.absolute_tolerance = None;
             conditioning.declaration.relative_tolerance = None;
-            let resolved = resolve(&registry, &[target()], &[conditioning], &policy).unwrap();
+            let resolved =
+                resolve(&registry, &facts(), &[target()], &[conditioning], &policy).unwrap();
             assert_eq!(resolved.targets[0].nominal, nominal);
             assert_eq!(resolved.targets[0].budget, 0.3);
             assert_eq!(resolved.targets[0].relative, 0.0);
@@ -1196,7 +1237,7 @@ mod tests {
             );
         }
         policy.engineering_scales[0].value = 0.0;
-        let resolved = resolve(&registry, &[target()], &[], &policy).unwrap();
+        let resolved = resolve(&registry, &facts(), &[target()], &[], &policy).unwrap();
         let context = resolved.targets[0].engineering.as_ref().unwrap();
         assert_eq!(resolved.targets[0].budget, 0.1);
         assert_eq!(context.characteristic, Some(0.0));
@@ -1210,6 +1251,7 @@ mod tests {
         conditioning.declaration.relative_tolerance = None;
         let resolved = resolve(
             &registry,
+            &facts(),
             &[target()],
             &[conditioning.clone()],
             &Default::default(),
@@ -1223,9 +1265,18 @@ mod tests {
             strict_engineering_context: true,
             ..Default::default()
         };
-        assert!(resolve(&registry, &[target()], &[conditioning.clone()], &strict).is_err());
+        assert!(
+            resolve(
+                &registry,
+                &facts(),
+                &[target()],
+                &[conditioning.clone()],
+                &strict
+            )
+            .is_err()
+        );
         conditioning.declaration.absolute_tolerance = Some(0.02);
-        let explicit = resolve(&registry, &[target()], &[conditioning], &strict).unwrap();
+        let explicit = resolve(&registry, &facts(), &[target()], &[conditioning], &strict).unwrap();
         assert_eq!(explicit.targets[0].budget, 0.02);
         assert!(explicit.targets[0].engineering.is_none());
     }
@@ -1240,7 +1291,7 @@ mod tests {
             engineering_rules: vec![rule(10, Some(0.1))],
             ..Default::default()
         };
-        let resolved = resolve(&registry, &[target()], &[], &policy).unwrap();
+        let resolved = resolve(&registry, &facts(), &[target()], &[], &policy).unwrap();
         assert_eq!(resolved.targets[0].budget, 0.2);
         assert_eq!(
             resolved.targets[0].engineering.as_ref().unwrap().source,
@@ -1249,29 +1300,45 @@ mod tests {
         policy
             .engineering_scales
             .push(scale(11, NumericalSource::PropertyDefault, 300.0));
-        assert!(resolve(&registry, &[target()], &[], &policy).is_err());
+        assert!(resolve(&registry, &facts(), &[target()], &[], &policy).is_err());
         policy.engineering_scales.pop();
         policy.engineering_rules.push(rule(12, Some(0.7)));
-        assert!(resolve(&registry, &[target()], &[], &policy).is_err());
+        assert!(resolve(&registry, &facts(), &[target()], &[], &policy).is_err());
         let mut inherited = requirement(2, NumericalSource::Model, 20.0);
         inherited.declaration.shared_engineering_allowance = Some(true);
         inherited.declaration.engineering_rule_id = Some(id(12).into());
         inherited.declaration.relative_tolerance = None;
-        let resolved = resolve(&registry, &[target()], &[inherited.clone()], &policy).unwrap();
+        let resolved = resolve(
+            &registry,
+            &facts(),
+            &[target()],
+            &[inherited.clone()],
+            &policy,
+        )
+        .unwrap();
         assert_eq!(resolved.targets[0].budget, 0.7);
         assert_eq!(
             resolved.targets[0].engineering.as_ref().unwrap().rule_id,
             Some(id(12).into())
         );
         inherited.declaration.shared_engineering_allowance = Some(false);
-        assert!(resolve(&registry, &[target()], &[inherited.clone()], &policy).is_err());
+        assert!(
+            resolve(
+                &registry,
+                &facts(),
+                &[target()],
+                &[inherited.clone()],
+                &policy
+            )
+            .is_err()
+        );
         inherited.declaration.engineering_rule_id = None;
-        let explicit = resolve(&registry, &[target()], &[inherited], &policy).unwrap();
+        let explicit = resolve(&registry, &facts(), &[target()], &[inherited], &policy).unwrap();
         assert_eq!(explicit.targets[0].budget, 0.5);
         assert!(explicit.targets[0].engineering.is_none());
         policy.engineering_rules.pop();
         policy.engineering_scales[0].source = NumericalSource::DerivedNominal;
-        assert!(resolve(&registry, &[target()], &[], &policy).is_err());
+        assert!(resolve(&registry, &facts(), &[target()], &[], &policy).is_err());
     }
     #[test]
     fn contextual_engineering_fraction_identity_and_full_quantity_meaning() {
@@ -1281,20 +1348,20 @@ mod tests {
             engineering_rules: vec![rule(9, Some(0.1))],
             ..Default::default()
         };
-        let initial = resolve(&registry, &[target()], &[], &policy).unwrap();
+        let initial = resolve(&registry, &facts(), &[target()], &[], &policy).unwrap();
         policy.engineering_relative_fraction = 0.002;
-        let changed = resolve(&registry, &[target()], &[], &policy).unwrap();
+        let changed = resolve(&registry, &facts(), &[target()], &[], &policy).unwrap();
         assert_eq!(changed.targets[0].budget, 0.6);
         assert_ne!(initial.key, changed.key);
         policy.engineering_rules[0].relative_fraction = Some(0.001);
-        let overridden = resolve(&registry, &[target()], &[], &policy).unwrap();
+        let overridden = resolve(&registry, &facts(), &[target()], &[], &policy).unwrap();
         assert_eq!(overridden.targets[0].budget, 0.3);
         // Equal dimensions do not admit a point quantity as a difference quantity.
         policy.engineering_scales[0].quantity_id = ids::quantity("temperature.difference").as_id();
-        assert!(resolve(&registry, &[target()], &[], &policy).is_err());
+        assert!(resolve(&registry, &facts(), &[target()], &[], &policy).is_err());
         policy.engineering_scales.clear();
         policy.engineering_rules[0].quantity_id = ids::quantity("temperature.point").as_id();
-        let unmatched = resolve(&registry, &[target()], &[], &policy).unwrap();
+        let unmatched = resolve(&registry, &facts(), &[target()], &[], &policy).unwrap();
         assert_eq!(unmatched.targets[0].budget, 0.001);
         assert!(
             unmatched.targets[0]
@@ -1316,12 +1383,14 @@ mod tests {
             ..Default::default()
         };
         let key = policy.key();
-        let resolved = resolve(&registry, &[target()], &[], &policy).unwrap();
+        let resolved = resolve(&registry, &facts(), &[target()], &[], &policy).unwrap();
         assert_eq!(resolved.targets[0].budget, 0.2);
         policy.engineering_scales.reverse();
         assert_eq!(policy.key(), key);
         assert_eq!(
-            resolve(&registry, &[target()], &[], &policy).unwrap().key,
+            resolve(&registry, &facts(), &[target()], &[], &policy)
+                .unwrap()
+                .key,
             resolved.key
         );
         policy.engineering_scales[0].kind = EngineeringScaleKind::Magnitude;
@@ -1340,16 +1409,16 @@ mod tests {
             engineering_relative_fraction: 0.0,
             ..Default::default()
         };
-        let fallback = resolve(&registry, &[target()], &[], &policy).unwrap();
+        let fallback = resolve(&registry, &facts(), &[target()], &[], &policy).unwrap();
         assert_eq!(fallback.targets[0].budget, 0.001);
         let context = fallback.targets[0].engineering.as_ref().unwrap();
         assert_eq!(context.characteristic, Some(300.0));
         assert_eq!(context.relative_fraction, 0.0);
         assert!(context.canonical_fallback);
         policy.strict_engineering_context = true;
-        assert!(resolve(&registry, &[target()], &[], &policy).is_err());
+        assert!(resolve(&registry, &facts(), &[target()], &[], &policy).is_err());
         policy.engineering_rules.push(rule(9, Some(0.1)));
-        let floor = resolve(&registry, &[target()], &[], &policy).unwrap();
+        let floor = resolve(&registry, &facts(), &[target()], &[], &policy).unwrap();
         assert_eq!(floor.targets[0].budget, 0.1);
         assert!(
             !floor.targets[0]
@@ -1361,7 +1430,7 @@ mod tests {
         // The selected rule owns its explicit fraction override.
         policy.engineering_rules[0].physical_allowance = None;
         policy.engineering_rules[0].relative_fraction = Some(0.002);
-        let relative = resolve(&registry, &[target()], &[], &policy).unwrap();
+        let relative = resolve(&registry, &facts(), &[target()], &[], &policy).unwrap();
         assert_eq!(relative.targets[0].budget, 0.6);
         assert!(
             !relative.targets[0]
@@ -1382,7 +1451,7 @@ mod tests {
             engineering_rules: vec![rule(9, Some(0.001))],
             ..Default::default()
         };
-        let source = resolve(&registry, &[target()], &[], &policy).unwrap();
+        let source = resolve(&registry, &facts(), &[target()], &[], &policy).unwrap();
         assert!((source.targets[0].budget - 0.01).abs() < 1e-15);
         assert!(
             (source.targets[0]
@@ -1405,7 +1474,7 @@ mod tests {
                 ..target()
             },
         };
-        let projected = project_difference(&registry, &source, &[projection]).unwrap();
+        let projected = project_difference(&registry, &facts(), &source, &[projection]).unwrap();
         let result = &projected.targets[0];
         assert!((result.budget - 0.018).abs() < 1e-15);
         let context = result.engineering.as_ref().unwrap();
@@ -1420,6 +1489,7 @@ mod tests {
         let registry = standard_registry().unwrap();
         let source = resolve(
             &registry,
+            &facts(),
             &[target()],
             &[requirement(2, NumericalSource::Model, 20.0)],
             &Default::default(),
@@ -1485,7 +1555,14 @@ mod tests {
         authored.declaration.unit_id = Some(fahrenheit.as_id());
         authored.declaration.absolute_tolerance = Some(0.08);
         authored.declaration.scaling_factor = Some(0.125);
-        let source = resolve(&registry, &[original], &[authored], &Default::default()).unwrap();
+        let source = resolve(
+            &registry,
+            &facts(),
+            &[original],
+            &[authored],
+            &Default::default(),
+        )
+        .unwrap();
         let mut projection = TargetProjection {
             source: id(1),
             source_kind: NumericalTarget::Observable,
@@ -1498,7 +1575,8 @@ mod tests {
                 declared_tolerance: None,
             },
         };
-        let projected = project_difference(&registry, &source, &[projection.clone()]).unwrap();
+        let projected =
+            project_difference(&registry, &facts(), &source, &[projection.clone()]).unwrap();
         let result = &projected.targets[0];
         assert_eq!(result.quantity, difference.as_id());
         assert!((result.nominal - 8.0).abs() < 1e-12);
@@ -1522,16 +1600,17 @@ mod tests {
         assert!(
             project_difference(
                 &registry,
+                &facts(),
                 &source,
                 &[projection.clone(), projection.clone()]
             )
             .is_err()
         );
         projection.target.quantity = point;
-        assert!(project_difference(&registry, &source, &[projection.clone()]).is_err());
+        assert!(project_difference(&registry, &facts(), &source, &[projection.clone()]).is_err());
         projection.target.quantity = difference;
         projection.target.unit = ids::unit("s");
-        assert!(project_difference(&registry, &source, &[projection]).is_err());
+        assert!(project_difference(&registry, &facts(), &source, &[projection]).is_err());
     }
     /// Each provenance entry names its field by the registry enumeration, never by text,
     /// and the resolution key frames the member's registry spelling, as it framed the text
@@ -1542,6 +1621,7 @@ mod tests {
         let registry = standard_registry().unwrap();
         let resolved = resolve(
             &registry,
+            &facts(),
             &[target()],
             &[requirement(2, NumericalSource::Model, 20.0)],
             &NumericalPolicy::default(),
@@ -1569,7 +1649,14 @@ mod tests {
                 "coordinate_scale"
             ]
         );
-        let defaults = resolve(&registry, &[target()], &[], &NumericalPolicy::default()).unwrap();
+        let defaults = resolve(
+            &registry,
+            &facts(),
+            &[target()],
+            &[],
+            &NumericalPolicy::default(),
+        )
+        .unwrap();
         assert!(
             defaults.targets[0]
                 .provenance
@@ -1586,6 +1673,7 @@ mod tests {
         ];
         let p = resolve(
             &registry,
+            &facts(),
             &[target()],
             &authored,
             &NumericalPolicy::default(),
@@ -1604,17 +1692,18 @@ mod tests {
         policy
             .requirements
             .push(requirement(4, NumericalSource::Analysis, 30.0).declaration);
-        let override_ = resolve(&registry, &[target()], &authored, &policy).unwrap();
+        let override_ = resolve(&registry, &facts(), &[target()], &authored, &policy).unwrap();
         assert_eq!(override_.targets[0].nominal, 30.0);
         assert_ne!(override_.key, p.key);
         let conflicting = [
             requirement(2, NumericalSource::Model, 10.0),
             requirement(3, NumericalSource::Model, 20.0),
         ];
-        assert!(resolve(&registry, &[target()], &conflicting, &policy).is_ok());
+        assert!(resolve(&registry, &facts(), &[target()], &conflicting, &policy).is_ok());
         assert!(
             resolve(
                 &registry,
+                &facts(),
                 &[target()],
                 &conflicting,
                 &NumericalPolicy::default()
@@ -1660,7 +1749,7 @@ mod tests {
         r.declaration.unit_id = None;
         r.declaration.absolute_tolerance = Some(0.25);
         r.declaration.relative_tolerance = Some(0.01);
-        let result = resolve(&registry, &[t], &[r], &Default::default()).unwrap();
+        let result = resolve(&registry, &facts(), &[t], &[r], &Default::default()).unwrap();
         assert_eq!(result.targets[0].coordinate_scale, 1.0);
         assert_eq!(result.targets[0].budget, 1.25);
     }
@@ -1669,7 +1758,14 @@ mod tests {
         let registry = standard_registry().unwrap();
         let mut t = target();
         t.integer = true;
-        let p = resolve(&registry, &[t.clone()], &[], &NumericalPolicy::default()).unwrap();
+        let p = resolve(
+            &registry,
+            &facts(),
+            &[t.clone()],
+            &[],
+            &NumericalPolicy::default(),
+        )
+        .unwrap();
         assert_eq!(p.targets[0].nominal, 1.0);
         assert_eq!(
             p.targets[0].provenance[0].source,
@@ -1679,12 +1775,181 @@ mod tests {
             strict_nominals: true,
             ..NumericalPolicy::default()
         };
-        assert!(resolve(&registry, &[t.clone()], &[], &strict).is_err());
+        assert!(resolve(&registry, &facts(), &[t.clone()], &[], &strict).is_err());
         let mut r = requirement(2, NumericalSource::Model, 20.0);
-        let p = resolve(&registry, &[t.clone()], &[r.clone()], &strict).unwrap();
+        let p = resolve(&registry, &facts(), &[t.clone()], &[r.clone()], &strict).unwrap();
         assert_eq!(p.targets[0].nominal, 20.0);
         assert_eq!(p.targets[0].coordinate_scale, 1.0);
         r.declaration.scaling_factor = Some(0.05);
-        assert!(resolve(&registry, &[t], &[r], &strict).is_err());
+        assert!(resolve(&registry, &facts(), &[t], &[r], &strict).is_err());
+    }
+    #[test]
+    fn actual_numerical_facts_check_affine_operands_and_preserve_exact_allowances() {
+        let registry = standard_registry().unwrap();
+        let quantity = registry
+            .quantity_types()
+            .find(|q| q.name.as_deref() == Some("LogFugacityCoefficient"))
+            .unwrap();
+        let target = TargetSpec {
+            id: id(81),
+            kind: NumericalTarget::Observable,
+            quantity: quantity.id,
+            unit: quantity.canonical_unit,
+            integer: false,
+            declared_tolerance: None,
+        };
+        let present = facts();
+        let point = pse_quantity::ResolvedPhysicalContract::named(
+            quantity.id,
+            pse_quantity::IndexSet::default(),
+            &registry,
+        )
+        .unwrap();
+        let no_facts = pse_quantity::resolved::infer_operation(
+            &pse_quantity::infer::OpRequest::Sub,
+            &[point.clone(), point],
+            None,
+            &registry,
+            &pse_quantity::infer::NoInvariantFacts,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            no_facts,
+            pse_quantity::QuantityError::InferencePrecondition {
+                rule: "operation.unestablished_invariant",
+                ..
+            }
+        ));
+        let absent = PhysicalPreconditions::new(vec![]).unwrap();
+        let mut declarations = present.declarations().to_vec();
+        let operation = registry
+            .operations()
+            .find(|op| {
+                op.opcode == pse_quantity::Opcode::Sub
+                    && op.input_kinds == vec![quantity.key.kind, quantity.key.kind]
+            })
+            .unwrap();
+        assert!(!operation.precondition_invariants.is_empty());
+        for fact in &mut declarations {
+            if operation.precondition_invariants.contains(&fact.id) {
+                fact.requirement = pse_quantity::PhysicalRequirement::OperandQuantityContract {
+                    required: registry.neutral_dimensionless().unwrap(),
+                    match_shape: true,
+                };
+            }
+        }
+        let changed = PhysicalPreconditions::new(declarations).unwrap();
+        let policy = NumericalPolicy::default();
+        let source = resolve(
+            &registry,
+            &present,
+            std::slice::from_ref(&target),
+            &[],
+            &policy,
+        )
+        .unwrap();
+        assert_eq!(source.targets[0].budget, DEFAULT_ENGINEERING_ACCURACY);
+        let difference = engineering_error_quantity(&registry, &present, &target).unwrap();
+        let projections = [TargetProjection {
+            source: target.id,
+            source_kind: target.kind,
+            target: TargetSpec {
+                id: id(82),
+                kind: NumericalTarget::Row,
+                quantity: difference,
+                ..target.clone()
+            },
+        }];
+        let projected = project_difference(&registry, &present, &source, &projections).unwrap();
+        assert_eq!(projected.targets[0].budget, source.targets[0].budget);
+        assert_eq!(projected.targets[0].absolute, source.targets[0].absolute);
+        let output = operational_output_context(&registry, &present, &target, &policy).unwrap();
+        assert_eq!(output.budget, DEFAULT_ENGINEERING_ACCURACY);
+        fn refuses<T: std::fmt::Debug>(result: Result<T, MathError>) {
+            assert!(matches!(
+                result.unwrap_err(),
+                MathError::Quantity(pse_quantity::QuantityError::InferencePrecondition {
+                    rule: "operation.physical_prerequisite",
+                    ..
+                })
+            ));
+        }
+        for missing in [&absent, &changed] {
+            refuses(resolve(
+                &registry,
+                missing,
+                std::slice::from_ref(&target),
+                &[],
+                &policy,
+            ));
+            refuses(operational_output_context(
+                &registry, missing, &target, &policy,
+            ));
+            refuses(project_difference(
+                &registry,
+                missing,
+                &source,
+                &projections,
+            ));
+        }
+        let policy = NumericalPolicy {
+            engineering_rules: vec![EngineeringRule {
+                rule_id: id(83).into(),
+                quantity_id: difference.as_id(),
+                unit_id: target.unit.as_id(),
+                physical_allowance: Some(2e-7),
+                relative_fraction: None,
+                provenance: "authored physical allowance control".into(),
+            }],
+            engineering_scales: vec![EngineeringScale {
+                scale_id: id(84).into(),
+                model_id: Some(id(90).into()),
+                case_id: None,
+                instance_id: None,
+                fit_id: None,
+                target_id: target.id,
+                target_kind: target.kind,
+                quantity_id: target.quantity.as_id(),
+                unit_id: target.unit.as_id(),
+                source: NumericalSource::Model,
+                priority: 0,
+                kind: EngineeringScaleKind::RangeWidth,
+                value: 0.0,
+                provenance: "authored zero range control".into(),
+            }],
+            ..Default::default()
+        };
+        let exact = resolve(
+            &registry,
+            &present,
+            std::slice::from_ref(&target),
+            &[],
+            &policy,
+        )
+        .unwrap();
+        assert_eq!(exact.targets[0].budget, 2e-7);
+        assert_eq!(
+            exact.targets[0]
+                .engineering
+                .as_ref()
+                .unwrap()
+                .physical_allowance,
+            Some(2e-7)
+        );
+        assert_eq!(
+            operational_output_context(&registry, &present, &target, &policy)
+                .unwrap()
+                .budget,
+            2e-7
+        );
+        for missing in [&absent, &changed] {
+            refuses(resolve(
+                &registry,
+                missing,
+                std::slice::from_ref(&target),
+                &[],
+                &policy,
+            ));
+        }
     }
 }

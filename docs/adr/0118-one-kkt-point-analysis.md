@@ -14,7 +14,7 @@ superseded-by: null
 revisit: sensitivity_agrees_with_ipopt_sens fails beyond its declared tolerance on a nondegenerate fixture, or a backend's solution cannot be re-observed in original coordinates with a multiplier for every original row.
 verification: Architecture scenarios S13 and S14 and review scenario S02, settled by the Plan 22 tests. S0 kkt_inertia_certifies_second_order, second_order_verdicts_follow_the_inertia, kkt_factor_backsolve_matches_dense_reference, licq_failure_distinct_from_singular_curvature and fixed_assignment_resolve_keeps_local_analysis. S1 sensitivity_matches_analytic_nlp, sensitivity_withheld_when_sosc_fails, sensitivity_withheld_when_weakly_active, sensitivity_withheld_when_licq_fails, sensitivity_backend_independent (Ipopt, POUNCE and the SCIP re-solve), sensitivity_survives_presolve, reduced_hessian_sign_pinned, and sensitivity_agrees_with_ipopt_sens (Q1, parity container). S3 linear_regression_covariance_analytic, unidentifiable_fit_withholds_covariance, gauss_newton_covariance_labelled, profile_likelihood_matches_wald_on_linear_model, profile_chain_seeds_from_predecessor and covariance_withheld_without_declared_sigma. S4 uncertainty_propagation_linear_exact and propagation_withheld_when_upstream_withheld. Also N5 qp_sensitivity_through_kkt_analysis and M2c sensitivity_conditional_on_assignment.
 standard: core-3.1/process-simulator-1.1
-scenarios: [docs/plans/22-solver-capabilities-architecture.md#s13, docs/plans/22-solver-capabilities-architecture.md#s14, docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s02]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s13, https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s14, docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s02]
 ---
 
 # ADR-0118: Serve every NLP and QP route with one KKT-point analysis
@@ -171,7 +171,7 @@ barrier-consistent step, a difference of the order of the barrier parameter at t
 
 - Solver scope packet: [improvements I1–I5](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-scope-execution.md#improvements-over-the-target-design) and packets S0, S1, S3, S4, M2c and N5, which own progress.
 - [Change-tier review](../design_review/reviews/design_review_solver-scope-decisions_2026-09-28.md#adr-0118), findings F01 and F02.
-- Architecture companion [§6](../plans/22-solver-capabilities-architecture.md#6-sensitivity-covariance-and-uncertainty) (its two-route text is superseded here).
+- Architecture companion [§6](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#6-sensitivity-covariance-and-uncertainty) (its two-route text is superseded here).
 - Target review [T11](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t11); capability review L-N1 and S02.
 - Related: ADR-0103, ADR-0105, ADR-0109, ADR-0110.
 

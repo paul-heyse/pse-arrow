@@ -37,3 +37,10 @@ pse-quantity.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 pse-workspace-hack.workspace = true
+
+[features]
+force-validate = [
+  "arrow-array/force_validate",
+  "arrow-cast/force_validate",
+  "pse-columnar/force-validate",
+]

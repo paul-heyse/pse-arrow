@@ -612,18 +612,16 @@ fn codegen(root: &Path, check: bool, only: Option<Target>) -> Result<()> {
 /// The gate `governance / *` runs: the governance test crate, then the two checks that
 /// need a resolved graph or git.
 fn governance(root: &Path) -> Result<()> {
-    let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
-    // `cargo -C <path>` is nightly-only; the working directory is the portable form.
-    let status = Command::new(cargo)
+    let python_env = std::env::var_os("UV_PROJECT_ENVIRONMENT")
+        .map_or_else(|| root.join(".venv"), |path| root.join(path));
+    let status = Command::new(python_env.join("bin/python"))
         .args([
+            "-m",
+            "scripts.arrow_validation",
             "nextest",
             "run",
             "-p",
             "pse-tests-governance",
-            "-p",
-            "pse-relations",
-            "--features",
-            "pse-relations/force-validate",
             "--no-fail-fast",
             "--locked",
         ])

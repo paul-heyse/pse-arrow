@@ -134,13 +134,19 @@ class RuntimeCanonicalAnalysesRow:
     method: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     configuration: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
     input_digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    primary_problem: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    primary_authority: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    creation_nonce: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    creation_request_digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    creation_expires_at: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
     interpretation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     node_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
     edge_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
     active: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    retiring: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.revision), v.scalar_key(self.method), v.scalar_key(self.configuration), v.scalar_key(self.input_digest), v.scalar_key(self.interpretation), v.scalar_key(self.node_count), v.scalar_key(self.edge_count), v.scalar_key(self.active),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.revision), v.scalar_key(self.method), v.scalar_key(self.configuration), v.scalar_key(self.input_digest), v.scalar_key(self.primary_problem), v.scalar_key(self.primary_authority), v.scalar_key(self.creation_nonce), v.scalar_key(self.creation_request_digest), v.scalar_key(self.creation_expires_at), v.scalar_key(self.interpretation), v.scalar_key(self.node_count), v.scalar_key(self.edge_count), v.scalar_key(self.active), v.scalar_key(self.retiring),))
 
 
 @attrs.frozen(kw_only=True)
@@ -183,17 +189,6 @@ class RuntimeCanonicalAnalysisNodesRow:
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.key), v.scalar_key(self.analysis), v.scalar_key(self.semantic), v.scalar_key(self.kind),))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeCanonicalAnalysisRetirementsRow:
-    """Declared relation row or nested value."""
-
-    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    analysis: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.analysis),))
 
 
 @attrs.frozen(kw_only=True)
@@ -254,9 +249,11 @@ class RuntimeCanonicalGuardsRow:
 
     key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     generation: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    incarnation: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    analysis_creation_closed_through: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.generation),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.incarnation), v.optional_key(v.scalar_key)(self.analysis_creation_closed_through),))
 
 
 @attrs.frozen(kw_only=True)

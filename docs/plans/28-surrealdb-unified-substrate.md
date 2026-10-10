@@ -36,8 +36,8 @@ scope is authorized.
 
 Inspected baseline: main at `6498b013e579ec8039573200c92282eb8715b52e`, including concurrent
 uncommitted Plan 27 accuracy work and review/evidence documents. Preserve concurrent edits.
-The [Plan 27 checkpoint](27-contextual-engineering-accuracy.md#current-checkpoint) records
-functional handoff; [25k](25k-integrated-qualification-and-closure.md#current-execution-checkpoint)
+The [Plan 27 checkpoint](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/27-contextual-engineering-accuracy.md#current-checkpoint) records
+functional handoff; [25k](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25k-integrated-qualification-and-closure.md#current-execution-checkpoint)
 retains original scientific finding dispositions and incomplete campaign evidence. Applicable
 scientific obligations transfer to E's target campaign without a requirement to finish the
 obsolete PG/Delta campaign first. Previous focused passes and this design acceptance do not
@@ -486,7 +486,7 @@ deletion; static hygiene and assembled integration wait for all functional scope
 
 ## Finding dispositions
 
-This is the only current disposition table for the adopted unified-substrate and efficiency
+This is the only current disposition table for the adopted unified-substrate and earlier efficiency
 findings, the completion audit and the [2026-10-07 production efficiency review](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md).
 It also owns the [remaining-design enhancement review](../design_review/reviews/design_review_plan-28-remaining-design-enhancements_2026-10-07.md).
 The [parallel-execution review](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md)
@@ -678,7 +678,7 @@ constraints. Earlier implementation receipts and paused campaign obligations kee
 | [28f/N12](28f-shared-numerical-preparation.md#n12--indexed-flow-decision-policy) | Binary search over existing sorted decisions removes per-edge full policy scans, preserving physical occurrence graphs and cycle witnesses. Independent of J3/B8. |
 | [28b/B8](28b-selected-compilation-and-reuse.md#b8-retained-supplier-topology) | Compiler-owned supplier discovery, admitted-view identity mapping and selected closure/order. Preserve failure scope; no global cycle admission is imposed on valid selected closures. |
 | [28f/N13](28f-shared-numerical-preparation.md#n13--demand-specific-supplier-registration) | Working B8 supplies ordering while current output/coordinate/derivative demands, starts/policies and private registrations remain runtime operations. |
-| [28k/GH1–GH4](28k-graph-kernels-and-hashing-investigations.md#followup-verification-and-outcome-2026-10-09) | Bounded investigations and authorized followups: retained supplier topology, local Fx interning/prehash/key reuse, explicit V2 framing; complete checker dependencies/backdating and qualified portable reconstruction retained. GH3 supplies N0's typed-checker investigation proposal. |
+| [28k/GH1–GH4](28k-graph-kernels-and-hashing-investigations.md#followup-verification-and-outcome-2026-10-09) | Bounded investigations and authorized followups: retained supplier topology, local Fx interning/prehash/key reuse, explicit V2 framing; complete checker dependencies/backdating and qualified portable reconstruction retained. GH3 supplied the typed-checker proposal; its prospective decision/integration now belongs to Plan 33/EI04. |
 | [28e](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance) | Sole affected assembled acceptance and later authorized measurement route. Local controls and investigation completion do not restart E4/E5. |
 
 J3 and N12 can proceed independently after their existing contracts. B8's working supplier
@@ -726,6 +726,20 @@ completion products in 28k. A deferred decision uses the existing register with 
 trigger/check/owner; there is no new backlog. The new findings are resolved only after their
 working corrections and applicable acceptance evidence exist, not after plan publication.
 
+## Standalone efficiency remediation boundary
+
+The maintainer directed the later
+[codebase efficiency-principles review](../design_review/reviews/design_review_efficiency-principles-codebase_2026-10-09.md)
+into [Plan 33](33-efficiency-principles-remediation.md), independently of this workstream.
+That plan owns its F01–F11 dispositions, six bounded investigations, implementation and
+affected qualification; no new packet or mirrored status ledger is added here. The numerical
+fact correction previously identified at 28f now routes to Plan 33/EFF06, and prospective
+typed-checker decision/integration routes to Plan 33/EI04. Original inquiry observations and
+the scientific obligations of this plan keep their conditions and owners. Full analysis
+retirement and disposable-state changes use Plan 33's confirmed contract-adoption route;
+they do not silently reinterpret earlier preservation evidence. Plan 28 may consume new
+correction evidence later, but E3/E4/E5 does not gate Plan 33 completion.
+
 ## Verification
 
 **Proposed acceptance:** companions specify targeted controls and deletions. E3 runs the sole
@@ -750,14 +764,16 @@ owns implementation and bounded inquiry evidence at baseline
 `46545b2ad3e2999b4335692ac49af6091438c3fc`. J3/B8/N12/N13 and selected RC04 V2 are
 implemented with Fx interning, local structure-key reuse and immutable basis-key prehash.
 Compiler/structural/identity/backend controls and final native factorable/runtime plus four
-Python journeys and the production portable-restart control passed; feature-matrix and final
-documentation publication remain in progress. Real Recipe
+Python journeys and the production portable-restart control passed. The feature matrix was
+cancelled at the maintainer's request; its interrupted observations establish no successful
+coverage. Documentation publication completed at the review handoff. Real Recipe
 persistence and authored checker probes retain current production mechanisms and identify
 complete design prerequisites. Scalar diagnostic measurements are recorded with their operation
 boundaries. Graph/hash F01–F03 and V2 sequence framing have affected functional acceptance;
 other scope-end checks passed, including repaired composite hygiene acceptance. The PC-SAFT fixture's four scientific refusals have a
-separate numerical-fact investigation owner at 28f and supply no prepared-product claim. No RC02/RC03
-cutover or broader campaign restart is selected. N0 retains the catalog conclusion and the
+separate numerical-fact correction owner at Plan 33/EFF06 and supply no prepared-product claim. No RC02/RC03
+cutover or broader campaign restart is selected. N0 retains its recorded catalog conclusion;
+the prospective typed-checker decision now belongs to Plan 33/EI04. The
 following paused continuation retains its authorization boundary and historical evidence.
 
 The maintainer authorized detailed execution of 28i/28j and then implementation on

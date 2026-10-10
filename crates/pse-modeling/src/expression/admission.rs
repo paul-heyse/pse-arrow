@@ -3,89 +3,131 @@
 
 //! Physical admission products owned by expression checking, before numerical lowering.
 use crate::{DeclarationId, Result, invalid};
-use pse_authoring::dsl::{self, Expr};
+use pse_authoring::dsl::Expr;
 use pse_quantity::{
     QuantityRegistry, ResolvedInference, ResolvedPhysicalContract,
     infer::{Exponent, InvariantChecker, OpRequest},
     scheme::{Scheme, Substitution},
 };
-use std::{
-    cell::{Cell, RefCell},
-    collections::BTreeMap,
-};
+use std::{cell::RefCell, collections::BTreeMap};
 
-/// Exact syntax occurrence within a single checked expression body.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
-pub struct ExpressionOccurrence {
-    /// Root expression identity and deterministic preorder position in its authored AST.
-    pub body: pse_ids::ContentHash,
-    /// Distinguishes identical syntax in different lexical/binder positions.
-    pub position: usize,
-    /// Original byte range; specialized syntax can have an empty range.
-    pub range: (u32, u32),
-    /// Syntax distinguishes synthetic nodes whose byte ranges are empty.
-    pub syntax: String,
+/// Compact coordinates under one retained field or function owner.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
+pub enum ExpressionOccurrence {
+    /// Expression-root slot and node preorder position in the complete owner inventory.
+    Node {
+        /// Expression-root slot in the complete owning inventory.
+        body: usize,
+        /// Node preorder position within that root.
+        position: usize,
+    },
+    /// The distinct synthesized operation of a finite-reduction function, even empty.
+    FiniteReduction,
 }
 impl ExpressionOccurrence {
-    /// The one operation of a synthesized finite-reduction definition, even when empty.
-    pub fn finite_reduction(owner: DeclarationId) -> Self {
-        let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::MathLocalOccurrenceV3);
-        hash.id(&owner.as_id()).str("finite_reduction");
-        Self {
-            body: hash.finish_hash(),
-            position: 0,
-            range: (0, 0),
-            syntax: "finite_reduction".into(),
-        }
-    }
-    /// Identify an occurrence before any library normalization.
-    pub fn of(expression: &Expr) -> Self {
-        let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::MathLocalOccurrenceV3);
-        hash.str(&dsl::render_expr(expression));
-        Self {
-            body: hash.finish_hash(),
-            position: 0,
-            range: (expression.span.start, expression.span.end),
-            syntax: dsl::render_expr(expression),
-        }
-    }
-    /// Map temporary source addresses to stable body-relative positions. Addresses are
-    /// only traversal aids and never enter a checked product, identity or cache key.
+    /// Temporary address map for one standalone expression, whose root slot is zero.
     pub fn in_body(body: &Expr) -> BTreeMap<usize, Self> {
-        let root = Self::of(body).body;
-        let mut positions = BTreeMap::new();
-        let mut position = 0;
-        body.walk(|expression| {
-            let mut occurrence = Self::of(expression);
-            occurrence.body = root;
-            occurrence.position = position;
-            position += 1;
-            positions.insert(std::ptr::from_ref(expression) as usize, occurrence);
-        });
-        positions
+        super::inventory::positions([body])
     }
 }
-
-/// Checked operations retained by one declaration or specialized function body.
+/// Checked operations retained by one field or specialized function inventory.
 pub type ExpressionAdmissions = BTreeMap<ExpressionOccurrence, PhysicalAdmission>;
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum Owner {
+    Field(super::occurrences::OccurrenceKey),
+    Function(DeclarationId),
+}
 /// Scoped collection used only while constructing an immutable checked product.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct AdmissionRecorder {
-    products: RefCell<BTreeMap<DeclarationId, ExpressionAdmissions>>,
-    depth: Cell<usize>,
-    positions: RefCell<BTreeMap<usize, ExpressionOccurrence>>,
+    products: RefCell<BTreeMap<Owner, ExpressionAdmissions>>,
+    positions: RefCell<BTreeMap<usize, Vec<(Owner, ExpressionOccurrence)>>>,
 }
 impl AdmissionRecorder {
-    pub(crate) fn enter(&self, expression: &Expr) {
-        if self.depth.get() == 0 {
-            *self.positions.borrow_mut() = ExpressionOccurrence::in_body(expression);
-        }
-        self.depth.set(self.depth.get() + 1);
+    /// Prepare the complete immutable function inventory before checking any root.
+    pub fn for_function(function: &crate::Function) -> Self {
+        let recorder = Self {
+            products: RefCell::default(),
+            positions: RefCell::default(),
+        };
+        recorder.register(
+            Owner::Function(function.id),
+            super::inventory::function(function)
+                .iter()
+                .map(|root| root.expression),
+        );
+        recorder
     }
-    pub(crate) fn leave(&self) {
-        self.depth.set(self.depth.get() - 1);
-        if self.depth.get() == 0 {
-            self.positions.borrow_mut().clear();
+    pub(crate) fn for_package(package: &crate::CheckedPackage) -> Result<Self> {
+        let recorder = Self {
+            products: RefCell::default(),
+            positions: RefCell::default(),
+        };
+        let fields = package
+            .expressions
+            .iter()
+            .map(|(key, value)| {
+                let roots = super::inventory::field(&value.syntax);
+                recorder.register(Owner::Field(key.clone()), roots.iter().copied());
+                (key.clone(), super::inventory::StructuralIndex::new(roots))
+            })
+            .collect::<BTreeMap<_, _>>();
+        for function in package.functions.values() {
+            let roots = super::inventory::function(function);
+            recorder.register(
+                Owner::Function(function.id),
+                roots.iter().map(|root| root.expression),
+            );
+            let index = super::inventory::StructuralIndex::new(
+                roots.iter().map(|root| root.expression).collect(),
+            );
+            for (slot, root) in roots.iter().enumerate() {
+                let key = super::occurrences::OccurrenceKey {
+                    declaration: function.id,
+                    role: root.role.into(),
+                    position: root.repeated,
+                };
+                let Some(field) = fields.get(&key) else {
+                    continue;
+                };
+                // Exact source role/ordinal chooses the contextual owner. Full original
+                // syntax equality verifies this mapping independently of prehashes.
+                if !index.matches(slot, field, root.part) {
+                    return Err(invalid(
+                        function.id,
+                        "function/source field inventory conflict",
+                    ));
+                }
+                let owner = Owner::Field(key);
+                let mut position = 0;
+                root.expression.walk(|node| {
+                    recorder
+                        .positions
+                        .borrow_mut()
+                        .entry(std::ptr::from_ref(node) as usize)
+                        .or_default()
+                        .push((
+                            owner.clone(),
+                            ExpressionOccurrence::Node {
+                                body: root.part,
+                                position,
+                            },
+                        ));
+                    position += 1;
+                });
+            }
+        }
+        Ok(recorder)
+    }
+    fn register<'a>(&self, owner: Owner, roots: impl IntoIterator<Item = &'a Expr>) {
+        for (address, coordinate) in super::inventory::positions(roots) {
+            self.positions
+                .borrow_mut()
+                .entry(address)
+                .or_default()
+                .push((owner.clone(), coordinate));
         }
     }
     pub(crate) fn record(
@@ -94,7 +136,7 @@ impl AdmissionRecorder {
         at: DeclarationId,
         admission: PhysicalAdmission,
     ) -> Result<()> {
-        let occurrence = self
+        let coordinates = self
             .positions
             .borrow()
             .get(&(std::ptr::from_ref(expression) as usize))
@@ -102,26 +144,37 @@ impl AdmissionRecorder {
             .ok_or_else(|| {
                 invalid(
                     at,
-                    "checked operation is outside its expression occurrence tree",
+                    "checked operation is outside its retained owner inventory",
                 )
             })?;
         let mut products = self.products.borrow_mut();
-        let entries = products.entry(at).or_default();
-        if let Some(previous) = entries.get(&occurrence) {
-            if previous != &admission {
-                return Err(invalid(
-                    at,
-                    "one expression occurrence has conflicting physical contexts",
-                ));
+        for (owner, coordinate) in coordinates {
+            let entries = products.entry(owner).or_default();
+            if let Some(previous) = entries.get(&coordinate) {
+                if previous != &admission {
+                    return Err(invalid(
+                        at,
+                        "one expression occurrence has conflicting physical contexts",
+                    ));
+                }
+            } else {
+                entries.insert(coordinate, admission.clone());
             }
-        } else {
-            entries.insert(occurrence, admission);
         }
         Ok(())
     }
-    /// Finish constructing the immutable occurrence products.
-    pub fn into_inner(self) -> BTreeMap<DeclarationId, ExpressionAdmissions> {
+    pub(crate) fn into_products(self) -> BTreeMap<Owner, ExpressionAdmissions> {
         self.products.into_inner()
+    }
+    /// Finish a standalone function's immutable products.
+    pub fn into_inner(self) -> BTreeMap<DeclarationId, ExpressionAdmissions> {
+        self.into_products()
+            .into_iter()
+            .filter_map(|(owner, products)| match owner {
+                Owner::Function(id) => Some((id, products)),
+                Owner::Field(_) => None,
+            })
+            .collect()
     }
 }
 

@@ -28,8 +28,6 @@ ahash = { version = "0.8" }
 aho-corasick = { version = "1" }
 approx = { version = "0.5" }
 arrayvec = { version = "0.7", default-features = false, features = ["std"] }
-arrow-array = { version = "59", default-features = false, features = ["chrono-tz", "ffi"] }
-arrow-cast = { version = "59", default-features = false, features = ["prettyprint"] }
 arrow-schema = { version = "59", default-features = false, features = ["canonical_extension_types", "ffi", "serde"] }
 base64 = { version = "0.23" }
 bitflags = { version = "2", default-features = false, features = ["serde"] }
@@ -39,7 +37,6 @@ brotli = { version = "8" }
 bytemuck = { version = "1", default-features = false, features = ["aarch64_simd", "wasm_simd"] }
 bytes = { version = "1", features = ["serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-comfy-table = { version = "7" }
 crc32fast = { version = "1" }
 datafusion-common = { version = "55", default-features = false, features = ["object_store", "parquet", "recursive_protection", "sql"] }
 datafusion-execution = { version = "55" }

@@ -459,6 +459,88 @@ async fn shooting_trajectory_projection_retains_completion_diagnostic_and_lease(
     drop(cloned);
     drop(projected);
     assert_eq!(Arc::strong_count(owner), owners_before);
+
+    assert_shooting_sample_projection(&result, native, simulation.contract().outputs.len());
+    assert_eq!(
+        result.completion().unwrap().computation.as_ref(),
+        Some(&header)
+    );
+    assert!(!report.completion.permits_use());
+
+    // A separate actual joined completion makes the range checks nonempty;
+    // no contradictory path bound or fabricated report supplies its samples.
+    let successful = solve(
+        simulation
+            .shooting(request(&simulation, ShootingMethod::Single, vec![], false))
+            .unwrap(),
+        None,
+    )
+    .await;
+    let successful_report = report_of(&successful);
+    assert!(successful.usable(), "{:?}", successful.assessments());
+    assert!(successful_report.completion.permits_use());
+    let successful_native = successful_report.trajectory.as_ref().unwrap();
+    assert!(successful_native.samples.len() >= 3);
+    assert_shooting_sample_projection(
+        &successful,
+        successful_native,
+        simulation.contract().outputs.len(),
+    );
+}
+
+fn assert_shooting_sample_projection(
+    result: &crate::workflow::RunResult,
+    native: &native::dynamics::Report,
+    width: usize,
+) {
+    use pse_relations::{columnar::RelationRow, generated::runtime::simulation_samples};
+    fn samples(
+        mut cursor: crate::workflow::ResultCursor<'_>,
+        bound: usize,
+    ) -> Vec<simulation_samples::Row> {
+        let mut rows = Vec::new();
+        let mut empty_batches = 0;
+        while let Some(chunk) = cursor.next_chunk().unwrap() {
+            assert_eq!(chunk.batch().schema(), cursor.schema());
+            assert!(chunk.batch().num_rows() <= bound);
+            empty_batches += usize::from(chunk.batch().num_rows() == 0);
+            rows.extend(simulation_samples::Row::rows(&chunk).unwrap());
+        }
+        // Empty retained relations/windows carry their exact declared schema once.
+        assert_eq!(empty_batches, usize::from(rows.is_empty()));
+        assert!(cursor.complete());
+        assert!(cursor.next_chunk().unwrap().is_none());
+        rows
+    }
+    // Exercise the joined shooting adapter directly. When samples are retained,
+    // chunk boundaries and the selected window cross native sample boundaries.
+    let name = "runtime.simulation_samples";
+    let all = samples(result.table_cursor(name, 2).unwrap(), 2);
+    assert_eq!(all, samples(result.table_cursor(name, 4).unwrap(), 4));
+    assert_eq!(all.len(), native.samples.len() * width);
+    assert!(width >= 2);
+    for (index, row) in all.iter().enumerate() {
+        let sample = index / width;
+        let column = index % width;
+        assert_eq!(row.run_id, result.run_id);
+        assert_eq!(row.sample, sample as i64);
+        assert_eq!(row.time.to_bits(), native.samples[sample].time.to_bits());
+        assert_eq!(row.symbol_id, all[column].symbol_id);
+        assert_eq!(
+            row.value.to_bits(),
+            native.samples[sample].outputs[column].to_bits()
+        );
+    }
+    // Refused completions may lawfully retain fewer samples, including none;
+    // export only the samples actually retained, never fill the requested horizon.
+    let range = (width - 1).min(all.len())..(2 * width + 1).min(all.len());
+    assert_eq!(
+        samples(result.table_range(name, range.clone(), 2).unwrap(), 2),
+        all[range].to_vec()
+    );
+    for empty in [0..0, all.len()..all.len(), (all.len() + 1)..(all.len() + 3)] {
+        assert!(samples(result.table_range(name, empty, 1).unwrap(), 1).is_empty());
+    }
 }
 
 /// Multiple shooting's continuity rows close from nodes perturbed away from the chained

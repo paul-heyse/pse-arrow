@@ -1504,7 +1504,7 @@ impl CasePlan {
                 .get(&b.body)
                 .ok_or_else(|| MathError::Contract("missing prepared body".into()))?;
             let mut inputs = Vec::with_capacity(b.slots.len());
-            for s in &b.slots {
+            for s in b.slots.iter() {
                 inputs.push(if let Some(&column) = columns.get(&s.source()) {
                     Input::Column(column, s.scale(), s.offset())
                 } else {

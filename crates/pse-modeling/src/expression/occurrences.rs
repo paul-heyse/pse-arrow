@@ -59,12 +59,12 @@ pub struct CheckedExpression {
 }
 
 pub(crate) type Occurrences = BTreeMap<OccurrenceKey, CheckedExpression>;
-enum StaticPart<'a> {
+pub(super) enum StaticPart<'a> {
     Expression(&'a dsl::Expr),
     Predicate(&'a dsl::Predicate),
     Name(&'a str),
 }
-fn static_parts<'a>(value: &'a StaticValue, visit: &mut impl FnMut(StaticPart<'a>)) {
+pub(super) fn static_parts<'a>(value: &'a StaticValue, visit: &mut impl FnMut(StaticPart<'a>)) {
     match value {
         StaticValue::Expression(expression) => visit(StaticPart::Expression(expression)),
         StaticValue::Set(values) | StaticValue::Tuple(values) => {
@@ -898,71 +898,6 @@ pub(crate) fn bind(p: &mut CheckedPackage) {
             .chain(value.index_obligations.iter().map(|(name, _)| name.clone()))
             .collect::<BTreeSet<_>>();
         value.declared_type = p.types.get(&key.declaration).cloned();
-        let mut bodies = BTreeSet::new();
-        fn expression_bodies(expression: &dsl::Expr, bodies: &mut BTreeSet<pse_ids::ContentHash>) {
-            expression.walk(|node| {
-                bodies.insert(super::admission::ExpressionOccurrence::of(node).body);
-            });
-        }
-        fn predicate_bodies(
-            predicate: &dsl::Predicate,
-            bodies: &mut BTreeSet<pse_ids::ContentHash>,
-        ) {
-            use dsl::PredicateKind as K;
-            match &predicate.kind {
-                K::Compare { lhs, rhs, .. } => {
-                    expression_bodies(lhs, bodies);
-                    expression_bodies(rhs, bodies);
-                }
-                K::Atom(e) | K::In { expr: e, .. } => expression_bodies(e, bodies),
-                K::And(a, b) | K::Or(a, b) => {
-                    predicate_bodies(a, bodies);
-                    predicate_bodies(b, bodies);
-                }
-                K::Not(p) => predicate_bodies(p, bodies),
-                _ => {}
-            }
-        }
-        fn equation_bodies(equation: &dsl::Equation, bodies: &mut BTreeSet<pse_ids::ContentHash>) {
-            match &equation.kind {
-                dsl::EquationKind::Relation { lhs, rhs, .. } => {
-                    expression_bodies(lhs, bodies);
-                    expression_bodies(rhs, bodies);
-                }
-                dsl::EquationKind::Conditional {
-                    guard,
-                    then,
-                    otherwise,
-                } => {
-                    predicate_bodies(guard, bodies);
-                    equation_bodies(then, bodies);
-                    equation_bodies(otherwise, bodies);
-                }
-            }
-        }
-        match &value.syntax {
-            Syntax::Expression(e) | Syntax::Static(StaticValue::Expression(e)) => {
-                expression_bodies(e, &mut bodies)
-            }
-            Syntax::Predicate(p) => predicate_bodies(p, &mut bodies),
-            Syntax::Logic(p) => {
-                p.expressions(&mut |expression| expression_bodies(expression, &mut bodies))
-            }
-            Syntax::Equation(e) => equation_bodies(e, &mut bodies),
-            Syntax::Static(syntax) => static_parts(syntax, &mut |part| match part {
-                StaticPart::Expression(expression) => expression_bodies(expression, &mut bodies),
-                StaticPart::Predicate(predicate) => predicate_bodies(predicate, &mut bodies),
-                StaticPart::Name(_) => {}
-            }),
-        }
-        value.physical_admissions = p
-            .physical_admissions
-            .get(&key.declaration)
-            .into_iter()
-            .flat_map(|admissions| admissions.iter())
-            .filter(|(occurrence, _)| bodies.contains(&occurrence.body))
-            .map(|(occurrence, admission)| (occurrence.clone(), admission.clone()))
-            .collect();
         let mut paths = BTreeMap::new();
         let mut visit = |path: &dsl::Path| {
             let text = dsl::render_path(path);
@@ -1142,13 +1077,12 @@ pub(crate) fn retained_bytes(values: &Occurrences) -> usize {
                 + value.declared_type.as_ref().map_or(0, crate::extent::ty)
                 + value
                     .physical_admissions
-                    .iter()
-                    .map(|(occurrence, admission)| {
+                    .values()
+                    .map(|admission| {
                         size_of::<(
                             super::admission::ExpressionOccurrence,
                             super::admission::PhysicalAdmission,
                         )>() + 64
-                            + occurrence.syntax.capacity()
                             + admission.retained_bytes()
                     })
                     .sum::<usize>()

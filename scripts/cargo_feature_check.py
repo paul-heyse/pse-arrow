@@ -12,11 +12,17 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
 import tomllib
 from pathlib import Path
+
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.arrow_validation import capture, compose
 
 
 def qualify_features(arguments: list[str]) -> list[str]:
@@ -93,7 +99,16 @@ def main() -> int:
     try:
         arguments = qualify_features(sys.argv[1:])
         cargo = cargo_executable()
-        code = subprocess.run([cargo, *arguments], check=False).returncode
+        command = ["cargo", *arguments]
+        if arguments[:1] == ["check"]:
+            command = compose(command, run=lambda scope: capture([cargo, *scope[1:]]))
+            print(
+                "cargo feature check: " + shlex.join(command),
+                file=sys.stderr,
+                flush=True,
+            )
+        command[0] = cargo
+        code = subprocess.run(command, check=False).returncode
         # Shell exit status for a child terminated by a signal.
         return code if code >= 0 else 128 - code
     except (OSError, ValueError, tomllib.TOMLDecodeError) as error:

@@ -23,6 +23,7 @@ use std::{
 pub struct PreparedInitialization {
     snapshot: execution::Snapshot,
     quantities: pse_math::SharedAllocation<pse_quantity::QuantityRegistry>,
+    preconditions: pse_math::SharedAllocation<pse_quantity::PhysicalPreconditions>,
     targets: Vec<pse_math::numerics::TargetSpec>,
     requirements: Arc<Vec<pse_math::numerics::SourcedRequirement>>,
     blocks: Vec<ConditionalBlock>,
@@ -178,6 +179,7 @@ impl PreparedInitialization {
         }
         let numerics = Arc::new(pse_math::numerics::resolve(
             &self.quantities,
+            &self.preconditions,
             &self.targets,
             &self.requirements,
             &solver.numerics,
@@ -360,6 +362,7 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<PreparedConditionalUnit, MathRuntimeError> {
         admit_unit_profile(&profile, &numerics)?;
+        let preconditions = source.compiled().preconditions.clone();
         let control = FlightCancellation::default();
         let operation =
             self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
@@ -432,14 +435,23 @@ impl MathService {
             let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::NumericalProjectionV1);
             h.hash(&numerics.key);
             if !projections.is_empty() {
-                let projected =
-                    pse_math::numerics::project_difference(&quantities, &numerics, &projections)?;
+                let projected = pse_math::numerics::project_difference(
+                    &quantities,
+                    &preconditions,
+                    &numerics,
+                    &projections,
+                )?;
                 h.hash(&projected.key);
                 effective_numerics.targets.extend(projected.targets);
             }
             if !defaults.is_empty() {
-                let additional =
-                    pse_math::numerics::resolve(&quantities, &defaults, &[], &numerics.policy)?;
+                let additional = pse_math::numerics::resolve(
+                    &quantities,
+                    &preconditions,
+                    &defaults,
+                    &[],
+                    &numerics.policy,
+                )?;
                 h.hash(&additional.key);
                 effective_numerics.targets.extend(additional.targets);
             }
@@ -940,6 +952,7 @@ impl MathService {
     ) -> Result<PreparedInitialization, MathRuntimeError> {
         let original = self.assemble(case.clone()).await?;
         let quantities = case.compiled().quantities.clone();
+        let preconditions = case.compiled().preconditions.clone();
         let mut targets = case
             .compiled()
             .plan
@@ -962,18 +975,22 @@ impl MathService {
                 })?;
                 let products =
                     compiler.prepare_bound_initialization(case.compiled(), profile, &flag)?;
-                let bytes = products
-                    .iter()
-                    .try_fold(numerical_bytes, |n, p| {
-                        n.checked_add(p.plan.retained_bytes())
-                    })
+                let bytes = pse_compiler::workspace::PreparedBlock::retained_group_bytes(&products)
+                    .and_then(|bytes| bytes.checked_add(numerical_bytes))
                     .ok_or(MathRuntimeError::Limit("initialization product extent"))?;
                 Ok((products, bytes))
             });
         tokio::pin!(operation);
         let (products, lease) = tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         let mut prepared = self
-            .own_initialization(products, lease, quantities, targets, numerical.declarations)
+            .own_initialization(
+                products,
+                lease,
+                quantities,
+                preconditions,
+                targets,
+                numerical.declarations,
+            )
             .await?;
         prepared.original = Some(original);
         Ok(prepared)
@@ -983,6 +1000,7 @@ impl MathService {
         products: Arc<Vec<pse_compiler::workspace::PreparedBlock>>,
         lease: Arc<pse_columnar::AllocationLease>,
         quantities: pse_math::SharedAllocation<pse_quantity::QuantityRegistry>,
+        preconditions: pse_math::SharedAllocation<pse_quantity::PhysicalPreconditions>,
         targets: Vec<pse_math::numerics::TargetSpec>,
         requirements: Vec<pse_math::numerics::SourcedRequirement>,
     ) -> Result<PreparedInitialization, MathRuntimeError> {
@@ -1017,6 +1035,7 @@ impl MathService {
         Ok(PreparedInitialization {
             snapshot: execution::Snapshot::observe(&execution::LINKED),
             quantities,
+            preconditions,
             targets,
             requirements: Arc::new(requirements),
             blocks,
@@ -1312,6 +1331,7 @@ impl Blocks<'_> {
                     .bind_block(
                         block,
                         self.prepared.quantities.clone(),
+                        self.prepared.preconditions.clone(),
                         values.clone(),
                         self.cancel,
                         self.scope.deadline(),
@@ -1398,6 +1418,7 @@ impl MathService {
         self: &Arc<Self>,
         block: &ConditionalBlock,
         quantities: pse_math::SharedAllocation<pse_quantity::QuantityRegistry>,
+        preconditions: pse_math::SharedAllocation<pse_quantity::PhysicalPreconditions>,
         values: CaseValues,
         driver: &crate::CancelSource,
         deadline: Option<std::time::Instant>,
@@ -1414,7 +1435,7 @@ impl MathService {
         let control = FlightCancellation::default();
         let operation =
             self.job_retained_scoped(1, demand, control.clone(), deadline, move |flag| {
-                let bound = view.bind(quantities, &values, &flag)?;
+                let bound = view.bind(quantities, preconditions, &values, &flag)?;
                 // The block plan, structural witness, descriptors and registry already
                 // have owners. Only this first binding's products and wrappers escape.
                 let bytes = block_binding_bytes(&bound);
@@ -1878,6 +1899,12 @@ mod tests {
             .unwrap();
         let quantities =
             pse_math::SharedAllocation::from(registry.clone()).with_owner(registry_lease);
+        let preconditions = Arc::new(pse_quantity::PhysicalPreconditions::new(vec![]).unwrap());
+        let precondition_lease = service
+            .reserve("math:test-prerequisites", preconditions.allocation_extent())
+            .unwrap();
+        let preconditions =
+            pse_math::SharedAllocation::from(preconditions).with_owner(precondition_lease);
         let cancel = Arc::new(AtomicBool::new(false));
         let structure = Arc::new(
             pse_math::binding::CaseStructure::new(
@@ -1935,7 +1962,14 @@ mod tests {
             .reserve("math:test-initialization", plan.retained_bytes())
             .unwrap();
         let prepared = service
-            .own_initialization(Arc::new(vec![view]), lease, quantities, vec![], vec![])
+            .own_initialization(
+                Arc::new(vec![view]),
+                lease,
+                quantities,
+                preconditions,
+                vec![],
+                vec![],
+            )
             .await
             .unwrap();
         drop(plan);
@@ -1951,6 +1985,7 @@ mod tests {
                 .bind_block(
                     &prepared.blocks[0],
                     prepared.quantities.clone(),
+                    prepared.preconditions.clone(),
                     CaseValues {
                         scalars: BTreeMap::new()
                     },
@@ -1969,6 +2004,7 @@ mod tests {
             .bind_block(
                 &prepared.blocks[0],
                 prepared.quantities.clone(),
+                prepared.preconditions.clone(),
                 CaseValues {
                     scalars: BTreeMap::new(),
                 },
@@ -1991,12 +2027,15 @@ mod tests {
         ));
         let binding_alias = bound.compiled().coefficient_values.clone();
         let registry_alias = bound.compiled().quantities.clone();
+        let prerequisites_alias = bound.compiled().preconditions.clone();
         drop(prepared);
         drop(bound);
         assert!(service.pool.reserved() > baseline + registry_bytes);
         drop(binding_alias);
         assert!(service.pool.reserved() > baseline);
         drop(registry_alias);
+        assert!(service.pool.reserved() > baseline);
+        drop(prerequisites_alias);
         assert_eq!(service.pool.reserved(), baseline);
     }
     #[test]

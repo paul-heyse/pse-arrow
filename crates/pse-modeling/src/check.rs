@@ -127,10 +127,10 @@ pub struct FiniteReduction {
 /// Checked package inventory. Every map is keyed by semantic identity, never backend handles.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedPackage {
+    /// Derived access paths prepared once after admission, never an independent authority.
+    pub(crate) selection_index: SelectionIndex,
     pub(crate) expressions: crate::expression::occurrences::Occurrences,
     pub(crate) selection_closures: crate::scientific_selection::Selections,
-    pub(crate) physical_admissions:
-        BTreeMap<DeclarationId, crate::expression::admission::ExpressionAdmissions>,
     pub(crate) quantities: Arc<pse_quantity::QuantityRegistry>,
     pub(crate) preconditions: Arc<pse_quantity::PhysicalPreconditions>,
     pub(crate) scope: Arc<crate::PhysicalScope>,
@@ -174,6 +174,95 @@ pub struct CheckedPackage {
     /// Test-only datasets and constants: their role is test-only, or their lineage reaches
     /// test-only data (ADR-0123 Outcome 5).
     pub(crate) test_only_data: BTreeSet<DeclarationId>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct SelectionIndex {
+    names: BTreeMap<DeclarationId, Vec<String>>,
+    datasets: BTreeMap<DeclarationId, Vec<DeclarationId>>,
+    entities: BTreeMap<DeclarationId, Vec<DeclarationId>>,
+}
+impl SelectionIndex {
+    pub(crate) fn retained_bytes(&self) -> usize {
+        self.names
+            .values()
+            .map(|names| {
+                size_of::<(DeclarationId, Vec<String>)>()
+                    + 64
+                    + names.capacity() * size_of::<String>()
+                    + names.iter().map(String::capacity).sum::<usize>()
+            })
+            .sum::<usize>()
+            + [&self.datasets, &self.entities]
+                .into_iter()
+                .map(|index| {
+                    index
+                        .values()
+                        .map(|ids| {
+                            size_of::<(DeclarationId, Vec<DeclarationId>)>()
+                                + 64
+                                + ids.capacity() * size_of::<DeclarationId>()
+                        })
+                        .sum::<usize>()
+                })
+                .sum::<usize>()
+    }
+
+    fn build(package: &CheckedPackage) -> Self {
+        let mut index = Self::default();
+        for (name, id) in &package.names {
+            index.names.entry(*id).or_default().push(name.clone());
+        }
+        for row in package.declarations.values() {
+            if let Some(dataset) = &row.value.dataset {
+                let mut target = package.resolve(row.declaration_id, &dataset.target);
+                while let Some(id) = target {
+                    index
+                        .datasets
+                        .entry(id)
+                        .or_default()
+                        .push(row.declaration_id);
+                    target = package.kinds.get(&id).and_then(|kind| kind.base);
+                }
+            }
+        }
+        for (id, record) in &package.entities {
+            index.entities.entry(record.origin).or_default().push(*id);
+        }
+        index
+    }
+
+    fn select(&self, selected: &BTreeSet<DeclarationId>) -> Self {
+        Self {
+            names: selected_map(&self.names, selected),
+            datasets: selected
+                .iter()
+                .filter_map(|id| {
+                    self.datasets.get(id).map(|datasets| {
+                        (
+                            *id,
+                            datasets
+                                .iter()
+                                .filter(|id| selected.contains(id))
+                                .copied()
+                                .collect(),
+                        )
+                    })
+                })
+                .collect(),
+            entities: selected_map(&self.entities, selected),
+        }
+    }
+}
+
+fn selected_map<T: Clone>(
+    source: &BTreeMap<DeclarationId, T>,
+    selected: &BTreeSet<DeclarationId>,
+) -> BTreeMap<DeclarationId, T> {
+    selected
+        .iter()
+        .filter_map(|id| source.get(id).map(|value| (*id, value.clone())))
+        .collect()
 }
 impl CheckedPackage {
     /// Immutable context-dependent scientific selection products admitted with this package.
@@ -618,9 +707,9 @@ fn check_declarations(
     documents: &dyn crate::document::Documents,
 ) -> Result<CheckedPackage> {
     let mut p = CheckedPackage {
+        selection_index: SelectionIndex::default(),
         expressions: crate::expression::occurrences::collect(rows, documents)?,
         selection_closures: BTreeMap::new(),
-        physical_admissions: BTreeMap::new(),
         quantities: Arc::new(context.quantities.clone()),
         preconditions: Arc::new(context.preconditions.clone()),
         scope: Arc::new(context.scope.clone()),
@@ -1761,10 +1850,31 @@ fn check_declarations(
     crate::applicability::admit(&p, context)?;
     crate::expression::check_all(&mut p, context)?;
     crate::expression::occurrences::bind(&mut p);
+    p.selection_index = SelectionIndex::build(&p);
     Ok(p)
 }
 
 impl CheckedPackage {
+    fn occurrences_of(
+        &self,
+        declaration: DeclarationId,
+    ) -> impl Iterator<
+        Item = (
+            &crate::expression::occurrences::OccurrenceKey,
+            &crate::expression::occurrences::CheckedExpression,
+        ),
+    > {
+        self.expressions
+            .range(
+                crate::expression::occurrences::OccurrenceKey {
+                    declaration,
+                    role: String::new(),
+                    position: 0,
+                }..,
+            )
+            .take_while(move |(key, _)| key.declaration == declaration)
+    }
+
     /// Project one root's declaration dependencies after whole-package admission.
     /// Equality of this projection backdates unrelated edits in the compiler workspace.
     /// # Errors
@@ -1781,9 +1891,7 @@ impl CheckedPackage {
             }
             let row = &self.declarations[&id];
             pending.extend(
-                self.expressions
-                    .iter()
-                    .filter(|(key, _)| key.declaration == id)
+                self.occurrences_of(id)
                     .flat_map(|(_, expression)| expression.dependencies.iter().copied()),
             );
             if let Some(parent) = row.parent_id {
@@ -1819,14 +1927,14 @@ impl CheckedPackage {
             // A table or a kind depends on the datasets that supply its rows, a kind also on
             // those of its refinements.
             if row.value.table.is_some() || self.kinds.contains_key(&id) {
-                for dataset in self.declarations.values() {
-                    if dataset.value.dataset.as_ref().is_some_and(|v| {
-                        self.resolve(dataset.declaration_id, &v.target)
-                            .is_some_and(|target| target == id || self.refines(target, id))
-                    }) {
-                        pending.push(dataset.declaration_id);
-                    }
-                }
+                pending.extend(
+                    self.selection_index
+                        .datasets
+                        .get(&id)
+                        .into_iter()
+                        .flatten()
+                        .copied(),
+                );
             }
             if let Some(kind) = self.kinds.get(&id) {
                 pending.extend(kind.base);
@@ -1841,10 +1949,7 @@ impl CheckedPackage {
             for text in texts {
                 pending.extend(self.resolve(id, text));
             }
-            for (key, occurrence) in self
-                .expression_occurrences()
-                .filter(|(key, _)| key.declaration == id)
-            {
+            for (key, occurrence) in self.occurrences_of(id) {
                 pending.extend(dependency_syntax(self, key.declaration, &occurrence.syntax));
             }
             for set in sets {
@@ -1896,45 +2001,121 @@ impl CheckedPackage {
                 type_dependencies(&table.result, &mut pending);
             }
         }
-        let mut p = self.clone();
-        p.declarations.retain(|id, _| selected.contains(id));
-        p.names.retain(|_, id| selected.contains(id));
-        p.types.retain(|id, _| selected.contains(id));
-        p.expressions
-            .retain(|key, _| selected.contains(&key.declaration));
-        p.functions.retain(|id, _| selected.contains(id));
-        p.physical_admissions.retain(|id, _| selected.contains(id));
-        p.tables.retain(|id, _| selected.contains(id));
-        p.children.retain(|id, _| selected.contains(id));
-        for members in p.children.values_mut() {
-            members.retain(|id| selected.contains(id));
-        }
-        p.members.retain(|id, _| selected.contains(id));
-        p.temporal.retain(|target, (policy, axis, _)| {
-            selected.contains(target) && selected.contains(policy) && selected.contains(axis)
-        });
-        for members in p.members.values_mut() {
-            members.retain(|_, id| selected.contains(id));
-        }
-        p.interfaces.retain(|id, _| selected.contains(id));
-        for interfaces in p.interfaces.values_mut() {
-            interfaces.retain(|id| selected.contains(id));
-        }
-        p.kinds.retain(|id, _| selected.contains(id));
-        p.constants.retain(|id, _| selected.contains(id));
-        p.provenance.retain(|id, _| selected.contains(id));
-        p.attribute_provenance
-            .retain(|(id, _), _| selected.contains(id));
-        p.oracles.retain(|id, _| selected.contains(id));
         // A record stays with the declaration that admitted it: its entity or its dataset.
-        p.entities
-            .retain(|_, record| selected.contains(&record.origin));
-        let entities = p.entities.keys().copied().collect::<BTreeSet<_>>();
-        p.identifiers.retain(|entity| entities.contains(&entity));
-        p.test_only
-            .retain(|id| entities.contains(id) || p.constants.contains_key(id));
-        p.test_only_data.retain(|id| selected.contains(id));
-        Ok(p)
+        let entities = selected
+            .iter()
+            .flat_map(|id| self.selection_index.entities.get(id).into_iter().flatten())
+            .filter_map(|id| self.entities.get(id).map(|record| (*id, record.clone())))
+            .collect::<BTreeMap<_, _>>();
+        let constants = selected_map(&self.constants, &selected);
+        let identifiers = self.identifiers.select(&entities);
+        let test_only = entities
+            .keys()
+            .chain(constants.keys())
+            .filter(|id| self.test_only.contains(id))
+            .copied()
+            .collect();
+        Ok(Self {
+            selection_index: self.selection_index.select(&selected),
+            declarations: selected_map(&self.declarations, &selected),
+            names: selected
+                .iter()
+                .flat_map(|id| {
+                    self.selection_index
+                        .names
+                        .get(id)
+                        .into_iter()
+                        .flatten()
+                        .map(move |name| (name.clone(), *id))
+                })
+                .collect(),
+            expressions: selected
+                .iter()
+                .flat_map(|id| {
+                    self.occurrences_of(*id)
+                        .map(|(key, value)| (key.clone(), value.clone()))
+                })
+                .collect(),
+            // These products are context inventory, not declaration membership projections.
+            selection_closures: self.selection_closures.clone(),
+            lowered_functions: self.lowered_functions.clone(),
+            quantities: Arc::clone(&self.quantities),
+            preconditions: Arc::clone(&self.preconditions),
+            scope: Arc::clone(&self.scope),
+            types: selected_map(&self.types, &selected),
+            functions: selected_map(&self.functions, &selected),
+            tables: selected_map(&self.tables, &selected),
+            children: selected
+                .iter()
+                .filter_map(|id| {
+                    self.children.get(id).map(|children| {
+                        (
+                            *id,
+                            children
+                                .iter()
+                                .filter(|id| selected.contains(id))
+                                .copied()
+                                .collect(),
+                        )
+                    })
+                })
+                .collect(),
+            members: selected
+                .iter()
+                .filter_map(|id| {
+                    self.members.get(id).map(|members| {
+                        (
+                            *id,
+                            members
+                                .iter()
+                                .filter(|(_, id)| selected.contains(id))
+                                .map(|(name, id)| (name.clone(), *id))
+                                .collect(),
+                        )
+                    })
+                })
+                .collect(),
+            temporal: selected
+                .iter()
+                .filter_map(|id| {
+                    self.temporal
+                        .get(id)
+                        .filter(|(policy, axis, _)| {
+                            selected.contains(policy) && selected.contains(axis)
+                        })
+                        .map(|value| (*id, value.clone()))
+                })
+                .collect(),
+            interfaces: selected
+                .iter()
+                .filter_map(|id| {
+                    self.interfaces.get(id).map(|interfaces| {
+                        (*id, interfaces.intersection(&selected).copied().collect())
+                    })
+                })
+                .collect(),
+            kinds: selected_map(&self.kinds, &selected),
+            provenance: selected_map(&self.provenance, &selected),
+            attribute_provenance: selected
+                .iter()
+                .flat_map(|id| {
+                    self.attribute_provenance
+                        .range((*id, String::new())..)
+                        .take_while(move |((owner, _), _)| owner == id)
+                        .map(|(key, value)| (key.clone(), value.clone()))
+                })
+                .collect(),
+            oracles: selected_map(&self.oracles, &selected),
+            test_only_data: self
+                .test_only_data
+                .intersection(&selected)
+                .copied()
+                .collect(),
+            constants,
+            entities,
+            identifiers,
+            test_only,
+        })
     }
 }
 /// The paths a provenance names: its source, its role and its lineage entries.
@@ -2091,3 +2272,5 @@ fn type_dependencies(ty: &Type, out: &mut Vec<DeclarationId>) {
 
 #[cfg(test)]
 mod named_types_tests;
+#[cfg(test)]
+mod selection_tests;

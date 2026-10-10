@@ -62,7 +62,9 @@ manual qualification.
 
 ## Common conditions
 
-- Every Rust test recipe passes `--features pse-relations/force-validate` explicitly.
+- Rust correctness routes activate and verify force-validation for each actual selected
+  Arrow-consuming normal/build/test-dev closure, including host dependencies (ADR-0170).
+  Pure closures select no unrelated relation targets. Bare commands have the same obligation.
 - Native recipes run through `scripts/pse-env --native` and the common operation owner,
   beginning the supervised lifetime before setup. Each recipe requests its actual native
   capability closure; nested consumers reuse verified immutable generations while that
@@ -86,7 +88,24 @@ manual qualification.
 |---|---|
 | `just assessment-list [--group <name>]` | Prints the declared gates as JSON (name, role, recipe, arguments, dependencies, mode, profile, input scope) and the explicit exclusions. Executes nothing. |
 | `just assessment [flags]` | Runs the selected gates (all comprehensive gates by default) and continues after failures. Use `--group ready` for that group and `--output build/assessment/example` for a fresh output directory. The default is a new `build/assessment/<UTC time>-<selection>-<pid>-<random>/`. The validation owner checks only the selected prerequisites and exits 125 before native setup when one is missing; nonnative groups need no native preparation. |
-| `just result RUN_PATH [--failures] [--gate NAME] [--tail N] [--json]` | Reads one version 5 checkpoint and identifies the concrete run, incompleteness, required coverage, baseline and reused origins. Reads at most 64 KiB from each selected log, with 20 lines by default for failures or an explicit gate; `--tail 0` disables tails. Executes no checks or cleanup. |
+| `just result RUN_PATH [--failures] [--gate NAME] [--tail N] [--json]` | Reads one version 5 checkpoint and identifies the concrete run, incompleteness, required coverage, baseline and reused origins. Reads at most 64 KiB from each selected log, with 20 lines by default for failures or an explicit gate; `--tail 0` disables tails. Executes no checks or cleanup. Temporarily borrows the selected report and referenced origins before reading. |
+
+Assessment resources seal producer-declared artifact roles after final output: receipts,
+provenance, consumed evidence, scratch or unknown. Only explicit scratch is disposable;
+summary/receipt names, required source/environment snapshots and referenced logs/XML remain
+retained. Extension or filename does not confer release. The sealed manifest binds finalized
+identities and digests; re-sealing cannot downgrade evidence. Incomplete, failed, drifted or
+manifest-less historical attempts remain protected, including authored diff/tar snapshots.
+New lifecycle activation waits for affected old producers and reclaimers to drain.
+
+Display resolves a latest pointer once and borrows that exact report plus referenced origins.
+It creates no persistent consumer reference or checkpoint. New retained-reference reuse requires a sealed origin
+and unchanged receipt identity; unregistered or manifest-less historical reports remain
+displayable but cannot supply new reusable claims before actual owner qualification. Existing owner reservations, no-follow traversal, active-use
+exclusion, actual drain and final identity rechecks still govern exact cleanup. Document
+retirement metadata does not release a resource. Explicit owner adoption of a historical
+attempt requires its actual outcome, provenance, references and durable authored inputs;
+unknowns stay protected.
 
 The comprehensive scope runs these gates in order:
 

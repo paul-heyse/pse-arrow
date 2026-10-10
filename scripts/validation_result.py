@@ -5,11 +5,13 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import sys
 from pathlib import Path
 
+from scripts import test_resources
 from scripts.validation_receipts import qualified
 
 
@@ -82,7 +84,13 @@ def file_observation(path: Path, lines: int = 0) -> dict:
 
 
 def selected_result(
-    run: Path, receipt: dict, *, gate: str | None, failures: bool, tail: int
+    run: Path,
+    receipt: dict,
+    *,
+    gate: str | None,
+    failures: bool,
+    tail: int,
+    origins: dict[str, Path],
 ) -> dict:
     recorded = {check["gate"] for check in receipt["checks"]}
     checks = []
@@ -91,12 +99,7 @@ def selected_result(
             continue
         if failures and qualified(check):
             continue
-        origin = Path(check["origin"]) if check.get("origin") else run
-        # The runner records absolute origins. A relative fixture origin is relative
-        # to its checkpoint, never to the reader's working directory.
-        if not origin.is_absolute():
-            origin = run / origin
-        origin = origin.resolve()
+        origin = origins[check["gate"]]
         checks.append(
             {
                 "record": check,
@@ -207,14 +210,35 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--tail must be nonnegative")
     try:
         run = args.run_path.resolve()
-        receipt = read_receipt(run)
-        if args.gate is not None and args.gate not in {
-            declaration["name"] for declaration in receipt["scope"]
-        }:
-            parser.error(f"gate {args.gate!r} is not in this run's scope")
-        result = selected_result(
-            run, receipt, gate=args.gate, failures=args.failures, tail=args.tail
-        )
+        with contextlib.ExitStack() as borrows:
+            borrows.enter_context(test_resources.borrow_report(run))
+            receipt = read_receipt(run)
+            if args.gate is not None and args.gate not in {
+                declaration["name"] for declaration in receipt["scope"]
+            }:
+                parser.error(f"gate {args.gate!r} is not in this run's scope")
+            origins: dict[str, Path] = {}
+            borrowed = {run}
+            for check in receipt["checks"]:
+                if args.gate is not None and check["gate"] != args.gate:
+                    continue
+                if args.failures and qualified(check):
+                    continue
+                origin = Path(check["origin"]) if check.get("origin") else run
+                # Resolve each pointer once, before borrowing and payload access.
+                origin = (origin if origin.is_absolute() else run / origin).resolve()
+                origins[check["gate"]] = origin
+                if origin not in borrowed:
+                    borrows.enter_context(test_resources.borrow_report(origin))
+                    borrowed.add(origin)
+            result = selected_result(
+                run,
+                receipt,
+                gate=args.gate,
+                failures=args.failures,
+                tail=args.tail,
+                origins=origins,
+            )
     except (OSError, TypeError, ValueError, RuntimeError) as error:
         if args.json:
             print(json.dumps({"error": str(error), "run_path": str(args.run_path)}))

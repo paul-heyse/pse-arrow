@@ -1,0 +1,66 @@
+{
+  "environment": {
+    "CC": {
+      "python-product": true,
+      "rust-product": true
+    },
+    "CMAKE_TOOLCHAIN_FILE": {
+      "python-product": true,
+      "rust-product": true
+    },
+    "CXX": {
+      "python-product": true,
+      "rust-product": true
+    },
+    "IPOPT_DIR": {
+      "python-product": true,
+      "rust-product": true
+    },
+    "PETSC_DIR": {
+      "python-product": true,
+      "rust-product": true
+    },
+    "SUITESPARSE_INCLUDE_DIR": {
+      "python-product": true,
+      "rust-product": true
+    },
+    "UNO_DIR": {
+      "python-product": true,
+      "rust-product": true
+    }
+  },
+  "input_scope_version": 3,
+  "method": "synthetic before/after values passed to actual input_identity",
+  "paths": {
+    "benches/benches/native_process.rs": {
+      "python-product": true,
+      "rust-product": true
+    },
+    "crates/pse-runtime/src/lib.rs": {
+      "python-product": true,
+      "rust-product": true
+    },
+    "scripts/host_admission.py": {
+      "python-product": true,
+      "rust-product": true
+    },
+    "scripts/native_tests.py": {
+      "python-product": true,
+      "rust-product": true
+    },
+    "scripts/surreal_server.py": {
+      "python-product": true,
+      "rust-product": true
+    },
+    "scripts/test_resources.py": {
+      "python-product": true,
+      "rust-product": true
+    },
+    "scripts/test_run.py": {
+      "python-product": true,
+      "rust-product": true
+    }
+  },
+  "python": "3.14.7",
+  "schema": "review-input-projection-probe-v1"
+}

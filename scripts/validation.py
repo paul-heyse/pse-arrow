@@ -82,6 +82,9 @@ def relevant_environment(source: Mapping[str, str] | None = None) -> dict[str, s
     environment["LOCAL_NATIVE_ENVIRONMENT"] = hashlib.sha256(
         local.read_bytes() if local.is_file() else b"absent"
     ).hexdigest()
+    environment["EFFECTIVE_NATIVE_CONFIGURATION"] = native_configuration(
+        source_environment
+    )
     for key in PRODUCER_REVIEW_INPUTS:
         if key in source_environment:
             path = Path(source_environment[key])
@@ -97,6 +100,61 @@ def relevant_environment(source: Mapping[str, str] | None = None) -> dict[str, s
                 sort_keys=True,
             )
     return environment
+
+
+def native_configuration(environment: Mapping[str, str]) -> str:
+    """Bind current selected paths, not only paths retained by an old capture.
+
+    Directory generations are associated by resolved path and their admission
+    receipt. Linked binary bytes are separately verified by native provenance.
+    File selectors bind their contents even when the spelling stays unchanged.
+    """
+    root = Path(__file__).resolve().parents[1]
+    selected = {}
+    for name in (
+        "IPOPT_DIR",
+        "SCIPOPTDIR",
+        "UNO_DIR",
+        "PETSC_DIR",
+        "PSE_SOLVER_IMAGE",
+        "PSE_ROOT_ISOLATION_DIR",
+        "SUITESPARSE_INCLUDE_DIR",
+        "SUITESPARSE_LIBRARY_DIR",
+        "LIBCLANG_PATH",
+        "PSE_LLVM_PREFIX",
+        "CMAKE_TOOLCHAIN_FILE",
+        "PYO3_CONFIG_FILE",
+        "PSE_WORKER_BINARY",
+        "PSE_PRODUCER_RECEIPT",
+        "PSE_WORKER_PRODUCER_RECEIPT",
+        "PSE_PYTHON_PRODUCER_RECEIPT",
+        "PSE_PYTHON_DEPLOYMENT_ATTESTATION",
+        "PSE_DEPLOYMENT_ARTIFACT_OBSERVATIONS",
+        "PSE_NATIVE_PROVIDER_RECEIPT",
+        "PSE_PRODUCER_FIXTURE_RECEIPT",
+    ):
+        if value := environment.get(name):
+            path = Path(value)
+            if not path.is_absolute():
+                path = root / path
+            path = path.resolve()
+            receipt = path / ".complete.json"
+            selected[name] = {
+                "resolved": str(path),
+                "sha256": validation_receipts.digest(path) if path.is_file() else None,
+                "admission": validation_receipts.digest(receipt)
+                if receipt.is_file()
+                else None,
+            }
+    for name, default in (("CC", "cc"), ("CXX", "c++"), ("FC", "gfortran")):
+        if name in environment or "PATH" in environment:
+            command = environment.get(name, default)
+            executable = shutil.which(command, path=environment.get("PATH", os.defpath))
+            selected[name] = {
+                "command": command,
+                "resolved": str(Path(executable).resolve()) if executable else None,
+            }
+    return json.dumps(selected, sort_keys=True)
 
 
 def git(root: Path, *args: str) -> bytes:
@@ -553,6 +611,56 @@ def checkpoint(output: Path, receipt: dict) -> None:
     (output / "summary.md").write_text("\n".join(lines))
 
 
+REQUIRED_PROVENANCE = (
+    "source-files.json",
+    "host.json",
+    "source.diff",
+    "source-status.txt",
+    "source-revision.txt",
+    "untracked-source.tar.gz",
+    "Cargo.toml",
+    "Cargo.lock",
+    "pyproject.toml",
+    "uv.lock",
+    "nextest.toml",
+)
+
+
+def artifact_roles(output: Path, receipt: dict) -> dict[str, str]:
+    """Declare producer meaning, never infer disposability from path spelling."""
+    roles = dict.fromkeys(
+        (
+            "checks.json",
+            "scope.json",
+            "summary.md",
+            "test-findings.json",
+            "failures.json",
+        ),
+        "receipt",
+    )
+    if receipt["input_coverage"]:
+        for name in (
+            *REQUIRED_PROVENANCE,
+            "cargo-metadata.stderr.log",
+            "cargo-metadata.json",
+        ):
+            if (output / name).is_file():
+                roles[name] = "provenance"
+    for check in receipt["checks"]:
+        if check.get("origin") and Path(check["origin"]).resolve() != output.resolve():
+            continue  # The origin owner retains these bytes, not this consumer.
+        for name in (check["log"], *check.get("artifacts", {})):
+            if (output / name).is_file():
+                roles.setdefault(name, "evidence")
+        config = f"{check['gate']}-nextest.toml"
+        if (output / config).is_file():
+            roles[config] = "provenance"
+    # Current producer outputs are all receipts/provenance/consumed evidence.
+    # Future producers must explicitly establish a scratch artifact's semantics;
+    # undeclared subprocess outputs are protected by the resource owner.
+    return roles
+
+
 def observed_deployment_attestation(path: Path) -> dict[str, str]:
     observed = json.loads(path.read_text())
     if (
@@ -609,6 +717,12 @@ def run_gates(
             "Deployment capture and imported association require fresh execution: "
             + ", ".join(sorted(deployment_retained))
         )
+    from scripts import (  # noqa: PLC0415 -- validation/terminal runner cycle
+        test_resources,
+        test_run,
+    )
+
+    report_resource = test_resources.register_report(output, root=root)
     snapshot, target, errors = (
         provenance(root, output) if capture else ({}, root / "target", [])
     )
@@ -630,14 +744,8 @@ def run_gates(
         "source_files": snapshot,
         "input_coverage": capture,
         "parent": None,
-        "environment": relevant_environment(),
+        "environment": relevant_environment(command_env()),
     }
-    from scripts import (  # noqa: PLC0415 -- validation/terminal runner cycle
-        test_resources,
-        test_run,
-    )
-
-    report_resource = test_resources.register_report(output, root=root)
     selected = {gate.name for gate in gates}
     if reuse_from:
         parent = reuse_from.resolve()
@@ -966,7 +1074,7 @@ def run_gates(
                 snapshot, current
             )
             receipt["source_unchanged"] = not receipt["contextual_changes"]
-            after_environment = relevant_environment()
+            after_environment = relevant_environment(command_env())
             for record in receipt["checks"]:
                 scope = next(g.input_scope for g in gates if g.name == record["gate"])
                 after = input_identity(scope, current, after_environment)
@@ -994,7 +1102,12 @@ def run_gates(
         and all(validation_receipts.qualified(c) for c in receipt["checks"])
     )
     checkpoint(output, receipt)
-    test_resources.finish_report(report_resource, receipt)
+    test_resources.finish_report(
+        report_resource,
+        receipt,
+        roles=artifact_roles(output, receipt),
+        required_provenance=REQUIRED_PROVENANCE,
+    )
     for error in test_resources.reclaim_reports():
         print(
             f"test-resources: report remains pinned after cleanup error: {error}",

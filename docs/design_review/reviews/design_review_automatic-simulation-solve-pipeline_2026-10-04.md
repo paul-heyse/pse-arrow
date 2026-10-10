@@ -50,8 +50,8 @@ the method target and preservation requirements. The
 [assembled review](design_review_assembled-integrated-solve-pipeline_2026-10-03.md) assessed
 a bounded declared-composition target and retains its original evidence. Its acceptance does
 not establish automatic construction or settle the newly inspected counterexamples below.
-[Plan 25m](../../plans/25m-integrated-solve-pipeline.md) owns adopted implementation status;
-[Plan 25k](../../plans/25k-integrated-qualification-and-closure.md) owns qualification.
+[Plan 25m](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25m-integrated-solve-pipeline.md) owns adopted implementation status;
+[Plan 25k](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25k-integrated-qualification-and-closure.md) owns qualification.
 New recommendations here are **Proposed**, not scheduled or implemented by publication.
 Implementation and qualification remain paused.
 
@@ -498,7 +498,7 @@ Successful mechanisms do not average away a failed boundary.
 ## Verification, decisions and follow-up
 
 This review used source/interface evidence, not new executed controls. The current
-[25m Outcome](../../plans/25m-integrated-solve-pipeline.md#outcome-recorded-after-implementation)
+[25m Outcome](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25m-integrated-solve-pipeline.md#outcome-recorded-after-implementation)
 records **Tested** evidence for 44 selected repaired controls: native chart/projection/retention
 and IBEX controls; explicit root responses and original PR derivative arithmetic; physical
 NLP qualification; and native metadata/allocation reuse. They used pinned dev builds,

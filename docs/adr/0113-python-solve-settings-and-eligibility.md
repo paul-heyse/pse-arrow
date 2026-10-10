@@ -14,7 +14,7 @@ superseded-by: ADR-0116
 revisit: A Python caller needs a backend setting the typed projection cannot express, or one library upgrade forces more than one Python settings-contract version change.
 verification: Review scenarios S04 and S05 and architecture scenario S18, settled by the Plan 22 A4/A5 tests test_solve_settings_backend_projection, test_route_and_eligibility_are_typed, initialization_admission_in_rust and identity_covers_every_settings_field, with just python-stubs and just codegen leaving no drift.
 standard: core-3.0/process-simulator-1.1
-scenarios: [docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s04, docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s05, docs/plans/22-solver-capabilities-architecture.md#s18]
+scenarios: [docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s04, docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s05, https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s18]
 ---
 
 # ADR-0113: Project typed backend settings, registry names and typed eligibility across the Python boundary
@@ -99,7 +99,7 @@ settings type per backend, which the backend-execution adapter needs anyway.
 
 ## More information
 
-- Architecture companion [§4](../plans/22-solver-capabilities-architecture.md#4-backend-execution-adapter-and-shared-runners).
+- Architecture companion [§4](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#4-backend-execution-adapter-and-shared-runners).
 - Capability review F09, F26, F30, L-C1, S04, S05.
 - Related: ADR-0024, ADR-0106, ADR-0108. Plan 22 packets A4, A5.
 

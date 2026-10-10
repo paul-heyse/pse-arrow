@@ -13,7 +13,7 @@ supersedes: []
 superseded-by: null
 revisit: A native option requires scientific interpretation or bypasses protected typed controls.
 verification: Authoring roundtrip and primitive-option refusals; runtime precedence; heater global-certification conformance with SCIP presolving disabled.
-scenarios: [docs/plans/23-thermodynamic-domain-and-campaign.md#current-execution]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/23-thermodynamic-domain-and-campaign.md#current-execution]
 ---
 
 # ADR-0134: Carry native fixture options through the existing solver controls

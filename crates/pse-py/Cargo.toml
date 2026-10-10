@@ -39,7 +39,14 @@ solver-diffsol = ["pse-runtime/solver-diffsol"]
 solver-scip = ["pse-runtime/solver-scip"]
 # Validation-only dependency: expose the workspace's Arrow validation feature to
 # maturin, which selects this package without selecting the other workspace members.
-force-validate = ["pse-relations/force-validate"]
+force-validate = [
+  "pse-columnar/force-validate",
+  "pse-engine/force-validate",
+  "pse-operations/force-validate",
+  "pse-relations/force-validate",
+  "pse-runtime/force-validate",
+  "pse-schema/force-validate",
+]
 
 [dependencies]
 pse-diagnostics.workspace = true

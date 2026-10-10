@@ -147,3 +147,14 @@ No automatic deletion or second compiler-artifact cache is implemented.
 
 Build measurements are not product qualification. Cache reuse cannot substitute for
 current source, native-byte and executed-test evidence.
+
+`just build-storage` reports a versioned JSON metadata snapshot of configured stores and the
+bounded legacy report cohorts. It reports allocated/apparent bytes, ownership and unavailable
+or partial observations. `just build-storage --metadata-only` avoids recursive measurement.
+Persistent state and shared skill targets are identity-only observations; nested symlinks are
+not traversed and alias roots are reported once. Hardlinks are deduplicated within each row;
+parent/cohort rows overlap and must not be summed. Concurrent writers make this a non-atomic
+snapshot, and active use/resource identity may remain unknown. There is no reclaimable-byte
+total or generic prune command: assessment, native, compiler-cache, campaign and persistent
+state owners retain their separate disposal contracts. `.git` and `.venv*` are excluded from
+measurement. Ordinary document queries never invoke this scan.

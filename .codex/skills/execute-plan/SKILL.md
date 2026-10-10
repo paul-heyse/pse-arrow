@@ -72,3 +72,8 @@ Keep durable status in its existing owner without a second execution plan or par
 Clean up any remaining worktrees that are fully merged. Report the resulting behavior,
 verification and any remaining authorized work or blockers; a partial checkpoint is not
 completion of the requested scope.
+
+At closure, follow the [document lifecycle route](../../../docs/dev/documentation.md#metadata-and-aggregate-scope):
+reconcile references and dependencies, transfer enduring meaning and retire eligible completed
+content. Maintain native scope bindings when tables change; other active plans keep their owners.
+Document retirement never releases producer artifacts or their required provenance by itself.

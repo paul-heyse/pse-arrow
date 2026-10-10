@@ -29,7 +29,7 @@ fn case_specialization_limit_counts_distinct_bodies_not_occurrences() {
             instance: SemanticId::from_bytes([index as u8; 16]),
             body: ContentHash::from_bytes([body; 32]),
             checked_members: Default::default(),
-            slots: vec![],
+            slots: (vec![]).into(),
             contributions: vec![Contribution {
                 output: 0,
                 target: Target::Row(row),
@@ -204,7 +204,7 @@ fn canonical_numeric_admission_checks_math_literals_and_instance_values() {
         checked_members: Default::default(),
         instance: source(),
         body: ContentHash::from_bytes([1; 32]),
-        slots: vec![SlotBinding::new(&source_port, &formal, &registry).unwrap()],
+        slots: (vec![SlotBinding::new(&source_port, &formal, &registry).unwrap()]).into(),
         contributions: vec![],
     };
     let mut values = CaseValues {
@@ -422,7 +422,7 @@ fn aliases_and_affine_unit_bindings_preserve_body_reuse() {
         checked_members: Default::default(),
         instance: SemanticId::from_bytes([3; 16]),
         body: h,
-        slots: vec![slot.clone(), slot],
+        slots: (vec![slot.clone(), slot]).into(),
         contributions: vec![Contribution {
             output: 0,
             target: Target::Row(SemanticId::from_bytes([4; 16])),
@@ -508,10 +508,11 @@ fn connection_equation_binds_distinct_units_before_point_subtraction() {
         checked_members: Default::default(),
         instance: SemanticId::from_bytes([3; 16]),
         body: ContentHash::from_bytes([1; 32]),
-        slots: vec![
+        slots: (vec![
             SlotBinding::new(&hot, &cold, &registry).unwrap(),
             SlotBinding::new(&cold, &cold, &registry).unwrap(),
-        ],
+        ])
+        .into(),
         contributions: vec![Contribution {
             output: 0,
             target: Target::Row(SemanticId::from_bytes([4; 16])),

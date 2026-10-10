@@ -598,10 +598,11 @@ fn conditional_first_reuses_exhausted_support_and_restricts_formal_coordinates()
                 instance: id(9),
                 body: key,
                 checked_members: Default::default(),
-                slots: [1, 2]
+                slots: ([1, 2]
                     .into_iter()
                     .map(|n| SlotBinding::new(&port(n), &port(n), &registry).unwrap())
-                    .collect(),
+                    .collect::<Vec<_>>())
+                .into(),
                 contributions: [10, 11]
                     .into_iter()
                     .enumerate()
@@ -1670,7 +1671,7 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
                 checked_members: Default::default(),
                 instance: id(5),
                 body: body_key,
-                slots: vec![SlotBinding::new(&port, &port, &registry).unwrap()],
+                slots: (vec![SlotBinding::new(&port, &port, &registry).unwrap()]).into(),
                 contributions: vec![
                     Contribution {
                         output: 2,
@@ -2229,7 +2230,8 @@ fn opaque_class_evidence_remains_pending_after_actual_bounded_request() {
             instance: id(3),
             body: key,
             checked_members: Default::default(),
-            slots: vec![SlotBinding::new(&spec.inputs[0], &spec.inputs[0], &registry).unwrap()],
+            slots: (vec![SlotBinding::new(&spec.inputs[0], &spec.inputs[0], &registry).unwrap()])
+                .into(),
             contributions: vec![Contribution {
                 output: 0,
                 target: Target::PRIMARY,
@@ -2499,4 +2501,163 @@ fn structural_taylor_zeros_preserve_complete_second_shape_and_reduce_library_wor
         assert!((suppressed[component] * factor - expected[component]).abs() < 1e-13);
         assert!((suppressed[component] - full[component]).abs() < 1e-13);
     }
+}
+
+#[test]
+fn conditional_block_keeps_actual_guard_provider_execution_inputs() {
+    use crate::{
+        assembly::{AssemblyLimits, CasePlan},
+        binding::*,
+        typed::{Binary, BodyBuilder, BodyLimits},
+    };
+    use pse_model::generated::enums::ModelingVariableDomain;
+    use pse_quantity::{
+        IndexSet,
+        standard::{StandardInvariantChecker, ids, standard_registry},
+    };
+    let registry = standard_registry().unwrap();
+    let quantity = ids::quantity("neutral");
+    let port = |n| Port {
+        id: id(n),
+        quantity,
+        unit: registry.quantity_type(quantity).unwrap().canonical_unit,
+    };
+    let (mut spec, _, calls) = provider();
+    spec.derivatives = DerivativeOrder::Value;
+    spec.smoothness = DerivativeOrder::Value;
+    let admitted = AdmittedProvider::new(spec.clone(), &registry).unwrap();
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        2,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let x = builder.input(0, quantity, IndexSet::new(), id(30)).unwrap();
+    let guard_input = builder.input(1, quantity, IndexSet::new(), id(31)).unwrap();
+    let assumption = builder
+        .domain(form_lineage(id(32)), |builder| {
+            Ok(builder
+                .provider(&admitted, std::slice::from_ref(&guard_input), id(33))?
+                .remove(0))
+        })
+        .unwrap();
+    let square = builder
+        .binary(Binary::Mul, x.clone(), x, None, id(34))
+        .unwrap();
+    let guarded = builder.with_assumption(square.clone(), &assumption);
+    let body = Arc::new(builder.prepare(&[guarded, square]).unwrap());
+    let key = ContentHash::from_bytes([211; 32]);
+    let structure = Arc::new(
+        CaseStructure::new(
+            (1..=2)
+                .map(|n| Variable {
+                    port: port(n),
+                    fixed: false,
+                    domain: ModelingVariableDomain::Continuous,
+                    lower: None,
+                    upper: None,
+                })
+                .collect(),
+            vec![],
+            vec![InstanceBinding {
+                instance: id(40),
+                body: key,
+                checked_members: Default::default(),
+                slots: vec![
+                    SlotBinding::new(&port(1), &port(1), &registry).unwrap(),
+                    SlotBinding::new(&port(2), &port(2), &registry).unwrap(),
+                ]
+                .into(),
+                contributions: (0..2)
+                    .map(|output| Contribution {
+                        output,
+                        target: Target::Row(id(60 + output as u8)),
+                        scale: 1.0,
+                    })
+                    .collect(),
+            }],
+            (60..=61)
+                .map(|n| Row {
+                    id: id(n),
+                    quantity,
+                    lower: 0.0,
+                    upper: 0.0,
+                })
+                .collect(),
+            None,
+            CaseLimits::default(),
+        )
+        .unwrap(),
+    );
+    let cancel = Arc::new(AtomicBool::new(false));
+    let source = CasePlan::prepare(
+        structure,
+        BTreeMap::from([(key, body)]),
+        &registry,
+        DerivativeOrder::First,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    let selected = |row| {
+        source
+            .conditional(
+                &[id(row)].into_iter().collect(),
+                &[id(1)].into_iter().collect(),
+                &registry,
+                &cancel,
+            )
+            .unwrap()
+    };
+    let guarded = selected(60);
+    let dependency = guarded.dependencies(&cancel).unwrap().remove(0);
+    assert!(dependency.execution.contains(&id(2)));
+    assert!(!dependency.numerical.contains(&id(2)));
+    assert_eq!(guarded.structure().instances()[0].slots.len(), 2);
+    let guarded = Arc::new(
+        Arc::new(guarded)
+            .compile(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap(),
+    );
+    let selected_provider: Box<dyn Provider> = Box::new(Cubic {
+        spec: spec.clone(),
+        calls: calls.clone(),
+    });
+    let providers = BTreeMap::from([(spec.key(), selected_provider)]);
+    let mut worker = guarded.worker(providers, cancel.clone());
+    let mut values = CaseValues {
+        scalars: BTreeMap::from([(id(1), 3.0), (id(2), 2.0)]),
+    };
+    assert_eq!(worker.constraints(&values).unwrap(), [9.0]);
+    assert_eq!(worker.jacobian(&values).unwrap().val(), &[6.0]);
+    values.scalars.remove(&id(2));
+    assert!(worker.constraints(&values).is_err());
+    values.scalars.insert(id(2), -2.0);
+    assert!(worker.constraints(&values).is_err());
+    let before = calls.load(Ordering::Relaxed);
+    let plain = Arc::new(
+        Arc::new(selected(61))
+            .compile(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap(),
+    );
+    assert_eq!(
+        plain
+            .worker(BTreeMap::new(), cancel.clone())
+            .constraints(&values)
+            .unwrap(),
+        [9.0]
+    );
+    assert_eq!(calls.load(Ordering::Relaxed), before);
+    values.scalars.insert(id(2), 2.0);
+    assert_eq!(worker.constraints(&values).unwrap(), [9.0]);
 }

@@ -1,0 +1,375 @@
+{
+ "elements": [
+  {
+   "family": "finding",
+   "info": " finding Heading-free title",
+   "attrs_from_block_line": {
+    "id": "F-12",
+    "status": "open",
+    "severity": "high"
+   },
+   "attrs_from_info": {},
+   "open_map": [
+    8,
+    21
+   ],
+   "close_markup": ":::::",
+   "close_map": null,
+   "first_body_block": {
+    "type": "paragraph",
+    "map": [
+     10,
+     11
+    ]
+   },
+   "parent": null,
+   "field_list": {},
+   "id": "F-12"
+  },
+  {
+   "family": "scenario",
+   "info": " scenario {#S-01}",
+   "attrs_from_block_line": {},
+   "attrs_from_info": {
+    "id": "S-01"
+   },
+   "open_map": [
+    17,
+    19
+   ],
+   "close_markup": "::::",
+   "close_map": null,
+   "first_body_block": {
+    "type": "paragraph",
+    "map": [
+     18,
+     19
+    ]
+   },
+   "parent": "F-12",
+   "field_list": {},
+   "id": "S-01"
+  },
+  {
+   "family": "finding",
+   "info": " finding {#F-13 status=deferred owner=plan-33}",
+   "attrs_from_block_line": {},
+   "attrs_from_info": {
+    "id": "F-13",
+    "status": "deferred",
+    "owner": "plan-33"
+   },
+   "open_map": [
+    23,
+    28
+   ],
+   "close_markup": ":::",
+   "close_map": null,
+   "first_body_block": {
+    "type": "field_list",
+    "map": [
+     24,
+     27
+    ]
+   },
+   "parent": null,
+   "field_list": {},
+   "id": "F-13"
+  },
+  {
+   "family": "finding",
+   "info": " finding",
+   "attrs_from_block_line": {
+    "owner": "plan-33",
+    "class": "extra",
+    "id": "F-14",
+    "status": "open"
+   },
+   "attrs_from_info": {},
+   "open_map": [
+    33,
+    35
+   ],
+   "close_markup": ":::",
+   "close_map": null,
+   "first_body_block": {
+    "type": "paragraph",
+    "map": [
+     34,
+     35
+    ]
+   },
+   "parent": null,
+   "field_list": {},
+   "id": "F-14"
+  },
+  {
+   "family": "finding",
+   "info": " finding {#F-15 status=open}",
+   "attrs_from_block_line": {},
+   "attrs_from_info": {
+    "id": "F-15",
+    "status": "open"
+   },
+   "open_map": [
+    37,
+    42
+   ],
+   "close_markup": ":::",
+   "close_map": null,
+   "first_body_block": {
+    "type": "paragraph",
+    "map": [
+     38,
+     39
+    ]
+   },
+   "parent": null,
+   "field_list": {},
+   "id": "F-15"
+  },
+  {
+   "family": "scenario",
+   "info": " scenario {#S-02}",
+   "attrs_from_block_line": {},
+   "attrs_from_info": {
+    "id": "S-02"
+   },
+   "open_map": [
+    40,
+    42
+   ],
+   "close_markup": "",
+   "close_map": null,
+   "first_body_block": {
+    "type": "paragraph",
+    "map": [
+     41,
+     42
+    ]
+   },
+   "parent": "F-15",
+   "field_list": {},
+   "id": "S-02"
+  }
+ ],
+ "field_lists": [
+  {
+   "name": "cause",
+   "map": [
+    24,
+    24
+   ],
+   "body_map": [
+    24,
+    25
+   ],
+   "body": "field list as first body lines"
+  },
+  {
+   "name": "route",
+   "map": [
+    25,
+    25
+   ],
+   "body_map": [
+    25,
+    27
+   ],
+   "body": "Plan 33 EFF01"
+  }
+ ],
+ "front_matter": [
+  {
+   "map": [
+    0,
+    4
+   ],
+   "content": "title: P1 fixture\ndoc_role: review"
+  }
+ ],
+ "top_level_types": [
+  "front_matter",
+  "heading_open",
+  "container_typed_open",
+  "container_typed_open",
+  "container_typed_open",
+  "container_typed_open",
+  "paragraph_open",
+  "paragraph_open"
+ ],
+ "attrs_line_recovery": [
+  {
+   "id": "F-12",
+   "line_before_open": "{#F-12 status=open severity=high}",
+   "is_attrs_line": true
+  },
+  {
+   "id": "F-14",
+   "line_before_open": "",
+   "is_attrs_line": false
+  }
+ ],
+ "control_no_container_types": [
+  "bullet_list_close",
+  "bullet_list_open",
+  "field_list_close",
+  "field_list_open",
+  "fieldlist_body_close",
+  "fieldlist_body_open",
+  "fieldlist_name_close",
+  "fieldlist_name_open",
+  "front_matter",
+  "heading_close",
+  "heading_open",
+  "inline",
+  "list_item_close",
+  "list_item_open",
+  "paragraph_close",
+  "paragraph_open"
+ ],
+ "control_has_container_tokens": false,
+ "control_paragraph_attrs": [
+  {
+   "id": "F-12",
+   "status": "open",
+   "severity": "high"
+  },
+  {
+   "owner": "plan-33",
+   "class": "extra",
+   "id": "F-14",
+   "status": "open"
+  }
+ ],
+ "colon_fence_before": {
+  "colon_fence_tokens": 5,
+  "container_open_tokens": 0
+ },
+ "colon_fence_after": {
+  "colon_fence_tokens": 1,
+  "container_open_tokens": 6
+ },
+ "edits": [
+  {
+   "edit": "F-13 info attrs",
+   "same_token_count": true,
+   "changed_source_lines": [
+    23
+   ],
+   "bytes_outside_changed_lines_identical": true,
+   "token_differences": [
+    {
+     "before": [
+      "container_typed_open",
+      [
+       23,
+       28
+      ],
+      " finding {#F-13 status=deferred owner=plan-33}",
+      []
+     ],
+     "after": [
+      "container_typed_open",
+      [
+       23,
+       28
+      ],
+      " finding {#F-13 status=resolved owner=plan-33}",
+      []
+     ]
+    }
+   ],
+   "element_differences": [
+    [
+     "F-13",
+     {},
+     {
+      "id": "F-13",
+      "status": "deferred",
+      "owner": "plan-33"
+     },
+     {},
+     {
+      "id": "F-13",
+      "status": "resolved",
+      "owner": "plan-33"
+     }
+    ]
+   ]
+  },
+  {
+   "edit": "F-12 attrs line",
+   "same_token_count": true,
+   "changed_source_lines": [
+    7
+   ],
+   "bytes_outside_changed_lines_identical": true,
+   "token_differences": [
+    {
+     "before": [
+      "container_typed_open",
+      [
+       8,
+       21
+      ],
+      " finding Heading-free title",
+      [
+       [
+        "id",
+        "F-12"
+       ],
+       [
+        "severity",
+        "high"
+       ],
+       [
+        "status",
+        "open"
+       ]
+      ]
+     ],
+     "after": [
+      "container_typed_open",
+      [
+       8,
+       21
+      ],
+      " finding Heading-free title",
+      [
+       [
+        "id",
+        "F-12"
+       ],
+       [
+        "severity",
+        "high"
+       ],
+       [
+        "status",
+        "resolved"
+       ]
+      ]
+     ]
+    }
+   ],
+   "element_differences": [
+    [
+     "F-12",
+     {
+      "id": "F-12",
+      "status": "open",
+      "severity": "high"
+     },
+     {},
+     {
+      "id": "F-12",
+      "status": "resolved",
+      "severity": "high"
+     },
+     {}
+    ]
+   ]
+  }
+ ]
+}

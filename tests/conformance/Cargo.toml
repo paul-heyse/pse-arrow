@@ -18,6 +18,16 @@ publish = false
 workspace = true
 
 [features]
+force-validate = [
+  "pse-columnar/force-validate",
+  "pse-engine/force-validate",
+  "pse-operations/force-validate",
+  "pse-relations/force-validate",
+  "pse-rules/force-validate",
+  "pse-runtime/force-validate",
+  "pse-schema/force-validate",
+  "pse-testkit/force-validate",
+]
 native-acceptance = ["pse-runtime/native-solvers", "dep:faer", "dep:clarabel"]
 native-profiles = [
   "dep:highs",

@@ -159,7 +159,7 @@ fn semicontinuous_keeps_physical_quantity() {
             "package p {{ def Root {{ var n: Power in {spelling}; eq cap: n <= 10{{W}}; }} }}"
         ));
         let admitted = admit(&mut w, root).unwrap();
-        let variable = &admitted.case.variables()[0];
+        let variable = admitted.case.variables().get(0).unwrap();
         assert_eq!((variable.domain, variable.port.quantity), (domain, power()));
         assert_eq!(
             prepare(&mut w, root, &bounded(Some(2.0), Some(8.0))).unwrap(),
@@ -231,7 +231,7 @@ fn binary_implies_unit_box() {
     let (mut w, root) =
         setup("package p { def Root { var n: Indicator in binary; eq e: n <= 1{1}; } }");
     let admitted = admit(&mut w, root).unwrap();
-    let declared = &admitted.case.variables()[0];
+    let declared = admitted.case.variables().get(0).unwrap();
     assert_eq!((declared.lower, declared.upper), (Some(0.0), Some(1.0)));
     for (case, bounds) in [
         (ModelingCaseBindings::default(), (Some(0.0), Some(1.0))),

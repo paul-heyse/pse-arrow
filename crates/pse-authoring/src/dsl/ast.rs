@@ -437,7 +437,7 @@ pub enum Proposition {
 }
 impl Proposition {
     /// Visit every retained expression, including cardinality counts.
-    pub fn expressions(&self, visit: &mut impl FnMut(&Expr)) {
+    pub fn expressions<'a>(&'a self, visit: &mut impl FnMut(&'a Expr)) {
         match self {
             Self::Atom(expression) => visit(expression),
             Self::Not(value) => value.expressions(visit),

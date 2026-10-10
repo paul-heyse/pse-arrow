@@ -14,7 +14,7 @@ superseded-by: null
 revisit: A licence route for HSL is obtained (register R-34), a oneMKL release changes its conditional-numerical-reproducibility contract, a macOS or Windows build is requested (R-08), or the Q1 measurement shows neither SPRAL nor MKL Pardiso improving on MUMPS+METIS for n_KKT ≥ 10⁴.
 verification: Plan 22 N1 tests ipopt_spral_selectable_and_recorded, ipopt_pardisomkl_selectable_under_cbwr, ipopt_linear_solver_in_profile_key, ipopt_mumps_metis_ordering_selectable and ipopt_unavailable_linear_solver_refused, plus spral_refused_without_omp_cancellation and single_blas_provider_in_process; python / parity test_00_preflight; the weekly solvers-image rebuild check; the Q1 measurement of MUMPS+METIS, SPRAL, MKL Pardiso and FERAL on a process case with n_KKT ≥ 10⁴.
 standard: core-3.0/process-simulator-1.1
-scenarios: [docs/plans/22-solver-capabilities-architecture.md#s18]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s18]
 ---
 
 # ADR-0108: Build one solver image with MUMPS+METIS, SPRAL and oneMKL Pardiso; select Ipopt linear solvers explicitly; exclude HSL
@@ -152,7 +152,7 @@ equality.
 
 ## More information
 
-- Architecture companion [§5.4](../plans/22-solver-capabilities-architecture.md#54-one-solver-image-ipopt-linear-algebra-mkl-and-openmp).
+- Architecture companion [§5.4](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#54-one-solver-image-ipopt-linear-algebra-mkl-and-openmp).
 - Target review [T04](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t04), [T05](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t05) and [T06](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t06).
 - Capability review F11 and L-N2.
 - Supersedes ADR-0028. Register rows R-08, R-09, R-21, R-34. Plan 22 packets N1, A7.

@@ -20,6 +20,16 @@ publish = false
 workspace = true
 
 [features]
+force-validate = [
+  "pse-codegen/force-validate",
+  "pse-columnar/force-validate",
+  "pse-engine?/force-validate",
+  "pse-operations?/force-validate",
+  "pse-relations?/force-validate",
+  "pse-rules?/force-validate",
+  "pse-runtime?/force-validate",
+  "pse-schema/force-validate",
+]
 native-solvers = ["package-fixtures", "pse-runtime/native-solvers"]
 default = ["package-fixtures"]
 canonical-tools = ["dep:pse-operations", "dep:pse-model"]

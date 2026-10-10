@@ -56,11 +56,16 @@ fn checked(columns: Vec<ArrayRef>, rows: usize) -> FieldCheckedBatch {
                 .iter()
                 .zip(names)
                 .map(|(column, name)| {
-                    FieldContract::payload(
+                    let field = FieldContract::payload(
                         name,
                         FieldContract::native(column.data_type().clone()),
                         "fixture value",
-                    )
+                    );
+                    if column.null_count() != 0 {
+                        field.optional()
+                    } else {
+                        field
+                    }
                 })
                 .collect(),
         )
@@ -300,9 +305,9 @@ fn checked_take_indices_refuse_before_budget_even_without_columns() {
 }
 
 #[test]
-fn checked_take_occurrence_scratch_is_admitted_before_allocation() {
+fn checked_take_forecast_scratch_is_admitted_before_allocation() {
     let source = checked(vec![Arc::new(Float64Array::from(vec![0.0; 4096]))], 4096);
-    let pool = pool(4096);
+    let pool = pool(0);
     let result = source.take_reserved(
         &UInt32Array::from(vec![0]),
         &pool,
@@ -312,7 +317,162 @@ fn checked_take_occurrence_scratch_is_admitted_before_allocation() {
         result,
         Err(RelationError::Canon(pse_columnar::CanonError::NativeResource(
             datafusion_common::DataFusionError::ResourcesExhausted(message),
-        ))) if message.contains("relations:checked-take-counts")
+        ))) if message.contains("relations:checked-take-forecast")
     ));
     assert_eq!(pool.reserved(), 0);
+}
+
+#[test]
+fn checked_take_small_selection_does_not_reserve_unselected_values() {
+    let long = "x".repeat(1024 * 1024);
+    let sources = [
+        checked(
+            vec![Arc::new(StringArray::from(vec!["selected", &long]))],
+            2,
+        ),
+        checked(
+            vec![Arc::new(ListArray::from_iter_primitive::<
+                arrow_array::types::Int64Type,
+                _,
+                _,
+            >([
+                Some(vec![Some(7)]),
+                Some((0..131072).map(Some).collect()),
+            ]))],
+            2,
+        ),
+    ];
+    for source in sources {
+        let pool = pool(64 * 1024);
+        let cancel = pse_columnar::CancellationToken::new();
+        let expected = source.batch().column(0).slice(0, 1);
+        let selected = source
+            .take_reserved(&UInt32Array::from(vec![0, 0, 0]), &pool, &cancel)
+            .unwrap();
+        assert_eq!(selected.batch().num_rows(), 3);
+        for row in 0..3 {
+            assert_eq!(
+                selected.batch().column(0).slice(row, 1).to_data(),
+                expected.to_data()
+            );
+        }
+        let escaped = selected.batch().column(0).clone();
+        drop(selected);
+        drop(source);
+        assert!(pool.reserved() > 0);
+        assert_eq!(escaped.len(), 3);
+        drop(escaped);
+        assert_eq!(pool.reserved(), 0);
+    }
+    let source = checked(
+        vec![Arc::new(Float64Array::from(vec![1.0; 131072]))],
+        131072,
+    );
+    let pool = pool(64 * 1024);
+    let empty = source
+        .take_reserved(
+            &UInt32Array::from(Vec::<u32>::new()),
+            &pool,
+            &pse_columnar::CancellationToken::new(),
+        )
+        .unwrap();
+    assert_eq!(empty.batch().num_rows(), 0);
+}
+
+#[test]
+fn checked_take_selected_nested_slices_preserve_offsets_and_nulls() {
+    let strings: ArrayRef = Arc::new(StringArray::from(vec![
+        Some("unselected"),
+        None,
+        Some("kept"),
+    ]));
+    let lists: ArrayRef = Arc::new(ListArray::from_iter_primitive::<
+        arrow_array::types::Int64Type,
+        _,
+        _,
+    >([
+        Some(vec![Some(0); 131072]),
+        None,
+        Some(vec![Some(8), None]),
+    ]));
+    let structure = arrow_array::StructArray::from(vec![
+        (
+            Arc::new(Field::new("text", strings.data_type().clone(), true)),
+            strings,
+        ),
+        (
+            Arc::new(Field::new("items", lists.data_type().clone(), true)),
+            lists,
+        ),
+    ]);
+    let fixed = arrow_array::FixedSizeListArray::from_iter_primitive::<
+        arrow_array::types::Int64Type,
+        _,
+        _,
+    >(
+        [
+            Some(vec![Some(0), Some(1)]),
+            None,
+            Some(vec![Some(8), None]),
+        ],
+        2,
+    );
+    let source = checked(
+        vec![Arc::new(structure.slice(1, 2)), Arc::new(fixed.slice(1, 2))],
+        2,
+    );
+    let selected = source
+        .take_reserved(
+            &UInt32Array::from(vec![1, 0, 1]),
+            &pool(64 * 1024),
+            &pse_columnar::CancellationToken::new(),
+        )
+        .unwrap();
+    for (output, input) in [1, 0, 1].into_iter().enumerate() {
+        for column in 0..2 {
+            assert_eq!(
+                selected.batch().column(column).slice(output, 1).to_data(),
+                source.batch().column(column).slice(input, 1).to_data()
+            );
+        }
+    }
+}
+
+#[test]
+fn checked_take_empty_dictionary_and_views_do_not_retain_unselected_values() {
+    let dictionary: ArrayRef = Arc::new(
+        arrow_array::DictionaryArray::<arrow_array::types::Int8Type>::try_new(
+            arrow_array::Int8Array::from(vec![0]),
+            Arc::new(StringArray::from(
+                (0..129)
+                    .map(|n| format!("{n}:{}", "x".repeat(8192)))
+                    .collect::<Vec<_>>(),
+            )),
+        )
+        .unwrap(),
+    );
+    let view: ArrayRef = Arc::new(arrow_array::StringViewArray::from(vec![
+        "x".repeat(1024 * 1024),
+    ]));
+    for column in [dictionary, view] {
+        let source = checked(vec![column], 1);
+        let pool = pool(64 * 1024);
+        let empty = source
+            .take_reserved(
+                &UInt32Array::from(Vec::<u32>::new()),
+                &pool,
+                &pse_columnar::CancellationToken::new(),
+            )
+            .unwrap();
+        assert_eq!(empty.batch().num_rows(), 0);
+        let data = empty.batch().column(0).to_data();
+        // An empty UTF-8 dictionary child retains one zero offset (four bytes),
+        // while its values and the view's external storage must be absent.
+        assert!(data.get_buffer_memory_size() <= size_of::<i32>());
+        assert!(data.child_data().iter().all(|child| child.is_empty()));
+        drop(empty);
+        assert_eq!(pool.reserved(), data.get_buffer_memory_size());
+        drop(data);
+        assert_eq!(pool.reserved(), 0);
+    }
 }

@@ -23,7 +23,13 @@ from dataclasses import asdict, replace
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import case_measure, native_tests, validation, validation_receipts
+from scripts import (
+    case_measure,
+    native_tests,
+    test_resources,
+    validation,
+    validation_receipts,
+)
 from scripts.validation_scope import (
     FUNCTIONAL_SCOPES,
     GROUPS,
@@ -48,12 +54,11 @@ class ValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             recipe = match.group().replace(
-                "cargo nextest", '"{{ py }}" capture.py nextest'
+                '"{{ py }}" -m scripts.arrow_validation', '"{{ py }}" capture.py'
             )
             (root / "justfile").write_text(
                 f'py := "{sys.executable}"\n'
-                'nextest_action := "list --message-format json"\n'
-                'validate := "--features pse-relations/force-validate"\n' + recipe
+                'nextest_action := "list --message-format json"\n' + recipe
             )
             (root / "scripts").mkdir()
             (root / "capture.py").write_text(
@@ -69,7 +74,8 @@ class ValidationTests(unittest.TestCase):
             )
             arguments = json.loads((root / "arguments.json").read_text())
             self.assertEqual(arguments[-4:], ["--profile", "ci", "-E", selection])
-            self.assertIn("pse-relations/force-validate", arguments)
+            self.assertEqual(arguments[:2], ["nextest", "list"])
+            self.assertIn("--workspace", arguments)
             self.assertFalse((root / "injected").exists())
 
     def test_assessment_recipe_preserves_reason_and_output_arguments(self) -> None:
@@ -167,8 +173,38 @@ class ValidationTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
+        registry = patch.object(
+            test_resources, "registry", return_value=self.root / "registry"
+        )
+        registry.start()
+        self.addCleanup(registry.stop)
         self.output = self.root / "build/evidence"
         self.output.mkdir(parents=True)
+
+    def seal_origin(
+        self, directory: Path, receipt: dict, roles: dict[str, str] | None = None
+    ) -> None:
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "fixture-source.json").write_text('{"scope":"receipt-control"}')
+        receipt = {
+            "complete": True,
+            "required_checks_covered": True,
+            "source_unchanged": True,
+            "provenance_errors": [],
+            **receipt,
+        }
+        validation.write_json(directory / "checks.json", receipt)
+        resource = test_resources.register_report(directory, root=self.root)
+        test_resources.finish_report(
+            resource,
+            receipt,
+            roles={
+                "checks.json": "receipt",
+                "fixture-source.json": "provenance",
+                **(roles or {}),
+            },
+            required_provenance=["fixture-source.json"],
+        )
 
     def test_source_inventory_tracks_additions_deletions_modes_and_symlinks(
         self,
@@ -309,6 +345,111 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(receipt["complete"])
         self.assertEqual([check["exit_code"] for check in receipt["checks"]], [7, 0])
         self.assertIn("later check executed", (self.output / "last.log").read_text())
+
+    def test_producer_manifest_retains_real_summary_snapshots_and_consumed_logs(
+        self,
+    ) -> None:
+        for name in (
+            "Cargo.toml",
+            "Cargo.lock",
+            "pyproject.toml",
+            "uv.lock",
+            ".config/nextest.toml",
+        ):
+            path = self.root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("captured input")
+        real_execute = validation.execute
+
+        def execute(
+            root: Path,
+            output: Path,
+            name: str,
+            _command: list[str],
+            env: dict[str, str],
+        ) -> dict:
+            return real_execute(
+                root, output, name, [sys.executable, "-c", "print('observed')"], env
+            )
+
+        def git(_root: Path, *arguments: str) -> bytes:
+            if arguments[0] == "diff":
+                return b"authored uncommitted patch"
+            if arguments[0] == "rev-parse":
+                return b"a" * 40 + b"\n"
+            return b""
+
+        metadata = subprocess.CompletedProcess(
+            [],
+            0,
+            stdout=json.dumps({"target_directory": str(self.root / "target")}).encode(),
+        )
+        with (
+            patch.object(validation, "git", side_effect=git),
+            patch.object(validation, "sources", return_value={"Cargo.lock": "stable"}),
+            patch.object(
+                validation.platform, "platform", return_value="fixture-platform"
+            ),
+            patch.object(validation.subprocess, "run", return_value=metadata),
+            patch.object(validation, "execute", side_effect=execute),
+            patch.object(test_resources.host, "inherit", return_value=None),
+        ):
+            self.assertEqual(
+                validation.run_gates(self.root, self.output, [Gate("pure")]), 0
+            )
+        resource = test_resources.report_resource(self.output)
+        self.assertIsNotNone(resource)
+        record = test_resources.resource_status(resource)
+        manifest = record["artifact_manifest"]["entries"]
+        self.assertEqual(manifest["summary.md"]["role"], "receipt")
+        for name in (
+            "source.diff",
+            "source-files.json",
+            "untracked-source.tar.gz",
+            "host.json",
+            "Cargo.lock",
+            "uv.lock",
+            "nextest.toml",
+        ):
+            self.assertEqual(manifest[name]["role"], "provenance", name)
+            self.assertTrue((self.output / name).exists())
+        self.assertEqual(manifest["pure.log"]["role"], "evidence")
+        self.assertEqual(record["artifacts"], {})
+        self.assertEqual(test_resources.reclaim(resource), "compacted")
+        self.assertEqual(
+            (self.output / "source.diff").read_bytes(), b"authored uncommitted patch"
+        )
+        self.assertTrue((self.output / "summary.md").exists())
+        self.assertTrue((self.output / "pure.log").exists())
+
+    def test_uncaptured_producer_result_passes_functionally_but_stays_pinned(
+        self,
+    ) -> None:
+        real_execute = validation.execute
+
+        def execute(
+            root: Path,
+            output: Path,
+            name: str,
+            _command: list[str],
+            env: dict[str, str],
+        ) -> dict:
+            return real_execute(root, output, name, [sys.executable, "-c", "pass"], env)
+
+        with patch.object(validation, "execute", side_effect=execute):
+            self.assertEqual(
+                validation.run_gates(
+                    self.root, self.output, [Gate("pure")], capture=False
+                ),
+                0,
+            )
+        record = test_resources.resource_status(
+            test_resources.report_resource(self.output)
+        )
+        self.assertEqual(record["disposition"], "pass")
+        self.assertFalse(record["provenance_verified"])
+        self.assertTrue(record["pin"])
+        self.assertEqual(record["cleanup"], "retained")
 
     def test_spawn_failure_is_persistent_and_not_a_success(self) -> None:
         result = validation.execute(
@@ -953,7 +1094,16 @@ class ValidationTests(unittest.TestCase):
         )
 
     def test_reused_fixture_consumer_uses_verified_origin(self) -> None:
-        origin = self.root / "prior"
+        origin = self.root / "build" / "prior"
+        self.seal_origin(
+            origin,
+            {
+                "version": 5,
+                "input_coverage": True,
+                "scope": [{"name": "producer-fixture"}],
+                "checks": [{"gate": "producer-fixture", "status": "passed"}],
+            },
+        )
         observed = {}
         real = validation.execute
 
@@ -1113,6 +1263,11 @@ class ValidationTests(unittest.TestCase):
                 "checks": [check],
                 "scope": scope,
             },
+        )
+        self.seal_origin(
+            self.output,
+            json.loads((self.output / "checks.json").read_text()),
+            {"test.log": "evidence"},
         )
         use = validation_receipts.reuse_checks
         self.assertEqual(

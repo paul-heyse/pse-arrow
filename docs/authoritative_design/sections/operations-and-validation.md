@@ -268,7 +268,7 @@ design-change tracking are owned by
 
 ### 24.1 Test layers
 
-> Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)
+> Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md); [ADR-0170](../../adr/0170-scoped-arrow-validation.md)
 
 | Layer | Location | What it establishes |
 |---|---|---|
@@ -288,8 +288,14 @@ formulations. Parity does not establish numerical IDAES equivalence
 
 **Invariants.**
 
-- Arrow `force_validate` is a feature, not a profile: every Rust test recipe passes
-  `--features pse-relations/force-validate` explicitly.
+- Arrow `force_validate` is a feature, not a profile. Correctness checks/tests explicitly
+  activate it for the actual selected Arrow-consuming normal/build/test-dev closure,
+  including target and host dependencies. Command composition selects opt-in boundary-owner
+  propagation and verifies the enabled Arrow leaf features; unknown or uncovered consuming
+  closures refuse. Pure closures add no Arrow dependency or unrelated relation target.
+  Workspace-unifier edges do not establish consumption, and never activate validation by
+  default. User target, package and feature selections remain part of the closure.
+  Workspace commands may use the relation flag when those targets are already selected.
 - Every Python test carries exactly one of `unit`, `component`, `integration` or
   `performance`; the repository `conftest.py` refuses collection otherwise.
   Performance tests are collected only with `--performance`. Parity tests run only with

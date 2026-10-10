@@ -19,8 +19,6 @@ pub mod r#canonical_analysis_inputs;
 ///Generated relation contract.
 pub mod r#canonical_analysis_nodes;
 ///Generated relation contract.
-pub mod r#canonical_analysis_retirements;
-///Generated relation contract.
 pub mod r#canonical_attempts;
 ///Generated relation contract.
 pub mod r#canonical_edges;

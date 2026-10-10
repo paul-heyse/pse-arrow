@@ -84,7 +84,7 @@ fn fixture(alias: bool, fixed: bool) -> (Arc<CaseAssembly>, CaseValues) {
                 checked_members: Default::default(),
                 instance: id(9),
                 body: key,
-                slots,
+                slots: slots.into(),
                 contributions,
             }],
             vec![
@@ -394,7 +394,7 @@ fn coefficient_projection_preserves_erased_domain_obligations() {
                     checked_members: Default::default(),
                     instance: id(9),
                     body: key,
-                    slots: vec![SlotBinding::new(&port, &port, &registry).unwrap()],
+                    slots: (vec![SlotBinding::new(&port, &port, &registry).unwrap()]).into(),
                     contributions: vec![Contribution {
                         output: 0,
                         target: Target::PRIMARY,
@@ -527,10 +527,11 @@ fn scaled_gathers_factored_quadratics_and_parameter_class_changes() {
                 checked_members: Default::default(),
                 instance: id(9),
                 body: key,
-                slots: vec![
+                slots: (vec![
                     SlotBinding::new(&port, &formal, &registry).unwrap(),
                     SlotBinding::new(&parameter, &formal, &registry).unwrap(),
-                ],
+                ])
+                .into(),
                 contributions: vec![
                     Contribution {
                         output: 0,
@@ -668,7 +669,7 @@ fn admitted_transcendentals_and_strict_guards_feed_library_fbbt() {
                 checked_members: Default::default(),
                 instance: id(9),
                 body: key,
-                slots: vec![SlotBinding::new(&port, &port, &registry).unwrap()],
+                slots: (vec![SlotBinding::new(&port, &port, &registry).unwrap()]).into(),
                 contributions: vec![
                     Contribution {
                         output: 0,
@@ -816,10 +817,11 @@ fn parametric_plan_keeps_objective_and_differentiates_parameters() {
                 checked_members: Default::default(),
                 instance: id(9),
                 body: key,
-                slots: vec![
+                slots: (vec![
                     SlotBinding::new(&port(1), &port(1), &registry).unwrap(),
                     SlotBinding::new(&port(2), &port(2), &registry).unwrap(),
-                ],
+                ])
+                .into(),
                 contributions: vec![
                     Contribution {
                         output: 0,
@@ -984,10 +986,11 @@ fn lexicographic_structure_projects_every_level() {
                 checked_members: Default::default(),
                 instance: id(9),
                 body: key,
-                slots: vec![
+                slots: (vec![
                     SlotBinding::new(&port(1), &port(1), &registry).unwrap(),
                     SlotBinding::new(&port(2), &port(2), &registry).unwrap(),
-                ],
+                ])
+                .into(),
                 contributions: vec![
                     Contribution {
                         output: 0,
@@ -1683,7 +1686,8 @@ fn repeated_occurrences_share_serial_scratch_and_keep_bound_caches_under_finite_
             binding.slots = vec![
                 SlotBinding::new(&port(source), &port(1), &registry).unwrap(),
                 SlotBinding::new(&port(source), &port(2), &registry).unwrap(),
-            ];
+            ]
+            .into();
             binding
         })
         .collect();
@@ -2058,11 +2062,12 @@ fn demanded_directional_case_actions_apply_affine_physical_gather_scales_once_pe
                 checked_members: Default::default(),
                 instance: id(9),
                 body: key,
-                slots: vec![
+                slots: (vec![
                     SlotBinding::new(&source, &formal, &registry).unwrap(),
                     SlotBinding::new(&source, &formal, &registry).unwrap(),
                     SlotBinding::new(&formal, &formal, &registry).unwrap(),
-                ],
+                ])
+                .into(),
                 contributions: vec![
                     Contribution {
                         output: 0,
@@ -2189,4 +2194,211 @@ fn support_upgrade_extent_covers_original_sparse_duplicate_contributions() {
     let directional = value.with_directional_actions(&cancel).unwrap();
     assert!(directional.has_directional_actions());
     assert!(directional.retained_bytes() < demand);
+}
+
+#[test]
+fn conditional_blocks_share_original_coordinates_and_binding_inputs() {
+    use std::collections::BTreeSet;
+    let registry = standard_registry().unwrap();
+    let quantity = ids::quantity("neutral");
+    let port = |n| Port {
+        id: id(n),
+        quantity,
+        unit: registry.quantity_type(quantity).unwrap().canonical_unit,
+    };
+    let cancel = Arc::new(AtomicBool::new(false));
+    for count in [4u8, 24] {
+        let mut builder = BodyBuilder::new(
+            crate::initialize().unwrap(),
+            &registry,
+            &StandardInvariantChecker,
+            3,
+            BodyLimits::default(),
+        )
+        .unwrap();
+        let x = builder
+            .input(0, quantity, IndexSet::new(), id(240))
+            .unwrap();
+        let p = builder
+            .input(1, quantity, IndexSet::new(), id(241))
+            .unwrap();
+        let _inactive = builder
+            .input(2, quantity, IndexSet::new(), id(242))
+            .unwrap();
+        let sum = builder.binary(Binary::Add, x, p, None, id(243)).unwrap();
+        let body = Arc::new(builder.prepare(&[sum]).unwrap());
+        let key = ContentHash::from_bytes([count; 32]);
+        let mut variables: Vec<_> = (1..=count)
+            .map(|n| Variable {
+                port: port(n),
+                fixed: false,
+                domain: ModelingVariableDomain::Continuous,
+                lower: None,
+                upper: None,
+            })
+            .collect();
+        variables.push(Variable {
+            port: port(250),
+            fixed: true,
+            domain: ModelingVariableDomain::Integer,
+            lower: Some(0.0),
+            upper: Some(10.0),
+        });
+        let bindings = (1..=count)
+            .map(|n| InstanceBinding {
+                instance: id(n + 100),
+                body: key,
+                checked_members: Default::default(),
+                slots: vec![
+                    SlotBinding::new(&port(n), &port(n), &registry).unwrap(),
+                    SlotBinding::new(&port(n + 50), &port(n + 50), &registry).unwrap(),
+                    SlotBinding::new(&port(250), &port(250), &registry).unwrap(),
+                ]
+                .into(),
+                contributions: vec![
+                    Contribution {
+                        output: 0,
+                        target: Target::Row(id(n + 150)),
+                        scale: 2.0,
+                    },
+                    Contribution {
+                        output: 0,
+                        target: Target::Row(id(n + 150)),
+                        scale: -1.0,
+                    },
+                ],
+            })
+            .collect();
+        let structure = Arc::new(
+            CaseStructure::new(
+                variables,
+                (1..=count).map(|n| port(n + 50)).collect(),
+                bindings,
+                (1..=count)
+                    .map(|n| Row {
+                        id: id(n + 150),
+                        quantity,
+                        lower: 0.0,
+                        upper: 0.0,
+                    })
+                    .collect(),
+                None,
+                CaseLimits::default(),
+            )
+            .unwrap(),
+        );
+        let original = CasePlan::prepare(
+            structure,
+            BTreeMap::from([(key, body)]),
+            &registry,
+            DerivativeOrder::First,
+            AssemblyLimits::default(),
+            &cancel,
+        )
+        .unwrap();
+        let blocks: Vec<_> = (1..=count)
+            .map(|n| {
+                original
+                    .conditional(
+                        &BTreeSet::from([id(n + 150)]),
+                        &BTreeSet::from([id(n)]),
+                        &registry,
+                        &cancel,
+                    )
+                    .unwrap()
+            })
+            .collect();
+        let universe = original.structure().coordinate_allocation();
+        let mut coordinate_ids = BTreeSet::new();
+        let mut selected_bytes = 0;
+        let mut values = CaseValues {
+            scalars: (1..=count)
+                .flat_map(|n| [(id(n), f64::from(n)), (id(n + 50), 0.5)])
+                .chain([(id(250), 3.0)])
+                .collect(),
+        };
+        for (offset, block) in blocks.iter().enumerate() {
+            let n = offset as u8 + 1;
+            assert_eq!(block.structure().coordinate_allocation(), universe);
+            coordinate_ids.insert(universe.0);
+            selected_bytes += block.structure().selection_bytes();
+            assert_eq!(block.columns(), &[id(n)]);
+            assert_eq!(block.structure().variables().len(), usize::from(count) + 1);
+            assert_eq!(block.structure().parameters().len(), usize::from(count));
+            assert_eq!(
+                block.structure().free_variables().collect::<Vec<_>>(),
+                [id(n)]
+            );
+            assert!(Arc::ptr_eq(
+                &block.structure().instances()[0].slots,
+                &original.structure().instances()[offset].slots
+            ));
+            assert!(Arc::ptr_eq(
+                &block.structure().instances()[0].checked_members,
+                &original.structure().instances()[offset].checked_members
+            ));
+            assert_eq!(block.structure().instances()[0].contributions.len(), 2);
+            block.structure().validate_values(&values).unwrap();
+            let mut missing = values.clone();
+            missing.scalars.remove(&id(if n == 1 { 2 } else { 1 }));
+            assert!(block.structure().validate_values(&missing).is_err());
+            missing = values.clone();
+            missing.scalars.remove(&id(50 + if n == 1 { 2 } else { 1 }));
+            assert!(block.structure().validate_values(&missing).is_err());
+            missing = values.clone();
+            missing.scalars.insert(id(250), 3.5);
+            assert!(block.structure().validate_values(&missing).is_err());
+            let explicit = CaseStructure::new(
+                block.structure().variables().to_vec(),
+                block.structure().parameters().to_vec(),
+                block.structure().instances().to_vec(),
+                block.structure().rows().to_vec(),
+                None,
+                CaseLimits::default(),
+            )
+            .unwrap();
+            assert_eq!(block.structure().key(), explicit.key());
+            assert_eq!(block.structure(), &explicit);
+        }
+        assert_eq!(coordinate_ids.len(), 1);
+        // Index storage grows with selected coordinates, not original inventory times blocks.
+        assert_eq!(selected_bytes, usize::from(count) * size_of::<usize>());
+        let total = CasePlan::retained_group_bytes(blocks.iter()).unwrap();
+        let independent: usize = blocks.iter().map(CasePlan::retained_bytes).sum();
+        assert!(total <= independent - (usize::from(count) - 1) * universe.1);
+        let assembly = Arc::new(
+            Arc::new(blocks[0].clone())
+                .compile(
+                    Optimization::default(),
+                    EvaluationLimits::default(),
+                    &cancel,
+                )
+                .unwrap(),
+        );
+        let mut first = assembly.worker(BTreeMap::new(), cancel.clone());
+        let mut second = assembly.worker(BTreeMap::new(), cancel.clone());
+        assert_eq!(first.constraints(&values).unwrap(), [1.5]);
+        values.scalars.insert(id(1), 8.0);
+        assert_eq!(second.constraints(&values).unwrap(), [8.5]);
+        assert_eq!(first.jacobian(&values).unwrap().val(), &[1.0]);
+        let slots = Arc::downgrade(&original.structure().instances()[0].slots);
+        cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+        assert!(matches!(
+            original.conditional(
+                &BTreeSet::from([id(151)]),
+                &BTreeSet::from([id(1)]),
+                &registry,
+                &cancel
+            ),
+            Err(crate::MathError::Cancelled)
+        ));
+        cancel.store(false, std::sync::atomic::Ordering::Relaxed);
+        drop(first);
+        drop(second);
+        drop(assembly);
+        drop(original);
+        assert!(slots.upgrade().is_some());
+        drop(blocks);
+        assert!(slots.upgrade().is_none());
+    }
 }

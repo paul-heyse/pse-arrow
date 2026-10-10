@@ -88,7 +88,7 @@ source revision until equivalent upstream contracts are available.
 
 ## More information
 
-[Implementation owner](../plans/25n-automatic-simulation-solve-pipeline.md#n6);
+[Implementation owner](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25n-automatic-simulation-solve-pipeline.md#n6);
 [source review](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md#af-06).
 
 ## Status history

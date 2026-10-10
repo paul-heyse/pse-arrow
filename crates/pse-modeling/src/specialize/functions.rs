@@ -33,7 +33,7 @@ impl Engine<'_, '_> {
                 Some(body_contracts)
             });
             let contracts = body_contracts.as_ref().unwrap_or(&contracts);
-            let recorder = crate::expression::admission::AdmissionRecorder::default();
+            let recorder = crate::expression::admission::AdmissionRecorder::for_function(function);
             let context = TypeContext {
                 admissions: Some(&recorder),
                 formula_authority: matches!(
@@ -121,9 +121,7 @@ impl Engine<'_, '_> {
                     function.id,
                 )?;
                 admissions.insert(
-                    crate::expression::admission::ExpressionOccurrence::finite_reduction(
-                        function.id,
-                    ),
+                    crate::expression::admission::ExpressionOccurrence::FiniteReduction,
                     crate::expression::admission::PhysicalAdmission::checked(
                         &request,
                         vec![pse_quantity::scheme::Scheme::from_contract(

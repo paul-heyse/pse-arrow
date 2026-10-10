@@ -11,7 +11,7 @@ Use `just surreal <command>` and the focused test recipes in `just --list`.
 The underlying tool commands are:
 
 ```bash
-.venv/bin/python scripts/surreal_server.py setup --interpretation pse.substrate.v2
+.venv/bin/python scripts/surreal_server.py setup --interpretation pse.substrate.v3
 .venv/bin/python scripts/surreal_server.py start
 .venv/bin/python scripts/surreal_server.py status
 ```
@@ -131,7 +131,7 @@ Timing uses a dedicated state and endpoint. With an already built linked worker:
 ```bash
 timing_state="${XDG_STATE_HOME:-$HOME/.local/state}/pse-arrow/surreal-timing-v2"
 scripts/pse-env --resource-class timing -- just surreal setup --state "$timing_state" \
-  --port 18242 --interpretation pse.substrate.v2 --execution-profile timing \
+  --port 18242 --interpretation pse.substrate.v3 --execution-profile timing \
   --worker-executable "$PWD/target/debug/pse-worker"
 scripts/pse-env --resource-class timing -- just surreal start --state "$timing_state"
 ```
@@ -218,7 +218,9 @@ database together with configuration, credentials, interpretation, admitted immu
 generation closures and isolated context descriptors, then writes a
 SHA256 inventory in `backup.json`. Keep this private backup as carefully as live
 credentials. A destination must be new or empty, outside the live state tree. No online
-file copy, export/import reconstruction or independent WAL/data-file copy is supported.
+file copy or independent WAL/data-file copy is supported. The separately owned restore
+maintenance phase uses native export/import to establish its fresh database identity;
+that phase is not an alternate backup format.
 An interrupted incomplete copy lacks a valid complete manifest and is not a ready backup.
 
 ## Restore and validation
@@ -227,21 +229,25 @@ Restore into a new or empty owned target, never over an existing application:
 
 ```bash
 .venv/bin/python scripts/surreal_server.py restore --state /path/to/restored-state \
-  --source /path/to/new-backup --interpretation pse.substrate.v2
+  --source /path/to/new-backup --interpretation pse.substrate.v3
 .venv/bin/python scripts/surreal_server.py validate --state /path/to/restored-state \
-  --interpretation pse.substrate.v2 --check-command <typed-semantic-validator> <arguments>
+  --interpretation pse.substrate.v3 --check-command <typed-semantic-validator> <arguments>
 .venv/bin/python scripts/surreal_server.py start --state /path/to/restored-state
 ```
 
 Restore checks the full file inventory, digests, known profile and matching interpretation
 before creating the target. Managed generation/context paths are rerooted into the
 new state; restored serving does not depend on the original state directory. Live
-process and admission receipts are not restored. It preserves database bytes and operation identities, assigns
-a new supervisor instance identity, and records `validation_required` with
-`accepting_writes=false`. Ordinary start refuses that state.
+process and admission receipts are not restored. Restore reserves the destination and publishes
+a fresh closed namespace/database before copying backup bytes. It removes copied analysis
+products, rotates source-authority incarnations while retaining their closure floors, copies
+the current database into the fresh identity, rotates root credentials and removes the exact
+old copied database. Unrelated catalog owners refuse maintenance. Non-analysis operation
+identities remain current; old authenticated clients cannot write the copied old database.
+The target records `validation_required` with `accepting_writes=false`; ordinary start refuses it.
 
 `validate` starts the gated server, authenticates against `pse/canonical`, and requires
-`canonical_interpretations:current.interpretation` to match `pse.substrate.v2`. It then
+`canonical_interpretations:current.interpretation` to match `pse.substrate.v3`. It then
 runs the supplied semantic validator with `PSE_SURREAL_STATE` selecting the restore.
 The validator owns exact selected values, operation identities and schema/codec checks;
 it must use the read path permitted during validation, not normal write admission.
@@ -250,12 +256,55 @@ keeps admission closed. Success stops the validation server and leaves the state
 quiesced, ready for explicit normal start. Direct privileged access can bypass this
 application admission contract and is not a supported normal writer.
 
+Maintenance uses a temporary loopback server with ordinary admission closed, declared
+RocksDB resources and no autonomous restart or scientific workers. Native CLI SQL/export/import
+connect remotely because embedded CLI operations do not carry the server's RocksDB configuration.
+Its live lifecycle owner must stop and drain the exact invocation before filesystem copies,
+initializer handoff or normal start. Pending ownership or uncertain shutdown stays closed.
+Credential recovery probes recorded ROOT candidates with fresh unselected connections; it never
+creates an account or missing database to make recovery succeed.
+
+## Explicit design-phase reconstruction and recovery
+
+For an isolated, stopped and authentically drained profile, `rebuild --state PATH --source
+AUTHORED-INPUT-DIRECTORY --destination NEW-PRESERVED-DIRECTORY --initializer-command COMMAND ...`
+preserves an exact file inventory and executes the current initializer against a fresh
+namespace/database. The initializer receives `PSE_PRESERVED_INPUTS` and the live lifecycle
+nonce. Ordinary canonical handles remain closed; the initializer's authority expires with
+its owner. Only after current initialization and preserved hashes are acknowledged is the
+exact replaced database removed. This is explicit disposal of derived internal state, never
+an automatic opening migration or a reset of authored/external inputs.
+
+Interrupted rebuild or restore remains closed. `recover-maintenance --state PATH` resumes
+its durable phase after verifying exact identities and preserved inputs; an interrupted
+rebuild initializer also requires `--initializer-command COMMAND ...`. Recovery observes
+account/database effects before repeating uncertain actions. Unknown content or changed
+backup/input inventories refuse recovery without disposing of their sources.
+
 ## Targeted fixture controls
 
 ```bash
 .venv/bin/python -m unittest scripts.tests.test_surreal_server -v
 .venv/bin/python -m scripts.tests.surreal_fixture_check
 ```
+
+The design-phase rebuild/current-restore control uses the actual canonical initializer
+and native SQL/export/import on fresh profiles. Build `xtask` with `canonical-tools`,
+then run it inside an admitted exclusive allocation, after other backend journeys drain:
+
+```bash
+cargo build -p xtask --no-default-features --features canonical-tools --locked
+.venv/bin/python scripts/tests/efficiency_maintenance_actual_check.py \
+  --directory /absolute/new/private-maintenance-control --port 18243
+```
+
+The directory must be new. This control checks preserved authored file hashes, current
+schema initialization, full analysis removal, fresh database/account authority, closed
+validation and interrupted-initializer recovery. Its final report includes actual drain
+errors; it does not compile the preserved authored model or establish scientific parity.
+Catalog observations use top-level `INFO` statements with exact catalog/nonce acknowledgments;
+the pinned server requires namespace selection for catalog expressions assigned to variables.
+Failure output occupies one bounded private slot, with secrets redacted before truncation.
 
 The unit controls cover private credentials, preservation of unrelated state, finite
 joint allocation, inherited authentication-bypass refusal, bounded log rotation, corrupted

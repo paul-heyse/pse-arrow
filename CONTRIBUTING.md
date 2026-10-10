@@ -131,9 +131,12 @@ the completed plan and its resolved reviews then retire (Git history keeps them)
 | `just doc-lint` | every backticked `a::b::c` in `docs/**` resolves in the pinned API surface | that the prose describes what the API does |
 | `just ci-pr` | the local composite Rust, Python, quality and documentation checks pass | GitHub's interpreter matrix, parity, or deeper manual jobs |
 
-GitHub checks and `just ci-pr` are optional and run only when requested. Agent sessions run
-`just fmt` and the generators automatically when an agent stops; agents run the static subset
-(`just hygiene`) once all functional scope is implemented (ADR-0143).
+GitHub check workflows run only when manually dispatched; `just ci-pr` is optional.
+There are no end-of-turn hooks (ADR-0161). The root agent runs `just turn-end` at the end
+of a turn that changed files; agents run `just hygiene` and selected integrated checks
+once all functional scope is implemented. Run `just codegen` when generator declarations
+change. Follow [AGENTS.md](AGENTS.md#execution-rhythm-functional-scope-first-static-checks-at-scope-end)
+for the shared execution rhythm.
 Say what you verified using the §D vocabulary, and say what you did not.
 
 ## 6. Generated code, pins, and lockfiles

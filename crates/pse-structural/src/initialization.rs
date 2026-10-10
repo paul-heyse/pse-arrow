@@ -74,8 +74,30 @@ impl Plan {
         }
         let mut components = petgraph::algo::kosaraju_scc(&graph);
         components.reverse();
+        let mut component_of = vec![0usize; numerical.blocks.len()];
+        for (index, component) in components.iter().enumerate() {
+            for node in component {
+                component_of[node.index()] = index;
+            }
+        }
+        let mut inputs = vec![BTreeSet::new(); components.len()];
+        for (row, column) in &edges {
+            if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+                return Err(ProjectionError::Cancelled);
+            }
+            let Some(&consumer) = rows.get(row) else {
+                continue;
+            };
+            let consumer = component_of[consumer];
+            if columns
+                .get(column)
+                .is_none_or(|producer| component_of[*producer] != consumer)
+            {
+                inputs[consumer].insert(*column);
+            }
+        }
         let mut blocks = Vec::new();
-        for component in components {
+        for (index, component) in components.into_iter().enumerate() {
             if cancel.load(std::sync::atomic::Ordering::Relaxed) {
                 return Err(ProjectionError::Cancelled);
             }
@@ -87,18 +109,10 @@ impl Plan {
             }
             members.rows.sort_unstable();
             members.columns.sort_unstable();
-            let inputs = edges
-                .iter()
-                .filter(|(row, _)| members.rows.binary_search(row).is_ok())
-                .map(|(_, column)| *column)
-                .filter(|column| members.columns.binary_search(column).is_err())
-                .collect::<BTreeSet<_>>()
-                .into_iter()
-                .collect();
             blocks.push(Block {
                 id: crate::incidence::BlockId::new(&a.scope, &members),
                 members,
-                inputs,
+                inputs: inputs[index].iter().copied().collect(),
             });
         }
         Ok(Self {
@@ -335,5 +349,67 @@ mod tests {
         let mut partial = a;
         partial.scope = Scope::Partial(id(40));
         assert!(Plan::from_analysis(&partial).is_err());
+    }
+    #[test]
+    fn indexed_predecessors_keep_independent_and_execution_only_inputs() {
+        use crate::incidence::{Block as StructuralBlock, BlockId, StructuralAnalysis};
+        let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        for count in [4u8, 32] {
+            let scope = Scope::Whole(id(240));
+            let blocks: Vec<_> = (1..=count)
+                .map(|n| {
+                    let members = Part {
+                        rows: vec![id(n)],
+                        columns: vec![id(n + 100)],
+                    };
+                    StructuralBlock {
+                        id: BlockId::new(&scope, &members),
+                        members,
+                        coupling: pounce_presolve::coupling::AuxiliaryCouplingClass::PureEquality,
+                    }
+                })
+                .collect();
+            let analysis = StructuralAnalysis {
+                scope,
+                provenance: crate::incidence::PROVENANCE,
+                matching: vec![],
+                over: Part::default(),
+                under: Part::default(),
+                square: Part {
+                    rows: (1..=count).map(id).collect(),
+                    columns: (1..=count).map(|n| id(n + 100)).collect(),
+                },
+                blocks,
+                contributions: vec![],
+            };
+            let independent = Plan::with_execution_dependencies(&analysis, &[], &cancel).unwrap();
+            assert_eq!(independent.blocks.len(), usize::from(count));
+            assert!(
+                independent
+                    .blocks
+                    .iter()
+                    .all(|block| block.inputs.is_empty())
+            );
+            let mut dependencies: Vec<_> = (2..=count).map(|n| (id(n), id(n + 99))).collect();
+            dependencies.push((id(1), id(250))); // Fixed execution input, no numerical edge.
+            dependencies.push((id(1), id(250))); // Repeated authored dependency is one input.
+            let chain =
+                Plan::with_execution_dependencies(&analysis, &dependencies, &cancel).unwrap();
+            assert_eq!(chain.blocks.len(), usize::from(count));
+            assert_eq!(chain.blocks[0].inputs, [id(250)]);
+            for (offset, block) in chain.blocks.iter().enumerate() {
+                assert_eq!(block.members.rows, [id(offset as u8 + 1)]);
+                if offset > 0 {
+                    assert_eq!(block.inputs, [id(offset as u8 + 100)]);
+                }
+            }
+            assert_eq!(analysis.contributions.len(), 0);
+            cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+            assert!(matches!(
+                Plan::with_execution_dependencies(&analysis, &dependencies, &cancel),
+                Err(ProjectionError::Cancelled)
+            ));
+            cancel.store(false, std::sync::atomic::Ordering::Relaxed);
+        }
     }
 }

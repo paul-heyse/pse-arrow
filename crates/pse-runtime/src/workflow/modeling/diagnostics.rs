@@ -106,6 +106,7 @@ pub struct ModelingDiagnosticPolicy {
 /// Named numerical evidence at one point of one prepared case.
 #[derive(Clone, Debug)]
 pub struct ModelingDiagnostics {
+    pub(super) encodings: Arc<crate::workflow::result_export::EncodingState>,
     /// Identity of this diagnostic run.
     pub run_id: RunId,
     pub(super) runtime: Runtime,
@@ -405,6 +406,7 @@ impl ModelingPackage {
         let numerics = Arc::new(
             pse_math::numerics::resolve(
                 physical,
+                &resolved.model.case.compiled().preconditions,
                 &targets,
                 &resolved.numerical.declarations,
                 &resolved.solver.numerics,
@@ -494,6 +496,7 @@ impl ModelingPackage {
         let inequality_count = assessment.equations.len() - equality_count;
         let free_count = assessment.variables.len();
         let mut report = ModelingDiagnostics {
+            encodings: Arc::default(),
             run_id: pse_operations::mint_id(),
             runtime: self.runtime.clone(),
             source_identity: plan.structure().key(),

@@ -1264,10 +1264,9 @@ impl NativeModelingTrajectory {
             .map(inspection::DiagnosticReport::observe)
     }
     fn table(&self, py: Python<'_>, name: &str) -> PyResult<inspection::TableStream> {
-        py.detach(|| self.inner.table(name))
-            .map(inspection::TableStream::from_batch)
-            .map_err(|e| errors::diagnostic(py, &e))?
-            .map_err(|e| errors::diagnostic(py, &e))
+        py.detach(|| self.inner.clone().into_table_cursor(name, 1024))
+            .map(inspection::TableStream::from_result)
+            .map_err(|error| errors::diagnostic(py, &error))
     }
 }
 
@@ -1406,15 +1405,9 @@ impl NativeModelingDiagnosticSamples {
 #[pymethods]
 impl NativeModelingDiagnostics {
     fn table(&self, py: Python<'_>, name: &str) -> PyResult<inspection::TableStream> {
-        let id = relation(py, name)?;
-        let mut tables = py
-            .detach(|| self.inner.tables())
-            .map_err(|e| errors::diagnostic(py, &e))?;
-        tables
-            .remove(&id)
-            .map(inspection::TableStream::from_batch)
-            .ok_or_else(|| invalid(py, "diagnostic table absent"))?
-            .map_err(|e| errors::diagnostic(py, &e))
+        py.detach(|| self.inner.clone().into_table_cursor(name, 1024))
+            .map(inspection::TableStream::from_result)
+            .map_err(|error| errors::diagnostic(py, &error))
     }
 
     #[getter]
@@ -1616,7 +1609,6 @@ impl NativeStudyReport {
             .ok_or_else(|| invalid(py, "study occurrence outside report"))?;
         match result {
             Some(native::StudyOccurrenceResult::Ephemeral(inner)) => Ok(Some(NativeRunResult {
-                owner: self.owner.clone(),
                 inner: inner.clone(),
             })),
             Some(native::StudyOccurrenceResult::Retained { .. }) => Err(invalid(
@@ -1870,16 +1862,8 @@ impl NativeModelingResult {
             .map(inspection::DiagnosticReport::observe)
     }
     fn table(&self, py: Python<'_>, name: &str) -> PyResult<inspection::TableStream> {
-        let relation = relation(py, name)?;
-        py.detach(|| {
-            self.inner.tables().and_then(|mut tables| {
-                tables.remove(&relation).ok_or_else(|| {
-                    native::WorkflowError::Input("modeling result relation absent".into())
-                })
-            })
-        })
-        .map(inspection::TableStream::from_batch)
-        .map_err(|e| errors::diagnostic(py, &e))?
-        .map_err(|e| errors::diagnostic(py, &e))
+        py.detach(|| self.inner.clone().into_table_cursor(name, 1024))
+            .map(inspection::TableStream::from_result)
+            .map_err(|error| errors::diagnostic(py, &error))
     }
 }

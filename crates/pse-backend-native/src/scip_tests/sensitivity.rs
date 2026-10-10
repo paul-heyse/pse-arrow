@@ -45,7 +45,7 @@ fn parameterized(
         .map(variable_port)
         .chain((0..parameters.len()).map(parameter_port))
         .collect();
-    let slots = ports
+    let slots: Vec<_> = ports
         .iter()
         .map(|p| SlotBinding::new(p, p, registry).unwrap())
         .collect();
@@ -68,7 +68,7 @@ fn parameterized(
                 checked_members: Default::default(),
                 instance: id(9),
                 body: key,
-                slots,
+                slots: slots.into(),
                 contributions,
             }],
             rows.iter()

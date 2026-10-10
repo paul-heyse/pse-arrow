@@ -1,0 +1,42 @@
+{
+ "i-baseline": {
+  "S3-adjacent-elements": {
+   "conflicts": 1,
+   "both_edits_present": null
+  },
+  "S4-same-element-two-fields": {
+   "conflicts": 1,
+   "both_edits_present": null
+  }
+ },
+ "ii-simple": {
+  "S3-adjacent-elements": {
+   "conflicts": 1,
+   "both_edits_present": null
+  },
+  "S4-same-element-two-fields": {
+   "conflicts": 1,
+   "both_edits_present": null
+  }
+ },
+ "iii-typed": {
+  "S3-adjacent-elements": {
+   "conflicts": 0,
+   "both_edits_present": true
+  },
+  "S4-same-element-two-fields": {
+   "conflicts": 0,
+   "both_edits_present": true
+  }
+ },
+ "iv-canonical": {
+  "S3-adjacent-elements": {
+   "conflicts": 0,
+   "both_edits_present": true
+  },
+  "S4-same-element-two-fields": {
+   "conflicts": 0,
+   "both_edits_present": true
+  }
+ }
+}

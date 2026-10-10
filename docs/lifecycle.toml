@@ -1,0 +1,1292 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# Interpretation defaults and native source selectors; never a second status ledger.
+version = 1
+topics = [
+  "architecture",
+  "current-work",
+  "design",
+  "libraries",
+  "decisions",
+  "documentation",
+  "validation",
+  "environment",
+  "preparation",
+  "storage",
+]
+
+[[exceptions]]
+path = "docs/external-review-postgresl-options.md"
+[exceptions.values]
+doc_role = "reference"
+doc_owner = "docs/adr/0112-postgresql-operational-store-and-catalog.md"
+doc_provenance = "authored"
+doc_retention = "while-dependent"
+doc_retention_reason = "Historical rationale retained by ADR-0112; not current implementation guidance."
+
+[[exceptions]]
+path = "docs/external-review-postgresl-typing-and-other-typing-enhancements.md"
+[exceptions.values]
+doc_role = "reference"
+doc_owner = "docs/adr/0114-typed-operational-store.md"
+doc_provenance = "authored"
+doc_retention = "while-dependent"
+doc_retention_reason = "Historical rationale retained by ADR-0114; not current implementation guidance."
+
+[defaults]
+doc_provenance = "authored"
+doc_retention = "protected-unknown"
+doc_retirement_trigger = "owner-release"
+doc_topics = []
+
+[collections."."]
+doc_role = "reference"
+doc_owner = "docs/README.md"
+doc_retention = "while-current"
+[collections.authoritative_design]
+doc_role = "contract"
+doc_owner = "docs/authoritative_design/README.md"
+doc_topics = ["architecture"]
+doc_retention = "while-current"
+[collections.plans]
+doc_role = "plan"
+doc_topics = ["current-work"]
+doc_retention = "while-dependent"
+[collections.adr]
+doc_role = "decision"
+doc_owner = "docs/adr/README.md"
+doc_topics = ["decisions"]
+doc_retention = "owner-managed"
+[collections.design_review]
+doc_role = "review"
+doc_topics = ["design"]
+[collections.dev]
+doc_role = "instruction"
+doc_owner = "docs/dev/agent-environment.md"
+doc_topics = ["environment"]
+doc_retention = "while-current"
+[collections."capability-maps"]
+doc_role = "reference"
+doc_owner = "docs/capability-maps/README.md"
+doc_topics = ["libraries"]
+doc_retention = "while-dependent"
+[collections.generated]
+doc_role = "reference"
+doc_provenance = "generated"
+doc_owner = "docs/dev/documentation.md"
+doc_topics = ["documentation"]
+doc_retention = "owner-managed"
+doc_retirement_trigger = "producer-policy"
+
+[[bundles]]
+root = "docs/design_review/design_principles"
+[bundles.defaults]
+doc_role = "contract"
+doc_owner = "docs/design_review/README.md"
+doc_retention = "while-current"
+
+[[bundles]]
+root = "docs/design_review/evidence"
+[bundles.defaults]
+doc_role = "evidence"
+doc_provenance = "observed"
+doc_retention = "protected-unknown"
+
+# Ordered classifications apply only where a native binding selects this profile.
+# Implementation/test labels alone do not establish qualification or closure.
+[status_profiles.packet]
+order = ["blocked", "deferred", "open", "complete"]
+blocked = ['(?i)\bblocked\b', '(?i)\bpaused\b']
+deferred = ['(?i)^deferred\b']
+open = [
+  '(?i)\bpending\b',
+  '(?i)\bremain(?:s|ing)?\b',
+  '(?i)\bin[- ]progress\b',
+  '(?i)\bunresolved\b',
+  '(?i)\bopen\b',
+  '(?i)^planned\b',
+  '(?i)^scheduled\b',
+  '(?i)^proposed\b',
+]
+complete = ['(?i)^(?:done|complete|completed|resolved|superseded|disproved)\b']
+
+[status_profiles.finding]
+order = ["blocked", "deferred", "open", "complete"]
+blocked = ['(?i)^blocked\b', '(?i)^paused\b']
+deferred = ['(?i)^deferred\b']
+open = [
+  '(?i)\bpending\b',
+  '(?i)\bunresolved\b',
+  '(?i)\bopen\b',
+  '(?i)^scheduled\b',
+  '(?i)^planned\b',
+]
+complete = ['(?i)^(?:resolved|superseded|disproved|complete|completed|done)\b']
+
+
+[[exceptions]]
+path = "docs/plans/28-surrealdb-unified-substrate.md"
+[exceptions.values]
+doc_owner = "docs/plans/28-surrealdb-unified-substrate.md"
+
+[[scope_tables]]
+path = "docs/plans/28-surrealdb-unified-substrate.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding",
+  "Review scenarios",
+  "Disposition",
+  "Work owner",
+  "Required evidence or question",
+]
+kind = "finding"
+id_column = 0
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/28-surrealdb-unified-substrate.md"
+name = "enhancement-review-dispositions"
+heading = "Enhancement-review dispositions"
+headers = [
+  "Finding or obligation",
+  "Review scenario",
+  "Disposition",
+  "Work owner",
+  "Required evidence or settling decision",
+]
+kind = "finding"
+id_column = 0
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/28-surrealdb-unified-substrate.md"
+name = "parallel-execution-review-dispositions"
+heading = "Parallel-execution review dispositions"
+headers = [
+  "Finding",
+  "Review scenarios",
+  "Disposition",
+  "Work owner",
+  "Required evidence or question",
+]
+kind = "finding"
+id_column = 0
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/28-surrealdb-unified-substrate.md"
+name = "preparation-assurance-and-reuse-review"
+heading = "Preparation assurance and reuse review"
+headers = ["Finding", "Disposition", "Prospective owner", "Required resolution"]
+kind = "finding"
+id_column = 0
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/28-surrealdb-unified-substrate.md"
+name = "graph-and-hashing-finding-dispositions"
+heading = "Graph and hashing finding dispositions"
+headers = [
+  "Finding or premise",
+  "Review scenarios",
+  "Disposition",
+  "Work/decision owner",
+  "Required evidence or question",
+]
+kind = "finding"
+id_column = 0
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[exceptions]]
+path = "docs/plans/28a-canonical-substrate-and-revisions.md"
+[exceptions.values]
+doc_owner = "docs/plans/28a-canonical-substrate-and-revisions.md"
+
+[[scope_tables]]
+path = "docs/plans/28a-canonical-substrate-and-revisions.md"
+name = "parallel-canonical-protection-and-contention"
+heading = "Parallel canonical protection and contention"
+headers = [
+  "Package",
+  "Prerequisite and delivered behavior",
+  "Migration, deletion and targeted acceptance",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/28a-canonical-substrate-and-revisions.md"
+name = "preparation-description-admission"
+heading = "Preparation description admission"
+headers = [
+  "Package",
+  "Prerequisite and target behavior",
+  "Completion and status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 2
+
+[[scope_tables]]
+path = "docs/plans/28a-canonical-substrate-and-revisions.md"
+name = "work-packages"
+heading = "Work packages"
+headers = [
+  "Package",
+  "Prerequisite and delivered behavior",
+  "Consumer migration and deletion",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[exceptions]]
+path = "docs/plans/28b-selected-compilation-and-reuse.md"
+[exceptions.values]
+doc_owner = "docs/plans/28b-selected-compilation-and-reuse.md"
+
+[[scope_tables]]
+path = "docs/plans/28b-selected-compilation-and-reuse.md"
+name = "ordinary-deployment-local-replay"
+heading = "Ordinary deployment-local replay"
+headers = [
+  "Package",
+  "Prerequisite and delivered behavior",
+  "Migration, deletion and focused acceptance",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/28b-selected-compilation-and-reuse.md"
+name = "parallel-selected-preparation-composition"
+heading = "Parallel selected-preparation composition"
+headers = [
+  "Package",
+  "Inputs and delivered behavior",
+  "Migration, deletion and focused acceptance",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/28b-selected-compilation-and-reuse.md"
+name = "complete-selected-preparation-adoption"
+heading = "Complete selected-preparation adoption"
+headers = [
+  "Package",
+  "Prerequisite and target behavior",
+  "Completion and status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 2
+
+[[scope_tables]]
+path = "docs/plans/28b-selected-compilation-and-reuse.md"
+name = "package-and-scoped-acceptance"
+heading = "Package and scoped acceptance"
+headers = [
+  "Package",
+  "Prerequisites and delivered capability",
+  "Consumer boundary",
+  "Progress",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/28b-selected-compilation-and-reuse.md"
+name = "work-packages"
+heading = "Work packages"
+headers = [
+  "Package",
+  "Prerequisite and delivered behavior",
+  "Consumer migration and deletion",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[exceptions]]
+path = "docs/plans/28c-durable-execution-and-studies.md"
+[exceptions.values]
+doc_owner = "docs/plans/28c-durable-execution-and-studies.md"
+
+[[scope_tables]]
+path = "docs/plans/28c-durable-execution-and-studies.md"
+name = "stored-study-admission-and-creation-cancellation"
+heading = "Stored-study admission and creation cancellation"
+headers = [
+  "Package",
+  "Delivered behavior and prerequisites",
+  "Migration, deletion and targeted acceptance",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/28c-durable-execution-and-studies.md"
+name = "c7-one-coordinated-durable-realization"
+heading = "C7 \u2014 One coordinated durable realization"
+headers = [
+  "Package",
+  "Inputs and delivered behavior",
+  "Migration, deletion and targeted acceptance",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/28c-durable-execution-and-studies.md"
+name = "complete-preparation-through-study-execution"
+heading = "Complete preparation through study execution"
+headers = [
+  "Package",
+  "Prerequisite and target behavior",
+  "Completion and status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 2
+
+[[scope_tables]]
+path = "docs/plans/28c-durable-execution-and-studies.md"
+name = "work-packages"
+heading = "Work packages"
+headers = [
+  "Package",
+  "Prerequisite and delivered behavior",
+  "Consumer migration and deletion",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[exceptions]]
+path = "docs/plans/28d-connected-results-and-analysis.md"
+[exceptions.values]
+doc_owner = "docs/plans/28d-connected-results-and-analysis.md"
+
+[[scope_tables]]
+path = "docs/plans/28d-connected-results-and-analysis.md"
+name = "work-packages"
+heading = "Work packages"
+headers = [
+  "Package",
+  "Prerequisite and delivered behavior",
+  "Consumer migration and deletion",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[exceptions]]
+path = "docs/plans/28e-rebuild-retirement-and-qualification.md"
+[exceptions.values]
+doc_owner = "docs/plans/28e-rebuild-retirement-and-qualification.md"
+
+[[scope_tables]]
+path = "docs/plans/28e-rebuild-retirement-and-qualification.md"
+name = "work-packages"
+heading = "Work packages"
+headers = [
+  "Package",
+  "Prerequisite and delivered behavior",
+  "Completion boundary",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[exceptions]]
+path = "docs/plans/28f-shared-numerical-preparation.md"
+[exceptions.values]
+doc_owner = "docs/plans/28f-shared-numerical-preparation.md"
+
+[[scope_tables]]
+path = "docs/plans/28f-shared-numerical-preparation.md"
+name = "n7-fitting-demand-and-coherent-point-upgrade"
+heading = "N7 \u2014 Fitting demand and coherent point upgrade"
+headers = [
+  "Package",
+  "Prerequisite and consumer scope",
+  "Targeted acceptance and deletion",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/28f-shared-numerical-preparation.md"
+name = "n10-backend-strategy-and-exclusion-decision"
+heading = "N10 \u2014 Backend strategy and exclusion decision"
+headers = [
+  "Package",
+  "Inputs and delivered behavior",
+  "Migration, deletion and targeted acceptance",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/28f-shared-numerical-preparation.md"
+name = "complete-basis-through-analysis-consumers"
+heading = "Complete basis through analysis consumers"
+headers = [
+  "Package",
+  "Prerequisite and target behavior",
+  "Completion and status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 2
+
+[[scope_tables]]
+path = "docs/plans/28f-shared-numerical-preparation.md"
+name = "pc-saft-numerical-fact-investigation-boundary"
+heading = "PC-SAFT numerical-fact investigation boundary"
+headers = ["Package", "Working prerequisite", "Completion boundary", "Progress"]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/28f-shared-numerical-preparation.md"
+name = "work-packages-and-dependencies"
+heading = "Work packages and dependencies"
+headers = [
+  "Package",
+  "Inputs and delivered behavior",
+  "Migration, deletion and focused acceptance",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[exceptions]]
+path = "docs/plans/28g-bulk-data-operations.md"
+[exceptions.values]
+doc_owner = "docs/plans/28g-bulk-data-operations.md"
+
+[[scope_tables]]
+path = "docs/plans/28g-bulk-data-operations.md"
+name = "remaining-native-access-path-decision"
+heading = "Remaining native access-path decision"
+headers = [
+  "Package",
+  "Decision and delivered scope",
+  "Acceptance and subsequent work",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/28g-bulk-data-operations.md"
+name = "parallel-protected-operation-composition"
+heading = "Parallel protected-operation composition"
+headers = [
+  "Package",
+  "Inputs and delivered behavior",
+  "Migration, deletion and focused acceptance",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/28g-bulk-data-operations.md"
+name = "work-packages-and-dependencies"
+heading = "Work packages and dependencies"
+headers = [
+  "Package",
+  "Inputs and delivered behavior",
+  "Migration, deletion and focused acceptance",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[exceptions]]
+path = "docs/plans/28h-native-setup-and-artifact-identity.md"
+[exceptions.values]
+doc_owner = "docs/plans/28h-native-setup-and-artifact-identity.md"
+
+[[scope_tables]]
+path = "docs/plans/28h-native-setup-and-artifact-identity.md"
+name = "deployment-local-replay-and-build-output-derivation"
+heading = "Deployment-local replay and build-output derivation"
+headers = [
+  "Package",
+  "Delivered contract and dependent consumers",
+  "Focused acceptance",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/28h-native-setup-and-artifact-identity.md"
+name = "parallel-deployment-and-supported-native-placement"
+heading = "Parallel deployment and supported native placement"
+headers = [
+  "Package",
+  "Inputs and delivered behavior",
+  "Migration, deletion and focused acceptance",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/28h-native-setup-and-artifact-identity.md"
+name = "consumer-scope-and-packages"
+heading = "Consumer scope and packages"
+headers = [
+  "Package",
+  "Inputs and delivered behavior",
+  "Migration, deletion and focused acceptance",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[exceptions]]
+path = "docs/plans/28i-runtime-validity-and-interruption.md"
+[exceptions.values]
+doc_owner = "docs/plans/28i-runtime-validity-and-interruption.md"
+
+[[scope_tables]]
+path = "docs/plans/28i-runtime-validity-and-interruption.md"
+name = "packages-dependencies-and-verification"
+heading = "Packages, dependencies and verification"
+headers = [
+  "Package",
+  "Prerequisite and delivered capability",
+  "Completion boundary",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+
+[[exceptions]]
+path = "docs/plans/28j-pure-preparation-and-publication.md"
+[exceptions.values]
+doc_owner = "docs/plans/28j-pure-preparation-and-publication.md"
+
+[[scope_tables]]
+path = "docs/plans/28j-pure-preparation-and-publication.md"
+name = "package-and-scoped-acceptance"
+heading = "Package and scoped acceptance"
+headers = [
+  "Package",
+  "Prerequisites and migration",
+  "Completion boundary",
+  "Progress",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/28j-pure-preparation-and-publication.md"
+name = "packages-integration-and-retirement"
+heading = "Packages, integration and retirement"
+headers = [
+  "Package",
+  "Delivered behavior and prerequisites",
+  "Completion boundary",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+
+[[exceptions]]
+path = "docs/plans/28k-graph-kernels-and-hashing-investigations.md"
+[exceptions.values]
+doc_owner = "docs/plans/28k-graph-kernels-and-hashing-investigations.md"
+
+[[scope_tables]]
+path = "docs/plans/28k-graph-kernels-and-hashing-investigations.md"
+name = "packages-evidence-and-completion"
+heading = "Packages, evidence and completion"
+headers = ["Package", "Input and readiness", "Completion product", "Progress"]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[exceptions]]
+path = "docs/plans/29-agent-workspace-effectiveness.md"
+[exceptions.values]
+doc_owner = "docs/plans/29-agent-workspace-effectiveness.md"
+
+[[scope_tables]]
+path = "docs/plans/29-agent-workspace-effectiveness.md"
+name = "plan"
+heading = "Plan"
+headers = [
+  "Packet",
+  "Responsibility / dependencies",
+  "Scenarios / acceptance",
+  "Replaced code / deletion",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 4
+
+[[scope_tables]]
+path = "docs/plans/29-agent-workspace-effectiveness.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding reference",
+  "Scenario reference",
+  "Disposition",
+  "Decision / work owner",
+  "Evidence or revisit trigger",
+]
+kind = "finding"
+id_column = 0
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[exceptions]]
+path = "docs/plans/30-websocket-and-persistent-agent-environment.md"
+[exceptions.values]
+doc_owner = "docs/plans/30-websocket-and-persistent-agent-environment.md"
+
+[[scope_tables]]
+path = "docs/plans/30-websocket-and-persistent-agent-environment.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding reference",
+  "Scenario reference",
+  "Disposition",
+  "Decision/work owner",
+  "Evidence or revisit trigger",
+]
+kind = "finding"
+id_column = 0
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[exceptions]]
+path = "docs/plans/30a-native-websocket-rpc-and-operation-lifetimes.md"
+[exceptions.values]
+doc_owner = "docs/plans/30a-native-websocket-rpc-and-operation-lifetimes.md"
+
+[[scope_tables]]
+path = "docs/plans/30a-native-websocket-rpc-and-operation-lifetimes.md"
+name = "packages-and-consumer-migration"
+heading = "Packages and consumer migration"
+headers = [
+  "Package",
+  "Inputs and delivered behavior",
+  "Migration/deletion and focused acceptance",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[exceptions]]
+path = "docs/plans/30b-persistent-services-and-receiver-generations.md"
+[exceptions.values]
+doc_owner = "docs/plans/30b-persistent-services-and-receiver-generations.md"
+
+[[scope_tables]]
+path = "docs/plans/30b-persistent-services-and-receiver-generations.md"
+name = "packages-and-bounded-topology-investigation"
+heading = "Packages and bounded topology investigation"
+headers = [
+  "Package",
+  "Inputs and delivered behavior",
+  "Migration/deletion and focused acceptance",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[exceptions]]
+path = "docs/plans/30c-test-ownership-and-evidence-retention.md"
+[exceptions.values]
+doc_owner = "docs/plans/30c-test-ownership-and-evidence-retention.md"
+
+[[scope_tables]]
+path = "docs/plans/30c-test-ownership-and-evidence-retention.md"
+name = "packages-and-acceptance"
+heading = "Packages and acceptance"
+headers = [
+  "Package",
+  "Inputs and delivered behavior",
+  "Migration/deletion and focused acceptance",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[exceptions]]
+path = "docs/plans/30d-host-admission-and-timing-qualification.md"
+[exceptions.values]
+doc_owner = "docs/plans/30d-host-admission-and-timing-qualification.md"
+
+[[scope_tables]]
+path = "docs/plans/30d-host-admission-and-timing-qualification.md"
+name = "packages-and-scope-end-acceptance"
+heading = "Packages and scope-end acceptance"
+headers = [
+  "Package",
+  "Inputs and delivered behavior",
+  "Migration/deletion and focused acceptance",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[exceptions]]
+path = "docs/plans/31-agent-effectiveness-enhancements.md"
+[exceptions.values]
+doc_owner = "docs/plans/31-agent-effectiveness-enhancements.md"
+
+[[scope_tables]]
+path = "docs/plans/31-agent-effectiveness-enhancements.md"
+name = "plan"
+heading = "Plan"
+headers = [
+  "Packet",
+  "Responsibility / dependencies",
+  "Scenarios / acceptance",
+  "Replaced code / deletion",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+
+[[scope_tables]]
+path = "docs/plans/31-agent-effectiveness-enhancements.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding reference",
+  "Scenario",
+  "Disposition",
+  "Decision / work owner",
+  "Closure evidence required",
+]
+kind = "finding"
+id_column = 0
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[exceptions]]
+path = "docs/plans/32-workspace-content-lifecycle.md"
+[exceptions.values]
+doc_owner = "docs/plans/32-workspace-content-lifecycle.md"
+
+[[scope_tables]]
+path = "docs/plans/32-workspace-content-lifecycle.md"
+name = "plan"
+heading = "Plan"
+headers = [
+  "Packet",
+  "Responsibility / dependencies",
+  "Scenarios / acceptance",
+  "Replaced mechanism / deletion",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 4
+
+[[scope_tables]]
+path = "docs/plans/32-workspace-content-lifecycle.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding reference",
+  "Scenario reference",
+  "Disposition",
+  "Decision / work owner",
+  "Evidence or revisit trigger",
+]
+kind = "finding"
+id_column = 0
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[exceptions]]
+path = "docs/plans/33-efficiency-principles-remediation.md"
+[exceptions.values]
+doc_owner = "docs/plans/33-efficiency-principles-remediation.md"
+
+[[scope_tables]]
+path = "docs/plans/33-efficiency-principles-remediation.md"
+name = "implementation-packets-and-dependencies"
+heading = "Implementation packets and dependencies"
+headers = [
+  "Packet",
+  "Required input",
+  "Delivery and targeted acceptance",
+  "Progress",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/33-efficiency-principles-remediation.md"
+name = "bounded-investigation-packets"
+heading = "Bounded investigation packets"
+headers = [
+  "Packet",
+  "Question, evidence and decision boundary",
+  "Integration and acceptance",
+  "Progress",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/33-efficiency-principles-remediation.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding",
+  "Scenario",
+  "Disposition",
+  "Decision/work owner",
+  "Evidence or completion condition",
+]
+kind = "finding"
+id_column = 0
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+# Closed immutable legacy scalar encodings: exact source spans, never fallback parsing.
+
+[[legacy_yaml]]
+path = "docs/adr/0002-project-name-license-and-distribution.md"
+[legacy_yaml.scalars]
+review = "f9ed5d59db8017dbd11adf353d1d8bfc86f5cf5afe43763fbd1f0a4d16de4f92"
+verification = "c056fde4f36298aa864e153de823db2696faf496827ac45d56fd0cda32fa5e1a"
+
+[[legacy_yaml]]
+path = "docs/adr/0003-clean-room-relationship-and-parity-pin.md"
+[legacy_yaml.scalars]
+review = "90adb194ee4fd7c80b257cb994b89b70d41161b98a8edf8af7dd8510f1d4bd3c"
+verification = "27106276991a7a2eee2f745e8b554f1d9687f8aa469b242829f8d8e5fbacbbff"
+
+[[legacy_yaml]]
+path = "docs/adr/0010-laws-are-templates-over-contributions.md"
+[legacy_yaml.scalars]
+title = "19fd55cc70310cf37f6f743917dcc19c32b3b9910ef80f5525a432b9e8483a41"
+review = "f5e62bde4a15432949d8417e06ab26a238cfcaa13ff1470b8b73ee3212d2c355"
+verification = "5c9ebcd8e7a4f1c9aa749646e09f30c6cfca7d604ab30d755a688566fdae870d"
+
+[[legacy_yaml]]
+path = "docs/adr/0016-cases-and-results-never-mutate-the-model.md"
+[legacy_yaml.scalars]
+title = "f770b5d42c5070172ed0cf6a040534106739b3e7ae0b5a45961ff0682b77c95e"
+review = "05070e9bcd8619d41cd982f1b421f9883e30fc98fedacf58ed3a6058acfc7349"
+verification = "a101146deb597cdb3c03a4d576082e7840a1d0abb5bd546a13f1ea7adfcb3ad3"
+
+[[legacy_yaml]]
+path = "docs/adr/0018-dependency-pins-lockfile-and-msrv.md"
+[legacy_yaml.scalars]
+verification = "d34025ce5e2d3adbd484ed3c88923cd5b832cc38f79d0a2095c2be9b6e15b9f3"
+
+[[legacy_yaml]]
+path = "docs/adr/0021-serde-saphyr-replaces-serde-yaml.md"
+[legacy_yaml.scalars]
+revisit = "7b471caebd0ceb09373617b21d0f72f8aea2b5f8964e6f04dedb532af402a11f"
+verification = "2035d342dfc36e220c68f73c5ebc9cc7c34e2cde1b5f4ca60322f46c44f502cd"
+
+[[legacy_yaml]]
+path = "docs/adr/0024-pyo3-arrow-over-arrow-pyarrow.md"
+[legacy_yaml.scalars]
+revisit = "16f210dbd390a9c1acd30fd08a54e3f1d982bbcb0a44b0ffb4161868ac35ca9c"
+verification = "cb467080f90096bac11d696e0c81b033ecd6b497dbc8c085bfcdedd5a487c99a"
+
+[[legacy_yaml]]
+path = "docs/adr/0028-solver-acquisition-source-built-ipopt.md"
+[legacy_yaml.scalars]
+verification = "ec114813de74d5c8ea6a52598849709405bee895831412897f0befe636dcae5d"
+
+[[legacy_yaml]]
+path = "docs/adr/0030-canonical-float-hashing-and-no-float-keys.md"
+[legacy_yaml.scalars]
+verification = "5fd52ece10eb722ea17ccba7ff2fcae54df731cc227d989a9bdb937e81cf1695"
+
+[[legacy_yaml]]
+path = "docs/adr/0031-generated-sources-committed-and-diff-checked.md"
+[legacy_yaml.scalars]
+review = "7de1afbcb35c7b46a4f8e1a4ee9956849c155807b30538bbd78669220570bfcf"
+verification = "747e60424a3d569c954c76ded05991470a3e7716afbcd528bf8ca3913d15c72a"
+
+[[legacy_yaml]]
+path = "docs/adr/0032-external-checkouts-are-not-vendored.md"
+[legacy_yaml.scalars]
+review = "a4a6adb877347c77e92583be39ce343dfc662e2e4d1239c5b159d8400115940d"
+verification = "ceb08d3140f5f46cc2daecb4592cf0aa5c3f1c715ca9145de19481f99a98b35b"
+
+[[legacy_yaml]]
+path = "docs/adr/0034-governance-single-maintainer-pr-only.md"
+[legacy_yaml.scalars]
+review = "e8d7eefbbe9f26d88534d6b7a82d1c5404de55bb08fab4f7a8cbde41a762e082"
+verification = "01bda9b80db4faf14440320dc1e908a2cf3dbbdafead93b5720731783fac4679"
+
+[[legacy_yaml]]
+path = "docs/adr/0035-dependabot-with-family-groups.md"
+[legacy_yaml.scalars]
+review = "f51e10a8663852616345a73f20962972f8ce93cc9ce5884d5f3be100e96b8a71"
+verification = "238ec1cea6f73fc1d34dad738ec1ef106f76126af187686cfc9515b87aadca09"
+
+[[legacy_yaml]]
+path = "docs/adr/0051-generated-trees-and-regeneration-check.md"
+[legacy_yaml.scalars]
+review = "b870d8d7f0d3426f895809bb84527eeb11083cc3e0f5bbe6733a9b4e0786da65"
+verification = "bc30dcd477bf6d2e6070133cde2f6a0d955b3f03d6632da65645bf385a6627f7"
+
+[[legacy_yaml]]
+path = "docs/adr/0066-dependency-admission-and-licence-policy-are-advisory.md"
+[legacy_yaml.scalars]
+verification = "e36eabdc57f3720d43000aa4c11b83ca3be32ca0f3f1b05e6d6dbb0b811b6cdf"
+
+[[legacy_yaml]]
+path = "docs/adr/0114-typed-operational-store.md"
+[legacy_yaml.scalars]
+revisit = "0297955e7048686d64e2cc1140099c5c307dd44994ced04d6f96495738a1e1f7"
+verification = "d41ac6c0b487b51fcfb61f419cb447f44a833e73921b9d92a66eb1fa7c3600b6"
+
+[[legacy_yaml]]
+path = "docs/adr/0115-registry-typed-identities-and-vocabularies.md"
+[legacy_yaml.scalars]
+verification = "98d4e6413dded88d3ebad0af6579a5662882809c2f812e2430e7dfcb36b0a596"
+
+[[legacy_yaml]]
+path = "docs/adr/0116-typed-boundary-documents.md"
+[legacy_yaml.scalars]
+verification = "abc6757bbd9e6521eb42e5cb0d4273ec71be596a248de83fed9a92c838c1af65"
+
+[[legacy_yaml]]
+path = "docs/adr/0125-package-data-documents.md"
+[legacy_yaml.scalars]
+review = "fde16d7d46afc97c888b7c871c5077a99603bc90cedbed0db4dad42fe13a0ad9"
+
+[[legacy_yaml]]
+path = "docs/adr/0126-thermodynamic-domain-schema.md"
+[legacy_yaml.scalars]
+review = "027daec07cda055ff8b59de36acb572ab67d2d54d463a0394f46cab6e02706ad"
+
+[[legacy_yaml]]
+path = "docs/adr/0149-agent-permissions-by-contract.md"
+[legacy_yaml.scalars]
+review = "cb82771e27dab359243fcd95bc44752353b58bfc9323652daa8a104323dc0693"
+verification = "d1562fb6d04e7d8212aee42a8481ef0327fa312f6233ea020409ac5dc12f026b"
+
+[[legacy_yaml]]
+path = "docs/adr/0165-declared-dependencies-pinned-exactly.md"
+[legacy_yaml.scalars]
+review = "6de6c37be326c6e71a96def10e3430f1133d11923a86ce5c5e09504b92df016f"
+
+[[relationships]]
+from = "docs/plans/28b-selected-compilation-and-reuse.md::parallel-selected-preparation-composition::B6"
+kind = "depends-on"
+to = "docs/plans/28a-canonical-substrate-and-revisions.md::parallel-canonical-protection-and-contention::A4"
+
+[[relationships]]
+from = "docs/plans/28b-selected-compilation-and-reuse.md::parallel-selected-preparation-composition::B6"
+kind = "depends-on"
+to = "docs/plans/28f-shared-numerical-preparation.md::n10-backend-strategy-and-exclusion-decision::N8"
+
+[[relationships]]
+from = "docs/plans/28g-bulk-data-operations.md::parallel-protected-operation-composition::T7"
+kind = "depends-on"
+to = "docs/plans/28a-canonical-substrate-and-revisions.md::parallel-canonical-protection-and-contention::A4"
+
+[[relationships]]
+from = "docs/plans/28g-bulk-data-operations.md::parallel-protected-operation-composition::T7"
+kind = "depends-on"
+to = "docs/plans/28f-shared-numerical-preparation.md::n10-backend-strategy-and-exclusion-decision::N8"
+
+[[relationships]]
+from = "docs/plans/28c-durable-execution-and-studies.md::c7-one-coordinated-durable-realization::C7"
+kind = "depends-on"
+to = "docs/plans/28h-native-setup-and-artifact-identity.md::parallel-deployment-and-supported-native-placement::L7"
+
+[[relationships]]
+from = "docs/plans/28h-native-setup-and-artifact-identity.md::parallel-deployment-and-supported-native-placement::L7"
+kind = "depends-on"
+to = "docs/plans/28f-shared-numerical-preparation.md::n10-backend-strategy-and-exclusion-decision::N10"
+
+[[exceptions]]
+path = "docs/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/README.md"
+
+[[exceptions]]
+path = "docs/adr/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/adr/README.md"
+
+[[exceptions]]
+path = "docs/authoritative_design/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/authoritative_design/README.md"
+
+[[exceptions]]
+path = "docs/capability-maps/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/capability-maps/README.md"
+
+[[exceptions]]
+path = "docs/capability-maps/evidence/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/capability-maps/evidence/README.md"
+
+[[exceptions]]
+path = "docs/capability-maps/evidence/python/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/capability-maps/evidence/python/README.md"
+
+[[exceptions]]
+path = "docs/capability-maps/evidence/rust/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/capability-maps/evidence/rust/README.md"
+
+[[exceptions]]
+path = "docs/design_review/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/design_review/README.md"
+
+[[exceptions]]
+path = "docs/design_review/evidence/agent-effectiveness-enhancements-2026-10-09/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/design_review/evidence/agent-effectiveness-enhancements-2026-10-09/README.md"
+
+[[exceptions]]
+path = "docs/design_review/evidence/agent-effectiveness-enhancements-2026-10-09/capabilities/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/design_review/evidence/agent-effectiveness-enhancements-2026-10-09/capabilities/README.md"
+
+[[exceptions]]
+path = "docs/design_review/evidence/blueprint-rev4-2026-09-13/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/design_review/evidence/blueprint-rev4-2026-09-13/README.md"
+
+[[exceptions]]
+path = "docs/design_review/evidence/canonical-selection-2026-10-06/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/design_review/evidence/canonical-selection-2026-10-06/README.md"
+
+[[exceptions]]
+path = "docs/design_review/evidence/efficiency-principles-codebase-2026-10-09/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/design_review/evidence/efficiency-principles-codebase-2026-10-09/README.md"
+
+[[exceptions]]
+path = "docs/design_review/evidence/execution-efficiency-2026-10-05/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/design_review/evidence/execution-efficiency-2026-10-05/README.md"
+
+[[exceptions]]
+path = "docs/design_review/evidence/full-arrow-datafusion-2026-09-14/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/design_review/evidence/full-arrow-datafusion-2026-09-14/README.md"
+
+[[exceptions]]
+path = "docs/design_review/evidence/graph-hash-followups-2026-10-09/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/design_review/evidence/graph-hash-followups-2026-10-09/README.md"
+
+[[exceptions]]
+path = "docs/design_review/evidence/native-producer-inputs-2026-10-06/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/design_review/evidence/native-producer-inputs-2026-10-06/README.md"
+
+[[exceptions]]
+path = "docs/design_review/evidence/plan-28-surrealdb-capabilities-2026-10-06/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/design_review/evidence/plan-28-surrealdb-capabilities-2026-10-06/README.md"
+
+[[exceptions]]
+path = "docs/design_review/evidence/production-execution-efficiency-2026-10-07/math/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/design_review/evidence/production-execution-efficiency-2026-10-07/math/README.md"
+
+[[exceptions]]
+path = "docs/design_review/evidence/production-execution-efficiency-2026-10-07/surreal/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/design_review/evidence/production-execution-efficiency-2026-10-07/surreal/README.md"
+
+[[exceptions]]
+path = "docs/design_review/evidence/solver-acceleration-2026-10-03/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/design_review/evidence/solver-acceleration-2026-10-03/README.md"
+
+[[exceptions]]
+path = "docs/design_review/evidence/surrealdb-unified-substrate-2026-10-05/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/design_review/evidence/surrealdb-unified-substrate-2026-10-05/README.md"
+
+[[exceptions]]
+path = "docs/dev/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/dev/README.md"
+
+[[exceptions]]
+path = "docs/generated/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/generated/README.md"
+
+[[exceptions]]
+path = "docs/plans/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/plans/README.md"

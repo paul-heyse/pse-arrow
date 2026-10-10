@@ -215,3 +215,9 @@ For a plan-writing request, improvements are designed and scheduled in the docum
 separate authorization to implement them; creating a plan does not itself authorize production
 changes. Return the document path, its principal design choices and any unresolved decisions
 that constrain execution.
+
+Maintain the plan's lifecycle metadata and native content bindings alongside the authored
+content through the [documentation guide](../../../docs/dev/documentation.md#metadata-and-aggregate-scope).
+Several plans may be active concurrently. Reconcile shared content ownership and dependencies
+without folding unrelated scope into one plan or copying live status into a second backlog.
+These duties do not change the substantive plan guidance, examples or presentation above.

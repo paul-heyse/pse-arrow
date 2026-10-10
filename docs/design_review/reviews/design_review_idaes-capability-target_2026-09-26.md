@@ -4,12 +4,12 @@
 
 | Field | Content |
 |---|---|
-| Subject and boundary | The **target design** for recreating the full idaes-pse 2.13.0 modeling capability in Rust. It is set out in [Plan 20](../../plans/20-idaes-capability-target.md) and its companion target documents: [thermodynamics](../../plans/20-target-thermodynamics.md), [modeling and flowsheets](../../plans/20-target-modeling-and-flowsheets.md), [numerical strategies](../../plans/20-target-numerical-strategies.md) and [coverage map](../../plans/20-idaes-coverage-map.md). The **current architecture** is assessed as the baseline for that target. Boundary: the modeling stack (materials, properties, templates, control volumes, laws, units, flowsheets, analysis modes), the numerical knowledge it needs (initialization, scaling, diagnostics), studies and applications. Suppliers and consumers read: the authoritative sections §0–§26, `pse-kernels`, `pse-runtime::workflow`, `pse-compiler::typed_math`, `pse-math::typed`, `pse-structural`, `pse-backend-native` dynamics and initialization. |
+| Subject and boundary | The **target design** for recreating the full idaes-pse 2.13.0 modeling capability in Rust. It is set out in [Plan 20](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/20-idaes-capability-target.md) and its companion target documents: [thermodynamics](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/20-target-thermodynamics.md), [modeling and flowsheets](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/20-target-modeling-and-flowsheets.md), [numerical strategies](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/20-target-numerical-strategies.md) and [coverage map](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/20-idaes-coverage-map.md). The **current architecture** is assessed as the baseline for that target. Boundary: the modeling stack (materials, properties, templates, control volumes, laws, units, flowsheets, analysis modes), the numerical knowledge it needs (initialization, scaling, diagnostics), studies and applications. Suppliers and consumers read: the authoritative sections §0–§26, `pse-kernels`, `pse-runtime::workflow`, `pse-compiler::typed_math`, `pse-math::typed`, `pse-structural`, `pse-backend-native` dynamics and initialization. |
 | Standard | Core **3.0** (AP-01–AP-06, DP-01–DP-24, G1–G9); process-simulator profile **1.1** (PS-01–PS-13, PS-G1–PS-G3); binding `pse-arrow` ([standard.toml](../design_principles/standard.toml)). |
 | Tier / purpose | **Design tier, target purpose** (binding default). Authority text that blocks the target is recorded as a required change in slot 11. |
 | Reviewer / date | Agent review in the maintainer's session, 2026-09-26. The same agent authored the target documents, so this is an **author review, not an independent review**. |
 | Decisions | Baseline fitness for the target: **G9 fail**; behaviour adequate within the current declared scope. Target design: architectural fitness **satisfied at the Proposed level**; behavioural adequacy **adequate by design with named measurement items**; overall **Accept-scoped (design direction, Proposed)**, see slot 12. |
-| Disposition owner | [Plan 20 *Finding dispositions*](../../plans/20-idaes-capability-target.md#finding-dispositions) (draft; proposed owner only, and nothing is scheduled). |
+| Disposition owner | [Plan 20 *Finding dispositions*](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/20-idaes-capability-target.md#finding-dispositions) (draft; proposed owner only, and nothing is scheduled). |
 
 **Functional target.** Everything idaes-pse 2.13.0 lets an engineer model:
 
@@ -102,7 +102,7 @@ analysis data), library backends (integration owners).
 | Numerical magnitudes | Resolved policy with sources: analysis, case, model, template/package hints, property defaults, derived nominals, quantity nominal, fallback | Adapters never reinterpret | Equal-rank conflict refused (existing) | Normalization (existing) |
 
 **Physical-semantics table.** The property-side table is
-[thermodynamics document §5](../../plans/20-target-thermodynamics.md#5-physical-semantics-table-profile-slot-3).
+[thermodynamics document §5](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/20-target-thermodynamics.md#5-physical-semantics-table-profile-slot-3).
 Model-side additions:
 
 | Quantity or model element | Dimension and unit | Basis | Reference / convention | Validity | Authority |
@@ -165,7 +165,7 @@ The scenarios refine binding seeds [PSE-S01](../design_principles/binding/pse-ar
 | Diagnostics (structural, quality, faer, HiGHS) | Named catalogue with a threshold profile | Prepared case, candidate | Opt-in bounded analyses | Never change outcomes | Structural Implemented; rest Proposed |
 
 **Numerical stage columns** (profile) are in
-[numerical strategies document §8](../../plans/20-target-numerical-strategies.md#8-numerical-stage-columns-profile-slot-5).
+[numerical strategies document §8](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/20-target-numerical-strategies.md#8-numerical-stage-columns-profile-slot-5).
 The load-bearing points:
 
 - the derivative source is recorded per link (Symbolica exact, or implicit from converged
@@ -330,7 +330,7 @@ declared initialization knowledge, as proposed here. This is read for behaviour 
 
 No SHOULD exception is recorded. No MUST gap is accepted: the baseline's G9 failure is scoped to
 the target and does not narrow the current supported scope. Dispositions: every finding links to
-the [Plan 20 table](../../plans/20-idaes-capability-target.md#finding-dispositions) with
+the [Plan 20 table](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/20-idaes-capability-target.md#finding-dispositions) with
 disposition `open` and a proposed owner. Nothing is scheduled.
 
 ## 12. Decision

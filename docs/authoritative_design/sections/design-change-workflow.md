@@ -114,6 +114,35 @@ links scenario definitions, decisions, packets and execution evidence. Indexes l
 status rather than copying it. Accepted ADR evidence records support at decision time;
 historical observations are never silently relabelled as current qualification.
 
+### 24.4.1 Workspace content lifecycle
+
+> Decision: [ADR-0168](../../adr/0168-workspace-content-lifecycle.md).
+
+The maintainer-selected target uses one tooling-owned interpretation of document metadata,
+native family meanings and unchanged authored bodies. Collection/bundle defaults and
+sparse exceptions identify role, provenance, owner and retention without creating deletion
+authority or changing the substantive plan-authoring guidance. Plan content management
+starts at retained Plan 28+ documents; obsolete pre-28 plans are removed without salvage,
+open-item reconciliation or scope import. Necessary historical references use immutable
+originals under ADR-0096.
+
+Multiple plans may remain active and execute concurrently. Each packet/finding keeps its
+native status owner. Explicit content bindings derive aggregate scope and cross-plan
+dependency/supersession views; they contain no independently editable status or execution
+authorization. Similar names do not establish equivalent scope, and implementation is
+not automatically qualification or completion. Missing/ambiguous interpretation is visible.
+
+Publication selects assets independently of evidence retention. Documentation bootstrap
+provisions a dedicated minimal environment explicitly; normal reads neither synchronize
+the product nor download tools. The existing producer resource owner seals artifact roles
+to finalized identity and protects retained provenance, references and active borrowers.
+Only proven disposable artifacts with truthful reconciled outcome and actual drain may
+be reclaimed through exact reservations and identity rechecks. Unknown legacy resources
+remain protected; no universal pruning service or routine housekeeping gate is introduced.
+
+Plan 32 owns implementation and scoped acceptance. This target adoption supplies no
+scientific qualification and absorbs none of Plan 28's scope.
+
 The [review template](../../design_review/design_principles/core/design-review-template.md) and
 [repository binding](../../design_review/design_principles/binding/pse-arrow.md) define the
 workflow and follow-up fields. Deterministic dependency/document checks support named facts;

@@ -141,9 +141,9 @@ class Runtime:
         """Withdraw a terminal study's explicit retention obligation."""
         self._handle.forget_study_results(study)
 
-    def forget_analysis_results(self, analysis: str) -> None:
-        """Withdraw derived analysis retention, preserving its lineage receipts."""
-        self._handle.forget_analysis_results(analysis)
+    def forget_analysis_results(self, analysis: str) -> bool:
+        """Remove a bounded page; repeat until creation settles and returns True."""
+        return self._handle.forget_analysis_results(analysis)
 
     def reclaim_run_results(self, run: str) -> ResultReclamationPage:
         """Retire a terminal run and reclaim one bounded page of scientific data."""

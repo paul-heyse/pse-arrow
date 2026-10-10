@@ -36,7 +36,7 @@ does not qualify the replacement deployment.
 
 The Supported column describes implemented contracts; scientific evidence retains the
 exercised K8 seed and the dated local Linux Plan 22 Q1 basis in §24.2. The integrated
-kernel campaign is owned by [Plan 23](../../plans/23-thermodynamic-domain-and-campaign.md).
+kernel campaign is owned by [Plan 23](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/23-thermodynamic-domain-and-campaign.md).
 Neither historical campaign establishes current canonical storage or assembled-worker
 qualification. The refused column is enforced: an unsupported request fails with
 a source-attributed diagnostic ([§23](operations-and-validation.md#section-23)). There is

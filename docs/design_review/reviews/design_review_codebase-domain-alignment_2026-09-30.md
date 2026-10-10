@@ -18,13 +18,13 @@ be physical, diagnosable and fast enough for edit→re-solve loops, sweeps and r
 adequacy reference is:
 
 - that target;
-- the [Plan 20 capability target](../../plans/20-idaes-capability-target.md);
+- the [Plan 20 capability target](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/20-idaes-capability-target.md);
 - IDAES 2.13.0 behaviour, read clean-room.
 
 The repository's own commitments apply as well:
 
 - D1–D14 ([§2](../../authoritative_design/sections/architecture-overview.md));
-- the Plan 21 knowledge-boundary test ([placement guide](../../plans/21-knowledge-placement.md));
+- the Plan 21 knowledge-boundary test ([placement guide](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/21-knowledge-placement.md));
 - Plan 23's typed package model.
 
 **Drivers and credible variation axes.**

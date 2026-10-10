@@ -1768,7 +1768,7 @@ impl CompilerWorkspace {
                 &[point.clone(), point],
                 None,
                 &self.inputs.quantities,
-                &pse_quantity::infer::NoInvariantFacts,
+                self.inputs.preconditions.as_ref(),
             )
             .map_err(MathError::from)?;
             let difference = admission.result.require_named().map_err(MathError::from)?;
@@ -1951,8 +1951,8 @@ fn admitted_allocation_bytes(p: &AdmittedModeling) -> usize {
                     + size_of_val(i.contributions.as_slice())
             })
             .sum::<usize>()
-        + size_of_val(p.case.variables())
-        + size_of_val(p.case.parameters())
+        + p.case.coordinate_allocation().1
+        + p.case.selection_bytes()
         + size_of_val(p.case.rows())
 }
 fn admitted_heap(value: &Result<Arc<AdmittedModeling>>) -> usize {

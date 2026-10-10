@@ -1,0 +1,21 @@
+== exact-string findability of a 2-line prose span / a quoted phrase
+plan.md    two-line span: True   quoted phrase: True   lines=37 bytes=1177
+plan.yaml  two-line span: False  quoted phrase: True   lines=27 bytes=1155
+plan.toml  two-line span: True   quoted phrase: True   lines=34 bytes=1128
+plan.json  two-line span: False  quoted phrase: False  lines=20 bytes=1260
+== git merge-file (exit = number of conflicts)
+plan.md    S-a body para 1 || body para 2 (same element)        conflicts=0
+plan.md    S-b state EFF00 || state EFF01 (adjacent elements)   conflicts=0
+plan.md    S-c state EFF00 || body EFF00                        conflicts=0
+plan.yaml  S-a body para 1 || body para 2 (same element)        conflicts=0
+plan.yaml  S-b state EFF00 || state EFF01 (adjacent elements)   conflicts=0
+plan.yaml  S-c state EFF00 || body EFF00                        conflicts=0
+plan.toml  S-a body para 1 || body para 2 (same element)        conflicts=0
+plan.toml  S-b state EFF00 || state EFF01 (adjacent elements)   conflicts=0
+plan.toml  S-c state EFF00 || body EFF00                        conflicts=0
+plan.json  S-a body para 1 || body para 2 (same element)        conflicts=1
+plan.json  S-b state EFF00 || state EFF01 (adjacent elements)   conflicts=0
+plan.json  S-c state EFF00 || body EFF00                        conflicts=1
+== programmatic round-trip edit of one state field
+ruamel 0.19.1: changed lines=1 total-line-delta=0
+tomlkit 0.15.1: changed lines=1 total-line-delta=0

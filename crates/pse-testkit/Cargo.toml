@@ -31,3 +31,10 @@ async-trait.workspace = true
 
 tokio.workspace = true
 pse-workspace-hack.workspace = true
+
+[features]
+force-validate = [
+  "pse-columnar/force-validate",
+  "pse-engine/force-validate",
+  "pse-schema/force-validate",
+]

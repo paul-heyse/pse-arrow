@@ -6499,7 +6499,7 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
         .cloned()
         .collect::<Vec<_>>();
     assert_eq!(rows.len(), 2);
-    let variable = &original.variables()[0].port;
+    let variable = &original.variables().get(0).unwrap().port;
     let instances = rows
         .iter()
         .enumerate()
@@ -6507,7 +6507,7 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
             instance: row.id,
             body: key,
             checked_members: Default::default(),
-            slots: vec![SlotBinding::new(variable, variable, registry).unwrap()],
+            slots: (vec![SlotBinding::new(variable, variable, registry).unwrap()]).into(),
             contributions: vec![Contribution {
                 output,
                 target: Target::Row(row.id),
@@ -6566,4 +6566,275 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
         1,
         "a request-local failure never poisons the retained supplier topology"
     );
+}
+
+#[test]
+fn actual_numerical_facts_reach_conditional_boundaries_and_shared_preparation() {
+    let context = crate::authored_transfer_tests::context();
+    let quantity = context
+        .quantities
+        .quantity_types()
+        .find(|q| q.name.as_deref() == Some("LogFugacityCoefficient"))
+        .unwrap()
+        .clone();
+    let operation = context
+        .quantities
+        .operations()
+        .find(|op| {
+            op.opcode == pse_quantity::Opcode::Sub
+                && op.input_kinds == vec![quantity.key.kind, quantity.key.kind]
+        })
+        .unwrap()
+        .clone();
+    let mut changed = context.preconditions.declarations().to_vec();
+    for fact in &mut changed {
+        if operation.precondition_invariants.contains(&fact.id) {
+            fact.requirement = pse_quantity::PhysicalRequirement::OperandQuantityContract {
+                required: context.quantities.neutral_dimensionless().unwrap(),
+                match_shape: true,
+            };
+        }
+    }
+    let mut amended = context.preconditions.declarations().to_vec();
+    for fact in &mut amended {
+        if operation.precondition_invariants.contains(&fact.id)
+            && let pse_quantity::PhysicalRequirement::OperandQuantityContract {
+                match_shape, ..
+            } = &mut fact.requirement
+        {
+            *match_shape = !*match_shape;
+        }
+    }
+    let amended = Arc::new(PhysicalPreconditions::new(amended).unwrap());
+    let absent = Arc::new(PhysicalPreconditions::new(vec![]).unwrap());
+    let changed = Arc::new(PhysicalPreconditions::new(changed).unwrap());
+    let mut identities = BTreeSet::new();
+    let mut artifact_keys = Vec::new();
+    for (facts, accepted) in [
+        (context.preconditions.clone(), true),
+        (amended, true),
+        (absent, false),
+        (changed, false),
+    ] {
+        let mut inputs = context.clone();
+        inputs.preconditions = facts;
+        assert!(identities.insert(physical_identity(&inputs.quantities, &inputs.preconditions)));
+        let (mut workspace, _, _, root) = setup_with_inputs(
+            "package p {def Root {var x:LogFugacityCoefficient;}}",
+            inputs,
+        );
+        let cancel = Arc::new(AtomicBool::new(false));
+        let model = workspace
+            .prepare_modeling_cancellable(
+                root,
+                root_instance(root),
+                Bindings {
+                    demand: vec!["x".into()],
+                    ..Default::default()
+                },
+                Limits::default(),
+                cancel.clone(),
+            )
+            .unwrap();
+        let x = model.model.paths["x"];
+        let functions = workspace.prepare_conditional_boundary_functions(
+            &model,
+            &BTreeSet::from([x]),
+            vec![x],
+            Profile::default(),
+            &cancel,
+        );
+        assert_eq!(
+            functions.is_ok(),
+            accepted,
+            "fresh boundary checks actual prerequisites"
+        );
+        if !accepted {
+            continue;
+        }
+        let functions = functions.unwrap();
+        artifact_keys.push(functions.artifacts[0].key());
+        assert_eq!(functions.plan.structure().rows().len(), 1);
+        let difference = pse_quantity::resolved::infer_operation(
+            &pse_quantity::infer::OpRequest::Sub,
+            &vec![
+                pse_quantity::ResolvedPhysicalContract::named(
+                    quantity.id,
+                    Default::default(),
+                    &context.quantities
+                )
+                .unwrap();
+                2
+            ],
+            None,
+            &context.quantities,
+            context.preconditions.as_ref(),
+        )
+        .unwrap()
+        .result
+        .require_named()
+        .unwrap();
+        assert_eq!(functions.plan.structure().rows()[0].quantity, difference);
+        let structure = model.bound_structure(&BTreeMap::new()).unwrap().structure;
+        let prepared = workspace
+            .prepare_modeling_view(
+                &model,
+                structure,
+                &CaseValues {
+                    scalars: BTreeMap::from([(x, 0.0)]),
+                },
+                DerivativeOrder::First,
+                Profile::default(),
+                &cancel,
+            )
+            .unwrap();
+        assert_eq!(
+            &*prepared.preconditions,
+            workspace.inputs.preconditions.as_ref()
+        );
+        assert_eq!(
+            prepared.preconditions.allocation_identity(),
+            Arc::as_ptr(&workspace.inputs.preconditions) as usize
+        );
+        assert!(prepared.retained_bytes() >= prepared.preconditions.allocation_extent());
+        let rebound = prepared
+            .rebind(
+                &CaseValues {
+                    scalars: BTreeMap::from([(x, 1.0)]),
+                },
+                &cancel,
+            )
+            .unwrap();
+        assert!(pse_math::SharedAllocation::ptr_eq(
+            &prepared.preconditions,
+            &rebound.preconditions
+        ));
+    }
+    assert_eq!(artifact_keys.len(), 2);
+    assert_ne!(
+        artifact_keys[0], artifact_keys[1],
+        "changed actual facts invalidate the semantic artifact key"
+    );
+}
+
+#[test]
+fn compiled_conditional_chain_shares_original_universe_and_actual_facts() {
+    for count in [4usize, 12] {
+        let mut text = "package p { def Root { param p:Scalar=2;".to_string();
+        for n in 0..count {
+            text.push_str(&format!("var x{n}:Scalar;"));
+            if n == 0 {
+                text.push_str("eq e0:x0==p;");
+            } else {
+                text.push_str(&format!("eq e{n}:x{n}==x{}+p;", n - 1));
+            }
+        }
+        text.push_str("} }");
+        let (mut workspace, _, _, root) = setup(&text);
+        let cancel = Arc::new(AtomicBool::new(false));
+        let model = workspace
+            .prepare_modeling_cancellable(
+                root,
+                root_instance(root),
+                Bindings {
+                    demand: std::iter::once("p".to_string())
+                        .chain((0..count).map(|n| format!("x{n}")))
+                        .collect(),
+                    ..Default::default()
+                },
+                Limits::default(),
+                cancel.clone(),
+            )
+            .unwrap();
+        let p = model.model.paths["p"];
+        let xs: Vec<_> = (0..count)
+            .map(|n| model.model.paths[&format!("x{n}")])
+            .collect();
+        let values = CaseValues {
+            scalars: std::iter::once((p, 2.0))
+                .chain(
+                    xs.iter()
+                        .enumerate()
+                        .map(|(n, x)| (*x, 2.0 * (n + 1) as f64)),
+                )
+                .collect(),
+        };
+        let structure = model.bound_structure(&BTreeMap::new()).unwrap().structure;
+        let prepared = workspace
+            .prepare_modeling_view(
+                &model,
+                structure,
+                &values,
+                DerivativeOrder::First,
+                Profile::default(),
+                &cancel,
+            )
+            .unwrap();
+        let blocks = workspace
+            .prepare_bound_initialization(&prepared, Profile::default(), &cancel)
+            .unwrap();
+        assert_eq!(blocks.len(), count);
+        let mut completed = BTreeSet::<SemanticId>::new();
+        for block in blocks.iter() {
+            assert_eq!(
+                block.plan.structure().coordinate_allocation(),
+                prepared.plan.structure().coordinate_allocation()
+            );
+            assert_eq!(block.plan.structure().variables().len(), count);
+            assert_eq!(block.plan.structure().parameters().len(), 1);
+            assert_eq!(block.plan.columns().len(), 1);
+            assert!(
+                block
+                    .boundary
+                    .inputs
+                    .iter()
+                    .all(|input| *input == p || completed.contains(input))
+            );
+            let bound = block
+                .bind(
+                    prepared.quantities.clone(),
+                    prepared.preconditions.clone(),
+                    &values,
+                    &cancel,
+                )
+                .unwrap();
+            assert!(pse_math::SharedAllocation::ptr_eq(
+                &bound.preconditions,
+                &prepared.preconditions
+            ));
+            let mut missing = values.clone();
+            missing.scalars.remove(&p);
+            assert!(
+                block
+                    .bind(
+                        prepared.quantities.clone(),
+                        prepared.preconditions.clone(),
+                        &missing,
+                        &cancel
+                    )
+                    .is_err()
+            );
+            completed.extend(block.plan.columns().iter().copied());
+        }
+        assert_eq!(completed, xs.into_iter().collect());
+        let retained = PreparedBlock::retained_group_bytes(&blocks).unwrap();
+        assert!(prepared.initialization_allocation_bound().unwrap().unwrap() >= retained);
+        let original = Arc::new(
+            prepared
+                .plan
+                .compile(
+                    Optimization::default(),
+                    EvaluationLimits::default(),
+                    &cancel,
+                )
+                .unwrap(),
+        );
+        assert_eq!(
+            original
+                .worker(BTreeMap::new(), cancel.clone())
+                .constraints(&values)
+                .unwrap(),
+            vec![0.0; count]
+        );
+    }
 }

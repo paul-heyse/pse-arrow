@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 139
+revision: 144
 date: 2026-10-09
 ---
 
@@ -24,6 +24,11 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 144 | 2026-10-09 | Proposed ADR-0172: §5.2/§20.3–§20.6/§21.1 fresh analysis occurrences, immutable creation grants, exact absent-header/primary conflict fences, constant-size shared closure authority full bounded retirement without per-analysis history, and explicit preserving cutover/restore fencing with durable closed-phase recovery and resource-configured owner-only maintenance. | Maintainer-authorized Plan 33 RC03; independent scoped target verdict Accept at Proposed strength; `PSE_DESIGN_EDIT=1`; EFF10 implementation and emitted-query qualification remain outstanding. |
+| 143 | 2026-10-09 | Proposed ADR-0171: §5.3/§14.3 compact physical occurrences against immutable body inventories, collision-independent membership and versioned direct derived-product cutover. | Maintainer-authorized Plan 33 RC04; scoped target review Accept at Proposed strength; `PSE_DESIGN_EDIT=1`; EFF03 implementation remains outstanding. |
+| 142 | 2026-10-09 | Proposed ADR-0170: §24.1 actual Arrow-consuming correctness closures, opt-in owner propagation, verified target/host validation and pure build-root isolation. | Maintainer-authorized Plan 33 conditional RC01 fallback; scoped target review Accept at Proposed strength; `PSE_DESIGN_EDIT=1`; EFF02 implementation remains in progress. |
+| 141 | 2026-10-09 | Proposed ADR-0169: §19.2/§21.1 relation inventory without payload encoding, relation-local intrinsic failures, request-local allocation/delivery failures and bounded cursors with exact complete manifests. | Maintainer-authorized Plan 33 execution; scoped target review Accept at Proposed strength; `PSE_DESIGN_EDIT=1`; EFF07 implementation and qualification remain outstanding. |
+| 140 | 2026-10-09 | Proposed ADR-0168: §24.4.1 shared document interpretation, native-derived aggregate scope across concurrent plans, explicit asset delivery and producer-owned artifact retention. Pre-28 plan removal requires no salvage or scope import; Plan 28 retains its work. | Maintainer-authorized Plan 32 execution and confirmed RC01–RC03; visible `.design-edit`; scoped target review and implementation evidence remain distinct from ADR status acceptance. |
 | 139 | 2026-10-09 | ADR-0167: explicit V2 flow collection/item tags and parent counts (§5.3/§17.4), historical V1 meaning and physical-context equality limits. | Maintainer-selected Graph/hash RC04; independent scoped target review Accept; proposed ADR status; visible `.design-edit`; implementation and scoped acceptance owned by Plan 28k. |
 | 138 | 2026-10-09 | Proposed ADR-0164/0166, Plan 30 RC01–RC06: §20.6 bounded native WebSocket operation lifetimes, independent persistent services/receiver generations and shared host admission; §24.1 explicit isolated context and terminal-outcome/reference-protected disposal. | Maintainer-authorized Plan 30 implementation; visible `.design-edit`; target contracts and runtime qualification remain distinct. |
 | 137 | 2026-10-08 | Proposed ADR-0164, preparation RC01–RC04: §5.3/§14.3 trust-transition qualification and independent immutable mathematics in a stable symbol universe; §14.4 exact prepared products with fresh attribution and guarded identical-revision premise adoption; explicit acknowledgment/publication, short transaction pacing and original-clock interruption. | Maintainer-authorized Plan 28i/28j execution; visible `.design-edit`; implementation and scoped qualification remain in Plan 28. |

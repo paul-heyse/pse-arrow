@@ -136,8 +136,20 @@ impl ModelingIdentifierScope {
             .take_while(move |((s, _), _)| *s == scheme)
             .map(|((_, value), entity)| (value.as_str(), *entity))
     }
-    pub(crate) fn retain(&mut self, keep: impl Fn(DeclarationId) -> bool) {
-        self.values.retain(|_, entity| keep(*entity));
+    /// Copy only admitted identifiers held by the selected records. Identifier admission
+    /// indexes direct record fields; derived fields cannot manufacture a new registration.
+    pub(crate) fn select(&self, records: &BTreeMap<DeclarationId, Record>) -> Self {
+        let mut values = BTreeMap::new();
+        for (id, record) in records {
+            for value in record.values.values() {
+                if let Value::Identifier { scheme, value } = value
+                    && self.entity(*scheme, value) == Some(*id)
+                {
+                    values.insert((*scheme, value.clone()), *id);
+                }
+            }
+        }
+        Self { values }
     }
 }
 

@@ -127,6 +127,15 @@ class CargoFeatureCheckTests(unittest.TestCase):
             patch.object(adapter.sys, "argv", arguments),
             patch.dict(os.environ, {"CARGO": "/existing/pinned/cargo"}),
             patch.object(
+                adapter,
+                "compose",
+                side_effect=lambda command, **_: [
+                    *command,
+                    "--features",
+                    "selected-package/force-validate",
+                ],
+            ) as compose,
+            patch.object(
                 adapter.subprocess, "run", return_value=SimpleNamespace(returncode=0)
             ) as execute,
             patch.object(adapter.shutil, "which") as lookup,
@@ -139,9 +148,12 @@ class CargoFeatureCheckTests(unittest.TestCase):
                 "--manifest-path",
                 str(self.manifest),
                 "-Fselected-package/ipopt",
+                "--features",
+                "selected-package/force-validate",
             ],
             check=False,
         )
+        compose.assert_called_once()
         lookup.assert_not_called()
 
     def test_path_fallback_and_configuration_failure_status(self) -> None:

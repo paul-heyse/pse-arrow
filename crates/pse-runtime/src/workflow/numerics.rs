@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Numerical preparation and immutable completion assessment, shared by public workflows.
-use super::{RunReport, RunRequest, RunResult, WorkflowError, relation};
+use super::{RunReport, RunRequest, RunResult, WorkflowError, contract, relation};
 use pse_backend_native::solve::SolveReport;
+#[cfg(test)]
 use pse_ids::SemanticId;
 use pse_model::{
     generated::enums::{
@@ -14,7 +15,6 @@ use pse_model::{
 use pse_relations::generated::runtime::{
     candidate_assessments as assessments, resolved_numerics as resolved,
 };
-use std::collections::BTreeMap;
 
 /// Independent original-objective bound facts retained with the completion decision.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -671,78 +671,131 @@ impl RunResult {
             })
             .collect()
     }
-    pub(super) fn numerical_tables(
+    pub(super) async fn project_common(
         &self,
-        batches: &mut BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>,
+        request: &super::result_export::Projection,
     ) -> Result<(), WorkflowError> {
         let registry = &self.runtime.registry;
+        let pool = self.runtime.shared.pool();
+        let cancel = request.cancel.clone();
         let validation = self.runtime.validation_context()?;
-        if let std::collections::btree_map::Entry::Vacant(entry) =
-            batches.entry(assessments::RELATION_ID)
-        {
-            let mut candidates =
-                assessments::Builder::with_registry(registry, self.assessments.len(), &validation)
-                    .map_err(relation)?;
-            for row in &self.assessments {
-                candidates.push(row.clone()).map_err(relation)?;
-            }
-            entry.insert(candidates.finish().map_err(relation)?);
-        }
-        if let Ok(completion) = self.completion() {
-            use pse_relations::generated::runtime::accuracy_goal_assessments as goals;
-            let mut builder = goals::Builder::with_registry(
+        if request.wants(assessments::RELATION_ID) {
+            let mut candidates = crate::workflow::result_export::Rows::<assessments::Row>::new(
+                request,
                 registry,
-                completion.accuracy_goals.len(),
+                &pool,
+                &cancel,
+                &validation,
+            )
+            .map_err(relation)?;
+            for row in &self.assessments {
+                candidates.push_ref(row).await.map_err(relation)?;
+            }
+            candidates.finish().await.map_err(relation)?;
+        }
+        if request.wants(pse_relations::generated::runtime::accuracy_goal_assessments::RELATION_ID)
+            && let Ok(completion) = self.completion()
+        {
+            use pse_relations::generated::runtime::accuracy_goal_assessments as goals;
+            let mut builder = crate::workflow::result_export::Rows::<goals::Row>::new(
+                request,
+                registry,
+                &pool,
+                &cancel,
                 &validation,
             )
             .map_err(relation)?;
             for row in &completion.accuracy_goals {
-                builder.push(row.clone()).map_err(relation)?;
+                builder.push_ref(row).await.map_err(relation)?;
             }
-            batches.insert(goals::RELATION_ID, builder.finish().map_err(relation)?);
+            builder.finish().await.map_err(relation)?;
         }
-        let policies: Vec<&ResolvedNumericalPolicy> = match &self.request {
-            RunRequest::Fit(f) => vec![&f.problem.numerics],
-            RunRequest::Simulation(p) => vec![p.numerics()],
-            #[cfg(feature = "solver-diffsol")]
-            RunRequest::Shooting { problem: p, .. } => vec![p.numerics()],
-            RunRequest::Modeling(p) => p.iter().map(|p| p.solve.numerics()).collect(),
-        };
-        let mut resolved =
-            resolved::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
-        for (step, policy) in policies.iter().enumerate() {
-            for t in &policy.targets {
-                resolved
-                    .push(resolved::Row {
-                        run_id: self.run_id,
-                        step: step as i64,
-                        target_id: t.id,
-                        target_kind: t.kind,
-                        quantity_id: t.quantity,
-                        unit_id: t.unit,
-                        nominal: t.nominal,
-                        coordinate_scale: t.coordinate_scale,
-                        absolute: t.absolute,
-                        relative: t.relative,
-                        budget: t.budget,
-                        engineering: t.engineering.clone(),
-                        provenance: t
-                            .provenance
-                            .iter()
-                            .map(|p| resolved::RuntimeResolvedNumericsFieldProvenanceItem {
-                                declaration: p.declaration,
-                                source: p.source,
-                                field: p.field,
-                                selected: p.selected,
-                                value: p.value,
-                                description: p.description.clone(),
-                            })
-                            .collect(),
-                    })
-                    .map_err(relation)?;
+        if request.wants(resolved::RELATION_ID) {
+            let policy_count = match &self.request {
+                RunRequest::Modeling(p) => p.len(),
+                _ => 1,
+            };
+            let policy = |step: usize| match &self.request {
+                RunRequest::Fit(f) => &f.problem.numerics,
+                RunRequest::Simulation(p) => p.numerics(),
+                #[cfg(feature = "solver-diffsol")]
+                RunRequest::Shooting { problem: p, .. } => p.numerics(),
+                RunRequest::Modeling(p) => p[step].solve.numerics(),
+            };
+            let mut resolved = crate::workflow::result_export::Rows::<resolved::Row>::new(
+                request,
+                registry,
+                &pool,
+                &cancel,
+                &validation,
+            )
+            .map_err(relation)?;
+            for step in 0..policy_count {
+                for t in &policy(step).targets {
+                    if resolved.skip_next() {
+                        continue;
+                    }
+                    let descriptions = t.provenance.iter().try_fold(0usize, |n, p| {
+                        n.checked_add(p.description.len())
+                            .ok_or_else(|| contract("numerics provenance copy extent"))
+                    })?;
+                    let _copy = resolved.working(&[
+                        (descriptions, 1),
+                        (
+                            t.provenance.len(),
+                            size_of::<resolved::RuntimeResolvedNumericsFieldProvenanceItem>(),
+                        ),
+                        (t.engineering.as_ref().map_or(0, |e| e.limitation.len()), 1),
+                    ])?;
+                    resolved
+                        .push(resolved::Row {
+                            run_id: self.run_id,
+                            step: step as i64,
+                            target_id: t.id,
+                            target_kind: t.kind,
+                            quantity_id: t.quantity,
+                            unit_id: t.unit,
+                            nominal: t.nominal,
+                            coordinate_scale: t.coordinate_scale,
+                            absolute: t.absolute,
+                            relative: t.relative,
+                            budget: t.budget,
+                            engineering: t.engineering.clone(),
+                            provenance: t
+                                .provenance
+                                .iter()
+                                .map(|p| resolved::RuntimeResolvedNumericsFieldProvenanceItem {
+                                    declaration: p.declaration,
+                                    source: p.source,
+                                    field: p.field,
+                                    selected: p.selected,
+                                    value: p.value,
+                                    description: p.description.clone(),
+                                })
+                                .collect(),
+                        })
+                        .await
+                        .map_err(relation)?;
+                }
             }
+            resolved.finish().await.map_err(relation)?;
         }
-        batches.insert(resolved::RELATION_ID, resolved.finish().map_err(relation)?);
+        if request.wants(pse_relations::generated::runtime::run_lineage::RELATION_ID) {
+            use pse_relations::generated::runtime::run_lineage;
+            let completion = self.completion().map_err(|e| contract(e.to_string()))?;
+            let mut rows = super::result_export::Rows::<run_lineage::Row>::new(
+                request,
+                registry,
+                &pool,
+                &cancel,
+                &validation,
+            )
+            .map_err(relation)?;
+            for row in &completion.lineage {
+                rows.push_ref(row).await.map_err(relation)?;
+            }
+            rows.finish().await.map_err(relation)?;
+        }
         Ok(())
     }
 }

@@ -13,7 +13,7 @@ supersedes: []
 superseded-by: null
 revisit: Temporal composition needs independent unit science or unrelated time axes in one analysis.
 verification: Synthetic temporal composition tests exercise one axis, shared scalar parameters, distinct spatial replicas, native integration and simultaneous discretization; CT-S05 exercises the same CSTR definition.
-scenarios: [docs/plans/23-thermodynamic-domain-and-campaign.md#current-execution]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/23-thermodynamic-domain-and-campaign.md#current-execution]
 ---
 
 # ADR-0132: Compose temporal state from one analysis-owned axis

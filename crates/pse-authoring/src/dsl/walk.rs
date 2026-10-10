@@ -7,7 +7,7 @@ use super::ast::{Equation, EquationKind, Expr, ExprKind, Path, Predicate, Predic
 
 impl Expr {
     /// Visit this expression and every expression child in source order.
-    pub fn walk(&self, mut visitor: impl FnMut(&Self)) {
+    pub fn walk<'a>(&'a self, mut visitor: impl FnMut(&'a Self)) {
         walk_expr(self, &mut visitor);
     }
     /// Transform every expression child, then its parent, without rendering or reparsing.
@@ -41,7 +41,7 @@ impl Expr {
 
 impl Predicate {
     /// Visit every expression in the predicate, including calls and indexed coordinates.
-    pub fn walk_expressions(&self, mut visitor: impl FnMut(&Expr)) {
+    pub fn walk_expressions<'a>(&'a self, mut visitor: impl FnMut(&'a Expr)) {
         walk_predicate(self, &mut visitor);
     }
     /// Compare syntax and exact literal values while ignoring source positions.
@@ -100,7 +100,7 @@ impl Equation {
     }
 }
 
-fn walk_expr(expr: &Expr, visitor: &mut dyn FnMut(&Expr)) {
+fn walk_expr<'a>(expr: &'a Expr, visitor: &mut dyn FnMut(&'a Expr)) {
     visitor(expr);
     match &expr.kind {
         ExprKind::Number(_) => {}
@@ -188,14 +188,14 @@ fn walk_expr(expr: &Expr, visitor: &mut dyn FnMut(&Expr)) {
         }
     }
 }
-fn walk_path(path: &Path, visitor: &mut dyn FnMut(&Expr)) {
+fn walk_path<'a>(path: &'a Path, visitor: &mut dyn FnMut(&'a Expr)) {
     for segment in &path.segments {
         for index in &segment.indices {
             walk_expr(index, visitor);
         }
     }
 }
-fn walk_predicate(predicate: &Predicate, visitor: &mut dyn FnMut(&Expr)) {
+fn walk_predicate<'a>(predicate: &'a Predicate, visitor: &mut dyn FnMut(&'a Expr)) {
     match &predicate.kind {
         PredicateKind::Compare { lhs, rhs, .. } => {
             walk_expr(lhs, visitor);

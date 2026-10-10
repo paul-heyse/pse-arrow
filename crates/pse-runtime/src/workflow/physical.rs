@@ -35,6 +35,10 @@ impl PhysicalContext {
     pub fn quantities(&self) -> &QuantityRegistry {
         &self.quantities
     }
+    /// Actual immutable prerequisites admitted with this physical inventory.
+    pub fn preconditions(&self) -> &PhysicalPreconditions {
+        &self.preconditions
+    }
     /// Custom contexts retain the very rows admitted by PhysicalInventory.
     pub fn admitted(inventory: Arc<crate::physical::PhysicalInventory>) -> Self {
         let quantities = Arc::new(inventory.quantities().clone());
@@ -81,7 +85,7 @@ impl PhysicalContext {
         });
         sources
             .saturating_add(self.quantities.allocation_extent())
-            .saturating_add(self.preconditions.declarations().len().saturating_mul(1024))
+            .saturating_add(self.preconditions.allocation_extent())
             .saturating_add(
                 self.package
                     .as_ref()

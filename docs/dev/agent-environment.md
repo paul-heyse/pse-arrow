@@ -25,6 +25,7 @@ scripts/pse-env -- <command>               # checkout environment + its own capp
 scripts/pse-env --native -- <command>      # plus the linked solver environment
 scripts/pse-env --native=solver -- <cmd>   # only the capabilities named
 scripts/pse-env --store -- <command>       # first require a serving canonical server
+scripts/pse-env --docs -- <command>        # provisioned docs-only Python environment
 scripts/pse-env --explain [--native]       # what a command would get, and why
 scripts/pse-env --print                    # shell exports (direnv, the Claude hook)
 ```
@@ -57,6 +58,16 @@ without printing it.
 **Exit status** is the command's own (pse-env replaces itself with it). `125` means the
 boundary failed — the line starting `pse-env:` says why and what to run; `126`/`127` mean the
 command cannot be executed or was not found. Signal deaths report `128+N`.
+
+## Documentation environment
+
+`--docs` explicitly selects `.venv-docs`, provisioned by `just bootstrap-docs` with
+`uv sync --locked --only-group docs --no-install-project`. It visibly replaces an inherited
+product environment selector and rejects paths that alias the product environment before
+effects. The normal `.venv`, its installed extension and ordinary dependency groups remain
+independent. Documentation recipes and direct documentation consumers select this mode;
+normal document reads never synchronize packages or initialize native capabilities.
+The [documentation guide](documentation.md) owns metadata, scope-query and retirement usage.
 
 ## Placement and memory
 
@@ -211,7 +222,7 @@ built linked worker when creating state:
 ```bash
 export PSE_SURREAL_STATE=/absolute/path/to/private/reference-state
 scripts/pse-env --native -- cargo build -p xtask --bin pse-worker --locked --features native-solvers
-just surreal setup --interpretation pse.substrate.v2 --execution-profile plan28-reference \
+just surreal setup --interpretation pse.substrate.v3 --execution-profile plan28-reference \
   --worker-executable "$PWD/target/debug/pse-worker"
 just surreal start
 just canonical-init "$PSE_SURREAL_STATE"

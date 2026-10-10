@@ -464,6 +464,8 @@ pub struct PreparedCase {
     pub class_proof_work: usize,
     /// Physical registry used by this immutable compilation and numerical resolution.
     pub quantities: pse_math::SharedAllocation<QuantityRegistry>,
+    /// Actual immutable prerequisites consumed with the physical registry.
+    pub preconditions: pse_math::SharedAllocation<PhysicalPreconditions>,
     /// Library presolve projection with complete expression/value invalidation.
     pub presolve: pse_math::SharedAllocation<pse_math::presolve::Facts>,
     /// Exact consumed fixed/parameter values for the optional coefficient snapshot.
@@ -528,7 +530,7 @@ impl PreparedCase {
         let free: BTreeSet<_> = self.plan.columns().iter().copied().collect();
         let mut owners: BTreeMap<SemanticId, BTreeSet<SemanticId>> = BTreeMap::new();
         for instance in self.plan.structure().instances() {
-            for slot in &instance.slots {
+            for slot in instance.slots.iter() {
                 let id = slot.source();
                 if free.contains(&id) {
                     owners.entry(id).or_default().insert(instance.instance);
@@ -679,14 +681,28 @@ impl PreparedCase {
                 .checked_add(bytes)
                 .ok_or(MathError::Limit("initialization body construction extent"))?;
         }
-        // Block columns/rows partition the source. The parent support bound covers
-        // their combined sparse contribution population. Full source descriptors,
-        // selected support internals and structural metadata may repeat per block;
+        // Block columns/rows partition the source. Original coordinate declarations
+        // and binding input metadata are shared, while selected support internals,
+        // artifact compilation and structural metadata may repeat per block.
         // matching's temporary native stack exists once at a time.
+        let mut shared_ids = BTreeSet::new();
+        let shared = self
+            .plan
+            .allocation_components()
+            .into_iter()
+            .filter(|(kind, identity, _)| {
+                matches!(
+                    *kind,
+                    "coordinate-universe" | "binding-slots" | "binding-members"
+                ) && shared_ids.insert((*kind, *identity))
+            })
+            .try_fold(0usize, |bytes, (_, _, extent)| bytes.checked_add(extent))
+            .ok_or(MathError::Limit("initialization shared metadata extent"))?;
         let copies = bodies
-            .checked_add(self.plan.retained_bytes())
+            .checked_add(self.plan.retained_bytes().saturating_sub(shared))
             .and_then(|bytes| bytes.checked_add(self.structure.retained_bytes()))
             .and_then(|bytes| bytes.checked_mul(rows.checked_add(2)?))
+            .and_then(|bytes| bytes.checked_add(shared))
             .ok_or(MathError::Limit("initialization block construction extent"))?;
         Ok(Some(
             support
@@ -881,6 +897,7 @@ impl PreparedCase {
             + self.plan.owner_wrapper_bytes()
             + self.presolve.bytes()
             + self.quantities.allocation_extent()
+            + self.preconditions.allocation_extent()
             + self.structural_bytes()
             + self.binding_bytes()
             + self.provenance_bytes()
@@ -1008,6 +1025,39 @@ pub struct PreparedBlock {
     pub artifacts: Arc<Vec<ArtifactRequest>>,
 }
 impl PreparedBlock {
+    /// Known immutable schedule payload, deduplicating shared original coordinates and inputs.
+    pub fn retained_group_bytes(blocks: &Arc<Vec<Self>>) -> Option<usize> {
+        let mut bytes =
+            CasePlan::retained_group_bytes(blocks.iter().map(|block| block.plan.as_ref()))?
+                .checked_add(size_of::<Vec<Self>>() + 2 * size_of::<usize>())?
+                .checked_add(blocks.capacity().checked_mul(size_of::<Self>())?)?;
+        let mut structures = BTreeSet::new();
+        let mut artifacts = BTreeSet::new();
+        for block in blocks.iter() {
+            bytes = bytes.checked_add(
+                (block.boundary.members.rows.capacity()
+                    + block.boundary.members.columns.capacity()
+                    + block.boundary.inputs.capacity())
+                .checked_mul(size_of::<SemanticId>())?,
+            )?;
+            if structures.insert(Arc::as_ptr(&block.structure) as usize) {
+                bytes = bytes.checked_add(block.structure.retained_bytes())?;
+            }
+            if artifacts.insert(Arc::as_ptr(&block.artifacts) as usize) {
+                bytes = bytes
+                    .checked_add(size_of::<Vec<ArtifactRequest>>() + 2 * size_of::<usize>())?
+                    .checked_add(
+                        (block.artifacts.capacity() - block.artifacts.len())
+                            .checked_mul(size_of::<ArtifactRequest>())?,
+                    )?;
+                for artifact in block.artifacts.iter() {
+                    bytes = bytes.checked_add(artifact.descriptor_bytes())?;
+                }
+            }
+        }
+        Some(bytes)
+    }
+
     /// Preconstruction population of a first conditional binding. Arithmetic projection
     /// and scalar requirements share the ordinary rebind producer; regions/providers
     /// without that contract explicitly retain conservative runtime admission.
@@ -1041,6 +1091,7 @@ impl PreparedBlock {
     pub fn bind(
         &self,
         quantities: pse_math::SharedAllocation<QuantityRegistry>,
+        preconditions: pse_math::SharedAllocation<PhysicalPreconditions>,
         values: &CaseValues,
         cancel: &Arc<AtomicBool>,
     ) -> Result<PreparedCase> {
@@ -1049,6 +1100,7 @@ impl PreparedBlock {
         Ok(PreparedCase {
             class_proof_work: self.class_proof_work,
             quantities,
+            preconditions,
             presolve: bound.presolve.into(),
             coefficient_values: Arc::new(bound.assumptions).into(),
             facts: bound.facts,
@@ -1320,14 +1372,7 @@ fn validate(i: &CompilerContext, l: WorkspaceLimits) -> Result<()> {
                     )
             },
         )
-        .saturating_add(
-            i.preconditions
-                .declarations()
-                .iter()
-                .fold(0usize, |bytes, p| {
-                    bytes.saturating_add(128 + p.operand_positions.len() * 2)
-                }),
-        );
+        .saturating_add(i.preconditions.allocation_extent());
     if bytes > l.input_bytes {
         return Err(CompileError::Limit("context extent"));
     }
@@ -1468,9 +1513,10 @@ mod directional_identity_tests {
                     checked_members: Default::default(),
                     instance: id(7),
                     body: key,
-                    slots: (1..=3)
+                    slots: ((1..=3)
                         .map(|n| SlotBinding::new(&port(n), &port(n), &registry).unwrap())
-                        .collect(),
+                        .collect::<Vec<_>>())
+                    .into(),
                     contributions: vec![Contribution {
                         output: 0,
                         target: Target::Row(id(8)),

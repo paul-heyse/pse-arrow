@@ -3,67 +3,55 @@
 //! Original-space authored solves use the same retained result and publication boundary.
 use super::{RunRequest, RunResult, WorkflowError, contract, relation};
 use crate::math::solves::Outcome;
+#[cfg(test)]
 use pse_ids::SemanticId;
-use pse_relations::{
-    columnar::FieldCheckedBatch,
-    generated::{
-        enums::DualQualification,
-        runtime::{
-            incumbents, infeasibility_certificates as certificates, modeling_checks,
-            modeling_findings, modeling_reports, solution_pool as pool,
-            solve_constraints as constraints, solve_metrics as metrics, solve_runs as runs,
-            solve_strategy_events, solve_variables as variables,
-        },
+use pse_relations::generated::{
+    enums::DualQualification,
+    runtime::{
+        incumbents, infeasibility_certificates as certificates, modeling_checks, modeling_findings,
+        modeling_reports, solution_pool as pool, solve_constraints as constraints,
+        solve_metrics as metrics, solve_runs as runs, solve_strategy_events,
+        solve_variables as variables,
     },
 };
 use std::collections::BTreeMap;
 impl RunResult {
-    pub(super) fn encode_modeling(
+    pub(super) async fn encode_modeling(
         &self,
-    ) -> Result<BTreeMap<SemanticId, FieldCheckedBatch>, WorkflowError> {
+        projection: &super::result_export::Projection,
+    ) -> Result<(), WorkflowError> {
         let RunRequest::Modeling(requests) = &self.request else {
             return Err(contract("authored solve request mismatch"));
         };
         let registry = &self.runtime.registry;
-        let bytes = requests
-            .iter()
-            .try_fold(0usize, |total, request| {
-                let declaration = request.model.case.compiled().plan.structure();
-                let cells = declaration
-                    .variables()
-                    .len()
-                    .checked_add(declaration.parameters().len())?
-                    .checked_add(declaration.rows().len())?;
-                total.checked_add(cells.checked_mul(2048)?)?.checked_add(
-                    request
-                        .profile
-                        .controls
-                        .report_allowance()
-                        .ok()?
-                        .checked_mul(8)?,
-                )
-            })
-            .ok_or_else(|| contract("authored sequence export extent"))?;
-        let _scratch = self
-            .runtime
-            .shared
-            .math()
-            .reserve("modeling:solve-export", bytes)?;
-        let validation = self.runtime.validation_context()?;
-        let mut run_rows = runs::Builder::with_registry(registry, requests.len(), &validation)
-            .map_err(relation)?;
-        for row in &self
-            .completion()
-            .map_err(|e| contract(e.to_string()))?
-            .solves
-        {
-            run_rows.push(row.clone()).map_err(relation)?;
-        }
         let pool = self.runtime.shared.pool();
-        let cancel = pse_columnar::CancellationToken::new();
+        let cancel = projection.cancel.clone();
         let validation = self.runtime.validation_context()?;
-        let mut collection =
-            pse_relations::columnar::Collection::new(registry, &pool, &cancel, &validation);
+        let mut run_rows = crate::workflow::result_export::Rows::<runs::Row>::new(
+            projection,
+            registry,
+            &pool,
+            &cancel,
+            &validation,
+        )
+        .map_err(relation)?;
+        if projection.wants(runs::RELATION_ID) {
+            for row in &self
+                .completion()
+                .map_err(|e| contract(e.to_string()))?
+                .solves
+            {
+                run_rows.push_ref(row).await.map_err(relation)?;
+            }
+        }
+
+        let mut collection = super::result_export::SelectedCollection::new(
+            projection,
+            registry,
+            &pool,
+            &cancel,
+            &validation,
+        );
         collection
             .ensure::<modeling_checks::Row>()
             .map_err(relation)?;
@@ -79,22 +67,65 @@ impl RunResult {
         collection
             .ensure::<pse_model::generated::runtime::solve_strategy_products::Row>()
             .map_err(relation)?;
-        let mut variable_rows =
-            variables::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
-        let mut constraint_rows =
-            constraints::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
-        let mut metric_rows =
-            metrics::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
-        let mut pool_rows =
-            pool::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
-        let mut certificate_rows =
-            certificates::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
-        let mut local = super::local_analysis::Rows::new(registry, &validation)?;
+        collection
+            .ensure::<pse_relations::generated::runtime::route_decisions::Row>()
+            .map_err(relation)?;
+        collection
+            .ensure::<pse_relations::generated::runtime::structural_assessments::Row>()
+            .map_err(relation)?;
+        let mut variable_rows = crate::workflow::result_export::Rows::<variables::Row>::new(
+            projection,
+            registry,
+            &pool,
+            &cancel,
+            &validation,
+        )
+        .map_err(relation)?;
+        let mut constraint_rows = crate::workflow::result_export::Rows::<constraints::Row>::new(
+            projection,
+            registry,
+            &pool,
+            &cancel,
+            &validation,
+        )
+        .map_err(relation)?;
+        let mut metric_rows = crate::workflow::result_export::Rows::<metrics::Row>::new(
+            projection,
+            registry,
+            &pool,
+            &cancel,
+            &validation,
+        )
+        .map_err(relation)?;
+        let mut pool_rows = crate::workflow::result_export::Rows::<pool::Row>::new(
+            projection,
+            registry,
+            &pool,
+            &cancel,
+            &validation,
+        )
+        .map_err(relation)?;
+        let mut certificate_rows = crate::workflow::result_export::Rows::<certificates::Row>::new(
+            projection,
+            registry,
+            &pool,
+            &cancel,
+            &validation,
+        )
+        .map_err(relation)?;
+        let mut local =
+            super::local_analysis::Rows::new(projection, registry, &pool, &cancel, &validation)?;
         // A durable run publishes its incumbent stream as the store held it when the
         // attempt ended (Plan 22 I13); an ephemeral run keeps its retained incumbents in
         // runtime.solve_metrics.
-        let incumbent_rows =
-            incumbents::Builder::with_registry(registry, 0, &validation).map_err(relation)?;
+        let incumbent_rows = crate::workflow::result_export::Rows::<incumbents::Row>::new(
+            projection,
+            registry,
+            &pool,
+            &cancel,
+            &validation,
+        )
+        .map_err(relation)?;
         for (ordinal, request) in requests.iter().enumerate() {
             let step = ordinal as i64;
             let result = self.modeling_result(ordinal);
@@ -105,35 +136,56 @@ impl RunResult {
                         .and_then(WorkflowError::strategy_trace)
                 });
             if let Some(trace) = trace {
-                for row in trace
-                    .product_rows(self.run_id, ordinal)
-                    .map_err(crate::math::MathRuntimeError::from)?
+                if projection
+                    .wants(pse_relations::generated::runtime::solve_strategy_products::RELATION_ID)
                 {
-                    collection.push(row).map_err(relation)?;
+                    collection
+                        .strategy_products(trace, self.run_id, ordinal)
+                        .await?;
                 }
-                for row in trace
-                    .rows(self.run_id, ordinal)
-                    .map_err(crate::math::MathRuntimeError::from)?
-                {
-                    collection.push(row).map_err(relation)?;
+
+                if projection.wants(solve_strategy_events::RELATION_ID) {
+                    collection
+                        .strategy_events(trace, self.run_id, ordinal)
+                        .await?;
                 }
             }
             // A staged result owns the actual rebound case admitted for this attempt.
             // Unattempted requests still publish the admission completed at submission.
             let prepared = result.map_or(request, |result| &result.prepared);
             let declaration = prepared.model.case.compiled().plan.structure();
-            let admission = prepared
-                .solve
-                .route_decision()
-                .ok_or_else(|| contract("retained solve admission absent"))?;
-            let identity = prepared.admission_identity()?;
-            collection
-                .push(admission.row(identity, step))
-                .map_err(relation)?;
-            if let Some(assessment) = &admission.structure {
-                collection
-                    .push(assessment.row(identity, step))
-                    .map_err(relation)?;
+            if projection.wants(pse_relations::generated::runtime::route_decisions::RELATION_ID)
+                || projection
+                    .wants(pse_relations::generated::runtime::structural_assessments::RELATION_ID)
+            {
+                let admission = prepared
+                    .solve
+                    .route_decision()
+                    .ok_or_else(|| contract("retained solve admission absent"))?;
+                let identity = prepared.admission_identity()?;
+                if projection.wants(pse_relations::generated::runtime::route_decisions::RELATION_ID)
+                    && !collection
+                        .skip_next::<pse_model::generated::runtime::route_decisions::Row>()
+                {
+                    let _copy = super::modeling::analysis_tables::route_copy(&pool, admission)?;
+                    collection
+                        .push(admission.row(identity, step))
+                        .await
+                        .map_err(relation)?;
+                }
+                if projection
+                    .wants(pse_relations::generated::runtime::structural_assessments::RELATION_ID)
+                    && !collection
+                        .skip_next::<pse_model::generated::runtime::structural_assessments::Row>()
+                    && let Some(assessment) = &admission.structure
+                {
+                    let _copy =
+                        super::modeling::analysis_tables::structure_copy(&pool, assessment)?;
+                    collection
+                        .push(assessment.row(identity, step))
+                        .await
+                        .map_err(relation)?;
+                }
             }
             let outcome = result.map(|r| &r.outcome);
             let native = match outcome {
@@ -164,7 +216,16 @@ impl RunResult {
                 }
             };
 
+            let _coordinates = if projection.wants(variables::RELATION_ID) {
+                Some(variable_rows.working(&[
+                    (native.map_or(0, |r| r.variables.len()), 128),
+                    (constant.map_or(0, |r| r.coordinates.len()), 128),
+                ])?)
+            } else {
+                None
+            };
             let coordinates: BTreeMap<_, _> = native
+                .filter(|_| projection.wants(variables::RELATION_ID))
                 .map(|r| {
                     r.variables
                         .iter()
@@ -174,243 +235,274 @@ impl RunResult {
                 })
                 .unwrap_or_default();
             let original_coordinates: BTreeMap<_, _> = constant
+                .filter(|_| projection.wants(variables::RELATION_ID))
                 .map(|r| r.coordinates.iter().copied().collect())
                 .unwrap_or_default();
             let dual_status = native
                 .and_then(|r| r.observation.as_ref())
                 .map_or(DualQualification::Unavailable, qualified);
-            for v in declaration.variables() {
-                let p = &v.port;
-                let ix = coordinates.get(&p.id).copied();
-                let value = if v.fixed {
-                    prepared.model.values.scalars.get(&p.id).copied()
-                } else if constant.is_some() {
-                    original_coordinates.get(&p.id).copied()
-                } else {
-                    ix.and_then(|i| candidate.and_then(|c| c.primal.get(i).copied()))
-                };
-                let tolerance = if v.fixed {
-                    None
-                } else {
-                    let i = prepared
-                        .model
-                        .case
-                        .compiled()
-                        .plan
-                        .columns()
-                        .iter()
-                        .position(|id| *id == p.id);
-                    i.and_then(|i| prepared.solve.tolerances().variables.get(i).copied())
-                };
-                variable_rows
-                    .push(variables::Row {
-                        run_id: self.run_id,
-                        step,
-                        symbol_id: p.id,
-                        quantity_id: Some(p.quantity.as_id()),
-                        unit_id: Some(p.unit.as_id()),
-                        fixed: v.fixed,
-                        parameter: false,
-                        domain: Some(v.domain),
-                        value,
-                        lower: v.lower,
-                        upper: v.upper,
-                        lower_violation: value.map(|x| v.lower.map_or(0.0, |l| (l - x).max(0.0))),
-                        upper_violation: value.map(|x| v.upper.map_or(0.0, |u| (x - u).max(0.0))),
-                        tolerance,
-                        lower_dual: ix.and_then(|i| {
-                            candidate.and_then(|c| {
-                                c.bound_dual.as_ref().and_then(|(l, _)| l.get(i).copied())
-                            })
-                        }),
-                        upper_dual: ix.and_then(|i| {
-                            candidate.and_then(|c| {
-                                c.bound_dual.as_ref().and_then(|(_, u)| u.get(i).copied())
-                            })
-                        }),
-                        reduced_cost: ix.and_then(|i| {
-                            candidate.and_then(|c| {
-                                c.reduced_costs.as_ref().and_then(|v| v.get(i).copied())
-                            })
-                        }),
-                        stationarity: ix.and_then(|i| {
-                            observation.and_then(|o| {
-                                o.stationarity.as_ref().and_then(|v| v.get(i).copied())
-                            })
-                        }),
-                        dual_qualification: dual_status,
-                    })
-                    .map_err(relation)?;
-            }
-            for p in declaration.parameters() {
-                variable_rows
-                    .push(variables::Row {
-                        run_id: self.run_id,
-                        step,
-                        symbol_id: p.id,
-                        quantity_id: Some(p.quantity.as_id()),
-                        unit_id: Some(p.unit.as_id()),
-                        fixed: true,
-                        parameter: true,
-                        domain: None,
-                        value: prepared.model.values.scalars.get(&p.id).copied(),
-                        lower: None,
-                        upper: None,
-                        lower_violation: None,
-                        upper_violation: None,
-                        tolerance: None,
-                        lower_dual: None,
-                        upper_dual: None,
-                        reduced_cost: None,
-                        stationarity: None,
-                        dual_qualification: DualQualification::NotApplicableParameter,
-                    })
-                    .map_err(relation)?;
-            }
-            let rows = declaration.rows();
-            for (i, r) in rows.iter().enumerate() {
-                let unit = prepared
-                    .source
-                    .physical
-                    .quantities
-                    .quantity_type(r.quantity)
-                    .map_err(super::math)?
-                    .canonical_unit
-                    .as_id();
-                constraint_rows
-                    .push(constraints::Row {
-                        run_id: self.run_id,
-                        step,
-                        row_id: r.id,
-                        quantity_id: Some(r.quantity.as_id()),
-                        unit_id: Some(unit),
-                        value: observation.and_then(|o| o.values.get(i).copied()),
-                        lower: r.lower.is_finite().then_some(r.lower),
-                        upper: r.upper.is_finite().then_some(r.upper),
-                        equality_residual: observation
-                            .and_then(|o| o.equality_residuals.get(i).copied().flatten()),
-                        lower_violation: observation
-                            .and_then(|o| o.lower_violations.get(i).copied()),
-                        upper_violation: observation
-                            .and_then(|o| o.upper_violations.get(i).copied()),
-                        tolerance: prepared.solve.tolerances().rows.get(i).copied(),
-                        dual: candidate
-                            .and_then(|c| c.row_dual.as_ref().and_then(|v| v.get(i).copied())),
-                        dual_qualification: dual_status,
-                    })
-                    .map_err(relation)?;
-            }
-
-            if let Some(native) = native {
-                super::results::push_native_metrics(&mut metric_rows, self.run_id, step, native)?;
-                if let Some(row) = super::results::certificate_row(self.run_id, step, native) {
-                    certificate_rows.push(row).map_err(relation)?;
-                }
-            }
-            // Ranked pooled solutions over the report's free variables (ADR-0105 §8).
-            for solution in native
-                .and_then(|r| r.global.as_ref())
-                .map_or(&[][..], |g| g.pool.as_slice())
-            {
-                let rank =
-                    i64::try_from(solution.rank).map_err(|_| contract("solution pool rank"))?;
-                for (symbol_id, value) in native
-                    .map_or(&[][..], |r| r.variables.as_slice())
-                    .iter()
-                    .zip(&solution.primal)
-                {
-                    pool_rows
-                        .push(pool::Row {
+            if projection.wants(variables::RELATION_ID) {
+                for v in declaration.variables() {
+                    if variable_rows.skip_next() {
+                        continue;
+                    }
+                    let p = &v.port;
+                    let ix = coordinates.get(&p.id).copied();
+                    let value = if v.fixed {
+                        prepared.model.values.scalars.get(&p.id).copied()
+                    } else if constant.is_some() {
+                        original_coordinates.get(&p.id).copied()
+                    } else {
+                        ix.and_then(|i| candidate.and_then(|c| c.primal.get(i).copied()))
+                    };
+                    let tolerance = if v.fixed {
+                        None
+                    } else {
+                        let i = prepared
+                            .model
+                            .case
+                            .compiled()
+                            .plan
+                            .columns()
+                            .iter()
+                            .position(|id| *id == p.id);
+                        i.and_then(|i| prepared.solve.tolerances().variables.get(i).copied())
+                    };
+                    variable_rows
+                        .push(variables::Row {
                             run_id: self.run_id,
                             step,
-                            rank,
-                            symbol_id: *symbol_id,
-                            value: *value,
-                            objective: solution.objective,
-                            feasible: solution.feasible,
+                            symbol_id: p.id,
+                            quantity_id: Some(p.quantity.as_id()),
+                            unit_id: Some(p.unit.as_id()),
+                            fixed: v.fixed,
+                            parameter: false,
+                            domain: Some(v.domain),
+                            value,
+                            lower: v.lower,
+                            upper: v.upper,
+                            lower_violation: value
+                                .map(|x| v.lower.map_or(0.0, |l| (l - x).max(0.0))),
+                            upper_violation: value
+                                .map(|x| v.upper.map_or(0.0, |u| (x - u).max(0.0))),
+                            tolerance,
+                            lower_dual: ix.and_then(|i| {
+                                candidate.and_then(|c| {
+                                    c.bound_dual.as_ref().and_then(|(l, _)| l.get(i).copied())
+                                })
+                            }),
+                            upper_dual: ix.and_then(|i| {
+                                candidate.and_then(|c| {
+                                    c.bound_dual.as_ref().and_then(|(_, u)| u.get(i).copied())
+                                })
+                            }),
+                            reduced_cost: ix.and_then(|i| {
+                                candidate.and_then(|c| {
+                                    c.reduced_costs.as_ref().and_then(|v| v.get(i).copied())
+                                })
+                            }),
+                            stationarity: ix.and_then(|i| {
+                                observation.and_then(|o| {
+                                    o.stationarity.as_ref().and_then(|v| v.get(i).copied())
+                                })
+                            }),
+                            dual_qualification: dual_status,
                         })
+                        .await
                         .map_err(relation)?;
                 }
             }
-            // Every quantity a sensitivity request asked for, certified or withheld.
-            if let Some(sensitivity) = &request.profile.sensitivity {
-                local.push(&super::local_analysis::Step {
-                    run_id: self.run_id,
-                    step,
-                    request: sensitivity,
-                    report: native,
-                    candidate: candidate.is_some(),
-                    structure: declaration,
-                    quantities: &request.source.physical.quantities,
-                })?;
-            }
-            if let Some(result) = result {
-                for row in &result.checks {
-                    collection.push(row.clone()).map_err(relation)?;
+
+            if projection.wants(variables::RELATION_ID) {
+                for p in declaration.parameters() {
+                    if variable_rows.skip_next() {
+                        continue;
+                    }
+                    variable_rows
+                        .push(variables::Row {
+                            run_id: self.run_id,
+                            step,
+                            symbol_id: p.id,
+                            quantity_id: Some(p.quantity.as_id()),
+                            unit_id: Some(p.unit.as_id()),
+                            fixed: true,
+                            parameter: true,
+                            domain: None,
+                            value: prepared.model.values.scalars.get(&p.id).copied(),
+                            lower: None,
+                            upper: None,
+                            lower_violation: None,
+                            upper_violation: None,
+                            tolerance: None,
+                            lower_dual: None,
+                            upper_dual: None,
+                            reduced_cost: None,
+                            stationarity: None,
+                            dual_qualification: DualQualification::NotApplicableParameter,
+                        })
+                        .await
+                        .map_err(relation)?;
                 }
-                for row in &result.reports {
-                    collection.push(row.clone()).map_err(relation)?;
+            }
+
+            let rows = declaration.rows();
+            if projection.wants(constraints::RELATION_ID) {
+                for (i, r) in rows.iter().enumerate() {
+                    if constraint_rows.skip_next() {
+                        continue;
+                    }
+                    let unit = prepared
+                        .source
+                        .physical
+                        .quantities
+                        .quantity_type(r.quantity)
+                        .map_err(super::math)?
+                        .canonical_unit
+                        .as_id();
+                    constraint_rows
+                        .push(constraints::Row {
+                            run_id: self.run_id,
+                            step,
+                            row_id: r.id,
+                            quantity_id: Some(r.quantity.as_id()),
+                            unit_id: Some(unit),
+                            value: observation.and_then(|o| o.values.get(i).copied()),
+                            lower: r.lower.is_finite().then_some(r.lower),
+                            upper: r.upper.is_finite().then_some(r.upper),
+                            equality_residual: observation
+                                .and_then(|o| o.equality_residuals.get(i).copied().flatten()),
+                            lower_violation: observation
+                                .and_then(|o| o.lower_violations.get(i).copied()),
+                            upper_violation: observation
+                                .and_then(|o| o.upper_violations.get(i).copied()),
+                            tolerance: prepared.solve.tolerances().rows.get(i).copied(),
+                            dual: candidate
+                                .and_then(|c| c.row_dual.as_ref().and_then(|v| v.get(i).copied())),
+                            dual_qualification: dual_status,
+                        })
+                        .await
+                        .map_err(relation)?;
+                }
+            }
+
+            if (projection.wants(metrics::RELATION_ID)
+                || projection.wants(certificates::RELATION_ID))
+                && let Some(native) = native
+            {
+                super::results::push_native_metrics(&mut metric_rows, self.run_id, step, native)
+                    .await?;
+                super::results::push_certificate(
+                    &mut certificate_rows,
+                    self.run_id,
+                    step,
+                    native.backend,
+                    native.certificate.as_ref(),
+                )
+                .await?;
+            }
+
+            // Ranked pooled solutions over the report's free variables (ADR-0105 §8).
+            if projection.wants(pool::RELATION_ID) {
+                for solution in native
+                    .and_then(|r| r.global.as_ref())
+                    .map_or(&[][..], |g| g.pool.as_slice())
+                {
+                    let rank =
+                        i64::try_from(solution.rank).map_err(|_| contract("solution pool rank"))?;
+                    for (symbol_id, value) in native
+                        .map_or(&[][..], |r| r.variables.as_slice())
+                        .iter()
+                        .zip(&solution.primal)
+                    {
+                        pool_rows
+                            .push(pool::Row {
+                                run_id: self.run_id,
+                                step,
+                                rank,
+                                symbol_id: *symbol_id,
+                                value: *value,
+                                objective: solution.objective,
+                                feasible: solution.feasible,
+                            })
+                            .await
+                            .map_err(relation)?;
+                    }
+                }
+            }
+
+            // Every quantity a sensitivity request asked for, certified or withheld.
+            if [
+                pse_relations::generated::runtime::local_validity::RELATION_ID,
+                pse_relations::generated::runtime::parametric_sensitivities::RELATION_ID,
+                pse_relations::generated::runtime::reduced_hessians::RELATION_ID,
+                pse_relations::generated::runtime::propagated_covariances::RELATION_ID,
+            ]
+            .contains(&projection.relation)
+                && let Some(sensitivity) = &request.profile.sensitivity
+            {
+                local
+                    .push(&super::local_analysis::Step {
+                        run_id: self.run_id,
+                        step,
+                        request: sensitivity,
+                        report: native,
+                        candidate: candidate.is_some(),
+                        structure: declaration,
+                        quantities: &request.source.physical.quantities,
+                    })
+                    .await?;
+            }
+
+            if let Some(result) = result {
+                if projection.wants(modeling_checks::RELATION_ID) {
+                    for row in &result.checks {
+                        collection.push_ref(row).await.map_err(relation)?;
+                    }
+                }
+
+                if projection.wants(modeling_reports::RELATION_ID) {
+                    for row in &result.reports {
+                        collection.push_ref(row).await.map_err(relation)?;
+                    }
                 }
             }
         }
         // Failures first, then the informational bound tightenings admission recorded for
         // each step's case (ADR-0103 item 4).
-        let tightenings = requests.iter().flat_map(|request| {
-            request
-                .model
-                .tightenings
-                .iter()
-                .map(pse_modeling::DomainTightening::boundary_diagnostic)
-        });
-        for (ordinal, finding) in self
-            .capture_diagnostics()
-            .into_iter()
-            .chain(tightenings)
-            .enumerate()
-        {
-            collection
-                .push(super::modeling::analysis_tables::finding_row(
-                    self.run_id,
-                    ordinal as i64,
-                    &finding,
-                ))
-                .map_err(relation)?;
+        if projection.wants(modeling_findings::RELATION_ID) {
+            let tightenings = requests.iter().flat_map(|request| {
+                request
+                    .model
+                    .tightenings
+                    .iter()
+                    .map(pse_modeling::DomainTightening::boundary_diagnostic)
+            });
+            for (ordinal, finding) in self
+                .capture_diagnostics()
+                .into_iter()
+                .chain(tightenings)
+                .enumerate()
+            {
+                collection
+                    .push(super::modeling::analysis_tables::finding_row(
+                        self.run_id,
+                        ordinal as i64,
+                        &finding,
+                    ))
+                    .await
+                    .map_err(relation)?;
+            }
         }
-        let mut batches = BTreeMap::new();
-        batches.extend(
-            collection
-                .finish()
-                .map_err(relation)?
-                .into_values()
-                .map(|b| (b.relation_id(), b)),
-        );
-        batches.extend([
-            (runs::RELATION_ID, run_rows.finish().map_err(relation)?),
-            (
-                variables::RELATION_ID,
-                variable_rows.finish().map_err(relation)?,
-            ),
-            (
-                constraints::RELATION_ID,
-                constraint_rows.finish().map_err(relation)?,
-            ),
-            (
-                metrics::RELATION_ID,
-                metric_rows.finish().map_err(relation)?,
-            ),
-            (pool::RELATION_ID, pool_rows.finish().map_err(relation)?),
-            (
-                certificates::RELATION_ID,
-                certificate_rows.finish().map_err(relation)?,
-            ),
-            (
-                incumbents::RELATION_ID,
-                incumbent_rows.finish().map_err(relation)?,
-            ),
-        ]);
-        batches.extend(local.finish()?);
-        self.retain_sources(&mut batches)?;
-        Ok(batches)
+        run_rows.finish().await.map_err(relation)?;
+        collection.finish().await.map_err(relation)?;
+        variable_rows.finish().await.map_err(relation)?;
+        constraint_rows.finish().await.map_err(relation)?;
+        metric_rows.finish().await.map_err(relation)?;
+        pool_rows.finish().await.map_err(relation)?;
+        certificate_rows.finish().await.map_err(relation)?;
+        incumbent_rows.finish().await.map_err(relation)?;
+        local.finish().await?;
+        Ok(())
     }
 }
 

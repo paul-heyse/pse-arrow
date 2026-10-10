@@ -57,6 +57,13 @@ stage_quality() {
   uv sync --locked --group quality
 }
 
+stage_docs() {
+  need uv "https://docs.astral.sh/uv/"
+  # Selection and alias refusal belong to the shared boundary, before exact sync.
+  "$ROOT/scripts/pse-env" --docs -- uv sync --project "$ROOT" --locked --only-group docs --no-install-project
+  "$ROOT/scripts/pse-env" --docs -- python3 -m scripts.docs install
+}
+
 stage_rust() {
   need cargo "https://rustup.rs"
   if ! command -v cargo-binstall >/dev/null 2>&1; then
@@ -91,6 +98,7 @@ main() {
   case "${1:-all}" in
     --venv-only)    stage_venv ;;
     --quality-only) stage_quality ;;
+    --docs-only)    stage_docs; return ;;
     --rust-only)    stage_rust ;;
     --linters-only) stage_repo_linters ;;
     all)
@@ -99,7 +107,7 @@ main() {
       stage_rust
       stage_repo_linters
       ;;
-    *) echo "usage: $0 [--venv-only|--quality-only|--rust-only|--linters-only]" >&2
+    *) echo "usage: $0 [--venv-only|--quality-only|--docs-only|--rust-only|--linters-only]" >&2
        exit 2 ;;
   esac
 

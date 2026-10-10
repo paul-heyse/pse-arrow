@@ -13,7 +13,7 @@ supersedes: []
 superseded-by: null
 revisit: Inspection requires independent scientific interpretation or a second writable data authority.
 verification: Synthetic knowledge projection tests preserve identity, quantity, uncertainty and provenance; runtime and Python tests cover bounded readonly inspection and source revision changes.
-scenarios: [docs/plans/23-thermodynamic-domain-and-campaign.md#current-execution]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/23-thermodynamic-domain-and-campaign.md#current-execution]
 ---
 
 # ADR-0131: Expose immutable admitted knowledge through generated read-only relations

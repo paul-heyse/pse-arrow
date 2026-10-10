@@ -133,7 +133,7 @@ where one governs how the review itself is conducted or reported, such as eviden
 | Evidence labels (principles §D) are mandatory in ADR `evidence:` fields, PR descriptions and a plan's Verification and Outcome at close | DP-22 | AGENTS.md prime directive 4 |
 | Never edit generated paths; fix the generator | DP-01 | AGENTS.md prime directive 2 |
 | One resolved version per pinned dependency family | DP-15 | AGENTS.md *Invariants*; `just family-check` |
-| `force_validate` in every test run; `panic = "unwind"`; never `target-cpu=native` | DP-03, DP-19, DP-11 | AGENTS.md *Invariants* |
+| `force_validate` in actual Arrow-consuming correctness closures; `panic = "unwind"`; never `target-cpu=native` | DP-03, DP-19, DP-11 | AGENTS.md *Invariants* |
 | Delete replaced code, callers, tests and fixtures in the same change; no shims | DP-16 | AGENTS.md *Execution rhythm* |
 | No library capability is withheld for lack of a consumer; integration cost remains assessable under the core | DP-13, DP-16 | blueprint §3.3.1 |
 | Design alignment is established by agent judgment and review; probes, tests and written records are used where uncertainty warrants, not as proof of diligence, and there is no dedicated alignment tooling | DP-23 | this binding (maintainer decision, 2026-09-24) |

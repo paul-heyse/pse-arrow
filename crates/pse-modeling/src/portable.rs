@@ -1012,9 +1012,8 @@ impl FunctionRecord {
             + self
                 .admissions
                 .iter()
-                .map(|(o, a)| {
+                .map(|(_, a)| {
                     size_of::<crate::expression::admission::ExpressionOccurrence>()
-                        + o.syntax.capacity()
                         + a.retained_bytes()
                 })
                 .sum::<usize>()
@@ -1077,7 +1076,7 @@ impl FunctionRecord {
     /// Capture complete selected checked meaning without checking or specializing it.
     pub fn capture(v: &Function) -> Self {
         Self {
-            version: 1,
+            version: 2,
             id: v.id,
             operation: v.physical_operation.as_ref().map(OperationWire::capture),
             reduction: v.reduction.as_ref().map(|v| ReductionWire {
@@ -1102,7 +1101,7 @@ impl FunctionRecord {
                 .iter()
                 .map(|(o, a)| {
                     (
-                        o.clone(),
+                        *o,
                         crate::expression::admission::PhysicalAdmissionRecord::capture(a),
                     )
                 })
@@ -1126,18 +1125,18 @@ impl FunctionRecord {
     pub fn restore(&self) -> Result<Function> {
         pse_quantity::resolved::receipts::require_record(self)
             .map_err(|e| invalid(self.id, e.to_string()))?;
-        if self.version != 1 {
+        if self.version != 2 {
             return Err(invalid(self.id, "unsupported function record"));
         }
         let admissions = self
             .admissions
             .iter()
-            .map(|(o, a)| Ok((o.clone(), a.restore(self.id)?)))
+            .map(|(o, a)| Ok((*o, a.restore(self.id)?)))
             .collect::<Result<BTreeMap<_, _>>>()?;
         if admissions.len() != self.admissions.len() {
             return Err(invalid(self.id, "duplicate function admission occurrence"));
         }
-        Ok(Function {
+        let function = Function {
             applicability: self.applicability.clone(),
             applicability_uses: self
                 .uses
@@ -1187,6 +1186,38 @@ impl FunctionRecord {
                 .collect::<Result<_>>()?,
             result: self.result.restore(self.id)?,
             body: self.body.clone(),
-        })
+        };
+        let roots = crate::expression::inventory::function(&function)
+            .iter()
+            .map(|root| root.expression)
+            .collect::<Vec<_>>();
+        let node_counts = crate::expression::inventory::node_counts(&roots);
+        for occurrence in function.physical_admissions.keys() {
+            match occurrence {
+                crate::expression::admission::ExpressionOccurrence::FiniteReduction
+                    if function.reduction.is_some() => {}
+                crate::expression::admission::ExpressionOccurrence::Node { body, position }
+                    if node_counts
+                        .get(*body)
+                        .is_some_and(|count| *position < *count) => {}
+                _ => {
+                    return Err(invalid(
+                        self.id,
+                        "function admission coordinate outside retained inventory",
+                    ));
+                }
+            }
+        }
+        if function.reduction.is_some()
+            && !function
+                .physical_admissions
+                .contains_key(&crate::expression::admission::ExpressionOccurrence::FiniteReduction)
+        {
+            return Err(invalid(
+                self.id,
+                "finite reduction admission coordinate absent",
+            ));
+        }
+        Ok(function)
     }
 }

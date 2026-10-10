@@ -121,7 +121,7 @@ implementation status.
 
 ## More information
 
-[Plan 23](../plans/23-thermodynamic-domain-and-campaign.md); ADR-0098 (knowledge ownership);
+[Plan 23](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/23-thermodynamic-domain-and-campaign.md); ADR-0098 (knowledge ownership);
 ADR-0123. The [design review](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md)
 findings F06–F08 and F15 are incorporated.
 

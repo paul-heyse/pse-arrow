@@ -129,10 +129,16 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `method` | `Utf8` | false | `payload` | — | — |
 | `configuration` | `Binary` | false | `payload` | — | — |
 | `input_digest` | `Utf8` | false | `payload` | — | — |
+| `primary_problem` | `Utf8` | false | `payload` | — | — |
+| `primary_authority` | `Utf8` | false | `payload` | — | — |
+| `creation_nonce` | `Utf8` | false | `payload` | — | — |
+| `creation_request_digest` | `Utf8` | false | `payload` | — | — |
+| `creation_expires_at` | `UInt64` | false | `payload` | — | — |
 | `interpretation` | `Utf8` | false | `payload` | — | — |
 | `node_count` | `UInt64` | false | `payload` | — | — |
 | `edge_count` | `UInt64` | false | `payload` | — | — |
 | `active` | `Boolean` | false | `payload` | — | — |
+| `retiring` | `Boolean` | false | `payload` | — | — |
 
 ## `canonical_analysis_edges`
 
@@ -175,17 +181,6 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `analysis` | `Utf8` | false | `payload` | — | — |
 | `semantic` | `Utf8` | false | `payload` | — | — |
 | `kind` | `Utf8` | false | `payload` | — | — |
-
-## `canonical_analysis_retirements`
-
-Explicit withdrawal of analysis source and result retention while preserving its original method lineage receipts.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `key` | `Utf8` | false | `key` | — | — |
-| `analysis` | `Utf8` | false | `payload` | — | — |
 
 ## `canonical_attempts`
 
@@ -249,6 +244,8 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 |---|---|---|---|---|---|
 | `key` | `Utf8` | false | `key` | — | — |
 | `generation` | `UInt64` | false | `payload` | — | — |
+| `incarnation` | `Utf8` | true | `payload` | — | — |
+| `analysis_creation_closed_through` | `UInt64` | true | `payload` | — | — |
 
 ## `canonical_interpretations`
 

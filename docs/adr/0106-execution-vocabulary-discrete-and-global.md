@@ -14,7 +14,7 @@ superseded-by: null
 revisit: A new execution or storage path cannot preserve these distinctions, or a backend reports an outcome that none of the tags can state without loss.
 verification: Vocabulary codec round trips (Rust, Arrow, Python) after just codegen; the Plan 22 A1 tests candidate_use_iteration_limited_feasible_is_seed_only_everywhere, adapter_not_linked_is_unsupported, structural_failure_keeps_rows_and_columns, idas_conv_fail_is_numerical and quality_reads_typed_evidence_only; G4/G5 tests certify_known_global_optimum, relaxed_export_bound_only and global_infeasibility_proof; N5 test sos_bound_labelled_nonrigorous.
 standard: core-3.0/process-simulator-1.1
-scenarios: [docs/plans/22-solver-capabilities-architecture.md#s12, docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s01]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s12, docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s01]
 ---
 
 # ADR-0106: Extend the shared execution vocabulary for discrete, global and certified outcomes
@@ -147,7 +147,7 @@ duplication F13 exposed.
 
 ## More information
 
-- Architecture companion [§3–§4](../plans/22-solver-capabilities-architecture.md#3-problem-classes-routing-and-assurance-vocabulary).
+- Architecture companion [§3–§4](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#3-problem-classes-routing-and-assurance-vocabulary).
 - Target review [T01](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t01) (candidate-use vocabulary) and [T10](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t10) (assurance rigour).
 - Capability review findings F13, F16, F17, F19.
 - Supersedes ADR-0090. Related: ADR-0102, ADR-0105, ADR-0109. Plan 22 packets A1, G4, G5, N5.

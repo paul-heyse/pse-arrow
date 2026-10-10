@@ -66,7 +66,7 @@ does not schedule work or automatically add it to Plan 25. Once authorized, that
 owns finding dispositions and execution evidence; this review retains its observations.
 
 Planning follow-up, 2026-10-05: the maintainer authorized authoring
-[Plan 26](../../plans/26-testing-architecture.md), which now owns F01–F09 planning dispositions
+[Plan 26](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/26-testing-architecture.md), which now owns F01–F09 planning dispositions
 and proposed package dependencies. Production execution has not started. This review retains
 its original assessment and evidence limits.
 

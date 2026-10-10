@@ -980,7 +980,16 @@ async fn shared_driver_retains_actual_localized_event_under_original_completion(
     assert!(result.accepted);
     let trace = result.strategy.as_ref().unwrap();
     let retained = trace.products[0].path_events.as_ref().unwrap().clone();
-    let rows = trace.rows(result.run_id, 0).unwrap();
+    let rows = trace
+        .rows(
+            result.run_id,
+            0,
+            Arc::new(datafusion::execution::memory_pool::UnboundedMemoryPool::default()),
+            0..usize::MAX,
+        )
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
     let event = rows
         .iter()
         .filter_map(|row| row.path_events.as_ref())

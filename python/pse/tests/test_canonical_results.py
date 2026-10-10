@@ -9,6 +9,7 @@ import shlex
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 
 import msgspec
@@ -96,6 +97,45 @@ def test_canonical_result_selection_and_progress_reopen(
     assert any(row["kind"] == "numerical_incidence" for row in dependency_rows)
     assert any(row["kind"] == "execution_dependency" for row in dependency_rows)
     assert all(row["evidence"] is None for row in dependency_rows)
+    dependency_header = pa.table(dependencies.header())
+    (dependency_occurrence,) = dependency_header.to_pylist()
+    content_fields = [
+        "revision",
+        "method",
+        "configuration",
+        "input_digest",
+        "primary_problem",
+        "primary_authority",
+        "interpretation",
+        "node_count",
+        "edge_count",
+    ]
+
+    def assert_same_dependency_content(other: pse.Analysis) -> None:
+        other_header = pa.table(other.header())
+        (occurrence,) = other_header.to_pylist()
+        assert other.key != dependencies.key
+        assert occurrence["key"] == other.key
+        assert occurrence["creation_nonce"] != dependency_occurrence["creation_nonce"]
+        assert occurrence["active"]
+        assert not occurrence["retiring"]
+        assert other_header.select(content_fields).equals(
+            dependency_header.select(content_fields)
+        )
+
+    repeated_dependencies = prepared.dependency_analysis(controls)
+    assert_same_dependency_content(repeated_dependencies)
+    # Selection fails before creating an occurrence; no recovery key is invented.
+    with pytest.raises(
+        pse.InspectionError, match="analysis root is not a selected scientific object"
+    ) as invalid_analysis:
+        prepared.dependency_analysis(
+            pse.AnalysisControls(
+                roots=("missing-scientific-object",), direction="downstream"
+            )
+        )
+    assert isinstance(invalid_analysis.value.report, pse.DiagnosticReport)
+    assert invalid_analysis.value.report.analysis_key is None
     handle = prepared.start()
     result = handle.wait()
     assert result.usable
@@ -166,6 +206,43 @@ def test_canonical_result_selection_and_progress_reopen(
     with pytest.raises(pse.InspectionError):
         reopened.export_results(run, attempt, relation, destination)
     assert destination.read_bytes() == original
+
+    # Retirement stays pending while the immutable creation grant is live.
+    # The fixture's server shares this host's Unix clock; the header records micros.
+    creation_expires_at = dependency_occurrence["creation_expires_at"]
+    assert isinstance(creation_expires_at, int)
+    retired = reopened.forget_analysis_results(dependencies.key)
+    assert isinstance(retired, bool)
+    if time.time_ns() // 1_000 < creation_expires_at:
+        assert retired is False
+    while (remaining := creation_expires_at - time.time_ns() // 1_000) > 0:
+        time.sleep(min(0.25, remaining / 1_000_000))
+    # Expiry only permits settlement; actual bounded cleanup must return True.
+    for _ in range(32):
+        if retired:
+            break
+        retired = reopened.forget_analysis_results(dependencies.key)
+        assert isinstance(retired, bool)
+        if retired:
+            break
+    assert retired, (
+        "analysis retirement did not finish within the bounded page allowance"
+    )
+    with pytest.raises(pse.InspectionError):
+        reopened.analysis(dependencies.key)
+    with pytest.raises(pse.InspectionError):
+        pa.table(reopened_dependencies.edges())
+    with pytest.raises(pse.InspectionError):
+        pa.table(dependencies.header())
+    recreated_dependencies = prepared.dependency_analysis(controls)
+    assert_same_dependency_content(recreated_dependencies)
+    assert recreated_dependencies.key != repeated_dependencies.key
+    assert pa.table(reopened.analysis(recreated_dependencies.key).header()).equals(
+        pa.table(recreated_dependencies.header())
+    )
+    # Recreating identical content never revives a retired occurrence's reader.
+    with pytest.raises(pse.InspectionError):
+        pa.table(reopened_dependencies.edges())
 
 
 @pytest.mark.integration

@@ -10,8 +10,10 @@ pub use controls::{
 mod completion;
 mod connected_results;
 pub mod result_blocks;
+mod result_export;
 mod result_projection;
 pub use connected_results::CanonicalResultReader;
+pub use result_export::{ResultCursor, ResultOrder, StrategyEventExport};
 mod analyses;
 pub use analyses::{AnalysisControls, AnalysisDirection, AnalysisHandle};
 mod retention;

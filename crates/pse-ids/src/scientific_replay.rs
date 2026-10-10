@@ -8,7 +8,7 @@ use serde_json::Value;
 use std::{collections::BTreeSet, sync::Arc};
 
 /// The compiler-owned admitted description wire interpretation.
-pub const ADMITTED_RECIPE_INTERPRETATION: &str = "pse.admitted-body.v1";
+pub const ADMITTED_RECIPE_INTERPRETATION: &str = "pse.admitted-body.v2";
 /// Logical admitted-description bound, independent of storage RPC block sizes.
 /// Consumers reserve actual decode/index scratch before parsing; this is not a memory allowance.
 pub const MAX_ADMITTED_RECIPE_BYTES: usize = 64 * 1024 * 1024;

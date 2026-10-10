@@ -1,0 +1,47 @@
+## 33-efficiency-principles-remediation.md:401-502  kind=checkpoint (legacy-title)  #current-checkpoint
+path: Plan 33: Efficiency principles remediation > Current checkpoint
+previous: Finding dispositions (lines 382-400)
+mentions: ADR-0169, EFF01, EFF02, EFF03, EFF04, EFF05, EFF06, EFF07, EFF08, EFF09, EFF10, EI01, EI02, EI03, EI04, EI05, EI06
+--- guidance
+plan-structure.md:23 | Finding disposition and current state: Traceability to source findings, open decisions, deferred work and the next executable step
+execute-plan.md:63
+Report actual commands and outcomes (`passed`, `failed`, `blocked` with its prerequisite, or
+`not_run`). Keep comprehensive evidence in the plan Outcome or qualification report;
+interim checkpoints record state, decisions and next steps rather than per-command receipts.
+Keep proposed, implemented, tested and measured claims distinct, date verified claims, and
+retain composite or partial qualification boundaries. Close findings only with evidence for
+their stated obligation; preserve source-review IDs and their single disposition owner.
+execute-plan.md:71
+Follow repository commit policy within the task's authorization. Update the existing plan or active
+packet checkpoint when the work changes what is true; keep `docs/plans/README.md` as navigation.
+Keep durable status in its existing owner without a second execution plan or parallel ledger.
+Clean up any remaining worktrees that are fully merged. Report the resulting behavior,
+verification and any remaining authorized work or blockers; a partial checkpoint is not
+completion of the requested scope.
+plan-structure.md:143
+Separate future acceptance requirements from actual evidence. Identify local checks, assembled
+journeys and measurements by what they establish and when they are needed. Follow repository
+policy for execution timing and evidence reporting. Optional or deferred measurements should have
+a clear purpose and trigger, without obscuring required completion evidence.
+plan-structure.md:149
+As execution proceeds, maintain concise state, decisions and next steps at their declared owner.
+If a package consumes an early slice of another plan, record which contract and consumers are
+complete, link the evidence owner, and state the enclosing package's remaining work. Local
+completion does not automatically close a finding shared with other packages or establish full
+system qualification. Update affected links and dependency descriptions when the design changes,
+and move enduring meaning to its established owner before retiring the plan under local policy.
+--- text
+  401| ## Current checkpoint
+  402| 
+  403| Execution is in progress. EFF01 binds the scripts/configuration/benchmark closure and
+  404| effective native configuration under input interpretation 3. EFF02 integrates explicit
+  405| execution effects, actual Cargo target/host Arrow validation, package-declared native
+  406| opt-ins and exact build-metadata propagation. Focused tooling controls pass.
+  407| 
+  408| ADR-0169–0172 have target-design Accept verdicts at Proposed strength and architecture
+  409| adoption; those verdicts do not qualify product mechanisms. EFF03 compact occurrences,
+  410| EFF04 selected-only construction, EFF05 shared original-coordinate universes, EFF06 actual
+  411| physical prerequisites and EFF08 prepared sparse relationships are integrated. Occurrence,
+  412| selected-closure and shared-block pure controls pass in their bounded scopes; joined
+      … 43 more lines (use --full)
+subsections: Investigation dispositions and remaining acceptance [-] 456-502

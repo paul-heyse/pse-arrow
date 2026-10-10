@@ -22,6 +22,8 @@ pse-diagnostics.workspace = true
 datafusion-common = { workspace = true, features = ["parquet", "object_store"] }
 datafusion-execution.workspace = true
 arrow.workspace = true
+# Opt-in validation of the cast unit already consumed through DataFusion.
+arrow-cast = { workspace = true, optional = true }
 arrow-array.workspace = true
 arrow-schema.workspace = true
 arrow-ipc.workspace = true
@@ -38,6 +40,12 @@ futures-util.workspace = true
 pse-workspace-hack.workspace = true
 
 [features]
+force-validate = [
+  "arrow/force_validate",
+  "arrow-array/force_validate",
+  "dep:arrow-cast",
+  "arrow-cast/force_validate",
+]
 bench-instrumentation = []
 
 [dev-dependencies]

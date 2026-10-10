@@ -117,6 +117,14 @@ source data invalidates current applicability; old immutable analysis retains it
 meaning. New graph algorithms can add an analysis family and method binding without changing
 run sealing or native solver ownership. New physical concepts can still require compiler work.
 
+**Later lifecycle handoff, 2026-10-09:**
+[Plan 33/EFF10](33-efficiency-principles-remediation.md#eff10) owns the confirmed change to
+fully delete retired analyses, including lineage and markers, after safe coordination.
+The existing reopening/lineage outcomes below describe live or then-retained analyses; they
+do not require permanent retired history. Plan 33's contract route settles fresh occurrence
+admission, stale retries and deletion, while EFF07 owns selective/chunked result encoding.
+These are independent corrective packets, not additions to D3's implementation scope.
+
 Expose the supported domain operations through the repository's actual Rust/Python consumers.
 Native functions, schema introspection and an optional domain API can reuse those contracts.
 Add MCP/search/live capabilities only for a concrete consumer: CRUD cannot bypass admission,

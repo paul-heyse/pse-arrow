@@ -36,8 +36,8 @@ scope. The current plan-authoring turn does not delete data or mutate production
 
 Plan 27 has implemented its A/B/C functional scope and immediate deletions, with a focused
 77-control native accuracy selection and generator/Python transport evidence recorded at its
-[checkpoint](27-contextual-engineering-accuracy.md#current-checkpoint).
-[25k](25k-integrated-qualification-and-closure.md#current-execution-checkpoint) still has
+[checkpoint](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/27-contextual-engineering-accuracy.md#current-checkpoint).
+[25k](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25k-integrated-qualification-and-closure.md#current-execution-checkpoint) still has
 incomplete K3/K4/K5 assembled work. Those facts are not completion evidence for this pivot.
 
 Transfer the remaining applicable scientific campaign obligations to E3/E4/E5 for execution
@@ -628,8 +628,11 @@ or strict deployment qualification.
 
 The PC-SAFT smoke harness completed with four typed refusals at case resolution, zero prepared
 products. [28f's numerical-fact boundary](28f-shared-numerical-preparation.md#pc-saft-numerical-fact-investigation-boundary)
-owns the newly exposed checker-wiring investigation. Scope-end static/manual checks remain
-in progress. These selected journeys do not establish full library/scientific qualification,
+retains that observation; correction and current targeted acceptance now belong to
+[Plan 33/EFF06](33-efficiency-principles-remediation.md#eff06). The later codebase-efficiency
+review's F01–F11, investigations and affected qualification belong wholly to Plan 33, not E3/E4/E5.
+The feature matrix was cancelled at the maintainer's request; interrupted coverage is not a pass.
+These selected journeys do not establish full library/scientific qualification,
 an end-to-end speedup, managed-primary deployment identity or complete Plan 28 E3 acceptance.
 The broader E3/E4/E5 campaign remains paused. RC02 durable fast hashes and RC03 production
 persisted incremental runtime remain unselected.

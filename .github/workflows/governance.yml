@@ -29,11 +29,16 @@ jobs:
           # `adr.py lint` compares accepted records against origin/main to enforce
           # immutability, so it needs more than a shallow clone.
           fetch-depth: 0
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - name: Provision locked docs-only Python dependencies
+        run: |
+          eval "$(python3 -m scripts.pse_env --docs --print)"
+          uv sync --locked --only-group docs --no-install-project
       - name: decision records are well formed
         # File-name pattern, contiguous numbering, required §H keys, enum values,
         # DM-xx references, blueprint § anchors that resolve to real headings, review
         # paths that exist, symmetric supersession, and immutability of accepted ADRs.
-        run: python3 scripts/adr.py lint
+        run: .venv-docs/bin/python -m scripts.adr lint
       - name: register rows are well formed
         run: python3 scripts/check_register.py --lint
       - name: the IDAES tag matches the parity pin
@@ -82,10 +87,22 @@ jobs:
           tool: just@1.58.0
       - name: materialize skill aliases
         run: python3 scripts/agent-config.py
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - name: Provision docs dependencies for setup controls
+        # The local placement boundary is Linux-only. Windows CI is a fresh checkout,
+        # so its child environment selects the same fixed target without local admission.
+        run: |
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            export UV_PROJECT_ENVIRONMENT=.venv-docs
+          else
+            eval "$(python3 -m scripts.pse_env --docs --print)"
+          fi
+          uv sync --locked --only-group docs --no-install-project
+          echo "UV_PROJECT_ENVIRONMENT=$UV_PROJECT_ENVIRONMENT" >> "$GITHUB_ENV"
       - name: skill aliases and native role contracts are consistent
         # Skill aliases share the canonical .codex/skills tree. Native adapters remain
         # independent and load shared role contracts; synchronization never overwrites them.
         run: |
           python3 scripts/check_agent_config.py
           python3 scripts/solver-images.py check
-          python3 -m unittest discover -s scripts/tests -p "test_*.py" -v
+          uv run --no-sync python -m unittest discover -s scripts/tests -p "test_*.py" -v

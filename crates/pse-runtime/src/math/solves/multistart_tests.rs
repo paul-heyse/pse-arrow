@@ -539,7 +539,16 @@ async fn shared_original_driver(permit_recovery: bool) {
             .all(|charge| charge.observed.attempts == 0 && charge.observed.evaluations == Some(0)),
         "identity repair cannot invent assessment work"
     );
-    let rows = trace.rows(result.run_id, 0).unwrap();
+    let rows = trace
+        .rows(
+            result.run_id,
+            0,
+            Arc::new(datafusion::execution::memory_pool::UnboundedMemoryPool::default()),
+            0..usize::MAX,
+        )
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
     let finished = rows
         .iter()
         .filter(|row| {

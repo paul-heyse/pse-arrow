@@ -9,7 +9,6 @@
 //! derivation consumed, so a value rebind recomputes them only when one of those changed,
 //! and the value-dependent products see them like any other parameter (A6).
 use super::*;
-use pse_math::binding::Variable;
 use pse_modeling::{ModelingError, RealizationRefusal, specialize::DerivedRule};
 use std::borrow::Cow;
 
@@ -275,7 +274,7 @@ impl Derivation {
 }
 /// The box of one enclosure column; a semi domain's zero branch lies outside its active
 /// interval.
-fn column_box(variables: &[Variable], id: SemanticId) -> (f64, f64) {
+fn column_box(variables: pse_math::binding::VariableView<'_>, id: SemanticId) -> (f64, f64) {
     let v = variables.iter().find(|v| v.port.id == id);
     let l = v.and_then(|v| v.lower).unwrap_or(f64::NEG_INFINITY);
     let u = v.and_then(|v| v.upper).unwrap_or(f64::INFINITY);

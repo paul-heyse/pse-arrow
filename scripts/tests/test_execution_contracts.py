@@ -20,6 +20,7 @@ from scripts import (
     case_measure,
     native_tests,
     surreal_server,
+    test_resources,
     validation,
     validation_receipts,
 )
@@ -151,9 +152,21 @@ class NativePythonImportIdentity(unittest.TestCase):
 
 class ExecutionContracts(unittest.TestCase):
     def setUp(self) -> None:
+        composition = patch.object(
+            native_tests,
+            "correctness_command",
+            side_effect=lambda command, _environment: command,
+        )
+        composition.start()
+        self.addCleanup(composition.stop)
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.output = Path(self.directory.name)
+        registry = patch.object(
+            test_resources, "registry", return_value=self.output / "registry"
+        )
+        registry.start()
+        self.addCleanup(registry.stop)
         self.rust_invocation = self.output / "rust-invocation.json"
         self.rust_invocation.write_text(
             json.dumps(
@@ -761,10 +774,32 @@ class ExecutionContracts(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "inputs changed"):
             self.require(self.claim(), snapshot={"Cargo.lock": "changed"})
 
+    def seal_reuse_origin(self, receipt: dict, label: str) -> Path:
+        owner = self.output / "report-owner"
+        origin = owner / "build" / label
+        origin.mkdir(parents=True)
+        (origin / "fixture-source.json").write_text('{"scope":"native-claim-control"}')
+        receipt = {
+            "complete": True,
+            "required_checks_covered": True,
+            "source_unchanged": True,
+            "provenance_errors": [],
+            **receipt,
+        }
+        validation.write_json(origin / "checks.json", receipt)
+        resource = test_resources.register_report(origin, root=owner)
+        test_resources.finish_report(
+            resource,
+            receipt,
+            roles={"checks.json": "receipt", "fixture-source.json": "provenance"},
+            required_provenance=["fixture-source.json"],
+        )
+        return origin
+
     def test_scope_definition_change_and_uncovered_receipt_refuse_reuse(self) -> None:
         receipt = self.claim()
         receipt["source_files"] = {"Cargo.lock": "original"}
-        validation.write_json(self.output / "checks.json", receipt)
+        origin = self.seal_reuse_origin(receipt, "original")
         gate = FUNCTIONAL_SCOPES["preparation"].name
         with (
             patch(
@@ -774,7 +809,7 @@ class ExecutionContracts(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "identical inputs"),
         ):
             validation_receipts.reuse_checks(
-                self.output,
+                origin,
                 receipt["source_files"],
                 {},
                 receipt["scope"],
@@ -783,10 +818,10 @@ class ExecutionContracts(unittest.TestCase):
                 None,
             )
         receipt["input_coverage"] = False
-        validation.write_json(self.output / "checks.json", receipt)
+        origin = self.seal_reuse_origin(receipt, "uncovered")
         with self.assertRaisesRegex(ValueError, "trustworthy input coverage"):
             validation_receipts.reuse_checks(
-                self.output,
+                origin,
                 receipt["source_files"],
                 {},
                 receipt["scope"],
@@ -809,10 +844,10 @@ class ExecutionContracts(unittest.TestCase):
         check["inputs"] = validation.input_identity(
             "rust-product", snapshot, environment
         )
-        validation.write_json(self.output / "checks.json", receipt)
+        origin = self.seal_reuse_origin(receipt, "original")
         gate = check["gate"]
         retained = validation_receipts.reuse_checks(
-            self.output, snapshot, environment, receipt["scope"], {gate}, set(), None
+            origin, snapshot, environment, receipt["scope"], {gate}, set(), None
         )
         self.assertEqual(retained[0]["evidence_kind"], "unchanged-input-reuse")
         for key in ("PYTHONPATH", "PYTHONHASHSEED"):
@@ -824,7 +859,7 @@ class ExecutionContracts(unittest.TestCase):
                 self.assertRaisesRegex(ValueError, "identical inputs and environment"),
             ):
                 validation_receipts.reuse_checks(
-                    self.output,
+                    origin,
                     snapshot,
                     changed_environment,
                     receipt["scope"],
@@ -838,10 +873,10 @@ class ExecutionContracts(unittest.TestCase):
     ) -> None:
         receipt = self.claim()
         receipt["source_files"] = {"Cargo.lock": "original"}
-        validation.write_json(self.output / "checks.json", receipt)
+        origin = self.seal_reuse_origin(receipt, "original")
         gate = FUNCTIONAL_SCOPES["preparation"].name
         retained = validation_receipts.reuse_checks(
-            self.output,
+            origin,
             {"Cargo.lock": "changed"},
             {},
             receipt["scope"],
@@ -855,9 +890,7 @@ class ExecutionContracts(unittest.TestCase):
         self.assertEqual(retained[0]["inputs"]["files"]["Cargo.lock"], "changed")
         self.assertEqual(retained[0]["changed_inputs"], ["Cargo.lock"])
         self.assertEqual(retained[0]["evidence_kind"], "reviewed-transfer")
-        parent = self.output / "transferred"
-        parent.mkdir()
-        validation.write_json(parent / "checks.json", {**receipt, "checks": retained})
+        parent = self.seal_reuse_origin({**receipt, "checks": retained}, "transferred")
         reused = validation_receipts.reuse_checks(
             parent, {"Cargo.lock": "changed"}, {}, receipt["scope"], {gate}, set(), None
         )[0]
@@ -872,7 +905,7 @@ class ExecutionContracts(unittest.TestCase):
             reused["applicability_transfers"][0]["to_inputs"], reused["inputs"]
         )
 
-    def test_measurement_identity_includes_declared_cases_without_invalidating_product_claim(
+    def test_measurement_and_product_identity_include_consumed_benchmarks(
         self,
     ) -> None:
         before = {
@@ -890,7 +923,7 @@ class ExecutionContracts(unittest.TestCase):
             case_measure.measurement_inputs(before),
             case_measure.measurement_inputs(after),
         )
-        self.assertEqual(
+        self.assertNotEqual(
             validation.input_identity("rust-product", before, {}),
             validation.input_identity("rust-product", after, {}),
         )

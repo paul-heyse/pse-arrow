@@ -1160,6 +1160,7 @@ impl ModelingPackage {
         if !missing.is_empty() {
             let additional = pse_math::numerics::resolve(
                 q,
+                &self.physical.preconditions,
                 &missing.into_values().collect::<Vec<_>>(),
                 &[],
                 &projection_source.policy,

@@ -14,7 +14,7 @@ superseded-by: null
 revisit: The Q1 gap-closure measurement shows SCIP cannot certify any of the named certify fixtures (binary TPD, small regression, heater_optimization) within its recorded budget, or an authored discrete construct cannot be lowered to a class that HiGHS or SCIP supports.
 verification: Architecture scenarios S10, S11, S12 and S16 and review scenarios S01 and S06, settled by the Plan 22 tests authored_milp_routes_to_highs, small_synthesis_minlp_optimal, gdp_hull_and_bigm_same_optimum, certify_known_global_optimum, relaxed_export_bound_only and tpd_detects_known_instability; the architectural argument is slots 4 and 6 of the Plan 22 target review.
 standard: core-3.0/process-simulator-1.1
-scenarios: [docs/plans/22-solver-capabilities-architecture.md#s10, docs/plans/22-solver-capabilities-architecture.md#s11, docs/plans/22-solver-capabilities-architecture.md#s12, docs/plans/22-solver-capabilities-architecture.md#s16, docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s01, docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s06]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s10, https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s11, https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s12, https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s16, docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s01, docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s06]
 ---
 
 # ADR-0102: Admit discrete decisions, disjunctive programs and global certification into the design target
@@ -135,7 +135,7 @@ value of global certification on process models remains *Proposed* until Q1 meas
 
 ## More information
 
-- Architecture companion: [§1–§3, §5](../plans/22-solver-capabilities-architecture.md).
+- Architecture companion: [§1–§3, §5](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md).
 - Capability review: [§8.1](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#81-scip-the-maintainers-hypothesis), [F08](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f08), census P1 (slot 10).
 - Target review: [decision](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision), findings [T07](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t07) and [T09](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t09).
 - Disposition and packets: [Plan 22](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md).

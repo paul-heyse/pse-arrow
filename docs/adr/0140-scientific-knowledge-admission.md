@@ -78,7 +78,7 @@ Meaning stays authored and locally testable, while the one-time migration change
 
 ## More information
 
-[Plan 25b](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25b-scientific-knowledge-and-applicability.md), [Plan 25 dispositions](../plans/25-design-remediation.md#finding-dispositions), ADR-0127 and blueprint §9.
+[Plan 25b](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25b-scientific-knowledge-and-applicability.md), [Plan 25 dispositions](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25-design-remediation.md#finding-dispositions), ADR-0127 and blueprint §9.
 
 ## Status history
 

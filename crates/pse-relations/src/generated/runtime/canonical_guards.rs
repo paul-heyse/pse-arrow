@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    144u8, 227u8, 66u8, 141u8, 211u8, 58u8, 230u8, 246u8, 123u8, 216u8, 17u8, 87u8, 87u8,
-    193u8, 54u8, 87u8, 196u8, 242u8, 141u8, 158u8, 233u8, 68u8, 114u8, 165u8, 166u8,
-    225u8, 189u8, 255u8, 112u8, 254u8, 148u8, 180u8,
+    45u8, 139u8, 115u8, 234u8, 169u8, 184u8, 21u8, 119u8, 87u8, 248u8, 137u8, 71u8,
+    207u8, 160u8, 82u8, 105u8, 146u8, 110u8, 65u8, 224u8, 173u8, 13u8, 47u8, 212u8,
+    151u8, 232u8, 18u8, 20u8, 187u8, 85u8, 218u8, 228u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalGuardsRow {
     fn append(
@@ -37,6 +37,14 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalGuardsRow {
             &self.r#generation,
             children[1usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#incarnation,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#analysis_creation_closed_through,
+            children[3usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -49,6 +57,12 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalGuardsRow {
         let children = output.field_builders_mut();
         <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <u64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
+            u64,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -65,6 +79,18 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalGuardsRow {
             )?,
             r#generation: <u64 as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#incarnation: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#analysis_creation_closed_through: <Option<
+                u64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
                 index,
             )?,
         })
@@ -128,6 +154,14 @@ impl crate::columnar::RelationRow for RuntimeCanonicalGuardsRow {
             &self.r#generation,
             columns[1usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#incarnation,
+            columns[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#analysis_creation_closed_through,
+            columns[3usize].as_mut(),
+        )?;
         Ok(())
     }
     fn relation(
@@ -163,10 +197,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalGuardsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        4_096_usize + size_of::<Self::Builder>()
+        8_192_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        32usize
+        64usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -178,6 +212,28 @@ impl crate::columnar::RelationRow for RuntimeCanonicalGuardsRow {
             bytes,
             Ok::<usize, crate::RelationError>(8usize)?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#incarnation).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#analysis_creation_closed_through).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
         Ok(bytes)
     }
 }
@@ -188,7 +244,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 2usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 4usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -199,6 +255,16 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 2usize] = [
         name: "generation",
         position: 1usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "incarnation",
+        position: 2usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "analysis_creation_closed_through",
+        position: 3usize,
+    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -206,6 +272,10 @@ pub mod columns {
     pub const KEY: crate::columnar::ColumnReference = super::COLUMNS[0usize];
     ///generation
     pub const GENERATION: crate::columnar::ColumnReference = super::COLUMNS[1usize];
+    ///incarnation
+    pub const INCARNATION: crate::columnar::ColumnReference = super::COLUMNS[2usize];
+    ///analysis_creation_closed_through
+    pub const ANALYSIS_CREATION_CLOSED_THROUGH: crate::columnar::ColumnReference = super::COLUMNS[3usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -214,6 +284,8 @@ pub struct RuntimeCanonicalGuardsView<'a> {
     batch: &'a crate::RecordBatch,
     key_column: &'a arrow_array::StringArray,
     generation_column: &'a arrow_array::UInt64Array,
+    incarnation_column: &'a arrow_array::StringArray,
+    analysis_creation_closed_through_column: &'a arrow_array::UInt64Array,
 }
 impl<'a> RuntimeCanonicalGuardsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -261,6 +333,12 @@ impl<'a> RuntimeCanonicalGuardsView<'a> {
             generation_column: crate::columnar::array::<
                 arrow_array::UInt64Array,
             >(batch.column(1usize).as_ref())?,
+            incarnation_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(2usize).as_ref())?,
+            analysis_creation_closed_through_column: crate::columnar::array::<
+                arrow_array::UInt64Array,
+            >(batch.column(3usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -299,6 +377,36 @@ impl<'a> RuntimeCanonicalGuardsView<'a> {
     pub fn generation_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[1usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "incarnation",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn incarnation_column(&self) -> &'a arrow_array::StringArray {
+        self.incarnation_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "incarnation", "`.")]
+    pub fn incarnation_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[2usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "analysis_creation_closed_through",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn analysis_creation_closed_through_column(
+        &self,
+    ) -> &'a arrow_array::UInt64Array {
+        self.analysis_creation_closed_through_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "analysis_creation_closed_through",
+        "`.",
+    )]
+    pub fn analysis_creation_closed_through_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[3usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -314,6 +422,14 @@ impl<'a> RuntimeCanonicalGuardsView<'a> {
             r#key: crate::columnar::ArrowValue::read(self.key_column, index)?,
             r#generation: crate::columnar::ArrowValue::read(
                 self.generation_column,
+                index,
+            )?,
+            r#incarnation: crate::columnar::ArrowValue::read(
+                self.incarnation_column,
+                index,
+            )?,
+            r#analysis_creation_closed_through: crate::columnar::ArrowValue::read(
+                self.analysis_creation_closed_through_column,
                 index,
             )?,
         })

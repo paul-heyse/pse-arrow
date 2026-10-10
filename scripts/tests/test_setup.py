@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Behavioral qualification of setup contracts using disposable fixtures."""
-# These tests must run before pytest or any project environment is installed.
+# These controls need no product extension; metadata dependencies come from docs/dev.
 # ruff: noqa: PT009, PT027
 
 from __future__ import annotations
@@ -692,7 +692,9 @@ class DecisionRecordTests(unittest.TestCase):
             "verification": "a fixture check",
             **fields,
         }
-        text = "---\n" + "".join(f"{k}: {v}\n" for k, v in front.items())
+        text = "---\n" + "".join(
+            f"{k}: {json.dumps(v) if ': ' in v else v}\n" for k, v in front.items()
+        )
         path = self.adrs / f"{number:04d}-fixture-{number}.md"
         path.write_text(text + "---\n\n## Context\n\nFixture.\n")
         return path

@@ -9,6 +9,7 @@ use pse_model::generated::enums::ModelingVariableDomain;
 use pse_model::{SemanticEq, SemanticFrame};
 use pse_quantity::{CanonicalConversionPlan, QuantityRegistry, admission::require_same_contract};
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
 /// Compiler-owned interpretation; external hashes cannot select numerical behavior.
 pub fn guarded_real_policy() -> ContentHash {
@@ -262,9 +263,9 @@ pub struct InstanceBinding {
     /// Reusable body identity.
     pub body: ContentHash,
     /// Total body-local checked-member token to actual member attribution, including computed locals.
-    pub checked_members: BTreeMap<SemanticId, SemanticId>,
+    pub checked_members: Arc<BTreeMap<SemanticId, SemanticId>>,
     /// Inputs in formal order, preserving multiplicity and aliasing.
-    pub slots: Vec<SlotBinding>,
+    pub slots: Arc<Vec<SlotBinding>>,
     /// Output contributions; repeated targets deliberately accumulate.
     pub contributions: Vec<Contribution>,
 }
@@ -312,12 +313,109 @@ impl InstanceBinding {
     }
 }
 
+/// Immutable declarations in original case coordinates, shared by every block.
+#[derive(Debug, PartialEq)]
+struct CoordinateUniverse {
+    variables: Vec<Variable>,
+    fixed: Vec<Variable>,
+    parameters: Vec<Port>,
+}
+
+/// Borrowed original-coordinate declarations with a conditional fixed/free overlay.
+#[derive(Clone, Copy, Debug)]
+pub struct VariableView<'a> {
+    universe: &'a CoordinateUniverse,
+    free: Option<&'a [usize]>,
+}
+impl<'a> VariableView<'a> {
+    /// All original coordinates remain present, including inactive inputs.
+    pub fn len(self) -> usize {
+        self.universe.variables.len()
+    }
+    /// Whether the original variable universe is empty.
+    pub fn is_empty(self) -> bool {
+        self.len() == 0
+    }
+    /// One original coordinate with its effective conditional fixed flag.
+    pub fn get(self, index: usize) -> Option<&'a Variable> {
+        let original = self.universe.variables.get(index)?;
+        Some(
+            if self
+                .free
+                .is_none_or(|free| free.binary_search(&index).is_ok())
+            {
+                original
+            } else {
+                &self.universe.fixed[index]
+            },
+        )
+    }
+    /// First original coordinate, if any.
+    pub fn first(self) -> Option<&'a Variable> {
+        self.get(0)
+    }
+    /// Original semantic order, independent of block solve coordinates.
+    pub fn iter(self) -> VariableIter<'a> {
+        VariableIter {
+            view: self,
+            indices: 0..self.len(),
+        }
+    }
+    /// Materialize declarations only for consumers constructing a new universe.
+    pub fn to_vec(self) -> Vec<Variable> {
+        self.iter().cloned().collect()
+    }
+}
+/// Iterator over effective original-coordinate declarations.
+#[derive(Debug)]
+pub struct VariableIter<'a> {
+    view: VariableView<'a>,
+    indices: std::ops::Range<usize>,
+}
+impl<'a> Iterator for VariableIter<'a> {
+    type Item = &'a Variable;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.indices.next().and_then(|index| self.view.get(index))
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.indices.size_hint()
+    }
+}
+impl DoubleEndedIterator for VariableIter<'_> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.indices
+            .next_back()
+            .and_then(|index| self.view.get(index))
+    }
+}
+impl ExactSizeIterator for VariableIter<'_> {}
+impl<'a> IntoIterator for VariableView<'a> {
+    type Item = &'a Variable;
+    type IntoIter = VariableIter<'a>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+impl std::ops::Index<usize> for VariableView<'_> {
+    type Output = Variable;
+    fn index(&self, index: usize) -> &Variable {
+        if self
+            .free
+            .is_none_or(|free| free.binary_search(&index).is_ok())
+        {
+            &self.universe.variables[index]
+        } else {
+            &self.universe.fixed[index]
+        }
+    }
+}
+
 /// Bounded prepared structure. Adding a known body shape only adds bindings.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct CaseStructure {
     /// Canonical global variable declarations, including fixed values.
-    variables: Vec<Variable>,
-    parameters: Vec<Port>,
+    coordinates: Arc<CoordinateUniverse>,
+    free: Option<Box<[usize]>>,
     /// Canonical semantic instance order.
     instances: Vec<InstanceBinding>,
     rows: Vec<Row>,
@@ -330,6 +428,18 @@ pub struct CaseStructure {
     native: Vec<pse_model::forms::NativeConstraint>,
     /// Requirements the lowerings place on the solve route (ADR-0104 §5), in order.
     requirements: Vec<pse_model::generated::enums::ModelingStructuralRequirement>,
+}
+impl PartialEq for CaseStructure {
+    fn eq(&self, other: &Self) -> bool {
+        self.variables().iter().eq(other.variables())
+            && self.parameters() == other.parameters()
+            && self.instances == other.instances
+            && self.rows == other.rows
+            && self.objectives == other.objectives
+            && self.degradations == other.degradations
+            && self.native == other.native
+            && self.requirements == other.requirements
+    }
 }
 impl CaseStructure {
     /// Admit identities, closed bounds and resource limits without inspecting values.
@@ -527,7 +637,7 @@ impl CaseStructure {
             if slot_count > limits.slots || instance.contributions.is_empty() {
                 return Err(MathError::Limit("case slots or empty output layout"));
             }
-            for slot in &instance.slots {
+            for slot in instance.slots.iter() {
                 if ports.get(&slot.source).is_none_or(|p| **p != slot.port) {
                     return Err(MathError::Contract(
                         "slot source has no matching declared physical port".into(),
@@ -550,9 +660,21 @@ impl CaseStructure {
                 return Err(MathError::Limit("case specializations"));
             }
         }
+        let fixed = variables
+            .iter()
+            .cloned()
+            .map(|mut variable| {
+                variable.fixed = true;
+                variable
+            })
+            .collect();
         Ok(Self {
-            variables,
-            parameters,
+            coordinates: Arc::new(CoordinateUniverse {
+                variables,
+                fixed,
+                parameters,
+            }),
+            free: None,
             instances,
             rows,
             objectives,
@@ -570,7 +692,7 @@ impl CaseStructure {
         native: Vec<pse_model::forms::NativeConstraint>,
     ) -> Result<Self, MathError> {
         let known = self
-            .variables
+            .variables()
             .iter()
             .map(|v| v.port.id)
             .chain(self.rows.iter().map(|r| r.id))
@@ -613,8 +735,8 @@ impl CaseStructure {
     /// Structural identity includes bindings, physical units, selected inventories and class declarations.
     pub fn key(&self) -> ContentHash {
         let mut h = FramedHasher::new(pse_ids::Frame::MathCaseStructureV6);
-        h.u64(self.variables.len() as u64);
-        for v in &self.variables {
+        h.u64(self.variables().len() as u64);
+        for v in self.variables().iter() {
             h.id(&v.port.id)
                 .id(&v.port.quantity.as_id())
                 .id(&v.port.unit.as_id())
@@ -627,8 +749,8 @@ impl CaseStructure {
                     v.upper.unwrap_or(f64::INFINITY),
                 ));
         }
-        h.u64(self.parameters.len() as u64);
-        for p in &self.parameters {
+        h.u64(self.parameters().len() as u64);
+        for p in self.parameters() {
             h.id(&p.id).id(&p.quantity.as_id()).id(&p.unit.as_id());
         }
         h.u64(self.rows.len() as u64);
@@ -657,13 +779,13 @@ impl CaseStructure {
         h.u64(self.instances.len() as u64);
         for b in &self.instances {
             h.id(&b.instance).hash(&b.body).u64(b.slots.len() as u64);
-            for s in &b.slots {
+            for s in b.slots.iter() {
                 h.id(&s.source())
                     .u64(pse_ids::canonical_f64_bits(s.scale()))
                     .u64(pse_ids::canonical_f64_bits(s.offset()));
             }
             h.u64(b.checked_members.len() as u64);
-            for (token, actual) in &b.checked_members {
+            for (token, actual) in b.checked_members.iter() {
                 h.id(token).id(actual);
             }
             h.u64(b.contributions.len() as u64);
@@ -703,12 +825,76 @@ impl CaseStructure {
         self.objectives.len() > 1
     }
     /// Declared source variables in semantic order.
-    pub fn variables(&self) -> &[Variable] {
-        &self.variables
+    pub fn variables(&self) -> VariableView<'_> {
+        VariableView {
+            universe: &self.coordinates,
+            free: self.free.as_deref(),
+        }
     }
     /// Ordinary value parameters, distinct from structural specialization.
     pub fn parameters(&self) -> &[Port] {
-        &self.parameters
+        &self.coordinates.parameters
+    }
+    /// Membership in the admitted original universe without rebuilding an inventory.
+    pub(crate) fn contains_coordinate(&self, id: &SemanticId) -> bool {
+        self.coordinates
+            .variables
+            .binary_search_by_key(id, |variable| variable.port.id)
+            .is_ok()
+            || self
+                .coordinates
+                .parameters
+                .binary_search_by_key(id, |parameter| parameter.id)
+                .is_ok()
+    }
+    /// Shared original-coordinate payload identity and retained extent.
+    pub fn coordinate_allocation(&self) -> (usize, usize) {
+        (
+            Arc::as_ptr(&self.coordinates) as usize,
+            size_of::<CoordinateUniverse>()
+                + 2 * size_of::<usize>()
+                + (self.coordinates.variables.capacity() + self.coordinates.fixed.capacity())
+                    * size_of::<Variable>()
+                + self.coordinates.parameters.capacity() * size_of::<Port>(),
+        )
+    }
+    /// Local conditional index storage; declaration payload belongs to the shared universe.
+    pub fn selection_bytes(&self) -> usize {
+        self.free
+            .as_ref()
+            .map_or(0, |free| free.len() * size_of::<usize>())
+    }
+    /// Restrict admitted row contributions while retaining the complete original universe.
+    pub(crate) fn restricted(
+        &self,
+        instances: Vec<InstanceBinding>,
+        rows: Vec<Row>,
+        columns: Option<&BTreeSet<SemanticId>>,
+    ) -> Self {
+        let free = columns
+            .map(|columns| {
+                columns
+                    .iter()
+                    .filter_map(|id| {
+                        self.coordinates
+                            .variables
+                            .binary_search_by_key(id, |variable| variable.port.id)
+                            .ok()
+                    })
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice()
+            })
+            .or_else(|| self.free.clone());
+        Self {
+            coordinates: self.coordinates.clone(),
+            free,
+            instances,
+            rows,
+            objectives: Vec::new(),
+            degradations: Vec::new(),
+            native: Vec::new(),
+            requirements: Vec::new(),
+        }
     }
     /// Bound body occurrences in semantic order.
     pub fn instances(&self) -> &[InstanceBinding] {
@@ -716,16 +902,16 @@ impl CaseStructure {
     }
     /// Admit a complete trial value vector; supplied values cannot add structure.
     pub fn validate_values(&self, values: &CaseValues) -> Result<(), MathError> {
-        if values.scalars.len() != self.variables.len() + self.parameters.len() {
+        if values.scalars.len() != self.variables().len() + self.parameters().len() {
             return Err(MathError::Contract(
                 "case values differ from declared scalar inventory".into(),
             ));
         }
         for port in self
-            .variables
+            .variables()
             .iter()
             .map(|v| &v.port)
-            .chain(&self.parameters)
+            .chain(self.parameters())
         {
             if values.scalars.get(&port.id).is_none_or(|v| !v.is_finite()) {
                 return Err(MathError::Contract(
@@ -733,7 +919,7 @@ impl CaseStructure {
                 ));
             }
         }
-        for variable in &self.variables {
+        for variable in self.variables().iter() {
             let value = values.scalars[&variable.port.id];
             if variable.fixed
                 && !variable.domain.contains(
@@ -761,34 +947,28 @@ impl CaseStructure {
     /// Free coordinates may be absent or outside bounds for structural diagnostics;
     /// this does not admit a numerical trial or supply an implicit initial guess.
     pub fn validate_frozen_values(&self, values: &CaseValues) -> Result<(), MathError> {
-        let declared = self
-            .variables
-            .iter()
-            .map(|v| v.port.id)
-            .chain(self.parameters.iter().map(|p| p.id))
-            .collect::<BTreeSet<_>>();
         if values
             .scalars
             .iter()
-            .any(|(id, v)| !declared.contains(id) || !v.is_finite())
+            .any(|(id, v)| !self.contains_coordinate(id) || !v.is_finite())
         {
             return Err(MathError::Contract(
                 "undeclared or nonfinite preparation value".into(),
             ));
         }
-        for id in self
-            .parameters
-            .iter()
-            .map(|p| p.id)
-            .chain(self.variables.iter().filter(|v| v.fixed).map(|v| v.port.id))
-        {
+        for id in self.parameters().iter().map(|p| p.id).chain(
+            self.variables()
+                .iter()
+                .filter(|v| v.fixed)
+                .map(|v| v.port.id),
+        ) {
             if !values.scalars.contains_key(&id) {
                 return Err(MathError::Contract(format!(
                     "missing frozen preparation value {id}"
                 )));
             }
         }
-        for variable in self.variables.iter().filter(|v| v.fixed) {
+        for variable in self.variables().iter().filter(|v| v.fixed) {
             if !variable.domain.contains(
                 values.scalars[&variable.port.id],
                 variable.lower.unwrap_or(f64::NEG_INFINITY),
@@ -803,10 +983,19 @@ impl CaseStructure {
     }
     /// Stable free-variable layout. Body formal layouts do not change with fixed/free edits.
     pub fn free_variables(&self) -> impl Iterator<Item = SemanticId> + '_ {
-        self.variables
-            .iter()
-            .filter(|v| !v.fixed)
-            .map(|v| v.port.id)
+        let mut selected = self.free.as_deref().map(|indices| indices.iter());
+        let mut original = self.coordinates.variables.iter();
+        std::iter::from_fn(move || {
+            if let Some(indices) = &mut selected {
+                indices
+                    .next()
+                    .map(|&index| self.coordinates.variables[index].port.id)
+            } else {
+                original
+                    .find(|variable| !variable.fixed)
+                    .map(|variable| variable.port.id)
+            }
+        })
     }
 }
 
@@ -909,13 +1098,14 @@ mod selected_binding_tests {
         let binding = InstanceBinding {
             instance: SemanticId::NIL,
             body: ContentHash::from_bytes([0; 32]),
-            checked_members: BTreeMap::new(),
+            checked_members: (BTreeMap::new()).into(),
             contributions: vec![],
-            slots: vec![
+            slots: (vec![
                 SlotBinding::new(&source, &source, &registry).unwrap(),
                 SlotBinding::new(&absent, &absent, &registry).unwrap(),
                 SlotBinding::new(&source, &source, &registry).unwrap(),
-            ],
+            ])
+            .into(),
         };
         let mut values = CaseValues {
             scalars: BTreeMap::from([(source.id, 7.)]),

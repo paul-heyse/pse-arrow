@@ -35,7 +35,7 @@ runtime, routing, dynamics and completion source. The earlier diagnosis's adapte
 is reused within its recorded scope. No tests, probes or measurements were run. Source seams
 are **Interface-checked**; replacement contracts are **Proposed**.
 
-The [Plan 25 coordinator](../../plans/25-design-remediation.md#finding-dispositions) owns
+The [Plan 25 coordinator](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25-design-remediation.md#finding-dispositions) owns
 finding dispositions; Plan 25l owns functional packets and 25k owns assembled qualification.
 L0 must amend architecture before affected production code. ADR status and decision-PR
 acceptance remain separate from this target review.

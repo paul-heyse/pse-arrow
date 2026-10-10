@@ -171,7 +171,7 @@ impl CasePlan {
         let mut hv = vec![];
         for binding in self.structure().instances() {
             identity.hash(&binding.body);
-            for slot in &binding.slots {
+            for slot in binding.slots.iter() {
                 if !self.columns().contains(&slot.source()) {
                     let value = values.scalars.get(&slot.source()).ok_or_else(|| {
                         MathError::Contract("missing coefficient parameter".into())

@@ -536,17 +536,12 @@ struct Lower<'a, 'b> {
     witness_pass: Option<WitnessPass>,
 }
 impl Lower<'_, '_> {
-    fn finite_reduction_admission(
-        &self,
-        function: &pse_modeling::Function,
-    ) -> Result<pse_quantity::ResolvedInference, MathError> {
+    fn finite_reduction_admission(&self) -> Result<pse_quantity::ResolvedInference, MathError> {
         self.operation_scope
             .as_ref()
             .and_then(|scope| {
                 scope.admissions.get(
-                    &pse_modeling::expression::admission::ExpressionOccurrence::finite_reduction(
-                        function.id,
-                    ),
+                    &pse_modeling::expression::admission::ExpressionOccurrence::FiniteReduction,
                 )
             })
             .cloned()
@@ -1091,32 +1086,15 @@ impl Lower<'_, '_> {
                         builder.physical_formula_authority(),
                         f.id,
                     )
-                    .map(|admission| (occurrence.clone(), admission))
+                    .map(|admission| (*occurrence, admission))
                     .map_err(|error| MathError::Contract(error.to_string()))
             })
             .collect::<Result<BTreeMap<_, _>, _>>()?;
-        let mut occurrences = f
-            .body
-            .as_ref()
-            .map(pse_modeling::expression::admission::ExpressionOccurrence::in_body)
-            .unwrap_or_default();
-        for predicate in f
-            .validity
-            .iter()
-            .chain(f.envelopes.iter().map(|guard| &guard.predicate))
-        {
-            predicate_occurrences(predicate, &mut occurrences);
-        }
-        for usage in &f.applicability_uses {
-            for predicate in &usage.predicates {
-                predicate_occurrences(predicate, &mut occurrences);
-            }
-            for input in &usage.inputs {
-                occurrences.extend(
-                    pse_modeling::expression::admission::ExpressionOccurrence::in_body(input),
-                );
-            }
-        }
+        let occurrences = pse_modeling::expression::inventory::positions(
+            pse_modeling::expression::inventory::function(&f)
+                .iter()
+                .map(|root| root.expression),
+        );
         let prior_operations = self.operation_scope.replace(OperationScope {
             obligations: f.physical_admissions.clone(),
             admissions: concrete_admissions,
@@ -1127,7 +1105,7 @@ impl Lower<'_, '_> {
         {
             self.hash.str("finite-reduction").id(&f.id.as_id());
             let value = {
-                let admission = self.finite_reduction_admission(&f)?;
+                let admission = self.finite_reduction_admission()?;
                 builder.finite_reduce_admitted(
                     reduction.kind,
                     &reduction.prototype,
@@ -1417,7 +1395,7 @@ impl Lower<'_, '_> {
                 self.hash.id(&domain.as_id());
             }
             {
-                let admission = self.finite_reduction_admission(&f)?;
+                let admission = self.finite_reduction_admission()?;
                 builder.finite_reduce_admitted(
                     reduction.kind,
                     &reduction.prototype,
@@ -1949,31 +1927,7 @@ impl Lower<'_, '_> {
         }
     }
 }
-/// A product, a quotient or an exact literal power belongs to a multiplicative chain.
-fn predicate_occurrences(
-    predicate: &dsl::Predicate,
-    occurrences: &mut BTreeMap<usize, pse_modeling::expression::admission::ExpressionOccurrence>,
-) {
-    use pse_modeling::expression::admission::ExpressionOccurrence;
-    match &predicate.kind {
-        PredicateKind::Compare { lhs, rhs, .. } => {
-            occurrences.extend(ExpressionOccurrence::in_body(lhs));
-            occurrences.extend(ExpressionOccurrence::in_body(rhs));
-        }
-        PredicateKind::Atom(expression)
-        | PredicateKind::In {
-            expr: expression, ..
-        } => {
-            occurrences.extend(ExpressionOccurrence::in_body(expression));
-        }
-        PredicateKind::And(left, right) | PredicateKind::Or(left, right) => {
-            predicate_occurrences(left, occurrences);
-            predicate_occurrences(right, occurrences);
-        }
-        PredicateKind::Not(inner) => predicate_occurrences(inner, occurrences),
-        _ => {}
-    }
-}
+/// Recover an exact exponent without changing its authored numeric meaning.
 fn literal_exponent(expression: &Expr) -> Option<Ratio> {
     match &expression.kind {
         ExprKind::Number(number)
@@ -2209,12 +2163,14 @@ mod tests {
         use pse_modeling::expression::admission::AdmissionRecorder;
         let scalar = ids::quantity("neutral");
         let ty = pse_modeling::Type::Quantity(pse_quantity::scheme::Scheme::Concrete(scalar));
-        let recorder = AdmissionRecorder::default();
         let preconditions = pse_quantity::PhysicalPreconditions::new(
             pse_quantity::generated::standard_preconditions(),
         )
         .unwrap();
         let scope = pse_modeling::PhysicalScope::default();
+        let mut function = checked_physical_product(registry);
+        function.body = Some(dsl::parse_expr(text).unwrap());
+        let recorder = AdmissionRecorder::for_function(&function);
         let context = pse_modeling::TypeContext {
             admissions: Some(&recorder),
             formula_authority: None,
@@ -2223,11 +2179,10 @@ mod tests {
             scope: &scope,
         };
         let package = pse_modeling::check(&[], &context).unwrap();
-        let mut function = checked_physical_product(registry);
-        let body = dsl::parse_expr(text).unwrap();
+        let body = function.body.as_ref().unwrap();
         let arguments = BTreeMap::from([("x".into(), ty.clone())]);
         pse_modeling::expression::infer(
-            &body,
+            body,
             &arguments,
             &package,
             &context,
@@ -2238,7 +2193,6 @@ mod tests {
         function.physical_admissions = recorder.into_inner().remove(&function.id).unwrap();
         function.arguments = arguments.into_iter().collect();
         function.result = ty;
-        function.body = Some(body);
         function
     }
     #[test]
@@ -2358,7 +2312,7 @@ mod tests {
         function.result =
             pse_modeling::Type::Quantity(pse_quantity::scheme::Scheme::Concrete(scalar));
         function.physical_admissions = BTreeMap::from([(
-            ExpressionOccurrence::finite_reduction(function.id),
+            ExpressionOccurrence::FiniteReduction,
             PhysicalAdmission::checked(
                 &request,
                 vec![pse_quantity::scheme::Scheme::Concrete(scalar)],
@@ -2375,6 +2329,7 @@ mod tests {
         let cancelled = Arc::new(AtomicBool::new(false));
         for (text, expected) in [
             ("finite_sum(x,x)", 6.0),
+            ("finite_sum()", 0.0),
             ("partial(finite_sum,term_0)(x,x)", 1.0),
         ] {
             let expression = dsl::parse_expr(text).unwrap();
@@ -2390,7 +2345,11 @@ mod tests {
                 structure: h,
                 limits: BodyLimits::default(),
             };
-            let mut functions = BTreeMap::from([("finite_sum".into(), function.clone())]);
+            let mut selected = function.clone();
+            if text == "finite_sum()" {
+                selected.arguments.clear();
+            }
+            let mut functions = BTreeMap::from([("finite_sum".into(), selected)]);
             let admitted = request
                 .admit_function_outputs(
                     &registry,
@@ -2401,6 +2360,33 @@ mod tests {
                     &BTreeMap::new(),
                 )
                 .unwrap();
+            let payload = admitted.portable_payload().unwrap();
+            let admitted = portable::reconstruct_fixture(
+                &payload,
+                portable_payload_hash(&payload),
+                admitted.spec(),
+                &registry,
+                &cancelled,
+            )
+            .unwrap();
+            let mut changed: serde_json::Value = serde_json::from_slice(&payload).unwrap();
+            for function in changed["functions"].as_object_mut().unwrap().values_mut() {
+                function["admissions"].as_array_mut().unwrap().clear();
+            }
+            let changed = serde_json::to_vec(&changed).unwrap();
+            let error = portable::reconstruct_fixture(
+                &changed,
+                portable_payload_hash(&changed),
+                admitted.spec(),
+                &registry,
+                &cancelled,
+            )
+            .unwrap_err()
+            .to_string();
+            assert!(
+                error.contains("finite reduction admission coordinate absent"),
+                "{error}"
+            );
             let compiled = admitted
                 .math
                 .compile(

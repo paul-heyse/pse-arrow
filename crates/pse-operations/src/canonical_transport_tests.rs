@@ -697,6 +697,7 @@ async fn canonical_selection_refuses_unacknowledged_owner(late_acknowledgment: b
         },
         primary_receiver: None,
         state_path: std::path::PathBuf::new(),
+        initializer_nonce: None,
     };
     let sdk = Surreal::new::<Ws>((address, Config::new().bounded_requests()))
         .await

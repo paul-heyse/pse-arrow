@@ -92,7 +92,7 @@ Explicit owners improve change locality and permit isolated admission/reuse test
 
 ## More information
 
-[25h](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25h-authoring-and-admission-ownership.md), [25i](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25i-identity-reuse-and-resource-ownership.md), [series coordinator](../plans/25-design-remediation.md), ADR-0146 and ADR-0148.
+[25h](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25h-authoring-and-admission-ownership.md), [25i](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25i-identity-reuse-and-resource-ownership.md), [series coordinator](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25-design-remediation.md), ADR-0146 and ADR-0148.
 
 ## Status history
 

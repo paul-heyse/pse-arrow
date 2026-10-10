@@ -118,6 +118,7 @@ Derived in: pse-compiler.
 | `MathArtifactV4` | `pse.math.artifact.v4` | A compiled mathematics artifact request. |
 | `MathLocalOccurrenceV2` | `pse.math.local-occurrence.v2` | A local expression occurrence. |
 | `MathLocalOccurrenceV3` | `pse.math.local-occurrence.v3` | Checked expression occurrences and complete contextual admission products. |
+| `MathStructuralBodyIndexV1` | `pse.math.structural-body-index.v1` | Temporary structural expression-body candidate index, never admission authority. |
 | `MathResolvedAdmissionsV1` | `pse.math.resolved-admissions.v1` | Retained physical inference selections, operand conversions and numerical scales. |
 | `MathResolvedAdmissionsV2` | `pse.math.resolved-admissions.v2` | Checked expression occurrences and complete contextual admission products. |
 | `StudyBindingV1` | `pse.study.binding.v1` | Canonical member/value/physical-context binding content, distinct from an occurrence. |

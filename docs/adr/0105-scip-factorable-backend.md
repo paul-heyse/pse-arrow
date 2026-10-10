@@ -14,7 +14,7 @@ superseded-by: null
 revisit: SCIP or scip-sys changes major version, the runtime ABI check fails against the image, or the Q1 gap-closure measurement on the certify fixtures misses its recorded budget.
 verification: Review scenario S01 and architecture scenarios S11, S12, S16 and S18, settled by the Plan 22 G1–G8 tests scip_abi_matches_image, projection_exact_rows_match_evaluator, relaxed_rows_enclose_evaluator, pcsaft_valid_guard_projects_exactly, scip_status_map_exhaustive, scip_interrupt_via_event_handler, scip_export_readback_equivalent, certify_known_global_optimum, relaxed_export_bound_only, nonlinear_iis_irreducible_flag and killed_worker_attempt_goes_stale_and_resumes_from_incumbent, plus the skill runtime receipt recorded in G1.
 standard: core-3.0/process-simulator-1.1
-scenarios: [docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s01, docs/plans/22-solver-capabilities-architecture.md#s11, docs/plans/22-solver-capabilities-architecture.md#s12, docs/plans/22-solver-capabilities-architecture.md#s16, docs/plans/22-solver-capabilities-architecture.md#s18]
+scenarios: [docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s01, https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s11, https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s12, https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s16, https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s18]
 ---
 
 # ADR-0105: Integrate SCIP 10.0.2 through a factorable projection and a pse-owned scip-sys adapter
@@ -139,7 +139,7 @@ status mapping and no panicking conversions.
 
 ## More information
 
-- Architecture companion [§5](../plans/22-solver-capabilities-architecture.md#5-factorable-projection-and-scip).
+- Architecture companion [§5](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#5-factorable-projection-and-scip).
 - Target review [T07](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t07) (relaxed-export semantics) and [T08](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t08) (nested Ipopt settings).
 - Capability review [§8.1](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#81-scip-the-maintainers-hypothesis) and qualification steps 1–7 (slot 10).
 - Related: ADR-0083 (revisit trigger fired), ADR-0102, ADR-0104, ADR-0106, ADR-0108, ADR-0112. Plan 22 packets G1–G8, C5.

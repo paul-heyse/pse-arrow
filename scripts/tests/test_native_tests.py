@@ -32,7 +32,7 @@ class ManagedRustSelectionTests(unittest.TestCase):
         managed = native_tests.rust_command("list", [], managed=True)
         self.assertNotIn("--workspace", managed)
         self.assertIn("pse-runtime", managed)
-        self.assertIn(native_tests.MANAGED_FEATURES, managed)
+        self.assertIn("pse-runtime/canonical-tests,pse-runtime/native-solvers", managed)
         self.assertNotIn(
             "xtask/canonical-tests", managed[managed.index("--features") + 1]
         )
@@ -47,7 +47,29 @@ class ManagedRustSelectionTests(unittest.TestCase):
             "--workspace", native_tests.rust_command("run", ["--", "-p", "test-input"])
         )
 
+    def test_native_opt_ins_follow_selected_package_declarations(self) -> None:
+        pure = native_tests.rust_command("list", ["-p", "pse-quantity"])
+        self.assertNotIn("--features", pure)
+        operations = native_tests.rust_command("list", ["-p", "pse-operations"])
+        self.assertEqual(
+            operations[operations.index("--features") + 1],
+            "pse-operations/canonical-tests",
+        )
+        runtime = native_tests.rust_command(
+            "list", ["-p", "pse-runtime", "--features", "pse-runtime/solver-kinsol"]
+        )
+        self.assertNotIn("--workspace", runtime)
+        self.assertIn("pse-runtime/solver-kinsol", runtime)
+        self.assertNotIn("xtask/canonical-tests", " ".join(runtime))
+
     def setUp(self) -> None:
+        composition = patch.object(
+            native_tests,
+            "correctness_command",
+            side_effect=lambda command, _environment: command,
+        )
+        composition.start()
+        self.addCleanup(composition.stop)
         scratch = tempfile.TemporaryDirectory()
         self.addCleanup(scratch.cleanup)
         self.root = Path(scratch.name)
@@ -109,6 +131,22 @@ class ManagedRustSelectionTests(unittest.TestCase):
             )
         worker.assert_called_once()
         return command, actual, [call.args[0] for call in captured.call_args_list]
+
+    def test_composed_validation_features_reach_metadata_and_provenance(self) -> None:
+        def compose(command: list[str], environment: dict[str, str]) -> list[str]:
+            self.assertEqual(environment["PSE_WORKER_BINARY"], str(self.worker))
+            return [*command, "--features", "pse-runtime/force-validate"]
+
+        with patch.object(native_tests, "correctness_command", side_effect=compose):
+            _, _, commands = self.capture(["-p", "pse-runtime"])
+        build, metadata, _ = commands
+        self.assertIn("pse-runtime/force-validate", build)
+        selected = metadata[metadata.index("--features") + 1].split(",")
+        self.assertIn("pse-runtime/force-validate", selected)
+        self.assertNotIn("pse-relations/force-validate", selected)
+        self.assertEqual(
+            json.loads(self.provenance.read_text())["profile"]["features"], selected
+        )
 
     def test_managed_parent_builds_and_enumerates_before_observer_entry(self) -> None:
         execution, worker, _ = self.capture(["--profile", "local"])
@@ -182,7 +220,7 @@ class ManagedRustSelectionTests(unittest.TestCase):
         for value in ("pse-runtime", "--lib", "--cargo-profile=producer"):
             self.assertIn(value, build)
         self.assertEqual(graph[:2], ["cargo", "metadata"])
-        self.assertIn(native_tests.MANAGED_FEATURES, graph)
+        self.assertIn("pse-runtime/canonical-tests,pse-runtime/native-solvers", graph)
         self.assertIn("--binaries-metadata", inventory)
         self.assertIn("--cargo-metadata", inventory)
         self.assertNotIn("--features", inventory)
@@ -650,6 +688,15 @@ class ManagedPythonRouteTests(unittest.TestCase):
 
 
 class NativeIgnoredSelectionTests(unittest.TestCase):
+    def setUp(self) -> None:
+        composition = patch.object(
+            native_tests,
+            "correctness_command",
+            side_effect=lambda command, _environment: command,
+        )
+        composition.start()
+        self.addCleanup(composition.stop)
+
     def test_exact_ignored_selection_is_forwarded_to_both_list_and_run(self) -> None:
         name = "math::portable::canonical_deployment_tests::canonical_deployment_actual_receipts_enforce_selected_role"
         extra = ["--profile", "local", "--run-ignored", "all", "-E", f"test(={name})"]
@@ -672,6 +719,7 @@ class NativeIgnoredSelectionTests(unittest.TestCase):
                     "PSE_NATIVE_PROVENANCE": str(Path(directory) / "native.json"),
                     "PSE_NATIVE_SELECTION": str(Path(directory) / "selected.json"),
                 },
+                clear=True,
             ),
             patch.object(
                 sys,

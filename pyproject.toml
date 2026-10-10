@@ -70,6 +70,10 @@ Changelog = "https://github.com/paul-heyse/pse-arrow/blob/main/CHANGELOG.md"
 # PEP 735. Tools are pinned exactly like the libraries. The oracles below are holds, each
 # with its reason.
 [dependency-groups]
+docs = [
+  "ruamel.yaml==0.19.1",
+  "markdown-it-py==4.2.0",
+]
 # Independent frozen thermodynamic references; never a production dependency. Pinned: a
 # reference oracle must not move under the comparisons that cite it.
 thermo-reference = [
@@ -121,6 +125,7 @@ evidence = [
   { include-group = "parity" },
 ]
 dev = [
+  { include-group = "docs" },
   { include-group = "quality" },
   { include-group = "test" },
 ]

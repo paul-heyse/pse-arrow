@@ -470,8 +470,31 @@ if __name__ == "__main__":
             wait_file(directory / "borrow-release", time.monotonic() + 15)
             test_resources.retain_reference(resource, "actual-consumer", "c" * 64)
     elif mode == "--finish-report":
+        report = Path(test_resources.resource_status(resource)["state"])
+        receipt = {
+            "version": 5,
+            "complete": True,
+            "required_checks_covered": True,
+            "input_coverage": True,
+            "source_unchanged": True,
+            "provenance_errors": [],
+            "scope": [{"name": "filesystem-control"}],
+            "checks": [{"gate": "filesystem-control", "status": "passed"}],
+        }
+        native_operation.write_json(report / "checks.json", receipt)
+        native_operation.write_json(
+            report / "fixture-source.json", {"scope": "filesystem-control"}
+        )
         test_resources.finish_report(
-            resource, {"complete": True, "required_checks_covered": True}
+            resource,
+            receipt,
+            roles={
+                "checks.json": "receipt",
+                "first.log": "scratch",
+                "second.log": "scratch",
+                "fixture-source.json": "provenance",
+            },
+            required_provenance=["fixture-source.json"],
         )
     elif mode == "--cleanup-crash":
         unlink = os.unlink

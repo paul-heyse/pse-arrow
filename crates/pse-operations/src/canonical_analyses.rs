@@ -15,11 +15,12 @@ pub use pse_model::generated::runtime::{
     canonical_analyses::Row as Analysis, canonical_analysis_edges::Row as AnalysisEdge,
     canonical_analysis_inputs::Row as AnalysisInput, canonical_analysis_nodes::Row as AnalysisNode,
 };
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    time::Duration,
-};
+use std::collections::{BTreeMap, BTreeSet};
 use surrealdb::types::Object;
+
+#[cfg(all(test, feature = "canonical-tests"))]
+#[path = "canonical_analyses/race_tests.rs"]
+mod race_tests;
 
 /// Maximum complete graph admitted by this initial method boundary.
 pub const ANALYSIS_NODES: usize = 4096;
@@ -79,6 +80,60 @@ pub fn analysis_key(kind: &str, parts: &[&[u8]]) -> String {
     hash.finish_hash().to_hex()
 }
 
+/// Seal the complete ordered publication request before any creation effect.
+/// Retries reuse this header and these exact payloads; persistence checks the seal.
+pub fn seal_analysis_request(
+    header: &mut Analysis,
+    sources: &[Revision],
+    inputs: &[ResultRead],
+    nodes: &[AnalysisNode],
+    edges: &[AnalysisEdge],
+) {
+    header.creation_request_digest.clear();
+    header.creation_request_digest = request_digest(header, sources, inputs, nodes, edges);
+}
+
+fn request_digest(
+    header: &Analysis,
+    sources: &[Revision],
+    inputs: &[ResultRead],
+    nodes: &[AnalysisNode],
+    edges: &[AnalysisEdge],
+) -> String {
+    use pse_model::SemanticFrame;
+    let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
+    hash.str("pse.analysis.complete-request.v2");
+    let mut row = header.clone();
+    row.creation_request_digest.clear();
+    row.active = false;
+    row.retiring = false;
+    row.frame(&mut hash);
+    hash.str("sources").u64(sources.len() as u64);
+    for source in sources {
+        source.frame(&mut hash);
+    }
+    hash.str("inputs").u64(inputs.len() as u64);
+    for input in inputs {
+        input.run().frame(&mut hash);
+        input.attempt().frame(&mut hash);
+        input.manifest().frame(&mut hash);
+        hash.str(input.protected_selection().key());
+    }
+    hash.str("nodes").u64(nodes.len() as u64);
+    for node in nodes {
+        node.frame(&mut hash);
+    }
+    hash.str("edges").u64(edges.len() as u64);
+    for edge in edges {
+        edge.frame(&mut hash);
+    }
+    hash.finish_hash().to_hex()
+}
+
+fn occurrence_key(authority: &str, nonce: &str, expiry: u64) -> String {
+    format!("pse.analysis.v2:{authority}:{nonce}:{expiry}")
+}
+
 fn invalid(message: &str) -> CanonicalError {
     CanonicalError::Configuration(message.into())
 }
@@ -90,6 +145,50 @@ fn identity(value: &str) -> Result<(), CanonicalError> {
 }
 
 impl CanonicalStore {
+    /// Prepare one immutable creation intent after read-only source-authority discovery.
+    /// Seal the draft with `seal_analysis_request` after graph keys are assigned;
+    /// then reuse the complete sealed intent unchanged for every creation retry.
+    pub async fn new_analysis(
+        &self,
+        revision: &Revision,
+        method: &str,
+        configuration: Vec<u8>,
+        input_digest: String,
+        node_count: u64,
+        edge_count: u64,
+    ) -> Result<Analysis, CanonicalError> {
+        let mut response = bounded_query(self.db.query("LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem); IF $guard=NONE OR $guard.incarnation=NONE { THROW 'analysis source authority unavailable'; }; RETURN {authority:$guard.incarnation,now:time::micros()};").bind(("problem",revision.problem.clone()))).await?;
+        let index = response.num_statements().saturating_sub(1);
+        let mut row = response
+            .take::<Option<Object>>(index)?
+            .ok_or(CanonicalError::IncompleteResponse)?;
+        let primary_authority = codec::decode_string(codec::required(&mut row, "authority")?)?;
+        let now = codec::decode_int(codec::required(&mut row, "now")?)?;
+        let creation_expires_at = u64::try_from(now)
+            .map_err(|_| invalid("negative analysis creation clock"))?
+            .checked_add(60_000_000)
+            .ok_or_else(|| invalid("analysis creation clock overflow"))?;
+        // No await occurs between creating this nonce/expiry-bound intent and returning it.
+        let creation_nonce = uuid::Uuid::new_v4().to_string();
+        Ok(Analysis {
+            key: occurrence_key(&primary_authority, &creation_nonce, creation_expires_at),
+            revision: revision.key.clone(),
+            method: method.into(),
+            configuration: configuration.into(),
+            input_digest,
+            primary_problem: revision.problem.clone(),
+            primary_authority,
+            creation_nonce,
+            creation_request_digest: String::new(),
+            creation_expires_at,
+            interpretation: wire::INTERPRETATION.into(),
+            node_count,
+            edge_count,
+            active: false,
+            retiring: false,
+        })
+    }
+
     /// Retrieve only the actual primary and physical source receipts of a run.
     pub async fn analysis_run_sources(&self, run: &str) -> Result<Vec<Revision>, CanonicalError> {
         within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
@@ -122,12 +221,17 @@ impl CanonicalStore {
         nodes: &[AnalysisNode],
         edges: &[AnalysisEdge],
     ) -> Result<Analysis, CanonicalError> {
-        within_clock(original_deadline(crate::canonical::ACTIVATION_REQUEST_TIMEOUT), async {
+        if header.creation_request_digest != request_digest(header, sources, inputs, nodes, edges) {
+            return Err(CanonicalError::OperationReused);
+        }
+        let result = within_clock(original_deadline(crate::canonical::ACTIVATION_REQUEST_TIMEOUT), async {
             self.ensure_writes()?;
             identity(&header.key)?;
             identity(&header.method)?;
             identity(&header.input_digest)?;
             if header.active
+                || header.retiring
+                || header.key != occurrence_key(&header.primary_authority, &header.creation_nonce, header.creation_expires_at)
                 || header.interpretation != wire::INTERPRETATION
                 || header.configuration.len() > 128 * 1024
                 || sources.is_empty()
@@ -171,21 +275,7 @@ impl CanonicalStore {
             if inputs.iter().any(|input| !input.belongs_to(self)) {
                 return Err(invalid("analysis input belongs to another store"));
             }
-            // Pins close the interval between immutable receipt selection and the
-            // transaction that creates all retained analysis roots.
-            let mut pins = Vec::with_capacity(sources.len());
-            for source in sources {
-                match self.protect(source.clone(), Duration::from_secs(600)).await {
-                    Ok(pin) => pins.push(pin),
-                    Err(error) => {
-                        for pin in &pins {
-                            let _ = self.release(pin).await;
-                        }
-                        return Err(error);
-                    }
-                }
-            }
-            let admission = async {
+            {
                 let mut roots = Vec::with_capacity(sources.len());
                 for source in sources {
                     let mut row = Object::new();
@@ -228,19 +318,13 @@ impl CanonicalStore {
                 protected_query("canonical_analyses::persist_analysis", || {
                     Ok(self
                         .db
-                        .query("RETURN fn::pse_analysis_v1::begin($pse_rpc_expires_at, $row,$sources,$inputs);")
+                        .query("BEGIN; RETURN fn::pse_analysis_v1::begin($pse_rpc_expires_at, $row,$sources,$inputs); COMMIT;")
                         .bind(("row", row.clone()))
                         .bind(("sources", roots.clone()))
                         .bind(("inputs", selected.clone())))
                 })
                 .await?;
-                Ok::<(), CanonicalError>(())
             }
-            .await;
-            for pin in &pins {
-                let _ = self.release(pin).await;
-            }
-            admission?;
             for (ordinal, page) in nodes.chunks(64).enumerate() {
                 let encoded = page
                     .iter()
@@ -269,16 +353,20 @@ impl CanonicalStore {
             let mut response = protected_query("canonical_analyses::persist_analysis", || {
                 Ok(self
                     .db
-                    .query("RETURN fn::pse_analysis_v1::activate($pse_rpc_expires_at, $key);")
+                    .query("BEGIN; RETURN fn::pse_analysis_v1::activate($pse_rpc_expires_at, $key); COMMIT;")
                     .bind(("key", header.key.clone())))
             })
             .await?;
             Ok(wire::decode_canonical_analyses(
                 response
-                    .take::<Option<Object>>(0)?
+                    .take::<Option<Object>>(response.num_statements().saturating_sub(2))?
                     .ok_or(CanonicalError::IncompleteResponse)?,
             )?)
-        }).await
+        }).await;
+        result.map_err(|source| CanonicalError::AnalysisUnsettled {
+            intent: Box::new(header.clone()),
+            source: Box::new(source),
+        })
     }
     async fn append_analysis(
         &self,
@@ -290,7 +378,7 @@ impl CanonicalStore {
             protected_query("canonical_analyses::append_analysis", || {
                 Ok(self
                     .db
-                    .query("RETURN fn::pse_analysis_v1::append($pse_rpc_expires_at, $key,$nodes,$edges);")
+                    .query("BEGIN; RETURN fn::pse_analysis_v1::append($pse_rpc_expires_at, $key,$nodes,$edges); COMMIT;")
                     .bind(("key", key.to_owned()))
                     .bind(("nodes", nodes.clone()))
                     .bind(("edges", edges.clone())))
@@ -303,8 +391,8 @@ impl CanonicalStore {
     pub async fn analysis(&self, key: &str) -> Result<Analysis, CanonicalError> {
         within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
             identity(key)?;
-            let mut result=protected_query("canonical_analyses::analysis", ||Ok(self.db.query("LET $row=fn::pse_analysis_v1::available($pse_rpc_expires_at, $key); IF !$row.active { THROW 'analysis graph incomplete'; }; RETURN $row;").bind(("key",key.to_owned())))).await?;
-            let index = result.num_statements().saturating_sub(1);
+            let mut result=protected_query("canonical_analyses::analysis", ||Ok(self.db.query("BEGIN; LET $row=fn::pse_analysis_v1::available($pse_rpc_expires_at, $key); IF !$row.active { THROW 'analysis graph incomplete'; }; RETURN $row; COMMIT;").bind(("key",key.to_owned())))).await?;
+            let index = result.num_statements().saturating_sub(2);
             Ok(wire::decode_canonical_analyses(
                 result
                     .take::<Option<Object>>(index)?
@@ -359,13 +447,13 @@ impl CanonicalStore {
             let mut response = protected_query("canonical_analyses::analysis_page", || {
                 Ok(self
                     .db
-                    .query("RETURN fn::pse_analysis_v1::read($pse_rpc_expires_at, $key,$after,$kind);")
+                    .query("BEGIN; RETURN fn::pse_analysis_v1::read($pse_rpc_expires_at, $key,$after,$kind); COMMIT;")
                     .bind(("key", key.to_owned()))
                     .bind(("after", after.unwrap_or("").to_owned()))
                     .bind(("kind", kind.to_owned())))
             })
             .await?;
-            let rows = response.take::<Vec<Object>>(0)?;
+            let rows = response.take::<Vec<Object>>(response.num_statements().saturating_sub(2))?;
             if rows.len() > 64 {
                 return Err(CanonicalError::PayloadLimit);
             }
@@ -491,50 +579,19 @@ mod canonical_analyses_server_unit {
             .edit("analysis-source", None, "source", &[])
             .await
             .unwrap();
-        let key = "graph";
-        let header = Analysis {
-            key: key.into(),
-            revision: revision.key.clone(),
-            method: "mechanism-fixture:v1".into(),
-            configuration: vec![1].into(),
-            input_digest: "exact-fixture".into(),
-            interpretation: wire::INTERPRETATION.into(),
-            node_count: 2,
-            edge_count: 1,
-            active: false,
-        };
-        let mut source = Object::new();
-        source.insert("key", codec::encode_string("graph-root".into()).unwrap());
-        source.insert(
-            "problem",
-            codec::encode_string(revision.problem.clone()).unwrap(),
-        );
-        source.insert(
-            "revision",
-            codec::encode_string(revision.key.clone()).unwrap(),
-        );
-        source.insert("sequence", codec::encode_uint(revision.sequence).unwrap());
-        bounded_query(
-            store
-                .db
-                .query("RETURN fn::pse_analysis_v1::begin($pse_rpc_expires_at, $row,$sources,$inputs);")
-                .bind(("row", wire::encode_canonical_analyses(&header).unwrap()))
-                .bind(("sources", vec![source]))
-                .bind(("inputs", Vec::<Object>::new())),
-        )
-        .await
-        .unwrap();
-        assert!(store.analysis(key).await.is_err());
-        assert!(
-            bounded_query(
-                store
-                    .db
-                    .query("RETURN fn::pse_analysis_v1::activate($pse_rpc_expires_at, $key);")
-                    .bind(("key", key))
+        let mut header = store
+            .new_analysis(
+                &revision,
+                "mechanism-fixture:v2",
+                vec![1],
+                "exact-fixture".into(),
+                2,
+                1,
             )
             .await
-            .is_err()
-        );
+            .unwrap();
+        let key_owned = header.key.clone();
+        let key = key_owned.as_str();
         let first = AnalysisNode {
             key: "node-a".into(),
             analysis: key.into(),
@@ -555,6 +612,45 @@ mod canonical_analyses_server_unit {
             kind: "incidence".into(),
             evidence: None,
         };
+        seal_analysis_request(
+            &mut header,
+            std::slice::from_ref(&revision),
+            &[],
+            &[first.clone(), second.clone()],
+            std::slice::from_ref(&edge),
+        );
+        let mut source = Object::new();
+        source.insert("key", codec::encode_string("graph-root".into()).unwrap());
+        source.insert(
+            "problem",
+            codec::encode_string(revision.problem.clone()).unwrap(),
+        );
+        source.insert(
+            "revision",
+            codec::encode_string(revision.key.clone()).unwrap(),
+        );
+        source.insert("sequence", codec::encode_uint(revision.sequence).unwrap());
+        bounded_query(
+            store
+                .db
+                .query("BEGIN; RETURN fn::pse_analysis_v1::begin($pse_rpc_expires_at, $row,$sources,$inputs); COMMIT;")
+                .bind(("row", wire::encode_canonical_analyses(&header).unwrap()))
+                .bind(("sources", vec![source]))
+                .bind(("inputs", Vec::<Object>::new())),
+        )
+        .await
+        .unwrap();
+        assert!(store.analysis(key).await.is_err());
+        assert!(
+            bounded_query(
+                store
+                    .db
+                    .query("BEGIN; RETURN fn::pse_analysis_v1::activate($pse_rpc_expires_at, $key); COMMIT;")
+                    .bind(("key", key))
+            )
+            .await
+            .is_err()
+        );
         store
             .append_analysis(
                 key,
@@ -584,7 +680,7 @@ mod canonical_analyses_server_unit {
         bounded_query(
             store
                 .db
-                .query("RETURN fn::pse_analysis_v1::activate($pse_rpc_expires_at, $key);")
+                .query("BEGIN; RETURN fn::pse_analysis_v1::activate($pse_rpc_expires_at, $key); COMMIT;")
                 .bind(("key", key)),
         )
         .await
@@ -603,12 +699,17 @@ mod canonical_analyses_server_unit {
             )
             .await
             .unwrap();
-        let grouped = Analysis {
-            key: "grouped".into(),
-            node_count: 65,
-            edge_count: 1,
-            ..header.clone()
-        };
+        let mut grouped = store
+            .new_analysis(
+                &revision,
+                "grouped-fixture:v2",
+                vec![1],
+                "grouped".into(),
+                65,
+                1,
+            )
+            .await
+            .unwrap();
         let nodes = (0..65)
             .map(|ordinal| AnalysisNode {
                 key: format!("grouped:{ordinal:03}"),
@@ -623,6 +724,13 @@ mod canonical_analyses_server_unit {
             target: nodes[64].key.clone(),
             ..edge.clone()
         };
+        seal_analysis_request(
+            &mut grouped,
+            std::slice::from_ref(&revision),
+            &[],
+            &nodes,
+            std::slice::from_ref(&dependent),
+        );
         let saved = store
             .persist_analysis(
                 &grouped,
@@ -661,7 +769,10 @@ mod canonical_analyses_server_unit {
                 .await
                 .is_err()
         );
-        store.forget_analysis_results(key).await.unwrap();
+        for _ in 0..5 {
+            assert!(!store.forget_analysis_results(key).await.unwrap());
+        }
+
         assert!(store.analysis_node_page(key, None).await.is_err());
         assert!(store.analysis(key).await.is_err());
         let mut response = bounded_query(
@@ -676,6 +787,154 @@ mod canonical_analyses_server_unit {
         .unwrap();
         assert!(response.take::<Vec<Object>>(0).unwrap().is_empty());
         assert_eq!(store.database(), options.database);
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn canonical_analysis_retirement_drains_edges_first_and_leaves_no_occurrence_state() {
+        let state = std::env::var("PSE_SURREAL_STATE").expect("explicit native fixture required");
+        let mut options = CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
+        options.database = format!(
+            "canonical_test_analysis_retire_{}",
+            uuid::Uuid::new_v4().simple()
+        );
+        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let revision = store
+            .edit("retire-source", None, "retire-source-initial", &[])
+            .await
+            .unwrap();
+        let mut intent = store
+            .new_analysis(
+                &revision,
+                "retirement-fixture:v2",
+                vec![],
+                "complete".into(),
+                128,
+                1024,
+            )
+            .await
+            .unwrap();
+        // Construct a fresh short-window fixture before any creation is issued.
+        intent.creation_expires_at -= 58_000_000;
+        intent.key = occurrence_key(
+            &intent.primary_authority,
+            &intent.creation_nonce,
+            intent.creation_expires_at,
+        );
+        let nodes = (0..128)
+            .map(|n| AnalysisNode {
+                key: format!("{}:n:{n:03}", intent.key),
+                analysis: intent.key.clone(),
+                semantic: format!("v:{n}"),
+                kind: "variable".into(),
+            })
+            .collect::<Vec<_>>();
+        let edges = (0..1024)
+            .map(|n| AnalysisEdge {
+                key: format!("{}:e:{n:04}", intent.key),
+                analysis: intent.key.clone(),
+                source: nodes[0].key.clone(),
+                target: nodes[1 + n % 127].key.clone(),
+                kind: "incidence".into(),
+                evidence: None,
+            })
+            .collect::<Vec<_>>();
+        seal_analysis_request(
+            &mut intent,
+            std::slice::from_ref(&revision),
+            &[],
+            &nodes,
+            &edges,
+        );
+        store
+            .persist_analysis(
+                &intent,
+                std::slice::from_ref(&revision),
+                &[],
+                &nodes,
+                &edges,
+            )
+            .await
+            .unwrap();
+        assert!(!store.forget_analysis_results(&intent.key).await.unwrap());
+        assert!(store.analysis(&intent.key).await.is_err());
+        assert!(store.analysis_node_page(&intent.key, None).await.is_err());
+        assert!(
+            store
+                .append_analysis(&intent.key, vec![], vec![])
+                .await
+                .is_err()
+        );
+        let mut counts = bounded_query(store.db.query("RETURN {nodes:count(SELECT key FROM canonical_analysis_nodes WHERE analysis=$key),edges:count(SELECT key FROM canonical_analysis_edges WHERE analysis=$key),roots:count(SELECT key FROM canonical_roots WHERE owner_kind='analysis' AND owner=$key)};").bind(("key",intent.key.clone()))).await.unwrap();
+        let mut counts = counts.take::<Option<Object>>(0).unwrap().unwrap();
+        assert_eq!(
+            codec::decode_int(codec::required(&mut counts, "nodes").unwrap()).unwrap(),
+            128
+        );
+        assert_eq!(
+            codec::decode_int(codec::required(&mut counts, "edges").unwrap()).unwrap(),
+            960
+        );
+        assert_eq!(
+            codec::decode_int(codec::required(&mut counts, "roots").unwrap()).unwrap(),
+            1
+        );
+        let mut complete = false;
+        for _ in 0..128 {
+            complete = store.forget_analysis_results(&intent.key).await.unwrap();
+            if complete {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+        }
+        assert!(complete);
+        // The original intent resolves a lost final acknowledgement, including absent header.
+        assert!(store.settle_analysis(&intent).await.unwrap());
+        assert!(
+            store
+                .persist_analysis(
+                    &intent,
+                    std::slice::from_ref(&revision),
+                    &[],
+                    &nodes,
+                    &edges
+                )
+                .await
+                .is_err()
+        );
+        let mut renewed = intent.clone();
+        renewed.creation_expires_at += 60_000_000;
+        assert!(
+            store
+                .persist_analysis(
+                    &renewed,
+                    std::slice::from_ref(&revision),
+                    &[],
+                    &nodes,
+                    &edges
+                )
+                .await
+                .is_err()
+        );
+        let mut fresh = store
+            .new_analysis(
+                &revision,
+                "retirement-fixture:v2",
+                vec![],
+                "complete".into(),
+                0,
+                0,
+            )
+            .await
+            .unwrap();
+        assert_ne!(fresh.key, intent.key);
+        seal_analysis_request(&mut fresh, std::slice::from_ref(&revision), &[], &[], &[]);
+        store
+            .persist_analysis(&fresh, std::slice::from_ref(&revision), &[], &[], &[])
+            .await
+            .unwrap();
+        let mut residue = bounded_query(store.db.query("RETURN array::concat((SELECT key FROM canonical_analyses WHERE key=$key),(SELECT key FROM canonical_analysis_nodes WHERE analysis=$key),(SELECT key FROM canonical_analysis_edges WHERE analysis=$key),(SELECT key FROM canonical_analysis_inputs WHERE analysis=$key),(SELECT key FROM canonical_roots WHERE owner_kind='analysis' AND owner=$key),(SELECT key FROM canonical_guards WHERE key='analysis:'+$key),(SELECT key FROM canonical_protections WHERE key=$key));").bind(("key",intent.key.clone()))).await.unwrap();
+        assert!(residue.take::<Vec<Object>>(0).unwrap().is_empty());
+        assert!(store.forget_analysis_results("unknown-key").await.is_err());
         store.remove_isolated_fixture().await.unwrap();
     }
 }

@@ -1,0 +1,4 @@
+plan.md:11-21 #eff00 EFF00 — Adopt affected contracts
+   13| - state: in progress: EFF10 emitted-query acceptance remains
+plan.md:22-30 #eff01 EFF01 — Complete applicability (F02)
+   24| - state: implemented; affected integration remains

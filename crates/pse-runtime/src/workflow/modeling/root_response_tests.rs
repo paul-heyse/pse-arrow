@@ -601,7 +601,14 @@ async fn derived_preparation_corrects_original_with_declared_recovery_and_truthf
         .strategy
         .as_ref()
         .unwrap()
-        .rows(result.run_id, 0)
+        .rows(
+            result.run_id,
+            0,
+            Arc::new(datafusion::execution::memory_pool::UnboundedMemoryPool::default()),
+            0..usize::MAX,
+        )
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
         .unwrap();
     let finished = rows
         .iter()

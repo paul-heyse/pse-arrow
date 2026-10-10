@@ -90,6 +90,7 @@ pub struct CasePlan {
     bodies: BTreeMap<ContentHash, Arc<PreparedBody>>,
     columns: Arc<Vec<SemanticId>>,
     rows: Arc<BTreeMap<SemanticId, GlobalRow>>,
+    row_bindings: Arc<BTreeMap<SemanticId, Vec<usize>>>,
     instances: Arc<Vec<Instance>>,
     jacobian: Arc<AssemblyMatrix>,
     hessian: Arc<AssemblyMatrix>,
@@ -210,8 +211,7 @@ impl CasePlan {
     pub fn allocation_components(&self) -> Vec<(&'static str, usize, usize)> {
         let structure = &self.structure;
         let structure_bytes = size_of::<CaseStructure>()
-            + size_of_val(structure.variables())
-            + size_of_val(structure.parameters())
+            + structure.selection_bytes()
             + size_of_val(structure.rows())
             + size_of_val(structure.objectives())
             + size_of_val(structure.degradations())
@@ -219,12 +219,7 @@ impl CasePlan {
             + structure
                 .instances()
                 .iter()
-                .map(|i| {
-                    size_of_val(i)
-                        + i.checked_members.len() * (size_of::<(SemanticId, SemanticId)>() + 96)
-                        + size_of_val(i.slots.as_slice())
-                        + size_of_val(i.contributions.as_slice())
-                })
+                .map(|i| size_of_val(i) + size_of_val(i.contributions.as_slice()))
                 .sum::<usize>();
         let instance_bytes = size_of::<Vec<Instance>>()
             + self.instances.capacity() * size_of::<Instance>()
@@ -248,7 +243,9 @@ impl CasePlan {
                 .iter()
                 .map(|r| (r.outputs.capacity() + r.coordinates.capacity()) * size_of::<usize>())
                 .sum::<usize>();
-        vec![
+        let (coordinate_id, coordinate_bytes) = structure.coordinate_allocation();
+        let mut components = vec![
+            ("coordinate-universe", coordinate_id, coordinate_bytes),
             (
                 "structure",
                 Arc::as_ptr(&self.structure) as usize,
@@ -301,7 +298,39 @@ impl CasePlan {
                 size_of::<Vec<Arc<PreparedSupport>>>()
                     + self.supports.capacity() * size_of::<Arc<PreparedSupport>>(),
             ),
-        ]
+        ];
+        components.push((
+            "row-bindings",
+            Arc::as_ptr(&self.row_bindings) as usize,
+            size_of_val(self.row_bindings.as_ref())
+                + self
+                    .row_bindings
+                    .values()
+                    .map(|indices| {
+                        size_of::<SemanticId>()
+                            + 96
+                            + size_of_val(indices)
+                            + indices.capacity() * size_of::<usize>()
+                    })
+                    .sum::<usize>(),
+        ));
+        for binding in structure.instances() {
+            components.push((
+                "binding-slots",
+                Arc::as_ptr(&binding.slots) as usize,
+                size_of::<Vec<crate::binding::SlotBinding>>()
+                    + 2 * size_of::<usize>()
+                    + binding.slots.capacity() * size_of::<crate::binding::SlotBinding>(),
+            ));
+            components.push((
+                "binding-members",
+                Arc::as_ptr(&binding.checked_members) as usize,
+                size_of_val(binding.checked_members.as_ref())
+                    + 2 * size_of::<usize>()
+                    + binding.checked_members.len() * (size_of::<(SemanticId, SemanticId)>() + 96),
+            ));
+        }
+        components
     }
     /// Process-local shared storage identities, independent of owner wrappers and body data.
     pub fn allocation_identity(&self) -> Vec<usize> {
@@ -331,52 +360,31 @@ impl CasePlan {
     /// Known immutable payload; shared bodies are counted once within this plan.
     /// Opaque library and map allocation overhead is accounted by the runtime policy.
     pub fn retained_bytes(&self) -> usize {
-        let structure = &self.structure;
-        size_of::<Self>()
-            + size_of_val(structure.variables())
-            + size_of_val(structure.parameters())
-            + size_of_val(structure.rows())
-            + structure
-                .instances()
-                .iter()
-                .map(|i| {
-                    size_of_val(i)
-                        + i.checked_members.len() * (size_of::<(SemanticId, SemanticId)>() + 96)
-                        + size_of_val(i.slots.as_slice())
-                        + size_of_val(i.contributions.as_slice())
-                })
-                .sum::<usize>()
-            + self
-                .bodies
-                .values()
-                .map(|b| b.retained_bytes())
-                .sum::<usize>()
-            + self.columns.capacity() * size_of::<SemanticId>()
-            + self.rows.len() * size_of::<(SemanticId, GlobalRow)>()
-            + self
-                .instances
-                .iter()
-                .map(|i| {
-                    size_of_val(i)
-                        + i.coordinates.capacity() * size_of::<Slot>()
-                        + i.columns.capacity() * size_of::<GlobalCol>()
-                        + i.groups
-                            .values()
-                            .flatten()
-                            .map(|g| size_of_val(g) + g.outputs.capacity() * size_of::<usize>())
-                            .sum::<usize>()
-                })
-                .sum::<usize>()
-            + self.jacobian.retained_bytes()
-            + self.hessian.retained_bytes()
-            + (self.jacobian_terms.capacity() + self.hessian_terms.capacity()) * size_of::<Term>()
-            + self.requests.capacity() * size_of::<LocalDemand>()
-            + self.supports.capacity() * size_of::<Arc<PreparedSupport>>()
-            + self
-                .supports
-                .iter()
-                .map(|s| s.retained_bytes())
-                .sum::<usize>()
+        Self::retained_group_bytes(std::iter::once(self)).unwrap_or(usize::MAX)
+    }
+    /// Retained extent of co-owned plans, counting each immutable allocation once.
+    pub fn retained_group_bytes<'a>(plans: impl IntoIterator<Item = &'a Self>) -> Option<usize> {
+        let mut seen = BTreeSet::new();
+        let mut bytes = 0usize;
+        for plan in plans {
+            bytes = bytes.checked_add(plan.owner_wrapper_bytes())?;
+            for (kind, identity, extent) in plan.allocation_components() {
+                if seen.insert((kind, identity)) {
+                    bytes = bytes.checked_add(extent)?;
+                }
+            }
+            for body in plan.bodies.values() {
+                if seen.insert(("body", body.allocation_identity())) {
+                    bytes = bytes.checked_add(body.retained_bytes())?;
+                }
+            }
+            for support in plan.supports.iter() {
+                if seen.insert(("support", support.allocation_identity())) {
+                    bytes = bytes.checked_add(support.retained_bytes())?;
+                }
+            }
+        }
+        Some(bytes)
     }
     /// Retain runtime accounting on every escaping structural plan clone.
     pub fn with_owner(mut self, owner: Arc<dyn crate::AllocationOwner>) -> Self {
@@ -441,21 +449,8 @@ impl CasePlan {
         if limits.contributions == 0 || limits.native_index == 0 || limits.worker_bytes == 0 {
             return Err(MathError::Limit("zero case assembly budget"));
         }
-        let source_instances = source
-            .map(|source| {
-                crate::index::CheckedInventory::new(source.structure.instances(), |binding| {
-                    (binding.instance, binding.body)
-                })
-            })
-            .transpose()?;
-        let known: BTreeSet<_> = structure
-            .variables()
-            .iter()
-            .map(|v| v.port.id)
-            .chain(structure.parameters().iter().map(|p| p.id))
-            .collect();
         if columns.iter().collect::<BTreeSet<_>>().len() != columns.len()
-            || columns.iter().any(|c| !known.contains(c))
+            || columns.iter().any(|c| !structure.contains_coordinate(c))
         {
             return Err(MathError::Contract(
                 "unknown or duplicate derivative coordinate".into(),
@@ -511,7 +506,7 @@ impl CasePlan {
             if body.input_count() != binding.slots.len() {
                 return Err(MathError::Contract("body binding arity".into()));
             }
-            for (q, slot) in body.input_quantities().iter().zip(&binding.slots) {
+            for (q, slot) in body.input_quantities().iter().zip(binding.slots.iter()) {
                 if let Some(q) = q {
                     pse_quantity::admission::require_same_contract(*q, slot.quantity(), registry)?;
                 }
@@ -568,9 +563,12 @@ impl CasePlan {
             let shared_key = (binding.body, all_outputs.clone(), formal.clone());
             if !all_outputs.is_empty() && !shared_supports.contains_key(&shared_key) {
                 let established = source.and_then(|source| {
-                    source_instances
-                        .as_ref()?
-                        .position(&(binding.instance, binding.body))
+                    source
+                        .structure
+                        .instances()
+                        .binary_search_by_key(&binding.instance, |i| i.instance)
+                        .ok()
+                        .filter(|&index| source.structure.instances()[index].body == binding.body)
                         .and_then(|index| {
                             source.instances[index]
                                 .groups
@@ -659,7 +657,19 @@ impl CasePlan {
             columns.len(),
             limits,
         )?;
+        let mut row_bindings = BTreeMap::<_, Vec<usize>>::new();
+        for (index, binding) in structure.instances().iter().enumerate() {
+            for contribution in &binding.contributions {
+                if let Target::Row(row) = contribution.target {
+                    let bindings = row_bindings.entry(row).or_default();
+                    if bindings.last() != Some(&index) {
+                        bindings.push(index);
+                    }
+                }
+            }
+        }
         Ok(Self {
+            row_bindings: Arc::new(row_bindings),
             structure,
             bodies,
             columns: Arc::new(columns),
@@ -710,19 +720,18 @@ impl CasePlan {
                 (!binding.contributions.is_empty()).then_some(binding)
             })
             .collect();
-        let structure = Arc::new(CaseStructure::new(
-            self.structure.variables().to_vec(),
-            self.structure.parameters().to_vec(),
-            instances,
-            self.structure
-                .rows()
-                .iter()
-                .filter(|r| selected.contains(&r.id))
-                .cloned()
-                .collect(),
-            None,
-            crate::binding::CaseLimits::default(),
-        )?);
+        let structure = Arc::new(
+            self.structure.restricted(
+                instances,
+                self.structure
+                    .rows()
+                    .iter()
+                    .filter(|r| selected.contains(&r.id))
+                    .cloned()
+                    .collect(),
+                None,
+            ),
+        );
         Self::prepare_with_coordinates(
             structure,
             self.bodies.clone(),
@@ -783,6 +792,9 @@ impl CasePlan {
         registry: &QuantityRegistry,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Self, MathError> {
+        if cancel.load(Ordering::Relaxed) {
+            return Err(MathError::Cancelled);
+        }
         if selected_rows.is_empty()
             || selected_rows.len() != selected_columns.len()
             || selected_rows.iter().any(|r| !self.rows.contains_key(r))
@@ -792,16 +804,6 @@ impl CasePlan {
         {
             return Err(MathError::Contract("conditional block inventory".into()));
         }
-        let variables = self
-            .structure
-            .variables()
-            .iter()
-            .cloned()
-            .map(|mut v| {
-                v.fixed = !selected_columns.contains(&v.port.id);
-                v
-            })
-            .collect();
         let rows = self
             .structure
             .rows()
@@ -809,54 +811,37 @@ impl CasePlan {
             .filter(|r| selected_rows.contains(&r.id))
             .cloned()
             .collect();
-        let instances: Vec<_> = self
-            .structure
-            .instances()
+        let binding_indices: BTreeSet<_> = selected_rows
             .iter()
-            .cloned()
-            .filter_map(|mut i| {
-                i.contributions
-                    .retain(|c| matches!(c.target,Target::Row(r)if selected_rows.contains(&r)));
-                (!i.contributions.is_empty()).then_some(i)
+            .filter_map(|row| self.row_bindings.get(row))
+            .flatten()
+            .copied()
+            .collect();
+        let instances: Vec<_> = binding_indices
+            .into_iter()
+            .map(|index| {
+                let binding = &self.structure.instances()[index];
+                crate::binding::InstanceBinding {
+                    instance: binding.instance,
+                    body: binding.body,
+                    slots: binding.slots.clone(),
+                    checked_members: binding.checked_members.clone(),
+                    contributions: binding
+                        .contributions
+                        .iter()
+                        .filter(|c| matches!(c.target,Target::Row(r)if selected_rows.contains(&r)))
+                        .cloned()
+                        .collect(),
+                }
             })
             .collect();
         let bodies = instances
             .iter()
             .map(|i| (i.body, self.bodies[&i.body].clone()))
             .collect();
-        // This is a restriction of an admitted structure, so its extents must not
-        // exceed that source. Avoid replacing the source's limits with defaults.
-        let source_slots = self
+        let structure = self
             .structure
-            .instances()
-            .iter()
-            .try_fold(0usize, |total, instance| {
-                total
-                    .checked_add(instance.slots.len())
-                    .and_then(|total| total.checked_add(instance.checked_members.len()))
-            })
-            .ok_or(MathError::Limit("conditional source slots"))?;
-        let case_limits = crate::binding::CaseLimits {
-            scalars: self
-                .structure
-                .variables()
-                .len()
-                .checked_add(self.structure.parameters().len())
-                .ok_or(MathError::Limit("conditional source scalars"))?
-                .max(1),
-            instances: self.structure.instances().len().max(1),
-            rows: self.structure.rows().len().max(1),
-            bodies: self.bodies.len().max(1),
-            slots: source_slots.max(1),
-        };
-        let structure = CaseStructure::new(
-            variables,
-            self.structure.parameters().to_vec(),
-            instances,
-            rows,
-            None,
-            case_limits,
-        )?;
+            .restricted(instances, rows, Some(selected_columns));
         let columns = structure.free_variables().collect();
         Self::prepare_with_source_support(
             Arc::new(structure),
@@ -1615,7 +1600,7 @@ impl CaseWorker {
             };
             let context = |cause| MathError::Instance {
                 instance: binding.instance,
-                checked_members: binding.checked_members.clone(),
+                checked_members: binding.checked_members.as_ref().clone(),
                 cause: Box::new(cause),
             };
             let request = self.assembly.instances[i].groups[demand]
@@ -1853,7 +1838,7 @@ impl CaseWorker {
             };
             let context = |cause| MathError::Instance {
                 instance: binding.instance,
-                checked_members: binding.checked_members.clone(),
+                checked_members: binding.checked_members.as_ref().clone(),
                 cause: Box::new(cause),
             };
             let inputs = binding

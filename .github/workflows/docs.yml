@@ -48,10 +48,15 @@ jobs:
         uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
         with:
           tool: ${{ steps.docs-tools.outputs.tools }}
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - name: Provision locked docs-only Python dependencies
+        run: |
+          eval "$(python3 -m scripts.pse_env --docs --print)"
+          uv sync --locked --only-group docs --no-install-project
       - name: ADR index is current
         # `adr.py index` regenerates the source-readable ADR index. Navigation is
         # derived during publication. --check fails instead of writing.
-        run: python3 scripts/adr.py index --check
+        run: .venv-docs/bin/python -m scripts.adr index --check
       - name: register rows are well formed
         run: python3 scripts/check_register.py --lint
       - name: fold in the rustdoc reference if it exists
@@ -75,9 +80,9 @@ jobs:
             echo "::notice::rust run ${run_id} produced no rustdoc artifact; continuing"
           fi
       - name: Publisher and citation fixtures
-        run: python3 -m unittest scripts.tests.test_docs scripts.tests.docs_integration -v
+        run: .venv-docs/bin/python -m unittest scripts.tests.test_document_lifecycle scripts.tests.test_adr scripts.tests.test_docs scripts.tests.docs_integration -v
       - name: Build documentation and search
-        run: python3 -m scripts.docs build
+        run: .venv-docs/bin/python -m scripts.docs build
       - name: internal links resolve
         # --offline: external links are not this gate's business (they rot for reasons
         # outside the repository). Every internal link must resolve.

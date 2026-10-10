@@ -18,6 +18,12 @@ Those documents retain revision, attempt, terminal, query and lineage semantics.
 [coordinator](28-surrealdb-unified-substrate.md#repository-wide-efficiency-extension) owns
 coverage/dispositions; [28e](28e-rebuild-retirement-and-qualification.md) owns qualification.
 
+The later efficiency review's selective encoding and complete analysis deletion are owned
+independently by [Plan 33/EFF07 and EFF10](33-efficiency-principles-remediation.md#implementation-packets-and-dependencies).
+This companion supplies existing protected block/activation/allocation contracts, not a
+second status owner. Its lineage-preservation statements do not impose permanent retention
+of retired analyses; Plan 33's confirmed contract-adoption route governs that change.
+
 The inspected product baseline is `5260a3e9a3cecd69b6358ab86d4e917ae2508b29`. Current source
 has exact codecs, bounded self-contained IPC, scalar indexes, guarded effects, closed
 descriptors, selected grouped acquisition, escaped-buffer leases and Arrow C streams.

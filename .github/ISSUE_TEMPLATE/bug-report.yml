@@ -79,7 +79,6 @@ body:
         - Python API (the pse package)
         - CLI / xtask / justfile
         - Native solver backend (Ipopt / MUMPS)
-        - The Pyomo adapter
         - Build, packaging, or wheels
         - CI, tooling, or the solver image
         - Documentation

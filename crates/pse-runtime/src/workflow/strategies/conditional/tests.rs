@@ -258,6 +258,7 @@ async fn conditional_schedule_and_first_binding_enter_with_source_demand() {
     let view = program.conditional.as_ref().unwrap().view.clone();
     let values = program.values.clone();
     let quantities = prepared._source.case.compiled().quantities.clone();
+    let preconditions = prepared._source.case.compiled().preconditions.clone();
     let demand = view.binding_allocation_bound(&values).unwrap().unwrap();
     let expected = view.plan.columns().to_vec();
     let observed = pool.clone();
@@ -269,7 +270,7 @@ async fn conditional_schedule_and_first_binding_enter_with_source_demand() {
             pse_columnar::flight::FlightCancellation::default(),
             move |flag| {
                 assert_eq!(observed.reserved(), baseline + fixed + demand);
-                let bound = view.bind(quantities, &values, &flag)?;
+                let bound = view.bind(quantities, preconditions, &values, &flag)?;
                 assert_eq!(bound.plan.columns(), expected);
                 assert!(bound.values_match(&values));
                 Ok(())

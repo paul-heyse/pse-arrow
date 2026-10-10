@@ -10,7 +10,7 @@ evidence: Proposed
 architectural-fitness: Accept for the proposed contract scope
 behavioral-adequacy: Accept for proposed semantics; implementation unqualified
 decision: Accept
-disposition-owner: docs/plans/25k-integrated-qualification-and-closure.md
+disposition-owner: git:4c24721e691187e1a5b28398b29722fbde671da8:docs/plans/25k-integrated-qualification-and-closure.md
 ---
 
 # Contextual engineering accuracy contracts
@@ -33,10 +33,10 @@ This independent A0/C0 design-tier target review applies the current Core/templa
 Process Simulator 1.5 and pse-arrow binding selected by `standard.toml`, following the
 design-review and process-simulator skills. It examines these proposed documents:
 
-- [Plan 27](../../plans/27-contextual-engineering-accuracy.md), shared target and sequence.
-- [Plan 27a](../../plans/27a-accuracy-intent-and-contextual-policy.md), admission and context.
-- [Plan 27b](../../plans/27b-error-allocation-and-numerical-evidence.md), evidence and allocation.
-- [Plan 27c](../../plans/27c-selective-refinement-and-completion.md), execution and completion.
+- [Plan 27](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/27-contextual-engineering-accuracy.md), shared target and sequence.
+- [Plan 27a](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/27a-accuracy-intent-and-contextual-policy.md), admission and context.
+- [Plan 27b](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/27b-error-allocation-and-numerical-evidence.md), evidence and allocation.
+- [Plan 27c](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/27c-selective-refinement-and-completion.md), execution and completion.
 - [Proposed ADR-0163](../../adr/0163-contextual-engineering-accuracy.md), contract decision.
 
 The baseline is HEAD `ad665a0222551196b1160e426f5242361215a6a0` plus the current

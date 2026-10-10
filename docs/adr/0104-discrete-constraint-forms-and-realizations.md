@@ -14,7 +14,7 @@ superseded-by: null
 revisit: A lowering's declared equivalence fails its negative control (bigm(derived) cuts a feasible point, hull and big-M optima disagree on a bounded fixture, or a native-only realization is executed on a backend without its handler), or SCIP drops a constraint handler a native realization relies on.
 verification: Architecture scenario S11, settled by the Plan 22 M3–M5 tests indicator_linear_lowering_matches_native, piecewise_sos2_matches_incremental, logic_propositions_lower_exactly, native_only_realization_refused_on_highs, gdp_hull_and_bigm_same_optimum, bigm_derived_from_bounds, hull_requires_finite_bounds, indicator_realization_requires_native_backend and flash_phase_disappearance_agrees_across_realizations.
 standard: core-3.0/process-simulator-1.1
-scenarios: [docs/plans/22-solver-capabilities-architecture.md#s11]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s11]
 ---
 
 # ADR-0104: Lower indicator, SOS, cardinality, piecewise, logic, disjunction and complementarity declarations through named realizations
@@ -126,7 +126,7 @@ not solver machinery.
 
 ## More information
 
-- Architecture companion [§2.3–§2.5](../plans/22-solver-capabilities-architecture.md#23-constraint-forms).
+- Architecture companion [§2.3–§2.5](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#23-constraint-forms).
 - Target review [T14](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t14) (ℓ1 realization composition) and [T15](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t15) (lowering equivalence).
 - Related: ADR-0016 (superseded by ADR-0112, which restates D13), ADR-0100, ADR-0103, ADR-0105, ADR-0109. Plan 22 packets M3–M5.
 

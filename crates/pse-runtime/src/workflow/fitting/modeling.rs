@@ -927,6 +927,7 @@ impl ModelingPackage {
         let control = pse_columnar::flight::FlightCancellation::default();
         let runtime = self.runtime.clone();
         let quantities = q.clone();
+        let preconditions = self.physical.preconditions.clone();
         let source = identity.finish_hash();
         // The transferred reservation owns construction storage; the canonical job
         // supplies the bounded worker, CPU admission and native cancellation boundary.
@@ -935,7 +936,14 @@ impl ModelingPackage {
             .shared
             .math()
             .job(1, 0, control.clone(), move |flag| {
-                Ok(prepared.finish(runtime, quantities, source, reservation, &flag))
+                Ok(prepared.finish(
+                    runtime,
+                    quantities,
+                    preconditions,
+                    source,
+                    reservation,
+                    &flag,
+                ))
             });
         tokio::pin!(operation);
         let problem = tokio::select! {

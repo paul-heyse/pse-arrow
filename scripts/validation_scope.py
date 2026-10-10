@@ -4,6 +4,8 @@
 
 from dataclasses import dataclass, replace
 
+from scripts.native_cache import INPUT_ENV as NATIVE_BUILD_ENVIRONMENT
+
 
 @dataclass(frozen=True)
 class Gate:
@@ -341,32 +343,27 @@ EXCLUSIONS = {
 
 # Versioned, conservative subsystem declarations project the one captured map.
 # A missing declaration deliberately retains every contextual input.
-INPUT_SCOPE_VERSION = 2
+INPUT_SCOPE_VERSION = 3
 RUST_INPUTS = (
     "Cargo.toml",
     "Cargo.lock",
     "rust-toolchain.toml",
     ".python-version",
+    "pyproject.toml",
+    "uv.lock",
     ".cargo",
     "crates",
     "xtask",
     "tests",
+    "benches",
     "vendor",
     "packages",
     "docker",
     "justfile",
-    ".config/nextest.toml",
-    ".config/hakari.toml",
-    ".config/native-cache.cmake",
-    ".config/build.toml",
-    ".config/sccache.toml",
-    "scripts/build",
-    "scripts/native",
-    "scripts/pse-env",
-    "scripts/pse_env.py",
-    "scripts/validation",
-    "scripts/cargo",
-    "scripts/solver",
+    ".config",
+    # Execution, admission, selection and cleanup all affect the observation.
+    # Keep their conservative owner closure rather than filename-prefix guesses.
+    "scripts",
 )
 INPUT_SCOPES = {
     "rust-product": RUST_INPUTS,
@@ -448,11 +445,15 @@ INPUT_SCOPES = {
     ),
 }
 PRODUCT_ENVIRONMENT = (
+    *NATIVE_BUILD_ENVIRONMENT,
     "RUSTUP_TOOLCHAIN",
     "RUSTFLAGS",
     "CARGO_ENCODED_RUSTFLAGS",
     "RUSTC_WRAPPER",
     "SUITESPARSE_LIBRARY_DIR",
+    "SUITESPARSE_INCLUDE_DIR",
+    "UNO_DIR",
+    "PETSC_DIR",
     "IPOPT_DIR",
     "SCIPOPTDIR",
     "PSE_SOLVER_IMAGE",
@@ -478,6 +479,7 @@ PRODUCT_ENVIRONMENT = (
     "PSE_MEMORY_MAX",
     "SYMBOLICA_LICENSE",
     "LOCAL_NATIVE_ENVIRONMENT",
+    "EFFECTIVE_NATIVE_CONFIGURATION",
 )
 PRODUCER_REVIEW_INPUTS = (
     "PSE_RUNTIME_PRODUCER_DECLARATIONS",

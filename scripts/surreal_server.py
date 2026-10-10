@@ -251,14 +251,7 @@ def lifecycle_reservation(state: Path) -> Generator[None, None, None]:
     with state_lock(state):
         if path.exists():
             previous = read_json(path)
-            try:
-                live = (
-                    previous["boot"] == selected["boot"]
-                    and native_operation.start_identity(integer(previous["pid"]))
-                    == previous["start"]
-                )
-            except FileNotFoundError:
-                live = False
+            live = previous["boot"] == selected["boot"] and reservation_live(previous)
             if live:
                 raise SupervisorError(
                     "Another live owner is changing this service; retry after its operation finishes"
@@ -269,10 +262,13 @@ def lifecycle_reservation(state: Path) -> Generator[None, None, None]:
     try:
         yield
     finally:
-        with state_lock(state):
-            if path.exists() and read_json(path).get("nonce") == selected["nonce"]:
-                path.unlink()
-        _LIFECYCLE.state = previous_state
+        try:
+            drain_maintenance_listener(state)
+            with state_lock(state):
+                if path.exists() and read_json(path).get("nonce") == selected["nonce"]:
+                    path.unlink()
+        finally:
+            _LIFECYCLE.state = previous_state
 
 
 def reservation_live(reservation: dict[str, object]) -> bool:
@@ -284,10 +280,15 @@ def reservation_live(reservation: dict[str, object]) -> bool:
     ):
         return False
     try:
-        return (
-            native_operation.start_identity(integer(reservation["pid"]))
-            == reservation["start"]
+        # One kernel observation binds process state and start identity. An
+        # unreaped zombie retains its PID/start tick but owns no live authority.
+        process = (
+            Path(f"/proc/{integer(reservation['pid'])}/stat")
+            .read_text()
+            .rsplit(")", 1)[1]
+            .split()
         )
+        return process[0] not in {"Z", "X", "x"} and process[19] == reservation["start"]
     except FileNotFoundError:
         return False
 
@@ -341,6 +342,8 @@ def open_context_admission(state: Path) -> None:
     for context in managed_contexts(state):
         with state_lock(context):
             config = config_for(context)
+            if config.get("derived_rebuild_pending"):
+                raise SupervisorError("Incomplete derived cutover remains closed")
             config.update(accepting_writes=True, admission="open")
             write_json(context / "config.json", config)
 
@@ -1219,6 +1222,10 @@ def reconfigure(
     ):
         raise SupervisorError("Server must be verified stopped before reconfigure")
     workers_drained(state, config)
+    if args.execution_profile:
+        receiver = publish_generation(
+            state, Path(str(object_mapping(receiver)["worker_executable"]))
+        )
     updated = dict(config)
     updated["resources"] = allocation
     if args.execution_profile:
@@ -3297,7 +3304,8 @@ def materialize_service(
         )
     )
     config["restart_qualified"] = recovery_qualified(state, config)
-    restart = "on-failure" if config["restart_qualified"] else "no"
+    maintenance = (state / ".maintenance-listener.json").exists()
+    restart = "on-failure" if config["restart_qualified"] and not maintenance else "no"
 
     if owner is None:
         admitted = host_admission.inherit(os.environ)
@@ -3322,7 +3330,7 @@ def materialize_service(
     config["unit_materialized"] = True
     write_json(state / "config.json", config)
     systemctl("daemon-reload")
-    if config.get("resident"):
+    if config.get("resident") and not maintenance:
         systemctl("enable", unit_name(state))
 
 
@@ -3438,10 +3446,18 @@ def _start(
         return start(owner, config_for(owner), validation=validation, deadline=deadline)
     if deadline is None:
         deadline = time.monotonic() + 40
-    if config["admission"] == "validation_required" and not validation:
+    if (
+        config["admission"] == "validation_required"
+        or config.get("derived_rebuild_pending")
+    ) and not validation:
         raise SupervisorError(
             "Restored database requires validate before normal server start"
         )
+    maintenance = (state / ".maintenance-listener.json").exists()
+    if maintenance:
+        require_maintenance_owner(state, config)
+        if not validation:
+            raise SupervisorError("Maintenance listener refuses ordinary startup")
     if config.get("parked"):
         # Only deliberate startup reaches this path. _serve keeps its parked
         # guard, so unattended systemd recovery cannot reopen admission.
@@ -3454,7 +3470,7 @@ def _start(
     if active(state):
         if not listener_ready(state, config):
             raise SupervisorError("Owned server unit is active but unhealthy")
-        if not protocol_ready(state, config):
+        if not maintenance and not protocol_ready(state, config):
             establish_protocol_readiness(state, config, deadline)
         if not validation:
             open_context_admission(state)
@@ -3475,7 +3491,8 @@ def _start(
         raise SupervisorError("Cannot start owned persistent service unit")
     while time.monotonic() < deadline:
         if listener_ready(state, config):
-            establish_protocol_readiness(state, config, deadline)
+            if not maintenance:
+                establish_protocol_readiness(state, config, deadline)
             if not validation:
                 config["admission"] = "open"
                 config["accepting_writes"] = True
@@ -3604,7 +3621,7 @@ def release_stopped_service(state: Path, config: dict[str, object]) -> None:
 
 
 def server_environment(
-    config: dict[str, object], credentials: dict[str, object]
+    config: dict[str, object], credentials: dict[str, object], *, bootstrap: bool = True
 ) -> dict[str, str]:
     allocation = config["resources"]
     if not isinstance(allocation, dict):
@@ -3643,6 +3660,9 @@ def server_environment(
             "RAYON_NUM_THREADS": "4",
         }
     )
+    if not bootstrap:
+        environment.pop("SURREAL_USER", None)
+        environment.pop("SURREAL_PASS", None)
     return environment
 
 
@@ -3696,6 +3716,9 @@ def _serve(state: Path) -> int:
     config = config_for(state)
     if config.get("parked"):
         return 0
+    maintenance = (state / ".maintenance-listener.json").exists()
+    if maintenance:
+        require_maintenance_owner(state, config)
     deadline = _STARTUP.deadline
     launch_path = state / "service-launch.json"
     if launch_path.is_file():
@@ -3745,7 +3768,7 @@ def _serve(state: Path) -> int:
         raise SupervisorError(
             "Storage binary differs from its admitted generation; explicitly readmit"
         )
-    database = f"rocksdb://{state / 'database'}?sync=every&versioned=false"
+    database = database_endpoint(state)
     command = [
         str(server["binary"]),
         "start",
@@ -3769,9 +3792,12 @@ def _serve(state: Path) -> int:
         integer(config["log_backups"]),
         str(credentials["password"]),
     )
+    # A recovery listener observes existing ROOT authorities; it must never
+    # bootstrap a supplied candidate into an empty or unknown catalog.
+    environment = server_environment(config, credentials, bootstrap=not maintenance)
     child = subprocess.Popen(
         command,
-        env=server_environment(config, credentials),
+        env=environment,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -3813,6 +3839,10 @@ def _serve(state: Path) -> int:
                 tail = tail[safe:]
         log.append(tail)
 
+    if maintenance:
+        threading.Thread(
+            target=watch_maintenance_owner, args=(state, child), daemon=True
+        ).start()
     reader = threading.Thread(target=capture, daemon=True)
     reader.start()
     result = child.wait()
@@ -3831,6 +3861,10 @@ def backup(
 def _backup(
     state: Path, config: dict[str, object], destination: Path
 ) -> dict[str, object]:
+    if config.get("derived_rebuild_pending"):
+        raise SupervisorError(
+            "Incomplete derived rebuild cannot be backed up as current state"
+        )
     if destination.absolute() == state or state in destination.absolute().parents:
         raise SupervisorError(
             "Backup destination must be outside the live state directory"
@@ -3877,7 +3911,1125 @@ def _backup(
     }
 
 
-def restore(source: Path, state: Path, interpretation: str) -> dict[str, object]:
+def private_offline_state(state: Path, config: dict[str, object]) -> None:
+    """Only the stopped service's sole database may be replaced by its owner."""
+    if service_directory(state) != state or managed_contexts(state) != [state]:
+        raise SupervisorError("Derived cutover refuses shared service contexts")
+    if config["accepting_writes"] or config["admission"] not in {
+        "quiesced",
+        "validation_required",
+    }:
+        raise SupervisorError("Derived cutover requires closed admission")
+    all_contexts_drained(state)
+    if (state / ".maintenance-listener.json").exists():
+        # Recovery first drains a predecessor invocation; no ordinary listener
+        # or live competing lifecycle owner may be adopted.
+        drain_maintenance_listener(state)
+        config.update(config_for(state))
+    if active(state):
+        raise SupervisorError("Derived cutover requires the owned server stopped")
+    # is-active alone does not establish process-group drain.
+    stop(state, config)
+
+
+def database_endpoint(state: Path) -> str:
+    return f"rocksdb://{state / 'database'}?sync=every&versioned=false"
+
+
+def sql_identifier(value: object) -> str:
+    if (
+        not isinstance(value, str)
+        or re.fullmatch(r"[A-Za-z0-9_-]{1,128}", value) is None
+    ):
+        raise SupervisorError("Unsupported owned database identifier")
+    return "`" + value + "`"
+
+
+def require_maintenance_owner(state: Path, config: dict[str, object]) -> None:
+    selected = read_json(state / ".maintenance-listener.json")
+    owner = object_mapping(selected.get("owner"))
+    if (
+        config.get("accepting_writes") is not False
+        or config.get("admission") not in {"quiesced", "validation_required"}
+        or selected.get("instance_id") != config.get("instance_id")
+        or selected.get("server") != config.get("server")
+        or selected.get("resources") != config.get("resources")
+        or selected.get("supervisor") != config.get("service_supervisor")
+        or selected.get("credentials_sha256") != file_digest(state / "credentials.json")
+        or not reservation_live(owner)
+        or read_json(state / "lifecycle-owner.json") != owner
+        or service_directory(state) != state
+        or managed_contexts(state) != [state]
+    ):
+        raise SupervisorError(
+            "Maintenance listener requires its exact live closed owner"
+        )
+
+
+def watch_maintenance_owner(state: Path, child: subprocess.Popen[bytes]) -> None:
+    """Owner loss closes the child; recovery still owns exact drain/release."""
+    while child.poll() is None:
+        try:
+            require_maintenance_owner(state, config_for(state))
+        except (SupervisorError, OSError, KeyError, ValueError):
+            if child.poll() is None:
+                child.terminate()
+            return
+        time.sleep(0.1)
+
+
+def drain_maintenance_listener(state: Path) -> None:
+    path = state / ".maintenance-listener.json"
+    if not path.exists():
+        return
+    config = config_for(state)
+    selected = read_json(path)
+    owner = object_mapping(selected.get("owner"))
+    if (
+        selected.get("instance_id") != config.get("instance_id")
+        or selected.get("server") != config.get("server")
+        or selected.get("resources") != config.get("resources")
+        or (
+            reservation_live(owner)
+            and read_json(state / "lifecycle-owner.json") != owner
+        )
+    ):
+        raise SupervisorError(
+            "Unknown maintenance listener retained; admission remains closed"
+        )
+    observation = systemctl(
+        "show",
+        "--property=LoadState",
+        "--property=ActiveState",
+        "--property=ControlGroup",
+        "--property=InvocationID",
+        unit_name(state),
+        check=False,
+    )
+    fields = dict(
+        line.split("=", 1) for line in observation.stdout.splitlines() if "=" in line
+    )
+    if observation.returncode or any(
+        key not in fields for key in ("LoadState", "ActiveState", "ControlGroup")
+    ):
+        raise SupervisorError(
+            "Cannot observe maintenance lifetime; admission remains closed"
+        )
+    group = fields["ControlGroup"]
+    # is-active excludes activating/deactivating. Every extant group or busy
+    # invocation needs exact authority before stop can target its unit name.
+    if fields["ActiveState"] not in {"inactive", "failed"} or group:
+        launch = storage_launch(state, config)
+        binding = object_mapping(launch.get("binding"))
+        if (
+            fields.get("InvocationID") != binding.get("invocation")
+            or group != binding.get("group")
+            or host_admission.group_identity(group) != binding.get("inode")
+        ):
+            raise SupervisorError(
+                "Maintenance invocation changed; admission remains closed"
+            )
+    # _stop proves the exact service cgroup/process drain before releasing its
+    # allocation. Failure preserves the durable listener and pending phase.
+    stop(state, config)
+    path.unlink()
+    descriptor = os.open(state, os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def maintenance_endpoint(state: Path) -> str:
+    if getattr(_LIFECYCLE, "state", None) != state:
+        raise SupervisorError("Maintenance requires a reserved lifecycle owner")
+    config = config_for(state)
+    if (state / ".maintenance-listener.json").exists():
+        require_maintenance_owner(state, config)
+        if not listener_ready(state, config):
+            raise SupervisorError(
+                "Maintenance listener became unavailable; admission remains closed"
+            )
+    else:
+        private_offline_state(state, config)
+        config["service_supervisor"] = publish_generation(state)
+        write_json(state / "config.json", config)
+        write_json(
+            state / ".maintenance-listener.json",
+            {
+                "owner": read_json(state / "lifecycle-owner.json"),
+                "instance_id": config["instance_id"],
+                "server": config["server"],
+                "resources": config["resources"],
+                "supervisor": config["service_supervisor"],
+                "credentials_sha256": file_digest(state / "credentials.json"),
+            },
+        )
+        start(state, config, validation=True)
+    return "http://127.0.0.1:" + str(config["port"])
+
+
+def maintenance_sql(
+    state: Path, config: dict[str, object], credentials: dict[str, object], body: str
+) -> tuple[str, subprocess.CompletedProcess[str]]:
+    """Fresh authenticated CLI session on the reserved supervised maintenance child."""
+    endpoint = maintenance_endpoint(state)
+    selection = []
+    for key in ("namespace", "database"):
+        if config.get(key):
+            selection.extend(["--" + key, str(config[key])])
+    nonce = uuid.uuid4().hex
+    query = (
+        "BEGIN; "
+        + body
+        + f" RETURN {{maintenance: '{nonce}', value: $value}}; COMMIT;\n"
+    )
+    result = subprocess.run(
+        [
+            str(object_mapping(config["server"])["binary"]),
+            "sql",
+            "--log=none",
+            "--endpoint",
+            endpoint,
+            *selection,
+            "--json",
+            "--hide-welcome",
+        ],
+        input=query,
+        env=server_environment(config, credentials),
+        cwd=state,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    return nonce, result
+
+
+def maintenance_results(config: dict[str, object], output: str) -> list[object]:
+    """Decode the pinned native SQL prompt framing without accepting extra results."""
+    prompt = (
+        "/".join(
+            str(config[key]) for key in ("namespace", "database") if config.get(key)
+        )
+        + ">"
+    )
+    lines = [line.strip().removeprefix(prompt).strip() for line in output.splitlines()]
+    returned = json.loads("\n".join(line for line in lines if line))
+    if not isinstance(returned, list):
+        raise TypeError("Native SQL output is not a result list")
+    return [item for item in returned if item is not None]
+
+
+def maintenance_failure(
+    state: Path,
+    credentials: dict[str, object],
+    result: subprocess.CompletedProcess[str],
+) -> None:
+    # Keep bounded private failure evidence without exposing query text,
+    # authentication arguments, or candidate account passwords.
+    diagnostics = {"stdout": result.stdout, "stderr": result.stderr}
+    authorities = [credentials]
+    candidate = state / ".maintenance-credentials.json"
+    if candidate.is_file():
+        authorities.append(read_json(candidate))
+    for name, raw in diagnostics.items():
+        value = raw
+        for authority in authorities:
+            for field in ("password", "selection_password"):
+                secret = authority.get(field)
+                if isinstance(secret, str) and secret:
+                    value = value.replace(secret, "[REDACTED]")
+        diagnostics[name] = value[-MESSAGE_BYTES:]
+    slot = state / "maintenance-cli-failure.json"
+    if slot.is_symlink():
+        raise SupervisorError(
+            "Unknown maintenance diagnostic retained; admission remains closed"
+        )
+    if slot.exists():
+        identity = slot.stat()
+        # Each retained Unicode character needs at most two six-byte JSON
+        # surrogate escapes. The envelope includes the full signed exit-code range.
+        envelope = {
+            "owner": OWNER,
+            "kind": "maintenance-cli-failure-v1",
+            "returncode": -2147483648,
+            "stdout": "",
+            "stderr": "",
+        }
+        maximum_size = (
+            24 * MESSAGE_BYTES
+            + len(json.dumps(envelope, indent=2, sort_keys=True).encode())
+            + 1
+        )
+        if (
+            not stat.S_ISREG(identity.st_mode)
+            or identity.st_uid != os.getuid()
+            or stat.S_IMODE(identity.st_mode) != 0o600
+            or identity.st_nlink != 1
+            or identity.st_size > maximum_size
+        ):
+            raise SupervisorError(
+                "Unknown maintenance diagnostic retained; admission remains closed"
+            )
+        previous = read_json(slot)
+        if (
+            previous.get("owner") != OWNER
+            or previous.get("kind") != "maintenance-cli-failure-v1"
+        ):
+            raise SupervisorError(
+                "Unknown maintenance diagnostic retained; admission remains closed"
+            )
+    write_json(
+        slot,
+        {
+            "owner": OWNER,
+            "kind": "maintenance-cli-failure-v1",
+            "returncode": result.returncode,
+            **diagnostics,
+        },
+    )
+    raise SupervisorError("Maintenance acknowledgment failed; admission remains closed")
+
+
+def maintenance_query(
+    state: Path, config: dict[str, object], credentials: dict[str, object], body: str
+) -> dict[str, object]:
+    """Require exactly one transaction acknowledgment from an output-neutral query."""
+    nonce, result = maintenance_sql(state, config, credentials, body)
+    nonempty: list[object] = []
+    try:
+        nonempty = maintenance_results(config, result.stdout)
+        valid = (
+            len(nonempty) == 1
+            and isinstance(nonempty[0], dict)
+            and nonempty[0].get("maintenance") == nonce
+        )
+    except (ValueError, TypeError):
+        valid = False
+    if result.returncode or not valid:
+        maintenance_failure(state, credentials, result)
+    return object_mapping(nonempty[0])
+
+
+MAINTENANCE_CATALOG_FIELDS = {
+    "ROOT": frozenset(
+        {"accesses", "defaults", "namespaces", "nodes", "system", "users", "config"}
+    ),
+    "NS": frozenset({"accesses", "databases", "users"}),
+    "DB": frozenset(
+        {
+            "accesses",
+            "apis",
+            "analyzers",
+            "buckets",
+            "functions",
+            "modules",
+            "models",
+            "params",
+            "tables",
+            "users",
+            "configs",
+            "sequences",
+        }
+    ),
+}
+
+
+def maintenance_catalog(
+    state: Path, config: dict[str, object], credentials: dict[str, object], scope: str
+) -> dict[str, object]:
+    """Read one pinned catalog and its exact transaction acknowledgment.
+
+    INFO must be a statement: assigning unselected ROOT INFO requires a namespace
+    in the pinned release. Only select NS/DB after the caller observes it exists.
+    """
+    if scope not in MAINTENANCE_CATALOG_FIELDS:
+        raise SupervisorError("Unknown maintenance catalog scope")
+    selected = dict(config)
+    if scope == "ROOT":
+        selected.update(namespace=None, database=None)
+    elif scope == "NS":
+        selected["database"] = None
+        if not selected.get("namespace"):
+            raise SupervisorError("Namespace catalog requires an observed namespace")
+    elif not selected.get("namespace") or not selected.get("database"):
+        raise SupervisorError("Database catalog requires an observed database")
+    nonce, result = maintenance_sql(
+        state, selected, credentials, f"INFO FOR {scope}; LET $value=true;"
+    )
+    nonempty: list[object] = []
+    try:
+        nonempty = maintenance_results(selected, result.stdout)
+        valid = (
+            len(nonempty) == 2
+            and isinstance(nonempty[0], dict)
+            and set(nonempty[0]) == MAINTENANCE_CATALOG_FIELDS[scope]
+            and all(isinstance(value, dict) for value in nonempty[0].values())
+            and isinstance(nonempty[1], dict)
+            and set(nonempty[1]) == {"maintenance", "value"}
+            and nonempty[1].get("maintenance") == nonce
+            and nonempty[1].get("value") is True
+        )
+    except (ValueError, TypeError):
+        valid = False
+    if result.returncode or not valid:
+        maintenance_failure(state, credentials, result)
+    return object_mapping(nonempty[0])
+
+
+def remove_analysis_state(
+    state: Path, config: dict[str, object], credentials: dict[str, object]
+) -> None:
+    """Drain only owned derived rows in fixed pages; retain every unrelated input."""
+    response = maintenance_query(
+        state,
+        config,
+        credentials,
+        "LET $pins=SELECT key FROM canonical_protections WHERE !released AND expires_at>time::micros() LIMIT 1; "
+        "IF array::len($pins)!=0 { THROW 'live source protections refuse derived cutover'; }; LET $value=true;",
+    )
+    if response.get("value") is not True:
+        raise SupervisorError("Live protection check was not acknowledged")
+    # Explicit edge deletion bounds graph-pointer work before any endpoint deletion.
+    for table, predicate in (
+        ("canonical_analysis_edges", "true"),
+        ("canonical_analysis_nodes", "true"),
+        ("canonical_analysis_inputs", "true"),
+        ("canonical_roots", "owner_kind='analysis'"),
+        ("canonical_analyses", "true"),
+        ("canonical_guards", "string::starts_with(key,'analysis:')"),
+    ):
+        while True:
+            guards = ""
+            if table == "canonical_roots":
+                guards = "FOR $row IN $rows { LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$row.problem) FOR UPDATE; IF $guard=NONE { THROW 'source authority missing'; }; }; "
+            if table == "canonical_analysis_inputs":
+                guards = "FOR $row IN $rows { LET $guard=SELECT * FROM ONLY type::record('canonical_guards','execution-run:'+$row.run) FOR UPDATE; IF $guard=NONE { THROW 'run authority missing'; }; }; "
+            response = maintenance_query(
+                state,
+                config,
+                credentials,
+                f"LET $rows=SELECT * FROM {table} WHERE {predicate} ORDER BY key LIMIT 64; "  # noqa: S608 -- Fixed internal table and predicate declarations.
+                + guards
+                + "LET $deleted=DELETE $rows.id RETURN NONE; LET $value=array::len($rows);",
+            )
+            count = response.get("value")
+            if type(count) is not int or not 0 <= count <= 64:
+                raise SupervisorError("Invalid bounded derived cleanup acknowledgment")
+            if count == 0:
+                break
+    after = ""
+    while True:
+        response = maintenance_query(
+            state,
+            config,
+            credentials,
+            "LET $rows=SELECT * FROM canonical_guards WHERE string::starts_with(key,'retention:') AND key>"  # noqa: S608 -- Cursor is encoded as a JSON string.
+            + json.dumps(after)
+            + " ORDER BY key LIMIT 64; "
+            "FOR $row IN $rows { UPDATE ONLY $row.id SET incarnation=<string>rand::uuid::v4(),generation=generation+1dec; }; "
+            "LET $value={count:array::len($rows),after:array::last($rows.key) ?? ''};",
+        )
+        value = object_mapping(response.get("value"))
+        count, cursor = value.get("count"), value.get("after")
+        if (
+            type(count) is not int
+            or not 0 <= count <= 64
+            or not isinstance(cursor, str)
+            or (count and cursor <= after)
+        ):
+            raise SupervisorError("Invalid source authority rotation acknowledgment")
+        if count == 0:
+            break
+        after = cursor
+
+
+def fresh_database_identity(config: dict[str, object]) -> dict[str, object]:
+    selected = dict(config)
+    identity = uuid.uuid4().hex
+    selected.update(
+        namespace="pse_" + identity,
+        database="canonical_" + identity,
+        instance_id=str(uuid.uuid4()),
+        admission="validation_required",
+        accepting_writes=False,
+        unit_materialized=False,
+        restart_qualified=False,
+    )
+    return selected
+
+
+def fresh_owned_database_identity(
+    state: Path, config: dict[str, object]
+) -> dict[str, object]:
+    """Rebind a proved-offline owned service to a new database generation."""
+    if (
+        getattr(_LIFECYCLE, "state", None) != state
+        or active(state)
+        or (state / ".maintenance-listener.json").exists()
+        or config.get("accepting_writes") is not False
+        or config_for(state)["instance_id"] != config["instance_id"]
+    ):
+        raise SupervisorError(
+            "Fresh database identity requires its drained lifecycle owner"
+        )
+    launch = state / "service-launch.json"
+    if launch.exists():
+        # The old binding cannot be carried into another service generation.
+        # Preserve unknown receipts rather than hiding an ownership mismatch.
+        storage_launch(state, config)
+        launch.unlink()
+        descriptor = os.open(state, os.O_DIRECTORY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    selected = fresh_database_identity(config)
+    # The state-path unit is still this owner's materialization. Its immutable
+    # executable and generation are replaced normally on the next start.
+    selected["unit_materialized"] = config.get("unit_materialized", False)
+    return selected
+
+
+def fresh_credentials() -> dict[str, object]:
+    return {
+        "username": "pse-local-" + uuid.uuid4().hex,
+        "password": secrets.token_urlsafe(36),
+        "selection_username": "pse-selection",
+        "selection_password": secrets.token_urlsafe(36),
+    }
+
+
+def require_private_catalog(
+    state: Path, config: dict[str, object], credentials: dict[str, object]
+) -> None:
+    """Global credential changes require actual sole ownership of stored content."""
+    pending = object_mapping(config.get("derived_rebuild_pending", {}))
+    allowed = {(config["namespace"], config["database"])}
+    if pending:
+        allowed.add((pending["namespace"], pending["database"]))
+    root = maintenance_catalog(state, config, credentials, "ROOT")
+    for namespace in object_mapping(root["namespaces"]):
+        selected = {**config, "namespace": namespace}
+        namespace_catalog = maintenance_catalog(state, selected, credentials, "NS")
+        for database in object_mapping(namespace_catalog["databases"]):
+            if (namespace, database) in allowed:
+                continue
+            content = maintenance_catalog(
+                state, {**selected, "database": database}, credentials, "DB"
+            )
+            # Keep even empty databases/namespaces; refuse any unknown content.
+            if any(content.values()):
+                raise SupervisorError(
+                    "Derived cutover refuses an unknown nonempty database"
+                )
+
+
+def rotate_database_accounts(
+    state: Path,
+    config: dict[str, object],
+    old: dict[str, object],
+    new: dict[str, object],
+) -> None:
+    pending = state / ".maintenance-credentials.json"
+    write_json(pending, new)
+    require_private_catalog(state, config, old)
+    response = maintenance_query(
+        state,
+        config,
+        old,
+        f"DEFINE USER {sql_identifier(new['username'])} ON ROOT PASSWORD {json.dumps(new['password'])} ROLES OWNER; "
+        f"DEFINE USER OVERWRITE `pse-selection` ON ROOT PASSWORD {json.dumps(new['selection_password'])} ROLES VIEWER; "
+        f"REMOVE USER {sql_identifier(old['username'])} ON ROOT; LET $value=true;",
+    )
+    if response.get("value") is not True:
+        raise SupervisorError(
+            "Account rotation was not acknowledged; admission remains closed"
+        )
+    drain_maintenance_listener(state)
+    config.update(config_for(state))
+    write_json(state / "credentials.json", new)
+    pending.unlink()
+
+
+def discard_database(
+    state: Path,
+    selected: dict[str, object],
+    old: dict[str, object],
+    credentials: dict[str, object],
+) -> None:
+    # REMOVE DATABASE requires only its existing namespace (Base::Ns). Never
+    # select the disposed database: native CLI session followup can resolve its
+    # selected context after the removal. Preserve its namespace and service.
+    response = maintenance_query(
+        state,
+        {**selected, "namespace": old["namespace"], "database": None},
+        credentials,
+        f"REMOVE DATABASE {sql_identifier(old['database'])}; LET $value=true;",
+    )
+    if response.get("value") is not True:
+        raise SupervisorError(
+            "Old database disposal was not acknowledged; admission remains closed"
+        )
+
+    if database_present(state, old, credentials):
+        raise SupervisorError(
+            "Old database remains addressable; admission remains closed"
+        )
+
+
+def database_present(
+    state: Path, config: dict[str, object], credentials: dict[str, object]
+) -> bool:
+    # Select no unknown namespace/database during an observational catalog read.
+    root = maintenance_catalog(state, config, credentials, "ROOT")
+    if config["namespace"] not in object_mapping(root["namespaces"]):
+        return False
+    namespace = maintenance_catalog(state, config, credentials, "NS")
+    return config["database"] in object_mapping(namespace["databases"])
+
+
+def maintenance_phase(state: Path, config: dict[str, object], phase: str) -> None:
+    pending = object_mapping(config["derived_rebuild_pending"])
+    config["service_supervisor"] = config_for(state)["service_supervisor"]
+    pending["phase"] = phase
+    config["derived_rebuild_pending"] = pending
+    config["accepting_writes"] = False
+    write_json(state / "config.json", config)
+
+
+def current_marker(
+    state: Path, config: dict[str, object], credentials: dict[str, object]
+) -> None:
+    response = maintenance_query(
+        state,
+        config,
+        credentials,
+        "LET $marker=SELECT * FROM ONLY canonical_interpretations:current; "  # noqa: S608 -- Fixed policy interpretation is JSON quoted.
+        f"IF $marker=NONE OR $marker.interpretation!={json.dumps(SUBSTRATE_INTERPRETATION)} {{ THROW 'current interpretation unavailable'; }}; LET $value=true;",
+    )
+    if response.get("value") is not True:
+        raise SupervisorError("Current interpretation was not acknowledged")
+
+
+def finish_maintenance(
+    state: Path, config: dict[str, object], credentials: dict[str, object]
+) -> None:
+    pending = object_mapping(config["derived_rebuild_pending"])
+    if pending["kind"] == "rebuild":
+        verified_preserved_inputs(config)
+    require_private_catalog(state, config, credentials)
+    maintenance_phase(state, config, "disposing")
+    old = {**config, "namespace": pending["namespace"], "database": pending["database"]}
+    if database_present(state, old, credentials):
+        discard_database(state, config, old, credentials)
+    drain_maintenance_listener(state)
+    config.update(config_for(state))
+    config.pop("derived_rebuild_pending")
+    config["admission"] = (
+        "quiesced" if pending["kind"] == "rebuild" else "validation_required"
+    )
+    write_json(state / "config.json", config)
+
+
+def copy_current_database(
+    state: Path,
+    source: dict[str, object],
+    target: dict[str, object],
+    credentials: dict[str, object],
+) -> None:
+    # Reserve the exact path durably before its exclusive creation. An empty,
+    # still-unbound file at that reservation is the only pre-inode crash state.
+    pending = object_mapping(target["derived_rebuild_pending"])
+    nonce = pending.get("export_nonce")
+    if nonce is None:
+        if any(state.glob(".maintenance-export*.surql")):
+            raise SupervisorError(
+                "Unknown maintenance export retained; admission remains closed"
+            )
+        nonce = uuid.uuid4().hex
+        pending["export_nonce"] = nonce
+        pending["export_path"] = ".maintenance-export-" + nonce + ".surql"
+        target["derived_rebuild_pending"] = pending
+        write_json(state / "config.json", target)
+    if (
+        not isinstance(nonce, str)
+        or re.fullmatch(r"[a-f0-9]{32}", nonce) is None
+        or pending.get("export_path") != ".maintenance-export-" + nonce + ".surql"
+    ):
+        raise SupervisorError("Unknown maintenance export reservation")
+    exported = state / str(pending["export_path"])
+    if exported.is_symlink():
+        raise SupervisorError("Maintenance export must not traverse symlinks")
+    if exported.exists():
+        descriptor = os.open(exported, os.O_WRONLY | os.O_NOFOLLOW)
+        observed = os.fstat(descriptor)
+        bound = pending.get("export_identity")
+        private = (
+            stat.S_ISREG(observed.st_mode)
+            and observed.st_uid == os.getuid()
+            and stat.S_IMODE(observed.st_mode) == 0o600
+            and observed.st_nlink == 1
+        )
+        if (
+            not private
+            or (bound is None and observed.st_size != 0)
+            or (bound is not None and bound != [observed.st_dev, observed.st_ino])
+        ):
+            os.close(descriptor)
+            raise SupervisorError(
+                "Unknown maintenance export retained; admission remains closed"
+            )
+    else:
+        descriptor = os.open(
+            exported, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600
+        )
+    identity = os.fstat(descriptor)
+    os.close(descriptor)
+    pending["export_identity"] = [identity.st_dev, identity.st_ino]
+    target["derived_rebuild_pending"] = pending
+    write_json(state / "config.json", target)
+    # A prior interrupted export is overwritten only after binding its identity.
+    descriptor = os.open(exported, os.O_WRONLY | os.O_NOFOLLOW)
+    try:
+        observed = os.fstat(descriptor)
+        if [observed.st_dev, observed.st_ino] != pending["export_identity"]:
+            raise SupervisorError(
+                "Maintenance export ownership changed; admission remains closed"
+            )
+        os.ftruncate(descriptor, 0)
+    finally:
+        os.close(descriptor)
+    try:
+        endpoint = maintenance_endpoint(state)
+        binary = str(object_mapping(source["server"])["binary"])
+        for action, identity in (("export", source), ("import", target)):
+            result = subprocess.run(
+                [
+                    binary,
+                    action,
+                    "--log=none",
+                    "--endpoint",
+                    endpoint,
+                    "--namespace",
+                    str(identity["namespace"]),
+                    "--database",
+                    str(identity["database"]),
+                    str(exported),
+                ],
+                env=server_environment(source, credentials),
+                cwd=state,
+                capture_output=True,
+                check=False,
+            )
+            if result.returncode:
+                raise SupervisorError(
+                    "Native current restore copy failed; admission remains closed"
+                )
+    finally:
+        drain_maintenance_listener(state)
+        target.update(config_for(state))
+        pending = object_mapping(target["derived_rebuild_pending"])
+        if exported.exists():
+            observed = exported.stat()
+            if (
+                exported.is_symlink()
+                or [observed.st_dev, observed.st_ino] != pending["export_identity"]
+            ):
+                raise SupervisorError(
+                    "Maintenance export ownership changed; admission remains closed"
+                )
+            exported.unlink()
+        for field in ("export_identity", "export_path", "export_nonce"):
+            pending.pop(field, None)
+        write_json(state / "config.json", target)
+
+
+def input_inventory(source: Path) -> dict[str, str]:
+    """Read explicit inputs without changing their owner's paths or permissions."""
+    if (
+        any(path.is_symlink() for path in (source, *source.parents))
+        or not source.is_dir()
+    ):
+        raise SupervisorError("Preserved authored inputs must be external real files")
+    files = {}
+    for path in sorted(source.rglob("*")):
+        if path.is_symlink() or (not path.is_file() and not path.is_dir()):
+            raise SupervisorError(
+                "Preserved authored inputs must be external real files"
+            )
+        if path.is_file():
+            files[str(path.relative_to(source))] = file_digest(path)
+    if not files:
+        raise SupervisorError("Explicit authored/external input inventory is required")
+    return files
+
+
+def preserve_inputs(source: Path, destination: Path, state: Path) -> Path:
+    inventory = input_inventory(source.absolute())
+    if any(
+        path.is_symlink()
+        for path in (destination.absolute(), *destination.absolute().parents)
+    ):
+        raise SupervisorError("Preserved input destination must not traverse symlinks")
+    source = lexical_absolute(source)
+    destination = lexical_absolute(destination)
+    if source == state or state in source.parents or source in state.parents:
+        raise SupervisorError("Preserved authored inputs must be external real files")
+    if (
+        destination in (source, state)
+        or source in destination.parents
+        or destination in source.parents
+        or state in destination.parents
+        or destination in state.parents
+    ):
+        raise SupervisorError(
+            "Preserved input destination must be external and disjoint"
+        )
+    destination = checked_directory(destination, empty=True)
+    preserved = destination / "inputs"
+    shutil.copytree(source, preserved)
+    if input_inventory(preserved) != inventory or input_inventory(source) != inventory:
+        raise SupervisorError("Authored/external inputs changed during preservation")
+    # The manifest may authorize disposal only after the copied bytes and names
+    # are durable; do not change permissions or metadata on the input authority.
+    for path in sorted(preserved.rglob("*")):
+        if path.is_file():
+            descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+            try:
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+    directories = [preserved, *(path for path in preserved.rglob("*") if path.is_dir())]
+    for path in sorted(directories, key=lambda item: len(item.parts), reverse=True):
+        descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    write_json(destination / "inputs.json", {"owner": OWNER, "files": inventory})
+    descriptor = os.open(
+        destination.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    )
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    return preserved
+
+
+def rebuild(
+    state: Path, source: Path, destination: Path, initializer: list[str]
+) -> dict[str, object]:
+    """Explicit current reconstruction, requiring externally preserved input authority."""
+    if not initializer:
+        raise SupervisorError("Fresh rebuild requires a current initializer command")
+    with lifecycle_reservation(state):
+        old = config_for(state)
+        private_offline_state(state, old)
+        if old.get("derived_rebuild_pending"):
+            raise SupervisorError(
+                "Incomplete rebuild remains closed; explicit owner recovery is required"
+            )
+        preserved = preserve_inputs(source, destination, state)
+        inventory = read_json(preserved.parent / "inputs.json")
+        selected = fresh_owned_database_identity(state, old)
+        initializer_owner = read_json(state / "lifecycle-owner.json")
+        credentials = fresh_credentials()
+        prior = read_json(state / "credentials.json")
+        selected.update(
+            interpretation=SUBSTRATE_INTERPRETATION,
+            schema_interpretation=SUBSTRATE_INTERPRETATION,
+            derived_rebuild_pending={
+                "namespace": old["namespace"],
+                "database": old["database"],
+                "inputs": str(preserved),
+                "initializer": initializer_owner,
+                "kind": "rebuild",
+                "phase": "accounts",
+                "inputs_digest": file_digest(preserved.parent / "inputs.json"),
+                "target_namespace": selected["namespace"],
+                "target_database": selected["database"],
+                "previous_username": prior["username"],
+                "next_username": credentials["username"],
+            },
+        )
+        write_json(state / "config.json", selected)
+        rotate_database_accounts(state, selected, prior, credentials)
+        initialize_rebuild(state, selected, initializer, preserved, inventory)
+        finish_maintenance(state, selected, credentials)
+        return public_status(state, selected)
+
+
+def initialize_rebuild(
+    state: Path,
+    selected: dict[str, object],
+    initializer: list[str],
+    preserved: Path,
+    inventory: dict[str, object],
+) -> None:
+    drain_maintenance_listener(state)
+    selected["service_supervisor"] = config_for(state)["service_supervisor"]
+    initializer_owner = read_json(state / "lifecycle-owner.json")
+    pending = object_mapping(selected["derived_rebuild_pending"])
+    pending["initializer"] = initializer_owner
+    selected["derived_rebuild_pending"] = pending
+    maintenance_phase(state, selected, "initializing")
+    # Credentials and fresh target are durable before any listener can start.
+    try:
+        start(state, selected, validation=True)
+        # Ordinary admission stays closed, including after owner death. Only
+        # this explicit child can borrow the exact live lifecycle authority.
+        result = subprocess.run(
+            initializer,
+            env={
+                **os.environ,
+                "PSE_SURREAL_STATE": str(state),
+                "PSE_PRESERVED_INPUTS": str(preserved),
+                "PSE_CANONICAL_INITIALIZER": str(initializer_owner["nonce"]),
+            },
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if result.returncode:
+            raise SupervisorError(
+                "Current initializer failed; preserved inputs retained and admission closed"
+            )
+        validate_interpretation(state, selected, SUBSTRATE_INTERPRETATION)
+        if (
+            inventory.get("owner") != OWNER
+            or input_inventory(preserved) != inventory.get("files")
+            or read_json(preserved.parent / "inputs.json") != inventory
+        ):
+            raise SupervisorError(
+                "Preserved authored inputs changed; old database retained"
+            )
+        maintenance_phase(state, selected, "validated")
+    finally:
+        selected["accepting_writes"] = False
+        write_json(state / "config.json", selected)
+        stop(state, selected)
+
+
+def recover_credentials(
+    state: Path, config: dict[str, object]
+) -> tuple[dict[str, object], bool]:
+    """Observe an atomic account change before deciding whether it committed."""
+    pending = object_mapping(config["derived_rebuild_pending"])
+    path = state / ".maintenance-credentials.json"
+    current = read_json(state / "credentials.json")
+    candidate = read_json(path) if path.exists() else None
+    if candidate is not None and candidate.get("username") != pending["next_username"]:
+        raise SupervisorError(
+            "Unknown pending maintenance credentials; admission remains closed"
+        )
+    candidates = (
+        [current] if candidate is None or candidate == current else [current, candidate]
+    )
+    admitted = []
+    for credentials in candidates:
+        try:
+            root = maintenance_catalog(state, config, credentials, "ROOT")
+        except SupervisorError:
+            continue
+        users = object_mapping(root["users"])
+        value = {
+            "current": credentials["username"] in users,
+            "previous": pending["previous_username"] in users,
+            "next": pending["next_username"] in users,
+        }
+        if (
+            any(
+                type(value.get(name)) is not bool
+                for name in ("current", "previous", "next")
+            )
+            or value["previous"] == value["next"]
+        ):
+            raise SupervisorError(
+                "Maintenance root-account state is uncertain; admission remains closed"
+            )
+        if value["current"]:
+            admitted.append((credentials, value))
+    drain_maintenance_listener(state)
+    config.update(config_for(state))
+    if len(admitted) != 1:
+        raise SupervisorError(
+            "Maintenance account authority is uncertain; admission remains closed"
+        )
+    credentials, value = admitted[0]
+    if credentials["username"] == pending["next_username"] and value["next"]:
+        write_json(state / "credentials.json", credentials)
+        path.unlink(missing_ok=True)
+        return credentials, True
+    if credentials["username"] != pending["previous_username"] or not value["previous"]:
+        raise SupervisorError("Maintenance account does not match recorded authority")
+    if pending["phase"] in {"cleanup", "copy"}:
+        if candidate is not None:
+            raise SupervisorError("Unexpected account phase; admission remains closed")
+        return credentials, False
+    if pending["phase"] != "accounts":
+        raise SupervisorError("Recorded account rotation was not observed")
+    # The old root is still present and authenticates, while the exact candidate
+    # is absent. The atomic transaction is established not to have committed.
+    if candidate is None:
+        candidate = fresh_credentials()
+        pending["next_username"] = candidate["username"]
+        config["derived_rebuild_pending"] = pending
+        write_json(state / "config.json", config)
+    rotate_database_accounts(state, config, credentials, candidate)
+    return candidate, True
+
+
+def verified_preserved_inputs(
+    config: dict[str, object],
+) -> tuple[Path, dict[str, object]]:
+    pending = object_mapping(config["derived_rebuild_pending"])
+    preserved = Path(str(pending.get("inputs", "")))
+    manifest = preserved.parent / "inputs.json"
+    if (
+        not preserved.is_absolute()
+        or manifest.is_symlink()
+        or file_digest(manifest) != pending.get("inputs_digest")
+    ):
+        raise SupervisorError(
+            "Preserved input inventory differs; admission remains closed"
+        )
+    inventory = read_json(manifest)
+    if inventory.get("owner") != OWNER or input_inventory(preserved) != inventory.get(
+        "files"
+    ):
+        raise SupervisorError(
+            "Preserved authored inputs differ; admission remains closed"
+        )
+    return preserved, inventory
+
+
+def recover_maintenance(state: Path, initializer: list[str]) -> dict[str, object]:
+    with lifecycle_reservation(state):
+        config = config_for(state)
+        pending = object_mapping(config.get("derived_rebuild_pending"))
+        if (
+            pending.get("kind") == "current-restore"
+            and pending.get("phase") == "backup-copy"
+        ):
+            complete_backup_copy(state, config)
+            config = config_for(state)
+            pending = object_mapping(config["derived_rebuild_pending"])
+        private_offline_state(state, config)
+        kind, phase = pending.get("kind"), pending.get("phase")
+        phases = {
+            "rebuild": {"accounts", "initializing", "validated", "disposing"},
+            "current-restore": {
+                "cleanup",
+                "copy",
+                "accounts",
+                "validated",
+                "disposing",
+            },
+        }
+        if (
+            not isinstance(kind, str)
+            or not isinstance(phase, str)
+            or kind not in phases
+            or phase not in phases[kind]
+            or config["interpretation"] != SUBSTRATE_INTERPRETATION
+        ):
+            raise SupervisorError("Unknown maintenance phase; admission remains closed")
+        for name in (
+            "namespace",
+            "database",
+            "target_namespace",
+            "target_database",
+            "previous_username",
+            "next_username",
+        ):
+            sql_identifier(pending.get(name))
+        if (config["namespace"], config["database"]) != (
+            pending["target_namespace"],
+            pending["target_database"],
+        ) or (pending["namespace"], pending["database"]) == (
+            config["namespace"],
+            config["database"],
+        ):
+            raise SupervisorError(
+                "Maintenance source/target identity differs; admission remains closed"
+            )
+        preserved = None
+        inventory = None
+        if kind == "rebuild":
+            preserved, inventory = verified_preserved_inputs(config)
+            if phase in {"accounts", "initializing"} and not initializer:
+                raise SupervisorError(
+                    "Interrupted initializer requires explicit current initializer command"
+                )
+        credentials, rotated = recover_credentials(state, config)
+        require_private_catalog(state, config, credentials)
+        if kind == "rebuild" and phase in {"accounts", "initializing"}:
+            if database_present(state, config, credentials):
+                discard_database(state, config, config, credentials)
+            drain_maintenance_listener(state)
+            config.update(config_for(state))
+            selected = fresh_owned_database_identity(state, config)
+            pending.update(
+                target_namespace=selected["namespace"],
+                target_database=selected["database"],
+            )
+            selected["derived_rebuild_pending"] = pending
+            config = selected
+            if preserved is None or inventory is None:
+                raise SupervisorError("Missing preserved initializer inputs")
+            initialize_rebuild(state, config, initializer, preserved, inventory)
+        elif kind == "current-restore" and phase in {"cleanup", "copy"}:
+            if rotated:
+                raise SupervisorError("Unexpected account rotation before current copy")
+            source = {
+                **config,
+                "namespace": pending["namespace"],
+                "database": pending["database"],
+            }
+            if not database_present(state, source, credentials):
+                raise SupervisorError(
+                    "Current restore source is absent; admission remains closed"
+                )
+            current_marker(state, source, credentials)
+            # Re-mint source authorities before copying again: no old creation
+            # capability from an unadmitted partial target survives recovery.
+            remove_analysis_state(state, source, credentials)
+            if database_present(state, config, credentials):
+                discard_database(state, config, config, credentials)
+            drain_maintenance_listener(state)
+            config.update(config_for(state))
+            selected = fresh_owned_database_identity(state, config)
+            pending.update(
+                target_namespace=selected["namespace"],
+                target_database=selected["database"],
+            )
+            selected["derived_rebuild_pending"] = pending
+            config = selected
+            maintenance_phase(state, config, "copy")
+            copy_current_database(state, source, config, credentials)
+            new_credentials = fresh_credentials()
+            pending["next_username"] = new_credentials["username"]
+            config["derived_rebuild_pending"] = pending
+            maintenance_phase(state, config, "accounts")
+            rotate_database_accounts(state, config, credentials, new_credentials)
+            credentials = new_credentials
+            current_marker(state, config, credentials)
+            maintenance_phase(state, config, "validated")
+        elif kind == "current-restore" and phase == "accounts":
+            current_marker(state, config, credentials)
+            maintenance_phase(state, config, "validated")
+        else:
+            current_marker(state, config, credentials)
+        finish_maintenance(state, config, credentials)
+        return public_status(state, config)
+
+
+def validated_restore_backup(
+    source: Path, interpretation: str
+) -> tuple[dict[str, object], dict[str, object]]:
     if any(path.is_symlink() for path in (source, *source.parents)) or any(
         path.is_symlink() for path in source.rglob("*")
     ):
@@ -3912,75 +5064,204 @@ def restore(source: Path, state: Path, interpretation: str) -> dict[str, object]
         ):
             raise SupervisorError("Backup path or content failed validation")
     config = config_for(source)
+    if config.get("derived_rebuild_pending"):
+        raise SupervisorError(
+            "Interrupted maintenance must be recovered by its original owner"
+        )
     if (
         config["interpretation"] != interpretation
         or config["schema_interpretation"] != interpretation
     ):
         raise SupervisorError("Backup metadata has an incompatible interpretation")
-    state = checked_directory(state, empty=True)
-    for name in (
-        "database",
-        "config.json",
-        "credentials.json",
-        ".generations",
-        ".contexts",
-        ".receivers",
+    if service_directory(source) != source or managed_contexts(source) != [source]:
+        raise SupervisorError("Restore refuses shared service contexts")
+    if interpretation != SUBSTRATE_INTERPRETATION:
+        raise SupervisorError(
+            "Unsupported restore requires preserved authored inputs and explicit rebuild"
+        )
+    return manifest, config
+
+
+def reroot_restored(value: object, original: str, state: Path) -> object:
+    if isinstance(value, dict):
+        return {
+            key: reroot_restored(item, original, state) for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [reroot_restored(item, original, state) for item in value]
+    if isinstance(value, str) and (
+        value == original or value.startswith(original + "/")
     ):
-        path = source / name
-        if not path.exists():
-            if name.startswith("."):
-                continue
-            raise SupervisorError("Backup is missing owned state")
-        if path.is_dir():
-            shutil.copytree(path, state / name)
-        else:
-            shutil.copy2(path, state / name)
+        return str(state) + value[len(original) :]
+    return value
 
-    def reroot(value: object) -> object:
-        if isinstance(value, dict):
-            return {key: reroot(item) for key, item in value.items()}
-        if isinstance(value, list):
-            return [reroot(item) for item in value]
-        if isinstance(value, str) and (
-            value == original or value.startswith(original + "/")
+
+def metadata_write_scratch(path: Path, state: Path) -> bool:
+    """Identify private atomic-write residue; never consume or delete its bytes."""
+    if (
+        path.parent != state
+        or re.fullmatch(
+            r"\.(config\.json|lifecycle-owner\.json)-[a-z0-9_]{8}", path.name
+        )
+        is None
+        or path.is_symlink()
+    ):
+        return False
+    observed = path.stat()
+    return (
+        stat.S_ISREG(observed.st_mode)
+        and observed.st_uid == os.getuid()
+        and stat.S_IMODE(observed.st_mode) == 0o600
+        and observed.st_nlink == 1
+    )
+
+
+def complete_backup_copy(state: Path, config: dict[str, object]) -> None:
+    """Resume only exact declared backup files, under the still-closed owner."""
+    pending = object_mapping(config["derived_rebuild_pending"])
+    source = Path(str(pending.get("backup", "")))
+    if (
+        not source.is_absolute()
+        or source == state
+        or source in state.parents
+        or state in source.parents
+    ):
+        raise SupervisorError("Invalid preserved backup location")
+    if file_digest(source / "backup.json") != pending.get("backup_digest"):
+        raise SupervisorError(
+            "Preserved backup manifest changed; admission remains closed"
+        )
+    manifest, original_config = validated_restore_backup(
+        source, SUBSTRATE_INTERPRETATION
+    )
+    if (original_config["namespace"], original_config["database"]) != (
+        pending["namespace"],
+        pending["database"],
+    ):
+        raise SupervisorError("Preserved backup source identity changed")
+    if (config["namespace"], config["database"]) != (
+        pending["target_namespace"],
+        pending["target_database"],
+    ):
+        raise SupervisorError("Preserved backup target identity changed")
+    if active(state):
+        raise SupervisorError(
+            "Interrupted backup copy requires the owned server stopped"
+        )
+    all_contexts_drained(state)
+    files = object_mapping(manifest["files"])
+    roots = {"database", "credentials.json", ".generations", ".contexts", ".receivers"}
+    selected = {
+        name: digest for name, digest in files.items() if Path(name).parts[0] in roots
+    }
+    if "credentials.json" not in selected or not (source / "database").is_dir():
+        raise SupervisorError("Backup is missing owned state")
+    permitted = set(selected) | {
+        "config.json",
+        ".supervisor.lock",
+        "lifecycle-owner.json",
+    }
+    for path in state.rglob("*"):
+        metadata_scratch = metadata_write_scratch(path, state)
+        # Never parse, adopt or delete interrupted atomic-write scratch. Its
+        # known basename is disjoint from every copied file and authority.
+        if path.is_symlink() or (
+            path.is_file()
+            and str(path.relative_to(state)) not in permitted
+            and not metadata_scratch
         ):
-            return str(state) + value[len(original) :]
-        return value
-
-    config = reroot(config)
-    if not isinstance(config, dict):
-        raise SupervisorError("Invalid restored profile")
-    config["instance_id"] = str(uuid.uuid4())
-    config["admission"] = "validation_required"
-    config["accepting_writes"] = False
-    config["credentials_file"] = str(state / "credentials.json")
-    config["unit_materialized"] = False
-    config["restart_qualified"] = False
-    write_json(state / "config.json", config)
+            raise SupervisorError(
+                "Unknown interrupted backup content retained; admission remains closed"
+            )
+    # Known partial file copies can be overwritten from the immutable verified
+    # backup. Never import its old, normally startable config.json.
+    for directory in sorted(source.rglob("*")):
+        if directory.is_dir() and directory.relative_to(source).parts[0] in roots:
+            (state / directory.relative_to(source)).mkdir(
+                mode=0o700, parents=True, exist_ok=True
+            )
+    for name, digest in sorted(selected.items()):
+        target = state / name
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        shutil.copy2(source / name, target)
+        with target.open("rb") as stream:
+            os.fsync(stream.fileno())
+        if file_digest(target) != digest:
+            raise SupervisorError(
+                "Restored backup copy differs; admission remains closed"
+            )
+    validated_restore_backup(source, SUBSTRATE_INTERPRETATION)
+    if file_digest(source / "backup.json") != pending["backup_digest"]:
+        raise SupervisorError("Preserved backup changed during copy")
+    original = str(manifest["state_root"])
     for descriptor in (state / ".contexts").glob("*.json"):
-        selected = reroot(read_json(descriptor))
-        if not isinstance(selected, dict):
+        selected_context = reroot_restored(read_json(descriptor), original, state)
+        if not isinstance(selected_context, dict):
             raise SupervisorError("Invalid restored context descriptor")
-        write_json(descriptor, selected)
+        write_json(descriptor, selected_context)
     for receiver in (state / ".receivers").glob("*/*/config.json"):
-        selected = reroot(read_json(receiver))
-        if not isinstance(selected, dict):
+        selected_receiver = reroot_restored(read_json(receiver), original, state)
+        if not isinstance(selected_receiver, dict):
             raise SupervisorError("Invalid restored receiver profile")
-        selected.update(
+        selected_receiver.update(
             instance_id=config["instance_id"],
             admission="validation_required",
             accepting_writes=False,
             unit_materialized=False,
             restart_qualified=False,
         )
-        write_json(receiver, selected)
+        write_json(receiver, selected_receiver)
     for generation in (
         (state / ".generations").iterdir() if (state / ".generations").exists() else []
     ):
         verify_generation(generation)
     owned_generations(state)
-    (state / "tmp").mkdir(mode=0o700)
-    return public_status(state, config)
+    (state / "tmp").mkdir(mode=0o700, exist_ok=True)
+    # Flush copied directory entries before advancing the durable owner phase.
+    for directory in [state, *(path for path in state.rglob("*") if path.is_dir())]:
+        descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    maintenance_phase(state, config, "cleanup")
+
+
+def restore(source: Path, state: Path, interpretation: str) -> dict[str, object]:
+    manifest, original = validated_restore_backup(source, interpretation)
+    state = checked_directory(state)
+    with lifecycle_reservation(state):
+        if any(
+            path.name not in {".supervisor.lock", "lifecycle-owner.json"}
+            and not metadata_write_scratch(path, state)
+            for path in state.iterdir()
+        ):
+            raise SupervisorError(
+                "Refusing to initialize or replace a nonempty directory"
+            )
+        selected = reroot_restored(
+            fresh_database_identity(original), str(manifest["state_root"]), state
+        )
+        if not isinstance(selected, dict):
+            raise SupervisorError("Invalid restored profile")
+        selected["credentials_file"] = str(state / "credentials.json")
+        credentials = read_json(source / "credentials.json")
+        selected["derived_rebuild_pending"] = {
+            "kind": "current-restore",
+            "phase": "backup-copy",
+            "namespace": original["namespace"],
+            "database": original["database"],
+            "target_namespace": selected["namespace"],
+            "target_database": selected["database"],
+            "previous_username": credentials["username"],
+            "next_username": fresh_credentials()["username"],
+            "backup": str(source.absolute()),
+            "backup_digest": file_digest(source / "backup.json"),
+        }
+        # Publish the fresh, closed identity before any bytes of the old database or
+        # credentials. Every interruption is recoverable only through this owner.
+        write_json(state / "config.json", selected)
+        return recover_maintenance(state, [])
 
 
 def validate(
@@ -3988,6 +5269,7 @@ def validate(
 ) -> dict[str, object]:
     if (
         config["admission"] != "validation_required"
+        or config.get("derived_rebuild_pending")
         or config["interpretation"] != interpretation
         or not command
     ):
@@ -4524,6 +5806,8 @@ def parser() -> argparse.ArgumentParser:
             "kill",
             "backup",
             "restore",
+            "rebuild",
+            "recover-maintenance",
             "validate",
             "worker",
             "ensure-primary",
@@ -4593,6 +5877,7 @@ def parser() -> argparse.ArgumentParser:
     )
     result.add_argument("--destination", type=Path)
     result.add_argument("--source", type=Path)
+    result.add_argument("--initializer-command", nargs=argparse.REMAINDER)
     result.add_argument("--check-command", nargs=argparse.REMAINDER)
     result.add_argument("--worker-command", nargs=argparse.REMAINDER)
     result.add_argument("--worker-capabilities", default=",".join(WORKER_CAPABILITIES))
@@ -4609,6 +5894,21 @@ def dispatch(args: argparse.Namespace) -> int:
         output = upgrade_profile(args.state.absolute())
     elif args.command == "setup":
         output = setup(args)
+    elif args.command == "rebuild":
+        if args.source is None or args.destination is None:
+            raise SupervisorError(
+                "rebuild requires --source authored-inputs and --destination preserved-inputs"
+            )
+        output = rebuild(
+            args.state.absolute(),
+            args.source.absolute(),
+            args.destination.absolute(),
+            args.initializer_command or [],
+        )
+    elif args.command == "recover-maintenance":
+        output = recover_maintenance(
+            args.state.absolute(), args.initializer_command or []
+        )
     elif args.command == "restore":
         if args.source is None:
             raise SupervisorError("restore requires --source")

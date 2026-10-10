@@ -78,6 +78,62 @@ pub fn propagate(
     covariance: Result<&ParameterCovariance, Upstream>,
     jacobian: Result<&Jacobian, Upstream>,
 ) -> Result<Result<Propagated, Upstream>, WorkflowError> {
+    propagate_checked(covariance, jacobian, None)
+}
+/// Account all derived working storage before allocating the selected matrix.
+pub(super) fn propagate_reserved(
+    covariance: Result<&ParameterCovariance, Upstream>,
+    jacobian: Result<&Jacobian, Upstream>,
+    pool: &std::sync::Arc<dyn pse_columnar::MemoryPool>,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<
+    (
+        Result<Propagated, Upstream>,
+        Option<pse_columnar::MemoryReservation>,
+    ),
+    WorkflowError,
+> {
+    let working = if let (Ok(c), Ok(j)) = (&covariance, &jacobian) {
+        let (m, p) = (j.outputs.len(), c.parameters.len());
+        let mp = m
+            .checked_mul(p)
+            .ok_or_else(|| contract("propagation product extent"))?;
+        let mm = m
+            .checked_mul(m)
+            .ok_or_else(|| contract("propagation covariance extent"))?;
+        Some(super::result_export::working(
+            pool,
+            "result:propagation-working",
+            &[
+                (mp, 8),
+                (mm, 8),
+                (j.parameters.len(), 128),
+                (m, 144),
+                (p, 144),
+            ],
+        )?)
+    } else {
+        None
+    };
+    Ok((
+        propagate_checked(covariance, jacobian, Some(cancel))?,
+        working,
+    ))
+}
+fn propagate_checked(
+    covariance: Result<&ParameterCovariance, Upstream>,
+    jacobian: Result<&Jacobian, Upstream>,
+    cancel: Option<&pse_columnar::CancellationToken>,
+) -> Result<Result<Propagated, Upstream>, WorkflowError> {
+    let checkpoint = || {
+        cancel.map_or(Ok(()), |cancel| {
+            cancel
+                .checkpoint()
+                .map_err(pse_relations::RelationError::from)
+                .map_err(super::relation)
+        })
+    };
+    checkpoint()?;
     let (covariance, jacobian) = match (covariance, jacobian) {
         (Ok(c), Ok(j)) => (c, j),
         (Err(upstream), _) | (_, Err(upstream)) => return Ok(Err(upstream)),
@@ -86,7 +142,10 @@ pub fn propagate(
         .admit()
         .map_err(|e| contract(format!("propagated covariance: {e}")))?;
     let (m, n) = (jacobian.outputs.len(), jacobian.parameters.len());
-    if jacobian.values.len() != m * n {
+    if jacobian.values.len()
+        != m.checked_mul(n)
+            .ok_or_else(|| contract("Jacobian extent"))?
+    {
         return Err(contract(
             "a Jacobian's values match its outputs and parameters",
         ));
@@ -110,15 +169,29 @@ pub fn propagate(
     let product: Vec<f64> = (0..m * p)
         .map(|index| {
             let (i, l) = (index / p, index % p);
-            (0..p).map(|k| j(i, k) * sigma(k, l)).sum()
+            let mut sum = -0.0;
+            for k in 0..p {
+                if k % 1024 == 0 {
+                    checkpoint()?;
+                }
+                sum += j(i, k) * sigma(k, l);
+            }
+            Ok::<_, WorkflowError>(sum)
         })
-        .collect();
+        .collect::<Result<_, _>>()?;
     let values: Vec<f64> = (0..m * m)
         .map(|index| {
             let (i, r) = (index / m, index % m);
-            (0..p).map(|l| product[i * p + l] * j(r, l)).sum()
+            let mut sum = -0.0;
+            for l in 0..p {
+                if l % 1024 == 0 {
+                    checkpoint()?;
+                }
+                sum += product[i * p + l] * j(r, l);
+            }
+            Ok::<_, WorkflowError>(sum)
         })
-        .collect();
+        .collect::<Result<_, _>>()?;
     if values.iter().any(|v| !v.is_finite()) {
         return Err(contract("the propagated covariance overflowed"));
     }
@@ -144,6 +217,17 @@ impl RunResult {
     }
 }
 impl super::Covariance {
+    /// Retained scientific input verdict, without constructing a derived matrix DTO.
+    pub(crate) fn propagation_verdict(&self) -> Result<(), Upstream> {
+        self.values
+            .as_ref()
+            .map(|_| ())
+            .map_err(|withheld| Upstream {
+                quantity: DerivedQuantity::ParameterCovariance,
+                reason: withheld.reason(),
+                detail: withheld.to_string(),
+            })
+    }
     /// The covariance as a propagation input naming `run`, or why it is withheld.
     pub(crate) fn propagation_input(&self, run: RunId) -> Result<ParameterCovariance, Upstream> {
         match &self.values {
@@ -177,6 +261,85 @@ mod tests;
 #[cfg(test)]
 mod projection_tests {
     use super::*;
+    #[test]
+    fn selected_propagation_reserves_before_work_and_observes_cancellation() {
+        use datafusion::execution::memory_pool::GreedyMemoryPool;
+        use std::sync::Arc;
+        let id = |value| SemanticId::from_bytes([value; 16]);
+        let covariance = ParameterCovariance {
+            run_id: id(9).into(),
+            parameters: vec![id(1), id(2)],
+            values: [4.0, 0.0, 0.0, 9.0]
+                .into_iter()
+                .map(|v| FiniteBound::try_new(v).unwrap())
+                .collect(),
+        };
+        let jacobian = Jacobian {
+            outputs: vec![id(3), id(4)],
+            parameters: vec![id(1), id(2)],
+            values: vec![2.0, 3.0, 1.0, 0.0],
+        };
+        let tiny: Arc<dyn pse_columnar::MemoryPool> = Arc::new(GreedyMemoryPool::new(64));
+        let cancel = pse_columnar::CancellationToken::new();
+        assert!(propagate_reserved(Ok(&covariance), Ok(&jacobian), &tiny, &cancel).is_err());
+        assert_eq!(tiny.reserved(), 0);
+        let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(GreedyMemoryPool::new(8 << 20));
+        let expected = propagate(Ok(&covariance), Ok(&jacobian)).unwrap().unwrap();
+        let (result, working) =
+            propagate_reserved(Ok(&covariance), Ok(&jacobian), &pool, &cancel).unwrap();
+        assert_eq!(result.unwrap(), expected);
+        assert!(
+            pool.reserved() > 0,
+            "derived buffers remain charged through caller publication"
+        );
+        drop(working);
+        assert_eq!(pool.reserved(), 0);
+        cancel.cancel();
+        assert!(propagate_reserved(Ok(&covariance), Ok(&jacobian), &pool, &cancel).is_err());
+        assert_eq!(pool.reserved(), 0);
+    }
+
+    #[test]
+    fn propagation_preserves_scalar_sum_bits_and_retained_validity() {
+        let id = |value| SemanticId::from_bytes([value; 16]);
+        let covariance = ParameterCovariance {
+            run_id: id(9).into(),
+            parameters: vec![id(1)],
+            values: vec![FiniteBound::try_new(1.0).unwrap()],
+        };
+        let jacobian = Jacobian {
+            outputs: vec![id(3)],
+            parameters: vec![id(1)],
+            values: vec![-0.0],
+        };
+        let product: f64 = (0..1)
+            .map(|k| jacobian.values[k] * covariance.values[k].into_inner())
+            .sum();
+        let expected: f64 = (0..1).map(|k| product * jacobian.values[k]).sum();
+        assert_eq!(
+            propagate(Ok(&covariance), Ok(&jacobian))
+                .unwrap()
+                .unwrap()
+                .values[0]
+                .to_bits(),
+            expected.to_bits()
+        );
+        let retained = super::super::Covariance {
+            approximation: pse_relations::generated::enums::CovarianceApproximation::GaussNewton,
+            parameters: vec![id(1)],
+            values: Ok(vec![1.0]),
+        };
+        assert!(retained.propagation_verdict().is_ok());
+        let withheld = super::super::Covariance {
+            values: Err(super::super::FitWithheld::Responses(None)),
+            ..retained
+        };
+        assert_eq!(
+            withheld.propagation_verdict().unwrap_err().reason,
+            WithheldReason::ResponsesUnavailable
+        );
+    }
+
     #[test]
     fn covariance_projection_reorders_parameters_and_refuses_ambiguous_axes() {
         let id = |value| SemanticId::from_bytes([value; 16]);

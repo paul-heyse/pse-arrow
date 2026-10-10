@@ -77,7 +77,7 @@ The target makes consequential distinctions explicit and permits isolated policy
 
 ## More information
 
-[Implementation and disposition owner](../plans/25m-integrated-solve-pipeline.md); [source review](../design_review/reviews/design_review_integrated-solve-pipeline_2026-10-03.md).
+[Implementation and disposition owner](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25m-integrated-solve-pipeline.md); [source review](../design_review/reviews/design_review_integrated-solve-pipeline_2026-10-03.md).
 
 ## Status history
 

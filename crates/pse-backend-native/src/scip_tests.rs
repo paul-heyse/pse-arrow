@@ -183,7 +183,7 @@ fn case_of(
         })
         .collect();
     let parameter = |j: usize| port(registry, 80 + u8::try_from(j).unwrap());
-    let slots = (0..columns.len())
+    let slots: Vec<_> = (0..columns.len())
         .map(|i| {
             let p = port(registry, u8::try_from(i + 1).unwrap());
             SlotBinding::new(&p, &p, registry).unwrap()
@@ -226,7 +226,7 @@ fn case_of(
                 checked_members: Default::default(),
                 instance: id(9),
                 body: key,
-                slots,
+                slots: slots.into(),
                 contributions,
             }],
             rows,

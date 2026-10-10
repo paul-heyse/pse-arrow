@@ -14,7 +14,7 @@ superseded-by: null
 revisit: A provider output is observed outside its declared envelope, or a certify-route model needs an enclosure that depends on the provider's inputs rather than constant output intervals.
 verification: Items 1–4 are settled by the crate tests provider_envelope_is_checked_against_the_contract (pse-kernels), relaxed_rows_enclose_evaluator and unavailable_objective_reported (pse-math), run by the Plan 22 G4 packet (commit 7d0f8bf1, merge 42f5a83f) and not rerun for this record. Items 5–7 are settled by extending provider_envelope_is_checked_against_the_contract with (+inf, +inf) and (-inf, -inf) intervals, and by a test in which a worker returns an output outside its declared envelope and the evaluation fails as a contract error.
 standard: core-3.1/process-simulator-1.1
-scenarios: [docs/plans/22-solver-capabilities-architecture.md#s12]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s12]
 ---
 
 # ADR-0120: Relax a provider to its declared, enforced output envelope

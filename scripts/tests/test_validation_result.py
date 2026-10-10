@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
     from typing import TextIO
 
 from scripts import test_resources, validation, validation_result
@@ -25,6 +26,11 @@ class ValidationResultTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
+        registry = patch.object(
+            test_resources, "registry", return_value=self.root / "registry"
+        )
+        registry.start()
+        self.addCleanup(registry.stop)
         self.run_directory = self.root / "run with spaces"
         self.run_directory.mkdir()
         self.record = {
@@ -298,6 +304,87 @@ class ValidationResultTests(unittest.TestCase):
             for path in self.run_directory.iterdir()
         }
         self.assertEqual(after, before)
+
+    def test_registered_display_borrows_checkpoint_and_actual_origin_until_payload_read(
+        self,
+    ) -> None:
+        run = self.root / "build" / "selected"
+        origin = self.root / "build" / "origin"
+        run.mkdir(parents=True)
+        origin.mkdir()
+        (origin / "unit.log").write_text("retained observation")
+        self.record["checks"][0]["origin"] = str(origin)
+        (run / "checks.json").write_text(json.dumps(self.record))
+        selected = test_resources.register_report(run, root=self.root)
+        original = test_resources.register_report(origin, root=self.root)
+        read_receipt = validation_result.read_receipt
+        observe = validation_result.file_observation
+
+        def guarded_receipt(path: Path) -> dict:
+            self.assertTrue(test_resources.resource_status(selected)["borrows"])
+            return read_receipt(path)
+
+        def guarded_payload(path: Path, lines: int = 0) -> dict:
+            self.assertTrue(test_resources.resource_status(selected)["borrows"])
+            self.assertTrue(test_resources.resource_status(original)["borrows"])
+            self.assertEqual(path, origin / "unit.log")
+            return observe(path, lines)
+
+        with (
+            patch.object(
+                validation_result, "read_receipt", side_effect=guarded_receipt
+            ),
+            patch.object(
+                validation_result, "file_observation", side_effect=guarded_payload
+            ),
+        ):
+            self.assertEqual(self.invoke("--json", run=run)[0], 0)
+        for resource in (selected, original):
+            self.assertEqual(test_resources.resource_status(resource)["borrows"], {})
+            self.assertEqual(test_resources.resource_status(resource)["references"], {})
+
+    def test_display_read_error_releases_all_temporary_borrows(self) -> None:
+        run = self.root / "build" / "read-error"
+        origin = self.root / "build" / "error-origin"
+        run.mkdir(parents=True)
+        origin.mkdir()
+        self.record["checks"][0]["origin"] = str(origin)
+        (run / "checks.json").write_text(json.dumps(self.record))
+        resources = [
+            test_resources.register_report(path, root=self.root)
+            for path in (run, origin)
+        ]
+        with patch.object(
+            validation_result, "file_observation", side_effect=OSError("read failed")
+        ):
+            self.assertEqual(self.invoke("--json", run=run)[0], 1)
+        for resource in resources:
+            self.assertEqual(test_resources.resource_status(resource)["borrows"], {})
+            self.assertEqual(test_resources.resource_status(resource)["references"], {})
+
+    def test_origin_pointer_is_not_resolved_again_after_borrow(self) -> None:
+        origin = self.root / "first-origin"
+        replacement = self.root / "second-origin"
+        origin.mkdir()
+        replacement.mkdir()
+        (origin / "unit.log").write_text("original")
+        (replacement / "unit.log").write_text("replacement")
+        pointer = self.root / "origin-pointer"
+        pointer.symlink_to(origin.name)
+        self.record["checks"][0]["origin"] = str(pointer)
+        self.write()
+
+        @contextlib.contextmanager
+        def borrow(path: Path) -> Generator[None, None, None]:
+            if path == origin:
+                pointer.unlink()
+                pointer.symlink_to(replacement.name)
+            yield
+
+        with patch.object(test_resources, "borrow_report", side_effect=borrow):
+            result = self.result("--gate", "unit")
+        self.assertEqual(result["checks"][0]["origin_path"], str(origin))
+        self.assertEqual(result["checks"][0]["log"]["tail"], ["original"])
 
     def test_missing_and_malformed_records_return_one(self) -> None:
         checkpoint = self.run_directory / "checks.json"

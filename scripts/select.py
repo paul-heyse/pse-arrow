@@ -3,11 +3,9 @@
 """Build and run one cargo/nextest selection the way the unit recipes mean it.
 
 ``select.py unit <package> <filter> [args...]`` runs ``cargo nextest`` for the package with
-Arrow force-validation. Force-validation needs ``pse-relations`` in Cargo's package
-selection, so the test filter is intersected with ``package(...)`` over the final package
-set (the named package plus any ``-p``/``--package`` in ``args``): pse-relations' own
-tests are never selected by accident, and an explicit ``-p pse-relations`` still selects
-them. A filter that is a bare test-path word (``numerics``, ``a::b``) becomes
+scoped Arrow force-validation without adding unrelated roots. The test filter is
+intersected with ``package(...)`` over the requested package set. A filter that is a
+bare test-path word (``numerics``, ``a::b``) becomes
 ``test(word)``; every other expression passes through unchanged. ``workspace`` selects
 across the workspace's libraries with the same filter rule and no package intersection.
 
@@ -29,32 +27,17 @@ from typing import TYPE_CHECKING
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from scripts.arrow_validation import resolve
 from scripts.test_run import run_rust
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-VALIDATE = ("--features", "pse-relations/force-validate")
 BARE = re.compile(r"[A-Za-z0-9_]+(?:::[A-Za-z0-9_]+)*(?:::)?")
 
 
 def test_filter(expression: str) -> str:
     return f"test({expression})" if BARE.fullmatch(expression) else expression
-
-
-def packages(args: Sequence[str]) -> list[str]:
-    found = []
-    items = iter(args)
-    for item in items:
-        if item in ("-p", "--package"):
-            value = next(items, None)
-            if value is not None:
-                found.append(value)
-        elif item.startswith("--package="):
-            found.append(item.split("=", 1)[1])
-        elif item.startswith("-p") and len(item) > 2:
-            found.append(item[2:])
-    return found
 
 
 def nextest_action() -> list[str]:
@@ -64,23 +47,18 @@ def nextest_action() -> list[str]:
 def unit(
     package: str, expression: str, args: Sequence[str], *, features: Sequence[str] = ()
 ) -> list[str]:
-    selected = [package, *packages(args)]
-    scope = " | ".join(f"package({name})" for name in dict.fromkeys(selected))
-    joined = ",".join(["pse-relations/force-validate", *features])
+    joined = ",".join(features)
     return [
         "cargo",
         "nextest",
         *nextest_action(),
         "-p",
         package,
-        "-p",
-        "pse-relations",
         "--lib",
         "--locked",
-        "--features",
-        joined,
+        *(["--features", joined] if joined else []),
         "-E",
-        f"({test_filter(expression)}) & ({scope})",
+        test_filter(expression),
         *args,
     ]
 
@@ -88,7 +66,7 @@ def unit(
 def workspace(
     expression: str, args: Sequence[str], *, features: Sequence[str] = ()
 ) -> list[str]:
-    joined = ",".join(["pse-relations/force-validate", *features])
+    joined = ",".join(features)
     return [
         "cargo",
         "nextest",
@@ -96,8 +74,7 @@ def workspace(
         "--workspace",
         "--lib",
         "--locked",
-        "--features",
-        joined,
+        *(["--features", joined] if joined else []),
         "-E",
         test_filter(expression),
         *args,
@@ -106,6 +83,23 @@ def workspace(
 
 def main(argv: Sequence[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
+    effects = "canonical"
+    # This is an explicit invocation requirement, independent of test names,
+    # native capabilities and the word `unit`. Extra recipe args may override it.
+    index = 0
+    while index < len(argv) and argv[index] != "--":
+        if argv[index] == "--execution-effects":
+            if index + 1 == len(argv) or argv[index + 1] not in {
+                "canonical",
+                "native-local",
+            }:
+                raise ValueError(
+                    "--execution-effects requires canonical or native-local"
+                )
+            effects = argv[index + 1]
+            del argv[index : index + 2]
+        else:
+            index += 1
     features: list[str] = []
     while argv[:1] == ["--features"]:
         features.extend(item for item in argv[1].split(",") if item)
@@ -121,11 +115,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    resolved = resolve(command)
+    command = resolved.command
+    if argv[:1] == ["unit"]:
+        position = command.index("-E") + 1
+        scope = " | ".join(f"package({name})" for name in resolved.packages)
+        command[position] = f"({command[position]}) & ({scope})"
     print("select: " + shlex.join(command), file=sys.stderr, flush=True)
     if "run" not in command:
         return subprocess.call(command)
 
-    return run_rust(command)
+    return run_rust(command, effects=effects)
 
 
 if __name__ == "__main__":

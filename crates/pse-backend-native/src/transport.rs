@@ -889,8 +889,14 @@ mod tests {
                 declared_tolerance: None,
             },
         ];
-        let mut policy =
-            pse_math::numerics::resolve(&q, &targets, &[], &NumericalPolicy::default()).unwrap();
+        let mut policy = pse_math::numerics::resolve(
+            &q,
+            &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
+            &targets,
+            &[],
+            &NumericalPolicy::default(),
+        )
+        .unwrap();
         policy.targets[1].coordinate_scale = 2.0;
         policy.targets[2].coordinate_scale = 8.0;
         assert_eq!(

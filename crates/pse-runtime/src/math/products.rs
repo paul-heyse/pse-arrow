@@ -170,6 +170,12 @@ impl MathService {
             prepared.quantities.allocation_payload(),
         );
         add(
+            21,
+            prepared.preconditions.allocation_identity(),
+            prepared.preconditions.allocation_extent(),
+            prepared.preconditions.allocation_payload(),
+        );
+        add(
             13,
             prepared.structure.allocation_identity(),
             prepared.structural_bytes(),
@@ -416,6 +422,7 @@ impl MathService {
 fn attach_field_owners(prepared: &mut PreparedCase, owner: Arc<ProductOwner>) {
     prepared.artifacts = prepared.artifacts.clone().with_owner(owner.clone());
     prepared.quantities = prepared.quantities.clone().with_owner(owner.clone());
+    prepared.preconditions = prepared.preconditions.clone().with_owner(owner.clone());
     prepared.structure = prepared.structure.clone().with_owner(owner.clone());
     prepared.presolve = prepared.presolve.clone().with_owner(owner.clone());
     prepared.coefficient_values = prepared

@@ -630,7 +630,7 @@ impl DurableAttempt {
             termination: outcome.detail.clone(),
             state: outcome.state,
         };
-        let terminal = self.terminate(&outcome, &stored).await;
+        let terminal = self.terminate(&outcome, &stored, ingestion.is_ok()).await;
         if let Some(heartbeat) = self.heartbeat.take() {
             heartbeat.stop().await;
         }
@@ -682,7 +682,7 @@ impl DurableAttempt {
             termination: outcome.detail.clone(),
             state: outcome.state,
         };
-        let terminal = self.terminate(&outcome, &stored).await;
+        let terminal = self.terminate(&outcome, &stored, true).await;
         if let Some(heartbeat) = self.heartbeat.take() {
             heartbeat.stop().await;
         }
@@ -695,12 +695,15 @@ impl DurableAttempt {
     }
     async fn store_tables(&self, result: &RunResult) -> Result<(), WorkflowError> {
         let fence = self.fence()?.clone();
-        for (relation, table) in result.tables().map_err(WorkflowError::Shared)? {
+        for relation in result.table_ids() {
+            let cursor = result
+                .cursor_by_id(relation, 1024, super::ResultOrder::Canonical)
+                .map_err(WorkflowError::Shared)?;
             super::result_projection::store_result_table(
                 &self.operations.store,
                 &fence,
-                *relation,
-                table,
+                relation,
+                cursor,
                 &self.operations.pool,
             )
             .await?;
@@ -715,6 +718,7 @@ impl DurableAttempt {
         &self,
         outcome: &Outcome,
         stored: &StoredCompletion,
+        tables_complete: bool,
     ) -> Result<(CanonicalAttempt, ResultManifest), WorkflowError> {
         let fence = self.fence()?;
         let current_run = self
@@ -813,6 +817,11 @@ impl DurableAttempt {
                 digest: String::new(),
                 inline: Some(Box::new(stored.clone())),
             };
+        }
+        if !tables_complete {
+            // Staging is closed for reclamation/recovery, but a failed transport prefix
+            // cannot acquire a scientific manifest or activation, even as a failed result.
+            return Err(contract("incomplete result export remains unsealed"));
         }
         let manifest = self
             .operations
@@ -2062,6 +2071,109 @@ mod canonical_durable_codec {
             .read_results(fence.run(), fence.attempt(), Duration::from_secs(60))
             .await
             .unwrap()
+    }
+    #[tokio::test]
+    async fn canonical_failed_export_prefix_remains_unsealed_and_unreadable() {
+        use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
+        let (operations, fence) = claimed().await;
+        let runtime = super::super::durable_tests::durable_runtime();
+        let registry = &runtime.registry;
+        let validation = runtime.validation_context().unwrap();
+        let pool = operations.pool.clone();
+        let schema = pse_schema::arrow::relation_schema_ref(
+            registry,
+            registry.relation_by_id(solve_metrics::RELATION_ID).unwrap(),
+        )
+        .unwrap();
+        let cursor = super::super::ResultCursor::new(
+            schema,
+            solve_metrics::RELATION_ID,
+            1,
+            super::super::ResultOrder::Public,
+            |request| async move {
+                let cancel = pse_columnar::CancellationToken::new();
+                let mut rows = super::super::result_export::Rows::<solve_metrics::Row>::new(
+                    &request,
+                    registry,
+                    &pool,
+                    &cancel,
+                    &validation,
+                )
+                .map_err(|error| Arc::new(super::super::relation(error)))?;
+                rows.push(solve_metrics::Row {
+                    run_id: pse_operations::mint_id(),
+                    step: 0,
+                    namespace: "independent".into(),
+                    name: "prefix".into(),
+                    kind: NativeMetricKind::Real,
+                    real: Some(-0.0),
+                    integer: None,
+                    boolean: None,
+                    text: None,
+                    unavailable: None,
+                })
+                .await
+                .map_err(|error| Arc::new(super::super::relation(error)))?;
+                Err(Arc::new(contract(
+                    "deliberate producer failure after one acknowledged chunk",
+                )))
+            },
+        )
+        .unwrap();
+        let failure = super::super::result_projection::store_result_table(
+            &operations.store,
+            &fence,
+            solve_metrics::RELATION_ID,
+            cursor,
+            &operations.pool,
+        )
+        .await
+        .unwrap_err();
+        assert!(failure.to_string().contains("deliberate producer failure"));
+        assert_eq!(
+            pse_operations::testing::pending_result_batch_rows(
+                &operations.store,
+                &fence,
+                &solve_metrics::RELATION_ID.to_string(),
+                0
+            )
+            .await
+            .unwrap(),
+            Some(1)
+        );
+        let outcome = infrastructure(&failure);
+        let attempt_id = pse_operations::mint_id();
+        let mut attempt = DurableAttempt::claimed(
+            &operations,
+            fence.clone(),
+            pse_operations::mint_id(),
+            attempt_id,
+        );
+        attempt.stream.finish().await.unwrap();
+        let stored = StoredCompletion {
+            version: 1,
+            attempt_id,
+            completion: None,
+            termination: outcome.detail.clone(),
+            state: outcome.state,
+        };
+        assert!(attempt.terminate(&outcome, &stored, false).await.is_err());
+        let retained = operations
+            .store
+            .canonical_attempt(fence.attempt())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(!retained.ingestion_open);
+        assert!(!retained.terminal);
+        assert!(retained.closed_manifest.is_none());
+        assert!(
+            operations
+                .store
+                .read_results(fence.run(), fence.attempt(), Duration::from_secs(60))
+                .await
+                .is_err()
+        );
     }
     #[tokio::test]
     async fn canonical_seed_chunks_exact_ieee_bits_and_accounted_join() {

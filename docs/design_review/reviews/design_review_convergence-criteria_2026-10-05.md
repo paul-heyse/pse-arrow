@@ -40,7 +40,7 @@ The existing Plan 25k campaign observations are historical evidence, not qualifi
 a revised policy. Independent read-only reviewer advice agrees with the scale distinction,
 central ownership and separation of engineering accuracy from verification accuracy.
 Whole-system qualification, unrelated solver defects and a comprehensive audit of every
-scientific fixture are excluded. [Plan 25k](../../plans/25k-integrated-qualification-and-closure.md)
+scientific fixture are excluded. [Plan 25k](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25k-integrated-qualification-and-closure.md)
 owns adoption, disposition and subsequent execution.
 
 ## Findings and causes

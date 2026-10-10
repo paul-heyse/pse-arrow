@@ -303,7 +303,7 @@ impl ModelingPackage {
                 .resolve_contract_with_evidence(
                     &self.quantities,
                     &BTreeMap::new(),
-                    &pse_quantity::infer::NoInvariantFacts,
+                    self.physical.preconditions.as_ref(),
                 )
                 .map_err(|cause| {
                     let mut diagnostic =
@@ -423,7 +423,7 @@ impl ModelingPackage {
                                 .resolve_contract_with_evidence(
                                     &self.quantities,
                                     &BTreeMap::new(),
-                                    &pse_quantity::infer::NoInvariantFacts,
+                                    self.physical.preconditions.as_ref(),
                                 )
                                 .ok()
                         })

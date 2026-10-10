@@ -57,7 +57,7 @@ The shared contract removes executor-dependent scientific policy and makes occur
 
 ## More information
 
-[Plan 25f](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25f-studies-diagnostics-and-continuation.md), [series coordinator](../plans/25-design-remediation.md), ADR-0146 and the domain-alignment reviews.
+[Plan 25f](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25f-studies-diagnostics-and-continuation.md), [series coordinator](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25-design-remediation.md), ADR-0146 and the domain-alignment reviews.
 
 ## Status history
 

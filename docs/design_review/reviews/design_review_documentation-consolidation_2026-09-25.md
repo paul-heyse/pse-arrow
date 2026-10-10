@@ -6,7 +6,7 @@
 |---|---|
 | Subject and boundary | [ADR-0096](../../adr/0096-current-rationale-and-selective-retirement.md) (proposed) and its tooling: `scripts/adr.py` (`review_error`, `relocated_review`, `unrelocate_links`, `supersession_errors`, `lint_highest_issued`, `lint_immutability`), `scripts/check_register.py` (empty register valid), `DecisionRecordTests` in `scripts/tests/test_setup.py`. Neighbors read: `docs/adr/register.md`, the `plan` recipe, the governance workflow checkout depth. |
 | Standard | Core 3.0 (AP-01–AP-06, DP-01, DP-22, DP-24; G5, G7, G9); binding pse-arrow. Process-simulator profile 1.1 not applied: no physical, numerical or solver meaning is in scope. |
-| Tier / purpose | Change tier; conformance to the target the maintainer already selected in [Plan 19](../../plans/19-current-documentation-consolidation.md) *Decisions*. That target is not reopened. |
+| Tier / purpose | Change tier; conformance to the target the maintainer already selected in [Plan 19](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/19-current-documentation-consolidation.md) *Decisions*. That target is not reopened. |
 | Reviewer / date | Agent review requested by the maintainer's session, 2026-09-26; separate from the implementing edits, not an independent human review. |
 | Decisions | Behavioral adequacy: **not adequate** (G5, G7). Architectural fitness: **fit, with one narrow AP-04 violation** (C3). Overall: **Revise** (§12). |
 | Disposition owner | Plan 19 *Finding dispositions* (packet MD01). |

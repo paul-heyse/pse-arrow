@@ -66,3 +66,8 @@ Use focused source inspection and relevant tests for implementation claims. Ordi
 changes need documentation edits only when the enduring explanation or contract changes.
 Do not add source-proof manifests, exhaustive symbol maps or routine product qualification
 as prerequisites to documentation changes.
+
+Lifecycle metadata and native scope bindings are maintained alongside content through
+`docs/lifecycle.toml` and the [documentation guide](../../docs/dev/documentation.md#metadata-and-aggregate-scope).
+Multiple plans can remain active; aggregate scope is derived from their native owners.
+Publication selects assets explicitly and does not determine whether source evidence can retire.

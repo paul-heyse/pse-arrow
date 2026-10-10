@@ -21,6 +21,13 @@ from scripts import native_tests, python_tests, surreal_server, test_resources, 
 
 class Plan30RoutingTests(unittest.TestCase):
     def setUp(self) -> None:
+        composition = patch.object(
+            native_tests,
+            "correctness_command",
+            side_effect=lambda command, _environment: command,
+        )
+        composition.start()
+        self.addCleanup(composition.stop)
         scratch = tempfile.TemporaryDirectory()
         self.addCleanup(scratch.cleanup)
         self.root = Path(scratch.name)
@@ -181,7 +188,7 @@ class Plan30RoutingTests(unittest.TestCase):
         }
         order: list[str] = []
 
-        def prepare(*_args: object) -> tuple[list[str], Path]:
+        def prepare(*_args: object, **_kwargs: object) -> tuple[list[str], Path]:
             order.append("prepare")
             return execution, self.worker
 
@@ -215,6 +222,99 @@ class Plan30RoutingTests(unittest.TestCase):
             test_resources.read_invocation(self.invocation)["terminal_owner"],
             "assessment",
         )
+
+    def test_native_local_capture_owns_exact_binaries_without_worker(self) -> None:
+        results = [
+            subprocess.CompletedProcess([], 0, '{"rust-binaries": {}}'),
+            subprocess.CompletedProcess([], 0, '{"workspace_root": "/checkout"}'),
+            subprocess.CompletedProcess([], 0, json.dumps(self.inventory)),
+        ]
+        with (
+            patch.object(
+                native_tests,
+                "worker_binary",
+                side_effect=AssertionError("local built worker"),
+            ),
+            patch.object(native_tests.subprocess, "run", side_effect=results),
+            patch.object(native_tests, "observe_deployed_artifacts"),
+            patch.object(
+                native_tests, "native_provenance", return_value={"files": {}}
+            ) as provenance,
+        ):
+            execution, worker = native_tests.ordinary_rust_capture(
+                [
+                    "cargo",
+                    "nextest",
+                    "run",
+                    "-p",
+                    "pse-backend-native",
+                    "-E",
+                    "test(chosen)",
+                ],
+                self.provenance,
+                self.selection,
+                {},
+                effects="native-local",
+            )
+        self.assertIsNone(worker)
+        self.assertEqual(provenance.call_args.args[1], [str(self.binary)])
+        self.assertIn("test(chosen)", execution)
+        self.assertNotIn(
+            "PSE_WORKER_BINARY", provenance.call_args.kwargs["environment"]
+        )
+
+    def test_native_local_runner_bypasses_observer_and_finalizes_exact_selection(
+        self,
+    ) -> None:
+        self.declaration("runner")
+        with (
+            patch.object(test_run.subprocess, "call", return_value=0) as execution,
+            patch.object(test_run.validation, "compose_terminal"),
+            patch.object(test_run, "finish", return_value=True) as finish,
+            patch.object(
+                surreal_server,
+                "observer",
+                side_effect=AssertionError("local entered observer"),
+            ),
+        ):
+            self.assertEqual(
+                test_run.run_rust(
+                    ["cargo", "nextest", "run", "--binaries-metadata", "retained"],
+                    env={
+                        test_resources.MARKER: str(self.invocation),
+                        "PSE_RUST_TERMINAL_OWNER": "runner",
+                        "PSE_NATIVE_OPERATION": "/owned/operation",
+                        "PSE_SURREAL_STATE": "/unrelated/state",
+                        "PSE_WORKER_BINARY": "/unrelated/worker",
+                    },
+                    inventory=self.inventory,
+                    effects="native-local",
+                ),
+                0,
+            )
+        self.assertEqual(finish.call_args.args[0], self.invocation)
+        self.assertEqual(
+            finish.call_args.args[1]["selected"],
+            [{"class": "pse-runtime::lib", "name": "chosen"}],
+        )
+        environment = execution.call_args.kwargs["env"]
+        self.assertNotIn("PSE_SURREAL_STATE", environment)
+        self.assertNotIn("PSE_WORKER_BINARY", environment)
+        self.assertEqual(environment[test_run.EXECUTION_EFFECTS], "native-local")
+
+    def test_native_local_canonical_effect_refuses_before_admission(self) -> None:
+        with (
+            patch.dict(os.environ, {test_run.EXECUTION_EFFECTS: "native-local"}),
+            patch.object(
+                test_resources,
+                "selected_test",
+                side_effect=AssertionError("fixture admitted"),
+            ),
+            self.assertRaisesRegex(
+                test_resources.ResourceError, "execution-effects canonical"
+            ),
+        ):
+            test_resources.register({})
 
     def test_observer_child_verifies_artifacts_without_building(self) -> None:
         execution, _ = self.capture(

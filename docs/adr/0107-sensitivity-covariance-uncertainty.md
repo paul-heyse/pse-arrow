@@ -14,7 +14,7 @@ superseded-by: ADR-0118
 revisit: The S1 API verification finds that neither pounce-sensitivity 0.12.0 nor pounce-sens-core composes with the FERAL factory and the presolve back-map, or sensitivity_agrees_with_ipopt_sens fails beyond its declared tolerance.
 verification: Review scenario S02 and architecture scenario S13, settled by the Plan 22 S1–S4 tests sensitivity_matches_analytic_nlp, sensitivity_withheld_when_sosc_fails, sensitivity_agrees_with_ipopt_sens (parity-container oracle), ipopt_route_sensitivity_matches_pounce_route, linear_regression_covariance_analytic, unidentifiable_fit_withholds_covariance and uncertainty_propagation_linear_exact.
 standard: core-3.0/process-simulator-1.1
-scenarios: [docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s02, docs/plans/22-solver-capabilities-architecture.md#s13]
+scenarios: [docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s02, https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s13]
 ---
 
 # ADR-0107: Admit parametric sensitivity, covariance and uncertainty propagation under PS-12 validity
@@ -111,7 +111,7 @@ approximation that must be labelled.
 
 ## More information
 
-- Architecture companion [§6](../plans/22-solver-capabilities-architecture.md#6-sensitivity-covariance-and-uncertainty).
+- Architecture companion [§6](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#6-sensitivity-covariance-and-uncertainty).
 - Target review [T11](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t11).
 - Capability review L-N1, S02; Plan 20 §6 (amended in D0).
 - Related: ADR-0083, ADR-0097, ADR-0103, ADR-0110. Plan 22 packets S1–S4, N4.

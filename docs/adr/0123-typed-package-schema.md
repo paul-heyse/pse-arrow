@@ -203,7 +203,7 @@ Plan 23 KR3 lists them, and the golden-vector list gains each one (DP-24).
 
 ## More information
 
-- [Plan 23](../plans/23-thermodynamic-domain-and-campaign.md) owns execution and finding dispositions.
+- [Plan 23](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/23-thermodynamic-domain-and-campaign.md) owns execution and finding dispositions.
 - The [design review](../design_review/reviews/design_review_typed-domain-model_2026-09-29.md) raised F01, F03–F05, F08 and F11–F13; this text incorporates their resolutions.
 - Related records:
   - ADR-0099: modeling language and identities; this record refines its IR shape.

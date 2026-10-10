@@ -82,7 +82,7 @@ The target makes consequential distinctions explicit and permits isolated policy
 
 ## More information
 
-[Original implementation owner](../plans/25m-integrated-solve-pipeline.md); [automatic amendment owner](../plans/25n-automatic-simulation-solve-pipeline.md); [source review](../design_review/reviews/design_review_integrated-solve-pipeline_2026-10-03.md).
+[Original implementation owner](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25m-integrated-solve-pipeline.md); [automatic amendment owner](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25n-automatic-simulation-solve-pipeline.md); [source review](../design_review/reviews/design_review_integrated-solve-pipeline_2026-10-03.md).
 
 ## Status history
 

@@ -1181,7 +1181,16 @@ mod tests {
             matches!(&trace.products[1].provider,Some(crate::math::strategy::ProviderEvidence::Native(profile)) if profile.key==original_profile),
             "corrector retains its frozen native profile and entry policy"
         );
-        let rows = trace.rows(result.run_id, 0).unwrap();
+        let rows = trace
+            .rows(
+                result.run_id,
+                0,
+                Arc::new(datafusion::execution::memory_pool::UnboundedMemoryPool::default()),
+                0..usize::MAX,
+            )
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
         let statistical = rows
             .iter()
             .find(|row| {

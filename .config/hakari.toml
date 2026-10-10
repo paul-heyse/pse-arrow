@@ -45,8 +45,11 @@ exact-versions = false
 # adds that crate here (tests/governance every_crate_registered checks force_validate).
 [traversal-excludes]
 third-party = [
-  # `arrow/force_validate` (pse-relations/force-validate).
+  # Explicit boundary force-validate opt-ins, including every validating Arrow leaf.
   { name = "arrow" },
+  { name = "arrow-array" },
+  { name = "arrow-data" },
+  { name = "arrow-cast" },
   # native-solvers (pse-backend-native, pse-runtime, pse-py, conformance profiles).
   { name = "clarabel" },
   { name = "diffsol" },

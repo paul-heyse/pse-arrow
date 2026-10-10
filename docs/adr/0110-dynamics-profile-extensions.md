@@ -14,7 +14,7 @@ superseded-by: null
 revisit: A dynamic case needs a differential index above one, a variable-layout DAE, or reset sensitivities on the IDAS route.
 verification: Review scenario S09 and architecture scenario S14, settled by the Plan 22 Y1–Y5 tests (the PID fixture with piecewise inputs against the IDAES PETSc example), idas_events_without_sensitivities, idas_constraints_keep_positivity, idas_staggered_matches_simultaneous, sdirk_matches_bdf_on_vessel, tsit45_refuses_mass_matrix, diffsol_klu_matches_faer_lu, adjoint_gradient_equals_forward_on_transient_fit, checkpoint_memory_bounded, gauss_newton_hessian_matches_jtwj, second_order_adjoint_matches_finite_difference, nmpc_closed_loop_on_antiwindup and shooting_matches_simultaneous_optimum.
 standard: core-3.0/process-simulator-1.1
-scenarios: [docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s09, docs/plans/22-solver-capabilities-architecture.md#s14]
+scenarios: [docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s09, https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s14]
 ---
 
 # ADR-0110: Extend the dynamics profile with IDAS schedules and events, Diffsol methods, adjoint and second-order sensitivities and shooting
@@ -111,7 +111,7 @@ behaviour.
 
 ## More information
 
-- Architecture companion [§7](../plans/22-solver-capabilities-architecture.md#7-dynamics-and-root-finding-extensions).
+- Architecture companion [§7](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#7-dynamics-and-root-finding-extensions).
 - Capability review F06, F12, L-D1–L-D8, S09.
 - Related: ADR-0083, ADR-0084, ADR-0093, ADR-0107, ADR-0112. Plan 22 packets Y1–Y5.
 

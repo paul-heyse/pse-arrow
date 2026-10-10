@@ -150,7 +150,7 @@ struct TrajectorySnapshot {
     coverage: native::EndpointAssessment,
     assessment: pse_model::generated::runtime::candidate_assessments::Row,
     _owner: Arc<pse_columnar::AllocationLease>,
-    tables: Mutex<Option<Arc<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>>>>,
+    encodings: crate::workflow::result_export::EncodingState,
 }
 fn trajectory_diagnostic_report_allocation_bound(
     policy: pse_backend_native::derivative_diagnostics::Policy,
@@ -442,7 +442,7 @@ impl ModelingSimulation {
                 coverage,
                 assessment,
                 _owner: owner,
-                tables: Mutex::new(None),
+                encodings: crate::workflow::result_export::EncodingState::default(),
             }),
         })
     }
@@ -740,7 +740,7 @@ impl ModelingSimulation {
                 coverage,
                 assessment,
                 _owner: owner,
-                tables: Mutex::new(None),
+                encodings: crate::workflow::result_export::EncodingState::default(),
             }),
         })
     }
@@ -1689,6 +1689,7 @@ impl ModelingPackage {
             &mut targets,
             model.solved().lineage(),
             &self.quantities,
+            &self.physical.preconditions,
             &mut declarations,
             &mut profile.numerics,
         )?;
@@ -1708,6 +1709,7 @@ impl ModelingPackage {
         let numerics = Arc::new(
             pse_math::numerics::resolve(
                 &self.quantities,
+                &self.physical.preconditions,
                 &targets,
                 &declarations,
                 &profile.numerics,
@@ -3047,16 +3049,37 @@ mod tests {
                 pse_model::generated::enums::NativeQualification::Feasible
             );
             assert!(trajectory.diagnostic().is_none());
-            assert!(trajectory.inner.tables.lock().unwrap().is_none());
+            assert!(
+                trajectory
+                    .inner
+                    .encodings
+                    .failure(pse_relations::generated::runtime::simulation_samples::RELATION_ID)
+                    .is_none()
+            );
             let pool = runtime.shared.pool();
             let before = pool.reserved();
             let pressure = MemoryConsumer::new("test:trajectory-pressure").register(&pool);
             pressure
                 .try_grow(runtime.shared.budget().memory_limit_bytes.get() - before)
                 .unwrap();
+            assert!(
+                result
+                    .table_names()
+                    .contains(&"runtime.simulation_samples".to_owned())
+            );
+            assert_eq!(
+                pool.reserved(),
+                runtime.shared.budget().memory_limit_bytes.get()
+            );
             assert!(trajectory.tables().is_err());
             assert!(result.tables().is_err());
-            assert!(trajectory.inner.tables.lock().unwrap().is_none());
+            assert!(
+                trajectory
+                    .inner
+                    .encodings
+                    .failure(pse_relations::generated::runtime::simulation_samples::RELATION_ID)
+                    .is_none()
+            );
             drop(pressure);
             assert_eq!(pool.reserved(), before);
             let maps = std::thread::scope(|scope| {
@@ -3067,11 +3090,18 @@ mod tests {
                     .map(|thread| thread.join().unwrap())
                     .collect::<Vec<_>>()
             });
-            assert!(maps.iter().all(|m| Arc::ptr_eq(m, &maps[0])));
-            assert!(Arc::ptr_eq(&maps[0], &cloned.tables().unwrap()));
+            let mut first = trajectory
+                .table_cursor("runtime.simulation_samples", 1)
+                .unwrap();
+            let mut second = cloned
+                .table_cursor("runtime.simulation_samples", 2)
+                .unwrap();
+            assert_eq!(first.next_chunk().unwrap().unwrap().batch().num_rows(), 1);
+            assert!(second.next_chunk().unwrap().unwrap().batch().num_rows() <= 2);
+            drop((first, second));
             assert!(
-                result.tables().is_err(),
-                "outer RunResult retains its failed encoding"
+                result.table("runtime.simulation_samples").is_ok(),
+                "allocation refusal is local to the failed request"
             );
             // Equal supplied identities do not make distinct attempts share mutable transport.
             let ((other_report, other_checks, other_accuracy), other_owner) = prepared
@@ -3091,7 +3121,10 @@ mod tests {
                 .unwrap();
             assert_eq!(other.run_id(), trajectory.run_id());
             assert!(!Arc::ptr_eq(&other.inner, &trajectory.inner));
-            assert!(!Arc::ptr_eq(&other.tables().unwrap(), &maps[0]));
+            assert_eq!(
+                other.tables().unwrap().keys().collect::<Vec<_>>(),
+                maps[0].keys().collect::<Vec<_>>()
+            );
             use pse_relations::{columnar::RelationRow, generated::runtime::candidate_assessments};
             assert_eq!(
                 candidate_assessments::Row::rows(&maps[0][&candidate_assessments::RELATION_ID])
@@ -3273,9 +3306,11 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let allowance =
             pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction;
-        let mut methods = vec![native::Method::Diffsol];
-        #[cfg(feature = "solver-idas")]
-        methods.push(native::Method::Idas);
+        let methods = vec![
+            native::Method::Diffsol,
+            #[cfg(feature = "solver-idas")]
+            native::Method::Idas,
+        ];
         for method in methods {
             for (endpoint, integral, accepted) in [
                 (
@@ -3431,9 +3466,11 @@ mod tests {
         let physical = physical();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
-        let mut methods = vec![native::Method::Diffsol];
-        #[cfg(feature = "solver-idas")]
-        methods.push(native::Method::Idas);
+        let methods = vec![
+            native::Method::Diffsol,
+            #[cfg(feature = "solver-idas")]
+            native::Method::Idas,
+        ];
         for method in methods {
             let source = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 0.5; var x[i in t]: Time; conserve stock[i in t]: Time on t inventory x[i] flux p tolerance 1e-6{s}; eq initial: x[0{s}] == 1{s}; } }";
             let rows = pse_authoring::language::parse(
@@ -3533,9 +3570,11 @@ mod tests {
         let physical = physical();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
-        let mut methods = vec![native::Method::Diffsol];
-        #[cfg(feature = "solver-idas")]
-        methods.push(native::Method::Idas);
+        let methods = vec![
+            native::Method::Diffsol,
+            #[cfg(feature = "solver-idas")]
+            native::Method::Idas,
+        ];
         for method in methods {
             for (flux, closes) in [("p*exp(x[i]/1{s})", true), ("0", false)] {
                 // Diffsol's original nonlinear flux quadrature has about 3.6e-6 s error
@@ -3635,9 +3674,11 @@ mod tests {
     {
         let runtime = super::super::super::tests::runtime();
         let cancel = crate::CancelSource::new();
-        let mut methods = vec![native::Method::Diffsol];
-        #[cfg(feature = "solver-idas")]
-        methods.push(native::Method::Idas);
+        let methods = vec![
+            native::Method::Diffsol,
+            #[cfg(feature = "solver-idas")]
+            native::Method::Idas,
+        ];
         for method in methods {
             for initial_y_value in [Some(2), Some(4), None] {
                 let initial_y = initial_y_value
@@ -3789,9 +3830,11 @@ mod tests {
             .map(|row| row.declaration_id)
             .collect::<BTreeSet<_>>();
         let package = runtime.modeling_package(rows, physical()).await.unwrap();
-        let mut methods = vec![native::Method::Diffsol];
-        #[cfg(feature = "solver-idas")]
-        methods.push(native::Method::Idas);
+        let methods = vec![
+            native::Method::Diffsol,
+            #[cfg(feature = "solver-idas")]
+            native::Method::Idas,
+        ];
         for method in methods {
             let prepared = package
                 .prepare_simulation(
@@ -3879,9 +3922,11 @@ mod tests {
         let physical = physical();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
-        let mut methods = vec![native::Method::Diffsol];
-        #[cfg(feature = "solver-idas")]
-        methods.push(native::Method::Idas);
+        let methods = vec![
+            native::Method::Diffsol,
+            #[cfg(feature = "solver-idas")]
+            native::Method::Idas,
+        ];
         for method in methods {
             for (expression, matches, guard_matches) in [
                 ("x[i]", true, true),
@@ -4188,9 +4233,11 @@ mod tests {
             .unwrap()
             .declaration_id;
         let package = runtime.modeling_package(rows, physical).await.unwrap();
-        let mut methods = vec![native::Method::Diffsol];
-        #[cfg(feature = "solver-idas")]
-        methods.push(native::Method::Idas);
+        let methods = vec![
+            native::Method::Diffsol,
+            #[cfg(feature = "solver-idas")]
+            native::Method::Idas,
+        ];
         for method in methods {
             let prepared = package
                 .declared_simulation(
@@ -5634,9 +5681,11 @@ mod tests {
         let y_declaration = rows.iter().find(|r| r.name == "y").unwrap().declaration_id;
         let package = runtime.modeling_package(rows, physical).await.unwrap();
         let cancel = crate::CancelSource::new();
-        let mut methods = vec![native::Method::Diffsol];
-        #[cfg(feature = "solver-idas")]
-        methods.push(native::Method::Idas);
+        let methods = vec![
+            native::Method::Diffsol,
+            #[cfg(feature = "solver-idas")]
+            native::Method::Idas,
+        ];
         for method in methods {
             let profile = native::Profile {
                 method,

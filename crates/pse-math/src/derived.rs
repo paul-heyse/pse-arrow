@@ -3108,7 +3108,7 @@ mod tests {
                     checked_members: Default::default(),
                     instance: id(4),
                     body: hash(40),
-                    slots: vec![SlotBinding::new(&port(1), &port(1), &registry).unwrap()],
+                    slots: (vec![SlotBinding::new(&port(1), &port(1), &registry).unwrap()]).into(),
                     contributions: vec![Contribution {
                         output: 0,
                         target: Target::Row(id(2)),

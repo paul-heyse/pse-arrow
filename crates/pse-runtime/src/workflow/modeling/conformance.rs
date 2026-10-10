@@ -2130,6 +2130,7 @@ impl ModelingPackage {
         targets.extend(resolution.numerical.targets.clone());
         let numerics = pse_math::numerics::resolve(
             &self.quantities,
+            &self.physical.preconditions,
             &targets,
             &resolution.numerical.declarations,
             &resolution.solver.numerics,

@@ -1,0 +1,42 @@
+{
+ "i-baseline.md": {
+  "S1-status-vs-new-row": {
+   "exit_code_conflicts": 0,
+   "conflict_markers": 0
+  },
+  "S2-two-new-rows": {
+   "exit_code_conflicts": 1,
+   "conflict_markers": 1
+  }
+ },
+ "ii-simple.md": {
+  "S1-status-vs-new-row": {
+   "exit_code_conflicts": 0,
+   "conflict_markers": 0
+  },
+  "S2-two-new-rows": {
+   "exit_code_conflicts": 1,
+   "conflict_markers": 1
+  }
+ },
+ "iii-typed.md": {
+  "S1-status-vs-new-row": {
+   "exit_code_conflicts": 0,
+   "conflict_markers": 0
+  },
+  "S2-two-new-rows": {
+   "exit_code_conflicts": 1,
+   "conflict_markers": 1
+  }
+ },
+ "iv-canonical.yaml": {
+  "S1-status-vs-new-row": {
+   "exit_code_conflicts": 0,
+   "conflict_markers": 0
+  },
+  "S2-two-new-rows": {
+   "exit_code_conflicts": 1,
+   "conflict_markers": 1
+  }
+ }
+}

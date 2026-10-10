@@ -127,10 +127,6 @@ pub enum FactBatch {
     r#RuntimeCanonicalAnalysisNodes(
         Vec<super::r#runtime::r#canonical_analysis_nodes::Row>,
     ),
-    #[doc = stringify!(r#RuntimeCanonicalAnalysisRetirements)]
-    r#RuntimeCanonicalAnalysisRetirements(
-        Vec<super::r#runtime::r#canonical_analysis_retirements::Row>,
-    ),
     #[doc = stringify!(r#RuntimeCanonicalAttempts)]
     r#RuntimeCanonicalAttempts(Vec<super::r#runtime::r#canonical_attempts::Row>),
     #[doc = stringify!(r#RuntimeCanonicalEdges)]
@@ -662,12 +658,6 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     201u8, 193u8, 84u8, 48u8, 43u8, 252u8, 226u8, 154u8, 109u8, 72u8,
                     73u8, 145u8, 20u8, 195u8, 186u8, 232u8,
-                ])
-            }
-            Self::r#RuntimeCanonicalAnalysisRetirements(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    113u8, 29u8, 215u8, 6u8, 224u8, 156u8, 165u8, 88u8, 241u8, 174u8,
-                    127u8, 172u8, 82u8, 149u8, 4u8, 88u8,
                 ])
             }
             Self::r#RuntimeCanonicalAttempts(_) => {
@@ -1242,7 +1232,6 @@ impl FactBatch {
             Self::r#RuntimeCanonicalAnalysisEdges(rows) => rows.len(),
             Self::r#RuntimeCanonicalAnalysisInputs(rows) => rows.len(),
             Self::r#RuntimeCanonicalAnalysisNodes(rows) => rows.len(),
-            Self::r#RuntimeCanonicalAnalysisRetirements(rows) => rows.len(),
             Self::r#RuntimeCanonicalAttempts(rows) => rows.len(),
             Self::r#RuntimeCanonicalEdges(rows) => rows.len(),
             Self::r#RuntimeCanonicalExecutionOperations(rows) => rows.len(),
@@ -1592,11 +1581,6 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeCanonicalAnalysisNodes(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#RuntimeCanonicalAnalysisRetirements(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2236,12 +2220,6 @@ impl FactBatch {
             Self::r#RuntimeCanonicalAnalysisNodes(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeCanonicalAnalysisNodes(vec![row.clone()]))
-            }
-            Self::r#RuntimeCanonicalAnalysisRetirements(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#RuntimeCanonicalAnalysisRetirements(
-                        vec![row.clone()],
-                    ))
             }
             Self::r#RuntimeCanonicalAttempts(rows) => {
                 rows.get(index)
@@ -3132,17 +3110,6 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalAnalysisNodes(left),
                 Self::r#RuntimeCanonicalAnalysisNodes(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#RuntimeCanonicalAnalysisRetirements(left),
-                Self::r#RuntimeCanonicalAnalysisRetirements(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -4427,13 +4394,6 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
-            Self::r#RuntimeCanonicalAnalysisRetirements(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
             Self::r#RuntimeCanonicalAttempts(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -5687,17 +5647,6 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalAnalysisNodes(left),
                 Self::r#RuntimeCanonicalAnalysisNodes(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#RuntimeCanonicalAnalysisRetirements(left),
-                Self::r#RuntimeCanonicalAnalysisRetirements(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -7180,10 +7129,6 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
-            Self::r#RuntimeCanonicalAnalysisRetirements(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#key, &mut hash);
-            }
             Self::r#RuntimeCanonicalAttempts(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
@@ -7953,13 +7898,6 @@ impl FactBatch {
                 Ok(())
             }
             (
-                Self::r#RuntimeCanonicalAnalysisRetirements(left),
-                Self::r#RuntimeCanonicalAnalysisRetirements(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
                 Self::r#RuntimeCanonicalAttempts(left),
                 Self::r#RuntimeCanonicalAttempts(mut right),
             ) => {
@@ -8640,9 +8578,6 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalAnalysisNodes(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#RuntimeCanonicalAnalysisRetirements(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalAttempts(rows) => crate::HeapUsage::heap_bytes(rows),

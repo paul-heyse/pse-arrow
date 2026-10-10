@@ -14,7 +14,7 @@
 **Functional target.** A process simulator whose derived local quantities, analysis
 selections, global relaxations and convexity claims each have one owner, a typed validity
 statement and no hidden fallback. It follows the
-[Plan 22 architecture](../../plans/22-solver-capabilities-architecture.md#1-target-drivers-and-scenarios);
+[Plan 22 architecture](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#1-target-drivers-and-scenarios);
 these records add no capability beyond the plan.
 
 **Inspected.**
@@ -34,9 +34,9 @@ Scenario definitions that already exist are linked rather than restated.
 
 | ID | Scenario and conditions | Expected response and change boundary | Records |
 |---|---|---|---|
-| <a id="s01"></a>S01 | Covariance, intervals and propagated uncertainty after a steady fit ([architecture S13](../../plans/22-solver-capabilities-architecture.md#s13), [capability review S02](design_review_solver-capabilities_2026-09-27.md#s02)), on any NLP backend and with presolve on | One analysis at the qualified candidate; a validity row for every requested quantity, withheld or not; no route-specific code in fitting | ADR-0118 |
-| <a id="s02"></a>S02 | Add a backend or a QP route whose results need sensitivities, conditional duals or an advanced step ([architecture S18](../../plans/22-solver-capabilities-architecture.md#s18), [S14](../../plans/22-solver-capabilities-architecture.md#s14)) | The backend supplies an original-coordinate candidate with multipliers; nothing in the analysis changes | ADR-0118 |
-| <a id="s03"></a>S03 | Author a certified tangent-plane stability check and a PID start with scheduled inputs as fixtures ([architecture S12](../../plans/22-solver-capabilities-architecture.md#s12), [capability review S09](design_review_solver-capabilities_2026-09-27.md#s09)) | Package data only; no runtime- or Python-only inputs; the check reads a bound the step already has | ADR-0119 |
+| <a id="s01"></a>S01 | Covariance, intervals and propagated uncertainty after a steady fit ([architecture S13](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s13), [capability review S02](design_review_solver-capabilities_2026-09-27.md#s02)), on any NLP backend and with presolve on | One analysis at the qualified candidate; a validity row for every requested quantity, withheld or not; no route-specific code in fitting | ADR-0118 |
+| <a id="s02"></a>S02 | Add a backend or a QP route whose results need sensitivities, conditional duals or an advanced step ([architecture S18](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s18), [S14](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s14)) | The backend supplies an original-coordinate candidate with multipliers; nothing in the analysis changes | ADR-0118 |
+| <a id="s03"></a>S03 | Author a certified tangent-plane stability check and a PID start with scheduled inputs as fixtures ([architecture S12](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s12), [capability review S09](design_review_solver-capabilities_2026-09-27.md#s09)) | Package data only; no runtime- or Python-only inputs; the check reads a bound the step already has | ADR-0119 |
 | <a id="s04"></a>S04 | Certify a model whose provider output enters a nonlinear term | The provider declares an envelope; the export is `Relaxed`; bounds are sound because the envelope is enforced | ADR-0120 |
 | <a id="s05"></a>S05 | A convex model with exponential-cone atoms, then a value rebind that makes a quadratic indefinite | Preparation proves the cone form, and routing sends the model to Clarabel automatically; after the rebind the fact changes and routing follows | ADR-0121 |
 

@@ -21,9 +21,9 @@ use std::sync::{
     mpsc,
 };
 
-#[cfg(any(all(test, feature = "native-solvers"), feature = "canonical-tests"))]
+#[cfg(any(all(test, feature = "solver-ipopt"), feature = "canonical-tests"))]
 type NativeEntry = Arc<dyn Fn(&AtomicBool) + Send + Sync>;
-#[cfg(any(all(test, feature = "native-solvers"), feature = "canonical-tests"))]
+#[cfg(any(all(test, feature = "solver-ipopt"), feature = "canonical-tests"))]
 tokio::task_local! { static NATIVE_ENTRY: NativeEntry; }
 #[cfg(feature = "canonical-tests")]
 static RECEIVER_ENTRY: std::sync::OnceLock<NativeEntry> = std::sync::OnceLock::new();
@@ -43,7 +43,7 @@ pub fn install_qualified_native_entry(
 }
 /// Observe actual admitted native session entries for composition controls. The
 /// callback crosses into the owner thread; it must cooperate with the stop flag.
-#[cfg(any(all(test, feature = "native-solvers"), feature = "canonical-tests"))]
+#[cfg(any(all(test, feature = "solver-ipopt"), feature = "canonical-tests"))]
 #[doc(hidden)]
 #[cfg_attr(
     not(feature = "canonical-tests"),
@@ -656,7 +656,7 @@ impl NativeSession {
             permits,
             tokio::runtime::Handle::current(),
         );
-        #[cfg(any(all(test, feature = "native-solvers"), feature = "canonical-tests"))]
+        #[cfg(any(all(test, feature = "solver-ipopt"), feature = "canonical-tests"))]
         let entry = NATIVE_ENTRY.try_with(Arc::clone).ok();
         #[cfg(feature = "canonical-tests")]
         let entry = entry.or_else(|| RECEIVER_ENTRY.get().cloned());
@@ -668,7 +668,7 @@ impl NativeSession {
                     Ok(retained) => {
                         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                             #[cfg(any(
-                                all(test, feature = "native-solvers"),
+                                all(test, feature = "solver-ipopt"),
                                 feature = "canonical-tests"
                             ))]
                             if let Some(entry) = entry {

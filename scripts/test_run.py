@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 ROOT = Path(__file__).resolve().parents[1]
 RUST_OBSERVER = "PSE_RUST_OBSERVER_CHILD"
+EXECUTION_EFFECTS = "PSE_TEST_EXECUTION_EFFECTS"
 
 
 def rust_selected(inventory: Mapping[str, object]) -> list[dict[str, str]]:
@@ -126,17 +127,29 @@ def run_rust(
     *,
     env: Mapping[str, str] | None = None,
     inventory: Mapping[str, object] | None = None,
+    effects: str = "canonical",
 ) -> int:
     # Preparation and terminal execution call each other; defer symbol binding.
     from scripts.native_tests import rust_test_environment  # noqa: PLC0415
 
     environment = rust_test_environment(os.environ if env is None else env)
+    if effects not in {"canonical", "native-local"}:
+        raise ValueError("Unknown Rust execution effects")
+    environment[EXECUTION_EFFECTS] = effects
+    if effects == "native-local":
+        # Local execution cannot accidentally inherit canonical fixture authority.
+        for name in (
+            "PSE_SURREAL_STATE",
+            "PSE_WORKER_BINARY",
+            "PSE_TEST_EXECUTION_PROFILE",
+        ):
+            environment.pop(name, None)
     if (
         environment.get("PSE_NATIVE_OPERATION")
         and environment.get(RUST_OBSERVER) != "1"
         and "--binaries-metadata" not in command
     ):
-        return observer_rust(list(command), environment)
+        return observer_rust(list(command), environment, effects=effects)
     inherited = environment.get(resources.MARKER)
     run = list(command)
     position = run.index("run")
@@ -234,7 +247,9 @@ def run_rust(
     return code or int(check["status"] != "passed")
 
 
-def observer_rust(command: list[str], environment: dict[str, str]) -> int:
+def observer_rust(
+    command: list[str], environment: dict[str, str], *, effects: str = "canonical"
+) -> int:
     """Prepare exact artifacts before the scientific observer's process cap."""
     from scripts import (  # noqa: PLC0415 -- runner cycle
         native_operation,
@@ -255,9 +270,23 @@ def observer_rust(command: list[str], environment: dict[str, str]) -> int:
         )
     ).resolve()
     execution, worker = native_tests.ordinary_rust_capture(
-        command, provenance, selection, environment
+        command, provenance, selection, environment, effects=effects
     )
     inventory = validation_receipts.native_inventory(selection.read_text())
+    if effects == "native-local":
+        validation_receipts.verify_native(json.loads(provenance.read_text()))
+        return run_rust(
+            ["cargo", "nextest", "run", *execution],
+            env={
+                **environment,
+                "PSE_NATIVE_PROVENANCE": str(provenance),
+                "PSE_NATIVE_SELECTION": str(selection),
+            },
+            inventory=inventory,
+            effects=effects,
+        )
+    if worker is None:
+        raise resources.ResourceError("Canonical execution requires its worker")
     selected = rust_selected(inventory)
     inherited = environment.get(resources.MARKER)
     if inherited:

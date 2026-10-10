@@ -13,11 +13,20 @@ pub struct RuntimeCanonicalGuardsRow {
     pub r#key: String,
     ///generation
     pub r#generation: u64,
+    ///incarnation
+    pub r#incarnation: Option<String>,
+    ///analysis_creation_closed_through
+    pub r#analysis_creation_closed_through: Option<u64>,
 }
 impl crate::SemanticEq for RuntimeCanonicalGuardsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#key, &other.r#key)
             && crate::SemanticEq::semantic_eq(&self.r#generation, &other.r#generation)
+            && crate::SemanticEq::semantic_eq(&self.r#incarnation, &other.r#incarnation)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#analysis_creation_closed_through,
+                &other.r#analysis_creation_closed_through,
+            )
     }
 }
 impl PartialEq for RuntimeCanonicalGuardsRow {
@@ -33,6 +42,10 @@ impl crate::SemanticFrame for RuntimeCanonicalGuardsRow {
         crate::SemanticFrame::frame(&self.r#key, hash);
         hash.str(stringify!(r#generation));
         crate::SemanticFrame::frame(&self.r#generation, hash);
+        hash.str(stringify!(r#incarnation));
+        crate::SemanticFrame::frame(&self.r#incarnation, hash);
+        hash.str(stringify!(r#analysis_creation_closed_through));
+        crate::SemanticFrame::frame(&self.r#analysis_creation_closed_through, hash);
     }
 }
 impl crate::HeapUsage for RuntimeCanonicalGuardsRow {
@@ -40,5 +53,9 @@ impl crate::HeapUsage for RuntimeCanonicalGuardsRow {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#key))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#generation))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#incarnation))
+            .saturating_add(
+                crate::HeapUsage::heap_bytes(&self.r#analysis_creation_closed_through),
+            )
     }
 }

@@ -461,9 +461,11 @@ async fn gauss_newton_fit_admits_transient() {
 /// forward sensitivities once for rank at its candidate (PS-12).
 #[tokio::test]
 async fn adjoint_gradient_equals_forward_on_transient_fit() {
-    let mut methods = vec![native::dynamics::Method::Diffsol];
-    #[cfg(feature = "solver-idas")]
-    methods.push(native::dynamics::Method::Idas);
+    let methods = [
+        native::dynamics::Method::Diffsol,
+        #[cfg(feature = "solver-idas")]
+        native::dynamics::Method::Idas,
+    ];
     for (method, scheduled) in methods.into_iter().flat_map(|m| [(m, false), (m, true)]) {
         let (package, mut profile) = source(true, 73.).await;
         profile
@@ -2029,4 +2031,329 @@ async fn fitting_and_dynamic_diagnostic_construction_use_source_under_generous_c
         .await
         .unwrap();
     assert!(report.complete && report.passed(), "{}", report.summary());
+}
+
+/// Fresh affine fixtures exercise sparse matching independently of the integration work:
+/// repeated source observations stay distinct, excluded missing rows have no contributions,
+/// and the same free parameter accumulates transient and steady objective addends.
+#[tokio::test]
+async fn prepared_fitting_relationships_preserve_mixed_gradients_and_rank_upgrade() {
+    for repeats in [1, 7, 31] {
+        for derivatives in [FitDerivatives::Responses, FitDerivatives::Gradient] {
+            let (package, mut profile) = source(true, 73.).await;
+            profile.derivatives = derivatives;
+            for simulation in profile.simulations.values_mut() {
+                simulation.method = native::dynamics::Method::Diffsol;
+            }
+            let (mut problem, assessments) = package
+                .prepare_fit_problem(
+                    FitId::from(id(73)),
+                    profile,
+                    compiler_profile(),
+                    Default::default(),
+                    &crate::CancelSource::new(),
+                )
+                .await
+                .unwrap();
+            let transient = problem.measurements[0].clone();
+            let steady = problem.measurements[1].clone();
+            problem.measurements.clear();
+            for repeat in 0..repeats {
+                let mut a = transient.clone();
+                a.importance = 2.;
+                a.sigma = Some(2.);
+                problem.measurements.push(a);
+                problem.measurements.push(steady.clone());
+                let mut excluded = transient.clone();
+                excluded.included = false;
+                excluded.value = None;
+                excluded.sigma = None;
+                excluded.sample_index = None;
+                // An excluded row is never dereferenced by the prepared oracle mapping.
+                excluded.row = usize::MAX;
+                problem.measurements.push(excluded);
+                let mut initial = transient.clone();
+                initial.time = Some(160.);
+                initial.sample_index = Some(0);
+                initial.value = Some(69. + repeat as f64);
+                problem.measurements.push(initial);
+            }
+            for (i, measurement) in problem.measurements.iter_mut().enumerate() {
+                measurement.id = id(100 + i as u8);
+            }
+            problem.layout = Arc::new(
+                sparse::Layout::new(
+                    &problem.experiments,
+                    &problem.measurements,
+                    &problem.parameter_columns,
+                    problem.contract.rows.len(),
+                    problem.contract.variables.len(),
+                    DerivativeOrder::First,
+                    problem.profile.max_cells,
+                )
+                .unwrap(),
+            );
+            assert_eq!(
+                problem.layout.mappings[0].observations,
+                (0..repeats)
+                    .flat_map(|i| [4 * i, 4 * i + 3])
+                    .collect::<Vec<_>>()
+            );
+            assert_eq!(
+                problem.layout.mappings[1].observations,
+                (0..repeats).map(|i| 4 * i + 1).collect::<Vec<_>>()
+            );
+            assert_eq!(problem.layout.mappings[0].responses.len(), 2 * repeats);
+            let allowances = affine_output_allowances(&problem, &assessments);
+            with_admitted_fit_oracle(problem.into(), move |oracle| {
+                let x = 2.5;
+                let mut expected_objective = 0.;
+                let mut expected_gradient = 0.;
+                let mut objective_allowance = 0.;
+                let mut gradient_allowance = 0.;
+                let problem = oracle.prepared.clone();
+                let expected = |i: usize| match i % 4 {
+                    0 => (71. + x, 1.),
+                    1 => (x, 1.),
+                    2 => (0., 0.),
+                    _ => (70., 0.),
+                };
+                for (i, observation) in problem.measurements.iter().enumerate() {
+                    if !observation.included {
+                        continue;
+                    }
+                    let (prediction, slope) = expected(i);
+                    let residual = prediction - observation.value.unwrap();
+                    let weight = observation.importance / observation.sigma.unwrap().powi(2);
+                    let allowance = allowances[i];
+                    expected_objective += 0.5 * weight * residual.powi(2);
+                    expected_gradient += weight * residual * slope;
+                    objective_allowance +=
+                        weight * (residual.abs() * allowance + 0.5 * allowance.powi(2));
+                    gradient_allowance += weight
+                        * (residual.abs() * allowance + slope * allowance + allowance.powi(2));
+                }
+                assert_action(
+                    oracle.objective(&[x]).unwrap(),
+                    expected_objective,
+                    objective_allowance,
+                );
+                let mut gradient = [0.];
+                oracle.gradient(&[x], &mut gradient).unwrap();
+                assert_action(gradient[0], expected_gradient, gradient_allowance);
+                let passes = oracle.transient_passes;
+                // Rank must upgrade a gradient-only fit and independently re-evaluate
+                // forward responses at the same candidate, rather than retaining zeros.
+                let diagnostic = oracle.response_rank(&[x]).unwrap();
+                assert_eq!(diagnostic.rank, 1);
+                assert_eq!(oracle.derivatives, FitDerivatives::Responses);
+                assert_eq!(
+                    oracle.transient_passes.0,
+                    passes.0 + usize::from(derivatives == FitDerivatives::Gradient)
+                );
+                let point = oracle.point.as_ref().unwrap();
+                for (i, observation) in problem.measurements.iter().enumerate() {
+                    let (prediction, slope) = expected(i);
+                    assert_action(point.predictions[i], prediction, allowances[i]);
+                    assert_action(
+                        diagnostic.responses[(i, 0)] * 0.5,
+                        slope * 0.5,
+                        allowances[i],
+                    );
+                    assert_action(
+                        point.responses.matrix().get(i, 0).copied().unwrap_or(0.) * 0.5,
+                        slope * 0.5,
+                        allowances[i],
+                    );
+                    if !observation.included {
+                        assert_eq!(diagnostic.responses[(i, 0)], 0.);
+                    }
+                }
+                assert_action(
+                    diagnostic.singular_values[0],
+                    (1.5 * repeats as f64).sqrt(),
+                    allowances.iter().sum::<f64>(),
+                );
+                // The response-based gradient includes every shared-parameter addend too.
+                oracle.gradient(&[x], &mut gradient).unwrap();
+                assert_action(gradient[0], expected_gradient, gradient_allowance);
+            })
+            .await;
+        }
+    }
+}
+
+/// The low-level sparse owner admits aliased contributions. Its prepared binding index
+/// must preserve each conversion even when different bindings share a local coordinate
+/// and a fit column; a fixed binding in front must not shift the free-binding selection.
+#[tokio::test]
+async fn prepared_fitting_relationships_refill_direct_binding_addends() {
+    let (package, profile) = source(false, 73.).await;
+    let (problem, _) = package
+        .prepare_fit_problem(
+            FitId::from(id(73)),
+            profile,
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let Experiment::Transient(base) = &problem.experiments[0] else {
+        panic!()
+    };
+    for observations in [1, 7, 31] {
+        let mut experiment = base.clone();
+        let mut fixed = experiment.bindings[0].clone();
+        fixed.parameter = 1;
+        fixed.conversion.scale = 100.;
+        let mut first = experiment.bindings[0].clone();
+        first.conversion.scale = 2.;
+        let mut second = first.clone();
+        second.conversion.scale = 3.;
+        experiment.bindings = vec![fixed, first, second];
+        let mut measurements = vec![problem.measurements[0].clone(); observations];
+        let mut excluded = measurements[0].clone();
+        excluded.included = false;
+        measurements.insert(1, excluded);
+        let mut layout = sparse::Layout::new(
+            &[Experiment::Transient(experiment.clone())],
+            &measurements,
+            &[Some(OriginalCol::new(0)), None],
+            0,
+            1,
+            DerivativeOrder::First,
+            1000,
+        )
+        .unwrap();
+        let mapping = &layout.mappings[0];
+        let included = (0..measurements.len())
+            .filter(|i| *i != 1)
+            .collect::<Vec<_>>();
+        assert_eq!(mapping.observations, included);
+        assert_eq!(mapping.free_bindings, [1, 2]);
+        assert_eq!(
+            mapping
+                .responses
+                .iter()
+                .map(|t| t.observation)
+                .collect::<Vec<_>>(),
+            included
+                .iter()
+                .chain(&included)
+                .copied()
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            mapping
+                .responses
+                .iter()
+                .map(|t| t.local)
+                .collect::<Vec<_>>(),
+            vec![1; observations]
+                .into_iter()
+                .chain(vec![2; observations])
+                .collect::<Vec<_>>()
+        );
+        let sample = native::dynamics::Sample {
+            mode: 0,
+            integrals: Vec::new(),
+            time: 161.,
+            state: Vec::new(),
+            outputs: vec![0.; experiment.output_ports.len()],
+            state_sensitivities: Vec::new(),
+            output_sensitivities: vec![
+                4.;
+                experiment.output_ports.len() * experiment.parameters.len()
+            ],
+        };
+        for _ in 0..2 {
+            layout.responses.clear();
+            for term in &mapping.responses {
+                layout
+                    .responses
+                    .add(
+                        term.contribution,
+                        experiment
+                            .response(
+                                &sample,
+                                measurements[term.observation].row,
+                                &experiment.bindings[term.local],
+                            )
+                            .unwrap(),
+                    )
+                    .unwrap();
+            }
+            for i in 0..measurements.len() {
+                assert_eq!(
+                    layout.responses.matrix().get(i, 0).copied().unwrap_or(0.),
+                    if i == 1 { 0. } else { 20. }
+                );
+            }
+        }
+    }
+}
+
+#[tokio::test]
+async fn prepared_fitting_relationships_keep_empty_experiments_and_rank_deficiency() {
+    for transient_included in [false, true] {
+        let (package, mut profile) = source(true, 73.).await;
+        profile.derivatives = FitDerivatives::Gradient;
+        for simulation in profile.simulations.values_mut() {
+            simulation.method = native::dynamics::Method::Diffsol;
+        }
+        let (mut problem, _) = package
+            .prepare_fit_problem(
+                FitId::from(id(73)),
+                profile,
+                compiler_profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        for observation in &mut problem.measurements {
+            observation.included = (observation.experiment == 0) == transient_included;
+            if !observation.included {
+                observation.value = None;
+                observation.sigma = None;
+                observation.sample_index = None;
+                observation.row = usize::MAX;
+            } else if observation.experiment == 0 {
+                // y(160 s) = 70 s is independent of the free rate parameter.
+                observation.time = Some(160.);
+                observation.sample_index = Some(0);
+                observation.value = Some(70.);
+            }
+        }
+        problem.layout = Arc::new(
+            sparse::Layout::new(
+                &problem.experiments,
+                &problem.measurements,
+                &problem.parameter_columns,
+                problem.contract.rows.len(),
+                problem.contract.variables.len(),
+                DerivativeOrder::First,
+                problem.profile.max_cells,
+            )
+            .unwrap(),
+        );
+        with_admitted_fit_oracle(problem.into(), move |oracle| {
+            let mut gradient = [0.];
+            oracle.gradient(&[2.5], &mut gradient).unwrap();
+            assert_eq!(gradient, [if transient_included { 0. } else { 1.5 }]);
+            let rank = oracle.response_rank(&[2.5]).unwrap();
+            assert_eq!(rank.rank, usize::from(!transient_included));
+            assert_eq!(rank.responses[(0, 0)], 0.);
+            assert_eq!(
+                rank.responses[(1, 0)],
+                if transient_included { 0. } else { 1. }
+            );
+            if !transient_included {
+                assert_eq!(oracle.transient_passes, (0, 0));
+                assert!(oracle.point.as_ref().unwrap().trajectories.is_empty());
+            }
+        })
+        .await;
+    }
 }

@@ -3,6 +3,7 @@
 
 //! Source expression checking; executable arithmetic remains in pse-math.
 pub mod admission;
+pub mod inventory;
 pub mod occurrences;
 
 use crate::{
@@ -266,23 +267,6 @@ pub(crate) fn chain_operation(op: BinaryOp, rhs: &Expr) -> bool {
 /// # Errors
 /// Undefined references, physical mismatch, invalid arguments or unsupported semantics.
 pub fn infer(
-    expr: &Expr,
-    env: &BTreeMap<String, Type>,
-    p: &CheckedPackage,
-    context: &TypeContext<'_>,
-    at: DeclarationId,
-    expected: Option<&Type>,
-) -> Result<Type> {
-    if let Some(recorder) = context.admissions {
-        recorder.enter(expr);
-    }
-    let result = infer_expression(expr, env, p, context, at, expected);
-    if let Some(recorder) = context.admissions {
-        recorder.leave();
-    }
-    result
-}
-fn infer_expression(
     expr: &Expr,
     env: &BTreeMap<String, Type>,
     p: &CheckedPackage,
@@ -1343,7 +1327,7 @@ fn check_forms(
     Ok(())
 }
 pub(crate) fn check_all(p: &mut CheckedPackage, context: &TypeContext<'_>) -> Result<()> {
-    let recorder = admission::AdmissionRecorder::default();
+    let recorder = admission::AdmissionRecorder::for_package(p)?;
     let physical_context = TypeContext {
         admissions: Some(&recorder),
         formula_authority: context.formula_authority.clone(),
@@ -1352,9 +1336,21 @@ pub(crate) fn check_all(p: &mut CheckedPackage, context: &TypeContext<'_>) -> Re
         scope: context.scope,
     };
     check_declarations(p, &physical_context)?;
-    p.physical_admissions = recorder.into_inner();
-    for (id, function) in &mut p.functions {
-        function.physical_admissions = p.physical_admissions.get(id).cloned().unwrap_or_default();
+    for (owner, products) in recorder.into_products() {
+        match owner {
+            admission::Owner::Field(key) => {
+                p.expressions
+                    .get_mut(&key)
+                    .ok_or_else(|| invalid(key.declaration, "checked field inventory absent"))?
+                    .physical_admissions = products;
+            }
+            admission::Owner::Function(id) => {
+                p.functions
+                    .get_mut(&id)
+                    .ok_or_else(|| invalid(id, "checked function inventory absent"))?
+                    .physical_admissions = products;
+            }
+        }
     }
     Ok(())
 }

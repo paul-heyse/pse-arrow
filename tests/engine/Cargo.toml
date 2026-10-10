@@ -35,3 +35,14 @@ serde_json.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [dependencies]
+
+[features]
+force-validate = [
+  "arrow/force_validate",
+  "pse-columnar/force-validate",
+  "pse-engine/force-validate",
+  "pse-relations/force-validate",
+  "pse-runtime/force-validate",
+  "pse-schema/force-validate",
+  "pse-testkit/force-validate",
+]

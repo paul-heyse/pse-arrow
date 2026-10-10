@@ -14,7 +14,7 @@ superseded-by: null
 revisit: A POUNCE release changes the l1 or convex method surface, or an l1 or POUNCE-convex candidate fails original-space qualification where the declared semantics say it should qualify.
 verification: Plan 22 N3 and N5 tests l1_route_returns_labelled_least_infeasible_point, l1_never_automatic, pounce_convex_qp_matches_highs, pounce_convex_batched_study and sos_bound_labelled_nonrigorous; M5 test flash_phase_disappearance_agrees_across_realizations; A3 test pounce_retry_options_reserved_and_snapshotted.
 standard: core-3.0/process-simulator-1.1
-scenarios: [docs/plans/22-solver-capabilities-architecture.md#s18]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s18]
 ---
 
 # ADR-0109: Expose POUNCE l1 exact penalty and POUNCE-convex as explicit native methods
@@ -97,7 +97,7 @@ not a second automatic owner.
 
 ## More information
 
-- Architecture companion [§2.5, §6.3, §8](../plans/22-solver-capabilities-architecture.md#6-sensitivity-covariance-and-uncertainty).
+- Architecture companion [§2.5, §6.3, §8](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#6-sensitivity-covariance-and-uncertainty).
 - Target review [T14](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t14).
 - Capability review F03, L-N5, L-N7.
 - Related: ADR-0083, ADR-0104, ADR-0106, ADR-0107. Plan 22 packets N3, N5, A3.

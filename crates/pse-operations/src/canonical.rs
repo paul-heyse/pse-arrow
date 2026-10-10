@@ -58,6 +58,15 @@ pub enum CanonicalError {
     #[error("canonical immutable operation identity was reused for different inputs")]
     /// An idempotency identity was reused for different supplied bytes.
     OperationReused,
+    /// Publication may have reached the server; retain this exact operation for recovery.
+    #[error("analysis {key} publication did not complete: {source}", key = .intent.key)]
+    AnalysisUnsettled {
+        /// Original sealed occurrence intent; never replace it with a new issue.
+        intent: Box<crate::canonical_analyses::Analysis>,
+        /// Original typed transport, validation or database failure.
+        #[source]
+        source: Box<CanonicalError>,
+    },
     #[error("canonical write payload exceeds the bounded protocol batch")]
     /// A bounded payload or selector limit was exceeded.
     PayloadLimit,
@@ -102,6 +111,105 @@ pub struct CanonicalOptions {
     /// Explicit verified interpreter, supervisor and worker for managed primary startup.
     pub primary_receiver: Option<ManagedPrimaryReceiver>,
     state_path: PathBuf,
+    initializer_nonce: Option<String>,
+}
+
+const INITIALIZER_AUTHORITY: &str = "PSE_CANONICAL_INITIALIZER";
+
+#[derive(serde::Deserialize, PartialEq, Eq)]
+struct InitializerOwner {
+    nonce: String,
+    pid: u32,
+    start: String,
+    boot: String,
+}
+
+#[derive(serde::Deserialize)]
+struct PendingRebuild {
+    #[serde(default)]
+    initializer: Option<InitializerOwner>,
+}
+
+#[derive(serde::Deserialize)]
+struct WriteAdmission {
+    namespace: String,
+    database: String,
+    accepting_writes: bool,
+    #[serde(default)]
+    derived_rebuild_pending: Option<PendingRebuild>,
+}
+
+impl WriteAdmission {
+    fn read(state: &Path) -> Result<Self, CanonicalError> {
+        let config = std::fs::read(state.join("config.json"))
+            .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
+        serde_json::from_slice(&config)
+            .map_err(|error| CanonicalError::Configuration(error.to_string()))
+    }
+
+    fn require_initializer(
+        &self,
+        state: &Path,
+        namespace: &str,
+        database: &str,
+        nonce: Option<&str>,
+    ) -> Result<(), CanonicalError> {
+        let owner = self
+            .derived_rebuild_pending
+            .as_ref()
+            .and_then(|pending| pending.initializer.as_ref())
+            .ok_or(CanonicalError::Quiesced)?;
+        if self.accepting_writes
+            || self.namespace != namespace
+            || self.database != database
+            || nonce != Some(owner.nonce.as_str())
+            || owner.nonce.len() != 32
+            || !owner.nonce.bytes().all(|byte| byte.is_ascii_hexdigit())
+        {
+            return Err(CanonicalError::Quiesced);
+        }
+        let recorded = std::fs::read(state.join("lifecycle-owner.json"))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<InitializerOwner>(&bytes).ok());
+        if recorded.as_ref() != Some(owner) {
+            return Err(CanonicalError::Quiesced);
+        }
+        let boot = std::fs::read_to_string("/proc/sys/kernel/random/boot_id")
+            .map_err(|_| CanonicalError::Quiesced)?;
+        let process = std::fs::read_to_string(format!("/proc/{}/stat", owner.pid))
+            .map_err(|_| CanonicalError::Quiesced)?;
+        let fields = process
+            .rsplit_once(')')
+            .ok_or(CanonicalError::Quiesced)?
+            .1
+            .split_whitespace()
+            .collect::<Vec<_>>();
+        if boot.trim() != owner.boot
+            || fields.get(19).copied() != Some(owner.start.as_str())
+            || !matches!(fields.first(), Some(state) if !matches!(*state, "Z" | "X" | "x"))
+        {
+            return Err(CanonicalError::Quiesced);
+        }
+        Ok(())
+    }
+
+    fn require_writes(
+        &self,
+        state: &Path,
+        namespace: &str,
+        database: &str,
+        initializer_nonce: Option<&str>,
+    ) -> Result<(), CanonicalError> {
+        if self.derived_rebuild_pending.is_some() {
+            return self.require_initializer(state, namespace, database, initializer_nonce);
+        }
+        // An old handle cannot provision its previous namespace after cutover.
+        // Explicit fixture databases within the current namespace remain valid.
+        if !self.accepting_writes || self.namespace != namespace {
+            return Err(CanonicalError::Quiesced);
+        }
+        Ok(())
+    }
 }
 /// Materialized executable association for the managed study receiver.
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -329,6 +437,16 @@ impl CanonicalOptions {
                 deployment.primary_receiver = context.primary_receiver;
             }
         }
+        let initializer_nonce = std::env::var(INITIALIZER_AUTHORITY).ok();
+        let admission = WriteAdmission::read(state)?;
+        if admission.derived_rebuild_pending.is_some() {
+            admission.require_initializer(
+                state,
+                &deployment.namespace,
+                &deployment.database,
+                initializer_nonce.as_deref(),
+            )?;
+        }
         if deployment.schema_interpretation != wire::INTERPRETATION {
             return Err(CanonicalError::Interpretation {
                 expected: wire::INTERPRETATION,
@@ -369,6 +487,7 @@ impl CanonicalOptions {
             native: deployment.resources,
             primary_receiver: deployment.primary_receiver,
             state_path: state.to_owned(),
+            initializer_nonce,
         })
     }
 }
@@ -557,18 +676,12 @@ impl CanonicalStore {
         self.ensure_writes()
     }
     pub(crate) fn ensure_writes(&self) -> Result<(), CanonicalError> {
-        #[derive(serde::Deserialize)]
-        struct Admission {
-            accepting_writes: bool,
-        }
-        let config = std::fs::read(self.state_path.join("config.json"))
-            .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-        let admission: Admission = serde_json::from_slice(&config)
-            .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-        if !admission.accepting_writes {
-            return Err(CanonicalError::Quiesced);
-        }
-        Ok(())
+        WriteAdmission::read(&self.state_path)?.require_writes(
+            &self.state_path,
+            &self.namespace,
+            &self.database,
+            self.connection_options.initializer_nonce.as_deref(),
+        )
     }
     /// Connect to the supported authenticated native WebSocket deployment.
     pub async fn connect(options: &CanonicalOptions) -> Result<Self, CanonicalError> {
@@ -1467,11 +1580,217 @@ UPDATE type::record('canonical_stages', $operation) SET activated = true;
 UPSERT type::record('canonical_problems', $problem) SET key = $problem, head = $operation, sequence = $sequence;
 UPSERT $head_guard SET key = 'head:' + $problem, generation = (generation ?? 0dec) + 1dec;
 UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
-UPSERT $retention_guard SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
+UPSERT $retention_guard SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec, incarnation = incarnation ?? <string>rand::uuid::v4();
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 IF $stage.expires_at <= time::micros() { THROW 'activation staging lease expired before commit'; };
 COMMIT;
 "#;
+
+#[cfg(test)]
+mod canonical_admission_unit {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "isolated admission controls require exact filesystem outcomes"
+    )]
+    use super::*;
+
+    struct Scope(PathBuf);
+    impl Drop for Scope {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    fn scope() -> (Scope, serde_json::Value) {
+        let scope =
+            Scope(std::env::temp_dir().join(format!("pse-admission-{}", uuid::Uuid::new_v4())));
+        std::fs::create_dir(&scope.0).unwrap();
+        let process = std::fs::read_to_string("/proc/self/stat").unwrap();
+        let start = process
+            .rsplit_once(')')
+            .unwrap()
+            .1
+            .split_whitespace()
+            .nth(19)
+            .unwrap();
+        let owner = serde_json::json!({
+            "nonce": "0123456789abcdef0123456789abcdef", "pid": std::process::id(),
+            "start": start, "boot": std::fs::read_to_string("/proc/sys/kernel/random/boot_id").unwrap().trim(),
+        });
+        std::fs::write(
+            scope.0.join("lifecycle-owner.json"),
+            serde_json::to_vec(&owner).unwrap(),
+        )
+        .unwrap();
+        (scope, owner)
+    }
+    fn admission(owner: serde_json::Value, accepting_writes: bool) -> WriteAdmission {
+        serde_json::from_value(serde_json::json!({
+            "namespace": "fresh", "database": "current", "accepting_writes": accepting_writes,
+            "derived_rebuild_pending": {"initializer": owner},
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn rebuild_initializer_borrows_only_exact_closed_live_owner_and_target() {
+        let (scope, owner) = scope();
+        let nonce = owner["nonce"].as_str().unwrap();
+        let selected = admission(owner.clone(), false);
+        assert!(
+            selected
+                .require_writes(&scope.0, "fresh", "current", Some(nonce))
+                .is_ok()
+        );
+        for (namespace, database, nonce) in [
+            ("old", "current", Some(nonce)),
+            ("fresh", "old", Some(nonce)),
+            ("fresh", "current", None),
+            ("fresh", "current", Some("wrong")),
+        ] {
+            assert!(matches!(
+                selected.require_writes(&scope.0, namespace, database, nonce),
+                Err(CanonicalError::Quiesced)
+            ));
+        }
+        // A persisted true override cannot make an ordinary handle eligible.
+        let override_true = admission(owner.clone(), true);
+        assert!(matches!(
+            override_true.require_writes(&scope.0, "fresh", "current", None),
+            Err(CanonicalError::Quiesced)
+        ));
+        assert!(matches!(
+            override_true.require_writes(&scope.0, "fresh", "current", Some(nonce)),
+            Err(CanonicalError::Quiesced)
+        ));
+    }
+
+    #[test]
+    fn initializer_authority_expires_on_owner_removal_replacement_or_process_change() {
+        let (scope, owner) = scope();
+        let nonce = owner["nonce"].as_str().unwrap();
+        let selected = admission(owner.clone(), false);
+        std::fs::remove_file(scope.0.join("lifecycle-owner.json")).unwrap();
+        assert!(
+            selected
+                .require_writes(&scope.0, "fresh", "current", Some(nonce))
+                .is_err()
+        );
+        let mut replaced = owner.clone();
+        replaced["nonce"] = "fedcba9876543210fedcba9876543210".into();
+        std::fs::write(
+            scope.0.join("lifecycle-owner.json"),
+            serde_json::to_vec(&replaced).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            selected
+                .require_writes(&scope.0, "fresh", "current", Some(nonce))
+                .is_err()
+        );
+        for (field, changed) in [
+            ("pid", serde_json::json!(u32::MAX)),
+            ("start", serde_json::json!("reused-pid")),
+            ("boot", serde_json::json!("previous-boot")),
+        ] {
+            let mut stale = owner.clone();
+            stale[field] = changed;
+            std::fs::write(
+                scope.0.join("lifecycle-owner.json"),
+                serde_json::to_vec(&stale).unwrap(),
+            )
+            .unwrap();
+            assert!(
+                admission(stale, false)
+                    .require_writes(&scope.0, "fresh", "current", Some(nonce))
+                    .is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn initializer_authority_expires_for_an_unreaped_dead_owner() {
+        let (scope, mut owner) = scope();
+        let mut child = std::process::Command::new("/bin/sh")
+            .args(["-c", "exit 0"])
+            .spawn()
+            .unwrap();
+        let observed = (|| {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+            loop {
+                let process = std::fs::read_to_string(format!("/proc/{}/stat", child.id()))?;
+                let fields = process
+                    .rsplit_once(')')
+                    .unwrap()
+                    .1
+                    .split_whitespace()
+                    .collect::<Vec<_>>();
+                if fields.first() == Some(&"Z") {
+                    return Ok::<_, std::io::Error>(fields[19].to_owned());
+                }
+                if std::time::Instant::now() >= deadline {
+                    return Err(std::io::Error::other(
+                        "child did not reach an unreaped zombie state",
+                    ));
+                }
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+        })();
+        let refused = observed.map(|start| {
+            owner["pid"] = child.id().into();
+            owner["start"] = start.into();
+            std::fs::write(
+                scope.0.join("lifecycle-owner.json"),
+                serde_json::to_vec(&owner).unwrap(),
+            )
+            .unwrap();
+            matches!(
+                admission(owner.clone(), false).require_writes(
+                    &scope.0,
+                    "fresh",
+                    "current",
+                    owner["nonce"].as_str()
+                ),
+                Err(CanonicalError::Quiesced)
+            )
+        });
+        let status = child.wait().unwrap();
+        assert!(status.success());
+        assert!(refused.unwrap());
+    }
+
+    #[test]
+    fn restore_pending_has_no_initializer_authority_and_old_namespace_stays_closed() {
+        let (scope, owner) = scope();
+        let nonce = owner["nonce"].as_str().unwrap();
+        let restore: WriteAdmission = serde_json::from_value(serde_json::json!({
+            "namespace": "fresh", "database": "current", "accepting_writes": false,
+            "derived_rebuild_pending": {"kind": "current-restore"},
+        }))
+        .unwrap();
+        assert!(
+            restore
+                .require_writes(&scope.0, "fresh", "current", Some(nonce))
+                .is_err()
+        );
+        for accepting in [false, true] {
+            let ordinary: WriteAdmission = serde_json::from_value(serde_json::json!({
+                "namespace": "fresh", "database": "current", "accepting_writes": accepting,
+            }))
+            .unwrap();
+            assert_eq!(
+                ordinary
+                    .require_writes(&scope.0, "fresh", "isolated-fixture", None)
+                    .is_ok(),
+                accepting
+            );
+            assert!(
+                ordinary
+                    .require_writes(&scope.0, "old", "current", Some(nonce))
+                    .is_err()
+            );
+        }
+    }
+}
 
 #[cfg(test)]
 mod staging_turn_unit {
@@ -1722,6 +2041,10 @@ mod canonical_server_unit {
         use surrealdb::types::Bytes;
         use tokio::time::Instant;
 
+        #[allow(
+            clippy::result_large_err,
+            reason = "test-only SDK control retains the exact native error and failing operation without altering transport allocations"
+        )]
         async fn echo(
             store: &CanonicalStore,
             payload: &[u8],
@@ -2464,7 +2787,7 @@ mod canonical_server_unit {
         store.open().await.unwrap();
         let result: Result<(), CanonicalError> = async {
             for (index, value) in [0, (1u64<<63)-1, 1u64<<63, (1u64<<63)+1, u64::MAX-1, u64::MAX].into_iter().enumerate() {
-                let row = pse_model::generated::runtime::canonical_guards::Row { key: format!("boundary-{index}"), generation: value };
+                let row = pse_model::generated::runtime::canonical_guards::Row { key: format!("boundary-{index}"), generation: value, incarnation: None, analysis_creation_closed_through: None };
                 let mut response = store.db.query("CREATE type::record('canonical_guards', $key) CONTENT $row;").bind(("key", row.key.clone())).bind(("row", wire::encode_canonical_guards(&row)?)).await.and_then(checked)?;
                 let saved: Option<Object> = response.take(0)?;
                 assert_eq!(wire::decode_canonical_guards(saved.unwrap())?.generation, value);

@@ -13,7 +13,7 @@ supersedes: []
 superseded-by: null
 revisit: A supported bank cannot use the common typed admission path, or document conversion bypasses resource accounting.
 verification: Plan 23 E1 entity provenance, abstract-kind, keyed-document, binary worker round-trip, incremental-versus-clean and decoded-memory tests; final AUD assesses the changed boundary.
-scenarios: [docs/plans/23-thermodynamic-domain-and-campaign.md#scenarios]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/23-thermodynamic-domain-and-campaign.md#scenarios]
 ---
 
 # ADR-0130: Admit sourced records and bounded binary data banks
@@ -80,7 +80,7 @@ must migrate together, and decoded-memory accounting has additional intermediate
 
 ## More information
 
-[Plan 23](../plans/23-thermodynamic-domain-and-campaign.md), ADR-0123 and ADR-0125.
+[Plan 23](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/23-thermodynamic-domain-and-campaign.md), ADR-0123 and ADR-0125.
 Enduring contract changes will be incorporated through the Plan 23 design amendment.
 
 ## Status history

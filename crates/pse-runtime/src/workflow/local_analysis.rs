@@ -15,17 +15,14 @@ use pse_backend_native::{
 use pse_ids::SemanticId;
 use pse_math::binding::CaseStructure;
 use pse_quantity::QuantityRegistry;
-use pse_relations::{
-    columnar::FieldCheckedBatch,
-    generated::{
-        enums::{DerivedQuantity, NumericalTarget, WithheldReason},
-        identities::RunId,
-        runtime::{
-            local_validity as validity, parametric_sensitivities as sensitivities,
-            propagated_covariances as propagated, reduced_hessians as hessians,
-        },
-        structures::LocalValidity,
+use pse_relations::generated::{
+    enums::{DerivedQuantity, NumericalTarget, WithheldReason},
+    identities::RunId,
+    runtime::{
+        local_validity as validity, parametric_sensitivities as sensitivities,
+        propagated_covariances as propagated, reduced_hessians as hessians,
     },
+    structures::LocalValidity,
 };
 use std::collections::BTreeMap;
 
@@ -95,32 +92,45 @@ pub(super) struct Step<'a> {
 }
 
 /// Builders of the four local-analysis relations over a run's steps.
-pub(super) struct Rows {
-    validity: validity::Builder,
-    sensitivities: sensitivities::Builder,
-    hessians: hessians::Builder,
-    propagated: propagated::Builder,
+pub(super) struct Rows<'a> {
+    request: &'a super::result_export::Projection,
+    validity: super::result_export::Rows<'a, validity::Row>,
+    sensitivities: super::result_export::Rows<'a, sensitivities::Row>,
+    hessians: super::result_export::Rows<'a, hessians::Row>,
+    propagated: super::result_export::Rows<'a, propagated::Row>,
 }
-impl Rows {
+impl<'a> Rows<'a> {
     pub(super) fn new(
-        registry: &pse_schema::Registry,
-        validation: &pse_relations::validate::ValidationContext,
+        request: &'a super::result_export::Projection,
+        registry: &'a pse_schema::Registry,
+        pool: &'a std::sync::Arc<dyn pse_columnar::MemoryPool>,
+        cancel: &'a pse_columnar::CancellationToken,
+        validation: &'a pse_relations::validate::ValidationContext,
     ) -> Result<Self, WorkflowError> {
         Ok(Self {
-            validity: validity::Builder::with_registry(registry, 0, validation)
-                .map_err(relation)?,
-            sensitivities: sensitivities::Builder::with_registry(registry, 0, validation)
-                .map_err(relation)?,
-            hessians: hessians::Builder::with_registry(registry, 0, validation)
-                .map_err(relation)?,
-            propagated: propagated::Builder::with_registry(registry, 0, validation)
-                .map_err(relation)?,
+            request,
+            validity: super::result_export::Rows::<validity::Row>::new(
+                request, registry, pool, cancel, validation,
+            )
+            .map_err(relation)?,
+            sensitivities: super::result_export::Rows::<sensitivities::Row>::new(
+                request, registry, pool, cancel, validation,
+            )
+            .map_err(relation)?,
+            hessians: super::result_export::Rows::<hessians::Row>::new(
+                request, registry, pool, cancel, validation,
+            )
+            .map_err(relation)?,
+            propagated: super::result_export::Rows::<propagated::Row>::new(
+                request, registry, pool, cancel, validation,
+            )
+            .map_err(relation)?,
         })
     }
     /// The rows of one step that requested sensitivities.
-    pub(super) fn push(&mut self, step: &Step<'_>) -> Result<(), WorkflowError> {
+    pub(super) async fn push(&mut self, step: &Step<'_>) -> Result<(), WorkflowError> {
         if let Some(root) = step.report.and_then(|r| r.evidence.root_response.as_ref()) {
-            return self.root_response(step, root);
+            return self.root_response(step, root).await;
         }
         let evidence = step.report.and_then(|r| r.evidence.sensitivity.as_ref());
         // Quantities read from multipliers conditional on a discrete assignment hold under
@@ -155,6 +165,7 @@ impl Rows {
                 quantity: DerivedQuantity::ParametricSensitivity,
                 validity: record(sensitivity.clone(), point, conditional),
             })
+            .await
             .map_err(relation)?;
         let hessian = step.request.reduced_hessian.then(|| {
             evidence.map_or_else(
@@ -178,10 +189,51 @@ impl Rows {
                         conditional,
                     ),
                 })
+                .await
+                .map_err(relation)?;
+        }
+        if self.request.wants(validity::RELATION_ID) && step.request.propagation.is_some() {
+            let outcome = sensitivity
+                .as_ref()
+                .map(|_| ())
+                .map_err(|(reason, detail)| {
+                    (
+                        WithheldReason::UpstreamWithheld,
+                        Upstream {
+                            quantity: DerivedQuantity::ParametricSensitivity,
+                            reason: *reason,
+                            detail: detail.clone(),
+                        }
+                        .to_string(),
+                    )
+                });
+            self.validity
+                .push(validity::Row {
+                    run_id: step.run_id,
+                    step: step.step,
+                    quantity: DerivedQuantity::PropagatedCovariance,
+                    validity: record(outcome.as_ref().map_err(Clone::clone), point, conditional),
+                })
+                .await
                 .map_err(relation)?;
         }
         // The requested propagation holds while the sensitivities it reads do (S4).
-        if let Some(propagation) = &step.request.propagation {
+        if self.request.wants(propagated::RELATION_ID)
+            && !self.propagated.skip_next()
+            && let Some(propagation) = &step.request.propagation
+        {
+            let n = evidence.map_or(0, |e| e.parameters.len());
+            let m = propagation.outputs.len();
+            let cells = m
+                .checked_mul(n)
+                .ok_or_else(|| contract("modeling propagation projection extent"))?;
+            let _copy = self.propagated.working(&[
+                (m, 56),
+                (n, 16),
+                (cells, 8),
+                (step.structure.variables().len(), 128),
+                (step.structure.parameters().len(), 128),
+            ])?;
             let jacobian = match (&sensitivity, step.report, evidence) {
                 (Ok(s), Some(report), Some(parametric)) => {
                     Ok(jacobian(report, parametric, s, &propagation.outputs)?)
@@ -193,24 +245,30 @@ impl Rows {
                 }),
                 (Ok(_), ..) => return Err(contract("certified sensitivities without a report")),
             };
-            let result = uncertainty::propagate(
+            let (result, _derived) = uncertainty::propagate_reserved(
                 Ok(&propagation.covariance),
                 jacobian.as_ref().map_err(Clone::clone),
+                &self.propagated.pool(),
+                &self.request.cancel,
             )?;
-            self.propagate(step, result, point, conditional)?;
+            self.propagate(step, result, point, conditional).await?;
         }
         let (Some(report), Some(parametric)) = (step.report, evidence) else {
             return Ok(());
         };
-        if let Ok(s) = &parametric.sensitivities {
-            self.sensitivities(step, report, parametric, s)?;
+        if self.request.wants(sensitivities::RELATION_ID)
+            && let Ok(s) = &parametric.sensitivities
+        {
+            self.sensitivities(step, report, parametric, s).await?;
         }
-        if let Some(Ok(h)) = hessian {
-            self.hessian(step, parametric, h)?;
+        if self.request.wants(hessians::RELATION_ID)
+            && let Some(Ok(h)) = hessian
+        {
+            self.hessian(step, parametric, h).await?;
         }
         Ok(())
     }
-    fn root_response(
+    async fn root_response(
         &mut self,
         step: &Step<'_>,
         root: &Result<
@@ -256,8 +314,15 @@ impl Rows {
                 quantity: DerivedQuantity::ParametricSensitivity,
                 validity,
             })
+            .await
             .map_err(relation)?;
-        if let Ok(response) = root {
+        if self.request.wants(sensitivities::RELATION_ID)
+            && let Ok(response) = root
+        {
+            let _units = self.sensitivities.working(&[
+                (step.structure.variables().len(), 128),
+                (step.structure.parameters().len(), 128),
+            ])?;
             let units = Units::of(step)?;
             for (j, parameter) in response.parameters.iter().enumerate() {
                 for (i, state) in response.states.iter().enumerate() {
@@ -273,23 +338,28 @@ impl Rows {
                             primal: Some(response.values[(i, j)]),
                             dual: None,
                         })
+                        .await
                         .map_err(relation)?;
                 }
             }
         }
         Ok(())
     }
-    fn sensitivities(
+    async fn sensitivities(
         &mut self,
         step: &Step<'_>,
         report: &SolveReport,
         parametric: &Parametric,
         s: &pse_backend_native::kkt::Sensitivities,
     ) -> Result<(), WorkflowError> {
+        let _units = self.sensitivities.working(&[
+            (step.structure.variables().len(), 128),
+            (step.structure.parameters().len(), 128),
+        ])?;
         let units = Units::of(step)?;
         for (k, parameter) in parametric.parameters.iter().enumerate() {
             let parameter_unit_id = units.parameter(*parameter)?;
-            let mut push = |target_kind, target_id, target_unit_id, primal, dual| {
+            let mut push = async |target_kind, target_id, target_unit_id, primal, dual| {
                 self.sensitivities
                     .push(sensitivities::Row {
                         run_id: step.run_id,
@@ -302,6 +372,7 @@ impl Rows {
                         primal,
                         dual,
                     })
+                    .await
                     .map_err(relation)
             };
             for (j, id) in report.variables.iter().enumerate() {
@@ -311,7 +382,8 @@ impl Rows {
                     units.variable(*id)?,
                     Some(s.primal[k][j]),
                     Some(s.bounds[k][j]),
-                )?;
+                )
+                .await?;
             }
             for (r, id) in report.rows.iter().enumerate() {
                 push(
@@ -320,7 +392,8 @@ impl Rows {
                     units.row(*id)?,
                     None,
                     Some(s.rows[k][r]),
-                )?;
+                )
+                .await?;
             }
             push(
                 NumericalTarget::Objective,
@@ -328,16 +401,34 @@ impl Rows {
                 units.objective()?,
                 Some(s.objective[k]),
                 None,
-            )?;
+            )
+            .await?;
         }
         Ok(())
     }
-    fn hessian(
+    async fn hessian(
         &mut self,
         step: &Step<'_>,
         parametric: &Parametric,
         h: &pse_backend_native::kkt::ReducedHessian,
     ) -> Result<(), WorkflowError> {
+        if self.hessians.skip_next() {
+            return Ok(());
+        }
+        let numeric = h
+            .coordinate_scales
+            .len()
+            .checked_add(h.values.len())
+            .and_then(|n| n.checked_add(h.normalized.len()))
+            .and_then(|n| n.checked_add(h.eigenvalues.len()))
+            .and_then(|n| n.checked_add(h.eigenvectors.len()))
+            .ok_or_else(|| contract("reduced Hessian copy extent"))?;
+        let _copy = self.hessians.working(&[
+            (numeric, 8),
+            (parametric.parameters.len(), 32),
+            (step.structure.variables().len(), 128),
+            (step.structure.parameters().len(), 128),
+        ])?;
         let units = Units::of(step)?;
         self.hessians
             .push(hessians::Row {
@@ -357,11 +448,12 @@ impl Rows {
                 eigenvalues: h.eigenvalues.clone(),
                 eigenvectors: h.eigenvectors.clone(),
             })
+            .await
             .map_err(relation)
     }
     /// A propagated covariance's validity row and, when certified, its data row; the
     /// outputs' units are read from `step`.
-    fn propagate(
+    async fn propagate(
         &mut self,
         step: &Step<'_>,
         result: Result<Propagated, Upstream>,
@@ -381,6 +473,7 @@ impl Rows {
                     conditional,
                 ),
             })
+            .await
             .map_err(relation)?;
         if let Ok(propagated) = result {
             let units = Units::of(step)?;
@@ -399,30 +492,18 @@ impl Rows {
                     output_units,
                     values: propagated.values,
                 })
+                .await
                 .map_err(relation)?;
         }
         Ok(())
     }
-    /// The finished relations.
-    pub(super) fn finish(self) -> Result<[(SemanticId, FieldCheckedBatch); 4], WorkflowError> {
-        Ok([
-            (
-                validity::RELATION_ID,
-                self.validity.finish().map_err(relation)?,
-            ),
-            (
-                sensitivities::RELATION_ID,
-                self.sensitivities.finish().map_err(relation)?,
-            ),
-            (
-                hessians::RELATION_ID,
-                self.hessians.finish().map_err(relation)?,
-            ),
-            (
-                propagated::RELATION_ID,
-                self.propagated.finish().map_err(relation)?,
-            ),
-        ])
+    /// Finish the demanded relation, including schema-only empty membership.
+    pub(super) async fn finish(self) -> Result<(), WorkflowError> {
+        self.validity.finish().await.map_err(relation)?;
+        self.sensitivities.finish().await.map_err(relation)?;
+        self.hessians.finish().await.map_err(relation)?;
+        self.propagated.finish().await.map_err(relation)?;
+        Ok(())
     }
 }
 

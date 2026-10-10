@@ -1,0 +1,5 @@
+33-efficiency-principles-remediation.md:82 § Confirmed rule changes and adoption routes [kind=migration] lines [92] (row)
+33-efficiency-principles-remediation.md:248 § Implementation packets and dependencies [kind=packets] lines [263, 264, 270, 276] (prose, row)
+33-efficiency-principles-remediation.md:310 § Existing-plan and workspace boundaries [kind=None] lines [318] (row)
+33-efficiency-principles-remediation.md:382 § Finding dispositions [kind=dispositions] lines [397] (row)
+33-efficiency-principles-remediation.md:401 § Current checkpoint [kind=checkpoint] lines [424] (prose)

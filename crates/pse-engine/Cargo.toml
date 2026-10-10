@@ -45,3 +45,10 @@ pse-workspace-hack.workspace = true
 [dev-dependencies]
 pse-model.workspace = true
 pse-relations = { workspace = true, features = ["test-support"] }
+
+[features]
+force-validate = [
+  "pse-columnar/force-validate",
+  "pse-relations/force-validate",
+  "pse-schema/force-validate",
+]

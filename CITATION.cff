@@ -10,10 +10,12 @@ message: "If you use this software, please cite it using the metadata below."
 type: software
 title: "pse-arrow: an Arrow-native process systems engineering core"
 abstract: >-
-  An Arrow-native process systems engineering core in Rust: typed relations as the only
-  model authority, a relational math IR, DataFusion-based inference, native NLP solving,
-  and a generated Pyomo backend. A clean-room re-implementation of core IDAES-PSE
-  capabilities, parity-tested against idaes-pse 2.12.0. Not affiliated with IDAES.
+  A process systems engineering core in Rust: typed process definitions in authored
+  relations are the model authority. Library-owned mathematics and native solvers
+  execute authored scientific knowledge; Arrow, DataFusion and Delta serve data-boundary,
+  relational and publication roles. A clean-room re-implementation of core IDAES-PSE
+  capabilities, with selected parity comparisons against idaes-pse 2.13.0.
+  Not affiliated with IDAES.
 authors:
   - family-names: Heyse
     given-names: Paul
@@ -74,5 +76,6 @@ references:
     doi: 10.1002/amp2.10095
     notes: >-
       Parity reference; not affiliated. pse-arrow is a clean-room re-implementation that
-      is numerically compared against idaes-pse 2.12.0 by its parity harness. It is not
-      affiliated with, endorsed by, or derived from the IDAES project or its sponsors.
+      compares explicitly selected scientific cases against idaes-pse 2.13.0 through its
+      parity harness. It is not affiliated with, endorsed by, or derived from the
+      IDAES project or its sponsors.

@@ -14,7 +14,7 @@ superseded-by: null
 revisit: An authored analysis needs a selection the fixture grammar cannot express, so that a runtime- or Python-only input would be needed again (for example an input that is not piecewise constant, or an event that changes the state layout).
 verification: Architecture scenarios S12 and S14 and review scenario S09, settled by the Plan 22 tests. G6r fixture_intent_selects_certify, fixture_policy_intent_conflict_refused, objective_bound_check_uses_certified_bound, tpd_certifies_stable_feed and tpd_detects_known_instability. Y0c scheduled_input_sensitivities_cross_changes (Diffsol and IDAS against finite differences) and kernel_fixture_schedules_inputs. Y0d authored_directional_event_routes_to_idas, idas_sign_constraints_from_authored_bounds, simultaneous_route_refuses_authored_events, and the kernel events test rewritten on the fixture.
 standard: core-3.1/process-simulator-1.1
-scenarios: [docs/plans/22-solver-capabilities-architecture.md#s12, docs/plans/22-solver-capabilities-architecture.md#s14, docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s09]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s12, https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s14, docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s09]
 ---
 
 # ADR-0119: Declare analysis selections in kernel fixtures

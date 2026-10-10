@@ -64,6 +64,9 @@ pub(crate) struct DiagnosticReport {
     message: String,
     #[pyo3(get)]
     help: Option<String>,
+    /// Original analysis occurrence retained when publication delivery is uncertain.
+    #[pyo3(get)]
+    analysis_key: Option<String>,
     causes: Vec<DiagnosticCauseDocument>,
     contexts: Vec<DiagnosticContextDocument>,
     related: Vec<DiagnosticReport>,
@@ -71,6 +74,9 @@ pub(crate) struct DiagnosticReport {
 /// Adapters retain source-owned semantic projection without dynamic error classification.
 pub(crate) trait ReportSource: TypedDiagnostic {
     fn report_boundary(&self) -> BoundaryDiagnostic;
+    fn report_analysis_key(&self) -> Option<String> {
+        None
+    }
     fn report_contexts(&self) -> Vec<DiagnosticContextDocument> {
         Vec::new()
     }
@@ -89,11 +95,22 @@ macro_rules! semantic_report_source {
 }
 semantic_report_source!(
     BoundaryDiagnostic,
-    pse_runtime::workflow::WorkflowError,
     pse_runtime::math::MathRuntimeError,
     pse_runtime::authoring_driver::DriverError,
     pse_backend_native::ProblemError,
 );
+impl ReportSource for pse_runtime::workflow::WorkflowError {
+    fn report_boundary(&self) -> BoundaryDiagnostic {
+        DiagnosticProjection::boundary_diagnostic(self, DiagnosticStage::Workflow)
+    }
+    fn report_analysis_key(&self) -> Option<String> {
+        match self {
+            Self::Canonical(error) => error.report_analysis_key(),
+            Self::Shared(error) => error.report_analysis_key(),
+            _ => None,
+        }
+    }
+}
 impl ReportSource for pse_runtime::RuntimeError {
     fn report_boundary(&self) -> BoundaryDiagnostic {
         pse_model::diagnostic::project_typed(self, DiagnosticStage::Workflow)
@@ -107,6 +124,12 @@ impl ReportSource for pse_columnar::CanonError {
 impl ReportSource for pse_operations::canonical::CanonicalError {
     fn report_boundary(&self) -> BoundaryDiagnostic {
         pse_model::diagnostic::project_typed(self, DiagnosticStage::Workflow)
+    }
+    fn report_analysis_key(&self) -> Option<String> {
+        match self {
+            Self::AnalysisUnsettled { intent, .. } => Some(intent.key.clone()),
+            _ => None,
+        }
     }
 }
 impl ReportSource for pse_runtime::math::portable::PortableError {
@@ -151,6 +174,7 @@ impl DiagnosticReport {
         report.message = error.to_string();
         report.help = error.help().map(|help| help.to_string());
         report.contexts = error.report_contexts();
+        report.analysis_key = error.report_analysis_key();
         if let Some(related) = error.report_related() {
             report.related = related;
         }
@@ -187,6 +211,7 @@ impl DiagnosticReport {
         }
         Self {
             boundary: None,
+            analysis_key: None,
             code: error.code().map(|code| code.to_string()),
             message: error.to_string(),
             help: error.help().map(|help| help.to_string()),

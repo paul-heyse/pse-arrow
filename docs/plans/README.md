@@ -4,6 +4,13 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
+[Plan 32: Workspace content lifecycle](32-workspace-content-lifecycle.md) owns shared metadata
+interpretation, explicit publication assets, producer-owned artifact lifecycle and the bounded
+retirement pass. Its [checkpoint](32-workspace-content-lifecycle.md#open-items-and-current-checkpoint)
+owns acceptance and handoff. The [documentation guide](../dev/documentation.md#metadata-and-aggregate-scope)
+provides metadata and aggregate-scope commands across concurrent plans while preserving their
+native status owners and existing substantive authoring guidance.
+
 [Plan 28: SurrealDB unified simulation substrate](28-surrealdb-unified-substrate.md) owns the
 confirmed hard-pivot target, accepted rule changes and US01–US05/EF01–EF08/F01–F05/PE01–PE06/PA01–PA04 dispositions.
 Its [completion-audit reconciliation](28-surrealdb-unified-substrate.md#completion-audit-reconciliation-and-capability-decisions)
@@ -41,9 +48,9 @@ connected native queries/Arrow, and rebuild/retirement/qualification. Added
 bulk data operations and native setup/artifact identity. The coordinator's
 [checkpoint](28-surrealdb-unified-substrate.md#current-checkpoint) owns the next execution route;
 [28e](28e-rebuild-retirement-and-qualification.md#qualification-handoff-from-existing-plans)
-owns assembled target qualification and adoption of the applicable remaining scientific
-campaign obligations from 25k/27. Earlier evidence and scientific finding dispositions keep
-their original owners; obsolete storage qualification is not a pivot prerequisite.
+owns assembled target qualification and the scientific campaign obligations explicitly
+recorded there. Historical evidence remains available through immutable references;
+retired plans create no additional work or scope-transfer obligation.
 
 The [graph and hashing integration](28-surrealdb-unified-substrate.md#graph-and-hashing-review-integration)
 routes the 2026-10-09 review through J3 indexed description settlement, B8/N13 retained
@@ -71,116 +78,28 @@ records repaired composite evidence and exclusions, including the passing origin
 thousand-point managed identity. The completed handoff remains for its Plan 28/29 readers;
 the broader Plan 28 E4/E5 campaign remains paused.
 
-[Plan 25](25-design-remediation.md) coordinates remediation of the domain-alignment reviews
-and the later full-case compilation/solver-routing review. Its companion plans describe the target contracts,
-implementation packets, dependency order and final qualification. The coordinator owns the
-original finding dispositions; the later solver reviews have their disposition owners
-in 25m and 25n. The linked plans own packet progress.
-[25a is complete](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25a-physical-values-and-contextual-contracts.md#outcome-recorded-after-implementation),
-with focused verification recorded in its Outcome.
-[25b is complete](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25b-scientific-knowledge-and-applicability.md#outcome-recorded-after-implementation),
-with its scientific contracts, composite focused verification and handoff recorded in its
-Outcome. [25c is complete](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25c-process-composition-and-conservation.md#outcome-recorded-after-implementation),
-with focused verification, final workspace/native-contract compilation and explicit limits.
-[25d is complete](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25d-mathematical-realization-and-response.md#outcome-recorded-after-implementation),
-with selected mathematical meaning, exact export, shared response and composite focused evidence.
-[25e is complete](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25e-declared-analyses-and-qualification.md#outcome-recorded-after-implementation),
-with declared execution, composed permission, actual endpoints, supervised shooting and the
-required preserving operational transition.
-[25f is complete](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25f-studies-diagnostics-and-continuation.md#outcome-recorded-after-implementation),
-with shared occurrence policy/definitions, typed diagnostics, physical binding admission,
-durable effect recovery and generated study boundaries. Required 25g/25h/25i/25j slices are
-implemented and tested; subsequent companion closure is linked below.
-[25g is complete](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25g-durable-contract-evolution.md#outcome-recorded-after-implementation),
-with recorded interpretation, separate reader/writer/migration capabilities, portable predicates,
-explicit store lifecycle, inventory-backed reset and protected bounded orphan discovery.
-The integrated
-[25h](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25h-authoring-and-admission-ownership.md#outcome-recorded-after-implementation),
-[25i](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25i-identity-reuse-and-resource-ownership.md#outcome-recorded-after-implementation)
-and [25j](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25j-generated-boundaries-and-library-consolidation.md#outcome-recorded-after-implementation)
-implementation is complete, with scoped verification and remaining qualification limits in
-those Outcomes.
-[25l functional implementation is complete](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25l-flowsheet-compilation-and-solver-routing.md#outcome-recorded-after-implementation),
-with demand-driven compilation, contextual solver readiness and focused boundary evidence.
-The subsequent solver reviews are integrated in
-[25m: Integrated solve pipeline](25m-integrated-solve-pipeline.md), which owns their adopted
-findings, functional packages and migration. Its functional handoff has resumed the
-[25k campaign](25k-integrated-qualification-and-closure.md#review-boundary--integrated-solve-pipeline),
-including repairs from assembled qualification. Its remaining applicable campaign obligations
-now route to [28e](28e-rebuild-retirement-and-qualification.md#qualification-handoff-from-existing-plans)
-for the confirmed rebuilt target; 25k retains prior evidence and its scientific dispositions.
-Execution resumed at the maintainer's request (2026-10-05); the
-[25m checkpoint](25m-integrated-solve-pipeline.md#execution-checkpoint) records integrated
-repairs, targeted verification and the dependency order for resumption.
-The [automatic simulation/solve pipeline review](../design_review/reviews/design_review_automatic-simulation-solve-pipeline_2026-10-04.md)
-assesses the committed 25m implementation and the requested automatic-composition target.
-Its corrections are organized in
-[25n: Automatic simulation and solve pipeline](25n-automatic-simulation-solve-pipeline.md),
-which owns AF-01–AF-08 and the confirmed automatic-composition default for `Auto`.
-The maintainer resumed 25n implementation on 2026-10-04 and waived the preliminary review;
-its [checkpoint](25n-automatic-simulation-solve-pipeline.md#execution-checkpoint)
-owns implemented slices and remaining scope.
-Applicable remaining qualification now proceeds through 28e after the target functional
-handoff; 25k retains its historical evidence and scientific dispositions.
-The [current 25k execution checkpoint](25k-integrated-qualification-and-closure.md#current-execution-checkpoint)
-owns the resumed campaign, selected dev measurements and final closure order.
-The requested [contextual-accuracy design review](../design_review/reviews/design_review_contextual-accuracy-policy_2026-10-05.md)
-is complete. [Plan 27: Contextual engineering accuracy](27-contextual-engineering-accuracy.md)
-and its companions develop shared contextual defaults, declared output/decision goals,
-error allocation and bounded refinement. Its package owners hold authorized execution;
-[25k's dispositions](25k-integrated-qualification-and-closure.md#contextual-accuracy-review-dispositions)
-remain the sole finding status and full qualification owner. The maintainer authorized
-implementation on 2026-10-05; final campaign work follows the functional handoff.
-Applicable remaining full integration and qualification transfer to 28e on the clean rebuilt
-target, including supported SurrealDB recovery and mixed-operation journeys. Historical
-PostgreSQL preservation receipts remain at their original owner; obsolete store qualification
-is not required before the pivot. Functional work retains focused checks and immediate deletion
-of replaced mechanisms.
-
-[Plan 26](26-testing-architecture.md) (testing architecture) and its companions are **done**
-(2026-10-05). Its [Outcome](26-testing-architecture.md#outcome) records implemented delivery,
-composite scoped Q1 acceptance and the independent conformance review's accepted remedies.
-It remains retained for still-consumed decision/review evidence;
-it creates no active work and does not resume Plan 25k.
-
-[Plan 23](23-thermodynamic-domain-and-campaign.md) (the thermodynamic domain model and
-integrated kernel campaign) is **done** (2026-09-30). Its
-[Outcome](23-thermodynamic-domain-and-campaign.md#outcome-recorded-after-implementation)
-records the completed functional scope, local production execution results and the scope
-of completed measurements.
-Plan 24 (the thermodynamic knowledge base) and its companion 24a moved with the
-`thermo-knowledge/` tree to their own repository,
-[paul-heyse/thermo-knowledge](https://github.com/paul-heyse/thermo-knowledge), on 2026-10-01.
-[Plan 21](https://github.com/paul-heyse/pse-arrow/blob/0e725de269f18dd08331158a07b38a7d92ea0b5e/docs/plans/21-modeling-kernel.md) (the modeling kernel) is **done**: K0–K8 were implemented;
-K9 transferred to Plan 23; ADR-0097–ADR-0101 retain the proposed decision-PR route. Its
-companions `21-modeling-kernel-architecture.md` and `21-knowledge-placement.md` remain
-target background until Plan 23 supersedes them.
-[Plan 22](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md) (solver capabilities, discrete decisions,
-the PostgreSQL operational store and typed data contracts) is **done** (2026-09-29): its
-[Outcome](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md#outcome-recorded-after-implementation)
-records what was built and its Q1 qualification, now the current basis in
-[§24.2](../authoritative_design/sections/operations-and-validation.md#section-24-2). Its
-plan, packets and target review are retired to Git history; follow-ups it deferred are
-register rows R-39–R-42 and R-44–R-48. Its companion `22-solver-capabilities-architecture.md` stays
-because ADR-0102–ADR-0121 cite its scenarios S10–S25; it authorizes nothing.
-[Plan 20](20-idaes-capability-target.md) and its companions remain capability background;
-Plan 21 supersedes their target decomposition.
-[Plan 19](19-current-documentation-consolidation.md),
-the documentation consolidation, is done. Plans 01–18 are
-complete or superseded as workstreams; their enduring meaning has moved to the architecture sections and retained
-decisions, and their records are retired to Git history (ADR-0096). A retired plan,
-packet or review is not a backlog and creates no obligation. The most recent completed
-qualification basis is summarized in
-[§24.2](../authoritative_design/sections/operations-and-validation.md#section-24-2).
+Plans before 28 and their companions are retired to Git history. They are not a
+backlog, and their open items create no work or scope-transfer obligation. Current
+execution follows only the explicitly recorded scope of active plans from 28 onward.
+Plan 32 owns workspace content lifecycle work; Plan 28 retains its own scope.
 
 ## Latest completed plan
+
+[Plan 33: Efficiency principles remediation](33-efficiency-principles-remediation.md)
+records the standalone implementation of all eleven efficiency findings and the six
+bounded investigation decisions. Its
+[Outcome](33-efficiency-principles-remediation.md#outcome-recorded-after-implementation)
+owns affected Rust/native/Python acceptance, external-reference comparisons, actual
+maintenance recovery and the explicit qualification limits. Enduring contracts belong to
+the architecture and linked development guides. The highest-numbered plan is retained
+under ADR-0096; it is not active work and does not resume Plan 28's paused campaign.
 
 [Plan 31: Agent effectiveness enhancements](31-agent-effectiveness-enhancements.md)
 records the completed tooling work, resolved F01–F05 and
 [qualification outcome](31-agent-effectiveness-enhancements.md#outcome). Enduring operation
 belongs to [the agent environment guide](../dev/agent-environment.md) and its linked guides.
-The highest-numbered plan is retained under ADR-0096; it is not active work. Semantic Rust
-search was excluded, and native SurrealDB MCP is opt-in per fresh Codex session.
+Its retained handoff is not active work. Semantic Rust search was excluded, and native
+SurrealDB MCP is opt-in per fresh Codex session.
 
 ## Workflow entrypoints
 
@@ -196,8 +115,8 @@ and ADR-0149 (independent review waived by the maintainer; it carries forward AD
 - **Naming.** `docs/plans/NN-kebab-case.md`, numbered in the order they were started.
   Numbers are never reused: `just plan` allocates the highest retained number plus one,
   so the highest-numbered plan stays until a newer plan exists.
-  A coordinated series retains one numeric owner (for example `25-design-remediation.md`)
-  and may use alphabetic companion plans (`25a-...md`, `25b-...md`). The numeric owner
+  A coordinated series retains one numeric owner (for example `28-surrealdb-unified-substrate.md`)
+  and may use alphabetic companion plans (`28a-...md`, `28b-...md`). The numeric owner
   reserves the number; `just plan` does not allocate the alphabetic companions.
 - **Front matter.** `title`, `status` (`draft` | `in-progress` | `done` | `abandoned`),
   `date` and `adrs` (the decision records the plan implements). Optional

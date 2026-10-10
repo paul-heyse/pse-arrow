@@ -12,7 +12,7 @@ decision: Accept
 
 # Testing responsibility and scoped qualification
 
-**Accept the bounded Plan 26 target at Proposed design level.** This independent Design-tier, target-purpose review uses Core/template 3.3 and Process Simulator 1.4 selected by `standard.toml`. The selected profile takes precedence over the older version in the reviewer role. It covers [Plan 26](../../plans/26-testing-architecture.md), its three companions and [ADR-0160](../../adr/0160-centralize-testing-responsibility.md). The principal [testing-architecture review](design_review_testing-architecture_2026-10-05.md) remains a Revise diagnosis of the prior implementation.
+**Accept the bounded Plan 26 target at Proposed design level.** This independent Design-tier, target-purpose review uses Core/template 3.3 and Process Simulator 1.4 selected by `standard.toml`. The selected profile takes precedence over the older version in the reviewer role. It covers [Plan 26](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/26-testing-architecture.md), its three companions and [ADR-0160](../../adr/0160-centralize-testing-responsibility.md). The principal [testing-architecture review](design_review_testing-architecture_2026-10-05.md) remains a Revise diagnosis of the prior implementation.
 
 ## Boundary and evidence
 

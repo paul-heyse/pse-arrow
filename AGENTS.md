@@ -176,10 +176,13 @@ authority.
 - **One type universe.** Exactly one resolved version of `arrow`, `parquet`,
   `object_store` and `datafusion`. Two majors make `downcast_ref` return `None` with no
   compile error — a silent failure that looks like a logic bug. `just family-check`.
-- **`force_validate` is a feature, not a profile.** Every test invocation passes
-  `--features pse-relations/force-validate` explicitly; the recipes and `cargo t` do this
-  for you. The workspace-hack must never switch it on: hakari simulates all features, so the
-  opt-in paths are excluded from its traversal in `.config/hakari.toml`.
+- **`force_validate` is a feature, not a profile.** Every actual Arrow-consuming
+  correctness check/test closure explicitly activates validation, including normal/build
+  and selected-root dev dependencies in target and host contexts (ADR-0170). Scope-aware
+  routes verify Arrow leaf activation and refuse unknown coverage; pure closures do not
+  select unrelated relation targets. Bare invocations carry the same obligation. The
+  workspace-hack must never switch validation on; opt-in paths are excluded from hakari
+  traversal in `.config/hakari.toml`.
 - **One feature set per dependency, whatever `-p` selects** (ADR-0122). Cargo's workspace
   feature unification on the pinned nightly and `pse-workspace-hack` keep it; only opt-in
   features (`force-validate`, `native-solvers`) change a dependency's build.
@@ -251,7 +254,10 @@ relevant contract and inspect the affected source. Markdown is the agent interfa
 builds the site (see `docs/dev/documentation.md`). A function-body edit normally needs no
 architecture edit; update the owner when an enduring contract, rationale or workflow changes.
 When work closes, move enduring meaning to its owner and retire the completed plan and its
-resolved reviews; Git history is the archive, not a backlog (ADR-0096).
+resolved reviews; Git history is the archive, not a backlog (ADR-0096). Multiple plans may be
+active concurrently. Use the [document lifecycle and scope routes](docs/dev/documentation.md#metadata-and-aggregate-scope)
+for metadata, cross-plan content ownership and retirement preflight; derived views do not
+replace native status owners or authorize work.
 
 ## Decisions and documentation
 

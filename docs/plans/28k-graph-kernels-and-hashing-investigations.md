@@ -45,6 +45,13 @@ or hash machinery must remove work at an identified operation or serve a concret
 
 ## Investigation contracts and decisions
 
+**Later ownership handoff, 2026-10-09:** the inquiry conclusions below retain their original
+scope and conditions. [Plan 33](33-efficiency-principles-remediation.md) independently owns
+the later efficiency review and its prospective work: EFF06 numerical facts, EI04 typed-checker
+decision/integration and EI05 further graph/hash/pure-persistence decisions. Earlier N0/GH
+owner references describe that inquiry's handoff, not a second current work owner. No old
+timing or internal numerical output is an acceptance baseline for the new work.
+
 Start with current source, then exact-release capability evidence and current primary
 documentation where an API decision needs research. Inspect consumers needed to settle the
 question; do not create an exhaustive inventory or new proof machinery. Use a selective probe
@@ -593,7 +600,12 @@ code-generation comparisons and family checks. `just lint-native-contracts` and
 native checkout environment. Their earlier separate light-scope invocations were
 interrupted by signal 15; the final checks ran within the held native allocation.
 `just docs` published 296 chapters; final handoff publication follows the last document
-updates. Feature-powerset acceptance remains in progress.
+updates. The maintainer cancelled the subsequent feature-powerset run. Both
+`features-combinations` and the keep-going `features-no-default` stage were interrupted;
+the combinations log reached the started `207/313` entry. These are two unsuccessful
+stages against the zero-failure baseline, not feature-powerset acceptance. The retained
+report has `input_coverage: false` and cannot support unchanged-input reuse. No continuation
+is selected by this handoff.
 
 **Measured:** the [hashing report](../design_review/evidence/graph-hash-followups-2026-10-09/hashing-results.md)
 retains actual scalar interner/projection/framing samples and the original preparation-key
@@ -625,12 +637,14 @@ correctness/significant-regression criterion despite marginal or inconclusive ti
 larger diagnostic hash campaign was not repeated after fixture repair; functional acceptance
 does not create a PC-SAFT performance claim. RC02 durable fast hashes and RC03 production
 persisted incremental execution remain unselected. The typed-checker investigation proposal
-stays at N0; broader graph layouts, cross-call flow sharing and persistence require their own
+now routes to [Plan 33/EI04](33-efficiency-principles-remediation.md#ei04); broader graph layouts,
+cross-call flow sharing and persistence route to that plan's EI05 and require their own
 complete consumer contracts. Full Plan 28 E3/E4/E5 remains paused at its existing owner.
 
 **Handoff and retention:** active Plan 28 companions and proposed ADR-0167 still consume
 this scoped implementation and inquiry evidence. Retain this record while those references
 are needed; it is not a backlog or authorization for the numerical-fact, typed-checker,
 durable-hash or persisted-runtime investigations. Their existing owners define any next
-authorized work. Enduring V2 framing and supplier-preparation meaning is recorded at the
+authorized work, with the later independent Plan 33 handoff above applying prospectively.
+Enduring V2 framing and supplier-preparation meaning is recorded at the
 identity/publication and numerical-execution architecture owners.

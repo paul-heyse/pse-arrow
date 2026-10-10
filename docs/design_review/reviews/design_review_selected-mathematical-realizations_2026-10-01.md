@@ -7,7 +7,7 @@ purpose: conformance
 subject: ADR-0144 and Plan 25d bounded execution approach
 decision: Accept
 evidence: Proposed
-disposition_owner: docs/plans/25-design-remediation.md
+disposition_owner: git:4c24721e691187e1a5b28398b29722fbde671da8:docs/plans/25-design-remediation.md
 ---
 
 # Selected mathematical realizations and qualified square response

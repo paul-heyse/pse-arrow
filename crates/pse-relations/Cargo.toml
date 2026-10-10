@@ -44,7 +44,13 @@ pse-workspace-hack.workspace = true
 # (blueprint §24.1 "Structural validity"). NEVER a default: every test invocation passes
 # `--features pse-relations/force-validate` explicitly, and
 # `[workspace.metadata.pse].validate-features` names it.
-force-validate = ["arrow/force_validate"]
+force-validate = [
+  "arrow/force_validate",
+  "arrow-array/force_validate",
+  "pse-columnar/force-validate",
+  "pse-relations/force-validate",
+  "pse-schema/force-validate",
+]
 # Literal fixtures are unavailable in ordinary production builds.
 test-support = []
 

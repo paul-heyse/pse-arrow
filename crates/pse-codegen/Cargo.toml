@@ -30,3 +30,10 @@ quote.workspace = true
 proc-macro2.workspace = true
 prettyplease.workspace = true
 pse-workspace-hack.workspace = true
+
+[features]
+force-validate = [
+  "arrow-array/force_validate",
+  "pse-columnar/force-validate",
+  "pse-schema/force-validate",
+]

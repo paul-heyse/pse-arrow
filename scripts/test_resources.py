@@ -30,6 +30,7 @@ from scripts import native_operation as operation
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping, Sequence
+    from io import BufferedReader
 
 ROOT = Path(__file__).resolve().parents[1]
 MARKER = "PSE_TEST_INVOCATION"
@@ -52,6 +53,19 @@ class ResourceUnit(TypedDict, total=False):
     group: str
     invocation: str
     inode: int
+
+
+class ReportArtifact(TypedDict):
+    role: str
+    digest: str
+    identity: list[int]
+
+
+class ReportManifest(TypedDict):
+    version: int
+    receipt_digest: str
+    entries: dict[str, ReportArtifact]
+    required_provenance: list[str]
 
 
 class ResourceRecord(TypedDict, total=False):
@@ -80,6 +94,9 @@ class ResourceRecord(TypedDict, total=False):
     artifacts: dict[str, str]
     owner_root: str
     directory_identity: list[int]
+    artifact_policy_version: int
+    artifact_manifest: ReportManifest
+    provenance_verified: bool
 
 
 class ResourceLedger(TypedDict):
@@ -97,15 +114,59 @@ class InvocationRecord(TypedDict):
     collection_owner: NotRequired[ProcessIdentity]
 
 
+def completed_record(resource: str) -> Path:
+    if not IDENTIFIER.fullmatch(resource):
+        raise ResourceError("Invalid resource identity")
+    return registry() / "completed" / f"{resource}.json"
+
+
+def report_index(directory: Path) -> Path:
+    key = hashlib.sha256(str(directory.resolve()).encode()).hexdigest()
+    return registry() / "reports" / f"{key}.json"
+
+
+def private_record(path: Path) -> dict[str, object]:
+    host.protected(path.parent)
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    with os.fdopen(descriptor) as source:
+        host.validate_private_file(os.fstat(source.fileno()), "resource record")
+        value = json.load(source)
+    if not isinstance(value, dict):
+        raise ResourceError("Invalid exact resource record")
+    return value
+
+
+def write_report_index(resource: str, record: ResourceRecord) -> None:
+    path = report_index(Path(record["state"]))
+    host.protected(path.parent)
+    if path.exists():
+        if private_record(path) != {"resource": resource, "state": record["state"]}:
+            raise ResourceError("Report directory has another ownership identity")
+        return
+    operation.write_json(path, {"resource": resource, "state": record["state"]})
+
+
 @contextlib.contextmanager
-def resource_metadata() -> Generator[ResourceLedger, None, None]:
-    """Narrow the private resource ledger, preserving shared metadata IO."""
+def resource_metadata(
+    selected: str | None = None,
+) -> Generator[ResourceLedger, None, None]:
+    """Hot coordination owns active resources; completed evidence has exact lookup.
+
+    No completed-history scan occurs here. A referenced report is promoted while
+    it is in use; its sealed ownership remains available without burdening every
+    fixture registration/finalization. Removed disposable resources have no
+    remaining consumer and leave no record.
+    """
     with host.metadata(registry()) as ledger:
         owners = ledger.get("owners")
         if not isinstance(owners, dict) or any(
             not isinstance(value, dict) for value in owners.values()
         ):
             raise ResourceError("Invalid resource ledger ownership records")
+        if selected is not None and selected not in owners:
+            path = completed_record(selected)
+            if path.exists():
+                owners[selected] = private_record(path)
         for record in owners.values():
             for key in ("references", "borrows", "artifacts"):
                 if key in record and not isinstance(record[key], dict):
@@ -115,6 +176,33 @@ def resource_metadata() -> Generator[ResourceLedger, None, None]:
             if "units" in record and not isinstance(record["units"], list):
                 raise ResourceError("Invalid resource drain owners")
         yield cast("ResourceLedger", ledger)
+        for resource, record in list(owners.items()):
+            settled = (
+                record.get("drained") is True
+                and record.get("pin") is False
+                and record.get("references") == {}
+                and record.get("borrows") == {}
+                and (
+                    record.get("disposition") == "pass"
+                    or record.get("explicit_release")
+                )
+            )
+            cold = completed_record(resource)
+            if settled and record.get("cleanup") == "removed":
+                del owners[resource]
+                cold.unlink(missing_ok=True)
+            elif (
+                settled
+                and record.get("cleanup") == "compacted"
+                and record.get("kind") == "evidence"
+            ):
+                write_report_index(resource, cast("ResourceRecord", record))
+                host.protected(cold.parent)
+                operation.write_json(cold, record)
+                del owners[resource]
+    # A promoted owner may retain its previous completed snapshot. The committed
+    # hot record is authoritative until demotion overwrites that exact snapshot.
+    # Deleting it after releasing metadata exclusion could race with demotion.
 
 
 def cli_json(
@@ -284,6 +372,8 @@ def selected_test(payload: Mapping[str, object]) -> tuple[str | None, str | None
 
 
 def register(payload: Mapping[str, object]) -> str:
+    if os.environ.get("PSE_TEST_EXECUTION_EFFECTS") == "native-local":
+        raise ResourceError("Canonical fixture requires --execution-effects canonical")
     nonce, test = selected_test(payload)
     state = Path(str(payload["state"])).resolve(strict=True)
     from scripts import surreal_server  # noqa: PLC0415 -- service cycle
@@ -436,7 +526,7 @@ def resource_status(resource: None = None) -> dict[str, ResourceRecord]: ...
 def resource_status(
     resource: str | None = None,
 ) -> ResourceRecord | dict[str, ResourceRecord]:
-    with resource_metadata() as ledger:
+    with resource_metadata(resource) as ledger:
         owners = ledger["owners"]
         if resource is not None:
             if resource not in owners:
@@ -446,7 +536,7 @@ def resource_status(
 
 
 def pin(resource: str, retain: bool) -> None:
-    with resource_metadata() as ledger:
+    with resource_metadata(resource) as ledger:
         record = ledger["owners"].get(resource)
         if not isinstance(record, dict) or record["cleanup"] == "removing":
             raise ResourceError("Unknown resource or reclamation already owns it")
@@ -458,7 +548,7 @@ def pin(resource: str, retain: bool) -> None:
 @contextlib.contextmanager
 def borrow(resource: str) -> Generator[str, None, None]:
     token = uuid.uuid4().hex
-    with resource_metadata() as ledger:
+    with resource_metadata(resource) as ledger:
         record = ledger["owners"].get(resource)
         if not isinstance(record, dict) or record["cleanup"] in {"removing", "removed"}:
             raise ResourceError(
@@ -471,14 +561,14 @@ def borrow(resource: str) -> Generator[str, None, None]:
     try:
         yield token
     finally:
-        with resource_metadata() as ledger:
+        with resource_metadata(resource) as ledger:
             ledger["owners"][resource]["borrows"].pop(token, None)
 
 
 def retain_reference(resource: str, receipt: str, digest: str) -> None:
     if not re.fullmatch(r"[a-f0-9]{64}", digest):
         raise ResourceError("Reference requires original receipt digest")
-    with resource_metadata() as ledger:
+    with resource_metadata(resource) as ledger:
         record = ledger["owners"].get(resource)
         if not isinstance(record, dict) or record["cleanup"] in {"removing", "removed"}:
             raise ResourceError("Origin reference information is unavailable")
@@ -487,7 +577,7 @@ def retain_reference(resource: str, receipt: str, digest: str) -> None:
 
 def release_reference(resource: str, receipt: str, digest: str) -> None:
     """Explicitly retire one exact evidence dependency; pins/drain still apply."""
-    with resource_metadata() as ledger:
+    with resource_metadata(resource) as ledger:
         record = ledger["owners"].get(resource)
         if not isinstance(record, dict) or record["cleanup"] == "removing":
             raise ResourceError("Unknown origin or reclamation already owns it")
@@ -498,12 +588,17 @@ def release_reference(resource: str, receipt: str, digest: str) -> None:
 
 def register_report(directory: Path, *, root: Path = ROOT) -> str:
     """Register this new assessment's owned evidence, preserving unknown old reports."""
-    selected = directory.resolve(strict=True)
-    if not selected.is_relative_to(root.resolve() / "build") or selected.is_symlink():
+    selected = directory.absolute()
+    if (
+        not selected.is_relative_to(root.resolve() / "build")
+        or ".." in selected.parts
+        or any(path.is_symlink() for path in (selected, *selected.parents))
+        or not selected.is_dir()
+    ):
         raise ResourceError("Assessment evidence must be a new owned build directory")
     resource = uuid.uuid4().hex
     with resource_metadata() as ledger:
-        if any(
+        if report_index(selected).exists() or any(
             record.get("state") == str(selected) for record in ledger["owners"].values()
         ):
             raise ResourceError("Assessment evidence already has an owner")
@@ -528,7 +623,10 @@ def register_report(directory: Path, *, root: Path = ROOT) -> str:
             "borrows": {},
             "cleanup": "retained",
             "artifacts": {},
+            "artifact_policy_version": 1,
+            "provenance_verified": False,
         }
+        write_report_index(resource, ledger["owners"][resource])
     return resource
 
 
@@ -540,9 +638,28 @@ def report_resource(directory: Path) -> str | None:
             for resource, record in ledger["owners"].items()
             if record.get("kind") == "evidence" and record["state"] == selected
         ]
+        index = report_index(directory)
+        if index.exists():
+            indexed = private_record(index)
+            resource = indexed.get("resource")
+            if indexed.get("state") != selected or not isinstance(resource, str):
+                raise ResourceError("Invalid report ownership index")
+            if resource not in matches:
+                matches.append(resource)
     if len(matches) > 1:
         raise ResourceError("Ambiguous report ownership")
     return matches[0] if matches else None
+
+
+@contextlib.contextmanager
+def borrow_report(directory: Path) -> Generator[None, None, None]:
+    """Protect a bounded display read without creating a retained dependency."""
+    resource = report_resource(directory)
+    if resource is None:
+        yield  # Historical unknown reports cannot be reclaimed by this owner.
+    else:
+        with borrow(resource):
+            yield
 
 
 @contextlib.contextmanager
@@ -552,41 +669,307 @@ def reference_report(
     """Borrow a registered origin before reading; transfer protection before release."""
     resource = report_resource(directory)
     if resource is None:
-        # Historical/unknown reports are never cleanup candidates in this owner.
-        yield
-        return
+        raise ResourceError(
+            "Origin requires qualified ownership and a sealed receipt before reuse"
+        )
     with borrow(resource):
+        selected = resource_status(resource)
+        manifest = report_manifest(selected)
+        if selected.get("artifact_policy_version") != 1 or manifest is None:
+            raise ResourceError("Origin lacks an unchanged sealed receipt")
+        original_digest = file_digest(directory / "checks.json")
+        if original_digest != manifest["receipt_digest"]:
+            raise ResourceError("Origin lacks an unchanged sealed receipt")
+        with report_directory(selected) as descriptor:
+            verify_manifest_files(descriptor, manifest)
         yield
         if consumer is not None:
-            digest = (
-                __import__("hashlib")
-                .sha256((directory / "checks.json").read_bytes())
-                .hexdigest()
-            )
+            digest = file_digest(directory / "checks.json")
+            if digest != original_digest:
+                raise ResourceError("Origin receipt changed during reference transfer")
             retain_reference(resource, str(consumer.resolve()), digest)
 
 
-def finish_report(resource: str, receipt: Mapping[str, object]) -> None:
+ARTIFACT_ROLES = frozenset({"receipt", "provenance", "evidence", "scratch", "unknown"})
+
+
+def file_digest(path: Path) -> str:
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def report_manifest(record: ResourceRecord) -> ReportManifest | None:
+    """Unknown or malformed manifests never supply disposal authority."""
+    manifest = record.get("artifact_manifest")
+    if (
+        not isinstance(manifest, dict)
+        or type(manifest.get("version")) is not int
+        or manifest["version"] != 1
+    ):
+        return None
+    if not isinstance(manifest.get("receipt_digest"), str) or not re.fullmatch(
+        r"[a-f0-9]{64}", manifest["receipt_digest"]
+    ):
+        return None
+    entries = manifest.get("entries")
+    if not isinstance(entries, dict):
+        return None
+    required = manifest.get("required_provenance")
+    if (
+        not isinstance(required, list)
+        or not required
+        or any(not isinstance(name, str) for name in required)
+    ):
+        return None
+    for relative, artifact in entries.items():
+        if not isinstance(relative, str) or not isinstance(artifact, dict):
+            return None
+        if (
+            not isinstance(artifact.get("role"), str)
+            or artifact["role"] not in ARTIFACT_ROLES
+            or not isinstance(artifact.get("digest"), str)
+        ):
+            return None
+        if not re.fullmatch(r"[a-f0-9]{64}", artifact["digest"]):
+            return None
+        identity = artifact.get("identity")
+        if (
+            not isinstance(identity, list)
+            or len(identity) != 3
+            or any(type(item) is not int for item in identity)
+        ):
+            return None
+        path = Path(relative)
+        if (
+            path.is_absolute()
+            or not path.parts
+            or any(part in {"..", "."} for part in path.parts)
+        ):
+            return None
+    receipt = entries.get("checks.json")
+    if (
+        receipt is None
+        or receipt["role"] != "receipt"
+        or receipt["digest"] != manifest["receipt_digest"]
+    ):
+        return None
+    return manifest
+
+
+@contextlib.contextmanager
+def report_directory(record: ResourceRecord) -> Generator[int, None, None]:
+    """Keep exact directory descriptors without following any ancestor symlink."""
+    directory = Path(record["state"])
+    if (
+        not directory.is_absolute()
+        or ".." in directory.parts
+        or not directory.is_relative_to(Path(record["owner_root"]) / "build")
+    ):
+        raise ResourceError("Evidence directory ownership changed")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    try:
+        with contextlib.ExitStack() as descriptors:
+            current = os.open(directory.anchor, flags)
+            descriptors.callback(os.close, current)
+            for component in directory.parts[1:]:
+                current = os.open(component, flags, dir_fd=current)
+                descriptors.callback(os.close, current)
+            identity = os.fstat(current)
+            if (
+                record.get("directory_identity") != [identity.st_dev, identity.st_ino]
+                or identity.st_uid != os.getuid()
+            ):
+                raise ResourceError("Evidence directory ownership changed")
+            yield current
+    except OSError as error:
+        raise ResourceError(
+            "Evidence path ownership changed; cleanup refused"
+        ) from error
+
+
+@contextlib.contextmanager
+def artifact_file(
+    directory: int, relative: str
+) -> Generator[tuple[int, str, BufferedReader], None, None]:
+    path = Path(relative)
+    if (
+        path.is_absolute()
+        or not path.parts
+        or any(part in {"..", "."} for part in path.parts)
+    ):
+        raise ResourceError("Evidence artifact ownership changed")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    with contextlib.ExitStack() as parents:
+        parent = directory
+        for component in path.parts[:-1]:
+            parent = os.open(component, flags, dir_fd=parent)
+            parents.callback(os.close, parent)
+        descriptor = os.open(
+            path.name,
+            os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK,
+            dir_fd=parent,
+        )
+        with os.fdopen(descriptor, "rb") as stream:
+            yield parent, path.name, stream
+
+
+def observe_artifact(directory: int, relative: str) -> ReportArtifact:
+    with artifact_file(directory, relative) as (parent, name, stream):
+        observed = os.fstat(stream.fileno())
+        if not stat.S_ISREG(observed.st_mode) or observed.st_uid != os.getuid():
+            raise ResourceError("Evidence artifact ownership changed")
+        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        latest = os.stat(name, dir_fd=parent, follow_symlinks=False)
+        if (
+            observed.st_dev,
+            observed.st_ino,
+            observed.st_size,
+            observed.st_mtime_ns,
+        ) != (latest.st_dev, latest.st_ino, latest.st_size, latest.st_mtime_ns):
+            raise ResourceError("Evidence artifact changed while sealing")
+        return {
+            "role": "unknown",
+            "digest": digest,
+            "identity": [observed.st_dev, observed.st_ino, observed.st_uid],
+        }
+
+
+def verify_manifest_files(directory: int, manifest: ReportManifest) -> None:
+    """Verify provenance and retained bytes before reuse or the first cleanup effect."""
+    for relative, expected in manifest["entries"].items():
+        try:
+            observed = observe_artifact(directory, relative)
+        except FileNotFoundError:
+            if expected["role"] == "scratch":
+                continue  # A prior interrupted cleanup may have removed it.
+            raise ResourceError("Retained report artifact is missing") from None
+        if (
+            observed["identity"] != expected["identity"]
+            or observed["digest"] != expected["digest"]
+        ):
+            raise ResourceError(
+                "Registered evidence artifact ownership changed; cleanup refused"
+            )
+
+
+def report_outcome(receipt: Mapping[str, object]) -> tuple[bool, bool]:
+    """Keep execution outcome separate from proof sufficient for automatic disposal."""
+    complete = receipt.get("complete") is True
+    checks = receipt.get("checks")
+    scope = receipt.get("scope")
+    qualified = False
+    if isinstance(checks, list) and isinstance(scope, list) and scope:
+        from scripts.validation_receipts import (  # noqa: PLC0415 -- reciprocal receipt/resource owner
+            qualified as check_qualified,
+        )
+
+        qualified = (
+            all(
+                isinstance(check, dict)
+                and isinstance(check.get("status"), str)
+                and isinstance(check.get("gate"), str)
+                and check_qualified(check)
+                for check in checks
+            )
+            and all(
+                isinstance(declaration, dict)
+                and isinstance(declaration.get("name"), str)
+                for declaration in scope
+            )
+            and {check.get("gate") for check in checks}
+            == {declaration["name"] for declaration in scope}
+            and len(checks) == len(scope)
+            and len({check["gate"] for check in checks}) == len(checks)
+        )
+    passed = (
+        receipt.get("version") == 5
+        and complete
+        and receipt.get("required_checks_covered") is True
+        and qualified
+    )
+    provenance = (
+        receipt.get("input_coverage") is True
+        and receipt.get("source_unchanged") is True
+        and receipt.get("provenance_errors") == []
+    )
+    return passed, provenance
+
+
+def finish_report(
+    resource: str,
+    receipt: Mapping[str, object],
+    *,
+    roles: Mapping[str, str],
+    required_provenance: Sequence[str],
+) -> None:
+    """Seal producer-declared meaning once; no suffix or filename disposal policy."""
     selected = resource_status(resource)
     directory = Path(selected["state"])
-    compact = {"checks.json", "scope.json", "summary.txt"}
-    artifacts = {}
-    for path in directory.rglob("*"):
-        if path.is_symlink():
-            raise ResourceError(
-                "New report contains a symlink; evidence remains pinned"
-            )
-        if (
-            path.is_file()
-            and path.name not in compact
-            and path.suffix != ".json"
-            and "selected" not in path.name
-        ):
-            artifacts[str(path.relative_to(directory))] = (
-                __import__("hashlib").sha256(path.read_bytes()).hexdigest()
-            )
-    complete = bool(receipt.get("complete"))
-    passed = complete and bool(receipt.get("required_checks_covered"))
+    if (
+        selected.get("artifact_policy_version") != 1
+        or "artifact_manifest" in selected
+        or selected["cleanup"] != "retained"
+    ):
+        raise ResourceError("Report manifest is unavailable or already sealed")
+    if roles.get("checks.json") != "receipt" or any(
+        not isinstance(name, str)
+        or not isinstance(role, str)
+        or role not in ARTIFACT_ROLES
+        for name, role in roles.items()
+    ):
+        raise ResourceError("Producer must declare valid roles and the checks receipt")
+    if json.loads((directory / "checks.json").read_text()) != json.loads(
+        json.dumps(receipt)
+    ):
+        raise ResourceError("Finalized receipt differs from the outcome being sealed")
+    checks = receipt.get("checks", [])
+    if not isinstance(checks, list) or any(
+        not isinstance(check, dict) for check in checks
+    ):
+        raise ResourceError("Invalid report check records; evidence remains pinned")
+    for check in checks:
+        if check.get("origin") and Path(check["origin"]).resolve() != directory:
+            continue
+        for name in (check.get("log"), *check.get("artifacts", {})):
+            if name is not None and roles.get(name) == "scratch":
+                raise ResourceError(
+                    "Receipt-consumed evidence cannot be disposable scratch"
+                )
+    entries: dict[str, ReportArtifact] = {}
+    with report_directory(selected) as descriptor:
+        for path in directory.rglob("*"):
+            if path.is_symlink():
+                raise ResourceError(
+                    "New report contains a symlink; evidence remains pinned"
+                )
+            if path.is_file():
+                relative = str(path.relative_to(directory))
+                entry = observe_artifact(descriptor, relative)
+                entry["role"] = roles.get(relative, "unknown")
+                entries[relative] = entry
+    if set(roles) - entries.keys():
+        raise ResourceError("Declared producer artifact is missing")
+    manifest: ReportManifest = {
+        "version": 1,
+        "receipt_digest": entries["checks.json"]["digest"],
+        "entries": entries,
+        "required_provenance": list(required_provenance),
+    }
+    artifacts = {
+        name: entry["digest"]
+        for name, entry in entries.items()
+        if entry["role"] == "scratch"
+    }
+    complete = receipt.get("complete") is True
+    passed, provenance = report_outcome(receipt)
+    provenance = (
+        provenance
+        and bool(required_provenance)
+        and all(
+            name in entries and entries[name]["role"] == "provenance"
+            for name in required_provenance
+        )
+    )
     units: list[ResourceUnit] = []
     allocation = host.inherit(os.environ)
     if allocation is not None:
@@ -595,13 +978,18 @@ def finish_report(resource: str, receipt: Mapping[str, object]) -> None:
                 {"unit": name, **bound}
                 for name, bound in owners["owners"][allocation.nonce]["units"].items()
             ]
-    with resource_metadata() as ledger:
-        ledger["owners"][resource].update(
+    with resource_metadata(resource) as ledger:
+        record = ledger["owners"][resource]
+        if "artifact_manifest" in record or record["cleanup"] != "retained":
+            raise ResourceError("Report manifest was concurrently sealed or reserved")
+        record.update(
             drained=complete,
             units=units,
             disposition="pass" if passed else "failure" if complete else "incomplete",
-            pin=not passed or bool(ledger["owners"][resource].get("manual_pin")),
+            pin=not passed or not provenance or bool(record.get("manual_pin")),
             artifacts=artifacts,
+            artifact_manifest=manifest,
+            provenance_verified=provenance,
         )
 
 
@@ -638,79 +1026,40 @@ def reclaim_reports() -> list[str]:
 
 
 def remove_report(record: ResourceRecord) -> None:
-    """Compact only the exact registered files after outcome, drain and references."""
-    directory = Path(record["state"])
-    if (
-        not directory.is_absolute()
-        or ".." in directory.parts
-        or not directory.is_relative_to(Path(record["owner_root"]) / "build")
-    ):
-        raise ResourceError("Evidence directory ownership changed")
-
-    # Walk and retain directory descriptors: an ancestor symlink must never
-    # redirect a checked relative artifact to unrelated material.
-    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
-    with contextlib.ExitStack() as descriptors:
-        current = os.open(directory.anchor, flags)
-        descriptors.callback(os.close, current)
-        try:
-            for component in directory.parts[1:]:
-                current = os.open(component, flags, dir_fd=current)
-                descriptors.callback(os.close, current)
-            identity = os.fstat(current)
-            if (
-                record.get("directory_identity") != [identity.st_dev, identity.st_ino]
-                or identity.st_uid != os.getuid()
-            ):
-                raise ResourceError("Evidence directory ownership changed")
-            for relative, expected in record["artifacts"].items():
-                path = Path(relative)
-                if (
-                    path.is_absolute()
-                    or not path.parts
-                    or any(part in {"..", "."} for part in path.parts)
-                ):
-                    raise ResourceError("Evidence artifact ownership changed")
-                with contextlib.ExitStack() as parents:
-                    parent = current
-                    try:
-                        for component in path.parts[:-1]:
-                            parent = os.open(component, flags, dir_fd=parent)
-                            parents.callback(os.close, parent)
-                        descriptor = os.open(
-                            path.name,
-                            os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK,
-                            dir_fd=parent,
+    """Remove only sealed scratch, after checking all retained provenance and evidence."""
+    manifest = report_manifest(record)
+    if manifest is None:
+        raise ResourceError("Missing producer artifact manifest")
+    with report_directory(record) as descriptor:
+        # Validate the whole sealed snapshot before the first effect. Missing scratch
+        # is allowed only for resuming an earlier interrupted cleanup.
+        verify_manifest_files(descriptor, manifest)
+        for relative, expected in manifest["entries"].items():
+            if expected["role"] != "scratch":
+                continue
+            try:
+                with artifact_file(descriptor, relative) as (parent, name, stream):
+                    observed = os.fstat(stream.fileno())
+                    if [observed.st_dev, observed.st_ino, observed.st_uid] != expected[
+                        "identity"
+                    ] or not stat.S_ISREG(observed.st_mode):
+                        raise ResourceError("Evidence artifact ownership changed")
+                    if (
+                        hashlib.file_digest(stream, "sha256").hexdigest()
+                        != expected["digest"]
+                    ):
+                        raise ResourceError(
+                            "Registered evidence artifact changed; cleanup refused"
                         )
-                    except FileNotFoundError:
-                        continue  # An earlier interrupted cleanup may have removed it.
-                    with os.fdopen(descriptor, "rb") as stream:
-                        observed = os.fstat(stream.fileno())
-                        if (
-                            not stat.S_ISREG(observed.st_mode)
-                            or observed.st_uid != os.getuid()
-                        ):
-                            raise ResourceError("Evidence artifact ownership changed")
-                        if (
-                            hashlib.file_digest(stream, "sha256").hexdigest()
-                            != expected
-                        ):
-                            raise ResourceError(
-                                "Registered evidence artifact changed; cleanup refused"
-                            )
-                        latest = os.stat(
-                            path.name, dir_fd=parent, follow_symlinks=False
-                        )
-                        if (observed.st_dev, observed.st_ino) != (
-                            latest.st_dev,
-                            latest.st_ino,
-                        ):
-                            raise ResourceError("Evidence artifact ownership changed")
-                        os.unlink(path.name, dir_fd=parent)
-        except OSError as error:
-            raise ResourceError(
-                "Evidence path ownership changed; cleanup refused"
-            ) from error
+                    latest = os.stat(name, dir_fd=parent, follow_symlinks=False)
+                    if (observed.st_dev, observed.st_ino) != (
+                        latest.st_dev,
+                        latest.st_ino,
+                    ):
+                        raise ResourceError("Evidence artifact ownership changed")
+                    os.unlink(name, dir_fd=parent)
+            except FileNotFoundError:
+                continue
 
 
 def eligible(record: ResourceRecord, *, check_units: bool = True) -> str | None:
@@ -732,6 +1081,21 @@ def eligible(record: ResourceRecord, *, check_units: bool = True) -> str | None:
         for owner in record["units"]:
             if not operation.drained({"scope": owner}):
                 return "supervised descendant not drained"
+    if record["kind"] == "evidence" and "owner_root" in record:
+        manifest = report_manifest(record)
+        if manifest is None:
+            return "missing producer artifact manifest"
+        if record.get("provenance_verified") is not True:
+            return "unverified report provenance"
+        scratch = {
+            name: item["digest"]
+            for name, item in manifest["entries"].items()
+            if item["role"] == "scratch"
+        }
+        if scratch != record.get("artifacts"):
+            return "changed disposable artifact projection"
+        if not scratch:
+            return "no disposable report artifacts"
     return None
 
 
@@ -829,8 +1193,27 @@ def cleanup_reason(record: ResourceRecord, *, check_units: bool = True) -> str |
 def reclaim(resource: str) -> str:
     if not IDENTIFIER.fullmatch(resource):
         raise ResourceError("Release/reclaim selects an exact resource identity")
-    snapshot = resource_status(resource)
+    try:
+        snapshot = resource_status(resource)
+    except ResourceError as error:
+        if str(error) != "Unknown resource identity":
+            raise
+        # Exact cleanup is idempotent after complete disposal, without retaining
+        # a tombstone. An absent identity grants no reference or write authority.
+        return "removed"
     reason = cleanup_reason(snapshot)
+    if reason == "no disposable report artifacts":
+        with resource_metadata(resource) as ledger:
+            record = ledger["owners"].get(resource)
+            if record is None or record.get("units") != snapshot.get("units"):
+                raise ResourceError("Report drain ownership changed")
+            current_reason = cleanup_reason(record, check_units=False)
+            if current_reason != reason:
+                return current_reason or "retained"
+            # Retained producer evidence still has an exact reference owner, but
+            # no cleanup work remains after authentic drain.
+            record["cleanup"] = "compacted"
+        return reason
     if reason:
         return reason
     from scripts import surreal_server  # noqa: PLC0415 -- service cycle
@@ -858,7 +1241,7 @@ def reclaim(resource: str) -> str:
                 "accepting_writes"
             ):
                 raise ResourceError("Cleanup context admission is closed")
-        with resource_metadata() as ledger:
+        with resource_metadata(resource) as ledger:
             record = ledger["owners"].get(resource)
             if not isinstance(record, dict):
                 raise ResourceError("Unknown resource")
@@ -874,6 +1257,11 @@ def reclaim(resource: str) -> str:
                 "service_generation",
                 "namespace",
                 "units",
+                "directory_identity",
+                "owner_root",
+                "artifact_manifest",
+                "artifacts",
+                "provenance_verified",
             ):
                 if record.get(key) != snapshot.get(key):
                     raise ResourceError("Cleanup ownership changed during admission")
@@ -887,12 +1275,12 @@ def reclaim(resource: str) -> str:
     try:
         remove_owned(selected)
     except Exception as error:
-        with resource_metadata() as ledger:
+        with resource_metadata(resource) as ledger:
             ledger["owners"][resource].update(
                 cleanup="retained", pin=True, cleanup_error=str(error)
             )
         raise
-    with resource_metadata() as ledger:
+    with resource_metadata(resource) as ledger:
         ledger["owners"][resource]["cleanup"] = (
             "compacted" if selected["kind"] == "evidence" else "removed"
         )

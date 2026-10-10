@@ -16,6 +16,7 @@ use pse_math::{
 #[derive(Clone, Debug)]
 pub(super) struct ResponseTerm {
     pub observation: usize,
+    /// Canonical Jacobian value index for steady experiments, binding index for transient ones.
     pub local: usize,
     pub contribution: Addend,
 }
@@ -23,6 +24,10 @@ pub(super) struct ResponseTerm {
 /// value position in the experiment's canonical storage and the fit matrix addend it feeds.
 #[derive(Clone, Debug, Default)]
 pub(super) struct Mapping {
+    /// Included measurements in their original source order, including repeated outputs.
+    pub observations: Vec<usize>,
+    /// Transient free bindings in original binding order, including shared-parameter addends.
+    pub free_bindings: Vec<usize>,
     pub responses: Vec<ResponseTerm>,
     pub constraints: Vec<(usize, Addend)>,
     pub hessian: Vec<(usize, Addend)>,
@@ -156,12 +161,22 @@ impl Layout {
             // The established 256-byte typed sparse allowance covers entry/refill
             // maps, growing mapping Vecs, canonical CSC, transpose and Gram arrays.
             // Source metadata/column offsets are separately charged by finish().
+            // Index lists also exist for observations without derivative support and
+            // experiments without observations. Bound their growing Vec capacities
+            // separately from sparse contributions, including the minimum allocation.
+            let indexes = experiments.iter().try_fold(measurements.len(), |n, e| {
+                n.checked_add(match e {
+                    Experiment::Steady(_) => 0,
+                    Experiment::Transient(s) => s.bindings.len(),
+                })
+            })?;
             responses
                 .min(limit)
                 .checked_add(constraints.min(limit))?
                 .checked_add(hessian)?
                 .checked_add(gram)?
-                .checked_mul(256)
+                .checked_mul(256)?
+                .checked_add(indexes.checked_mul(4 * size_of::<usize>())?)
         };
         extent().ok_or_else(|| ProblemError::memory("fit source construction extent"))
     }
@@ -178,7 +193,8 @@ impl Layout {
                 .mappings
                 .iter()
                 .map(|m| {
-                    m.responses.capacity() * size_of::<ResponseTerm>()
+                    (m.observations.capacity() + m.free_bindings.capacity()) * size_of::<usize>()
+                        + m.responses.capacity() * size_of::<ResponseTerm>()
                         + (m.constraints.capacity() + m.hessian.capacity())
                             * size_of::<(usize, Addend)>()
                 })
@@ -207,20 +223,27 @@ impl Layout {
         let mut response_pairs = Vec::<Entry<usize, OriginalCol>>::new();
         let mut constraint_pairs = Vec::<Entry<OriginalRow, OriginalCol>>::new();
         let mut hessian_pairs = Vec::<Entry<OriginalCol, OriginalCol>>::new();
-        let mut mappings = Vec::new();
-        for (ei, experiment) in experiments.iter().enumerate() {
-            let mut mapping = Mapping::default();
+        let mut mappings = vec![Mapping::default(); experiments.len()];
+        for (observation, measurement) in measurements.iter().enumerate() {
+            if measurement.included {
+                mappings
+                    .get_mut(measurement.experiment)
+                    .ok_or_else(|| ProblemError::internal("fit observation experiment"))?
+                    .observations
+                    .push(observation);
+            }
+        }
+        for (experiment, mapping) in experiments.iter().zip(&mut mappings) {
             match experiment {
                 Experiment::Steady(s) => {
                     let j = s.case.assembly.jacobian_pattern();
                     let constraints = s.constraints.iter().copied().collect::<BTreeMap<_, _>>();
                     let mut observations = BTreeMap::<usize, Vec<usize>>::new();
-                    for (oi, obs) in measurements
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, o)| o.experiment == ei && o.included)
-                    {
-                        observations.entry(obs.row).or_default().push(oi);
+                    for &oi in &mapping.observations {
+                        observations
+                            .entry(measurements[oi].row)
+                            .or_default()
+                            .push(oi);
                     }
                     for (local_col, &(_, global_col)) in s.coordinates.iter_enumerated() {
                         for k in j.col_range(local_col.get()) {
@@ -254,13 +277,19 @@ impl Layout {
                     }
                 }
                 Experiment::Transient(s) => {
+                    mapping.free_bindings = s
+                        .bindings
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(i, binding)| parameter_columns[binding.parameter].map(|_| i))
+                        .collect();
                     // The exact Hessian's transient curvature over the free parameters'
                     // bindings, in binding order: source `a·k + b` of a k-by-k block.
                     if order >= DerivativeOrder::Second {
-                        let free = s
-                            .bindings
+                        let free = mapping
+                            .free_bindings
                             .iter()
-                            .filter_map(|b| parameter_columns[b.parameter])
+                            .filter_map(|&i| parameter_columns[s.bindings[i].parameter])
                             .collect::<Vec<_>>();
                         for (a, ca) in free.iter().enumerate() {
                             for (b, cb) in free.iter().enumerate() {
@@ -272,18 +301,15 @@ impl Layout {
                             }
                         }
                     }
-                    for binding in &s.bindings {
+                    for &binding_index in &mapping.free_bindings {
+                        let binding = &s.bindings[binding_index];
                         if let Some(column) = parameter_columns[binding.parameter] {
-                            for (observation, _) in measurements
-                                .iter()
-                                .enumerate()
-                                .filter(|(_, o)| o.experiment == ei && o.included)
-                            {
+                            for &observation in &mapping.observations {
                                 let entry = Entry::new(observation, column);
                                 let c = push(&mut response_pairs, entry, limit)?;
                                 mapping.responses.push(ResponseTerm {
                                     observation,
-                                    local: binding.local,
+                                    local: binding_index,
                                     contribution: c,
                                 });
                             }
@@ -291,7 +317,6 @@ impl Layout {
                     }
                 }
             }
-            mappings.push(mapping);
         }
         let responses = AssemblyMatrix::new(measurements.len(), columns, &response_pairs, limit)?;
         let constraints = AssemblyMatrix::new(rows, columns, &constraint_pairs, limit)?;

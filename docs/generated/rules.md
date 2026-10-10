@@ -106,7 +106,6 @@
 | `runtime.canonical_analysis_inputs` | `foreign_key:attempt` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."attempt" AS "__pse_value" FROM "runtime"."canonical_analysis_inputs" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_attempts" t WHERE s."__pse_value" = t."key")` |
 | `runtime.canonical_analysis_inputs` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_analysis_inputs" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_analysis_nodes` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_analysis_nodes" s GROUP BY s."key" HAVING COUNT(*) > 1` |
-| `runtime.canonical_analysis_retirements` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_analysis_retirements" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_attempts` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_attempts" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_edges` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_edges" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_execution_operations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_execution_operations" s GROUP BY s."key" HAVING COUNT(*) > 1` |

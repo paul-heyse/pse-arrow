@@ -151,7 +151,7 @@ is not a demonstrated G8 violation; the current route already delegates evaluato
 
 ## Existing evidence and limits
 
-[Plan 25k K4](../../../plans/25k-integrated-qualification-and-closure.md#k4--measurements-that-distinguish-the-design)
+[Plan 25k K4](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25k-integrated-qualification-and-closure.md#k4--measurements-that-distinguish-the-design)
 records untimed observations of multi-minute medium structural preparation and a 32-block warm-up
 exceeding fifteen minutes before its first observation. It explicitly narrows the planned
 measurement campaign; these observations are not a completed timing distribution or attribution

@@ -7,7 +7,23 @@ pagefind = "1.5.2"
 
 [publication]
 exclude = ["SUMMARY.md", "generated/rustdoc/**"]
-current_work = []
+current_work = [
+  "plans/28*.md",
+  "plans/32-workspace-content-lifecycle.md",
+]
+assets = [
+  "capability-maps/evidence/identity-vectors-adr0050.json",
+  "design_review/design_principles/standard.toml",
+]
+asset_bundles = [
+  "agent-effectiveness-enhancements-2026-10-09",
+  "blueprint-rev4-2026-09-13",
+  "canonical-selection-2026-10-06",
+  "efficiency-principles-codebase-2026-10-09",
+  "full-arrow-datafusion-2026-09-14",
+  "graph-hash-followups-2026-10-09",
+  "native-producer-inputs-2026-10-06",
+]
 entrypoints = [
   "README.md",
   "authoritative_design/README.md",
@@ -71,3 +87,92 @@ patterns = [
   "design_review/design_principles/binding/*.md",
 ]
 scope = "Current"
+
+[[overrides]]
+patterns = [
+  "external-review-postgresl-options.md",
+  "external-review-postgresl-typing-and-other-typing-enhancements.md",
+]
+scope = "History"
+
+[[asset_bundles]]
+name = "agent-effectiveness-enhancements-2026-10-09"
+root = "design_review/evidence/agent-effectiveness-enhancements-2026-10-09"
+files = [
+  "interface-observations.json",
+  "probe-interfaces.py",
+  "retrospective/audited-leads.json",
+  "retrospective/extract.py",
+  "retrospective/metrics.json",
+  "retrospective/source-manifest.json",
+]
+
+[[asset_bundles]]
+name = "blueprint-rev4-2026-09-13"
+root = "design_review/evidence/blueprint-rev4-2026-09-13"
+files = ["output.txt", "probe.rs", "run.sh"]
+
+[[asset_bundles]]
+name = "canonical-selection-2026-10-06"
+root = "design_review/evidence/canonical-selection-2026-10-06"
+files = ["query-plans.json"]
+
+[[asset_bundles]]
+name = "efficiency-principles-codebase-2026-10-09"
+root = "design_review/evidence/efficiency-principles-codebase-2026-10-09"
+files = ["input-scope-probe.json", "input-scope-probe.py"]
+
+[[asset_bundles]]
+name = "full-arrow-datafusion-2026-09-14"
+root = "design_review/evidence/full-arrow-datafusion-2026-09-14"
+files = ["probe-output.txt", "resolved-features.json"]
+
+[[asset_bundles]]
+name = "graph-hash-followups-2026-10-09"
+root = "design_review/evidence/graph-hash-followups-2026-10-09"
+files = [
+  "authored-checker-probe.rs",
+  "authored-checker-results.json",
+  "basis-key-baseline-integration.patch",
+  "basis-key-cost-probe.rs",
+  "basis-key-results.json",
+  "factorable-inquiry.rs",
+  "factorable-integration.patch",
+  "factorable-results.json",
+  "pcsaft-02-inquiry-refusal.json",
+  "pcsaft-02-production-smoke.json",
+  "recipe-and-checker-probes.log",
+  "recipe-persistence-probe.rs",
+  "recipe-persistence-results.json",
+  "restart-context-diagnostic.json",
+  "restart-context-probe.rs",
+  "temporary-integration.patch",
+]
+
+[[asset_bundles]]
+name = "native-producer-inputs-2026-10-06"
+root = "design_review/evidence/native-producer-inputs-2026-10-06"
+files = [
+  "cmake-generation-contracts.json",
+  "external-selector-contracts.json",
+  "gcc-driver-probes.json",
+  "guarded-runtime-native-inputs.json",
+  "header-shadow-probe.json",
+  "helper-lookup-candidates.json",
+  "helper-source-contracts.json",
+  "host-probes.json",
+  "link-support-inputs.json",
+  "linked-loader-observer.json",
+  "linked-selected-artifacts.json",
+  "loader-probes.json",
+  "native-namespace-candidates.json",
+  "native-prefix-link-inputs.json",
+  "python-helper-probes.json",
+  "runtime-build-review-bases.json",
+  "runtime-selected-native-inputs.json",
+  "source-contracts.json",
+  "source-grant-recommendations.json",
+  "supported-native-grant-disposition.json",
+  "symbolica-git-observer.json",
+  "tool-environment-contracts.json",
+]

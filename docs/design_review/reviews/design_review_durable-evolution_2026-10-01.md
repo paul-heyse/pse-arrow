@@ -8,7 +8,7 @@ scope: Plan 25g durable interpretation, migration and retirement contracts
 baseline: 6150c8c92
 decision: Accept
 evidence: Proposed
-disposition_owner: docs/plans/25-design-remediation.md
+disposition_owner: git:4c24721e691187e1a5b28398b29722fbde671da8:docs/plans/25-design-remediation.md
 ---
 
 # Durable contract evolution decision review
@@ -42,8 +42,8 @@ The standard is Core 3.3 with process-simulator 1.3 and the pse-arrow binding. T
 design-tier **CONFORMANCE** decision review of proposed contracts and their implementation
 routes, not a whole-system or scientific qualification review. Relevant existing authority is
 blueprint §4.3, §5.3 and §20.2–§20.6, ADR-0114 and the proposed supplement ADR-0146.
-The [series coordinator](../../plans/25-design-remediation.md) owns finding disposition;
-25g owns implementation state and [25k](../../plans/25k-integrated-qualification-and-closure.md)
+The [series coordinator](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25-design-remediation.md) owns finding disposition;
+25g owns implementation state and [25k](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25k-integrated-qualification-and-closure.md)
 owns aggregate qualification.
 
 The boundary includes `pse-schema` compatibility, semantic witnesses and migration declarations;

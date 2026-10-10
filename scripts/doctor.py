@@ -335,6 +335,22 @@ def check_docs_tools() -> Check:
     """The publisher's declaration owns documentation versions, including CI installs."""
     pins = tomllib.loads((ROOT / "docs/site.toml").read_text())["tools"]
     problems = []
+    interpreter = ROOT / ".venv-docs/bin/python"
+    if not interpreter.is_file():
+        problems.append("docs interpreter missing")
+    else:
+        requirements = pyproject()["dependency-groups"]["docs"]
+        program = "import importlib.metadata as m; " + "; ".join(
+            f"assert m.version({name!r}) == {version!r}"
+            for name, version in (
+                requirement.split("==", 1)
+                for requirement in requirements
+                if isinstance(requirement, str)
+            )
+        )
+        code, _ = run(str(interpreter), "-c", program)
+        if code:
+            problems.append("docs Python dependencies differ from declared pins")
     for name, version in pins.items():
         code, output = run(name, "--version")
         if code or not re.search(rf"(?:^|\s)v?{re.escape(version)}(?:\s|$)", output):

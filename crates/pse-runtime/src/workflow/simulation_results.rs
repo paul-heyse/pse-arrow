@@ -1,28 +1,30 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Physical trajectories and exact execution provenance use generated owned relations.
-use super::{RunReport, RunRequest, RunResult, WorkflowError, contract, relation};
-use pse_ids::SemanticId;
-use pse_relations::{columnar::FieldCheckedBatch, generated::runtime::computation_runs};
-use std::collections::BTreeMap;
+//! Physical results reuse one relation projection for convenience and durable transport.
+#[cfg(feature = "solver-diffsol")]
+use super::RunRequest;
+use super::{RunReport, RunResult, WorkflowError, contract, relation};
+use pse_relations::generated::runtime::computation_runs;
 impl RunResult {
-    pub(super) fn encode_simulation(
+    pub(super) async fn encode_simulation(
         &self,
-    ) -> Result<BTreeMap<SemanticId, FieldCheckedBatch>, WorkflowError> {
-        let RunRequest::Simulation(_) = &self.request else {
-            return Err(contract("simulation request mismatch"));
-        };
-        let mut batches = match &self.report {
-            Ok(RunReport::Simulation(r)) => r.tables()?.as_ref().clone(),
-            _ => BTreeMap::new(),
-        };
-        let registry = &self.runtime.registry;
+        request: &super::result_export::Projection,
+    ) -> Result<(), WorkflowError> {
+        if let Ok(RunReport::Simulation(trajectory)) = &self.report {
+            return trajectory.project(request).await;
+        }
+        let pool = self.runtime.shared.pool();
+        let cancel = request.cancel.clone();
         let validation = self.runtime.validation_context()?;
-        if let std::collections::btree_map::Entry::Vacant(entry) =
-            batches.entry(computation_runs::RELATION_ID)
-        {
-            let mut header = computation_runs::Builder::with_registry(registry, 1, &validation)
-                .map_err(relation)?;
+        let mut header = super::result_export::Rows::<computation_runs::Row>::new(
+            request,
+            &self.runtime.registry,
+            &pool,
+            &cancel,
+            &validation,
+        )
+        .map_err(relation)?;
+        if request.wants(computation_runs::RELATION_ID) {
             header
                 .push(
                     self.completion()
@@ -31,16 +33,16 @@ impl RunResult {
                         .clone()
                         .ok_or_else(|| contract("simulation completion absent"))?,
                 )
+                .await
                 .map_err(relation)?;
-            entry.insert(header.finish().map_err(relation)?);
         }
-        self.retain_sources(&mut batches)?;
-        Ok(batches)
+        header.finish().await.map_err(relation)
     }
     #[cfg(feature = "solver-diffsol")]
-    pub(super) fn encode_shooting(
+    pub(super) async fn encode_shooting(
         &self,
-    ) -> Result<BTreeMap<SemanticId, FieldCheckedBatch>, WorkflowError> {
+        request: &super::result_export::Projection,
+    ) -> Result<(), WorkflowError> {
         let RunRequest::Shooting { problem, .. } = &self.request else {
             return Err(contract("shooting request mismatch"));
         };
@@ -49,13 +51,12 @@ impl RunResult {
             Ok(RunReport::Shooting(report)) => Some(report.as_ref()),
             _ => None,
         };
-        let staging = pse_columnar::MemoryConsumer::new("workflow:shooting-encoding")
-            .register(&self.runtime.shared.pool());
-        staging
-            .try_grow(problem.encoding_bytes(report)?)
-            .map_err(|e| WorkflowError::Math(e.into()))?;
-        let mut batches = BTreeMap::new();
-        if let Some(report) = report.filter(|r| r.trajectory.is_some()) {
+        let registry = &self.runtime.registry;
+        let pool = self.runtime.shared.pool();
+        let cancel = request.cancel.clone();
+        if super::ModelingTrajectory::relation_ids().contains(&request.relation)
+            && let Some(report) = report.filter(|r| r.trajectory.is_some())
+        {
             let owner = self
                 ._owner
                 .clone()
@@ -66,7 +67,7 @@ impl RunResult {
                 .computation
                 .clone()
                 .ok_or_else(|| contract("shooting completion absent"))?;
-            batches = problem
+            problem
                 .simulation
                 .completed_trajectory(
                     report,
@@ -77,9 +78,9 @@ impl RunResult {
                         .ok_or_else(|| contract("shooting assessment absent"))?,
                     owner,
                 )?
-                .tables()?
-                .as_ref()
-                .clone();
+                .project(request)
+                .await?;
+            return Ok(());
         }
         use pse_model::generated::enums::{
             DualQualification, ModelingVariableDomain, NumericalTarget,
@@ -97,81 +98,98 @@ impl RunResult {
                 .find(|t| t.id == id && t.kind == kind)
                 .ok_or_else(|| contract("shooting coordinate numerical metadata absent"))
         };
-        let mut variables = solve_variables::Builder::with_registry(
-            &self.runtime.registry,
-            problem.contract().variables.len(),
+        let mut variables = crate::workflow::result_export::Rows::<solve_variables::Row>::new(
+            request,
+            registry,
+            &pool,
+            &cancel,
             &validation,
         )
         .map_err(relation)?;
-        for (i, variable) in problem.contract().variables.iter().enumerate() {
-            let target = metadata(variable.id, NumericalTarget::Variable)?;
-            variables
-                .push(solve_variables::Row {
-                    run_id: self.run_id,
-                    step: 0,
-                    symbol_id: variable.id,
-                    quantity_id: Some(target.quantity),
-                    unit_id: Some(target.unit),
-                    fixed: false,
-                    parameter: false,
-                    domain: Some(ModelingVariableDomain::Continuous),
-                    value: candidate.and_then(|c| c.get(i).copied()),
-                    lower: variable.lower.is_finite().then_some(variable.lower),
-                    upper: variable.upper.is_finite().then_some(variable.upper),
-                    lower_violation: None,
-                    upper_violation: None,
-                    tolerance: Some(problem.tolerances().variables[i]),
-                    lower_dual: None,
-                    upper_dual: None,
-                    reduced_cost: None,
-                    stationarity: None,
-                    dual_qualification: DualQualification::Unavailable,
-                })
-                .map_err(relation)?;
+        if request.wants(solve_variables::RELATION_ID) {
+            for (i, variable) in problem.contract().variables.iter().enumerate() {
+                if variables.skip_next() {
+                    continue;
+                }
+                let target = metadata(variable.id, NumericalTarget::Variable)?;
+                variables
+                    .push(solve_variables::Row {
+                        run_id: self.run_id,
+                        step: 0,
+                        symbol_id: variable.id,
+                        quantity_id: Some(target.quantity),
+                        unit_id: Some(target.unit),
+                        fixed: false,
+                        parameter: false,
+                        domain: Some(ModelingVariableDomain::Continuous),
+                        value: candidate.and_then(|c| c.get(i).copied()),
+                        lower: variable.lower.is_finite().then_some(variable.lower),
+                        upper: variable.upper.is_finite().then_some(variable.upper),
+                        lower_violation: None,
+                        upper_violation: None,
+                        tolerance: Some(problem.tolerances().variables[i]),
+                        lower_dual: None,
+                        upper_dual: None,
+                        reduced_cost: None,
+                        stationarity: None,
+                        dual_qualification: DualQualification::Unavailable,
+                    })
+                    .await
+                    .map_err(relation)?;
+            }
         }
-        batches.insert(
-            solve_variables::RELATION_ID,
-            variables.finish().map_err(relation)?,
-        );
-        let mut constraints = solve_constraints::Builder::with_registry(
-            &self.runtime.registry,
-            problem.contract().rows.len(),
+
+        variables.finish().await.map_err(relation)?;
+        let mut constraints = crate::workflow::result_export::Rows::<solve_constraints::Row>::new(
+            request,
+            registry,
+            &pool,
+            &cancel,
             &validation,
         )
         .map_err(relation)?;
-        for (i, id) in problem.contract().rows.iter().enumerate() {
-            let target = metadata(*id, NumericalTarget::Row)?;
-            let (lower, upper) = problem.constraint_bounds()[i];
-            constraints
-                .push(solve_constraints::Row {
-                    run_id: self.run_id,
-                    step: 0,
-                    row_id: *id,
-                    quantity_id: Some(target.quantity),
-                    unit_id: Some(target.unit),
-                    value: report
-                        .and_then(|r| r.constraint_values.as_ref())
-                        .and_then(|v| v.get(i).copied()),
-                    lower: lower.is_finite().then_some(lower),
-                    upper: upper.is_finite().then_some(upper),
-                    equality_residual: None,
-                    lower_violation: None,
-                    upper_violation: None,
-                    tolerance: Some(problem.tolerances().rows[i]),
-                    dual: None,
-                    dual_qualification: DualQualification::Unavailable,
-                })
-                .map_err(relation)?;
+        if request.wants(solve_constraints::RELATION_ID) {
+            for (i, id) in problem.contract().rows.iter().enumerate() {
+                if constraints.skip_next() {
+                    continue;
+                }
+                let target = metadata(*id, NumericalTarget::Row)?;
+                let (lower, upper) = problem.constraint_bounds()[i];
+                constraints
+                    .push(solve_constraints::Row {
+                        run_id: self.run_id,
+                        step: 0,
+                        row_id: *id,
+                        quantity_id: Some(target.quantity),
+                        unit_id: Some(target.unit),
+                        value: report
+                            .and_then(|r| r.constraint_values.as_ref())
+                            .and_then(|v| v.get(i).copied()),
+                        lower: lower.is_finite().then_some(lower),
+                        upper: upper.is_finite().then_some(upper),
+                        equality_residual: None,
+                        lower_violation: None,
+                        upper_violation: None,
+                        tolerance: Some(problem.tolerances().rows[i]),
+                        dual: None,
+                        dual_qualification: DualQualification::Unavailable,
+                    })
+                    .await
+                    .map_err(relation)?;
+            }
         }
-        batches.insert(
-            solve_constraints::RELATION_ID,
-            constraints.finish().map_err(relation)?,
-        );
-        let mut metrics =
-            solve_metrics::Builder::with_registry(&self.runtime.registry, 0, &validation)
-                .map_err(relation)?;
+
+        constraints.finish().await.map_err(relation)?;
+        let mut metrics = crate::workflow::result_export::Rows::<solve_metrics::Row>::new(
+            request,
+            registry,
+            &pool,
+            &cancel,
+            &validation,
+        )
+        .map_err(relation)?;
         if let Some(native) = native {
-            super::results::push_native_metrics(&mut metrics, self.run_id, 0, native)?;
+            super::results::push_native_metrics(&mut metrics, self.run_id, 0, native).await?;
         }
         if let Some(report) = report {
             for (name, value) in [
@@ -186,20 +204,21 @@ impl RunResult {
                         "shooting",
                         name,
                         &pse_backend_native::solve::Metric::Real(value),
-                    )?;
+                    )
+                    .await?;
                 }
             }
         }
-        batches.insert(
-            solve_metrics::RELATION_ID,
-            metrics.finish().map_err(relation)?,
-        );
-        if let std::collections::btree_map::Entry::Vacant(entry) =
-            batches.entry(computation_runs::RELATION_ID)
-        {
-            let mut header =
-                computation_runs::Builder::with_registry(&self.runtime.registry, 1, &validation)
-                    .map_err(relation)?;
+        metrics.finish().await.map_err(relation)?;
+        if request.wants(computation_runs::RELATION_ID) {
+            let mut header = crate::workflow::result_export::Rows::<computation_runs::Row>::new(
+                request,
+                registry,
+                &pool,
+                &cancel,
+                &validation,
+            )
+            .map_err(relation)?;
             header
                 .push(
                     self.completion()
@@ -208,8 +227,9 @@ impl RunResult {
                         .clone()
                         .ok_or_else(|| contract("shooting completion absent"))?,
                 )
+                .await
                 .map_err(relation)?;
-            entry.insert(header.finish().map_err(relation)?);
+            header.finish().await.map_err(relation)?;
         }
         let trace = report
             .and_then(|r| r.strategy.as_ref())
@@ -219,66 +239,38 @@ impl RunResult {
             });
         use pse_relations::generated::runtime::solve_strategy_events;
         let mut strategy_events =
-            solve_strategy_events::Builder::with_registry(&self.runtime.registry, 0, &validation)
-                .map_err(relation)?;
-        if let Some(trace) = trace {
-            for row in trace
-                .rows(self.run_id, 0)
-                .map_err(crate::math::MathRuntimeError::from)?
-            {
-                strategy_events.push(row).map_err(relation)?;
-            }
+            crate::workflow::result_export::Rows::<solve_strategy_events::Row>::new(
+                request,
+                registry,
+                &pool,
+                &cancel,
+                &validation,
+            )
+            .map_err(relation)?;
+        if let Some(trace) = trace
+            && request.wants(solve_strategy_events::RELATION_ID)
+        {
+            strategy_events
+                .strategy_events(trace, self.run_id, 0)
+                .await?;
         }
-        batches.insert(
-            solve_strategy_events::RELATION_ID,
-            strategy_events.finish().map_err(relation)?,
-        );
+        strategy_events.finish().await.map_err(relation)?;
         use pse_relations::generated::runtime::solve_strategy_products;
         let mut products =
-            solve_strategy_products::Builder::with_registry(&self.runtime.registry, 0, &validation)
-                .map_err(relation)?;
-        if let Some(trace) = trace {
-            for row in trace
-                .product_rows(self.run_id, 0)
-                .map_err(crate::math::MathRuntimeError::from)?
-            {
-                products.push(row).map_err(relation)?;
-            }
+            crate::workflow::result_export::Rows::<solve_strategy_products::Row>::new(
+                request,
+                registry,
+                &pool,
+                &cancel,
+                &validation,
+            )
+            .map_err(relation)?;
+        if let Some(trace) = trace
+            && request.wants(solve_strategy_products::RELATION_ID)
+        {
+            products.strategy_products(trace, self.run_id, 0).await?;
         }
-        batches.insert(
-            solve_strategy_products::RELATION_ID,
-            products.finish().map_err(relation)?,
-        );
-        self.retain_sources(&mut batches)?;
-        Ok(batches)
-    }
-    pub(super) fn retain_sources(
-        &self,
-        batches: &mut BTreeMap<SemanticId, FieldCheckedBatch>,
-    ) -> Result<(), WorkflowError> {
-        self.numerical_tables(batches)?;
-        use pse_relations::generated::runtime::run_lineage;
-        let completion = self.completion().map_err(|e| contract(e.to_string()))?;
-        let validation = self.runtime.validation_context()?;
-        let mut lineage = run_lineage::Builder::with_registry(
-            &self.runtime.registry,
-            completion.lineage.len(),
-            &validation,
-        )
-        .map_err(relation)?;
-        for row in &completion.lineage {
-            lineage.push(row.clone()).map_err(relation)?;
-        }
-        batches.insert(
-            run_lineage::RELATION_ID,
-            lineage.finish().map_err(relation)?,
-        );
-        let cancel = pse_columnar::CancellationToken::new();
-        for batch in batches.values_mut() {
-            *batch = batch
-                .retained(&self.runtime.shared.pool(), &cancel)
-                .map_err(relation)?;
-        }
+        products.finish().await.map_err(relation)?;
         Ok(())
     }
 }

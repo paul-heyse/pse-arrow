@@ -975,7 +975,7 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
         assert_eq!(contributions.len(), 1);
         let (binding, contribution) = contributions[0];
         assert_eq!(contribution.scale, 1.);
-        for slot in &binding.slots {
+        for slot in binding.slots.iter() {
             assert_eq!(
                 (slot.scale(), slot.offset()),
                 (1., 0.),

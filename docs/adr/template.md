@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [DP-00]
 blueprint: [§0.1]
-review: not-required: REASON
+review: "not-required: REASON"
 evidence: Proposed
 supersedes: []
 superseded-by: null

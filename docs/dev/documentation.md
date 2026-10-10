@@ -5,8 +5,9 @@ and [current work](../plans/README.md); inspect production source only as needed
 
 ## Commands
 
-- `just bootstrap-docs` installs the mdBook and Pagefind versions declared in `docs/site.toml`.
-  It uses cargo-binstall and does not synchronize or compile the product Python environment.
+- `just bootstrap-docs` provisions the locked docs-only Python group in `.venv-docs`
+  and installs the mdBook and Pagefind versions declared in `docs/site.toml`.
+  It does not synchronize or compile the product Python environment.
 - `just docs` discovers collections, stages sources, builds HTML and indexes canonical chapter
   content with Pagefind. Output is `docs/book/`; staging is temporary under `build/docs/`.
 - `just docs-test` exercises publisher and citation fixtures without importing the product.
@@ -26,7 +27,8 @@ removes obsolete pages and search assets.
 Add Markdown within an existing collection. Supply a scalar front-matter title or an H1;
 existing metadata belongs to its existing owner. New collection roots and deliberate scope
 exceptions are configured in `docs/site.toml`. Keep supporting assets inside the documented
-collection. Do not hand-edit staged SUMMARY, derived section directories or generated schema docs.
+collection and select their exact paths in its `assets` declaration in `docs/site.toml`.
+Only selected assets are staged; retention alone does not publish an attachment. Do not hand-edit staged SUMMARY, derived section directories or generated schema docs.
 
 Search defaults to Current: entry pages, the architecture sections, development guides, the
 selected standard and active plans. The declaration selects current work explicitly because a
@@ -72,3 +74,41 @@ concrete recurring defect whose prevention costs less than its upkeep.
 The adapter consumes Markdown paths/metadata, the pinned mdBook HTML boundary and the Pagefind
 CLI/Component UI. Tool upgrades exercise the same fixtures and a real build/search check.
 Search assets are local, and ordinary chapter navigation remains usable without JavaScript.
+
+## Metadata and aggregate scope
+
+`scripts/document_metadata.py` is the shared interpretation boundary for publication,
+ADRs and lifecycle queries. `docs/lifecycle.toml` declares versioned vocabulary, collection
+and bundle defaults, exceptions and native scope bindings. Preserve native fields and body
+bytes; controlled `doc_*` fields add role, topics, ownership and retention
+meaning alongside them. Native scope bindings and sparse relationships describe dependencies. Unknown optional meaning remains unknown; contradictory definitions,
+duplicate keys, invalid references and ambiguous scope bindings fail validation.
+Canonical references are repository-relative. Legacy owner references beginning `docs/` are
+also repository-relative; other legacy relative references resolve from their source parent.
+Historical references do not invent a current owner. Immutable ADRs retain their original
+bytes; an explicit path/key/scalar-digest adapter handles only declared historical encodings
+before the same strict YAML parse. New and mutable documents use valid YAML.
+
+```bash
+scripts/pse-env --docs -- python3 -m scripts.document_lifecycle inventory --role plan
+scripts/pse-env --docs -- python3 -m scripts.document_lifecycle validate
+scripts/pse-env --docs -- python3 -m scripts.document_lifecycle scope --state open
+scripts/pse-env --docs -- python3 -m scripts.document_lifecycle retire-plan --path 'docs/plans/32-*'
+```
+
+These are read-only JSON projections and retirement preflight. They neither authorize nor
+perform deletion. Queries read the provisioned docs environment without syncing dependencies,
+compiling the extension or scanning host storage. Use `just bootstrap-docs` explicitly when
+that environment is missing.
+
+Multiple plans may be active concurrently. Native packet/finding tables remain their status
+owners; explicit bindings derive a scope view with document/binding/native-row identity,
+raw state and source location. Missing state stays unknown. Relationships can point to another
+content owner without copying its status; similar titles do not prove equivalent scope.
+Update a binding when its native table changes. No second editable backlog is maintained.
+
+For Plan 28 onward and future plans, maintain metadata/defaults and current-work selection
+alongside authoring. This does not change the plan's substantive framing, implementation,
+assessment, examples or presentation conventions. Closing one plan does not close another:
+reconcile its dependencies and references, transfer enduring meaning, then apply the retirement
+rules above. The specifically authorized pre-28 removal requires no salvage or scope migration.

@@ -254,8 +254,11 @@ def collect(base: Path, kind: str, identity: Mapping[str, object]) -> list[Path]
     removed = []
     with coordination(owner, ".publication.lock"):
         selected = location(base, kind, identity)
+        pinned = operation.pinned_generations(base)
+        if pinned is None:
+            return removed
         for generation in (owner / "generations").glob("*"):
-            if generation == selected or operation.generation_in_use(base, generation):
+            if generation == selected or str(generation) in pinned:
                 continue
             for directory in (
                 generation,

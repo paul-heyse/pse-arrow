@@ -61,7 +61,7 @@ Demand follows consumed meaning and avoids unrelated work, at the cost of explic
 
 ## More information
 
-[Execution owner](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25l-flowsheet-compilation-and-solver-routing.md); [finding disposition owner](../plans/25-design-remediation.md#full-case-compilation-and-solver-routing-follow-up); [diagnosis](../design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md).
+[Execution owner](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25l-flowsheet-compilation-and-solver-routing.md); [finding disposition owner](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25-design-remediation.md#full-case-compilation-and-solver-routing-follow-up); [diagnosis](../design_review/reviews/design_review_flowsheet-compilation-and-solver-routing_2026-10-02.md).
 
 ## Status history
 

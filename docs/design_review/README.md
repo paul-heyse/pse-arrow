@@ -15,11 +15,35 @@ findings have one disposition owner in the relevant plan. A review stays here wh
 or a pending decision depends on it and then retires to Git history (ADR-0096); retained ADRs
 cite retired reviews as `git:<commit>:<path>`.
 
+The [codebase efficiency-principles review](reviews/design_review_efficiency-principles-codebase_2026-10-09.md)
+assesses build/test turnaround and simulator runtime against all seven architectural
+foundations, with particular attention to execution fit. It distinguishes concrete work
+amplification and qualification-applicability defects from unmeasured opportunities, and
+preserves the recent preparation, native-lifetime and concurrency corrections. Its
+[supporting inquiries and projection probe](evidence/efficiency-principles-codebase-2026-10-09/README.md)
+document the inspected baseline and evidence limits.
+[Plan 33](../plans/33-efficiency-principles-remediation.md) now independently owns the
+adopted findings, six investigation avenues and affected qualification. Its confirmed
+design-phase directions replace the review's proposed preservation of retired analysis
+lineage and obsolete internal history. Remedies remain Proposed; plan authoring does not
+implement them or resume the cancelled feature matrix.
+
 The [workspace content-lifecycle review](reviews/design_review_workspace-content-lifecycle_2026-10-09.md)
 assesses document relevance, publication, agent discovery and repo-linked storage.
 It proposes typed lifecycle metadata, explicit asset delivery and producer-owned disposal,
-with a bounded disposition inventory and concrete retirement candidates. The correction
-remains Proposed; the review performs no cleanup or policy implementation.
+with a bounded disposition inventory and concrete retirement candidates. The [scoped target assessment](reviews/design_review_workspace-content-lifecycle-target_2026-10-09.md)
+accepts the revised target at Proposed strength. [Plan 32](../plans/32-workspace-content-lifecycle.md)
+owns implementation and finding disposition; target acceptance is not implementation acceptance.
+
+The [structured documentation and evidence lifecycle review](reviews/design_review_structured-documentation-lifecycle_2026-10-09.md)
+assesses the agent effort spent on the mechanics around reviews, plans, evidence and guidance.
+It does not assess the content itself, whose flexible format it keeps. It recommends removing
+the external lifecycle overlay and the restated publication lists. It adds an on-demand plan
+query that returns the sections to update with their paired skill guidance, and an optional
+evidence runner that records what each probe used and reports whether prior answers still hold.
+Its rule impacts and proposed owner await plan creation; the
+[supporting inquiries, exhibits and probes](evidence/structured-documentation-lifecycle-2026-10-09/README.md)
+record their baseline and limits.
 
 The [graph compilation, reusable kernels and hashing review](reviews/design_review_graph-compilation-kernels-and-hashing_2026-10-09.md)
 assesses further graph preparation, fast hashing and their combined reuse/invalidation role.

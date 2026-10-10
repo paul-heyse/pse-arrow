@@ -14,7 +14,7 @@ superseded-by: null
 revisit: Either of these fires. (a) A Python caller needs a backend setting that the typed projection cannot express, or one library upgrade forces more than one settings-document version change. (b) The generated Python document types cannot be produced byte-deterministically.
 verification: Architecture scenarios S21 and S23, and the capability review's S04 and S05. Retained Plan 22 A4/A5 tests: test_solve_settings_backend_projection, test_route_and_eligibility_are_typed, initialization_admission_in_rust, identity_covers_every_settings_field. Plan 22 B5 tests: job_request_identity_independent_of_key_order, termination_detail_versioned_and_typed, invalid_tolerance_refused_at_decode, backend_settings_schema_generated, test_backend_settings_typed, authoring_schema_equivalent_under_schemars. Plan 22 B4: test_solve_settings_enum_types. Also test_postponed_annotations_are_resolved_before_the_lint, and just codegen-check and just python-stubs leaving no drift.
 standard: core-3.1/process-simulator-1.1
-scenarios: [docs/plans/22-solver-capabilities-architecture.md#s21, docs/plans/22-solver-capabilities-architecture.md#s23, docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s04, docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s05]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s21, https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s23, docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s04, docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s05]
 ---
 
 # ADR-0116: Publish schemas and generated Python types for Rust-owned boundary documents
@@ -155,7 +155,7 @@ kept honest by the same governance lint.
 ## More information
 
 - [Typed data contracts review](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_typed-data-contracts_2026-09-28.md): TD06, TD07, TD11.
-- Architecture companion [§12.5](../plans/22-solver-capabilities-architecture.md#12-typed-data-contracts).
+- Architecture companion [§12.5](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#12-typed-data-contracts).
 - Capability review F09, F26, F30, L-C1, S04, S05 (through ADR-0113).
 - Related: ADR-0024, ADR-0051, ADR-0106, ADR-0108, ADR-0115.
 - Plan 22 packets A4 and A5 (retained evidence), B4 and B5.

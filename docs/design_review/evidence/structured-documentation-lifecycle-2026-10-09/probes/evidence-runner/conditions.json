@@ -1,0 +1,23 @@
+{
+ "git_head": "4c24721e691187e1a5b28398b29722fbde671da8",
+ "python": "3.14.7",
+ "repo_inputs": {
+  "docs/design_review/evidence/efficiency-principles-codebase-2026-10-09/input-scope-probe.py": "8cd3054e22310b2fbe5adbdf0c1ec4a4",
+  "scripts/__init__.py": "a9386251fa54fd5664f627360f62a5f1",
+  "scripts/__pycache__/__init__.cpython-314.pyc": "2d185d0a9c1ebcf5314d27e59d5c7301",
+  "scripts/__pycache__/native_cache.cpython-314.pyc": "10bee5f02280fd2b6b596fedc3e649ae",
+  "scripts/__pycache__/validation_scope.cpython-314.pyc": "8b003e56f3b3ed0e06b2ca9cc1623f48",
+  "scripts/native_cache.py": "a7cb90b2c577160727b4e2cfbdcca793",
+  "scripts/validation_scope.py": "af15811b6deb1fe93f666585d2129540"
+ },
+ "distributions": {},
+ "subprocesses": [
+  [
+   "git",
+   "-C",
+   "/home/paul/pse-arrow",
+   "rev-parse",
+   "HEAD"
+  ]
+ ]
+}

@@ -270,6 +270,8 @@ frames! {
         MathLocalOccurrenceV2 => "pse.math.local-occurrence.v2",
         /// Checked expression occurrences and complete contextual admission products.
         MathLocalOccurrenceV3 => "pse.math.local-occurrence.v3",
+        /// Temporary structural expression-body candidate index, never admission authority.
+        MathStructuralBodyIndexV1 => "pse.math.structural-body-index.v1",
         /// Retained physical inference selections, operand conversions and numerical scales.
         MathResolvedAdmissionsV1 => "pse.math.resolved-admissions.v1",
         /// Checked expression occurrences and complete contextual admission products.

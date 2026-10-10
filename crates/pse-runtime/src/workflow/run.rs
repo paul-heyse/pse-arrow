@@ -16,10 +16,7 @@ use pse_backend_native::solve::{Event, Progress};
 use pse_columnar::flight::FlightCancellation;
 use pse_ids::SemanticId;
 use pse_model::generated::identities::RunId;
-use std::{
-    collections::BTreeMap,
-    sync::{Arc, OnceLock},
-};
+use std::{collections::BTreeMap, sync::Arc};
 
 /// Public cancellation lease. Dropping the last public handle requests cancellation;
 /// the supervisor retains the actual native handle until its join completes.
@@ -165,12 +162,7 @@ pub struct RunResult {
     pub(super) modeling_failure: Option<ModelingFailure>,
     pub(crate) assessments: Vec<pse_relations::generated::runtime::candidate_assessments::Row>,
     pub(crate) completion: Result<super::completion::Completion, Arc<WorkflowError>>,
-    pub(crate) batches: OnceLock<
-        Result<
-            BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>,
-            Arc<WorkflowError>,
-        >,
-    >,
+    pub(super) encodings: super::result_export::EncodingState,
     /// What the run recorded durably; ephemeral runs record nothing.
     pub(crate) durability: RunDurability,
     /// What a rolling horizon did at each sample (Plan 22 Y5c); `None` for any other run.
@@ -199,7 +191,7 @@ impl RunResult {
             modeling_failure: None,
             assessments: vec![],
             completion: Err(Arc::new(contract("completion has not been captured"))),
-            batches: OnceLock::new(),
+            encodings: super::result_export::EncodingState::default(),
             durability: RunDurability::Ephemeral,
             horizon: None,
         }

@@ -177,7 +177,7 @@ to introducing helper types.
 ## More information
 
 [Plan 25a](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25a-physical-values-and-contextual-contracts.md) owns packets;
-[Plan 25](../plans/25-design-remediation.md) owns finding dispositions. ADR-0124,
+[Plan 25](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25-design-remediation.md) owns finding dispositions. ADR-0124,
 ADR-0127 and blueprint §8/§9.8 provide current context.
 
 ## Status history

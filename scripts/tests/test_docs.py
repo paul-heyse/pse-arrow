@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -71,6 +72,24 @@ scope = "History"
 
 
 class DocumentationTests(DocumentationFixture):
+    def test_tool_discovery_is_importable_before_docs_dependencies(self) -> None:
+        result = subprocess.run(
+            [sys.executable, "-S", "-m", "scripts.docs", "tool-specs"],
+            cwd=docs.ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertIn("mdbook@", result.stdout)
+        with patch.object(
+            docs.subprocess,
+            "run",
+            side_effect=AssertionError(
+                "ordinary reads must not synchronize or execute tools"
+            ),
+        ):
+            self.pages()
+
     def test_discovery_needs_no_navigation_edit_and_ignores_stale_status(self) -> None:
         self.write("plans/02-added.md", "# Newly discovered\n")
         pages = {p.path.as_posix(): p for p in self.pages()}
@@ -142,8 +161,9 @@ class DocumentationTests(DocumentationFixture):
         with self.assertRaisesRegex(ValueError, "duplicate section"):
             section_owners(self.source / "authoritative_design/blueprint.md")
 
-    def test_staging_preserves_assets_and_does_not_write_source(self) -> None:
+    def test_staging_delivers_only_explicit_assets_and_preserves_sources(self) -> None:
         self.write("plans/evidence.json", '{"observation": 7}\n')
+        self.write("plans/private.json", '{"retained": true}\n')
         before = {
             p.relative_to(self.source): p.read_bytes()
             for p in self.source.rglob("*")
@@ -157,9 +177,10 @@ class DocumentationTests(DocumentationFixture):
             self.source / "authoritative_design/blueprint.md"
         ).read_bytes()
         staged = self.root / "stage"
-        pages = docs.stage(
-            self.root, staged, self.pages(), docs.configuration(self.root)
-        )
+        config = docs.configuration(self.root)
+        config["publication"]["assets"] = ["plans/evidence.json"]
+        pages = docs.stage(self.root, staged, self.pages(), config)
+        self.assertFalse((staged / "plans/private.json").exists())
         self.assertEqual(
             (staged / "plans/evidence.json").read_bytes(),
             before[Path("plans/evidence.json")],
@@ -177,6 +198,52 @@ class DocumentationTests(DocumentationFixture):
             if p.is_file()
         }
         self.assertEqual(before, after)
+
+    def test_attachment_selection_and_bundle_boundaries_are_explicit(self) -> None:
+        self.write("plans/chart.svg", "<svg/>\n")
+        self.write("plans/01-current.md", "# Work\n\n![Chart](chart.svg)\n")
+        config = docs.configuration(self.root)
+        with self.assertRaisesRegex(ValueError, "not explicitly selected"):
+            docs.stage(self.root, self.root / "missing", self.pages(), config)
+        config["asset_bundles"] = [
+            {"name": "chart", "root": "plans", "files": ["chart.svg"]}
+        ]
+        config["publication"]["asset_bundles"] = ["chart"]
+        docs.stage(self.root, self.root / "selected", self.pages(), config)
+        self.assertTrue((self.root / "selected/plans/chart.svg").exists())
+        config["asset_bundles"][0]["files"] = ["../../outside"]
+        with self.assertRaisesRegex(ValueError, "escapes bundle"):
+            docs.selected_assets(self.root, config)
+        config["asset_bundles"][0]["files"] = ["absent.json"]
+        with self.assertRaisesRegex(ValueError, "missing"):
+            docs.selected_assets(self.root, config)
+        config["publication"]["asset_bundles"] = ["unknown"]
+        with self.assertRaisesRegex(ValueError, "unknown publication"):
+            docs.selected_assets(self.root, config)
+
+    def test_selected_asset_cannot_escape_staging_with_an_in_docs_source(self) -> None:
+        self.write("plans/evidence.json", "{}")
+        config = docs.configuration(self.root)
+        for relative in [
+            "../docs/plans/evidence.json",
+            str(self.source / "plans/evidence.json"),
+        ]:
+            config["publication"]["assets"] = [relative]
+            with (
+                self.subTest(relative=relative),
+                self.assertRaisesRegex(ValueError, "noncanonical"),
+            ):
+                docs.selected_assets(self.root, config)
+        with (
+            patch.object(
+                docs,
+                "selected_assets",
+                return_value=[Path("../docs/plans/evidence.json")],
+            ),
+            self.assertRaisesRegex(ValueError, "destination escapes"),
+        ):
+            docs.stage(self.root, self.root / "scratch/source", self.pages(), config)
+        self.assertFalse((self.root / "scratch/docs").exists())
 
 
 if __name__ == "__main__":

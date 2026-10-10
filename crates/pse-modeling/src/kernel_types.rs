@@ -585,7 +585,10 @@ fn physical_admissions_distinguish_identical_syntax_in_lexical_scopes() {
     let function = &package.functions[&package.entry("p.f").unwrap()];
     let mut body = function.body.clone().unwrap();
     body.strip_spans();
-    let recorder = expression::admission::AdmissionRecorder::default();
+    let mut retained = function.clone();
+    retained.body = Some(body);
+    let body = retained.body.as_ref().unwrap();
+    let recorder = expression::admission::AdmissionRecorder::for_function(&retained);
     let context = TypeContext {
         admissions: Some(&recorder),
         formula_authority: None,
@@ -594,7 +597,7 @@ fn physical_admissions_distinguish_identical_syntax_in_lexical_scopes() {
         scope: &scope,
     };
     expression::infer(
-        &body,
+        body,
         &function.arguments.iter().cloned().collect(),
         &package,
         &context,
@@ -605,12 +608,32 @@ fn physical_admissions_distinguish_identical_syntax_in_lexical_scopes() {
     let admissions = recorder.into_inner();
     let quotients = admissions[&function.id]
         .iter()
-        .filter(|(occurrence, _)| occurrence.syntax == "(x / x)")
+        .filter(|(occurrence, _)| {
+            matches!(
+                expression::inventory::node(&[body], occurrence)
+                    .unwrap()
+                    .kind,
+                pse_authoring::dsl::ExprKind::Binary {
+                    op: pse_authoring::dsl::BinaryOp::Div,
+                    ..
+                }
+            )
+        })
         .collect::<Vec<_>>();
     assert_eq!(quotients.len(), 2);
-    assert_eq!(quotients[0].0.range, (0, 0));
-    assert_eq!(quotients[1].0.range, (0, 0));
-    assert_ne!(quotients[0].0.position, quotients[1].0.position);
+    assert_eq!(
+        expression::inventory::node(&[body], quotients[0].0)
+            .unwrap()
+            .span,
+        Default::default()
+    );
+    assert_eq!(
+        expression::inventory::node(&[body], quotients[1].0)
+            .unwrap()
+            .span,
+        Default::default()
+    );
+    assert_ne!(quotients[0].0, quotients[1].0);
     let left = quotients[0].1.resolved().unwrap();
     let right = quotients[1].1.resolved().unwrap();
     assert_eq!(left.operands[0].named_id(), Some(names["Length"]));
@@ -664,4 +687,136 @@ fn generic_physical_admission_is_an_explicit_specialization_obligation() {
         .unwrap();
     assert_eq!(admission.result.named_id(), Some(names["Length"]));
     assert_eq!(admission.operands[0].named_id(), Some(names["Length"]));
+}
+
+#[test]
+fn physical_admissions_keep_equal_function_roles_in_separate_owner_inventories() {
+    use expression::admission::ExpressionOccurrence as O;
+    let (registry, _) = physical();
+    let prerequisites =
+        pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
+            .unwrap();
+    let scope = PhysicalScope::default();
+    let context = TypeContext {
+        admissions: None,
+        formula_authority: None,
+        quantities: &registry,
+        preconditions: &prerequisites,
+        scope: &scope,
+    };
+    let package = check(
+        &source("package p { fn f(x:Length)->Scalar valid(x/x>0)=x/x; }"),
+        &context,
+    )
+    .unwrap();
+    let id = package.entry("p.f").unwrap();
+    let function = &package.functions[&id];
+    assert_eq!(
+        function
+            .physical_admissions
+            .keys()
+            .copied()
+            .collect::<Vec<_>>(),
+        [
+            O::Node {
+                body: 0,
+                position: 0
+            },
+            O::Node {
+                body: 1,
+                position: 0
+            }
+        ]
+    );
+    for role in ["function.body", "function.validity"] {
+        let field = &package.expressions[&expression::occurrences::OccurrenceKey {
+            declaration: id,
+            role: role.into(),
+            position: 0,
+        }];
+        assert_eq!(
+            field
+                .physical_admissions
+                .keys()
+                .copied()
+                .collect::<Vec<_>>(),
+            [O::Node {
+                body: 0,
+                position: 0
+            }]
+        );
+        assert!(
+            expression::inventory::node(
+                &expression::inventory::field(&field.syntax),
+                &O::Node {
+                    body: 0,
+                    position: 0
+                }
+            )
+            .is_some()
+        );
+    }
+    let respaced = check(
+        &source("package p { fn f(x:Length)->Scalar valid( x / x > 0 ) = x / x; }"),
+        &context,
+    )
+    .unwrap();
+    assert_eq!(
+        function.physical_admissions,
+        respaced.functions[&id].physical_admissions
+    );
+    assert_ne!(
+        function.body.as_ref().unwrap().span,
+        respaced.functions[&id].body.as_ref().unwrap().span
+    );
+    let selected = package.select(id).unwrap();
+    assert_eq!(selected.functions[&id], *function);
+    for field in selected.expressions.values() {
+        let roots = expression::inventory::field(&field.syntax);
+        for coordinate in field.physical_admissions.keys() {
+            assert!(expression::inventory::node(&roots, coordinate).is_some());
+        }
+    }
+    // Context is selected by exact owner role, never by equality of the two quotients.
+    let mut changed = package.clone();
+    changed.functions.get_mut(&id).unwrap().body =
+        Some(pse_authoring::dsl::parse_expr("x*x").unwrap());
+    assert!(expression::admission::AdmissionRecorder::for_package(&changed).is_err());
+}
+
+#[test]
+fn physical_admissions_owned_portable_extent_tracks_actual_nodes() {
+    let (registry, _) = physical();
+    let prerequisites =
+        pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
+            .unwrap();
+    let scope = PhysicalScope::default();
+    let context = TypeContext {
+        admissions: None,
+        formula_authority: None,
+        quantities: &registry,
+        preconditions: &prerequisites,
+        scope: &scope,
+    };
+    let mut previous = None;
+    for operations in [8, 32, 96] {
+        let body = std::iter::repeat_n("x", operations + 1)
+            .collect::<Vec<_>>()
+            .join("+");
+        let package = check(
+            &source(&format!("package p {{fn f(x:Scalar)->Scalar={body};}}")),
+            &context,
+        )
+        .unwrap();
+        let function = &package.functions[&package.entry("p.f").unwrap()];
+        assert_eq!(function.physical_admissions.len(), operations);
+        let bytes = portable::FunctionRecord::capture(function).retained_bytes();
+        if let Some((old_operations, old_bytes)) = previous {
+            assert!(
+                bytes <= old_bytes * (operations / old_operations + 1),
+                "{operations}: {bytes} vs {old_bytes}"
+            );
+        }
+        previous = Some((operations, bytes));
+    }
 }

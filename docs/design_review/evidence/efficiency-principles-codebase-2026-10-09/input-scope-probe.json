@@ -1,0 +1,24 @@
+{
+  "environment": {
+    "CC": {"python-product": false, "rust-product": false},
+    "CMAKE_TOOLCHAIN_FILE": {"python-product": false, "rust-product": false},
+    "CXX": {"python-product": false, "rust-product": false},
+    "IPOPT_DIR": {"python-product": true, "rust-product": true},
+    "PETSC_DIR": {"python-product": false, "rust-product": false},
+    "SUITESPARSE_INCLUDE_DIR": {"python-product": false, "rust-product": false},
+    "UNO_DIR": {"python-product": false, "rust-product": false}
+  },
+  "input_scope_version": 2,
+  "method": "synthetic before/after values passed to actual input_identity",
+  "paths": {
+    "benches/benches/native_process.rs": {"python-product": false, "rust-product": false},
+    "crates/pse-runtime/src/lib.rs": {"python-product": true, "rust-product": true},
+    "scripts/host_admission.py": {"python-product": false, "rust-product": false},
+    "scripts/native_tests.py": {"python-product": true, "rust-product": true},
+    "scripts/surreal_server.py": {"python-product": false, "rust-product": false},
+    "scripts/test_resources.py": {"python-product": false, "rust-product": false},
+    "scripts/test_run.py": {"python-product": false, "rust-product": false}
+  },
+  "python": "3.14.7",
+  "schema": "review-input-projection-probe-v1"
+}

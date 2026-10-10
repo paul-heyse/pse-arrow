@@ -11,7 +11,7 @@ use petgraph::{
 };
 use pse_columnar::{CancellationToken, MemoryConsumer};
 use pse_operations::canonical_analyses::{
-    ANALYSIS_EDGES, ANALYSIS_NODES, Analysis, AnalysisEdge, AnalysisNode, analysis_key,
+    ANALYSIS_EDGES, ANALYSIS_NODES, AnalysisEdge, AnalysisNode, analysis_key,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -37,6 +37,14 @@ pub struct AnalysisControls {
     pub roots: Vec<String>,
     /// Traverse contributors or dependents, preserving distinct edge meanings.
     pub direction: AnalysisDirection,
+}
+impl AnalysisControls {
+    fn validate(&self) -> Result<(), WorkflowError> {
+        if self.roots.len() > 64 || self.roots.iter().any(|root| root.len() > 128) {
+            return Err(contract("analysis root bound"));
+        }
+        Ok(())
+    }
 }
 fn target_kind(kind: pse_model::generated::enums::NumericalTarget) -> &'static str {
     use pse_model::generated::enums::NumericalTarget;
@@ -85,9 +93,7 @@ fn selected(
     nodes: &BTreeMap<String, NodeIndex>,
     controls: &AnalysisControls,
 ) -> Result<BTreeSet<NodeIndex>, WorkflowError> {
-    if controls.roots.len() > 64 || controls.roots.iter().any(|root| root.len() > 128) {
-        return Err(contract("analysis root bound"));
-    }
+    controls.validate()?;
     if controls.roots.is_empty() {
         return Ok(graph.node_indices().collect());
     }
@@ -283,15 +289,18 @@ impl Runtime {
                 .str(evidence.as_deref().unwrap_or(""));
         }
         let input_digest = input_hash.finish_hash().to_hex();
-        let key = analysis_key(
-            "pse.analysis.v1",
-            &[
-                revision.key.as_bytes(),
-                method.as_bytes(),
-                &configuration,
-                input_digest.as_bytes(),
-            ],
-        );
+        let mut header = self
+            .canonical_store()
+            .new_analysis(
+                revision,
+                method,
+                configuration,
+                input_digest,
+                selected.len() as u64,
+                included.len() as u64,
+            )
+            .await?;
+        let key = header.key.clone();
         let mut mapping = BTreeMap::new();
         let mut retained_nodes = Vec::with_capacity(selected.len());
         for index in selected {
@@ -337,17 +346,13 @@ impl Runtime {
                 evidence,
             });
         }
-        let header = Analysis {
-            key: key.clone(),
-            revision: revision.key.clone(),
-            method: method.into(),
-            configuration: configuration.into(),
-            input_digest,
-            interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
-            node_count: retained_nodes.len() as u64,
-            edge_count: retained_edges.len() as u64,
-            active: false,
-        };
+        pse_operations::canonical_analyses::seal_analysis_request(
+            &mut header,
+            sources,
+            inputs,
+            &retained_nodes,
+            &retained_edges,
+        );
         self.canonical_store()
             .persist_analysis(&header, sources, inputs, &retained_nodes, &retained_edges)
             .await?;
@@ -367,6 +372,7 @@ impl Runtime {
         controls: &AnalysisControls,
         cancel: CancellationToken,
     ) -> Result<AnalysisHandle, WorkflowError> {
+        controls.validate()?;
         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
         let owner = MemoryConsumer::new("canonical:result-analysis").register(&self.shared.pool());
         owner
@@ -549,6 +555,7 @@ impl ModelingSolvePreparation {
         controls: &AnalysisControls,
         cancel: CancellationToken,
     ) -> Result<AnalysisHandle, WorkflowError> {
+        controls.validate()?;
         let runtime = &self.source.runtime;
         let owner =
             MemoryConsumer::new("canonical:dependency-analysis").register(&runtime.shared.pool());
@@ -726,7 +733,18 @@ mod canonical_analyses_server_unit {
             .dependency_analysis(&controls, CancellationToken::new())
             .await
             .unwrap();
-        assert_eq!(replay.key(), pre.key());
+        assert_ne!(replay.key(), pre.key());
+        let replay_receipt = runtime
+            .canonical_store()
+            .analysis(replay.key())
+            .await
+            .unwrap();
+        assert_eq!(replay_receipt.revision, receipt.revision);
+        assert_eq!(replay_receipt.method, receipt.method);
+        assert_eq!(replay_receipt.configuration, receipt.configuration);
+        assert_eq!(replay_receipt.input_digest, receipt.input_digest);
+        assert_eq!(replay_receipt.node_count, receipt.node_count);
+        assert_eq!(replay_receipt.edge_count, receipt.edge_count);
         let result = prepared.start().unwrap().wait().await.unwrap();
         assert!(result.usable(), "{:?}", result.report());
         let quantified = parametric_sensitivities::Row::rows(
@@ -844,7 +862,11 @@ mod canonical_analyses_server_unit {
                 .revision,
             revised.canonical_revision().key
         );
-        runtime.forget_analysis_results(post.key()).await.unwrap();
+        for _ in 0..5 {
+            if runtime.forget_analysis_results(post.key()).await.unwrap() {
+                break;
+            }
+        }
         assert!(runtime.analysis(post.key()).await.is_err());
         let mut retired = false;
         for _ in 0..32 {
@@ -863,5 +885,52 @@ mod canonical_analyses_server_unit {
             retired,
             "retirement remains blocked after exact analysis withdrawal and dropped read owners"
         );
+    }
+}
+
+#[cfg(test)]
+mod analysis_bounds_unit {
+    use super::*;
+
+    #[test]
+    fn analysis_controls_refuse_before_graph_preparation() {
+        let mut controls = AnalysisControls {
+            roots: vec!["r".repeat(128); 64],
+            direction: AnalysisDirection::Upstream,
+        };
+        assert!(controls.validate().is_ok());
+        controls.roots.push("extra".into());
+        assert!(controls.validate().is_err());
+        controls.roots = vec!["r".repeat(129)];
+        assert!(controls.validate().is_err());
+    }
+
+    #[test]
+    fn analysis_exact_caps_preserve_complete_membership_and_refuse_overflow() {
+        let mut graph = Graph::new();
+        let mut nodes = BTreeMap::new();
+        for ordinal in 0..ANALYSIS_NODES {
+            vertex(&mut graph, &mut nodes, format!("v:{ordinal}"), "variable").unwrap();
+        }
+        assert_eq!(graph.node_count(), ANALYSIS_NODES);
+        // An existing vertex remains valid at the cap; a small selection cannot
+        // turn an incompletely admitted source graph into complete evidence.
+        assert!(vertex(&mut graph, &mut nodes, "v:0".into(), "variable").is_ok());
+        assert!(vertex(&mut graph, &mut nodes, "extra".into(), "variable").is_err());
+        let root = nodes["v:0"];
+        for _ in 0..ANALYSIS_EDGES {
+            edge(&mut graph, root, root, "incidence", None).unwrap();
+        }
+        assert_eq!(graph.edge_count(), ANALYSIS_EDGES);
+        assert!(edge(&mut graph, root, root, "incidence", None).is_err());
+        let controls = AnalysisControls {
+            roots: vec!["v:0".into()],
+            direction: AnalysisDirection::Upstream,
+        };
+        assert_eq!(
+            selected(&graph, &nodes, &controls).unwrap(),
+            BTreeSet::from([root])
+        );
+        assert_eq!(graph.edge_count(), ANALYSIS_EDGES);
     }
 }

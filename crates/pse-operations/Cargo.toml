@@ -17,6 +17,7 @@ publish.workspace = true
 workspace = true
 
 [features]
+force-validate = ["pse-codegen/force-validate", "pse-schema/force-validate"]
 default = []
 # Isolated databases with the generated schema for tests in other crates.
 test-support = []

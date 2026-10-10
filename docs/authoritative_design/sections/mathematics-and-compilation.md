@@ -598,7 +598,7 @@ leases rather than complete source-owner ancestry.
 
 
 > Proposed amendment: [ADR-0155](../../adr/0155-numerical-derived-families.md),
-> [Plan 25n](../../plans/25n-automatic-simulation-solve-pipeline.md).
+> [Plan 25n](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25n-automatic-simulation-solve-pipeline.md).
 
 Automatic preparation derives separate numerical incidence, execution/validity dependencies and
 objective/inequality coupling from the authored case. Value demand precedes actual conditional
@@ -689,10 +689,22 @@ consumed selected view.
 > Supplement: [ADR-0150](../../adr/0150-checked-admission-and-owned-reuse.md)
 > (proposed; authorized implementation).
 
-Physical preparation consumes immutable checked products. Source functions retain
-physical operation admissions by structural expression occurrence: body-relative preorder
-and lexical position distinguish identical syntax, including rewritten nodes with empty
-spans. Concrete products retain operand/result contracts and selected rule; generic
+Physical preparation consumes immutable checked products.
+
+> Supplement: [ADR-0171](../../adr/0171-body-relative-physical-occurrences.md)
+> (proposed; scoped target review Accept at Proposed strength; Plan 33 owns implementation).
+
+Physical operation admissions use compact owner-local body slots and deterministic node
+positions against the owner's complete retained AST inventory. A shared grammar enumeration
+supplies checking, specialization, field binding, lowering and portable reconstruction;
+rewriting rebuilds the inventory. The existing `Expr::walk` order governs node positions,
+including let bodies before binding values and reduction domains/filters before bodies.
+Identical syntax in separate fields or binder contexts remains distinct with empty spans.
+Structural digests only prefilter lookup; exact owner paths and full span-independent
+structural equality establish membership. Source ranges and diagnostic syntax come from the
+selected retained node, without per-subtree rendered strings or cloned trees. Selected
+products retain reached inventories and admissions together; no slot refers to discarded
+syntax. The compiler's distinct diagnostic occurrence identity remains unchanged. Concrete products retain operand/result contracts and selected rule; generic
 products retain requests and operand schemes and instantiate against the caller's admitted
 substitutions before numerical construction. Specialized function bodies preserve those
 products. Missing or conflicting occurrence admission refuses lowering; an expected return

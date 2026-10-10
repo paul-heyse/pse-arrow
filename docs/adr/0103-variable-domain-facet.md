@@ -14,7 +14,7 @@ superseded-by: null
 revisit: An authored model needs a discrete domain the enum cannot express (a finite set of non-integer values, or an integer lattice other than a bounded range), or a backend requires a domain distinction the registry enum does not carry.
 verification: Architecture scenario S10 and review scenario S06, settled by the Plan 22 M1/M2 tests var_domain_parses_and_renders, integer_requires_finite_bounds, binary_implies_unit_box, integer_requires_count_or_indicator_type, authored_milp_routes_to_highs, root_refuses_free_integer, initialization_fixes_and_restores_integers, fit_refuses_free_integer and duals_conditional_on_assignment.
 standard: core-3.0/process-simulator-1.1
-scenarios: [docs/plans/22-solver-capabilities-architecture.md#s10, docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s06]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s10, docs/design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s06]
 ---
 
 # ADR-0103: Declare a variable's domain as a typed facet with per-analysis-mode semantics
@@ -120,7 +120,7 @@ cheaper to introduce and would have left two enums to drift.
 
 ## More information
 
-- Architecture companion [§2.1–§2.2](../plans/22-solver-capabilities-architecture.md#21-domain-facet).
+- Architecture companion [§2.1–§2.2](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#21-domain-facet).
 - Target review [T15](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t15) (domain-enum authority settled here).
 - Related: ADR-0099, ADR-0101 (proposed), ADR-0104, ADR-0107. Plan 22 packets M1, M2.
 

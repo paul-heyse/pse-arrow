@@ -33,7 +33,7 @@ DEFINE FUNCTION fn::pse_execution_v1::touch($rpc_expiry: int, $key: string) -> d
     LET $id = type::record('canonical_guards', $key);
     LET $old = SELECT * FROM ONLY $id;
     IF $old = NONE {
-        CREATE ONLY $id SET key = $key, generation = 1dec;
+        CREATE ONLY $id SET key = $key, generation = 1dec, incarnation = <string>rand::uuid::v4();
         LET $rpc_result = 1dec;
         fn::pse_execution_v1::deadline($rpc_expiry);
         RETURN $rpc_result;

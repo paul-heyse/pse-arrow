@@ -49,6 +49,7 @@ from scripts import native_operation as operation  # noqa: E402 -- same routing
 FAILURE = 125
 LOCAL = ".envrc.local"
 DEFAULT_SLICE = "pse.slice"
+CARGO_DEFAULT_JOBS = "PSE_CARGO_DEFAULT_JOBS"
 RESOURCE_CLASSES = (
     "light",
     "compile",
@@ -140,7 +141,9 @@ def base_environment(
     env.setdefault(
         "PSE_SURREAL_STATE", str(Path(state_home) / "pse-arrow/surreal-functional-v2")
     )
-    env["PATH"] = prepend(str(venv(root, env) / "bin"), env.get("PATH"))
+    # Cargo resolves the scoped c/t external subcommand from this checkout.
+    env["PATH"] = prepend(str(root / "scripts/cargo-bin"), env.get("PATH"))
+    env["PATH"] = prepend(str(venv(root, env) / "bin"), env["PATH"])
     if (SOLVER_STACK / "bin").is_dir():
         env["PATH"] = prepend(str(SOLVER_STACK / "bin"), env["PATH"])
         env["PKG_CONFIG_PATH"] = prepend(
@@ -153,10 +156,40 @@ def compose(
     root: Path, caller: Mapping[str, str], local: Mapping[str, str] | None = None
 ) -> dict[str, str]:
     env = base_environment(root, caller, local)
+    inherited_default = env.get(CARGO_DEFAULT_JOBS)
+    explicit_jobs = "CARGO_BUILD_JOBS" in env and (
+        inherited_default is None or env["CARGO_BUILD_JOBS"] != inherited_default
+    )
+    if not explicit_jobs:
+        # Re-read the declaration on every entry, rather than carrying a previous
+        # allocation's narrower default into a newly admitted workload.
+        env.pop("CARGO_BUILD_JOBS", None)
+    env.pop(CARGO_DEFAULT_JOBS, None)
     try:
-        return build_environment.configure(root, env)
+        configured = build_environment.configure(root, env)
+        if not explicit_jobs and "CARGO_BUILD_JOBS" in configured:
+            configured[CARGO_DEFAULT_JOBS] = configured["CARGO_BUILD_JOBS"]
     except ValueError as error:
         raise BoundaryError(str(error)) from error
+    return configured
+
+
+def documentation_environment(root: Path, env: Mapping[str, str]) -> dict[str, str]:
+    """Explicit docs selection never exact-syncs the caller's product environment."""
+    chosen = root / ".venv-docs"
+    product = root / ".venv"
+    inherited = venv(root, env)
+    if chosen.resolve() == product.resolve() or (
+        inherited.resolve() == chosen.resolve() and inherited.name != ".venv-docs"
+    ):
+        raise BoundaryError(
+            ".venv-docs aliases the product environment; choose distinct environment directories before bootstrap"
+        )
+    result = dict(env)
+    result["UV_PROJECT_ENVIRONMENT"] = str(chosen)
+    result["PATH"] = prepend(str(chosen / "bin"), result.get("PATH"))
+    result["PSE_DOCUMENTATION_ENVIRONMENT"] = "1"
+    return result
 
 
 # Values an agent sets deliberately; the others usually come from a login profile, so
@@ -198,7 +231,9 @@ def required_path(
     return [entry for entry in bare.get("PATH", "").split(os.pathsep) if entry]
 
 
-def render(root: Path, caller: Mapping[str, str], *, complete: bool = False) -> str:
+def render(
+    root: Path, caller: Mapping[str, str], *, complete: bool = False, docs: bool = False
+) -> str:
     """Shell text for ``eval``: ordinary exports only, local values deferred.
 
     PATH is rendered as idempotent prepends, because the shell that evaluates the text
@@ -208,23 +243,41 @@ def render(root: Path, caller: Mapping[str, str], *, complete: bool = False) -> 
     """
     local = local_keys(root)
     env = compose(root, caller, local)
+    if docs:
+        env = documentation_environment(root, env)
     touched = set(
         compose(root, {"HOME": caller.get("HOME", "/"), "PATH": ""}, local)
     ) - {"HOME"}
+    paths = required_path(root, caller, local)
+    if docs:
+        paths.insert(0, str(root / ".venv-docs/bin"))
     lines = [
         f'case ":$PATH:" in *:{shlex.quote(entry)}:*) ;; *) PATH={shlex.quote(entry)}"${{PATH:+:$PATH}}" ;; esac'
-        for entry in reversed(required_path(root, caller, local))
+        for entry in reversed(paths)
     ]
+    if docs:
+        docs_bin = shlex.quote(str(root / ".venv-docs/bin"))
+        lines.append(
+            f'case "$PATH" in {docs_bin}|{docs_bin}:*) ;; *) PATH={docs_bin}"${{PATH:+:$PATH}}" ;; esac'
+        )
     lines.append("export PATH")
     for name in sorted(env):
-        if name in local or name == "PATH" or name.startswith("PSE_NATIVE_"):
+        if (
+            (name in local and not (docs and name == "UV_PROJECT_ENVIRONMENT"))
+            or name == "PATH"
+            or name.startswith("PSE_NATIVE_")
+        ):
             continue
         if caller.get(name) != env[name] or (complete and name in touched):
             lines.append(f"export {name}={shlex.quote(env[name])}")
     lines.extend(
         f"unset {name}" for name in sorted(caller.keys() - env.keys()) if name != "PATH"
     )
-    lines.extend(deferred(root, name) for name in sorted(local) if name not in caller)
+    lines.extend(
+        deferred(root, name)
+        for name in sorted(local)
+        if name not in caller and not (docs and name == "UV_PROJECT_ENVIRONMENT")
+    )
     return "\n".join(lines) + "\n"
 
 
@@ -357,10 +410,21 @@ def manager_available() -> bool:
     return probe.returncode == 0
 
 
+def admitted_cargo_jobs(env: dict[str, str], allocation: host.Allocation) -> None:
+    """Limit only our declared default, using the verified allocation's CPU lane."""
+    declared = env.get(CARGO_DEFAULT_JOBS)
+    if declared is None or env.get("CARGO_BUILD_JOBS") != declared:
+        return
+    jobs = str(min(int(declared), len(host.cpu_set(allocation.profile.cores))))
+    env["CARGO_BUILD_JOBS"] = jobs
+    env[CARGO_DEFAULT_JOBS] = jobs
+
+
 def placement(env: dict[str, str], *, native: bool) -> list[str]:
     """systemd-run arguments that give the command its own scope, or nothing."""
     allocation = host.inherit(env)
     if allocation is not None:
+        admitted_cargo_jobs(env, allocation)
         requested = env.get("PSE_MEMORY_MAX")
         if (
             requested is not None
@@ -413,6 +477,7 @@ def placement(env: dict[str, str], *, native: bool) -> list[str]:
     try:
         host.enforce_parent(profile, env)
         host.enforce_allocation(allocation, env)
+        admitted_cargo_jobs(env, allocation)
     except Exception:
         allocation.release()
         raise
@@ -749,6 +814,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="pse-env", description=__doc__)
     parser.add_argument("--print", action="store_true", dest="print_exports")
     parser.add_argument("--explain", action="store_true")
+    parser.add_argument(
+        "--docs",
+        action="store_true",
+        help="select the provisioned docs-only environment (never syncs)",
+    )
     parser.add_argument("--native", nargs="?", const="__default__", default=None)
     parser.add_argument("--no-scope", action="store_true")
     parser.add_argument(
@@ -768,6 +838,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
+    if args.docs and args.native is not None:
+        parser.error("--docs and --native select different environments")
     caller = dict(os.environ)
     requested: list[str] | None = None
     if args.native is not None:
@@ -782,16 +854,58 @@ def main(argv: Sequence[str] | None = None) -> int:
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
     try:
         if args.print_exports:
-            sys.stdout.write(render(ROOT, caller))
+            sys.stdout.write(render(ROOT, caller, docs=args.docs))
+            if args.docs:
+                print(
+                    "pse-env: explicit --docs selects .venv-docs; ordinary product selector is overridden",
+                    file=sys.stderr,
+                )
             for note in refusals(caller, compose(ROOT, caller), ANNOUNCED):
                 print(note, file=sys.stderr)
             return 0
         if args.explain:
-            sys.stdout.write(explain(ROOT, caller, requested))
+            chosen = (
+                documentation_environment(ROOT, compose(ROOT, caller))
+                if args.docs
+                else caller
+            )
+            sys.stdout.write(explain(ROOT, chosen, requested))
             return 0
         if not command:
             parser.error("give a command after --, or use --print/--explain")
         env = compose(ROOT, caller)
+        if args.docs:
+            prior = env.get("UV_PROJECT_ENVIRONMENT")
+            env = documentation_environment(ROOT, env)
+            if prior != env["UV_PROJECT_ENVIRONMENT"]:
+                print(
+                    f"pse-env: refused UV_PROJECT_ENVIRONMENT={prior}: explicit --docs; using {env['UV_PROJECT_ENVIRONMENT']}",
+                    file=sys.stderr,
+                )
+            provisioning = command in (
+                [
+                    "uv",
+                    "sync",
+                    "--locked",
+                    "--only-group",
+                    "docs",
+                    "--no-install-project",
+                ],
+                [
+                    "uv",
+                    "sync",
+                    "--project",
+                    str(ROOT),
+                    "--locked",
+                    "--only-group",
+                    "docs",
+                    "--no-install-project",
+                ],
+            )
+            if not provisioning and not (venv(ROOT, env) / "bin/python").is_file():
+                raise BoundaryError(  # noqa: TRY301 -- boundary reports selection failure before admission or command effects
+                    "documentation interpreter missing; run just bootstrap-docs"
+                )
         if args.resource_class:
             env["PSE_RESOURCE_CLASS"] = args.resource_class
         elif host.MARKER not in env:

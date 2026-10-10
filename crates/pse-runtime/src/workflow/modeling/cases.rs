@@ -1358,6 +1358,7 @@ impl ModelingPackage {
         let mut nominal_point = prepared.values.clone();
         // Resolve source precedence before selecting the physical nominal point.
         let physical = prepared.case.compiled().quantities.clone();
+        let preconditions = prepared.case.compiled().preconditions.clone();
         let mut targets = prepared
             .case
             .compiled()
@@ -1480,6 +1481,7 @@ impl ModelingPackage {
             &mut targets,
             model.solved().lineage(),
             &physical,
+            &preconditions,
             &mut numerical.declarations,
             &mut solver.numerics,
         )?;
@@ -1533,6 +1535,7 @@ impl ModelingPackage {
         numerical.declarations.extend(closure_requirements);
         let resolved = pse_math::numerics::resolve(
             &physical,
+            &preconditions,
             &targets,
             &numerical.declarations,
             &solver.numerics,
@@ -1619,6 +1622,7 @@ impl ModelingPackage {
         Ok(Arc::new(
             pse_math::numerics::resolve(
                 &physical,
+                &preconditions,
                 &targets,
                 &numerical.declarations,
                 &solver.numerics,
@@ -2245,6 +2249,7 @@ pub(in crate::workflow) fn lower_closure_requirements(
     targets: &mut Vec<pse_math::numerics::TargetSpec>,
     lineage: pse_model::lineage::Lineage,
     registry: &pse_quantity::QuantityRegistry,
+    preconditions: &pse_quantity::PhysicalPreconditions,
     declarations: &mut [pse_math::numerics::SourcedRequirement],
     policy: &mut pse_model::numerics::NumericalPolicy,
 ) -> Result<Vec<pse_math::numerics::SourcedRequirement>, WorkflowError> {
@@ -2396,6 +2401,7 @@ pub(in crate::workflow) fn lower_closure_requirements(
             }
             let resolved = pse_math::numerics::resolve(
                 registry,
+                preconditions,
                 &endpoints,
                 &endpoint_sources,
                 &endpoint_policy,
@@ -3205,7 +3211,14 @@ mod tests {
                 .strategy
                 .as_ref()
                 .unwrap()
-                .rows(result.run_id, 0)
+                .rows(
+                    result.run_id,
+                    0,
+                    Arc::new(datafusion::execution::memory_pool::UnboundedMemoryPool::default()),
+                    0..usize::MAX,
+                )
+                .unwrap()
+                .collect::<Result<Vec<_>, _>>()
                 .unwrap();
             let completed = actual
                 .iter()
@@ -3800,8 +3813,14 @@ mod tests {
         tighter.requirement_id = pse_ids::named_id(tighter.requirement_id, "analysis-override");
         tighter.absolute_tolerance = Some(5e-8);
         policy.requirements.push(tighter);
-        let overridden =
-            pse_math::numerics::resolve(registry, &targets, &sources, &policy).unwrap();
+        let overridden = pse_math::numerics::resolve(
+            registry,
+            &resolved.model.case.compiled().preconditions,
+            &targets,
+            &sources,
+            &policy,
+        )
+        .unwrap();
         assert_eq!(
             overridden
                 .targets
@@ -4294,8 +4313,14 @@ mod tests {
         tighter.requirement_id = pse_ids::named_id(tighter.requirement_id, "analysis-override");
         tighter.absolute_tolerance = Some(5e-10);
         policy.requirements.push(tighter);
-        let overridden =
-            pse_math::numerics::resolve(registry, &targets, &sources, &policy).unwrap();
+        let overridden = pse_math::numerics::resolve(
+            registry,
+            &resolved.model.case.compiled().preconditions,
+            &targets,
+            &sources,
+            &policy,
+        )
+        .unwrap();
         assert_eq!(
             overridden
                 .targets
@@ -5220,13 +5245,26 @@ mod root_unavailable_tests {
             &mut targets,
             model.solved().lineage(),
             registry,
+            &pse_quantity::PhysicalPreconditions::new(
+                pse_quantity::generated::standard_preconditions(),
+            )
+            .unwrap(),
             &mut numerical.declarations,
             &mut policy,
         )?;
         numerical.declarations.extend(sources);
-        pse_math::numerics::resolve(registry, &targets, &numerical.declarations, &policy)
-            .map_err(crate::math::MathRuntimeError::from)
-            .map_err(WorkflowError::from)
+        pse_math::numerics::resolve(
+            registry,
+            &pse_quantity::PhysicalPreconditions::new(
+                pse_quantity::generated::standard_preconditions(),
+            )
+            .unwrap(),
+            &targets,
+            &numerical.declarations,
+            &policy,
+        )
+        .map_err(crate::math::MathRuntimeError::from)
+        .map_err(WorkflowError::from)
     }
     #[tokio::test]
     async fn contextual_closure_inherits_scale_and_preserves_endpoint_policy_identity() {
@@ -5398,6 +5436,10 @@ mod root_unavailable_tests {
                 &mut targets,
                 model.solved().lineage(),
                 &registry,
+                &pse_quantity::PhysicalPreconditions::new(
+                    pse_quantity::generated::standard_preconditions()
+                )
+                .unwrap(),
                 &mut Vec::new(),
                 &mut malformed
             )
@@ -5417,6 +5459,10 @@ mod root_unavailable_tests {
                 &mut targets,
                 model.solved().lineage(),
                 &registry,
+                &pse_quantity::PhysicalPreconditions::new(
+                    pse_quantity::generated::standard_preconditions()
+                )
+                .unwrap(),
                 &mut Vec::new(),
                 &mut malformed
             )
@@ -5444,6 +5490,10 @@ mod root_unavailable_tests {
                 &mut targets,
                 model.solved().lineage(),
                 &registry,
+                &pse_quantity::PhysicalPreconditions::new(
+                    pse_quantity::generated::standard_preconditions()
+                )
+                .unwrap(),
                 &mut Vec::new(),
                 &mut strict
             )
@@ -5519,6 +5569,10 @@ mod root_unavailable_tests {
             &mut targets,
             model.solved().lineage(),
             &registry,
+            &pse_quantity::PhysicalPreconditions::new(
+                pse_quantity::generated::standard_preconditions(),
+            )
+            .unwrap(),
             &mut Vec::new(),
             &mut policy,
         )
@@ -5548,7 +5602,17 @@ mod root_unavailable_tests {
             .chain(conservation)
             .chain(reconstruction)
             .collect::<Vec<_>>();
-        let resolved = pse_math::numerics::resolve(&registry, &targets, &sources, &policy).unwrap();
+        let resolved = pse_math::numerics::resolve(
+            &registry,
+            &pse_quantity::PhysicalPreconditions::new(
+                pse_quantity::generated::standard_preconditions(),
+            )
+            .unwrap(),
+            &targets,
+            &sources,
+            &policy,
+        )
+        .unwrap();
         assert!(
             resolved
                 .targets

@@ -27,6 +27,7 @@ impl PreparedExperiments {
         self,
         runtime: super::super::Runtime,
         quantities: Arc<pse_quantity::QuantityRegistry>,
+        preconditions: Arc<pse_quantity::PhysicalPreconditions>,
         source_identity: ContentHash,
         reservation: datafusion::execution::memory_pool::MemoryReservation,
         cancel: &std::sync::atomic::AtomicBool,
@@ -162,8 +163,14 @@ impl PreparedExperiments {
             declared_tolerance: None,
         });
         let numerics = Arc::new(
-            pse_math::numerics::resolve(q, &targets, &declarations, &profile.solver.numerics)
-                .map_err(math)?,
+            pse_math::numerics::resolve(
+                q,
+                &preconditions,
+                &targets,
+                &declarations,
+                &profile.solver.numerics,
+            )
+            .map_err(math)?,
         );
         let columns: Vec<_> = vars.iter().map(|v| v.id).collect();
         let normalization = Normalization::from_policy(&numerics, &columns, &rows).map_err(math)?;

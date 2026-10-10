@@ -106,6 +106,8 @@ other crates hash only through its framing APIs. Golden vectors in
 
 ### 5.2 Model revisions, cases, runs and attempts
 
+> Decision: [ADR-0172](../../adr/0172-full-analysis-retirement.md) (proposed): an analysis occurrence has a finite immutable creation grant distinct from scientific content.
+
 Definitions, instance bindings, case values, analysis requests, resolved numerical
 policy, prepared artifacts, used starts, results and publications have distinct
 identities and lifecycles. Cases and results never mutate the model
@@ -152,6 +154,16 @@ request identity ([§20.3](#section-20-3)). A closed result manifest identifies 
 observations; it does not constitute a separate publication or certify numerical usability.
 
 ### 5.3 Canonical framing and hashing
+
+> Supplement: [ADR-0171](../../adr/0171-body-relative-physical-occurrences.md)
+> (proposed; scoped target review Accept at Proposed strength).
+
+Compact physical occurrence wires resolve body/node coordinates against complete owner
+syntax inventories. Function records use version 2, admitted recipes `pse.admitted-body.v2`,
+and runtime admitted-body envelopes/request identity v4. Structural indexes use a dedicated
+frame and full equality behind prehashes; historical frames retain their meaning. Rebuild
+incompatible disposable products directly, with no legacy decoder or historical-result
+obligation. Authored/external inputs and unrelated live ownership remain protected.
 
 > Decision: [ADR-0167](../../adr/0167-frame-flow-projection-v2.md) (proposed; maintainer-authorized implementation).
 
@@ -206,7 +218,7 @@ then retains its complete semantic meaning without another host capture on each 
 lookup. Unsupported loaders, unknown/JIT/deleted mappings or changed consumed context
 refuse eligible replay and new eligible publication. Historical unqualified publications
 remain unqualified. The local namespace is `pse.local-runtime.v2:`; version 1 retains its
-historical meaning and cannot admit new products. The runtime body envelope is version 3;
+historical meaning and cannot admit new products. The runtime body envelope is version 4 under ADR-0171;
 scientific recipe and canonical product/blob frames retain their existing interpretations.
 The proposed ADR-0164 records the supported roots and mutation assumptions, separating
 strict producer qualification from this narrower guarantee.
@@ -533,7 +545,11 @@ An immutable analysis records method, configuration, interpretation and all sele
 revisions. Result-input edges name the exact run, attempt and manifest. Dependency analysis
 separates original numerical incidence from conservative execution support; retained-result
 analysis preserves existing sensitivity evidence. Different method or input identity yields
-a different analysis while older retained headers keep their recorded attribution.
+a different scientific analysis meaning. Each explicit creation has a fresh occurrence, whose
+checked key binds the primary authority incarnation, nonce and original absolute admission
+expiry. Same-operation retries preserve that intent; same-content recreation obtains a new
+occurrence. Surviving headers retain exact source attribution; retired occurrences retain no
+header or lineage payload (ADR-0172).
 
 Names, metadata, hashes and graph reachability alone do not certify validity, execution or
 equivalence. Scientific completion and result meaning remain owned by
@@ -569,7 +585,7 @@ caller-supplied sequence claims. Explicit forgetting of default history does not
 independent roots.
 
 Read acquisition, renewal, admission and reclamation share the retention guard. Every
-continued database read requires a live exact protection; expiration or reclamation refuses
+continued protected source/result database read requires a live exact protection; expiration or reclamation refuses
 rather than recovering bytes from an old cache. Result reads additionally protect the exact
 run/attempt/manifest. Final-drop release uses the captured executor, with finite server
 expiry bounding shutdown bookkeeping. Decoded copied Arrow arrays retain their allocation
@@ -582,8 +598,34 @@ receipts and fence reopening. Result retirement requires settled attempts, no li
 reads and no retained study/analysis obligation. Its tombstone fences claims, reads,
 operation-replay fallback and new admissions before payload removal. Bounded resumable
 cleanup removes scientific blobs and derived indexes while preserving lifecycle and lineage
-receipts. Study and analysis result retention is withdrawn through their own operations;
-there is no implicit elapsed-age deletion of deliberate scientific history.
+receipts. Study result retention is withdrawn through its owning operation; there is no
+implicit elapsed-age deletion of deliberate scientific history.
+
+**Full analysis retirement (ADR-0172, proposed).** An analysis header owns staging, active
+and retiring phases. Creation atomically validates exact source revisions and result-read
+protections and installs source roots/input edges under existing source/run conflict guards;
+it never recreates generic source protections. Any surviving analysis-input row retains its
+run until that row is physically removed. Mutation, activation and individual copied-page
+acquisition register the existing header in a writable transaction and refuse absent or
+retiring authority. Returned arrays own their bytes and do not promise future page access.
+
+Retirement closes the header and deletes bounded pages of edges before nodes, then inputs,
+source roots and temporary metadata; progress lives only in the retiring header. Original
+creation can still be dispatched without a header. Final settlement therefore registers the
+exact header even when absent and the existing primary source-retention guard, after the
+immutable creation window closes. It advances that guard's monotone
+`analysis_creation_closed_through` scalar and removes the drained header atomically. Earlier
+registered creators either committed before settlement or fail commit validation; later
+creators refuse the closed expiry. The occurrence key cannot be reused with a renewed expiry.
+This settles effect authority, not socket emptiness or completion of server tasks.
+
+The scalar is constant-size admission authority per existing problem, with no analysis key,
+operation, lineage or retirement list. All guard writers preserve it. Missing guards refuse;
+a reset/restore cannot reuse the same addressable authority incarnation with a cleared floor.
+A fresh valid occurrence remains creatable, including identical scientific content. An absent
+header alone cannot establish settlement of an unknown original grant. After full settlement
+there is no analysis-owned header, graph, input, root, protection, guard, admission, cleanup,
+retirement or audit payload. Partial cleanup is restartable from its retiring header.
 
 **Local export.** Exact checked reads finish, the IPC stream finishes and the file is
 synchronized before final publication. Interrupted staging remains `.incomplete`; the final
@@ -608,6 +650,46 @@ does not retry DDL or claim success merely because a marker later becomes visibl
 requires explicit operator action. The retired PostgreSQL/Delta descriptor, COPY, migration
 and publication APIs have no production compatibility path. There is no automatic importer,
 reset or inferred migration from unsupported historical storage.
+
+**Explicit design-phase cutover (ADR-0172, proposed).** The lifecycle owner may rebuild
+disposable internal state from explicitly preserved authored/external inputs using a current
+initializer. It first verifies and preserves those inputs, closes admission and drains the
+owned server and every registered holder. A shared or uncertain owner refuses. The new
+database and authority are fresh; old revisions and interpretation markers are never
+relabelled. Disposal targets only the identified replaced database after preservation and
+current initialization are acknowledged. An interrupted cutover stays closed until its
+owner resolves the phase. Canonical write admission stays closed throughout initialization.
+Only an explicitly selected initializer carrying the live lifecycle owner identity may write
+to that exact fresh namespace/database; owner death invalidates this authority without cleanup.
+Ordinary handles refuse pending maintenance even if a stale write-admission flag is true.
+This is an explicit maintenance action, never ordinary opening.
+
+Maintenance keeps ordinary canonical admission closed and drains registered holders and the
+ordinary server. Its live lifecycle owner may run a temporary authenticated loopback server
+using the declared binary, storage configuration and charged allocation. Native SQL/export/import
+clients connect remotely and never open RocksDB directly: the pinned embedded CLI drops the
+server's RocksDB configuration. This listener establishes no ordinary readiness, provisions no
+accounts and starts no scientific workers. It has no automatic restart. Physical copying,
+initializer handoff and ordinary readmission require acknowledged stop and actual descendant
+drain. Owner loss or uncertain shutdown leaves admission closed and resource ownership retained;
+recovery first settles the exact prior service invocation. Recorded ROOT credential candidates
+are probed through fresh connections without selecting a missing catalog context or provisioning
+credentials. Loopback binding alone does not fence holders of privileged credentials.
+
+
+`recover-maintenance` resumes only the durable phase recorded by that owner. It verifies
+preserved input/backup inventories and observes account/database effects before retrying
+uncertain operations. Restore publishes its fresh closed identity before copying any backup
+bytes; the old startable profile is never copied. Unknown files, changed inputs, unknown
+catalog owners or an unvalidated initializer leave admission closed. Disposal follows
+acknowledged current initialization and targets the exact replaced database.
+
+A same-interpretation restore also cannot expose copied creation authority at an old
+address. Before readmission, its isolated maintenance owner removes copied analysis state,
+preserves the source closure floor while rotating source incarnations, and removes the old
+copied database after establishing the fresh database identity. Existing authenticated
+clients must not retain access to a copied old namespace/database. A changed local supervisor
+instance identifier alone does not fence database requests.
 
 **Recorded meaning.** The portable semantic-contract witness records consumed fields,
 keys, enum domains, extension contracts, checks, invariants and storage policy. Verification
@@ -666,8 +748,11 @@ Service setup/readmission owns account provisioning; schema installation remains
 
 **Authority and client.** Short native transactions establish source roots, immutable
 operation identity and current cancellation/generation premises under named conflict guards,
-including absent-name and set premises. No predicate lock or `FOR UPDATE` assumption grants
-that authority. Full-domain decimal sequence/generation and actual expiry checks prevent
+including absent-name and set premises. Predicate scans do not supply phantom protection.
+Analysis settlement specifically consumes point-record `FOR UPDATE` registration, including
+absent keys, in writable explicit transactions on the pinned RocksDB backend. This is
+commit-conflict validation against the transaction snapshot, not blocking lock acquisition or
+global serializability; exact emitted-query races must qualify that capability (ADR-0172). Full-domain decimal sequence/generation and actual expiry checks prevent
 wall-clock ordering or an earlier transaction timestamp from renewing stale authority.
 Immutable operation acknowledgments settle uncertain effects without rerunning science.
 

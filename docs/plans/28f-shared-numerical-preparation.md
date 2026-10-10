@@ -125,7 +125,7 @@ strengths, not missing capabilities to reimplement.
 |---|---|
 | Structural Taylor zeros | Inspect per-input structural support for value/First/Second/directional stages, branches and composed providers. Symbolica 3.0.1 consumes `(parameter index, component index)` zero slots. Adopt proven-zero suppression in the existing dualizer when this removes applicable work; preserve complete external Taylor shape, factorial conventions and ordered axes. Unknown or numerical trial zeros remain present. |
 | Numeric factor and scratch reuse | Inspect implicit differentiation, Diffsol `FaerLu`, square-response actions and continuation. faer 0.24.4 supports caller-owned numeric LU and scratch; fitting Gram workers already retain buffers. Adopt compatible retained storage where refresh currently reconstructs it. Always factor the current matrix; preserve pattern/profile identity, pivot/rank/nonfinite recovery and backward-error assessment. Buffer reuse does not promise allocation-free factorization. |
-| Catalog invalidation | Retained-design decision, 2026-10-09: keep complete canonical premises and current Salsa backdating. Already admitted revision publication avoids authored checking; changed `publish_modeling_with` still calls the full checker before Salsa, even if downstream math backdates. Narrowing only `Catalog.checked` or changing hashes does not remove that work. [GH3](28k-graph-kernels-and-hashing-investigations.md#gh3) owns the supporting comparison. The bounded authored-edit probe now establishes material changed-publication cost for its scalar fixture; the [typed checker candidate](../design_review/evidence/graph-hash-followups-2026-10-09/typed-checker-proposal.md) supplies complete-domain design questions and independent acceptance. N0/compiler admission owns selection of that proposal and representative complete-operation comparison, including positive/absent lookups, membership/visibility, deletion and consumed physical/provider/policy/structural context. No parallel graph, narrower checker or persistence rewrite is selected. |
+| Catalog invalidation | Retained-design decision, 2026-10-09: keep complete canonical premises and current Salsa backdating. Already admitted revision publication avoids authored checking; changed `publish_modeling_with` still calls the full checker before Salsa, even if downstream math backdates. Narrowing only `Catalog.checked` or changing hashes does not remove that work. [GH3](28k-graph-kernels-and-hashing-investigations.md#gh3) owns the supporting comparison. The bounded authored-edit probe records changed-publication cost for its scalar fixture; the [typed checker candidate](../design_review/evidence/graph-hash-followups-2026-10-09/typed-checker-proposal.md) supplies complete-domain design questions and independent acceptance. Prospective selection, integration and current-operation comparison now belong to [Plan 33/EI04](33-efficiency-principles-remediation.md#ei04), including positive/absent lookups, membership/visibility, deletion and consumed physical/provider/policy/structural context. N0 retains the original conclusion and evidence; no narrower checker or persistence rewrite was selected by that inquiry. |
 | Native session consumption | The staged owner already retains native state on its scope/thread. Fitting oracle/profile and shooting paths create fresh `Retained` values. Determine which repeat sequences satisfy adapter compatibility, changing pin/bound/data requirements and destruction ownership. Extend the existing scoped owner only for useful compatible sequences. |
 
 N0 ends with an adopted change or a supported retained-design decision for each row, with
@@ -448,14 +448,15 @@ Conditional-boundary difference projection has an analogous no-facts path. The d
 does not attribute the first failing caller, so source reasoning identifies a concrete
 guaranteed refusal path without claiming to have uniquely located the observed first failure.
 
-**Proposed next investigation:** the numerical-policy/physical-context owners should trace
-the actual failing call and thread current immutable `PhysicalPreconditions` through numerical
-difference inference where its contract consumes them. Preserve typed quantities and proof
-requirements; arbitrary tolerances or scalar substitution are not corrections. Before the
-next accepted PC-SAFT preparation/performance claim, exercise present, missing and changed
-operand facts and the existing exact numerical allowances, then rerun this unchanged
-scientific fixture. This newly exposed checker-wiring question is outside the selected
-graph/hash implementation and adds no scientific acceptance claim or new production path.
+**Ownership handoff, 2026-10-09:** [Plan 33/EFF06](33-efficiency-principles-remediation.md#eff06)
+now owns tracing the actual failing call, threading current immutable physical prerequisites
+through fresh numerical difference inference, and the correction's targeted qualification.
+Its disposition table is the current owner of Efficiency F08. This boundary retains the
+original four refusals and uncertainty about the first caller; they are not accepted
+preparation/performance evidence or numerical baselines. Present, missing and changed operand
+facts and exact numerical allowances remain required, followed by a freshly prepared fixture
+under its current lawful scientific specification. This remains outside the selected graph/hash
+implementation; broader Plan 28 scientific consumer/qualification obligations stay here.
 
 | Package | Working prerequisite | Completion boundary | Progress |
 |---|---|---|---|

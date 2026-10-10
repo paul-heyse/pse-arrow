@@ -140,3 +140,8 @@ Ask only for information that materially changes the work. Follow the user's bou
 planning and action: this skill does not switch modes or force execution. When execution is
 authorized, [execute-plan](../execute-plan/SKILL.md) supplies the execution contract without
 requiring another planning round.
+
+When work intersects other active plans, use the
+[aggregate scope route](../../../docs/dev/documentation.md#metadata-and-aggregate-scope) to locate
+native content owners and reconcile dependencies. Multiple concurrent plans are supported;
+selection of an execution scope does not transfer another plan's ownership or close its work.

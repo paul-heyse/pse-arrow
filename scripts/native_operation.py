@@ -194,9 +194,12 @@ def drained(record: Mapping[str, object]) -> bool:
         observed = unit_observation(owner["unit"])
         if observed.get("LoadState") == "not-found":
             return True
-        return observed.get("InvocationID") == owner["invocation"] and observed.get(
-            "ControlGroup"
-        ) in {owner["group"], ""}
+        return (
+            observed.get("InvocationID") == owner["invocation"]
+            and observed.get("ControlGroup") in {owner["group"], ""}
+            and observed.get("ActiveState") in {"inactive", "failed"}
+            and not populated(owner["group"])
+        )
     except (OSError, ValueError, KeyError, subprocess.SubprocessError):
         return False
 
@@ -322,15 +325,35 @@ def pin(base: Path, generation: Path) -> None:
             write_json(path, record)
 
 
-def generation_in_use(base: Path, generation: Path) -> bool:
+def pinned_generations(base: Path) -> set[str] | None:
+    """Observe live pins once; discard only authentically settled operation owners.
+
+    Publication coordination held by the caller excludes a new selection of the
+    generation being reclaimed. Record exclusion protects handoff/pin mutations.
+    Unknown records conservatively refuse reclamation; completed operations have
+    no consumer after drain and are deleted rather than becoming an archive.
+    """
+    pinned: set[str] = set()
     for path in (base / ".operations").glob("*.json"):
         try:
-            record = _record(path)
-            if str(generation) in record.get("generations", []) and not drained(record):
-                return True
+            with record_lock(path):
+                record = _record(path)
+                generations = record.get("generations")
+                if not isinstance(generations, list) or any(
+                    not isinstance(generation, str) for generation in generations
+                ):
+                    return None
+                if drained(record):
+                    path.unlink()
+                    path.with_suffix(".lock").unlink(missing_ok=True)
+                else:
+                    pinned.update(generations)
+        except FileNotFoundError:
+            # Another collector finished this exact operation under exclusion.
+            continue
         except (OSError, ValueError, KeyError):
-            return True
-    return False
+            return None
+    return pinned
 
 
 def prepare_handoff(expected_unit: str) -> Path | None:

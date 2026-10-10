@@ -368,16 +368,32 @@ impl CanonicalResultReader {
                     .ok_or_else(|| contract("selected output block lacks index"))?;
                 let indices = match indexes {
                     OutputRows::Scalar(cells) => {
-                        let expected = super::result_projection::scalar_cells_at(
-                            &checked,
-                            &self.set,
-                            &block.batch.key,
-                            0,
-                            checked.batch().num_rows(),
-                            block.metadata.start,
-                        )?;
                         for cell in &cells {
-                            if !expected.iter().any(|value| value == cell) {
+                            if cell.output != filter.output || cell.partition != filter.partition {
+                                return Err(contract(
+                                    "selected scalar index differs from requested output",
+                                ));
+                            }
+                            let index = cell
+                                .row
+                                .checked_sub(block.metadata.start)
+                                .and_then(|row| usize::try_from(row).ok())
+                                .ok_or_else(|| {
+                                    contract("selected scalar row outside original block")
+                                })?;
+                            let field =
+                                filter.output.rsplit(':').next().ok_or_else(|| {
+                                    contract("scientific scalar output field absent")
+                                })?;
+                            let expected = super::result_projection::selected_scalar_cell(
+                                &checked,
+                                &self.set,
+                                &block.batch.key,
+                                index,
+                                block.metadata.start,
+                                field,
+                            )?;
+                            if expected != *cell {
                                 return Err(contract(
                                     "native scalar index differs from original scientific row",
                                 ));
@@ -737,7 +753,7 @@ mod canonical_connected_results_server_unit {
             &store,
             &fence,
             solve_metrics::RELATION_ID,
-            &original,
+            crate::workflow::ResultCursor::from_checked(original.clone()),
             &pool,
         )
         .await
@@ -889,7 +905,7 @@ mod canonical_connected_results_server_unit {
             store,
             &fence,
             fit_parameters::RELATION_ID,
-            &parameters,
+            crate::workflow::ResultCursor::from_checked(parameters.clone()),
             &runtime.shared.pool(),
         )
         .await
@@ -897,8 +913,10 @@ mod canonical_connected_results_server_unit {
         let mut samples =
             simulation_samples::Builder::with_registry(&runtime.registry, 200, &validation)
                 .unwrap();
-        for sample in (0..100).rev() {
-            for symbol in [first, second] {
+        let mut outputs = [first, second];
+        outputs.sort_unstable();
+        for symbol in outputs {
+            for sample in 0..100 {
                 samples
                     .push(simulation_samples::Row {
                         run_id,
@@ -917,7 +935,7 @@ mod canonical_connected_results_server_unit {
             store,
             &fence,
             simulation_samples::RELATION_ID,
-            &samples,
+            crate::workflow::ResultCursor::from_checked(samples.clone()),
             &runtime.shared.pool(),
         )
         .await

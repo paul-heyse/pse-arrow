@@ -137,6 +137,7 @@ pub struct ModelingResultData {
     pub prepared: ModelingSolvePreparation,
     _owner: Arc<pse_columnar::AllocationLease>,
     _native_owner: Arc<pse_columnar::AllocationLease>,
+    encodings: crate::workflow::result_export::EncodingState,
 }
 impl std::ops::Deref for ModelingResult {
     type Target = ModelingResultData;
@@ -999,6 +1000,7 @@ impl ModelingResult {
             validation_error: point.error,
             _owner: point.owner,
             _native_owner: native_owner,
+            encodings: crate::workflow::result_export::EncodingState::default(),
         }))
     }
 }
@@ -1539,26 +1541,138 @@ pub(in crate::workflow) fn assess_observations(
 }
 
 impl ModelingResult {
-    /// Encode generated contracts with the shared reserve-before-growth columnar owner.
-    /// Returned columns may outlive the model, result and source runtime handle.
+    /// Available completed observation relations; does not encode their payloads.
+    pub fn table_ids(&self) -> Vec<SemanticId> {
+        use pse_relations::generated::runtime::*;
+        vec![
+            modeling_checks::RELATION_ID,
+            modeling_reports::RELATION_ID,
+            modeling_findings::RELATION_ID,
+            solve_strategy_events::RELATION_ID,
+            solve_strategy_products::RELATION_ID,
+        ]
+    }
+    /// Every relation through the same selected projection.
     pub fn tables(
         &self,
     ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
     {
-        use pse_model::HeapUsage;
+        crate::workflow::result_export::collect_tables(self.table_ids(), &self.runtime, |id| {
+            self.cursor_by_id(id, 1024).map_err(Arc::new)
+        })
+        .map_err(WorkflowError::Shared)
+    }
+    fn table_by_id(
+        &self,
+        id: SemanticId,
+    ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        crate::workflow::result_export::collect(self.cursor_by_id(id, 1024)?, &self.runtime, id)
+            .map_err(WorkflowError::Shared)
+    }
+    /// Encode only one selected relation.
+    pub fn table(
+        &self,
+        name: &str,
+    ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        let id = self
+            .runtime
+            .registry
+            .relation(name)
+            .ok_or_else(|| contract("unknown modeling result relation"))?
+            .id;
+        self.table_by_id(id)
+    }
+    /// Independent bounded cursor over one completed relation.
+    pub fn table_cursor(
+        &self,
+        name: &str,
+        rows: usize,
+    ) -> Result<crate::workflow::ResultCursor<'_>, WorkflowError> {
+        let id = self
+            .runtime
+            .registry
+            .relation(name)
+            .ok_or_else(|| contract("unknown modeling result relation"))?
+            .id;
+        self.cursor_by_id(id, rows)
+    }
+    /// Owning bounded selected transport for foreign-language streams.
+    pub fn into_table_cursor(
+        self: Arc<Self>,
+        name: &str,
+        rows: usize,
+    ) -> Result<crate::workflow::ResultCursor<'static>, WorkflowError> {
+        let runtime = &self.runtime;
+        let id = runtime
+            .registry
+            .relation(name)
+            .ok_or_else(|| contract("unknown result relation"))?
+            .id;
+        if !self.table_ids().contains(&id) {
+            return Err(contract("relation is not part of result"));
+        }
+        if let Some(error) = self.encodings.failure(id) {
+            return Err(WorkflowError::Shared(error));
+        }
+        let spec = runtime
+            .registry
+            .relation_by_id(id)
+            .ok_or_else(|| contract("result declaration absent"))?;
+        let schema = pse_schema::arrow::relation_schema_ref(&runtime.registry, spec)
+            .map_err(pse_relations::RelationError::from)
+            .map_err(relation)?;
+        crate::workflow::ResultCursor::new(
+            schema,
+            id,
+            rows,
+            crate::workflow::ResultOrder::Public,
+            |request| async move {
+                self.project(&request)
+                    .await
+                    .map_err(|error| self.encodings.record(id, error))
+            },
+        )
+    }
+    fn cursor_by_id(
+        &self,
+        id: SemanticId,
+        rows: usize,
+    ) -> Result<crate::workflow::ResultCursor<'_>, WorkflowError> {
+        if !self.table_ids().contains(&id) {
+            return Err(contract("relation is not part of modeling result"));
+        }
+        if let Some(error) = self.encodings.failure(id) {
+            return Err(WorkflowError::Shared(error));
+        }
+        let spec = self
+            .runtime
+            .registry
+            .relation_by_id(id)
+            .ok_or_else(|| contract("modeling result declaration absent"))?;
+        let schema = pse_schema::arrow::relation_schema_ref(&self.runtime.registry, spec)
+            .map_err(pse_relations::RelationError::from)
+            .map_err(relation)?;
+        crate::workflow::ResultCursor::new(
+            schema,
+            id,
+            rows,
+            crate::workflow::ResultOrder::Public,
+            |request| async move {
+                self.project(&request)
+                    .await
+                    .map_err(|error| self.encodings.record(id, error))
+            },
+        )
+    }
+    async fn project(
+        &self,
+        request: &crate::workflow::result_export::Projection,
+    ) -> Result<(), WorkflowError> {
         let pool = self.runtime.shared.pool();
-        let cancel = pse_columnar::CancellationToken::new();
-        let scratch = self.runtime.shared.math().reserve(
-            "modeling:result-row-copy",
-            self.checks
-                .iter()
-                .map(HeapUsage::owned_bytes)
-                .chain(self.reports.iter().map(HeapUsage::owned_bytes))
-                .max()
-                .unwrap_or(0),
-        )?;
+        let cancel = request.cancel.clone();
         let validation = self.runtime.validation_context()?;
-        let mut columns = pse_relations::columnar::Collection::new(
+        let mut columns = crate::workflow::result_export::SelectedCollection::new(
+            request,
             &self.runtime.registry,
             &pool,
             &cancel,
@@ -1572,51 +1686,59 @@ impl ModelingResult {
         columns
             .ensure::<pse_model::generated::runtime::solve_strategy_products::Row>()
             .map_err(relation)?;
-        if let Some(strategy) = &self.strategy {
-            for row in strategy
-                .product_rows(self.run_id, 0)
-                .map_err(crate::math::MathRuntimeError::from)?
+        if [
+            pse_relations::generated::runtime::solve_strategy_events::RELATION_ID,
+            pse_relations::generated::runtime::solve_strategy_products::RELATION_ID,
+        ]
+        .contains(&request.relation)
+            && let Some(strategy) = &self.strategy
+        {
+            if request
+                .wants(pse_relations::generated::runtime::solve_strategy_products::RELATION_ID)
             {
-                columns.push(row).map_err(relation)?;
+                columns.strategy_products(strategy, self.run_id, 0).await?;
             }
-            for row in strategy
-                .rows(self.run_id, 0)
-                .map_err(crate::math::MathRuntimeError::from)?
+            if request.wants(pse_relations::generated::runtime::solve_strategy_events::RELATION_ID)
             {
-                columns.push(row).map_err(relation)?;
+                columns.strategy_events(strategy, self.run_id, 0).await?;
             }
         }
+
         columns
             .ensure::<pse_model::generated::runtime::modeling_findings::Row>()
             .map_err(relation)?;
         // The failure first, then the informational bound tightenings (ADR-0103 item 4).
-        let tightenings = self
-            .prepared
-            .model
-            .tightenings
-            .iter()
-            .map(pse_modeling::DomainTightening::boundary_diagnostic);
-        for (ordinal, finding) in self.diagnostic().into_iter().chain(tightenings).enumerate() {
-            columns
-                .push(analysis_tables::finding_row(
-                    self.run_id,
-                    ordinal as i64,
-                    &finding,
-                ))
-                .map_err(relation)?;
+        if request.wants(pse_relations::generated::runtime::modeling_findings::RELATION_ID) {
+            let tightenings = self
+                .prepared
+                .model
+                .tightenings
+                .iter()
+                .map(pse_modeling::DomainTightening::boundary_diagnostic);
+            for (ordinal, finding) in self.diagnostic().into_iter().chain(tightenings).enumerate() {
+                columns
+                    .push(analysis_tables::finding_row(
+                        self.run_id,
+                        ordinal as i64,
+                        &finding,
+                    ))
+                    .await
+                    .map_err(relation)?;
+            }
         }
-        for row in &self.checks {
-            columns.push(row.clone()).map_err(relation)?;
+        if request.wants(pse_relations::generated::runtime::modeling_checks::RELATION_ID) {
+            for row in &self.checks {
+                columns.push_ref(row).await.map_err(relation)?;
+            }
         }
-        for row in &self.reports {
-            columns.push(row.clone()).map_err(relation)?;
+
+        if request.wants(pse_relations::generated::runtime::modeling_reports::RELATION_ID) {
+            for row in &self.reports {
+                columns.push_ref(row).await.map_err(relation)?;
+            }
         }
-        let result = columns.finish().map_err(relation)?;
-        drop(scratch);
-        Ok(result
-            .into_values()
-            .map(|batch| (batch.relation_id(), batch))
-            .collect())
+
+        columns.finish().await.map_err(relation)
     }
 }
 

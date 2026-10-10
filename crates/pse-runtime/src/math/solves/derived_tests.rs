@@ -2051,7 +2051,14 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
         .strategy
         .as_ref()
         .unwrap()
-        .rows(recovered.run_id, 0)
+        .rows(
+            recovered.run_id,
+            0,
+            Arc::new(datafusion::execution::memory_pool::UnboundedMemoryPool::default()),
+            0..usize::MAX,
+        )
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
         .unwrap();
     assert!(
         rows.iter()

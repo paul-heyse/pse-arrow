@@ -22,10 +22,10 @@ import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from scripts import build_environment, native_operation, validation
+from scripts import arrow_validation, build_environment, native_operation, validation
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
 
 def snapshot(root: Path, output: Path) -> Path:
@@ -105,17 +105,45 @@ def artifacts(path: Path) -> dict:
     }
 
 
-def require_validation_mode(units: list[dict], expected: bool) -> None:
-    """A requested feature switch is not evidence that unification changed it."""
-    actual = {
-        "force_validate" in unit["features"]
-        for unit in units
-        if unit["target"]["name"] == "arrow_data"
-    }
-    if actual != {expected}:
-        raise ValueError(
-            f"Arrow validation feature differs from requested build mode: {actual}"
-        )
+NATIVE_PACKAGES = (
+    "pse-backend-native",
+    "pse-compiler",
+    "pse-kernels",
+    "pse-math",
+    "pse-runtime",
+    "pse-structural",
+    "pse-tests-conformance",
+)
+
+
+def selected_packages(
+    packages: list[str] | None, *, native: bool, workload: str
+) -> tuple[str, ...]:
+    if native:
+        if packages or workload != "compiler":
+            raise ValueError(
+                "--native selects its named native workload; omit --package/--workload"
+            )
+        return NATIVE_PACKAGES
+    if packages:
+        if workload != "compiler":
+            raise ValueError("select --package or a named --workload")
+        return tuple(dict.fromkeys(packages))
+    if workload == "compiler-relations":
+        return ("pse-compiler", "pse-relations")
+    return ("pse-compiler",)
+
+
+def correctness_command(
+    source: Path, cargo: list[str], args: list[str], env: dict[str, str]
+) -> list[str]:
+    """Resolve this snapshot's exact roots and actual Arrow validation closure."""
+
+    def capture(command: Sequence[str]) -> bytes:
+        return subprocess.check_output([*cargo, *command[1:]], cwd=source, env=env)
+
+    resolved = arrow_validation.resolve(["cargo", *args], run=capture)
+    return [*cargo, *resolved.command[1:]]
 
 
 def measure(
@@ -126,9 +154,8 @@ def measure(
     env: dict[str, str],
     *,
     workspace: bool = False,
-    packages: tuple[str, ...] = ("pse-compiler", "pse-relations"),
+    packages: tuple[str, ...] = ("pse-compiler",),
     native: bool = False,
-    validate: bool = True,
     owned_cache: bool = False,
 ) -> dict:
     destination = output / name
@@ -138,11 +165,11 @@ def measure(
         if workspace
         else [arg for package in packages for arg in ("-p", package)]
     )
-    features = ["--features", "pse-relations/force-validate"] if validate else []
+    features = []
     if native:
         features = [
             "--features",
-            "pse-relations/force-validate,pse-runtime/native-solvers,pse-tests-conformance/native-acceptance",
+            "pse-runtime/native-solvers,pse-tests-conformance/native-acceptance",
         ]
     command = [
         *cargo,
@@ -153,6 +180,15 @@ def measure(
         *features,
         "--timings",
         "--message-format=json-render-diagnostics",
+    ]
+    command = correctness_command(source, cargo, command[len(cargo) :], env)
+    # Use exactly the features resolved for the measured build in its feature report.
+    # Correctness composition appends its feature clause after all build options;
+    # preserve any original native feature clause separately as well.
+    features = [
+        arg
+        for index, arg in enumerate(command)
+        if arg == "--features" or (index and command[index - 1] == "--features")
     ]
     validation.write_json(destination / "source-files.json", validation.sources(source))
     validation.write_json(
@@ -263,7 +299,6 @@ def measure(
     if result.returncode:
         raise RuntimeError(f"{name} build failed; retained complete logs")
     compiled = artifacts(destination / "cargo.jsonl")
-    require_validation_mode(compiled["artifacts"], validate)
     receipt.update(compiled)
     # Stable Cargo documents HTML as a human report. Keep the complete library-owned
     # graph for critical-path/largest-unit assessment instead of treating its private JS as an API.
@@ -627,9 +662,17 @@ def main() -> None:
     parser.add_argument("--repetitions", type=int, default=3)
     parser.add_argument("--native", action="store_true")
     parser.add_argument(
+        "--package",
+        action="append",
+        help="measure only these selected Cargo roots (repeatable)",
+    )
+    parser.add_argument(
+        "--workload", choices=("compiler", "compiler-relations"), default="compiler"
+    )
+    parser.add_argument(
         "--execute",
         action="store_true",
-        help="repeat compiler/relations library tests after build samples",
+        help="repeat selected workload library tests after build samples",
     )
     parser.add_argument(
         "--screen",
@@ -660,6 +703,12 @@ def main() -> None:
         parser.error("warm/edit workloads require at least three repetitions")
     if args.execute and args.native:
         parser.error("use --workflow for the native unit selection")
+    try:
+        packages = selected_packages(
+            args.package, native=args.native, workload=args.workload
+        )
+    except ValueError as error:
+        parser.error(str(error))
     root = Path(__file__).resolve().parents[1]
     ensure_capability_operation(root, native=args.native, workflow=args.workflow)
     settings = tomllib.loads((root / ".config/build.toml").read_text())
@@ -676,6 +725,12 @@ def main() -> None:
         workflow=args.workflow,
         conditions={
             "native": args.native,
+            "packages": packages,
+            "workload": "native"
+            if args.native
+            else args.workload
+            if not args.package
+            else "selected-packages",
             "workflow": args.workflow,
             "compiler_cache_selection": args.cache,
             "cold_compiler_cache": args.cold_cache,
@@ -719,19 +774,6 @@ def main() -> None:
         "toolchain"
     ]["channel"]
     cargo = ["rustup", "run", toolchain, "cargo"]
-    packages = (
-        (
-            "pse-backend-native",
-            "pse-compiler",
-            "pse-kernels",
-            "pse-math",
-            "pse-runtime",
-            "pse-structural",
-            "pse-tests-conformance",
-        )
-        if args.native
-        else ("pse-compiler", "pse-relations")
-    )
     validation.write_json(
         output / "host.json",
         {
@@ -765,18 +807,25 @@ def main() -> None:
     build_phases(source, args.repetitions, sample, screen=args.screen)
     if args.execute:
         execution = []
-        command = [
-            *cargo,
-            "test",
-            "-p",
-            "pse-compiler",
-            "-p",
-            "pse-relations",
-            "--lib",
-            "--locked",
-            "--features",
-            "pse-relations/force-validate",
-        ]
+        command = correctness_command(
+            source,
+            cargo,
+            [
+                "test",
+                *[arg for package in packages for arg in ("-p", package)],
+                "--lib",
+                "--locked",
+                *(
+                    [
+                        "--features",
+                        "pse-runtime/native-solvers,pse-tests-conformance/native-acceptance",
+                    ]
+                    if args.native
+                    else []
+                ),
+            ],
+            env,
+        )
         for repetition in range(args.repetitions):
             result = execute_workload(
                 command,
@@ -788,7 +837,7 @@ def main() -> None:
             execution.append({**result, "repetition": repetition})
             validation.write_json(output / "execution.json", execution)
             if result["exit_code"]:
-                raise RuntimeError("compiler/relations unit execution failed")
+                raise RuntimeError("selected workload unit execution failed")
     if args.workflow:
         workflow = []
         workflow_env = {**env, "UV_PROJECT_ENVIRONMENT": str(source / ".venv")}

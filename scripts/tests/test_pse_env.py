@@ -21,6 +21,126 @@ def identity(_root: Path, env: dict[str, str]) -> dict[str, str]:
 
 
 class PseEnvTests(unittest.TestCase):
+    def test_docs_bash_wrapper_cannot_fall_through_to_product_python(self) -> None:
+        product = self.root / ".venv/bin"
+        product.mkdir(parents=True)
+        (product / "python3").write_text("product interpreter fixture")
+        with (
+            patch.object(pse_env, "ROOT", self.root),
+            patch.object(
+                pse_env,
+                "compose",
+                return_value={
+                    "UV_PROJECT_ENVIRONMENT": ".venv",
+                    "PATH": str(product) + ":/bin",
+                },
+            ),
+            patch.object(pse_env, "execute") as execute,
+            patch.object(pse_env, "placement", return_value=[]) as placement,
+            patch.object(pse_env, "unexecutable", return_value=None),
+            patch.object(pse_env.host, "inherit", return_value=None),
+            patch.object(pse_env, "require_enclosing_owner"),
+        ):
+            self.assertEqual(
+                pse_env.main(
+                    ["--docs", "--", "bash", "-c", "python3 -m scripts.docs build"]
+                ),
+                pse_env.FAILURE,
+            )
+            execute.assert_not_called()
+            placement.assert_not_called()
+            execute.return_value = 0
+            self.assertEqual(
+                pse_env.main(
+                    [
+                        "--docs",
+                        "--",
+                        "uv",
+                        "sync",
+                        "--locked",
+                        "--only-group",
+                        "docs",
+                        "--no-install-project",
+                    ]
+                ),
+                0,
+            )
+            self.assertEqual(
+                execute.call_args.args[1]["UV_PROJECT_ENVIRONMENT"],
+                str(self.root / ".venv-docs"),
+            )
+
+    def test_docs_selector_overrides_product_without_synchronizing(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            selected = pse_env.documentation_environment(
+                root, {"UV_PROJECT_ENVIRONMENT": ".venv", "PATH": "/bin"}
+            )
+            self.assertEqual(
+                selected["UV_PROJECT_ENVIRONMENT"], str(root / ".venv-docs")
+            )
+            self.assertEqual(
+                selected["PATH"].split(":")[0], str(root / ".venv-docs/bin")
+            )
+            self.assertFalse((root / ".venv-docs").exists())
+
+    def test_docs_selector_rejects_product_alias_before_effects(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / ".venv").mkdir()
+            (root / ".venv-docs").symlink_to(root / ".venv", target_is_directory=True)
+            with self.assertRaisesRegex(pse_env.BoundaryError, "aliases"):
+                pse_env.documentation_environment(
+                    root, {"UV_PROJECT_ENVIRONMENT": ".venv"}
+                )
+
+    def test_docs_print_moves_inherited_docs_path_ahead_of_product(self) -> None:
+        inherited = f"{self.root}/.venv/bin:{self.root}/.venv-docs/bin:/bin"
+        with patch.object(pse_env, "local_keys", return_value={}):
+            rendered = pse_env.render(
+                self.root, {"HOME": str(self.root), "PATH": inherited}, docs=True
+            )
+        result = subprocess.run(
+            [
+                "bash",
+                "-c",
+                rendered
+                + '\nprintf "%s\\n" "$PATH"\n'
+                + rendered
+                + '\nprintf "%s\\n" "$PATH"',
+            ],
+            env={"PATH": inherited},
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        once, twice = result.stdout.splitlines()
+        self.assertEqual(once.split(":")[0], str(self.root / ".venv-docs/bin"))
+        self.assertEqual(once, twice)
+
+    def test_docs_print_selects_child_environment_even_with_local_product_selector(
+        self,
+    ) -> None:
+        with patch.object(
+            pse_env, "local_keys", return_value={"UV_PROJECT_ENVIRONMENT": ".venv"}
+        ):
+            rendered = pse_env.render(
+                self.root, {"HOME": str(self.root), "PATH": "/bin"}, docs=True
+            )
+        result = subprocess.run(
+            [
+                "bash",
+                "-c",
+                rendered + '\nprintf "%s\\n" "$UV_PROJECT_ENVIRONMENT" "$PATH"',
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        lines = result.stdout.splitlines()
+        self.assertEqual(lines[0], str(self.root / ".venv-docs"))
+        self.assertEqual(lines[1].split(":")[0], str(self.root / ".venv-docs/bin"))
+
     def setUp(self) -> None:
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
@@ -80,6 +200,77 @@ class PseEnvTests(unittest.TestCase):
                 self.assertEqual(
                     placement.call_args.args[0]["PSE_RESOURCE_CLASS"], expected
                 )
+
+    def test_admitted_jobs_follow_declaration_and_preserve_explicit_overrides(
+        self,
+    ) -> None:
+        declaration = "16"
+
+        def declared(_root: Path, env: dict[str, str]) -> dict[str, str]:
+            result = dict(env)
+            result.setdefault("CARGO_BUILD_JOBS", declaration)
+            return result
+
+        owner = MagicMock(spec=pse_env.host.Allocation)
+        owner.profile = MagicMock(cores=(2, 4))
+        with (
+            patch.object(pse_env.build_environment, "configure", side_effect=declared),
+            patch.object(pse_env.host, "cpu_set", return_value=(2, 4, 6, 8)),
+        ):
+            env = pse_env.compose(self.root, {}, {})
+            self.assertEqual(env["CARGO_BUILD_JOBS"], "16")
+            pse_env.admitted_cargo_jobs(env, owner)
+            self.assertEqual(env["CARGO_BUILD_JOBS"], "4")
+            # Re-entry starts from the current declaration, not the previous lane.
+            nested = pse_env.compose(self.root, env, {})
+            self.assertEqual(nested["CARGO_BUILD_JOBS"], "16")
+            pse_env.admitted_cargo_jobs(nested, owner)
+            self.assertEqual(nested, env)
+            declaration = "3"
+            changed = pse_env.compose(self.root, env, {})
+            pse_env.admitted_cargo_jobs(changed, owner)
+            self.assertEqual(changed["CARGO_BUILD_JOBS"], "3")
+            for explicit in ("2", "24", "-1"):
+                overridden = pse_env.compose(
+                    self.root, {**env, "CARGO_BUILD_JOBS": explicit}, {}
+                )
+                pse_env.admitted_cargo_jobs(overridden, owner)
+                self.assertEqual(overridden["CARGO_BUILD_JOBS"], explicit)
+                self.assertNotIn(pse_env.CARGO_DEFAULT_JOBS, overridden)
+            local = pse_env.compose(self.root, {}, {"CARGO_BUILD_JOBS": "12"})
+            pse_env.admitted_cargo_jobs(local, owner)
+            self.assertEqual(local["CARGO_BUILD_JOBS"], "12")
+            # A declaration already below the lane stays unchanged.
+            small = {"CARGO_BUILD_JOBS": "2", pse_env.CARGO_DEFAULT_JOBS: "2"}
+            pse_env.admitted_cargo_jobs(small, owner)
+            self.assertEqual(small["CARGO_BUILD_JOBS"], "2")
+
+    def test_placement_bounds_jobs_after_acquisition(self) -> None:
+        owner = MagicMock(spec=pse_env.host.Allocation)
+        owner.profile = pse_env.host.select("compile")
+        owner.directory = self.root / "allocation"
+        owner.nonce = "a" * 32
+        owner.environment.return_value = {
+            pse_env.host.MARKER: str(owner.directory / owner.nonce)
+        }
+        env = {
+            "CARGO_BUILD_JOBS": "16",
+            pse_env.CARGO_DEFAULT_JOBS: "16",
+            "PSE_RESOURCE_CLASS": "compile",
+        }
+        with (
+            patch.object(pse_env.host, "inherit", return_value=None),
+            patch.object(pse_env.host, "acquire", return_value=owner),
+            patch.object(pse_env.host, "enforce_parent"),
+            patch.object(pse_env.host, "enforce_allocation"),
+            patch.object(pse_env.host, "cpu_set", return_value=(1, 2, 3, 4)),
+            patch.object(pse_env.operation, "scope_owner", return_value=None),
+            patch.object(pse_env, "manager_available", return_value=True),
+        ):
+            prefix = pse_env.placement(env, native=False)
+        self.assertIn("--bind-allocation", prefix)
+        self.assertEqual(env["CARGO_BUILD_JOBS"], "4")
+        self.assertEqual(env[pse_env.CARGO_DEFAULT_JOBS], "4")
 
     def test_control_environment_does_not_prepare_compiler(self) -> None:
         deadline = time.monotonic() + 1

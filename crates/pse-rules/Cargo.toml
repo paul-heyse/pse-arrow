@@ -36,3 +36,12 @@ tokio.workspace = true
 serde_json.workspace = true
 pse-testkit.workspace = true
 pse-relations = { workspace = true, features = ["test-support"] }
+
+[features]
+force-validate = [
+  "pse-columnar/force-validate",
+  "pse-engine/force-validate",
+  "pse-relations/force-validate",
+  "pse-schema/force-validate",
+  "pse-testkit/force-validate",
+]

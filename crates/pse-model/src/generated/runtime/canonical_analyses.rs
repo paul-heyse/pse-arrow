@@ -19,6 +19,16 @@ pub struct RuntimeCanonicalAnalysesRow {
     pub r#configuration: crate::Bytes,
     ///input_digest
     pub r#input_digest: String,
+    ///primary_problem
+    pub r#primary_problem: String,
+    ///primary_authority
+    pub r#primary_authority: String,
+    ///creation_nonce
+    pub r#creation_nonce: String,
+    ///creation_request_digest
+    pub r#creation_request_digest: String,
+    ///creation_expires_at
+    pub r#creation_expires_at: u64,
     ///interpretation
     pub r#interpretation: String,
     ///node_count
@@ -27,6 +37,8 @@ pub struct RuntimeCanonicalAnalysesRow {
     pub r#edge_count: u64,
     ///active
     pub r#active: bool,
+    ///retiring
+    pub r#retiring: bool,
 }
 impl crate::SemanticEq for RuntimeCanonicalAnalysesRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -42,11 +54,32 @@ impl crate::SemanticEq for RuntimeCanonicalAnalysesRow {
                 &other.r#input_digest,
             )
             && crate::SemanticEq::semantic_eq(
+                &self.r#primary_problem,
+                &other.r#primary_problem,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#primary_authority,
+                &other.r#primary_authority,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#creation_nonce,
+                &other.r#creation_nonce,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#creation_request_digest,
+                &other.r#creation_request_digest,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#creation_expires_at,
+                &other.r#creation_expires_at,
+            )
+            && crate::SemanticEq::semantic_eq(
                 &self.r#interpretation,
                 &other.r#interpretation,
             ) && crate::SemanticEq::semantic_eq(&self.r#node_count, &other.r#node_count)
             && crate::SemanticEq::semantic_eq(&self.r#edge_count, &other.r#edge_count)
             && crate::SemanticEq::semantic_eq(&self.r#active, &other.r#active)
+            && crate::SemanticEq::semantic_eq(&self.r#retiring, &other.r#retiring)
     }
 }
 impl PartialEq for RuntimeCanonicalAnalysesRow {
@@ -68,6 +101,16 @@ impl crate::SemanticFrame for RuntimeCanonicalAnalysesRow {
         crate::SemanticFrame::frame(&self.r#configuration, hash);
         hash.str(stringify!(r#input_digest));
         crate::SemanticFrame::frame(&self.r#input_digest, hash);
+        hash.str(stringify!(r#primary_problem));
+        crate::SemanticFrame::frame(&self.r#primary_problem, hash);
+        hash.str(stringify!(r#primary_authority));
+        crate::SemanticFrame::frame(&self.r#primary_authority, hash);
+        hash.str(stringify!(r#creation_nonce));
+        crate::SemanticFrame::frame(&self.r#creation_nonce, hash);
+        hash.str(stringify!(r#creation_request_digest));
+        crate::SemanticFrame::frame(&self.r#creation_request_digest, hash);
+        hash.str(stringify!(r#creation_expires_at));
+        crate::SemanticFrame::frame(&self.r#creation_expires_at, hash);
         hash.str(stringify!(r#interpretation));
         crate::SemanticFrame::frame(&self.r#interpretation, hash);
         hash.str(stringify!(r#node_count));
@@ -76,6 +119,8 @@ impl crate::SemanticFrame for RuntimeCanonicalAnalysesRow {
         crate::SemanticFrame::frame(&self.r#edge_count, hash);
         hash.str(stringify!(r#active));
         crate::SemanticFrame::frame(&self.r#active, hash);
+        hash.str(stringify!(r#retiring));
+        crate::SemanticFrame::frame(&self.r#retiring, hash);
     }
 }
 impl crate::HeapUsage for RuntimeCanonicalAnalysesRow {
@@ -86,9 +131,17 @@ impl crate::HeapUsage for RuntimeCanonicalAnalysesRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#method))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#configuration))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#input_digest))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#primary_problem))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#primary_authority))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#creation_nonce))
+            .saturating_add(
+                crate::HeapUsage::heap_bytes(&self.r#creation_request_digest),
+            )
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#creation_expires_at))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#interpretation))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#node_count))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#edge_count))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#active))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#retiring))
     }
 }

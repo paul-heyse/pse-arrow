@@ -125,12 +125,11 @@ fn take_child_alias_factor(
     Ok(child_factor)
 }
 
-fn take_source_copies(
+fn check_take_indices(
     batch: &RecordBatch,
     indices: &arrow_array::UInt32Array,
-    pool: &Arc<dyn pse_columnar::MemoryPool>,
     cancel: &pse_columnar::CancellationToken,
-) -> Result<usize, RelationError> {
+) -> Result<(), RelationError> {
     // Check the complete index domain before asking for memory. In particular,
     // zero-column batches have no individual Arrow kernel to check their bounds.
     if indices.null_count() != 0 {
@@ -149,6 +148,15 @@ fn take_source_copies(
         }
     }
     cancel.checkpoint()?;
+    Ok(())
+}
+
+fn take_source_copies(
+    batch: &RecordBatch,
+    indices: &arrow_array::UInt32Array,
+    pool: &Arc<dyn pse_columnar::MemoryPool>,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<usize, RelationError> {
     let mut alias_factor: Option<usize> = None;
     for column in batch.columns() {
         if let Some(factor) = take_child_alias_factor(&column.to_data(), cancel)? {
@@ -162,14 +170,42 @@ fn take_source_copies(
             .checked_mul(factor)
             .ok_or_else(|| mismatch("bounded take alias copies"));
     }
-    let scratch_extent = batch
-        .num_rows()
-        .checked_mul(size_of::<usize>())
-        .ok_or_else(|| mismatch("bounded take occurrence counts"))?;
+    let sparse = indices.len() < batch.num_rows();
+    let scratch_extent = if sparse {
+        indices.len()
+    } else {
+        batch.num_rows()
+    }
+    .checked_mul(size_of::<usize>())
+    .ok_or_else(|| mismatch("bounded take occurrence counts"))?;
     let scratch = pse_columnar::MemoryConsumer::new("relations:checked-take-counts").register(pool);
     scratch
         .try_grow(scratch_extent)
         .map_err(pse_columnar::CanonError::from)?;
+    if sparse {
+        let mut selected = indices
+            .values()
+            .iter()
+            .map(|index| *index as usize)
+            .collect::<Vec<_>>();
+        selected.sort_unstable();
+        let mut copies = 1usize;
+        let mut repeated = 0usize;
+        let mut previous = None;
+        for (position, index) in selected.into_iter().enumerate() {
+            if position % 1024 == 0 {
+                cancel.checkpoint()?;
+            }
+            repeated = if previous == Some(index) {
+                repeated + 1
+            } else {
+                1
+            };
+            previous = Some(index);
+            copies = copies.max(repeated);
+        }
+        return Ok(copies);
+    }
     let mut counts = vec![0usize; batch.num_rows()];
     let mut copies = 1;
     for (position, &index) in indices.values().iter().enumerate() {
@@ -185,6 +221,119 @@ fn take_source_copies(
     cancel.checkpoint()?;
     // Both scratch owners end here, before the destination's allowance is held.
     Ok(copies)
+}
+
+/// Visible copying layouts can forecast each selected range directly. Views,
+/// dictionaries and physical aliases keep the conservative whole-input route:
+/// their child/payload retention differs from copying visible logical rows.
+fn selected_take_extent(
+    batch: &RecordBatch,
+    indices: &arrow_array::UInt32Array,
+    pool: &Arc<dyn pse_columnar::MemoryPool>,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<Option<usize>, RelationError> {
+    use arrow_schema::DataType;
+    fn supported(data: &arrow::array::ArrayData) -> bool {
+        !matches!(
+            data.data_type(),
+            DataType::Dictionary(..)
+                | DataType::RunEndEncoded(..)
+                | DataType::Union(..)
+                | DataType::ListView(_)
+                | DataType::LargeListView(_)
+                | DataType::Utf8View
+                | DataType::BinaryView
+        ) && data.child_data().iter().all(supported)
+    }
+    fn add(a: usize, b: usize) -> Result<usize, RelationError> {
+        a.checked_add(b)
+            .ok_or_else(|| mismatch("bounded selected take extent"))
+    }
+    fn mul(a: usize, b: usize) -> Result<usize, RelationError> {
+        a.checked_mul(b)
+            .ok_or_else(|| mismatch("bounded selected take extent"))
+    }
+    fn visible(
+        data: &arrow::array::ArrayData,
+        start: usize,
+        len: usize,
+    ) -> Result<(usize, usize), RelationError> {
+        if data.child_data().is_empty() {
+            return Ok((data.slice(start, len).get_slice_memory_size()?, len));
+        }
+        let offset = add(data.offset(), start)?;
+        let mut bytes = len.div_ceil(8); // kernels can allocate validity even for nonnull input
+        let mut slots = len;
+        match data.data_type() {
+            DataType::List(_) | DataType::Map(_, _) | DataType::LargeList(_) => {
+                let (begin, end, width) = if matches!(data.data_type(), DataType::LargeList(_)) {
+                    let offsets = data.buffers()[0].typed_data::<i64>();
+                    (
+                        usize::try_from(offsets[offset]),
+                        usize::try_from(offsets[add(offset, len)?]),
+                        8,
+                    )
+                } else {
+                    let offsets = data.buffers()[0].typed_data::<i32>();
+                    (
+                        usize::try_from(offsets[offset]),
+                        usize::try_from(offsets[add(offset, len)?]),
+                        4,
+                    )
+                };
+                let begin = begin.map_err(|_| mismatch("nonnegative selected child offset"))?;
+                let end = end.map_err(|_| mismatch("nonnegative selected child offset"))?;
+                let child_len = end
+                    .checked_sub(begin)
+                    .ok_or_else(|| mismatch("ordered selected child offsets"))?;
+                let child = visible(&data.child_data()[0], begin, child_len)?;
+                bytes = add(add(bytes, mul(add(len, 1)?, width)?)?, child.0)?;
+                slots = add(slots, child.1)?;
+            }
+            DataType::FixedSizeList(_, width) => {
+                let width = usize::try_from(*width)
+                    .map_err(|_| mismatch("nonnegative fixed child width"))?;
+                let child = visible(&data.child_data()[0], mul(offset, width)?, mul(len, width)?)?;
+                bytes = add(bytes, child.0)?;
+                slots = add(slots, child.1)?;
+            }
+            DataType::Struct(_) => {
+                for child in data.child_data() {
+                    let child = visible(child, start, len)?;
+                    bytes = add(bytes, child.0)?;
+                    slots = add(slots, child.1)?;
+                }
+            }
+            _ => return Err(mismatch("a supported selected copying layout")),
+        }
+        Ok((bytes, slots))
+    }
+    let scratch =
+        pse_columnar::MemoryConsumer::new("relations:checked-take-forecast").register(pool);
+    scratch
+        .try_grow(pse_columnar::allocation_extent::schema_working_extent(
+            batch.schema_ref(),
+        )?)
+        .map_err(pse_columnar::CanonError::from)?;
+    let columns = batch
+        .columns()
+        .iter()
+        .map(|column| column.to_data())
+        .collect::<Vec<_>>();
+    if !indices.is_empty() && !columns.iter().all(supported) {
+        return Ok(None);
+    }
+    let mut extent = add(4096, mul(columns.len(), 256)?)?;
+    for (position, index) in indices.values().iter().enumerate() {
+        if position % 1024 == 0 {
+            cancel.checkpoint()?;
+        }
+        for column in &columns {
+            let (bytes, slots) = visible(column, *index as usize, 1)?;
+            extent = add(extent, add(mul(bytes, 32)?, mul(slots, 256)?)?)?;
+        }
+    }
+    Ok(Some(extent))
 }
 
 #[cfg(test)]
@@ -527,14 +676,19 @@ impl FieldCheckedBatch {
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<Self, RelationError> {
         cancel.checkpoint()?;
-        let copies = take_source_copies(&self.storage.batch, indices, pool, cancel)?;
-        // Ordinary Arrow layouts copy each source row at most `copies` times.
-        // The whole-batch working allowance therefore covers a permutation once,
-        // while still bounding repeated variable-width and nested values. A subset
-        // deliberately retains the conservative whole-input allowance.
-        let extent = pse_columnar::allocation_extent::algorithm_decode_extent(&self.storage.batch)?
-            .checked_mul(copies)
-            .ok_or_else(|| mismatch("bounded take extent"))?;
+        check_take_indices(&self.storage.batch, indices, cancel)?;
+        let selected_extent = selected_take_extent(&self.storage.batch, indices, pool, cancel)?;
+        let extent = match selected_extent {
+            Some(extent) => extent,
+            None => pse_columnar::allocation_extent::algorithm_decode_extent(&self.storage.batch)?
+                .checked_mul(take_source_copies(
+                    &self.storage.batch,
+                    indices,
+                    pool,
+                    cancel,
+                )?)
+                .ok_or_else(|| mismatch("bounded take extent"))?,
+        };
         let reservation =
             pse_columnar::MemoryConsumer::new("relations:checked-take").register(pool);
         reservation
@@ -545,12 +699,33 @@ impl FieldCheckedBatch {
             .batch
             .columns()
             .iter()
-            .map(|column| {
+            .map(|column| -> Result<_, RelationError> {
+                cancel.checkpoint()?;
+                if indices.is_empty() {
+                    // Dictionary and view copy builders retain unselected children;
+                    // an independent empty array also avoids dictionary-key overflow.
+                    return Ok(arrow_array::new_empty_array(column.data_type()));
+                }
+                if selected_extent.is_some() {
+                    // Arrow's list take preallocates children using the whole
+                    // input's average list length. Grow copying buffers only
+                    // from selected ranges, including nested children.
+                    let data = column.to_data();
+                    let mut selected = arrow::array::MutableArrayData::new(vec![&data], false, 0);
+                    for (position, index) in indices.values().iter().enumerate() {
+                        if position % 1024 == 0 {
+                            cancel.checkpoint()?;
+                        }
+                        selected.try_extend(0, *index as usize, *index as usize + 1)?;
+                    }
+                    return Ok(arrow::array::make_array(selected.freeze()));
+                }
                 arrow::compute::take(
                     column.as_ref(),
                     indices,
                     Some(arrow::compute::TakeOptions { check_bounds: true }),
                 )
+                .map_err(RelationError::from)
             })
             .collect::<Result<Vec<_>, _>>()?;
         let batch = RecordBatch::try_new_with_options(

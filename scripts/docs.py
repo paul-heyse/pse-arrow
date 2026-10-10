@@ -13,10 +13,11 @@ import subprocess
 import sys
 import tempfile
 import tomllib
+import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 
-from scripts.adr import markdown_headings, parse_scalar, section_owners
+from scripts.adr import markdown_headings, section_owners
 
 ROOT = Path(__file__).resolve().parents[1]
 SCOPES = {"Current", "Reference", "History"}
@@ -40,21 +41,15 @@ def tool_versions(root: Path = ROOT) -> dict[str, str]:
     return configuration(root)["tools"]
 
 
-def metadata(text: str) -> tuple[dict[str, str], str]:
-    """Read only scalar publication fields, leaving other YAML to its existing owners."""
-    values = {}
-    if text.startswith("---\n"):
-        end = text.find("\n---\n", 3)
-        if end < 0:
-            raise ValueError("unterminated front matter")
-        for key, raw in re.findall(
-            r"^(title|status):[ \t]*(.*)$", text[4:end], re.MULTILINE
-        ):
-            value = parse_scalar(raw)
-            if isinstance(value, str) and value not in {"|", ">"}:
-                values[key] = value
-        text = text[end + 5 :]
-    return values, text
+def metadata(
+    text: str, *, identity: str | None = None, root: Path = ROOT
+) -> tuple[dict[str, object], str]:
+    from scripts.document_metadata import (  # noqa: PLC0415 -- cold tool provisioning
+        read,
+    )
+
+    document = read(text, identity or "document", identity=identity, root=root)
+    return document.metadata, document.body.decode("utf-8")
 
 
 def matches(path: Path, patterns: list[str]) -> bool:
@@ -89,7 +84,11 @@ def discover(root: Path, config: dict) -> list[Page]:
             if relative in seen:
                 raise ValueError(f"duplicate publication path: {relative}")
             seen.add(relative)
-            front, body = metadata(path.read_text(encoding="utf-8"))
+            front, body = metadata(
+                path.read_text(encoding="utf-8"),
+                identity=path.relative_to(root).as_posix(),
+                root=root,
+            )
             heading = next(
                 (
                     line[2:].strip()
@@ -99,9 +98,13 @@ def discover(root: Path, config: dict) -> list[Page]:
                 "",
             )
             title = front.get("title") or heading
+            if not isinstance(title, str):
+                raise ValueError(f"{relative}: supply a scalar title or first H1")  # noqa: TRY004 -- invalid publication input uses ValueError
             if not title.strip():
                 raise ValueError(f"{relative}: supply a scalar title or first H1")
             status = front.get("status", "")
+            if not isinstance(status, str):
+                raise ValueError(f"{relative}: status must be a string")  # noqa: TRY004 -- invalid publication input uses ValueError
             scope = collection["scope"]
             if relative.parts[0] == "adr" and re.match(r"\d{4}-", relative.name):
                 scope = {
@@ -166,25 +169,106 @@ def architecture_index(
     ), annotations
 
 
+def selected_assets(root: Path, config: dict) -> list[Path]:
+    """Delivery is explicit; a retained collection is never an asset glob."""
+    docs = root / "docs"
+    selected = list(config["publication"].get("assets", []))
+    bundles = config.get("asset_bundles", [])
+    names = [bundle["name"] for bundle in bundles]
+    if len(names) != len(set(names)):
+        raise ValueError("duplicate publication asset bundle")
+    for name in config["publication"].get("asset_bundles", []):
+        matching_bundles = [bundle for bundle in bundles if bundle["name"] == name]
+        if len(matching_bundles) != 1:
+            raise ValueError(f"unknown publication asset bundle: {name}")
+        bundle = matching_bundles[0]
+        base = checked_path(docs, bundle["root"])
+        for item in bundle["files"]:
+            path = base / item
+            if not path.resolve().is_relative_to(base.resolve()):
+                raise ValueError(f"asset escapes bundle {name}: {item}")
+            selected.append(path.relative_to(docs).as_posix())
+    assets = []
+    for relative in selected:
+        if Path(relative).is_absolute() or ".." in Path(relative).parts:
+            raise ValueError(f"noncanonical publication asset: {relative}")
+        path = checked_path(docs, relative)
+        if not path.is_file() or path.is_symlink():
+            raise ValueError(f"missing or symlink publication asset: {relative}")
+        if path.suffix == ".md" or path.name in {"book.toml", "SUMMARY.md"}:
+            raise ValueError(f"reserved publication asset: {relative}")
+        if not any(
+            path.resolve().is_relative_to(
+                checked_path(docs, collection["root"]).resolve()
+            )
+            and (
+                collection.get("recursive", True)
+                or path.parent.resolve()
+                == checked_path(docs, collection["root"]).resolve()
+            )
+            for collection in config["collections"]
+        ):
+            raise ValueError(f"asset outside publication collections: {relative}")
+        if matches(Path(relative), config["publication"]["exclude"]):
+            raise ValueError(f"selected asset is excluded: {relative}")
+        assets.append(Path(relative))
+    if len(assets) != len(set(assets)):
+        raise ValueError("duplicate selected publication asset")
+    return sorted(assets)
+
+
+def validate_attachments(root: Path, pages: list[Page], assets: list[Path]) -> None:
+    from scripts.document_lifecycle import (  # noqa: PLC0415 -- cold tool provisioning
+        parser,
+    )
+
+    docs = (root / "docs").resolve()
+    selected = set(assets)
+    for page in pages:
+        for token in parser().parse(page.body):
+            for child in token.children or []:
+                target = (
+                    child.attrGet("src" if child.type == "image" else "href")
+                    if child.type in {"image", "link_open"}
+                    else None
+                )
+                if not isinstance(target, str) or not target:
+                    continue
+                parsed = urllib.parse.urlsplit(target)
+                if (
+                    parsed.scheme
+                    or parsed.netloc
+                    or not parsed.path
+                    or parsed.path.startswith("/")
+                ):
+                    continue
+                resolved = (
+                    docs / page.path.parent / urllib.parse.unquote(parsed.path)
+                ).resolve()
+                if resolved.is_relative_to(docs) and resolved.suffix != ".md":
+                    relative = resolved.relative_to(docs)
+                    if relative.parts[0] == "theme" or relative.parts[:2] == (
+                        "generated",
+                        "rustdoc",
+                    ):
+                        continue
+                    if relative not in selected:
+                        raise ValueError(
+                            f"{page.path}: attachment is not explicitly selected: {relative}"
+                        )
+
+
 def stage(root: Path, source: Path, pages: list[Page], config: dict) -> list[Page]:
     docs = root / "docs"
     source.mkdir(parents=True)
-    # Copy assets only from declared collections. Markdown is handled below.
-    for collection in config["collections"]:
-        base = checked_path(docs, collection["root"])
-        pattern = "**/*" if collection.get("recursive", True) else "*"
-        for path in base.glob(pattern):
-            relative = path.relative_to(docs)
-            if (
-                not path.is_file()
-                or path.suffix == ".md"
-                or matches(relative, config["publication"]["exclude"])
-            ):
-                continue
-            checked_path(docs, relative.as_posix())
-            target = source / relative
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(path, target)
+    assets = selected_assets(root, config)
+    validate_attachments(root, pages, assets)
+    for relative in assets:
+        target = source / relative
+        if not target.resolve().is_relative_to(source.resolve()):
+            raise ValueError(f"asset destination escapes staging source: {relative}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(docs / relative, target)
     directory, annotations = architecture_index(root, pages)
     pages = [*pages, directory]
     summary = ["# Summary", ""]

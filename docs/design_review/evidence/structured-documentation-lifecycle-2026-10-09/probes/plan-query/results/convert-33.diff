@@ -1,0 +1,32 @@
+12c12
+< ## Purpose, ownership and evidence boundary
+---
+> ## Purpose, ownership and evidence boundary <!-- kind: purpose -->
+82c82
+< ## Confirmed rule changes and adoption routes
+---
+> ## Confirmed rule changes and adoption routes <!-- kind: migration -->
+104c104
+< ## Foundations and target design
+---
+> ## Foundations and target design <!-- kind: baseline -->
+248c248
+< ## Implementation packets and dependencies
+---
+> ## Implementation packets and dependencies <!-- kind: packets -->
+281c281
+< ## Bounded investigation packets
+---
+> ## Bounded investigation packets <!-- kind: packets -->
+328c328
+< ## Verification and completion
+---
+> ## Verification and completion <!-- kind: verification -->
+382c382
+< ## Finding dispositions
+---
+> ## Finding dispositions <!-- kind: dispositions -->
+401c401
+< ## Current checkpoint
+---
+> ## Current checkpoint <!-- kind: checkpoint -->

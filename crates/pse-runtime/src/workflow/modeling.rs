@@ -105,12 +105,12 @@ use pse_ids::SemanticId;
 use pse_modeling::{Bindings, DeclarationId, InstanceId, Limits, PhysicalScope};
 use pse_relations::columnar::RelationRow;
 pub use results::{ModelingCheck, ModelingReport, ModelingResult};
-use std::{
-    collections::BTreeMap,
-    sync::{Arc, Mutex},
-};
+#[cfg(test)]
+use std::sync::Mutex;
+use std::{collections::BTreeMap, sync::Arc};
 
-pub(in crate::workflow) fn source_map_extent(tables: usize) -> Result<usize, WorkflowError> {
+#[cfg(test)]
+fn source_map_extent(tables: usize) -> Result<usize, WorkflowError> {
     tables
         .checked_mul(
             size_of::<pse_relations::columnar::FieldCheckedBatch>() + size_of::<SemanticId>() + 128,

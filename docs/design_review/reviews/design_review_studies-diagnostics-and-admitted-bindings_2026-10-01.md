@@ -30,7 +30,7 @@ or whole-product qualification. Final reinspection used the coordinator-declared
 source, including terminal-history enrichment, closed physical observations and completed
 generation. Current finding dispositions belong to
 [Plan 25f](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25f-studies-diagnostics-and-continuation.md) and the
-[series coordinator](../../plans/25-design-remediation.md).
+[series coordinator](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25-design-remediation.md).
 
 Inspected owners: `workflow/bindings.rs`, compiler member case inputs,
 `pse-model::diagnostic` and its source projection interface, `pse-model::study`,

@@ -881,12 +881,7 @@ impl MathService {
                     compiler_profile,
                     worker_scope.cancellation(),
                 )?;
-                let bytes = products
-                    .iter()
-                    .try_fold(size_of_val(products.as_ref()), |n, p| {
-                        n.checked_add(p.plan.retained_bytes())
-                            .and_then(|n| n.checked_add(size_of_val(p.artifacts.as_slice())))
-                    })
+                let bytes = pse_compiler::workspace::PreparedBlock::retained_group_bytes(&products)
                     .ok_or(MathRuntimeError::Limit("PETSc compiled block products"))?;
                 worker_scope.check().map_err(ProblemError::from)?;
                 Ok((products, bytes))
@@ -911,13 +906,19 @@ impl MathService {
             }
             let block = block.clone();
             let quantities = source.source.prepared.compiled().quantities.clone();
+            let preconditions = source.source.prepared.compiled().preconditions.clone();
             let bound_values = values.clone();
             let checked_scope = scope.clone();
             let control = FlightCancellation::default();
             let validation =
                 self.job_scoped(1, demand, control.clone(), scope.deadline(), move |_| {
                     checked_scope.check().map_err(ProblemError::from)?;
-                    block.bind(quantities, &bound_values, checked_scope.cancellation())?;
+                    block.bind(
+                        quantities,
+                        preconditions,
+                        &bound_values,
+                        checked_scope.cancellation(),
+                    )?;
                     checked_scope.check().map_err(ProblemError::from)?;
                     Ok(())
                 });

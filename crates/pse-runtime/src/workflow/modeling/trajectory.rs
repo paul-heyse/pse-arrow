@@ -1,108 +1,163 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Generated physical trajectory transport, including interrupted native outcomes.
+//! Selected generated trajectory projection, preserving exact physical coordinates.
 use super::*;
 use crate::workflow::math;
-
 impl ModelingTrajectory {
-    /// Materialize a complete checked map once on success, sharing storage across clones.
+    pub(in crate::workflow) fn relation_ids() -> Vec<SemanticId> {
+        use pse_relations::generated::runtime::*;
+        vec![
+            computation_runs::RELATION_ID,
+            modeling_checks::RELATION_ID,
+            modeling_findings::RELATION_ID,
+            modeling_reports::RELATION_ID,
+            simulation_samples::RELATION_ID,
+            simulation_events::RELATION_ID,
+            response_sensitivities::RELATION_ID,
+            modeling_trajectory_modes::RELATION_ID,
+            candidate_assessments::RELATION_ID,
+            trajectory_endpoints::RELATION_ID,
+        ]
+    }
+    /// Advertised completion metadata without payload encoding.
+    pub fn table_ids(&self) -> Vec<SemanticId> {
+        Self::relation_ids()
+    }
+    /// Aggregate every advertised relation through its selected cursor.
     pub fn tables(
         &self,
     ) -> Result<Arc<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>>, WorkflowError>
     {
-        let mut cached = self
-            .inner
-            .tables
-            .lock()
-            .map_err(|_| contract("trajectory transport lock poisoned"))?;
-        if let Some(tables) = cached.as_ref() {
-            return Ok(tables.clone());
-        }
-        // Reserve map ownership before allocation. Column buffers retain their own leases.
-        let reservation = self
-            .inner
-            .prepared
-            .runtime
-            .shared
-            .math()
-            .reserve("modeling:trajectory-map", source_map_extent(10)?)?;
-        let mut encoded = self.encode_tables()?;
-        for batch in encoded.values_mut() {
-            *batch = batch.clone().with_export_owner(reservation.clone());
-        }
-        let tables = Arc::new(encoded);
-        *cached = Some(tables.clone());
-        Ok(tables)
+        let runtime = &self.inner.prepared.runtime;
+        crate::workflow::result_export::collect_tables(self.table_ids(), runtime, |id| {
+            self.cursor_by_id(id, 1024, crate::workflow::ResultOrder::Public)
+                .map_err(Arc::new)
+        })
+        .map(Arc::new)
+        .map_err(WorkflowError::Shared)
     }
-    /// Resolve and share one relation from the successful production materialization.
+    /// Materialize only the demanded relation.
     pub fn table(
         &self,
         name: &str,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        let runtime = &self.inner.prepared.runtime;
+        let id = runtime
+            .registry
+            .relation(name)
+            .ok_or_else(|| contract("unknown trajectory relation"))?
+            .id;
+        crate::workflow::result_export::collect(
+            self.cursor_by_id(id, 1024, crate::workflow::ResultOrder::Public)?,
+            runtime,
+            id,
+        )
+        .map_err(WorkflowError::Shared)
+    }
+    /// Independent bounded traversal; escaped chunks retain their allocation owners.
+    pub fn table_cursor(
+        &self,
+        name: &str,
+        rows: usize,
+    ) -> Result<crate::workflow::ResultCursor<'_>, WorkflowError> {
         let id = self
             .inner
             .prepared
             .runtime
             .registry
             .relation(name)
-            .ok_or_else(|| contract(format!("unknown trajectory table {name}")))?
+            .ok_or_else(|| contract("unknown trajectory relation"))?
             .id;
-        self.tables()?
-            .get(&id)
-            .cloned()
-            .ok_or_else(|| contract(format!("trajectory table absent: {name}")))
+        self.cursor_by_id(id, rows, crate::workflow::ResultOrder::Public)
     }
-    fn encode_tables(
+    /// Owning bounded selected transport for foreign-language streams.
+    pub fn into_table_cursor(
+        self: Arc<Self>,
+        name: &str,
+        rows: usize,
+    ) -> Result<crate::workflow::ResultCursor<'static>, WorkflowError> {
+        let runtime = &self.inner.prepared.runtime;
+        let id = runtime
+            .registry
+            .relation(name)
+            .ok_or_else(|| contract("unknown result relation"))?
+            .id;
+        if !self.table_ids().contains(&id) {
+            return Err(contract("relation is not part of result"));
+        }
+        if let Some(error) = self.inner.encodings.failure(id) {
+            return Err(WorkflowError::Shared(error));
+        }
+        let spec = runtime
+            .registry
+            .relation_by_id(id)
+            .ok_or_else(|| contract("result declaration absent"))?;
+        let schema = pse_schema::arrow::relation_schema_ref(&runtime.registry, spec)
+            .map_err(pse_relations::RelationError::from)
+            .map_err(relation)?;
+        crate::workflow::ResultCursor::new(
+            schema,
+            id,
+            rows,
+            crate::workflow::ResultOrder::Public,
+            |request| async move {
+                self.project(&request)
+                    .await
+                    .map_err(|error| self.inner.encodings.record(id, error))
+            },
+        )
+    }
+    fn cursor_by_id(
         &self,
-    ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
-    {
-        use pse_model::generated::runtime::{
+        id: SemanticId,
+        rows: usize,
+        order: crate::workflow::ResultOrder,
+    ) -> Result<crate::workflow::ResultCursor<'_>, WorkflowError> {
+        if !self.table_ids().contains(&id) {
+            return Err(contract("relation is not part of trajectory"));
+        }
+        if let Some(error) = self.inner.encodings.failure(id) {
+            return Err(WorkflowError::Shared(error));
+        }
+        let runtime = &self.inner.prepared.runtime;
+        let spec = runtime
+            .registry
+            .relation_by_id(id)
+            .ok_or_else(|| contract("trajectory declaration absent"))?;
+        let schema = pse_schema::arrow::relation_schema_ref(&runtime.registry, spec)
+            .map_err(pse_relations::RelationError::from)
+            .map_err(relation)?;
+        crate::workflow::ResultCursor::new(schema, id, rows, order, |request| async move {
+            self.project(&request)
+                .await
+                .map_err(|error| self.inner.encodings.record(id, error))
+        })
+    }
+    pub(in crate::workflow) async fn project(
+        &self,
+        request: &crate::workflow::result_export::Projection,
+    ) -> Result<(), WorkflowError> {
+        if let Some(error) = self.inner.encodings.failure(request.relation) {
+            return Err(WorkflowError::Shared(error));
+        }
+        self.project_impl(request).await.map_err(|error| {
+            WorkflowError::Shared(self.inner.encodings.record(request.relation, error))
+        })
+    }
+    async fn project_impl(
+        &self,
+        request: &crate::workflow::result_export::Projection,
+    ) -> Result<(), WorkflowError> {
+        use pse_relations::generated::runtime::{
             computation_runs, response_sensitivities, simulation_events, simulation_samples,
         };
         let p = &self.inner.prepared;
         let product = p.model().compiled();
         let pool = p.runtime.shared.pool();
-        let cancel = pse_columnar::CancellationToken::new();
-        let projection_bytes = product
-            .admitted
-            .case()
-            .parameters()
-            .len()
-            .checked_add(product.admitted.case().variables().len())
-            .and_then(|n| n.checked_add(product.admitted.outputs.len()))
-            .and_then(|n| n.checked_add(product.admitted.case().rows().len()))
-            .and_then(|n| n.checked_mul(size_of::<SemanticId>() + size_of::<usize>() + 512))
-            .and_then(|n| {
-                n.checked_add(
-                    p.contract
-                        .outputs
-                        .len()
-                        .checked_mul(3 * size_of::<SemanticId>())?,
-                )
-            })
-            .ok_or_else(|| contract("trajectory projection scratch extent"))?;
-        let _scratch = p.runtime.shared.math().reserve(
-            "modeling:trajectory-row-copy",
-            p.contract
-                .parameters
-                .len()
-                .checked_mul(size_of::<&pse_math::binding::Target>())
-                .and_then(|n| n.checked_add(projection_bytes))
-                .and_then(|n| n.checked_add(4096))
-                .and_then(|n| {
-                    n.checked_add(
-                        self.inner
-                            .reports
-                            .iter()
-                            .map(pse_model::HeapUsage::owned_bytes)
-                            .max()
-                            .unwrap_or(0),
-                    )
-                })
-                .ok_or_else(|| contract("trajectory row scratch extent"))?,
-        )?;
+        let cancel = request.cancel.clone();
         let validation = p.runtime.validation_context()?;
-        let mut columns = pse_relations::columnar::Collection::new(
+        let mut columns = crate::workflow::result_export::SelectedCollection::new(
+            request,
             &p.runtime.registry,
             &pool,
             &cancel,
@@ -117,19 +172,26 @@ impl ModelingTrajectory {
         columns
             .ensure::<pse_model::generated::runtime::modeling_findings::Row>()
             .map_err(relation)?;
-        if let Some(failure) = self.diagnostic() {
+        if request.wants(pse_relations::generated::runtime::modeling_findings::RELATION_ID)
+            && let Some(failure) = self.diagnostic()
+        {
             columns
                 .push(analysis_tables::finding_row(self.inner.run_id, 0, &failure))
+                .await
                 .map_err(relation)?;
         }
-        for check in &self.inner.checks {
-            columns.push(check.clone()).map_err(relation)?;
+        if request.wants(pse_relations::generated::runtime::modeling_checks::RELATION_ID) {
+            for check in &self.inner.checks {
+                columns.push_ref(check).await.map_err(relation)?;
+            }
         }
         columns
             .ensure::<pse_model::generated::runtime::modeling_reports::Row>()
             .map_err(relation)?;
-        for row in &self.inner.reports {
-            columns.push(row.clone()).map_err(relation)?;
+        if request.wants(pse_relations::generated::runtime::modeling_reports::RELATION_ID) {
+            for row in &self.inner.reports {
+                columns.push_ref(row).await.map_err(relation)?;
+            }
         }
         columns
             .ensure::<simulation_samples::Row>()
@@ -143,31 +205,64 @@ impl ModelingTrajectory {
         columns
             .ensure::<pse_model::generated::runtime::modeling_trajectory_modes::Row>()
             .map_err(relation)?;
-        for (sample, point) in self.inner.report.samples.iter().enumerate() {
-            let mode = p
-                .modes
-                .get(point.mode)
-                .ok_or_else(|| contract("trajectory mode absent"))?;
+        if request.wants(pse_relations::generated::runtime::modeling_trajectory_modes::RELATION_ID)
+        {
+            for (sample, point) in self.inner.report.samples.iter().enumerate() {
+                if columns
+                    .skip_next::<pse_model::generated::runtime::modeling_trajectory_modes::Row>()
+                {
+                    continue;
+                }
+                let mode = p
+                    .modes
+                    .get(point.mode)
+                    .ok_or_else(|| contract("trajectory mode absent"))?;
+                let _copy = crate::workflow::result_export::working(
+                    &pool,
+                    "result:trajectory-mode-copy",
+                    &[(mode.name.len(), 1)],
+                )?;
+                columns
+                    .push(
+                        pse_model::generated::runtime::modeling_trajectory_modes::Row {
+                            run_id: self.inner.run_id,
+                            sample: sample as i64,
+                            time: point.time,
+                            mode: mode.name.clone(),
+                        },
+                    )
+                    .await
+                    .map_err(relation)?;
+            }
+        }
+        if request.wants(pse_relations::generated::runtime::candidate_assessments::RELATION_ID) {
             columns
-                .push(
-                    pse_model::generated::runtime::modeling_trajectory_modes::Row {
-                        run_id: self.inner.run_id,
-                        sample: sample as i64,
-                        time: point.time,
-                        mode: mode.name.clone(),
-                    },
-                )
+                .push_ref(&self.inner.assessment)
+                .await
                 .map_err(relation)?;
         }
-        columns
-            .push(self.inner.assessment.clone())
-            .map_err(relation)?;
         let r = &self.inner.report;
         columns
             .ensure::<pse_model::generated::runtime::trajectory_endpoints::Row>()
             .map_err(relation)?;
-        if let Some(end) = &r.endpoint {
+        if request.wants(pse_relations::generated::runtime::trajectory_endpoints::RELATION_ID)
+            && !columns.skip_next::<pse_model::generated::runtime::trajectory_endpoints::Row>()
+            && let Some(end) = &r.endpoint
+        {
             let coverage = &self.inner.coverage;
+            let _copy = crate::workflow::result_export::working(
+                &pool,
+                "result:trajectory-endpoint-copy",
+                &[
+                    (p.coordinates.state.len(), 24),
+                    (p.coordinates.parameters.len(), 24),
+                    (p.contract.outputs.len(), 16),
+                    (end.point.outputs.len(), 8),
+                    (end.point.integrals.len(), 8),
+                    (end.input_columns.len(), 8),
+                    (coverage.missing_observations.len(), 8),
+                ],
+            )?;
             columns
                 .push(pse_model::generated::runtime::trajectory_endpoints::Row {
                     run_id: self.inner.run_id,
@@ -200,127 +295,200 @@ impl ModelingTrajectory {
                     prefix_complete: coverage.prefix_complete,
                     missing_observations: coverage.missing_observations.clone(),
                 })
+                .await
                 .map_err(relation)?;
         }
-        columns.push(self.inner.header.clone()).map_err(relation)?;
-        let parameter_ports = product
-            .admitted
-            .case()
-            .parameters()
-            .iter()
-            .chain(product.admitted.case().variables().iter().map(|v| &v.port))
-            .collect::<Vec<_>>();
-        let parameter_access =
-            pse_math::index::CheckedInventory::new(&parameter_ports, |v| v.id).map_err(math)?;
-        let parameters = p
-            .contract
-            .parameters
-            .iter()
-            .map(|id| {
-                parameter_access
-                    .get(id)
-                    .copied()
-                    .ok_or_else(|| contract("trajectory parameter port absent"))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let output_access =
-            pse_math::index::CheckedInventory::new(&product.admitted.outputs, |o| o.row_id())
-                .map_err(math)?;
-        let row_access =
-            pse_math::index::CheckedInventory::new(product.admitted.case().rows(), |r| r.id)
-                .map_err(math)?;
-        let outputs = p
-            .contract
-            .outputs
-            .iter()
-            .map(|id| {
-                let output = output_access
-                    .get(id)
-                    .ok_or_else(|| contract("trajectory output lineage absent"))?;
-                let ModelingOutput::Member(symbol) = output else {
-                    return Err(contract("trajectory output is not an authored member"));
-                };
-                let row = row_access
-                    .get(id)
-                    .ok_or_else(|| contract("trajectory physical row absent"))?;
-                let unit = p
-                    .quantities
-                    .quantity_type(row.quantity)
-                    .map_err(math)?
-                    .canonical_unit;
-                Ok((*symbol, row.quantity.as_id(), unit.as_id()))
-            })
-            .collect::<Result<Vec<_>, WorkflowError>>()?;
-        for (sample, point) in r.samples.iter().enumerate() {
-            if point.outputs.len() != p.contract.outputs.len()
-                || !point.output_sensitivities.is_empty()
-                    && point.output_sensitivities.len()
-                        != p.contract.outputs.len() * parameters.len()
-            {
-                return Err(contract("trajectory output or sensitivity extent"));
-            }
-            for (i, (symbol, quantity, unit)) in outputs.iter().enumerate() {
-                columns
-                    .push(simulation_samples::Row {
-                        run_id: self.inner.run_id,
-                        sample: sample as i64,
-                        time: point.time,
-                        symbol_id: *symbol,
-                        quantity_id: *quantity,
-                        unit_id: *unit,
-                        value: point.outputs[i],
+        if request.wants(computation_runs::RELATION_ID) {
+            columns
+                .push_ref(&self.inner.header)
+                .await
+                .map_err(relation)?;
+        }
+        if request.wants(simulation_samples::RELATION_ID)
+            || request.wants(response_sensitivities::RELATION_ID)
+        {
+            let _metadata = crate::workflow::result_export::working(
+                &pool,
+                "result:trajectory-coordinate-index",
+                &[
+                    (product.admitted.outputs.len(), 128),
+                    (product.admitted.case().rows().len(), 128),
+                    (p.contract.outputs.len(), 64),
+                    (
+                        if request.wants(response_sensitivities::RELATION_ID) {
+                            product.admitted.case().parameters().len()
+                                + product.admitted.case().variables().len()
+                        } else {
+                            0
+                        },
+                        144,
+                    ),
+                    (
+                        if request.wants(response_sensitivities::RELATION_ID) {
+                            p.contract.parameters.len()
+                        } else {
+                            0
+                        },
+                        size_of::<usize>(),
+                    ),
+                ],
+            )?;
+            let parameters = if request.wants(response_sensitivities::RELATION_ID) {
+                let parameter_ports = product
+                    .admitted
+                    .case()
+                    .parameters()
+                    .iter()
+                    .chain(product.admitted.case().variables().iter().map(|v| &v.port))
+                    .collect::<Vec<_>>();
+                let parameter_access =
+                    pse_math::index::CheckedInventory::new(&parameter_ports, |v| v.id)
+                        .map_err(math)?;
+                p.contract
+                    .parameters
+                    .iter()
+                    .map(|id| {
+                        parameter_access
+                            .get(id)
+                            .copied()
+                            .ok_or_else(|| contract("trajectory parameter port absent"))
                     })
-                    .map_err(relation)?;
-                if !point.output_sensitivities.is_empty() {
+                    .collect::<Result<Vec<_>, _>>()?
+            } else {
+                Vec::new()
+            };
+            let output_access =
+                pse_math::index::CheckedInventory::new(&product.admitted.outputs, |o| o.row_id())
+                    .map_err(math)?;
+            let row_access =
+                pse_math::index::CheckedInventory::new(product.admitted.case().rows(), |r| r.id)
+                    .map_err(math)?;
+            let mut outputs = p
+                .contract
+                .outputs
+                .iter()
+                .enumerate()
+                .map(|(column, id)| {
+                    let output = output_access
+                        .get(id)
+                        .ok_or_else(|| contract("trajectory output lineage absent"))?;
+                    let ModelingOutput::Member(symbol) = output else {
+                        return Err(contract("trajectory output is not an authored member"));
+                    };
+                    let row = row_access
+                        .get(id)
+                        .ok_or_else(|| contract("trajectory physical row absent"))?;
+                    let unit = p
+                        .quantities
+                        .quantity_type(row.quantity)
+                        .map_err(math)?
+                        .canonical_unit;
+                    Ok((*symbol, row.quantity.as_id(), unit.as_id(), column))
+                })
+                .collect::<Result<Vec<_>, WorkflowError>>()?;
+            if request.order == crate::workflow::ResultOrder::Canonical
+                && request.wants(simulation_samples::RELATION_ID)
+            {
+                outputs.sort_unstable_by_key(|(symbol, _, _, _)| *symbol);
+            }
+            let width = outputs.len();
+            let total = r
+                .samples
+                .len()
+                .checked_mul(width)
+                .ok_or_else(|| contract("trajectory projection extent"))?;
+            let start = request.range.start.min(total);
+            let end = request.range.end.min(total);
+            if request.wants(simulation_samples::RELATION_ID) {
+                columns.set_position(start);
+            }
+            for index in if request.wants(simulation_samples::RELATION_ID) {
+                start..end
+            } else {
+                0..total
+            } {
+                let order = if request.wants(simulation_samples::RELATION_ID) {
+                    request.order
+                } else {
+                    crate::workflow::ResultOrder::Public
+                };
+                let (sample, i) = order.trajectory_coordinate(index, width, r.samples.len())?;
+                let point = &r.samples[sample];
+                let (symbol, quantity, unit, column) = outputs[i];
+                if request.wants(simulation_samples::RELATION_ID) {
+                    if point.outputs.len() != width {
+                        return Err(contract("trajectory output extent"));
+                    }
+                    columns
+                        .push(simulation_samples::Row {
+                            run_id: self.inner.run_id,
+                            sample: sample as i64,
+                            time: point.time,
+                            symbol_id: symbol,
+                            quantity_id: quantity,
+                            unit_id: unit,
+                            value: point.outputs[column],
+                        })
+                        .await
+                        .map_err(relation)?;
+                } else if !point.output_sensitivities.is_empty() {
                     for (j, parameter) in parameters.iter().enumerate() {
+                        if columns.skip_next::<response_sensitivities::Row>() {
+                            continue;
+                        }
+                        if point.output_sensitivities.len() != width * parameters.len() {
+                            return Err(contract("trajectory sensitivity extent"));
+                        }
                         columns
                             .push(response_sensitivities::Row {
                                 run_id: self.inner.run_id,
                                 experiment_id: p.solved.instance(),
                                 sample: sample as i64,
                                 time: Some(point.time),
-                                output_id: *symbol,
+                                output_id: symbol,
                                 parameter_id: parameter.id,
-                                output_unit_id: *unit,
+                                output_unit_id: unit,
                                 parameter_unit_id: parameter.unit.as_id(),
-                                value: point.output_sensitivities[i * parameters.len() + j],
+                                value: point.output_sensitivities[column * parameters.len() + j],
                             })
+                            .await
                             .map_err(relation)?;
                     }
                 }
             }
         }
-        for (ordinal, event) in r.events.iter().enumerate() {
-            if event.before.len() != p.coordinates.state.len()
-                || event
-                    .after
-                    .as_ref()
-                    .is_some_and(|v| v.len() != p.coordinates.state.len())
-            {
-                return Err(contract("trajectory event extent"));
-            }
-            for (i, state) in p.coordinates.state.iter().enumerate() {
-                columns
-                    .push(simulation_events::Row {
-                        run_id: self.inner.run_id,
-                        ordinal: ordinal as i64,
-                        event_id: event.event,
-                        time: event.time,
-                        symbol_id: state.id,
-                        before: event.before[i] * state.scale + state.offset,
-                        after: event
+        if request.wants(simulation_events::RELATION_ID) {
+            for (ordinal, event) in r.events.iter().enumerate() {
+                for (i, state) in p.coordinates.state.iter().enumerate() {
+                    if columns.skip_next::<simulation_events::Row>() {
+                        continue;
+                    }
+                    if event.before.len() != p.coordinates.state.len()
+                        || event
                             .after
                             .as_ref()
-                            .map(|v| v[i] * state.scale + state.offset),
-                    })
-                    .map_err(relation)?;
+                            .is_some_and(|v| v.len() != p.coordinates.state.len())
+                    {
+                        return Err(contract("trajectory event extent"));
+                    }
+                    columns
+                        .push(simulation_events::Row {
+                            run_id: self.inner.run_id,
+                            ordinal: ordinal as i64,
+                            event_id: event.event,
+                            time: event.time,
+                            symbol_id: state.id,
+                            before: event.before[i] * state.scale + state.offset,
+                            after: event
+                                .after
+                                .as_ref()
+                                .map(|v| v[i] * state.scale + state.offset),
+                        })
+                        .await
+                        .map_err(relation)?;
+                }
             }
         }
-        Ok(columns
-            .finish()
-            .map_err(relation)?
-            .into_values()
-            .map(|b| (b.relation_id(), b))
-            .collect())
+        columns.finish().await.map_err(relation)
     }
 }

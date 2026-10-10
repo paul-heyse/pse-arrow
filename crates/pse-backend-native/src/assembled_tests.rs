@@ -51,7 +51,7 @@ fn fixture(domain: ModelingVariableDomain) -> (Arc<CaseAssembly>, CaseValues) {
                 checked_members: Default::default(),
                 instance: id(4),
                 body: key,
-                slots: vec![SlotBinding::new(&port, &port, &registry).unwrap()],
+                slots: (vec![SlotBinding::new(&port, &port, &registry).unwrap()]).into(),
                 contributions: vec![Contribution {
                     output: 0,
                     target: Target::Row(id(2)),

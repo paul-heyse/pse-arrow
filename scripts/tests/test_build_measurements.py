@@ -499,17 +499,138 @@ class BuildMeasurementTests(unittest.TestCase):
             {"hits": {"Rust": 2}},
         )
 
-    def test_actual_unified_feature_mode_must_match_the_build_label(self) -> None:
-        unit = {"target": {"name": "arrow_data"}, "features": ["force_validate"]}
-        build_measurements.require_validation_mode([unit], True)
-        build_measurements.require_validation_mode([{**unit, "features": []}], False)
-        for units, expected in [
-            ([unit], False),
-            ([], True),
-            ([unit, {**unit, "features": []}], True),
+    def test_selected_roots_and_named_mixed_native_workloads(self) -> None:
+        select = build_measurements.selected_packages
+        self.assertEqual(
+            select(None, native=False, workload="compiler"), ("pse-compiler",)
+        )
+        self.assertEqual(
+            select(None, native=False, workload="compiler-relations"),
+            ("pse-compiler", "pse-relations"),
+        )
+        self.assertEqual(
+            select(
+                ["pse-math", "pse-compiler", "pse-math"],
+                native=False,
+                workload="compiler",
+            ),
+            ("pse-math", "pse-compiler"),
+        )
+        self.assertEqual(
+            select(None, native=True, workload="compiler"),
+            build_measurements.NATIVE_PACKAGES,
+        )
+        for packages, native, workload in [
+            (["pse-math"], True, "compiler"),
+            (None, True, "compiler-relations"),
+            (["pse-math"], False, "compiler-relations"),
         ]:
             with self.assertRaises(ValueError):
-                build_measurements.require_validation_mode(units, expected)
+                select(packages, native=native, workload=workload)
+
+    def test_selected_measurement_uses_snapshot_resolver_without_adding_roots(
+        self,
+    ) -> None:
+        source, env = Path("/snapshot"), {"CARGO_BUILD_JOBS": "4"}
+        cargo = ["rustup", "run", "pinned", "cargo"]
+        calls = []
+        package = {"id": "compiler", "name": "pse-compiler", "features": {}}
+        unit = {
+            "pkg_id": "compiler",
+            "target": {
+                "name": "compiler",
+                "kind": ["lib"],
+                "src_path": "/snapshot/compiler.rs",
+            },
+            "features": [],
+            "dependencies": [],
+            "platform": None,
+            "mode": "test",
+        }
+
+        def capture(command: list[str], **kwargs: object) -> bytes:
+            calls.append(command)
+            self.assertEqual(kwargs, {"cwd": source, "env": env})
+            return json.dumps(
+                {"packages": [package]}
+                if "metadata" in command
+                else {"version": 1, "units": [unit], "roots": [0]}
+            ).encode()
+
+        with patch.object(subprocess, "check_output", side_effect=capture):
+            for mode, targets in [("build", ["--tests"]), ("test", ["--lib"])]:
+                args = [mode, "-p", "pse-compiler", *targets, "--locked"]
+                actual = build_measurements.correctness_command(
+                    source, cargo, args, env
+                )
+                self.assertEqual(actual, [*cargo, *args])
+        self.assertEqual(len(calls), 4)
+        self.assertTrue(all(command[:4] == cargo for command in calls))
+        self.assertTrue(all("pse-relations" not in command for command in calls))
+
+    def test_measurement_resolver_keeps_selected_arrow_owner_and_refuses_unvalidated_leaf(
+        self,
+    ) -> None:
+        source, env = Path("/snapshot"), {}
+        packages = [
+            {"id": "owner", "name": "owner", "features": {"force-validate": []}},
+            {"id": "arrow", "name": "arrow-data", "features": {"force_validate": []}},
+        ]
+
+        def graph(validated: bool) -> dict[str, object]:
+            return {
+                "version": 1,
+                "roots": [0],
+                "units": [
+                    {
+                        "pkg_id": "owner",
+                        "target": {
+                            "name": "owner",
+                            "kind": ["lib"],
+                            "src_path": "/owner.rs",
+                        },
+                        "features": [],
+                        "dependencies": [{"index": 1}],
+                        "platform": None,
+                        "mode": "build",
+                    },
+                    {
+                        "pkg_id": "arrow",
+                        "target": {
+                            "name": "arrow_data",
+                            "kind": ["lib"],
+                            "src_path": "/arrow.rs",
+                        },
+                        "features": ["force_validate"] if validated else [],
+                        "dependencies": [],
+                        "platform": None,
+                        "mode": "build",
+                    },
+                ],
+            }
+
+        args = ["build", "--tests", "-p", "owner", "--locked"]
+        for valid in (True, False):
+            responses = [
+                json.dumps(value).encode()
+                for value in ({"packages": packages}, graph(False), graph(valid))
+            ]
+            with patch.object(subprocess, "check_output", side_effect=responses):
+                if valid:
+                    actual = build_measurements.correctness_command(
+                        source, ["cargo"], args, env
+                    )
+                    self.assertEqual(
+                        actual, ["cargo", *args, "--features", "owner/force-validate"]
+                    )
+                else:
+                    with self.assertRaisesRegex(
+                        build_measurements.arrow_validation.ValidationError,
+                        "arrow-data lacks force_validate",
+                    ):
+                        build_measurements.correctness_command(
+                            source, ["cargo"], args, env
+                        )
 
 
 if __name__ == "__main__":

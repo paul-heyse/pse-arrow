@@ -5,16 +5,18 @@
 from __future__ import annotations
 
 import contextlib
+import fnmatch
 import hashlib
 import json
 import os
 import subprocess
 import sys
 import time
+import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from scripts import host_admission, surreal_server
+from scripts import arrow_validation, host_admission, surreal_server
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
@@ -128,6 +130,61 @@ def native_provenance(
     }
 
 
+def native_root_features(selection: list[str], *, managed: bool) -> str:
+    """Select declared native opt-ins only on the actual requested workspace roots."""
+    arguments = selection[: selection.index("--")] if "--" in selection else selection
+    requested: list[str] = []
+    excluded: list[str] = []
+    index = 0
+    while index < len(arguments):
+        argument = arguments[index]
+        if argument in {"-p", "--package", "--exclude"}:
+            index += 1
+            if index == len(arguments):
+                raise ValueError(f"missing package value for {argument}")
+            (excluded if argument == "--exclude" else requested).append(
+                arguments[index]
+            )
+        elif argument.startswith("--package="):
+            requested.append(argument.split("=", 1)[1])
+        elif argument.startswith("--exclude="):
+            excluded.append(argument.split("=", 1)[1])
+        elif argument.startswith("-p") and not argument.startswith("--"):
+            requested.append(argument[2:])
+        index += 1
+    workspace = "--workspace" in arguments or (not requested and not managed)
+    if not requested and not workspace:
+        requested = ["pse-runtime"]
+    declaration = tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"]
+    features = []
+    for pattern in declaration["members"]:
+        for member in sorted(ROOT.glob(pattern)):
+            manifest = member / "Cargo.toml"
+            if not manifest.is_file():
+                continue
+            package = tomllib.loads(manifest.read_text())
+            name = package["package"]["name"]
+            if (
+                not workspace
+                and not any(
+                    fnmatch.fnmatchcase(name, item.split(":", 1)[0])
+                    for item in requested
+                )
+            ) or any(fnmatch.fnmatchcase(name, item) for item in excluded):
+                continue
+            declared = package.get("features", {})
+            features.extend(
+                f"{name}/{feature}"
+                for feature in (
+                    "native-solvers",
+                    "canonical-tests",
+                    "native-acceptance",
+                )
+                if feature in declared
+            )
+    return ",".join(sorted(set(features)))
+
+
 def rust_command(action: str, extra: list[str], *, managed: bool = False) -> list[str]:
     # An explicit package is a build selection, not merely a nextest filter.
     # Cargo's --workspace would widen it back to every workspace test binary.
@@ -143,10 +200,27 @@ def rust_command(action: str, extra: list[str], *, managed: bool = False) -> lis
         action,
         *([] if scoped else ["-p", "pse-runtime"] if managed else ["--workspace"]),
         "--locked",
-        "--features",
-        MANAGED_FEATURES if managed else FEATURES,
+        *(
+            ["--features", features]
+            if (features := native_root_features(extra, managed=managed))
+            else []
+        ),
         *extra,
     ]
+
+
+def correctness_command(
+    command: list[str], environment: Mapping[str, str]
+) -> list[str]:
+    """Compose the actual requested build under its own environment."""
+    return arrow_validation.compose(
+        command,
+        run=lambda selected: subprocess.check_output(
+            selected,
+            cwd=ROOT,
+            env=environment,
+        ),
+    )
 
 
 def rust_completion_arguments(extra: list[str]) -> list[str]:
@@ -256,21 +330,24 @@ def worker_binary(extra: list[str], environment: Mapping[str, str]) -> Path:
         )
     )
     built = subprocess.run(
-        [
-            "cargo",
-            "build",
-            "-p",
-            "xtask",
-            "--bin",
-            "pse-worker",
-            "--locked",
-            "--features",
-            "native-solvers,canonical-tests,pse-relations/force-validate",
-            "--profile",
-            profile,
-            "--message-format",
-            "json-render-diagnostics",
-        ],
+        correctness_command(
+            [
+                "cargo",
+                "build",
+                "-p",
+                "xtask",
+                "--bin",
+                "pse-worker",
+                "--locked",
+                "--features",
+                "native-solvers,canonical-tests",
+                "--profile",
+                profile,
+                "--message-format",
+                "json-render-diagnostics",
+            ],
+            environment,
+        ),
         cwd=ROOT,
         env=environment,
         check=False,
@@ -503,7 +580,10 @@ def managed_rust_capture(
 ) -> tuple[list[str], Path]:
     """Build and enumerate before entering the observer's finite process cap."""
     scoped = managed_rust_selection(extra)
-    return _rust_capture(scoped, provenance, selected, managed=True)
+    execution, worker = _rust_capture(scoped, provenance, selected, managed=True)
+    if worker is None:
+        raise ValueError("Managed execution requires its worker")
+    return execution, worker
 
 
 def ordinary_rust_capture(
@@ -511,7 +591,9 @@ def ordinary_rust_capture(
     provenance: Path,
     selected: Path,
     environment: Mapping[str, str],
-) -> tuple[list[str], Path]:
+    *,
+    effects: str = "canonical",
+) -> tuple[list[str], Path | None]:
     """Retain exactly the ordinary caller's build and test selection."""
     return _rust_capture(
         command[command.index("run") + 1 :],
@@ -519,6 +601,7 @@ def ordinary_rust_capture(
         selected,
         managed=False,
         environment=environment,
+        canonical=effects == "canonical",
     )
 
 
@@ -529,7 +612,8 @@ def _rust_capture(
     *,
     managed: bool,
     environment: Mapping[str, str] | None = None,
-) -> tuple[list[str], Path]:
+    canonical: bool = True,
+) -> tuple[list[str], Path | None]:
     execution, metadata_options = managed_rust_arguments(
         scoped,
         include_managed_features=managed,
@@ -546,8 +630,11 @@ def _rust_capture(
     # Managed controls live in the runtime unit binary, so their binary-name is
     # not "worker". They still require the actual qualified receiver artifact.
     profile = managed_cargo_profile(scoped)
-    worker = worker_binary(["--cargo-profile", profile], environment)
-    environment["PSE_WORKER_BINARY"] = str(worker)
+    worker = (
+        worker_binary(["--cargo-profile", profile], environment) if canonical else None
+    )
+    if worker is not None:
+        environment["PSE_WORKER_BINARY"] = str(worker)
     build_arguments = [
         "--list-type",
         "binaries-only",
@@ -555,10 +642,18 @@ def _rust_capture(
         "json",
         *managed_list_arguments(scoped),
     ]
-    build = subprocess.run(
+    build_command = correctness_command(
         rust_command("list", build_arguments, managed=True)
         if managed
         else ["cargo", "nextest", "list", *build_arguments],
+        environment,
+    )
+    _, metadata_options = managed_rust_arguments(
+        build_command[3:],
+        include_managed_features=False,
+    )
+    build = subprocess.run(
+        build_command,
         cwd=ROOT,
         env=environment,
         check=False,
@@ -633,7 +728,7 @@ def _rust_capture(
             "cargo_profile": profile,
             "managed_build_arguments" if managed else "build_arguments": scoped,
         },
-        [*binaries, str(worker)],
+        [*binaries, *([str(worker)] if worker is not None else [])],
         environment=environment,
     )
     for destination in (selected, binary_metadata, cargo_metadata):
@@ -883,7 +978,11 @@ def main() -> int:
     if os.environ.get("PSE_NATIVE_OPERATION"):
         from scripts.test_run import run_rust  # noqa: PLC0415 -- owner cycle
 
-        return run_rust(rust_command("run", rust_completion_arguments(extra)))
+        return run_rust(
+            correctness_command(
+                rust_command("run", rust_completion_arguments(extra)), os.environ
+            )
+        )
     if not path:
         output = validation.fresh_output(
             ROOT, ROOT / "build/native-tests" / str(time.time_ns())
@@ -916,8 +1015,15 @@ def main() -> int:
             }
         )
     ]
-    inventory = subprocess.run(
+    inventory_command = correctness_command(
         rust_command("list", ["--message-format", "json", *list_extra]),
+        os.environ,
+    )
+    _, inventory_metadata = managed_rust_arguments(
+        inventory_command[3:], include_managed_features=False
+    )
+    inventory = subprocess.run(
+        inventory_command,
         cwd=ROOT,
         check=False,
         text=True,
@@ -955,7 +1061,11 @@ def main() -> int:
         Path(path),
         native_provenance(
             {
-                "features": FEATURES.split(","),
+                "features": inventory_metadata[
+                    inventory_metadata.index("--features") + 1
+                ].split(",")
+                if "--features" in inventory_metadata
+                else [],
                 "cargo_profile": "release"
                 if "--release" in extra
                 else extra[extra.index("--cargo-profile") + 1]

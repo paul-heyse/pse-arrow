@@ -215,7 +215,7 @@ fn function(v: &Function) -> usize {
         + v.physical_admissions
             .iter()
             .map(|(occurrence, admission)| {
-                occurrence.syntax.capacity() + admission.retained_bytes() + 64
+                admission.retained_bytes() + size_of_val(occurrence) + 64
             })
             .sum::<usize>()
         + v.reduction
@@ -280,6 +280,7 @@ impl CheckedPackage {
     /// Conservative owned declaration, table, type and lookup storage.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>()
+            + self.selection_index.retained_bytes()
             + selections(&self.selection_closures)
             + crate::expression::occurrences::retained_bytes(&self.expressions)
             + self
@@ -305,11 +306,6 @@ impl CheckedPackage {
                 v.capacity() * size_of::<pse_ids::SemanticId>()
             })
             + map(&self.types, |_, v| ty(v))
-            + map(&self.physical_admissions, |_, admissions| {
-                map(admissions, |occurrence, admission| {
-                    occurrence.syntax.capacity() + admission.retained_bytes()
-                })
-            })
             + map(&self.functions, |_, v| function(v))
             + map(&self.members, |_, v| map(v, |n, _| n.capacity()))
             + map(&self.temporal, |_, (_, _, argument)| argument.capacity())

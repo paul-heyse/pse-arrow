@@ -114,6 +114,7 @@ pub(super) async fn run(owner: &WorkflowRuntime, observations: &mut observations
         .canonical_unit;
     let objective_numerics = pse_math::numerics::resolve(
         physical.quantities(),
+        physical.preconditions(),
         &[pse_math::numerics::TargetSpec {
             id: SemanticId::NIL,
             kind: NumericalTarget::Objective,
@@ -154,6 +155,7 @@ pub(super) async fn run(owner: &WorkflowRuntime, observations: &mut observations
     assert_eq!(problem.contract().variables.len(), 2);
     let control_numerics = pse_math::numerics::resolve(
         physical.quantities(),
+        physical.preconditions(),
         &problem
             .contract()
             .variables

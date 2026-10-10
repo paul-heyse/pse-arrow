@@ -27,6 +27,25 @@ impl TableStream {
             Box::new(move || Ok(next.take())),
         )))
     }
+    pub(crate) fn from_result(mut cursor: pse_runtime::workflow::ResultCursor<'static>) -> Self {
+        let cancel = cursor.cancellation_token();
+        let export_cancel = cancel.clone();
+        Self(BatchStream::new(
+            cursor.schema(),
+            cancel,
+            Box::new(move || {
+                cursor
+                    .next_chunk()
+                    .map_err(|error| pse_engine::EngineError::Semantic(error))?
+                    .map(|batch| {
+                        batch
+                            .checked_export(&export_cancel)
+                            .map_err(|error| pse_engine::EngineError::Semantic(Arc::new(error)))
+                    })
+                    .transpose()
+            }),
+        ))
+    }
     pub(crate) fn from_canonical(
         mut reader: pse_runtime::workflow::CanonicalResultReader,
         runtime: Arc<super::runtime::Runtime>,

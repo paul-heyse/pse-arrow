@@ -56,6 +56,38 @@ class TestResourceTests(unittest.TestCase):
         environment.start()
         self.addCleanup(environment.stop)
 
+    def finish_report(
+        self,
+        resource: str,
+        outcome: dict,
+        *,
+        roles: dict[str, str] | None = None,
+        required_provenance: list[str] | None = None,
+    ) -> None:
+        directory = Path(resources.resource_status(resource)["state"])
+        receipt = {
+            "version": 5,
+            "input_coverage": True,
+            "source_unchanged": True,
+            "provenance_errors": [],
+            "scope": [{"name": "fixture-control"}],
+            "checks": [{"gate": "fixture-control", "status": "passed"}],
+            **outcome,
+        }
+        (directory / "checks.json").write_text(json.dumps(receipt))
+        if roles is None:
+            roles = {"checks.json": "receipt"}
+            if (directory / "run.log").exists():
+                roles["run.log"] = "scratch"
+        (directory / "fixture-source.json").write_text('{"scope":"filesystem-control"}')
+        roles["fixture-source.json"] = "provenance"
+        resources.finish_report(
+            resource,
+            receipt,
+            roles=roles,
+            required_provenance=required_provenance or ["fixture-source.json"],
+        )
+
     def register(self) -> str:
         return resources.register(
             {
@@ -262,8 +294,9 @@ class TestResourceTests(unittest.TestCase):
 
         directory = self.root / "build" / "report"
         directory.mkdir(parents=True)
+        (directory / "run.log").write_text("disposable fixture output")
         resource = resources.register_report(directory, root=self.root)
-        resources.finish_report(
+        self.finish_report(
             resource, {"complete": True, "required_checks_covered": True}
         )
         with patch.object(
@@ -541,7 +574,7 @@ class TestResourceTests(unittest.TestCase):
         (directory / "scope.json").write_text("{}")
         (directory / "run.log").write_text("owned bulky output")
         resource = resources.register_report(directory, root=self.root)
-        resources.finish_report(
+        self.finish_report(
             resource, {"complete": True, "required_checks_covered": True}
         )
         with resources.reference_report(directory, self.root / "build" / "consumer"):
@@ -561,7 +594,7 @@ class TestResourceTests(unittest.TestCase):
         (directory / "selected.json").write_text("{}")
         (directory / "run.log").write_text("owned bulky output")
         resource = resources.register_report(directory, root=self.root)
-        resources.finish_report(
+        self.finish_report(
             resource, {"complete": True, "required_checks_covered": True}
         )
         self.assertEqual(resources.reclaim(resource), "removed")
@@ -586,7 +619,7 @@ class TestResourceTests(unittest.TestCase):
                 "invocation": "a" * 32,
             }
         with patch.object(resources.host, "inherit", return_value=owner):
-            resources.finish_report(
+            self.finish_report(
                 resource, {"complete": True, "required_checks_covered": True}
             )
         with patch.object(resources.operation, "drained", return_value=False):
@@ -603,18 +636,22 @@ class TestResourceTests(unittest.TestCase):
         (directory / "checks.json").write_text("{}")
         (directory / "run.log").write_text("owned output")
         resource = resources.register_report(directory, root=self.root)
-        resources.finish_report(
+        self.finish_report(
             resource, {"complete": True, "required_checks_covered": True}
         )
         return resource, directory
 
     def test_report_compaction_refuses_symlinked_artifact_ancestor(self) -> None:
-        resource, directory = self.report("ancestor")
+        directory = self.root / "build" / "ancestor"
+        directory.mkdir(parents=True)
         nested = directory / "logs"
         nested.mkdir()
-        (directory / "run.log").rename(nested / "run.log")
-        resources.finish_report(
-            resource, {"complete": True, "required_checks_covered": True}
+        (nested / "run.log").write_text("owned output")
+        resource = resources.register_report(directory, root=self.root)
+        self.finish_report(
+            resource,
+            {"complete": True, "required_checks_covered": True},
+            roles={"checks.json": "receipt", "logs/run.log": "scratch"},
         )
         external = self.root / "external"
         nested.rename(external)
@@ -682,6 +719,290 @@ class TestResourceTests(unittest.TestCase):
                 (directory / "run.log").exists() for _resource, directory in reports[:4]
             )
         )
+
+    def test_manifest_preserves_provenance_receipts_and_unknown_bytes(self) -> None:
+        directory = self.root / "build" / "semantics"
+        directory.mkdir(parents=True)
+        for name in (
+            "summary.md",
+            "source.diff",
+            "untracked-source.tar.gz",
+            "raw.xml",
+            "undeclared.log",
+            "scratch.json",
+        ):
+            (directory / name).write_text(name)
+        resource = resources.register_report(directory, root=self.root)
+        roles = {
+            "checks.json": "receipt",
+            "summary.md": "receipt",
+            "source.diff": "provenance",
+            "untracked-source.tar.gz": "provenance",
+            "raw.xml": "evidence",
+            "scratch.json": "scratch",
+        }
+        self.finish_report(
+            resource, {"complete": True, "required_checks_covered": True}, roles=roles
+        )
+        manifest = resources.resource_status(resource)["artifact_manifest"]
+        self.assertEqual(manifest["version"], 1)
+        self.assertEqual(manifest["entries"]["undeclared.log"]["role"], "unknown")
+        self.assertEqual(resources.reclaim(resource), "removed")
+        self.assertFalse((directory / "scratch.json").exists())
+        for name in roles.keys() - {"scratch.json"} | {"undeclared.log"}:
+            self.assertTrue((directory / name).exists(), name)
+
+    def test_no_scratch_keeps_exact_evidence_without_hot_cleanup_work(self) -> None:
+        directory = self.root / "build" / "all-retained"
+        directory.mkdir(parents=True)
+        resource = resources.register_report(directory, root=self.root)
+        self.finish_report(
+            resource, {"complete": True, "required_checks_covered": True}
+        )
+        self.assertEqual(resources.reclaim(resource), "no disposable report artifacts")
+        self.assertEqual(resources.resource_status(resource)["cleanup"], "compacted")
+        self.assertNotIn(resource, resources.resource_status())
+        self.assertEqual(resources.report_resource(directory), resource)
+        self.assertTrue((directory / "checks.json").exists())
+
+    def test_completed_reports_have_exact_lookup_and_live_reference_promotion(
+        self,
+    ) -> None:
+        completed = []
+        for index in range(24):
+            directory = self.root / "build" / f"completed-{index}"
+            directory.mkdir(parents=True)
+            (directory / "run.log").write_text("disposable")
+            resource = resources.register_report(directory, root=self.root)
+            self.finish_report(
+                resource, {"complete": True, "required_checks_covered": True}
+            )
+            self.assertEqual(resources.reclaim(resource), "removed")
+            completed.append((resource, directory))
+        self.assertEqual(resources.resource_status(), {})
+        resource, directory = completed[7]
+        self.assertEqual(resources.report_resource(directory), resource)
+        with resources.borrow(resource):
+            self.assertEqual(set(resources.resource_status()), {resource})
+            self.assertTrue(resources.resource_status(resource)["borrows"])
+        self.assertEqual(resources.resource_status(), {})
+        resources.retain_reference(resource, "current-consumer", "a" * 64)
+        self.assertEqual(set(resources.resource_status()), {resource})
+        resources.release_reference(resource, "current-consumer", "a" * 64)
+        self.assertEqual(resources.resource_status(), {})
+        with patch.object(
+            resources, "private_record", wraps=resources.private_record
+        ) as read:
+            self.assertEqual(resources.reclaim_reports(), [])
+            self.assertEqual(resources.resource_status(), {})
+            read.assert_not_called()
+        self.assertTrue((directory / "checks.json").exists())
+        self.assertFalse((directory / "run.log").exists())
+        self.assertEqual(resources.reclaim(resource), "compacted")
+
+    def test_missing_provenance_never_becomes_successful_disposal(self) -> None:
+        for field, value in (
+            ("input_coverage", False),
+            ("source_unchanged", False),
+            ("provenance_errors", ["missing snapshot"]),
+        ):
+            with self.subTest(field=field):
+                directory = self.root / "build" / field
+                directory.mkdir(parents=True)
+                (directory / "run.log").write_text("scratch")
+                resource = resources.register_report(directory, root=self.root)
+                self.finish_report(
+                    resource,
+                    {"complete": True, "required_checks_covered": True, field: value},
+                )
+                self.assertEqual(
+                    resources.resource_status(resource)["disposition"], "pass"
+                )
+                self.assertEqual(resources.reclaim(resource), "retention pin")
+                resources.pin(resource, False)
+                self.assertEqual(
+                    resources.reclaim(resource), "unverified report provenance"
+                )
+                self.assertTrue((directory / "run.log").exists())
+
+    def test_claimed_success_without_covered_qualified_scope_stays_failed(self) -> None:
+        directory = self.root / "build" / "false-success"
+        directory.mkdir(parents=True)
+        (directory / "run.log").write_text("scratch")
+        resource = resources.register_report(directory, root=self.root)
+        self.finish_report(
+            resource, {"complete": True, "required_checks_covered": True, "checks": []}
+        )
+        self.assertEqual(resources.resource_status(resource)["disposition"], "failure")
+        self.assertEqual(resources.reclaim(resource), "retention pin")
+
+    def test_claimed_provenance_without_required_snapshot_stays_protected(self) -> None:
+        directory = self.root / "build" / "missing-required-provenance"
+        directory.mkdir(parents=True)
+        (directory / "run.log").write_text("scratch")
+        resource = resources.register_report(directory, root=self.root)
+        self.finish_report(
+            resource,
+            {"complete": True, "required_checks_covered": True},
+            required_provenance=["missing-source.snapshot"],
+        )
+        self.assertFalse(resources.resource_status(resource)["provenance_verified"])
+        resources.pin(resource, False)
+        self.assertEqual(resources.reclaim(resource), "unverified report provenance")
+        self.assertTrue((directory / "run.log").exists())
+
+    def test_manifest_cannot_be_recomputed_to_downgrade_retained_bytes(self) -> None:
+        resource, directory = self.report("sealed")
+        original = resources.resource_status(resource)["artifact_manifest"]
+        receipt = json.loads((directory / "checks.json").read_text())
+        with self.assertRaisesRegex(resources.ResourceError, "already sealed"):
+            resources.finish_report(
+                resource,
+                receipt,
+                roles={"checks.json": "receipt", "run.log": "scratch"},
+                required_provenance=["fixture-source.json"],
+            )
+        self.assertEqual(
+            resources.resource_status(resource)["artifact_manifest"], original
+        )
+
+    def test_changed_retained_provenance_prevents_any_scratch_removal(self) -> None:
+        directory = self.root / "build" / "changed-provenance"
+        directory.mkdir(parents=True)
+        (directory / "run.log").write_text("scratch")
+        (directory / "source.diff").write_text("authored source")
+        resource = resources.register_report(directory, root=self.root)
+        self.finish_report(
+            resource,
+            {"complete": True, "required_checks_covered": True},
+            roles={
+                "checks.json": "receipt",
+                "run.log": "scratch",
+                "source.diff": "provenance",
+            },
+        )
+        (directory / "source.diff").write_text("changed authored source")
+        with self.assertRaisesRegex(resources.ResourceError, "ownership changed"):
+            resources.reclaim(resource)
+        self.assertTrue((directory / "run.log").exists())
+        self.assertTrue(resources.resource_status(resource)["pin"])
+
+    def test_same_byte_replacement_is_not_the_sealed_artifact(self) -> None:
+        resource, directory = self.report("same-bytes")
+        original = directory / "run.log"
+        original.rename(directory / "held-original")
+        original.write_text("owned output")
+        with self.assertRaisesRegex(resources.ResourceError, "ownership changed"):
+            resources.reclaim(resource)
+        self.assertTrue(original.exists())
+
+    def test_manifestless_record_stays_protected_after_manual_release(self) -> None:
+        resource, directory = self.report("old-policy")
+        with resources.resource_metadata() as ledger:
+            del ledger["owners"][resource]["artifact_manifest"]
+            del ledger["owners"][resource]["artifact_policy_version"]
+        resources.pin(resource, False)
+        self.assertEqual(
+            resources.reclaim(resource), "missing producer artifact manifest"
+        )
+        self.assertTrue((directory / "run.log").exists())
+
+    def test_registered_unsealed_report_cannot_supply_reused_evidence(self) -> None:
+        directory = self.root / "build" / "active-origin"
+        directory.mkdir(parents=True)
+        (directory / "checks.json").write_text("{}")
+        resource = resources.register_report(directory, root=self.root)
+        with (
+            self.assertRaisesRegex(resources.ResourceError, "sealed receipt"),
+            resources.reference_report(directory, self.root / "consumer"),
+        ):
+            self.fail("unsealed origin was exposed")
+        self.assertEqual(resources.resource_status(resource)["borrows"], {})
+        self.assertEqual(resources.resource_status(resource)["references"], {})
+
+    def test_consumed_evidence_cannot_be_declared_scratch(self) -> None:
+        directory = self.root / "build" / "consumed"
+        directory.mkdir(parents=True)
+        (directory / "run.log").write_text("consumed log")
+        resource = resources.register_report(directory, root=self.root)
+        with self.assertRaisesRegex(resources.ResourceError, "consumed evidence"):
+            self.finish_report(
+                resource,
+                {
+                    "complete": True,
+                    "required_checks_covered": True,
+                    "checks": [
+                        {
+                            "gate": "fixture-control",
+                            "status": "passed",
+                            "log": "run.log",
+                        }
+                    ],
+                },
+            )
+        self.assertTrue(resources.resource_status(resource)["pin"])
+
+    def test_unknown_history_is_displayable_but_cannot_supply_reuse(self) -> None:
+        directory = self.root / "build" / "unregistered-history"
+        directory.mkdir(parents=True)
+        (directory / "checks.json").write_text("{}")
+        with resources.borrow_report(directory):
+            self.assertEqual((directory / "checks.json").read_text(), "{}")
+        with (
+            self.assertRaisesRegex(resources.ResourceError, "sealed receipt"),
+            resources.reference_report(directory, None),
+        ):
+            self.fail("unregistered origin was exposed")
+
+    def test_registered_legacy_origin_cannot_bypass_sealed_reuse(self) -> None:
+        resource, directory = self.report("legacy-reuse")
+        with resources.resource_metadata() as ledger:
+            del ledger["owners"][resource]["artifact_manifest"]
+            del ledger["owners"][resource]["artifact_policy_version"]
+        with resources.borrow_report(directory):
+            self.assertTrue((directory / "checks.json").is_file())
+        with (
+            self.assertRaisesRegex(resources.ResourceError, "sealed receipt"),
+            resources.reference_report(directory, None),
+        ):
+            self.fail("legacy origin was exposed")
+        self.assertEqual(resources.resource_status(resource)["borrows"], {})
+        self.assertEqual(resources.resource_status(resource)["references"], {})
+
+    def test_interrupted_scratch_cleanup_resumes_without_losing_retained_files(
+        self,
+    ) -> None:
+        directory = self.root / "build" / "interrupted-scratch"
+        directory.mkdir(parents=True)
+        for name in ("first.tmp", "second.tmp"):
+            (directory / name).write_text(name)
+        resource = resources.register_report(directory, root=self.root)
+        self.finish_report(
+            resource,
+            {"complete": True, "required_checks_covered": True},
+            roles={
+                "checks.json": "receipt",
+                "first.tmp": "scratch",
+                "second.tmp": "scratch",
+            },
+        )
+        unlink = resources.os.unlink
+
+        def interrupted(name: str, *, dir_fd: int | None = None) -> None:
+            unlink(name, dir_fd=dir_fd)
+            raise KeyboardInterrupt
+
+        with (
+            patch.object(resources.os, "unlink", side_effect=interrupted),
+            self.assertRaises(KeyboardInterrupt),
+        ):
+            resources.reclaim(resource)
+        self.assertEqual(resources.resource_status(resource)["cleanup"], "removing")
+        with patch.object(resources, "borrower_alive", return_value=False):
+            self.assertEqual(resources.reclaim(resource), "removed")
+        self.assertTrue((directory / "checks.json").exists())
+        self.assertFalse((directory / "first.tmp").exists())
+        self.assertFalse((directory / "second.tmp").exists())
 
     def test_legacy_report_without_directory_identity_remains_pinned(self) -> None:
         resource, directory = self.report("unknown-identity")

@@ -5,10 +5,16 @@ DEFINE FIELD revision ON canonical_analyses TYPE string;
 DEFINE FIELD method ON canonical_analyses TYPE string;
 DEFINE FIELD configuration ON canonical_analyses TYPE bytes;
 DEFINE FIELD input_digest ON canonical_analyses TYPE string;
+DEFINE FIELD primary_problem ON canonical_analyses TYPE string;
+DEFINE FIELD primary_authority ON canonical_analyses TYPE string;
+DEFINE FIELD creation_nonce ON canonical_analyses TYPE string;
+DEFINE FIELD creation_request_digest ON canonical_analyses TYPE string;
+DEFINE FIELD creation_expires_at ON canonical_analyses TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD interpretation ON canonical_analyses TYPE string;
 DEFINE FIELD node_count ON canonical_analyses TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD edge_count ON canonical_analyses TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD active ON canonical_analyses TYPE bool;
+DEFINE FIELD retiring ON canonical_analyses TYPE bool;
 DEFINE INDEX canonical_analyses_key ON canonical_analyses FIELDS key UNIQUE;
 
 DEFINE TABLE canonical_analysis_edges TYPE RELATION IN canonical_analysis_nodes OUT canonical_analysis_nodes SCHEMAFULL;
@@ -38,11 +44,6 @@ DEFINE FIELD analysis ON canonical_analysis_nodes TYPE string;
 DEFINE FIELD semantic ON canonical_analysis_nodes TYPE string;
 DEFINE FIELD kind ON canonical_analysis_nodes TYPE string;
 DEFINE INDEX canonical_analysis_nodes_key ON canonical_analysis_nodes FIELDS key UNIQUE;
-
-DEFINE TABLE canonical_analysis_retirements SCHEMAFULL;
-DEFINE FIELD key ON canonical_analysis_retirements TYPE string;
-DEFINE FIELD analysis ON canonical_analysis_retirements TYPE string;
-DEFINE INDEX canonical_analysis_retirements_key ON canonical_analysis_retirements FIELDS key UNIQUE;
 
 DEFINE TABLE canonical_attempts SCHEMAFULL;
 DEFINE FIELD key ON canonical_attempts TYPE string;
@@ -81,6 +82,8 @@ DEFINE INDEX canonical_execution_operations_key ON canonical_execution_operation
 DEFINE TABLE canonical_guards SCHEMAFULL;
 DEFINE FIELD key ON canonical_guards TYPE string;
 DEFINE FIELD generation ON canonical_guards TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD incarnation ON canonical_guards TYPE option<string>;
+DEFINE FIELD analysis_creation_closed_through ON canonical_guards TYPE option<decimal> ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE INDEX canonical_guards_key ON canonical_guards FIELDS key UNIQUE;
 
 DEFINE TABLE canonical_interpretations SCHEMAFULL;
@@ -408,6 +411,7 @@ DEFINE FIELD payload ON canonical_versions TYPE bytes;
 DEFINE FIELD interpretation ON canonical_versions TYPE string;
 DEFINE INDEX canonical_versions_key ON canonical_versions FIELDS key UNIQUE;
 
+DEFINE INDEX guard_incarnation ON canonical_guards FIELDS incarnation UNIQUE;
 DEFINE INDEX membership_selection ON canonical_memberships FIELDS problem, scope, name, from_sequence;
 DEFINE INDEX membership_active ON canonical_memberships FIELDS problem, to_sequence;
 DEFINE INDEX version_logical ON canonical_versions FIELDS logical;
@@ -486,7 +490,7 @@ DEFINE FUNCTION fn::pse_execution_v1::touch($rpc_expiry: int, $key: string) -> d
     LET $id = type::record('canonical_guards', $key);
     LET $old = SELECT * FROM ONLY $id;
     IF $old = NONE {
-        CREATE ONLY $id SET key = $key, generation = 1dec;
+        CREATE ONLY $id SET key = $key, generation = 1dec, incarnation = <string>rand::uuid::v4();
         LET $rpc_result = 1dec;
         fn::pse_execution_v1::deadline($rpc_expiry);
         RETURN $rpc_result;
@@ -1057,19 +1061,56 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_study($rpc_expiry: int, $study:stri
     RETURN $rpc_result;
 };
 
-DEFINE FUNCTION fn::pse_retention_v1::forget_analysis($rpc_expiry: int, $analysis:string) -> bool {
+// The occurrence key carries its immutable authority and expiry even after header deletion.
+DEFINE FUNCTION fn::pse_retention_v1::forget_analysis($rpc_expiry: int, $analysis:string) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
-    fn::pse_execution_v1::touch($rpc_expiry, 'analysis:'+$analysis);
-    LET $header=SELECT * FROM ONLY type::record('canonical_analyses',$analysis);
-    IF $header=NONE { THROW 'analysis unavailable'; };
-    LET $roots=SELECT key,problem FROM canonical_roots WHERE owner_kind='analysis' AND owner=$analysis ORDER BY key LIMIT 66;
-    IF array::len($roots)>65 { THROW 'analysis source retention limit'; };
-    FOR $root IN $roots { fn::pse_execution_v1::touch($rpc_expiry, 'retention:'+$root.problem); };
-    DELETE $roots.map(|$root|type::record('canonical_roots',$root.key));
-    UPSERT type::record('canonical_analysis_retirements',$analysis) SET key=$analysis,analysis=$analysis;
-    LET $rpc_result = true;
+    LET $header=SELECT * FROM ONLY type::record('canonical_analyses',$analysis) FOR UPDATE;
+    IF $header=NONE {
+        LET $parts=string::split($analysis,':');
+        IF array::len($parts)!=4 OR $parts[0]!='pse.analysis.v2' OR string::len($parts[1])!=36 OR string::len($parts[2])!=36 { THROW 'unknown analysis key has no creation authority'; };
+        LET $authorities=SELECT key FROM canonical_guards WITH INDEX guard_incarnation WHERE incarnation=$parts[1] LIMIT 2;
+        IF array::len($authorities)!=1 OR !string::starts_with($authorities[0].key,'retention:') { THROW 'analysis creation authority unavailable'; };
+        LET $intent={key:$analysis,primary_problem:string::slice($authorities[0].key,10),primary_authority:$parts[1],creation_nonce:$parts[2],creation_expires_at:<decimal>$parts[3]};
+        RETURN fn::pse_retention_v1::settle_analysis($rpc_expiry,$intent);
+    };
+    UPDATE ONLY type::record('canonical_analyses',$analysis) SET retiring=true;
+    LET $edges=SELECT id FROM canonical_analysis_edges WHERE analysis=$analysis ORDER BY key LIMIT 64;
+    IF array::len($edges)!=0 { DELETE $edges.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
+    LET $nodes=SELECT id FROM canonical_analysis_nodes WHERE analysis=$analysis ORDER BY key LIMIT 64;
+    IF array::len($nodes)!=0 { DELETE $nodes.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
+    LET $inputs=SELECT id FROM canonical_analysis_inputs WHERE analysis=$analysis ORDER BY key LIMIT 64;
+    IF array::len($inputs)!=0 { DELETE $inputs.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
+    LET $roots=SELECT id,problem FROM canonical_roots WHERE owner_kind='analysis' AND owner=$analysis ORDER BY key LIMIT 64;
+    IF array::len($roots)!=0 {
+        FOR $root IN $roots {
+            LET $source=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$root.problem) FOR UPDATE;
+            IF $source=NONE { THROW 'analysis cleanup source authority unavailable'; };
+        };
+        DELETE $roots.id;
+        fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false};
+    };
+    IF time::micros()<$header.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
+    RETURN fn::pse_retention_v1::settle_analysis($rpc_expiry,$header);
+};
+
+DEFINE FUNCTION fn::pse_retention_v1::settle_analysis($rpc_expiry:int,$intent:object) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
-    RETURN $rpc_result;
+    LET $header=SELECT * FROM ONLY type::record('canonical_analyses',$intent.key) FOR UPDATE;
+    LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) FOR UPDATE;
+    IF $guard=NONE OR $guard.incarnation!=$intent.primary_authority { THROW 'analysis settlement authority unavailable'; };
+    IF $intent.key!='pse.analysis.v2:'+$intent.primary_authority+':'+$intent.creation_nonce+':'+<string><int>$intent.creation_expires_at { THROW 'analysis settlement key binding'; };
+    IF time::micros()<$intent.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
+    IF $header!=NONE AND ($header.primary_authority!=$intent.primary_authority OR $header.creation_expires_at!=$intent.creation_expires_at) { THROW 'analysis settlement requires original occurrence'; };
+    IF $header!=NONE AND !$header.retiring { UPDATE ONLY type::record('canonical_analyses',$intent.key) SET retiring=true; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
+    LET $edges=SELECT key FROM canonical_analysis_edges WHERE analysis=$intent.key LIMIT 1;
+    LET $nodes=SELECT key FROM canonical_analysis_nodes WHERE analysis=$intent.key LIMIT 1;
+    LET $inputs=SELECT key FROM canonical_analysis_inputs WHERE analysis=$intent.key LIMIT 1;
+    LET $roots=SELECT key FROM canonical_roots WHERE owner_kind='analysis' AND owner=$intent.key LIMIT 1;
+    IF array::len($edges)+array::len($nodes)+array::len($inputs)+array::len($roots)!=0 { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
+    UPDATE ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) SET generation=generation+1dec, analysis_creation_closed_through=math::max([analysis_creation_closed_through ?? 0dec,$intent.creation_expires_at]);
+    DELETE ONLY type::record('canonical_analyses',$intent.key);
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    RETURN {complete:true,waiting:false};
 };
 
 DEFINE FUNCTION fn::pse_retention_v1::forget_run($rpc_expiry: int, $run:string) -> object {
@@ -1091,7 +1132,7 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_run($rpc_expiry: int, $run:string) 
         fn::pse_execution_v1::touch($rpc_expiry, 'study:'+$study);
         IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$study))=NONE { THROW 'run results are retained by a study'; };
     };
-    LET $analyses=SELECT analysis FROM canonical_analysis_inputs WHERE run=$run AND type::record('canonical_analysis_retirements',analysis).analysis=NONE LIMIT 1;
+    LET $analyses=SELECT analysis FROM canonical_analysis_inputs WHERE run=$run LIMIT 1;
     IF array::len($analyses)!=0 { THROW 'run results are retained by an analysis'; };
     LET $roots=SELECT key,problem FROM canonical_roots WHERE owner_kind='run' AND owner=$run ORDER BY key LIMIT 66;
     IF array::len($roots)>65 { THROW 'run source retention limit'; };
@@ -1157,10 +1198,8 @@ DEFINE FUNCTION fn::pse_retention_v1::collect_run($rpc_expiry: int, $run:string)
 
 DEFINE FUNCTION fn::pse_analysis_v1::available($rpc_expiry: int, $key: string) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
-    fn::pse_execution_v1::touch($rpc_expiry, 'analysis:'+$key);
-    IF (SELECT * FROM ONLY type::record('canonical_analysis_retirements',$key))!=NONE { THROW 'analysis explicitly retired'; };
-    LET $row=SELECT * FROM ONLY type::record('canonical_analyses',$key);
-    IF $row=NONE { THROW 'analysis unavailable'; };
+    LET $row=SELECT * FROM ONLY type::record('canonical_analyses',$key) FOR UPDATE;
+    IF $row=NONE OR $row.retiring { THROW 'analysis unavailable'; };
     LET $rpc_result = $row;
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN $rpc_result;
@@ -1168,25 +1207,42 @@ DEFINE FUNCTION fn::pse_analysis_v1::available($rpc_expiry: int, $key: string) -
 
 DEFINE FUNCTION fn::pse_analysis_v1::begin($rpc_expiry: int, $row: object,$sources: array<object>,$inputs: array<object>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
-    fn::pse_execution_v1::touch($rpc_expiry, 'analysis:'+$row.key);
-    IF (SELECT * FROM ONLY type::record('canonical_analysis_retirements',$row.key))!=NONE { THROW 'analysis explicitly retired'; };
-    IF array::len($sources)=0 OR array::len($sources)>65 OR array::len($inputs)>64 OR $row.node_count>4096dec OR $row.edge_count>8192dec OR $row.active { THROW 'analysis admission bound'; };
-    LET $old=SELECT * FROM ONLY type::record('canonical_analyses',$row.key);
+    LET $authority=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$row.primary_problem) FOR UPDATE;
+    LET $now=time::micros();
+    IF $authority=NONE OR $authority.incarnation=NONE OR $authority.incarnation!=$row.primary_authority { THROW 'analysis primary authority unavailable'; };
+    IF $row.key!='pse.analysis.v2:'+$row.primary_authority+':'+$row.creation_nonce+':'+<string><int>$row.creation_expires_at OR string::len($row.creation_nonce)!=36 { THROW 'analysis immutable creation binding'; };
+    IF $row.creation_expires_at<=$now OR $row.creation_expires_at>$now+60000000 OR $row.creation_expires_at<=($authority.analysis_creation_closed_through ?? 0dec) { THROW 'analysis creation window closed'; };
+    IF array::len($sources)=0 OR array::len($sources)>65 OR array::len($inputs)>64 OR $row.node_count>4096dec OR $row.edge_count>8192dec OR string::len($row.creation_request_digest)!=64 OR $row.active OR $row.retiring { THROW 'analysis admission bound'; };
+    LET $old=SELECT * FROM ONLY type::record('canonical_analyses',$row.key) FOR UPDATE;
     IF $old!=NONE {
-        IF object::remove($old,['id','active'])!=object::remove($row,['active']) { THROW 'immutable analysis identity changed'; };
+        IF $old.retiring OR object::remove($old,['id','active'])!=object::remove($row,['active']) { THROW 'immutable analysis identity changed'; };
+        LET $retained_sources=SELECT key FROM canonical_roots WHERE owner_kind='analysis' AND owner=$row.key LIMIT 66;
+        LET $retained_inputs=SELECT key FROM canonical_analysis_inputs WHERE analysis=$row.key LIMIT 65;
+        IF array::len($retained_sources)!=array::len($sources) OR array::len($retained_inputs)!=array::len($inputs) { THROW 'immutable analysis lineage coverage changed'; };
+        FOR $source IN $sources {
+            LET $root=SELECT * FROM ONLY type::record('canonical_roots',$source.key);
+            IF $root=NONE OR $root.owner_kind!='analysis' OR $root.owner!=$row.key OR $root.problem!=$source.problem OR $root.revision!=$source.revision OR $root.sequence!=$source.sequence { THROW 'immutable analysis source changed'; };
+        };
+        FOR $input IN $inputs {
+            LET $selected=SELECT * FROM ONLY type::record('canonical_analysis_inputs',$input.key);
+            IF $selected=NONE OR $selected.analysis!=$row.key OR $selected.run!=$input.run OR $selected.attempt!=$input.attempt OR $selected.manifest!=$input.manifest { THROW 'immutable analysis input changed'; };
+        };
         LET $rpc_result = $old;
         fn::pse_execution_v1::deadline($rpc_expiry);
         RETURN $rpc_result;
     };
     FOR $source IN $sources {
-        fn::pse_execution_v1::touch($rpc_expiry, 'retention:'+$source.problem);
+        LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$source.problem) FOR UPDATE;
+        IF $guard=NONE { THROW 'analysis source authority unavailable'; };
         LET $revision=SELECT * FROM ONLY type::record('canonical_revisions',$source.revision);
         IF $revision=NONE OR $revision.problem!=$source.problem OR $revision.sequence!=$source.sequence OR $revision.interpretation!=$row.interpretation { THROW 'analysis source unavailable'; };
         LET $pruned=SELECT key FROM canonical_reclaimed_ranges WHERE problem=$source.problem AND from_sequence<=$source.sequence AND to_sequence>$source.sequence LIMIT 1;
         IF array::len($pruned)!=0 { THROW 'analysis source reclaimed'; };
     };
-    IF $row.revision NOT IN $sources.revision { THROW 'analysis primary source omitted'; };
+    IF array::len($sources[WHERE revision=$row.revision AND problem=$row.primary_problem])!=1 OR $row.revision NOT IN $sources.revision { THROW 'analysis primary source omitted'; };
     FOR $input IN $inputs {
+        LET $guard=SELECT * FROM ONLY type::record('canonical_guards','execution-run:'+$input.run) FOR UPDATE;
+        IF $guard=NONE { THROW 'analysis run authority unavailable'; };
         fn::pse_execution_v1::available($rpc_expiry, $input.run);
         LET $run=SELECT * FROM ONLY type::record('canonical_runs',$input.run);
         LET $attempt=SELECT * FROM ONLY type::record('canonical_attempts',$input.attempt);

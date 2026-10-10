@@ -2213,7 +2213,7 @@ async fn managed_primary_study_cancellation_drains_admitted_sixteen_and_refuses_
 async fn managed_primary_publication_serves_exact_partial_history_and_escaped_arrow_retirement() {
     use datafusion::arrow::array::{Array, Float64Array};
     use pse_columnar::CancellationToken;
-    use pse_operations::canonical_analyses::{Analysis, AnalysisNode};
+    use pse_operations::canonical_analyses::AnalysisNode;
     use pse_operations::canonical_execution::{RunRequest, TerminalClass};
     use pse_relations::generated::{
         enums::NativeMetricKind,
@@ -2288,7 +2288,7 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
             store,
             &fence,
             solve_metrics::RELATION_ID,
-            &table,
+            ResultCursor::from_checked(table.clone()),
             &pool,
         )
         .await
@@ -2398,17 +2398,17 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
         assert!(historical.next_batch().await.unwrap().is_none());
         assert!(store.forget_run_results(&transport_run).await.is_err());
 
-        let analysis = Analysis {
-            key: format!("serving-transport-analysis-{}", fixture.nonce),
-            revision: revision.key.clone(),
-            method: "partial-transport-reader-handoff-fixture:v1".into(),
-            configuration: vec![1].into(),
-            input_digest: current.selection().manifest().digest.clone(),
-            interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
-            node_count: 1,
-            edge_count: 0,
-            active: false,
-        };
+        let mut analysis = store
+            .new_analysis(
+                &revision,
+                "partial-transport-reader-handoff-fixture:v2",
+                vec![1],
+                current.selection().manifest().digest.clone(),
+                1,
+                0,
+            )
+            .await
+            .unwrap();
         let node = AnalysisNode {
             key: format!("serving-transport-node-{}", fixture.nonce),
             analysis: analysis.key.clone(),
@@ -2416,6 +2416,13 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
             kind: "result".into(),
         };
         let inputs = [current.selection().clone(), historical.selection().clone()];
+        pse_operations::canonical_analyses::seal_analysis_request(
+            &mut analysis,
+            std::slice::from_ref(&revision),
+            &inputs,
+            std::slice::from_ref(&node),
+            &[],
+        );
         assert!(
             store
                 .persist_analysis(
@@ -2480,10 +2487,14 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
             store.forget_run_results(&transport_run).await.is_err(),
             "analysis retention takes over before the readers release their exact inputs"
         );
-        runtime
-            .forget_analysis_results(&analysis.key)
-            .await
-            .unwrap();
+        for _ in 0..5 {
+            assert!(
+                !runtime
+                    .forget_analysis_results(&analysis.key)
+                    .await
+                    .unwrap()
+            );
+        }
         let mut retired = false;
         for _ in 0..32 {
             if store.forget_run_results(&transport_run).await.is_ok() {

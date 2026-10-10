@@ -433,6 +433,7 @@ impl PreparedSolve {
                 Some(context) => context.clone(),
                 None => pse_math::numerics::operational_output_context(
                     quantities,
+                    &source.prepared.prepared.preconditions,
                     &pse_math::numerics::TargetSpec {
                         id: target.id,
                         kind: target.kind,
@@ -2490,6 +2491,7 @@ impl MathService {
         targets.extend(numerical.targets);
         let numerics = Arc::new(pse_math::numerics::resolve(
             &prepared.prepared.quantities,
+            &prepared.prepared.preconditions,
             &targets,
             &numerical.declarations,
             &profile.numerics,

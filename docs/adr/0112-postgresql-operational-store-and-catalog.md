@@ -14,7 +14,7 @@ superseded-by: ADR-0114
 revisit: A deployment needs more than one PostgreSQL primary or a cross-region catalog, a supported deployment cannot run PostgreSQL 18, or the Q1 event-volume measurement exceeds what batched inserts sustain.
 verification: Architecture scenarios S14–S17, settled by the Plan 22 O1–O9 and G8 tests migrations_apply_to_empty_database, schema_matches_registry_relations, illegal_transition_rejected, lease_expiry_marks_stale, ephemeral_cannot_publish, durable_run_listed_after_restart, two_workers_never_claim_same_job, expired_lease_requeues_as_new_attempt, cancel_notify_stops_running_job, unknown_payload_version_refused, progress_stream_complete_under_volume, stored_seed_reused_across_processes, study_parallel_workers_publish_once, concurrent_publishers_one_winner_no_lost_update, lost_ack_settles_via_catalog, maintenance_waits_for_reader_leases (the plan's maintenance_excludes_readers_via_advisory_lock, renamed by finding T02), exported_publication_opens_offline and killed_worker_attempt_goes_stale_and_resumes_from_incumbent; just db-status reporting 18.x with no pending migrations; governance every_crate_registered.
 standard: core-3.0/process-simulator-1.1
-scenarios: [docs/plans/22-solver-capabilities-architecture.md#s14, docs/plans/22-solver-capabilities-architecture.md#s15, docs/plans/22-solver-capabilities-architecture.md#s16, docs/plans/22-solver-capabilities-architecture.md#s17]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s14, https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s15, https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s16, https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s17]
 ---
 
 # ADR-0112: Keep operational state and the publication catalog in PostgreSQL 18 through pse-operations
@@ -25,7 +25,7 @@ Delta publication is the only durable state today. Runs, jobs, progress, warm st
 sessions live in memory and are lost on exit; admission refuses rather than queues, within one
 process; publication is qualified for one local writer (§26, register R-10), with a Delta
 control table as the only publication record and OS lock files for retention
-([architecture §9.1](../plans/22-solver-capabilities-architecture.md#91-why-an-operational-store-and-why-postgresql)).
+([architecture §9.1](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#91-why-an-operational-store-and-why-postgresql)).
 ADR-0102's workloads need what that cannot give: long solves that survive a crash (S16),
 studies across worker processes (S15), rolling horizons with frequent small records (S14),
 warm starts reused across processes, and concurrent publication (S17). DP-19 requires planned,
@@ -248,7 +248,7 @@ is in design, not production.
 
 ## More information
 
-- Architecture companion [§9](../plans/22-solver-capabilities-architecture.md#9-operational-store-and-publication-catalog-postgresql-18), client stack in §9.8.
+- Architecture companion [§9](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#9-operational-store-and-publication-catalog-postgresql-18), client stack in §9.8.
 - The maintainer's [external review of Rust PostgreSQL options](../external-review-postgresl-options.md), assessed in Options above.
 - Target review [T02](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t02), [T03](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t03), [T09](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t09), [T13](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t13) and [T16](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t16).
 - Supersedes ADR-0091 and ADR-0016. Decides register row R-10 (removed). Plan 22 packets O1–O9, G8.

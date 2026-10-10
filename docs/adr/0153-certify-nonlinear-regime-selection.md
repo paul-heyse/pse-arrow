@@ -123,7 +123,7 @@ otherwise solvable requests can remain uncertified under finite budgets.
 
 ## More information
 
-[Plan 25k](../plans/25k-integrated-qualification-and-closure.md) owns execution,
+[Plan 25k](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25k-integrated-qualification-and-closure.md) owns execution,
 qualification and remaining findings. IBEX's [solver documentation](https://ibex-team.github.io/ibex-lib/solver.html)
 describes validated coverings and unresolved boxes; the initial binding targets
 tag `ibex-2.9.1` and bundled FILIB interval arithmetic. Enduring contracts belong

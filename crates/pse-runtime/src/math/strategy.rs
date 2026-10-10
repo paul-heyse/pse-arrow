@@ -929,20 +929,55 @@ impl Trace {
         self.owner = Some(owner);
         self
     }
-    /// Publish every actual point/action receipt separately from event summaries.
+    /// Exact metadata count, without projecting any event.
+    pub fn event_count(&self) -> usize {
+        self.events.len()
+    }
+    /// Exact metadata count over original product receipts, with checked global extent.
+    pub fn product_count(&self) -> Result<usize, ProblemError> {
+        self.products.iter().try_fold(0usize, |total, products| {
+            total
+                .checked_add(products.evidence.len())
+                .ok_or_else(|| limit("strategy product extent"))
+        })
+    }
+    /// Publish the selected actual receipts without validating skipped products.
     pub fn product_rows(
         &self,
         run_id: pse_model::generated::identities::RunId,
         step: usize,
-    ) -> Result<Vec<pse_model::generated::runtime::solve_strategy_products::Row>, ProblemError>
-    {
+        range: std::ops::Range<usize>,
+    ) -> Result<
+        impl Iterator<
+            Item = Result<
+                pse_model::generated::runtime::solve_strategy_products::Row,
+                ProblemError,
+            >,
+        > + '_,
+        ProblemError,
+    > {
         use pse_model::generated::runtime::solve_strategy_products::Row;
         let ordinal = |value: usize| {
             i64::try_from(value).map_err(|_| limit("strategy product ordinal extent"))
         };
-        let mut rows = Vec::new();
-        for (mechanism, products) in self.products.iter().enumerate() {
-            for (product, evidence) in products.evidence.iter().enumerate() {
+        let count = range
+            .end
+            .checked_sub(range.start)
+            .ok_or_else(|| ProblemError::Contract("reversed strategy product range".into()))?;
+        Ok(self
+            .products
+            .iter()
+            .enumerate()
+            .flat_map(|(mechanism, products)| {
+                products
+                    .evidence
+                    .iter()
+                    .enumerate()
+                    .map(move |(product, evidence)| (mechanism, product, evidence))
+            })
+            .skip(range.start)
+            .take(count)
+            .map(move |(mechanism, product, evidence)| {
                 let source = evidence.source;
                 let normalization = source.normalization.ok_or_else(|| {
                     ProblemError::Contract("published product normalization missing".into())
@@ -967,7 +1002,7 @@ impl Trace {
                     ));
                 }
                 let connected = evidence.branch.connected;
-                rows.push(Row {
+                Ok(Row {
                     run_id,
                     step: ordinal(step)?,
                     mechanism: ordinal(mechanism)?,
@@ -990,18 +1025,27 @@ impl Trace {
                     accuracy_class: accuracy.class,
                     error: accuracy.error,
                     branch_policy: evidence.branch.kind,
-                });
-            }
-        }
-        Ok(rows)
+                })
+            }))
     }
     /// Project ordered events without reconstructing numerical decisions from metrics.
     pub fn rows(
         &self,
         run_id: pse_model::generated::identities::RunId,
         step: usize,
-    ) -> Result<Vec<pse_model::generated::runtime::solve_strategy_events::Row>, ProblemError> {
+        pool: Arc<dyn pse_columnar::MemoryPool>,
+        range: std::ops::Range<usize>,
+    ) -> Result<
+        impl Iterator<
+            Item = Result<pse_model::generated::runtime::solve_strategy_events::Row, ProblemError>,
+        > + '_,
+        ProblemError,
+    > {
         use pse_model::generated::runtime::solve_strategy_events::Row;
+        let count_rows = range
+            .end
+            .checked_sub(range.start)
+            .ok_or_else(|| ProblemError::Contract("reversed strategy event range".into()))?;
         let strategy_identity = match self.publication_request {
             Some(request) => request.as_id(),
             None => self
@@ -1016,10 +1060,14 @@ impl Trace {
                 .map(|n| i64::try_from(n).map_err(|_| limit("strategy work projection")))
                 .transpose()
         };
-        self.events
+        // The iterator retains the current DTO's copy admission until the consumer has
+        // published it and requests another row (or drops this request).
+        let mut working: Option<pse_columnar::MemoryReservation> = None;
+        Ok(self.events
             .iter()
             .enumerate()
-            .map(|(index, event)| {
+            .skip(range.start).take(count_rows)
+            .map(move |(index, event)| {
                 let mechanism = self.declaration.mechanisms.get(event.mechanism)
                     .ok_or_else(|| ProblemError::Contract("published event has no observed mechanism".into()))?;
                 let actual = !matches!(event.kind, EventKind::Planned | EventKind::Refused);
@@ -1028,6 +1076,21 @@ impl Trace {
                     .then_some(product)
                     .flatten();
                 let work = event.work;
+                drop(working.take());
+                let statistical = produced.and_then(|p| p.statistical.as_ref());
+                let events = produced.and_then(|p| p.path_events.as_ref());
+                let path_scalars = events.map_or(Ok(0usize), |events| events.iter().try_fold(0usize, |total, event| {
+                    total.checked_add(event.point.len()).and_then(|n| n.checked_add(event.state_singular_values.len())).and_then(|n| n.checked_add(event.augmented_singular_values.len())).ok_or_else(|| limit("strategy event copy extent"))
+                }))?;
+                let parts: &[(usize, usize)] = &[
+                    (1, 4096), (statistical.map_or(0, |s| s.coordinates.len()), 8), (statistical.map_or(0, |s| s.model_values.len()), 8),
+                    (events.map_or(0, |e| e.len()), size_of::<pse_model::generated::runtime::solve_strategy_events::RuntimeSolveStrategyEventsFieldPathEventsItem>()),
+                    (path_scalars, 8), (event.cause.as_ref().map_or(0, |cause| cause.retained_bytes()), 4),
+                ];
+                let bytes = parts.iter().try_fold(0usize, |total, (count, width)| count.checked_mul(*width).and_then(|bytes| total.checked_add(bytes))).ok_or_else(|| limit("strategy event copy extent"))?;
+                let copy = pse_columnar::MemoryConsumer::new("result:strategy-event-copy").register(&pool);
+                copy.try_grow(bytes).map_err(|e| ProblemError::memory(e.to_string()))?;
+                working = Some(copy);
                 Ok(Row {
                     run_id,
                     step: ordinal(step)?,
@@ -1119,7 +1182,7 @@ impl Trace {
                     detail: None,
                 })
             })
-            .collect()
+            )
     }
 }
 /// Copy actual estimated event observations into the registry boundary. Their shared

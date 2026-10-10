@@ -97,7 +97,7 @@ fn case(
             upper: Some(*upper),
         })
         .collect();
-    let slots = (0..boxes.len())
+    let slots: Vec<_> = (0..boxes.len())
         .map(|i| {
             let p = port(registry, u8::try_from(i + 1).unwrap());
             SlotBinding::new(&p, &p, registry).unwrap()
@@ -131,7 +131,7 @@ fn case(
                 checked_members: Default::default(),
                 instance: id(9),
                 body: key,
-                slots,
+                slots: slots.into(),
                 contributions,
             }],
             rows,

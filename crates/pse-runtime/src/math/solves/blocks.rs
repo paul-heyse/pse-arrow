@@ -205,21 +205,9 @@ impl MathService {
                     )
                     .into());
                 };
-                let bytes = blocks.iter().try_fold(
-                    size_of::<PreparedBlocks>() + size_of_val(blocks.as_slice()),
-                    |n, block| {
-                        n.checked_add(
-                            block.plan.retained_bytes()
-                                + block.structure.retained_bytes()
-                                + block
-                                    .artifacts
-                                    .iter()
-                                    .map(|a| a.descriptor_bytes())
-                                    .sum::<usize>(),
-                        )
-                        .ok_or(MathRuntimeError::Limit("compiler block schedule extent"))
-                    },
-                )?;
+                let bytes = pse_compiler::workspace::PreparedBlock::retained_group_bytes(&blocks)
+                    .and_then(|bytes| bytes.checked_add(size_of::<PreparedBlocks>()))
+                    .ok_or(MathRuntimeError::Limit("compiler block schedule extent"))?;
                 Ok((blocks, bytes))
             });
         tokio::pin!(job);
@@ -257,6 +245,7 @@ impl MathService {
             .await?;
             let view = block.clone();
             let quantities = source.prepared.prepared.quantities.clone();
+            let preconditions = source.prepared.prepared.preconditions.clone();
             let values = source.values.clone();
             let control = FlightCancellation::default();
             let demand = view
@@ -273,7 +262,7 @@ impl MathService {
                 control.clone(),
                 scope.deadline(),
                 move |flag| {
-                    let bound = view.bind(quantities, &values, &flag)?;
+                    let bound = view.bind(quantities, preconditions, &values, &flag)?;
                     let bytes = binding_bytes(&bound);
                     Ok((bound, bytes))
                 },

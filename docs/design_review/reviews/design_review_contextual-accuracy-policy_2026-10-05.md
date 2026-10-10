@@ -10,7 +10,7 @@ evidence: Implemented
 architectural-fitness: Revise
 behavioral-adequacy: Not Accept for the contextual-accuracy target
 decision: Revise
-disposition-owner: docs/plans/25k-integrated-qualification-and-closure.md
+disposition-owner: git:4c24721e691187e1a5b28398b29722fbde671da8:docs/plans/25k-integrated-qualification-and-closure.md
 ---
 
 # Context-aware engineering accuracy
@@ -54,7 +54,7 @@ Relevant owners are blueprint §§16.1, 16.2, 16.5 and 16.6, §§13.2–13.6 and
 [earlier convergence-criteria review](design_review_convergence-criteria_2026-10-05.md) retains its
 narrower historical scope and does not supply this verdict.
 
-[Plan 25k](../../plans/25k-integrated-qualification-and-closure.md#contextual-accuracy-review-dispositions)
+[Plan 25k](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25k-integrated-qualification-and-closure.md#contextual-accuracy-review-dispositions)
 owns current disposition. Proposed corrections are not automatically scheduled.
 
 ## Existing responsibilities and guarantees

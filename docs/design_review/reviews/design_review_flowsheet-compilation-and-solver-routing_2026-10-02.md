@@ -28,7 +28,7 @@ Investigation began on `a7e9a4e4` with the preserved Plan 25 working changes. Th
 
 The coordinator owns this principal document and receipt verification. A fresh independent design reviewer assessed compilation and the combined boundary, including a follow-up on failure interpretation; a library researcher independently assessed native capabilities using pinned sources and Context7 primary documentation. The coordinator inspected decisive source paths and reconciled those assessments. No product tests, native campaigns or performance measurements were run for this review: static evidence settles the reported stage and interpretation defects. Prior execution receipts are identified below with their narrower conditions.
 
-Current adopted finding status belongs to the [Plan 25 coordinator](../../plans/25-design-remediation.md#finding-dispositions); [25k](../../plans/25k-integrated-qualification-and-closure.md) owns qualification readiness. This review recommends work owners; it does not claim its recommendations are scheduled, implemented or accepted through an ADR.
+Current adopted finding status belongs to the [Plan 25 coordinator](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25-design-remediation.md#finding-dispositions); [25k](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25k-integrated-qualification-and-closure.md) owns qualification readiness. This review recommends work owners; it does not claim its recommendations are scheduled, implemented or accepted through an ADR.
 
 ### Functional drivers and revealing changes
 

@@ -18,7 +18,7 @@ This is an independent Change-tier, conformance-purpose review under Core/templa
 
 ## Boundary and evidence
 
-The reviewed baseline is HEAD `67069879de0da7d65fa6dc505a8ff2ceea594b4c` plus the user-selected uncommitted implementation when this review began. Scope is [Plan 26](../../plans/26-testing-architecture.md), [26a](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/26a-completed-results-and-transport.md), [26b](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/26b-test-composition-and-independent-evidence.md), [26c](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/26c-test-execution-and-qualification-evidence.md), and [ADR-0160](../../adr/0160-centralize-testing-responsibility.md), including relevant source and adjacent consumers.
+The reviewed baseline is HEAD `67069879de0da7d65fa6dc505a8ff2ceea594b4c` plus the user-selected uncommitted implementation when this review began. Scope is [Plan 26](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/26-testing-architecture.md), [26a](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/26a-completed-results-and-transport.md), [26b](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/26b-test-composition-and-independent-evidence.md), [26c](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/26c-test-execution-and-qualification-evidence.md), and [ADR-0160](../../adr/0160-centralize-testing-responsibility.md), including relevant source and adjacent consumers.
 
 Static inspection covered trajectory construction/completion/transport, supervised Simulation and Shooting encoding, Python Arrow export, invariant declaration/production/binding/mechanism controls, requested fixtures and isolated databases, nextest resource configuration, native execution, terminal composition, input capture, receipt reuse, measurement prerequisites, retirement consumers, and the affected architecture/qualification owners.
 
@@ -26,7 +26,7 @@ Claims about these source paths are **Implemented** or **Interface-checked**. No
 
 Excluded are Plan 25's full science/campaign qualification, unrelated ADR-0161 governance, other platforms/distributions, broad parity and performance campaigns, and numerical algorithms unchanged by this series. No comprehensive rerun is requested.
 
-[Plan 26](../../plans/26-testing-architecture.md) is the sole current finding-disposition owner.
+[Plan 26](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/26-testing-architecture.md) is the sole current finding-disposition owner.
 
 ## Responsibility and conformance argument
 
@@ -157,7 +157,7 @@ Overall decision: **Revise** the reviewed implementation. Plan 26 owns F01/F02 c
 
 ## <a id="remedy-acceptance"></a>Bounded follow-up: F01/F02 remedies, 2026-10-05
 
-**Accept the corrected implementation within this review's declared boundary.** This independent follow-up assesses the two remedies against the original findings. The original reviewed-baseline **Revise** judgment remains intact above; [Plan 26](../../plans/26-testing-architecture.md) owns current dispositions and closure evidence.
+**Accept the corrected implementation within this review's declared boundary.** This independent follow-up assesses the two remedies against the original findings. The original reviewed-baseline **Revise** judgment remains intact above; [Plan 26](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/26-testing-architecture.md) owns current dispositions and closure evidence.
 
 The follow-up baseline is HEAD `67069879de0da7d65fa6dc505a8ff2ceea594b4c` plus the selected uncommitted implementation and the inspected F01/F02 corrections. The standard remains Core/template 3.3 and Process Simulator 1.4. No reviewer execution, edits or additional delegation occurred.
 

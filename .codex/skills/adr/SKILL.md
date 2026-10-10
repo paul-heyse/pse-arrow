@@ -39,7 +39,7 @@ previously-recorded decision untrue needs an ADR that supersedes it, not an edit
 
 ```bash
 just adr-new my-slug --title "Imperative one-liner"     # or:
-python3 scripts/adr.py new my-slug --title "Imperative one-liner"
+scripts/pse-env --docs -- python3 -m scripts.adr new my-slug --title "Imperative one-liner"
 ```
 
 That allocates the highest retained number plus one, copies `docs/adr/template.md` and stamps today's
@@ -121,17 +121,17 @@ In front matter, blueprint sections carry the `§`: `blueprint: [§3.1, §D1]`.
 ## 3. Lint, index, supersede
 
 ```bash
-just adr-lint            # python3 scripts/adr.py lint  +  check_register.py --lint
+just adr-lint            # record lint and register checks through the docs environment
 just adr-index           # regenerates docs/adr/README.md
 just adr-supersede <old> <new>
 just register-check      # rows that are due, and runs the automatable checks
 ```
 
-`scripts/adr.py lint` checks the filename pattern, unique numbers, that the highest
+`just adr-frontmatter-check` checks the filename pattern, unique numbers, that the highest
 number issued on `origin/main` is still present (so allocation never reuses a number),
 the required keys, the enums, `AP-NN`/`DP-NN`/`PS-NN` (or legacy `DM-NN`) shapes, that
 every `§` citation resolves to one owning heading, that the `review` path or Git source
-exists, symmetric supersession of retained pairs, and **immutability**. `scripts/adr.py index` regenerates
+exists, symmetric supersession of retained pairs, and **immutability**. `just adr-index` regenerates
 `docs/adr/README.md`; never hand-edit that generated index. Book navigation is derived
 during publication from `docs/site.toml`, not edited by the ADR tool.
 

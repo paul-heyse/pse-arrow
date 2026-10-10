@@ -542,6 +542,75 @@ mod tests {
         (registry, body)
     }
     #[test]
+    fn portable_body_local_coordinates_roundtrip_and_refuse_corrupt_or_historical_inventory() {
+        let (registry, body) = authored(
+            "package p { fn f(x:Scalar)->Scalar=x*x; def Root {var x:Scalar;eq e:f(x)==1;} }",
+        );
+        let spec = body.spec.clone();
+        let payload = body.portable_payload().unwrap();
+        let wire: serde_json::Value = serde_json::from_slice(&payload).unwrap();
+        assert_eq!(wire["interpretation"], "pse.admitted-body.v2");
+        let key = wire["functions"]
+            .as_object()
+            .unwrap()
+            .iter()
+            .find(|(_, function)| !function["admissions"].as_array().unwrap().is_empty())
+            .unwrap()
+            .0
+            .clone();
+        assert_eq!(wire["functions"][&key]["version"], 2);
+        let cancel = Arc::new(AtomicBool::new(false));
+        reconstruct_fixture(
+            &payload,
+            portable_payload_hash(&payload),
+            &spec,
+            &registry,
+            &cancel,
+        )
+        .unwrap();
+        for (kind, expected) in [
+            ("body", "outside retained inventory"),
+            ("position", "outside retained inventory"),
+            ("duplicate", "duplicate function admission"),
+            ("missing", "missing its admission"),
+            ("finite", "outside retained inventory"),
+            ("version", "unsupported function record"),
+            ("interpretation", "interpretation"),
+        ] {
+            let mut changed = wire.clone();
+            let function = &mut changed["functions"][&key];
+            match kind {
+                "body" | "position" => {
+                    function["admissions"][0][0]["Node"][kind] = serde_json::json!(usize::MAX)
+                }
+                "duplicate" => {
+                    let entry = function["admissions"][0].clone();
+                    function["admissions"].as_array_mut().unwrap().push(entry);
+                }
+                "missing" => {
+                    function["admissions"].as_array_mut().unwrap().clear();
+                }
+                "finite" => function["admissions"][0][0] = serde_json::json!("FiniteReduction"),
+                "version" => function["version"] = serde_json::json!(1),
+                "interpretation" => {
+                    changed["interpretation"] = serde_json::json!("pse.admitted-body.v1")
+                }
+                _ => panic!("fixture mutation"),
+            }
+            let bytes = serde_json::to_vec(&changed).unwrap();
+            let error = reconstruct_fixture(
+                &bytes,
+                portable_payload_hash(&bytes),
+                &spec,
+                &registry,
+                &cancel,
+            )
+            .unwrap_err()
+            .to_string();
+            assert!(error.contains(expected), "{kind}: {error}");
+        }
+    }
+    #[test]
     fn portable_admitted_body_restores_scientific_role_and_proof_receipts_without_proving() {
         let (registry, body) = authored(
             r#"package p {

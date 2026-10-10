@@ -118,7 +118,7 @@ selection evidence that was previously implicit.
 ## More information
 
 [Plan 25d](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25d-mathematical-realization-and-response.md),
-[coordinator](../plans/25-design-remediation.md), ADR-0082, ADR-0100, ADR-0105,
+[coordinator](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25-design-remediation.md), ADR-0082, ADR-0100, ADR-0105,
 ADR-0118 and ADR-0121. Accepted predecessor arguments remain immutable.
 
 ## Status history

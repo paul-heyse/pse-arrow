@@ -52,24 +52,43 @@ impl CanonicalStore {
             Ok(())
         }).await
     }
-    /// Withdraw a derived analysis's result retention. Source roots may then be
-    /// released explicitly; the original method and input lineage remain receipts.
-    pub async fn forget_analysis_results(&self, analysis: &str) -> Result<(), CanonicalError> {
-        within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
-            identity(analysis)?;
-            self.ensure_writes()?;
-            protected_query(
-                "canonical_result_retention::forget_analysis_results",
-                || {
-                    Ok(self
-                        .db
-                        .query("RETURN fn::pse_retention_v1::forget_analysis($pse_rpc_expires_at, $analysis);")
-                        .bind(("analysis", analysis.to_owned())))
-                },
-            )
-            .await?;
-            Ok(())
-        }).await
+    /// Retire an analysis and remove one bounded page of owned state.
+    /// False means cleanup or immutable creation-window settlement remains pending.
+    /// Unknown keys refuse; absence alone is not proof of settled creation authority.
+    pub async fn forget_analysis_results(&self, analysis: &str) -> Result<bool, CanonicalError> {
+        identity(analysis)?;
+        self.ensure_writes()?;
+        let mut response = protected_query("canonical_result_retention::forget_analysis_results", || {
+            Ok(self.db.query("BEGIN; RETURN fn::pse_retention_v1::forget_analysis($pse_rpc_expires_at,$analysis); COMMIT;")
+                .bind(("analysis", analysis.to_owned())))
+        }).await?;
+        let index = response.num_statements().saturating_sub(2);
+        let mut row = response
+            .take::<Option<Object>>(index)?
+            .ok_or(CanonicalError::IncompleteResponse)?;
+        Ok(canonical_codec::decode_boolean(canonical_codec::required(
+            &mut row, "complete",
+        )?)?)
+    }
+    /// Resolve an uncertain final acknowledgement using the original immutable intent.
+    /// This does not authorize creation or renew its expiry.
+    pub async fn settle_analysis(
+        &self,
+        intent: &crate::canonical_analyses::Analysis,
+    ) -> Result<bool, CanonicalError> {
+        self.ensure_writes()?;
+        let row = crate::generated::surreal::encode_canonical_analyses(intent)?;
+        let mut response = protected_query("canonical_result_retention::settle_analysis", || {
+            Ok(self.db.query("BEGIN; RETURN fn::pse_retention_v1::settle_analysis($pse_rpc_expires_at,$intent); COMMIT;")
+                .bind(("intent", row.clone())))
+        }).await?;
+        let index = response.num_statements().saturating_sub(2);
+        let mut row = response
+            .take::<Option<Object>>(index)?
+            .ok_or(CanonicalError::IncompleteResponse)?;
+        Ok(canonical_codec::decode_boolean(canonical_codec::required(
+            &mut row, "complete",
+        )?)?)
     }
     /// Irreversibly withdraw scientific payloads only after recovery is complete
     /// and no live reader, retained study or analysis needs them. This atomically
@@ -338,7 +357,7 @@ mod canonical_result_retention_server_unit {
     #[tokio::test]
     async fn multipage_result_read_hands_protection_to_analysis_before_retirement() {
         use crate::{
-            canonical_analyses::{Analysis, AnalysisNode},
+            canonical_analyses::AnalysisNode,
             canonical_execution::{result_batch_key, result_payload_digest, result_set_key},
         };
         use pse_model::generated::runtime::canonical_result_blocks::Row as BlockMetadata;
@@ -423,17 +442,17 @@ mod canonical_result_retention_server_unit {
             .await
             .unwrap();
         store.forget_history(&request.revision).await.unwrap();
-        let header = Analysis {
-            key: "multipage-analysis".into(),
-            revision: request.revision.key.clone(),
-            method: "bounded-reader-handoff-fixture:v1".into(),
-            configuration: vec![1].into(),
-            input_digest: manifest.row().key.clone(),
-            interpretation: wire::INTERPRETATION.into(),
-            node_count: 1,
-            edge_count: 0,
-            active: false,
-        };
+        let mut header = store
+            .new_analysis(
+                &request.revision,
+                "bounded-reader-handoff-fixture:v2",
+                vec![1],
+                manifest.row().key.clone(),
+                1,
+                0,
+            )
+            .await
+            .unwrap();
         let node = AnalysisNode {
             key: "multipage-node".into(),
             analysis: header.key.clone(),
@@ -441,6 +460,13 @@ mod canonical_result_retention_server_unit {
             kind: "result".into(),
         };
         let nodes = [node];
+        crate::canonical_analyses::seal_analysis_request(
+            &mut header,
+            std::slice::from_ref(&request.revision),
+            std::slice::from_ref(&read),
+            &nodes,
+            &[],
+        );
         let (analysis, retired) = tokio::join!(
             store.persist_analysis(
                 &header,
@@ -503,7 +529,10 @@ mod canonical_result_retention_server_unit {
             .and_then(checked)
             .unwrap();
         assert_eq!(roots.take::<Vec<Object>>(0).unwrap().len(), 1);
-        store.forget_analysis_results(&header.key).await.unwrap();
+        for _ in 0..4 {
+            assert!(!store.forget_analysis_results(&header.key).await.unwrap());
+        }
+
         store.forget_run_results(&request.key).await.unwrap();
         let mut reclaimed = 0;
         for _ in 0..70 {

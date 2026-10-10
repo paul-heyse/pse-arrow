@@ -60,7 +60,7 @@ One owned meaning reduces repeated work and setup. Whole-map first export can re
 
 ## More information
 
-[Plan 26](../plans/26-testing-architecture.md) owns delivery and finding dispositions. The [testing architecture review](../design_review/reviews/design_review_testing-architecture_2026-10-05.md) records the diagnosis; the bounded review records the target judgment. ADR-0092 remains the production builder/validation contract. This record replaces ADR-0051's duplicate test responsibility, preserving complete regeneration equivalence.
+[Plan 26](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/26-testing-architecture.md) owns delivery and finding dispositions. The [testing architecture review](../design_review/reviews/design_review_testing-architecture_2026-10-05.md) records the diagnosis; the bounded review records the target judgment. ADR-0092 remains the production builder/validation contract. This record replaces ADR-0051's duplicate test responsibility, preserving complete regeneration equivalence.
 
 ## Status history
 

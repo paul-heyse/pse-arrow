@@ -1002,8 +1002,8 @@ pub(super) fn complete(
         instances.push(InstanceBinding {
             instance: instance.instance,
             body: key,
-            checked_members: instance.checked_members,
-            slots: instance.slots,
+            checked_members: (instance.checked_members).into(),
+            slots: (instance.slots).into(),
             contributions: instance.contributions,
         });
     }
@@ -1256,12 +1256,12 @@ mod dependency_tests {
                 .find(|binding| binding.instance == instances[0].instance)
                 .unwrap();
             if extra {
-                invalid_binding.checked_members.insert(
+                Arc::make_mut(&mut invalid_binding.checked_members).insert(
                     SemanticId::from_bytes([123; 16]),
                     SemanticId::from_bytes([124; 16]),
                 );
             } else {
-                invalid_binding.checked_members.pop_first();
+                Arc::make_mut(&mut invalid_binding.checked_members).pop_first();
             }
             let structure = Arc::new(
                 CaseStructure::new(
@@ -1295,8 +1295,7 @@ mod dependency_tests {
             .iter_mut()
             .find(|binding| binding.instance == instances[0].instance)
             .unwrap();
-        first
-            .checked_members
+        Arc::make_mut(&mut first.checked_members)
             .insert(token("member_0"), SemanticId::from_bytes([124; 16]));
         let rebound = CaseStructure::new(
             admitted.case.variables().to_vec(),

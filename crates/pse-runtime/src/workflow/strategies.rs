@@ -198,6 +198,7 @@ impl Runtime {
             return Err(contract("cone objective identity must be NIL"));
         }
         let quantities = physical.quantities.clone();
+        let preconditions = physical.preconditions.clone();
         let request = Arc::new(request);
         let source = request.clone();
         let allowance = self.shared.budget().math.workspace_bytes;
@@ -224,6 +225,7 @@ impl Runtime {
                     .collect();
                 let numerics = Arc::new(pse_math::numerics::resolve(
                     &quantities,
+                    &preconditions,
                     &targets,
                     &[],
                     &profile.numerics,

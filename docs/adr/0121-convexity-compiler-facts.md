@@ -14,7 +14,7 @@ superseded-by: null
 revisit: A maintained Rust library for curvature analysis or conic recognition over an expression DAG appears; curvature_sound_against_scip_oracle finds a row that the pass calls convex and SCIP proves nonconvex; or the C5 census shows that exact certificates exceed the preparation budget on the reference cases.
 verification: Plan 22 C4 tests clarabel_lp_matches_highs, clarabel_qp_farkas_certificate, farkas_certificate_verified_in_original_coordinates, almost_infeasible_is_not_certified, clarabel_mkl_pardiso_matches_qdldl, clarabel_chordal_matches_undecomposed and explicit_only_classes_never_automatic, with the C4 image loading check. C5 tests gram_certificate_yields_soc, exact_ldlt_certifies_nondiagonal_psd, recognized_exp_cone_routes_to_clarabel, unrecognized_problem_not_routed, convexity_fact_rebinds_with_values, numerical_psd_only_under_explicit_policy and curvature_sound_against_scip_oracle, with the C5 census rerun for coverage and preparation time.
 standard: core-3.1/process-simulator-1.1
-scenarios: [docs/plans/22-solver-capabilities-architecture.md#s18, docs/design_review/reviews/design_review_solver-scope-decisions_2026-09-28.md#s05]
+scenarios: [https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#s18, docs/design_review/reviews/design_review_solver-scope-decisions_2026-09-28.md#s05]
 ---
 
 # ADR-0121: Establish convexity and cone recognition as compiler facts
@@ -152,7 +152,7 @@ composition rules over a DAG that already exists, and exact arithmetic during pr
 
 - Solver scope packet [I10 and I11](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-scope-execution.md#improvements-over-the-target-design) and packets C4 and C5, which own progress.
 - [Change-tier review](../design_review/reviews/design_review_solver-scope-decisions_2026-09-28.md#adr-0121), finding F05.
-- Architecture companion [§8](../plans/22-solver-capabilities-architecture.md#8-coefficient-and-conic-extensions); capability review L-C5–L-C7 and [§8.4](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#84-coefficient-and-conic-highs-clarabel).
+- Architecture companion [§8](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/22-solver-capabilities-architecture.md#8-coefficient-and-conic-extensions); capability review L-C5–L-C7 and [§8.4](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#84-coefficient-and-conic-highs-clarabel).
 - Related: ADR-0102, ADR-0105, ADR-0106, ADR-0108, ADR-0109.
 
 ## Status history

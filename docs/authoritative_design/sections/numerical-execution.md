@@ -1433,7 +1433,7 @@ absence derives the actual classified native geometry rather than selecting anot
 Application heap storage remains opaque and deployment-owned. Retained storage transfers to its
 resource owner; completing a task releases its ledger and foreign allowance while resource tokens
 remain until teardown. The
-[25n Outcome](../../plans/25n-automatic-simulation-solve-pipeline.md#outcome)
+[25n Outcome](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25n-automatic-simulation-solve-pipeline.md#outcome)
 owns functional integration evidence and the qualification handoff.
 
 > Decision: [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) — SPRAL

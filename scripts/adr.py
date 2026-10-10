@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Decision-record tooling for pse-arrow (standard library only, Python >= 3.11).
+"""Decision-record tooling using the provisioned documentation environment.
 
-    python3 scripts/adr.py new <slug> --title "..."   allocate the next number
-    python3 scripts/adr.py lint                       validate every record
-    python3 scripts/adr.py index [--check]            regenerate the index
-    python3 scripts/adr.py supersede <old> <new>      symmetric supersession
+    python3 -m scripts.adr new <slug> --title "..."   allocate the next number
+    python3 -m scripts.adr lint                       validate every record
+    python3 -m scripts.adr index [--check]            regenerate the index
+    python3 -m scripts.adr supersede <old> <new>      symmetric supersession
 
-The front-matter parser understands the small YAML subset the template uses:
-scalars, ``[a, b]`` inline lists and ``null``. PyYAML is deliberately not a
-dependency: the tool has to run in a bare CI container before any environment
-is synced.
+Metadata is interpreted by the shared strict reader. Run just bootstrap-docs first.
 """
 
 from __future__ import annotations
@@ -101,35 +98,15 @@ Open items that were deliberately deferred live in [`register.md`](register.md).
 # --------------------------------------------------------------------------- #
 # front matter
 # --------------------------------------------------------------------------- #
-def parse_scalar(raw: str) -> object:
-    raw = raw.strip()
-    if raw in ("", "null", "~"):
-        return None
-    if raw.startswith("[") and raw.endswith("]"):
-        inner = raw[1:-1].strip()
-        if not inner:
-            return []
-        return [parse_scalar(part) for part in inner.split(",")]
-    if len(raw) >= 2 and raw[0] == raw[-1] and raw[0] in "\"'":
-        return raw[1:-1]
-    return raw
+def split_front_matter(
+    text: str, where: str, *, identity: str | None = None
+) -> tuple[dict[str, object], str]:
+    from scripts.document_metadata import (  # noqa: PLC0415 -- new-record bootstrap needs no docs parser
+        read,
+    )
 
-
-def split_front_matter(text: str, where: str) -> tuple[dict[str, object], str]:
-    if not text.startswith("---\n"):
-        raise ValueError(f"{where}: missing YAML front matter")
-    end = text.find("\n---\n", 3)
-    if end < 0:
-        raise ValueError(f"{where}: unterminated YAML front matter")
-    front: dict[str, object] = {}
-    for line in text[4:end].splitlines():
-        if not line.strip() or line.lstrip().startswith("#"):
-            continue
-        if ":" not in line:
-            raise ValueError(f"{where}: unparsable front-matter line {line!r}")
-        key, _, value = line.partition(":")
-        front[key.strip()] = parse_scalar(value)
-    return front, text[end + 5 :]
+    document = read(text, where, required=True, identity=identity, root=ROOT)
+    return document.metadata, document.body.decode("utf-8")
 
 
 def as_list(value: object) -> list[str]:
@@ -235,7 +212,7 @@ def lint() -> int:
             continue
         try:
             front, _body = split_front_matter(
-                path.read_text(encoding="utf-8"), str(rel)
+                path.read_text(encoding="utf-8"), str(rel), identity=rel.as_posix()
             )
         except ValueError as exc:
             errors.append(str(exc))
@@ -301,10 +278,10 @@ def lint() -> int:
 
     generated_readme = render_index()
     if README.exists() and README.read_text(encoding="utf-8") != generated_readme:
-        errors.append("docs/adr/README.md is stale; run `python3 scripts/adr.py index`")
+        errors.append("docs/adr/README.md is stale; run `python3 -m scripts.adr index`")
     elif not README.exists():
         errors.append(
-            "docs/adr/README.md is missing; run `python3 scripts/adr.py index`"
+            "docs/adr/README.md is missing; run `python3 -m scripts.adr index`"
         )
 
     for err in errors:
@@ -381,6 +358,31 @@ def relocated_review(old: str, new: str) -> bool:
         and object_state(commit, path) != "absent"
         and same_as_baseline(commit, path)
     )
+
+
+def relocated_scenarios(old: object, new: object) -> bool:
+    """Only same-path, same-fragment immutable relocation preserves a scenario list."""
+    original, current = as_list(old), as_list(new)
+    if len(original) != len(current):
+        return False
+    slug = repository_slug()
+    for before, after in zip(original, current, strict=True):
+        if before == after:
+            continue
+        match = re.fullmatch(
+            r"https://github\.com/([\w.-]+/[\w.-]+)/blob/([0-9a-f]{12,40})/([^#\s]+)(#\S+)?",
+            after,
+        )
+        if match is None:
+            return False
+        repository, commit, path, fragment = match.groups()
+        if slug and repository != slug:
+            return False
+        if before != path + (fragment or "") or (ROOT / path).exists():
+            return False
+        if object_state(commit, path) == "absent" or not same_as_baseline(commit, path):
+            return False
+    return True
 
 
 def unrelocate_links(
@@ -519,9 +521,9 @@ def lint_immutability(paths: list[Path]) -> list[str]:
         if code != 0:
             continue  # new record in this branch
         try:
-            old_front, old_body = split_front_matter(old_text, rel)
+            old_front, old_body = split_front_matter(old_text, rel, identity=rel)
             new_front, new_body = split_front_matter(
-                path.read_text(encoding="utf-8"), rel
+                path.read_text(encoding="utf-8"), rel, identity=rel
             )
         except ValueError as exc:
             errors.append(str(exc))
@@ -533,6 +535,10 @@ def lint_immutability(paths: list[Path]) -> list[str]:
                 continue
             if key == "review" and relocated_review(
                 str(old_front.get(key) or ""), str(new_front.get(key) or "")
+            ):
+                continue
+            if key == "scenarios" and relocated_scenarios(
+                old_front.get(key), new_front.get(key)
             ):
                 continue
             if old_front.get(key) != new_front.get(key):
@@ -567,7 +573,11 @@ def lint_immutability(paths: list[Path]) -> list[str]:
 def render_index() -> str:
     rows = []
     for path in adr_paths():
-        front, _ = split_front_matter(path.read_text(encoding="utf-8"), str(path))
+        front, _ = split_front_matter(
+            path.read_text(encoding="utf-8"),
+            str(path),
+            identity=path.relative_to(ROOT).as_posix(),
+        )
         ident = str(front.get("id"))
         title = str(front.get("title"))
         blueprint = ", ".join(as_list(front.get("blueprint"))) or "—"
@@ -631,26 +641,47 @@ def new(slug: str, title: str) -> int:
     text = text.replace("YYYY-MM-DD", datetime.date.today().isoformat())
     path.write_text(text, encoding="utf-8")
     print(f"adr new: {path.relative_to(ROOT)}")
-    print("next: fill the §H fields, then run `python3 scripts/adr.py index`")
+    print("next: fill the §H fields, then run `python3 -m scripts.adr index`")
     return 0
 
 
 def set_field(path: Path, key: str, value: str) -> None:
-    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    from scripts.document_metadata import (  # noqa: PLC0415 -- metadata operation boundary
+        read,
+    )
+
+    raw = path.read_bytes()
+    document = read(
+        raw,
+        str(path),
+        required=True,
+        identity=path.relative_to(ROOT).as_posix(),
+        root=ROOT,
+    )
+    if key not in document.metadata:
+        raise SystemExit(f"error: {path.name} has no {key}: field")
+    lines = document.prefix.splitlines(keepends=True)
     for i, line in enumerate(lines):
-        if line.startswith(f"{key}:"):
-            lines[i] = f"{key}: {value}\n"
+        if line.startswith(f"{key}:".encode()):
+            newline = b"\r\n" if line.endswith(b"\r\n") else b"\n"
+            lines[i] = f"{key}: {value}".encode() + newline
             break
     else:
         raise SystemExit(f"error: {path.name} has no {key}: line")
-    path.write_text("".join(lines), encoding="utf-8")
+    path.write_bytes(b"".join(lines) + document.body)
 
 
 def supersede(old_ref: str, new_ref: str) -> int:
     old, new_path = resolve(old_ref), resolve(new_ref)
-    old_front, _ = split_front_matter(old.read_text(encoding="utf-8"), str(old))
+    old_front, _ = split_front_matter(
+        old.read_text(encoding="utf-8"),
+        str(old),
+        identity=old.relative_to(ROOT).as_posix(),
+    )
     new_front, _ = split_front_matter(
-        new_path.read_text(encoding="utf-8"), str(new_path)
+        new_path.read_text(encoding="utf-8"),
+        str(new_path),
+        identity=new_path.relative_to(ROOT).as_posix(),
     )
     set_field(old, "status", "superseded")
     set_field(old, "superseded-by", str(new_front["id"]))

@@ -11,7 +11,7 @@ use crate::{
 use arrow_schema::DataType;
 
 /// Exact schema/codec/structural-operation interpretation.
-pub const INTERPRETATION: &str = "pse.substrate.v2";
+pub const INTERPRETATION: &str = "pse.substrate.v3";
 
 /// Self-contained scientific IPC admission, independent of derived indexes.
 pub const RESULT_BLOCK_BYTES: usize = 512 * 1024;
@@ -46,6 +46,7 @@ macro_rules! indexes {
     };
 }
 indexes! {
+    guard_incarnation: canonical_guards [incarnation] true,
     membership_selection: canonical_memberships [problem, scope, name, from_sequence] false,
     membership_active: canonical_memberships [problem, to_sequence] false,
     version_logical: canonical_versions [logical] false,
@@ -178,7 +179,12 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         ),
         (
             "canonical_guards",
-            vec![column("key", text()), column("generation", uint())],
+            vec![
+                column("key", text()),
+                column("generation", uint()),
+                column("incarnation", text()).optional(),
+                column("analysis_creation_closed_through", uint()).optional(),
+            ],
             "Named conflict register; generation is separate from semantic eligibility.",
         ),
         (
@@ -477,10 +483,16 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("method", text()),
                 column("configuration", bytes()),
                 column("input_digest", text()),
+                column("primary_problem", text()),
+                column("primary_authority", text()),
+                column("creation_nonce", text()),
+                column("creation_request_digest", text()),
+                column("creation_expires_at", uint()),
                 column("interpretation", text()),
                 column("node_count", uint()),
                 column("edge_count", uint()),
                 column("active", flag()),
+                column("retiring", flag()),
             ],
             "Derived analysis method, exact configuration and source lineage; activation follows complete graph membership and never changes authored problem authority.",
         ),
@@ -524,11 +536,6 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("manifest", text()),
             ],
             "Exact admitted result selection consumed by a retained derived analysis; native cleanup respects this retention obligation.",
-        ),
-        (
-            "canonical_analysis_retirements",
-            vec![column("key", text()), column("analysis", text())],
-            "Explicit withdrawal of analysis source and result retention while preserving its original method lineage receipts.",
         ),
         (
             "canonical_result_seeds",

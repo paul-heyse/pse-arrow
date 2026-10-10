@@ -550,6 +550,7 @@ impl ShootingProblem {
         ));
         let numerics = pse_math::numerics::resolve(
             &simulation.source.quantities,
+            &simulation.source.physical.preconditions,
             &targets,
             &[],
             &request.solver.numerics,
@@ -1598,32 +1599,6 @@ impl ShootingProblem {
             &self.numerics.policy,
         )
         .with_context(&self.numerics);
-    }
-    pub(super) fn encoding_bytes(
-        &self,
-        report: Option<&ShootingReport>,
-    ) -> Result<usize, crate::math::MathRuntimeError> {
-        let variables = self
-            .contract
-            .variables
-            .len()
-            .checked_mul(size_of::<pse_model::generated::runtime::solve_variables::Row>());
-        let rows = self.contract.rows.len().checked_mul(size_of::<
-            pse_model::generated::runtime::solve_constraints::Row,
-        >());
-        variables
-            .and_then(|n| rows.and_then(|r| n.checked_add(r)))
-            .and_then(|n| n.checked_add(report.map_or(0, ShootingReport::numeric_bytes)))
-            .and_then(|n| {
-                self.solver
-                    .controls
-                    .report_allowance()
-                    .ok()
-                    .and_then(|a| n.checked_add(a))
-            })
-            .ok_or(crate::math::MathRuntimeError::Limit(
-                "shooting encoding extent",
-            ))
     }
     pub(super) fn constraint_bounds(&self) -> &[(f64, f64)] {
         &self.bounds

@@ -26,9 +26,9 @@ lists only work that is actually active.
 **not affiliated with, endorsed by, or derived from** the IDAES project or its sponsors.
 `external/idaes-pse` (fetched, never vendored) is read to understand *behaviour*; source
 is never copied. The only durable coupling is the parity harness, which pins
-`idaes-pse==2.12.0` and compares numerical trajectories; moving that pin requires an ADR.
-A small set of enumerations is preserved by name for interoperability, and those are
-listed explicitly in blueprint §6.14.
+`idaes-pse==2.13.0` and compares the explicitly selected scientific cases. Scientific
+vocabularies have local meaning rather than a historical spelling obligation
+(blueprint §6.14, ADR-0160).
 
 See [`docs/relationship-to-idaes.md`](docs/relationship-to-idaes.md) for the full
 statement: the clean-room rule, the parity pin and how it moves, the trademark and
@@ -42,9 +42,11 @@ just bootstrap   # install the pinned toolchain, tools, and environments
 just --list      # the command surface — this list is the contract
 ```
 
-`just --list` is the contract: every gate a pull request must pass has a recipe, grouped
-by cost tier (`env`, `discovery`, `local`, `manual`, `decisions`, `mutating`).
-Mutating recipes are `[confirm]`-guarded and are never a gate dependency.
+`just --list` lists recipes by cost tier (`env`, `discovery`, `local`, `manual`,
+`decisions`, `mutating`). Recipes are shortcuts, not commit, push or merge gates;
+GitHub check workflows run only when manually dispatched. See
+[the execution rhythm](AGENTS.md#execution-rhythm-functional-scope-first-static-checks-at-scope-end)
+for when targeted checks and assembled qualification apply.
 
 ## Layout
 

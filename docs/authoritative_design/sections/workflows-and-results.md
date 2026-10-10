@@ -426,13 +426,32 @@ The completion owner creates the successful Simulation header once. Shooting tra
 consumes its coherent joined report and enclosing optimizer header. Exporters never select
 an independent kind or recalculate qualification.
 
-Direct trajectory transport lazily publishes one successful complete map of checked batches,
-serialized across clones. Failed encoding releases partial allocations and leaves no cache;
-a later direct access can retry without another solve or assessment. The outer `RunResult`
-retains its existing sticky encoding-error contract. Container metadata is admitted before
-growth and retained with escaped batches; shared buffers keep their existing leases. First
-access materializes the whole map, so a budget fitting one relation may still refuse. No
-speed or memory claim follows without representative measurements.
+> Decision: ADR-0169 (proposed; maintainer-authorized Plan 33 implementation).
+
+Result transport derives relation inventory and scientific headers from immutable completion
+and request ownership. Name discovery performs no payload encoding. One relation-aware
+projection serves selective access, explicit complete-table convenience and bounded cursors.
+Clones share intrinsic content, schema or encoding-contract failures per relation; a defect
+in one relation does not poison another or change scientific completion. Cancellation,
+transport/destination failure and allocation refusal caused by requested materialization
+remain request-local and cannot poison later bounded export.
+
+Single-table convenience may allocate its complete requested relation; complete-table
+convenience requires every advertised relation. Assembly and container allocation may refuse
+independently of bounded export. Streaming retains bounded current work and deliberately
+retained buffers, without caching every emitted chunk. A prefix is incomplete until successful
+terminal completion. Schemas, units, logical ordering, exact identities and partial-result
+interpretation remain owned by the existing result contracts; escaped buffers retain their
+allocation owners.
+
+Durable export uses one cursor per required relation with stable global row coordinates,
+block ordinals and exact ranges, sealing the complete required manifest before activation.
+Empty advertised relations retain schema and manifest membership. Public simulation traversal
+remains sample-major; canonical output-major traversal preserves exact scientific coordinates
+through the same projection. Chunk boundaries cannot reset or independently reorder global
+storage coordinates. Backpressure bounds outstanding chunks, while consumer-retained buffers
+remain separately charged. Interrupted prefixes never become active complete results.
+
 
 **Staged sequences.** Every algebraic run is one staged sequence
 (`workflow::staged::Staged`). `ModelingSolvePreparation::start` runs a one-step authored
@@ -568,8 +587,9 @@ pages of at most 64 rows. Current methods are
 `result-sensitivity-provenance-reachability:v1`, bounded to 4,096 nodes, 8,192 edges and
 64 selected roots. Result analysis refuses an evidence relation above 4,096 rows instead
 of accepting its prefix. These are bounded methods, not a general graph scaling claim.
-Explicit analysis retirement withdraws its input retention obligations while preserving
-immutable lineage receipts ([§20.4](identity-and-publication.md#section-20-4)).
+Explicit analysis retirement removes its graph, lineage, inputs and all temporary lifecycle
+state after immutable creation authority is fenced and bounded cleanup completes (ADR-0172).
+Surviving input rows retain results until physical deletion ([§20.4](identity-and-publication.md#section-20-4)).
 
 ### 19.3 Studies and reuse
 
@@ -667,7 +687,7 @@ records a value rebind for its first point as well as subsequent points, without
 Equal structures reuse compiler/library
 products while admitted values remain explicit inputs. Historic measurements retain their
 original scope; the owning [Plan 25f](https://github.com/paul-heyse/pse-arrow/blob/ad665a0222551196b1160e426f5242361215a6a0/docs/plans/25f-studies-diagnostics-and-continuation.md)
-records replacement-control evidence and [25k](../../plans/25k-integrated-qualification-and-closure.md)
+records replacement-control evidence and [25k](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/25k-integrated-qualification-and-closure.md)
 owns assembled qualification.
 
 **Durable adapter.** `Runtime::start_study(physical_sources, request)` admits a raw request;
@@ -1048,7 +1068,14 @@ set of terminal classes and native run sequence, never wall-clock ordering or su
 substitution. `progress(run, attempt)` reads the selected closed progress history.
 `analysis(key)` opens an exact active analysis; `result_analysis` records retained sensitivity
 provenance, and prepared solves expose dependency analysis. The analysis handle reads its
-header and bounded node/edge pages. Local `export_results` writes a complete provenance-bearing
+header and bounded node/edge pages. `forget_analysis_results(key)` removes one bounded
+page and returns `False` while cleanup or creation settlement remains pending; `True`
+means all per-analysis state was removed behind the source-authority creation fence
+(ADR-0172). An unknown key without valid original creation authority refuses rather than treating absence
+as settlement. The original occurrence key carries its immutable authority and expiry, so it
+can resolve an uncertain final acknowledgement through exact settlement after header deletion.
+An uncertain publication diagnostic exposes `analysis_key`; a joined Python signal preserves
+the same key even if cancellation arrives after publication dispatch. Local `export_results` writes a complete provenance-bearing
 IPC file under the completion rule in [§19.2](#section-19-2). Public SQL, operational-store,
 workspace and publication APIs have no compatibility facade.
 
@@ -1089,6 +1116,12 @@ cancelling an async waiter requests native stop while the handle keeps the event
 terminal result. Repeated waits never rerun a solver. A run handle supervises one staged
 sequence ([§19.2](#section-19-2)); a single solve is a one-step sequence on its own native
 session.
+
+> Decision: ADR-0169 (proposed; maintainer-authorized Plan 33 implementation).
+
+Python result `tables()` discovers relation names from immutable inventory without encoding
+payloads. `table(name)` consumes only that relation through the common projection and its
+relation-local intrinsic/request-local delivery semantics ([§19.2](#section-19-2)).
 
 Scientific and metadata tables cross as one-consumption `TableStream` objects exposing
 `__arrow_c_stream__`, never as parallel row objects or materialized on both sides. The capsule
