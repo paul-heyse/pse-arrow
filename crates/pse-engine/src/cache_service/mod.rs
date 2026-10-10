@@ -120,6 +120,7 @@ pub struct NativeCacheService {
     queries: Arc<tokio::sync::Semaphore>,
     outputs: Arc<tokio::sync::Semaphore>,
     predicate_live: Arc<AtomicUsize>,
+    maintenance: Arc<pse_columnar::retention::RetentionFence>,
 }
 /// An independently owned cache family sharing the deployment's native resources.
 pub trait CacheComponent: std::fmt::Debug + Send + Sync {
@@ -178,9 +179,11 @@ impl NativeCacheService {
                 component.invalidate();
             }
         }
-        self.metadata.clear();
-        self.statistics.clear();
-        self.listing.clear();
+        self.maintenance.clear(|| {
+            self.metadata.clear();
+            self.statistics.clear();
+            self.listing.clear();
+        });
     }
     /// Reserve every native file-cache capacity before creating its cache.
     /// # Errors
@@ -192,6 +195,7 @@ impl NativeCacheService {
         };
         policy.validate(maximum).map_err(pse_columnar::external)?;
         let service = Arc::new(Self {
+            maintenance: Arc::default(),
             model: crate::session::cache::model::ModelCache::new(policy.model_result_bytes),
             metrics: metrics::Metrics::default(),
             syntax: Envelope::new("pse.cache.syntax", policy.syntax_bytes, None, pool)?,
@@ -242,11 +246,23 @@ impl NativeCacheService {
     /// Native configuration retaining all capacity owners through cache Arcs.
     fn config(&self, generation: usize) -> CacheManagerConfig {
         CacheManagerConfig::default()
-            .with_file_metadata_cache(Some(Namespaced::new(self.metadata.clone(), generation)))
+            .with_file_metadata_cache(Some(Namespaced::new(
+                self.metadata.clone(),
+                generation,
+                self.maintenance.clone(),
+            )))
             .with_metadata_cache_limit(self.policy.metadata_bytes)
-            .with_file_statistics_cache(Some(Namespaced::new(self.statistics.clone(), generation)))
+            .with_file_statistics_cache(Some(Namespaced::new(
+                self.statistics.clone(),
+                generation,
+                self.maintenance.clone(),
+            )))
             .with_file_statistics_cache_limit(self.policy.statistics_bytes)
-            .with_list_files_cache(Some(Namespaced::new(self.listing.clone(), generation)))
+            .with_list_files_cache(Some(Namespaced::new(
+                self.listing.clone(),
+                generation,
+                self.maintenance.clone(),
+            )))
             .with_list_files_cache_limit(self.policy.listing_bytes)
             .with_list_files_cache_ttl(self.policy.listing_ttl)
     }

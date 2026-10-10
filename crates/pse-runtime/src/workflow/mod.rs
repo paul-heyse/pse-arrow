@@ -249,6 +249,19 @@ pub struct Runtime {
     pub(crate) durability: Durability,
     physical_cache: Arc<physical_cache::PhysicalCache>,
 }
+/// Select execution durability within this runtime's canonical deployment and pool.
+#[derive(Clone, Debug)]
+pub enum DurabilitySelection {
+    /// Execute without retaining canonical run records.
+    Ephemeral,
+    /// Retain canonical run records with the selected worker and lease policy.
+    Durable {
+        /// Worker identity used for authority claims.
+        worker: String,
+        /// Finite lease and renewal policy.
+        policy: LeasePolicy,
+    },
+}
 impl Runtime {
     pub(crate) fn validation_context(
         &self,
@@ -263,12 +276,15 @@ impl Runtime {
     }
     /// Attach to the already configured shared deployment; creates no second executor or budget.
     /// Scientific source revisions and compilation products use the supplied canonical deployment.
+    /// # Errors
+    /// A consumed factory service belongs to another deployment.
     pub fn from_shared(
         shared: Arc<SharedRuntime>,
         registry: Arc<pse_schema::Registry>,
         sessions: Arc<EngineFactory>,
         canonical: CanonicalDeployment,
-    ) -> Self {
+    ) -> Result<Self, WorkflowError> {
+        Self::check_deployment(&shared, &sessions)?;
         let durability = Durability::Durable(Box::new(Operations::from_store(
             canonical.store().clone(),
             Operations::process_worker("runtime"),
@@ -278,14 +294,71 @@ impl Runtime {
         let physical_cache = Arc::new(physical_cache::PhysicalCache::default());
         let component: Arc<dyn pse_engine::cache_service::CacheComponent> = physical_cache.clone();
         shared.caches().register_component(&component);
-        Self {
+        Ok(Self {
             shared,
             registry,
             sessions,
             canonical,
             durability,
             physical_cache,
-        }
+        })
+    }
+    fn check_deployment(
+        shared: &SharedRuntime,
+        sessions: &EngineFactory,
+    ) -> Result<(), WorkflowError> {
+        let pool = shared.pool();
+        let expected = shared.runtime_env();
+        let state = sessions.native_state();
+        let actual = state.runtime_env();
+        let same = |matches: bool, owner: &str| {
+            if matches {
+                Ok(())
+            } else {
+                Err(contract(format!(
+                    "workflow factory {owner} belongs to another deployment"
+                )))
+            }
+        };
+        same(Arc::ptr_eq(sessions.pool(), &pool), "allocation pool")?;
+        same(
+            Arc::ptr_eq(&actual.memory_pool, &pool),
+            "native allocation pool",
+        )?;
+        same(
+            Arc::ptr_eq(&actual.disk_manager, &expected.disk_manager),
+            "spill manager",
+        )?;
+        same(
+            Arc::ptr_eq(&actual.cache_manager, &expected.cache_manager),
+            "native cache manager",
+        )?;
+        same(
+            Arc::ptr_eq(
+                &actual.object_store_registry,
+                &expected.object_store_registry,
+            ),
+            "object store registry",
+        )?;
+        let caches = state
+            .config()
+            .get_extension::<pse_engine::cache_service::NativeCacheService>()
+            .ok_or_else(|| contract("workflow factory cache service is absent"))?;
+        same(Arc::ptr_eq(&caches, shared.caches()), "cache service")?;
+        same(Arc::ptr_eq(caches.pool(), &pool), "cache allocation pool")?;
+        let cpu = state
+            .config()
+            .get_extension::<pse_engine::resources::CpuAdmission>()
+            .ok_or_else(|| contract("workflow factory CPU admission is absent"))?;
+        same(
+            Arc::ptr_eq(&cpu.permits, &shared.compiler_cpu()),
+            "CPU admission",
+        )?;
+        same(
+            cpu.workers.get() as usize == shared.budget().threads.pool_threads.get(),
+            "CPU deployment width",
+        )?;
+        Ok(())
     }
     /// Configured canonical scientific deployment.
     pub fn canonical(&self) -> &CanonicalDeployment {
@@ -293,10 +366,29 @@ impl Runtime {
     }
     /// The same deployment under an explicit durability class (ADR-0114 Outcome 16).
     /// Packages and preparations made from the returned runtime run under it.
-    #[must_use]
-    pub fn with_durability(mut self, durability: Durability) -> Self {
-        self.durability = durability;
-        self
+    /// # Errors
+    /// Durable lease or heartbeat intervals are zero.
+    pub fn with_durability(
+        mut self,
+        selection: DurabilitySelection,
+    ) -> Result<Self, WorkflowError> {
+        self.durability = match selection {
+            DurabilitySelection::Ephemeral => Durability::Ephemeral,
+            DurabilitySelection::Durable { worker, policy } => {
+                if policy.heartbeat.is_zero() || policy.lease.is_zero() {
+                    return Err(contract(
+                        "durable heartbeat and lease intervals must be positive",
+                    ));
+                }
+                Durability::Durable(Box::new(Operations::from_store(
+                    self.canonical.store().clone(),
+                    worker,
+                    policy,
+                    self.shared.pool(),
+                )))
+            }
+        };
+        Ok(self)
     }
     /// The durability class of this runtime's runs.
     pub const fn durability(&self) -> &Durability {

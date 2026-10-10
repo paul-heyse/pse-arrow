@@ -216,7 +216,7 @@ impl MathService {
             vec![41, Arc::as_ptr(&products) as usize],
             products.clone(),
             lease,
-            vec![source.prepared.owner.clone()],
+            vec![source.prepared._owner.clone()],
         )?;
         let backend = original
             .backend()
@@ -270,12 +270,12 @@ impl MathService {
             tokio::pin!(binding);
             let (bound, lease) = tokio::select! { result=&mut binding=>result?, ()=driver.cancelled()=>{ control.cancel(); let _=binding.await; return Err(MathRuntimeError::Cancelled); } };
             scope.check().map_err(ProblemError::Provider)?;
-            let preparation = Self::own_binding(
+            let preparation = self.own_binding(
                 owner.clone(),
                 bound,
                 lease,
                 Arc::new(std::sync::OnceLock::from(executable.clone())),
-            );
+            )?;
             let mut profile = original.profile.clone();
             profile.presolve = native::presolve::Policy::Off;
             profile.intent = SolveIntent::Initialize;
@@ -379,11 +379,11 @@ impl MathService {
                 };
                 let bound = local.prepared.prepared.rebind(&values, &execution.cancel)?;
                 let bytes = bound.rebind_allocation_bytes(&local.prepared.prepared);
-                local.prepared = Self::own_rebind(
+                local.prepared = self.own_rebind(
                     &local.prepared,
                     bound,
                     self.reserve("math:block-rebind", bytes)?,
-                );
+                )?;
                 local.values = values.clone();
                 step.compatibility = Some(compatibility(
                     &local.prepared.prepared.plan,

@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from scripts import pse_env
+from scripts import pse_env, surreal_server
 
 
 def identity(_root: Path, env: dict[str, str]) -> dict[str, str]:
@@ -512,6 +512,160 @@ class PseEnvTests(unittest.TestCase):
 
 
 class StoreReadinessTests(unittest.TestCase):
+    def test_functional_explicit_store_demand_resumes_only_selected_independent_store(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state = Path(temporary) / "selected"
+            state.mkdir(mode=0o700)
+            directory = Path(temporary) / "admission"
+            config: dict[str, object] = {
+                "parked": True,
+                "admission": "quiesced",
+                "accepting_writes": False,
+                "resources": surreal_server.execution_resources("functional"),
+                "instance_id": "selected-functional",
+                "service_class": "functional",
+                "resident": True,
+            }
+            surreal_server.write_json(state / "config.json", config)
+            caller = MagicMock(spec=pse_env.host.Allocation)
+            caller.profile = pse_env.host.select("functional")
+            deadline = time.monotonic() + 1
+
+            def resume(selected: Path) -> None:
+                self.assertEqual(selected, state)
+                # Startup retains its ordinary independent store allocation,
+                # rather than borrowing this non-exclusive scientific caller.
+                storage = surreal_server.service_allocation(selected, config, deadline)
+                self.assertEqual(
+                    storage.profile, pse_env.host.select("store-functional")
+                )
+                config.update(parked=False, admission="open", accepting_writes=True)
+                surreal_server.write_json(state / "config.json", config)
+
+            with (
+                patch.object(pse_env.host, "root_path", return_value=directory),
+                patch.object(pse_env.host, "inherit", return_value=caller),
+                patch.object(
+                    pse_env.host,
+                    "memory_info",
+                    return_value={"MemAvailable": 1 << 40, "MemTotal": 1 << 40},
+                ),
+                patch.object(pse_env.host, "cpu_set", side_effect=tuple),
+                patch.object(
+                    surreal_server, "unpark_service", side_effect=resume
+                ) as resumed,
+                patch.object(
+                    surreal_server, "config_for", side_effect=lambda _: dict(config)
+                ),
+                patch.object(surreal_server, "ready", return_value=True),
+                patch.object(surreal_server, "start") as start,
+            ):
+                pse_env.require_store({"PSE_SURREAL_STATE": str(state)})
+            resumed.assert_called_once_with(state)
+            start.assert_not_called()
+            launch = surreal_server.read_json(state / "service-launch.json")
+            self.assertEqual(launch["deadline"], deadline)
+            with pse_env.host.allocation_metadata(directory) as ledger:
+                (storage,) = ledger["owners"].values()
+                self.assertEqual(storage["class"], "store-functional")
+                self.assertEqual(storage["memory"], 8 * pse_env.host.GIB)
+                self.assertEqual(storage["service"], str(state))
+
+    def test_functional_store_demand_cannot_resume_reference_partition(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state = Path(temporary)
+            config: dict[str, object] = {
+                "parked": True,
+                "admission": "quiesced",
+                "accepting_writes": False,
+                "resources": surreal_server.reference_resources(),
+            }
+            surreal_server.write_json(state / "config.json", config)
+            original = (state / "config.json").read_bytes()
+            caller = MagicMock(spec=pse_env.host.Allocation)
+            caller.profile = pse_env.host.select("functional")
+            with (
+                patch.object(pse_env.host, "inherit", return_value=caller),
+                patch.object(
+                    surreal_server,
+                    "unpark_service",
+                    side_effect=lambda selected: surreal_server.service_allocation(
+                        selected, config, time.monotonic() + 1
+                    ),
+                ),
+                patch.object(pse_env.host, "acquire") as acquire,
+                patch.object(surreal_server, "ready") as ready,
+                self.assertRaisesRegex(
+                    pse_env.host.AdmissionError, "Resident store request exceeds"
+                ),
+            ):
+                pse_env.require_store({"PSE_SURREAL_STATE": str(state)})
+            acquire.assert_not_called()
+            ready.assert_not_called()
+            self.assertEqual((state / "config.json").read_bytes(), original)
+
+    def test_selected_parked_store_unknown_readiness_refusal_escapes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state = Path(temporary)
+            surreal_server.write_json(
+                state / "config.json", {"parked": True, "admission": "quiesced"}
+            )
+            original = (state / "config.json").read_bytes()
+            caller = MagicMock(spec=pse_env.host.Allocation)
+            caller.profile = pse_env.host.select("functional")
+            with (
+                patch.object(pse_env.host, "inherit", return_value=caller),
+                patch.object(
+                    surreal_server,
+                    "unpark_service",
+                    side_effect=surreal_server.SupervisorError(
+                        "Service readiness is unavailable; startup refused"
+                    ),
+                ),
+                patch.object(surreal_server, "start") as start,
+                patch.object(surreal_server, "ready") as ready,
+                self.assertRaisesRegex(surreal_server.SupervisorError, "unavailable"),
+            ):
+                pse_env.require_store({"PSE_SURREAL_STATE": str(state)})
+            start.assert_not_called()
+            ready.assert_not_called()
+            self.assertEqual((state / "config.json").read_bytes(), original)
+
+    def test_store_precheck_without_admitted_owner_is_readonly(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state = Path(temporary)
+            for admission, parked, allowed in (
+                ("open", False, True),
+                ("quiesced", True, True),
+                ("quiesced", False, False),
+                ("validation_required", True, False),
+            ):
+                with self.subTest(admission=admission, parked=parked):
+                    surreal_server.write_json(
+                        state / "config.json",
+                        {"admission": admission, "parked": parked},
+                    )
+                    original = (state / "config.json").read_bytes()
+                    with (
+                        patch.object(pse_env.host, "inherit", return_value=None),
+                        patch.object(surreal_server, "unpark_service") as resume,
+                        patch.object(surreal_server, "start") as start,
+                        patch.object(surreal_server, "ready") as ready,
+                    ):
+                        if allowed:
+                            pse_env.require_store({"PSE_SURREAL_STATE": str(state)})
+                        else:
+                            with self.assertRaisesRegex(
+                                pse_env.BoundaryError, "not admitted"
+                            ):
+                                pse_env.require_store({"PSE_SURREAL_STATE": str(state)})
+                    resume.assert_not_called()
+                    start.assert_not_called()
+                    ready.assert_not_called()
+                    self.assertEqual((state / "config.json").read_bytes(), original)
+
     def test_unset_up_store_fails_with_the_setup_commands(self) -> None:
         with (
             tempfile.TemporaryDirectory() as directory,

@@ -19,10 +19,10 @@ use pse_runtime::{
     authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned},
     math::{settings::SolveSettings, solves::Outcome},
     workflow::{
-        CaseOperation, Durability, LeasePolicy, ModelingPackage, OperationRequest, Operations,
-        PackageSources, PhysicalContext, PointOverlay, PreparationSettings, RunReport, RunRequest,
-        Runtime, StartSource, StoredStart, StudyHandle, StudyPlan, StudyPoint, StudyPointPolicy,
-        StudyPointState, StudyState,
+        CaseOperation, Durability, DurabilitySelection, LeasePolicy, ModelingPackage,
+        OperationRequest, Operations, PackageSources, PhysicalContext, PointOverlay,
+        PreparationSettings, RunReport, RunRequest, Runtime, StartSource, StoredStart, StudyHandle,
+        StudyPlan, StudyPoint, StudyPointPolicy, StudyPointState, StudyState,
     },
 };
 use std::{collections::BTreeMap, num::NonZeroUsize, path::Path, sync::Arc, time::Duration};
@@ -401,7 +401,8 @@ fn runtime_with_store(
                 },
                 None,
             ),
-        ),
+        )
+        .unwrap(),
     )
 }
 
@@ -617,7 +618,8 @@ fn scip_runtime() -> (Arc<SharedRuntime>, Runtime) {
                 },
                 None,
             ),
-        ),
+        )
+        .unwrap(),
     )
 }
 
@@ -634,21 +636,22 @@ const PARAMETRIC: &str = r#"package algebraic { def Root {
 } }"#;
 
 fn bind_operations(
-    shared: &SharedRuntime,
+    _shared: &SharedRuntime,
     local: Runtime,
     worker: &str,
     policy: LeasePolicy,
 ) -> (Runtime, Operations) {
-    let operations = Operations::from_store(
-        local.canonical_store().clone(),
-        worker,
-        policy,
-        shared.pool(),
-    );
-    (
-        local.with_durability(Durability::Durable(Box::new(operations.clone()))),
-        operations,
-    )
+    let local = local
+        .with_durability(DurabilitySelection::Durable {
+            worker: worker.into(),
+            policy,
+        })
+        .unwrap();
+    let Durability::Durable(operations) = local.durability() else {
+        panic!("accepted durable selection must install its operations owner")
+    };
+    let operations = operations.as_ref().clone();
+    (local, operations)
 }
 fn occurrence(
     case: pse_model::generated::identities::DeclarationId,
@@ -851,6 +854,7 @@ async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
             assert!(supervisor_python("from scripts import surreal_server as s; import os,pathlib; p=pathlib.Path(os.environ['PSE_SURREAL_STATE']); s.workers_drained(p,s.config_for(p))").status().unwrap().success());
             drop(handle);
             drop(package);
+            local.clear_program_cache();
             local
                 .canonical_store()
                 .remove_isolated_fixture()
@@ -896,6 +900,7 @@ async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
         previous = Some(identity);
     }
     drop(package);
+    local.clear_program_cache();
     local
         .canonical_store()
         .remove_isolated_fixture()
@@ -941,6 +946,7 @@ async fn worker_runs_authored_case_end_to_end() {
     drop(progress);
     drop(handle);
     drop(package);
+    local.clear_program_cache();
     local
         .canonical_store()
         .remove_isolated_fixture()
@@ -974,6 +980,7 @@ async fn durable_worker_round_trips_a_package_with_a_data_document() {
     assert_value(&local, &point.run, point.attempt.as_deref().unwrap(), 3.).await;
     drop(handle);
     drop(package);
+    local.clear_program_cache();
     local
         .canonical_store()
         .remove_isolated_fixture()
@@ -1197,7 +1204,11 @@ async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authore
     assert!(replacement.terminal);
     assert!(replacement.generation > lost.generation);
     drop(events);
+    drop(record);
     drop(handle);
+    // The runtime may retain physical admissions after the caller has departed.
+    // Retire that optional ownership before the store's authentic protection drain.
+    local.clear_program_cache();
     local
         .canonical_store()
         .remove_isolated_fixture()
@@ -1237,6 +1248,7 @@ async fn cross_process_cancel_stops_scip() {
         Some("cancelled")
     );
     drop(handle);
+    local.clear_program_cache();
     local
         .canonical_store()
         .remove_isolated_fixture()
@@ -1348,6 +1360,7 @@ async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
     assert_eq!(summary.points.len(), POINTS);
     drop(handle);
     drop(package);
+    local.clear_program_cache();
     local
         .canonical_store()
         .remove_isolated_fixture()

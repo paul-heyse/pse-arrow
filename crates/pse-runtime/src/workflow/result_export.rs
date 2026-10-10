@@ -373,6 +373,7 @@ impl<'a> SelectedCollection<'a> {
         trace: &crate::math::solves::StrategyTrace,
         run: pse_model::generated::identities::RunId,
         step: usize,
+        service: &crate::math::MathService,
     ) -> Result<(), WorkflowError> {
         if !self
             .request
@@ -383,7 +384,7 @@ impl<'a> SelectedCollection<'a> {
         let (end, range) = self.strategy_window(trace.event_count())?;
         if !range.is_empty() {
             for row in trace
-                .rows(run, step, self.pool.clone(), range)
+                .rows(run, step, service, range)
                 .map_err(crate::math::MathRuntimeError::from)?
             {
                 self.push(row.map_err(crate::math::MathRuntimeError::from)?)
@@ -477,8 +478,11 @@ impl<'a, T: RelationRow> Rows<'a, T> {
         trace: &crate::math::solves::StrategyTrace,
         run: pse_model::generated::identities::RunId,
         step: usize,
+        service: &crate::math::MathService,
     ) -> Result<(), WorkflowError> {
-        self.columns.strategy_events(trace, run, step).await
+        self.columns
+            .strategy_events(trace, run, step, service)
+            .await
     }
     pub(super) async fn strategy_products(
         &mut self,
@@ -657,7 +661,9 @@ impl StrategyEventExport {
                     )
                     .map_err(relation)?;
                     for (run, step, trace) in &self.traces {
-                        columns.strategy_events(trace, *run, *step).await?;
+                        columns
+                            .strategy_events(trace, *run, *step, self.shared.math())
+                            .await?;
                     }
                     columns.finish().await.map_err(relation)
                 }

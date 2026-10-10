@@ -308,6 +308,48 @@ fn definition_of(point: &CanonicalPoint) -> Result<StudyPointDefinition, Workflo
     })
 }
 
+fn stored_scientific_facts(
+    stored: &super::durable::StoredCompletion,
+) -> pse_model::study::ScientificFacts {
+    stored.completion.as_ref().map_or_else(
+        pse_model::study::ScientificFacts::default,
+        |completion| {
+            let single = match completion.assessments.as_slice() {
+                [one] => Some(one),
+                _ => None,
+            };
+            pse_model::study::ScientificFacts {
+                usable: !completion.assessments.is_empty()
+                    && completion.assessments.iter().all(|row| row.permits_result),
+                candidate_use: single.map(|row| row.usability),
+                seed_permission: single.is_some_and(|row| row.permits_seed),
+            }
+        },
+    )
+}
+fn stored_diagnostic(
+    stored: &super::durable::StoredCompletion,
+) -> Option<pse_model::diagnostic::BoundaryDiagnostic> {
+    match &stored.termination.cause {
+        super::TerminationCause::Error { diagnostic }
+        | super::TerminationCause::Infrastructure { diagnostic } => Some(diagnostic.clone()),
+        super::TerminationCause::Assessment { diagnostics, .. } => match diagnostics.as_slice() {
+            [] => None,
+            [diagnostic] => Some(diagnostic.clone()),
+            diagnostics => {
+                let mut envelope = pse_model::diagnostic::BoundaryDiagnostic::new(
+                    pse_model::diagnostic::BoundaryClass::Conflict,
+                    pse_model::diagnostic::DiagnosticStage::StudyPolicy,
+                    [],
+                    pse_model::diagnostic::DiagnosticRule::DiagnosticAggregate,
+                );
+                envelope.causes = diagnostics.to_vec();
+                Some(envelope)
+            }
+        },
+    }
+}
+
 impl Runtime {
     /// The canonical execution owner; ephemerality is an explicit kernel adapter.
     pub(crate) fn operations(&self) -> Result<&Operations, WorkflowError> {
@@ -954,21 +996,7 @@ impl Runtime {
         };
         facts.retry_failure = stored.termination.retry_failure;
         facts.effect = stored.termination.effect;
-        facts.scientific = stored.completion.as_ref().map_or_else(
-            pse_model::study::ScientificFacts::default,
-            |completion| {
-                let single = match completion.assessments.as_slice() {
-                    [one] => Some(one),
-                    _ => None,
-                };
-                pse_model::study::ScientificFacts {
-                    usable: !completion.assessments.is_empty()
-                        && completion.assessments.iter().all(|row| row.permits_result),
-                    candidate_use: single.map(|row| row.usability),
-                    seed_permission: single.is_some_and(|row| row.permits_seed),
-                }
-            },
-        );
+        facts.scientific = stored_scientific_facts(stored);
         let start = point
             .start
             .as_ref()
@@ -977,10 +1005,7 @@ impl Runtime {
                     .map_err(|error| contract(error.to_string()))
             })
             .transpose()?;
-        let diagnostic = match &stored.termination.cause {
-            super::TerminationCause::Error { diagnostic } => Some(diagnostic.clone()),
-            _ => None,
-        };
+        let diagnostic = stored_diagnostic(stored);
         let mut outcome = point_outcome(point)?.unwrap_or(PointOutcome {
             key: facts.key,
             lifecycle: facts.lifecycle,
@@ -1271,7 +1296,6 @@ impl Runtime {
         &self,
         point: &CanonicalPoint,
         start: &pse_model::study::StartProvenance,
-        result: &super::RunResult,
         record: &super::DurableRecord,
     ) -> Result<CanonicalPoint, WorkflowError> {
         let terminal = record.attempt.as_ref().map_err(|error| {
@@ -1296,10 +1320,10 @@ impl Runtime {
             AttemptState::Failed => StudyPointState::Failed,
             _ => StudyPointState::Completed,
         };
-        facts.scientific = super::study_operations::scientific_facts(result);
+        facts.scientific = stored_scientific_facts(stored);
         facts.retry_failure = stored.termination.retry_failure;
         facts.effect = stored.termination.effect;
-        let diagnostic = super::study_execution::result_diagnostic(result);
+        let diagnostic = stored_diagnostic(stored);
         let attempt = PointAttemptOutcome {
             attempt_id: Some(record.attempt_id),
             lifecycle: Some(stored.state),

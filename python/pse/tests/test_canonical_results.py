@@ -82,6 +82,81 @@ def _settings() -> pse.SolveSettings:
 
 
 @pytest.mark.integration
+def test_canonical_close_releases_optional_cache_after_completed_run(
+    inspection_settings: pse.EngineSettings,
+    canonical_substrate: CanonicalFixture,
+) -> None:
+    runtime = canonical_substrate.runtime(inspection_settings)
+    package, case = _package(runtime)
+    prepared = package.prepare_solve(case, _settings())
+    handle = prepared.start()
+    result = handle.wait()
+    assert result.usable
+    assert result.canonical_run_key is not None
+    attempt = result.canonical_attempt_key
+    assert attempt is not None
+    variables = pa.table(result.table("runtime.solve_variables"))
+    (variable,) = [row for row in variables.to_pylist() if not row["parameter"]]
+    assert variable["tolerance"] > 0.0
+    assert abs(variable["value"] - 2.0) <= variable["tolerance"]
+    (record,) = pa.table(runtime.attempt_record(attempt)).to_pylist()
+    assert record["terminal"]
+    assert record["outcome"] == "succeeded"
+    del variables, result, handle, prepared, package
+    (physical_cache,) = [
+        cache
+        for cache in runtime.resource_usage().caches
+        if cache.name == "pse.cache.physical_admission"
+    ]
+    assert physical_cache.entries > 0
+    # The public drain releases its own optional retention without a manual clear.
+    runtime.close()
+
+
+@pytest.mark.integration
+def test_canonical_close_refuses_live_result_reader_then_allows_departure(
+    inspection_settings: pse.EngineSettings,
+    canonical_substrate: CanonicalFixture,
+) -> None:
+    runtime = canonical_substrate.runtime(inspection_settings)
+    package, case = _package(runtime)
+    prepared = package.prepare_solve(case, _settings())
+    handle = prepared.start()
+    result = handle.wait()
+    assert result.usable
+    run = result.canonical_run_key
+    attempt = result.canonical_attempt_key
+    assert run is not None
+    assert attempt is not None
+    expected = pa.table(result.table("runtime.solve_variables")).to_pylist()
+    stream = runtime.results(run, attempt, "runtime.solve_variables")
+    reader = pa.RecordBatchReader.from_stream(stream)
+    del result, handle, prepared, package
+    (physical_cache,) = [
+        cache
+        for cache in runtime.resource_usage().caches
+        if cache.name == "pse.cache.physical_admission"
+    ]
+    assert physical_cache.entries > 0
+    with pytest.raises(pse.InspectionError, match="live protected readers"):
+        runtime.close()
+    (physical_cache,) = [
+        cache
+        for cache in runtime.resource_usage().caches
+        if cache.name == "pse.cache.physical_admission"
+    ]
+    assert physical_cache.entries == 0
+    # The unread selection still owns its protection and fetches an actual
+    # canonical block after refusal, before requesting EOF can release it.
+    batch = reader.read_next_batch()
+    assert batch.to_pylist() == expected
+    with pytest.raises(pse.InspectionError, match="live protected readers"):
+        runtime.close()
+    del batch, reader, stream
+    runtime.close()
+
+
+@pytest.mark.integration
 def test_canonical_result_selection_and_progress_reopen(
     inspection_settings: pse.EngineSettings,
     canonical_substrate: CanonicalFixture,
@@ -371,6 +446,7 @@ def test_canonical_default_no_receipt_reopens_scalar_with_sibling_loader(
     inspection_settings: pse.EngineSettings,
     canonical_substrate: CanonicalFixture,
     tmp_path: Path,
+    request: pytest.FixtureRequest,
 ) -> None:
     # Bound the complete native preparation, not just Thread.join: a TLS/loader
     # lock inversion on the receiving thread must not hang the enclosing suite.
@@ -384,12 +460,20 @@ def test_canonical_default_no_receipt_reopens_scalar_with_sibling_loader(
             if key != "PSE_TEST_ENUMERATION"
         }
         child_environment[child_marker] = "1"
+        # xdist loadgroup makes the group suffix part of the frozen identity.
+        # Reproduce this actual parent's identity for the same one-test subset.
+        collection = (
+            ["-n", "1", "--dist", "loadgroup"]
+            if request.node.nodeid.endswith("@canonical-owner")
+            else ["-n", "0"]
+        )
         command = subprocess.run(
             [
                 sys.executable,
                 "-m",
                 "pytest",
                 f"{Path(__file__).resolve()}::{test_canonical_default_no_receipt_reopens_scalar_with_sibling_loader.__name__}",
+                *collection,
                 "-q",
                 "-s",
             ],

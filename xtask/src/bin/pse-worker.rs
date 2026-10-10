@@ -23,7 +23,7 @@ mod deployment;
 
 use clap::Parser;
 use pse_runtime::workflow::{
-    Durability, LeasePolicy, Operations, Runtime, WorkerSettings, WorkflowError,
+    DurabilitySelection, LeasePolicy, Operations, Runtime, WorkerSettings, WorkflowError,
 };
 use pse_runtime::{CancelSource, ResourceBudget, SharedRuntime};
 
@@ -399,16 +399,15 @@ async fn runtime(cli: &Cli) -> Result<Runtime, String> {
     if policy.lease.is_zero() || policy.heartbeat.is_zero() || policy.heartbeat >= policy.lease {
         return Err("worker heartbeat must be positive and shorter than its lease".into());
     }
-    let operations = Operations::from_store(
-        deployment.store().clone(),
-        cli.name
-            .clone()
-            .unwrap_or_else(|| Operations::process_worker("pse-worker")),
-        policy,
-        shared.pool(),
-    );
-    Ok(Runtime::from_shared(shared, registry, sessions, deployment)
-        .with_durability(Durability::Durable(Box::new(operations))))
+    let worker = cli
+        .name
+        .clone()
+        .unwrap_or_else(|| Operations::process_worker("pse-worker"));
+    Runtime::from_shared(shared, registry, sessions, deployment)
+        .and_then(|runtime| {
+            runtime.with_durability(DurabilitySelection::Durable { worker, policy })
+        })
+        .map_err(|error| error.to_string())
 }
 
 fn diagnostic_report(error: &WorkflowError) -> String {

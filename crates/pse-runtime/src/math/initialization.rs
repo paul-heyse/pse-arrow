@@ -816,7 +816,7 @@ impl MathService {
             // entry lease covers their separately bounded container construction.
             // Unknown factories retain the pre-reserved conservative worker extent.
             let budget = if factory_bytes.is_some() {
-                WorkerBudget::drawing(service.policy.worker_bytes - factory_demand, &service.pool)
+                WorkerBudget::drawing_for(service.policy.worker_bytes - factory_demand, &service)
             } else {
                 WorkerBudget::new(service.policy.worker_bytes)
             };
@@ -1083,12 +1083,7 @@ impl MathService {
         let run_id = pse_operations::mint_id();
         let session = self.open_session()?;
         let admission = profile.solver.composition.limits.map(|limits| {
-            super::strategy::admission::TaskAdmission::new(
-                limits,
-                scope.clone(),
-                Some(self.pool.clone()),
-                false,
-            )
+            super::strategy::admission::TaskAdmission::new_for(limits, scope.clone(), self, false)
         });
         let service = self.clone();
         let events = progress.clone();
@@ -1444,12 +1439,7 @@ impl MathService {
         tokio::pin!(operation);
         let (bound, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         let executable = Arc::new(std::sync::OnceLock::from(block.executable.clone()));
-        Ok(Self::own_binding(
-            block.owner.clone(),
-            bound,
-            lease,
-            executable,
-        ))
+        self.own_binding(block.owner.clone(), bound, lease, executable)
     }
 }
 
@@ -2037,6 +2027,337 @@ mod tests {
         assert!(service.pool.reserved() > baseline);
         drop(prerequisites_alias);
         assert_eq!(service.pool.reserved(), baseline);
+    }
+    #[tokio::test]
+    async fn initialization_latest_block_bindings_plateau_when_only_coefficients_change() {
+        use datafusion::execution::cache::Cache;
+        let (service, _cache) = super::super::tests::service_with_policy(
+            256 << 20,
+            super::super::MathPolicy {
+                foreign_bytes: 1 << 20,
+                worker_bytes: 16usize << 30,
+                ..Default::default()
+            },
+        );
+        let (source, mut values, parameter) = super::super::tests::component_fixture_source(
+            &service,
+            "package p {def Root {param p:Scalar=1;var x:Scalar;eq a:x==1;annotation start x(1);}}",
+        );
+        let compiled = source.compiled();
+        let block = pse_compiler::workspace::PreparedBlock {
+            class_proof_work: compiled.class_proof_work,
+            boundary: pse_structural::initialization::Block {
+                id: pse_structural::incidence::BlockId(pse_ids::ContentHash::from_bytes([10; 32])),
+                members: pse_structural::incidence::Part {
+                    rows: compiled
+                        .plan
+                        .structure()
+                        .rows()
+                        .iter()
+                        .map(|row| row.id)
+                        .collect(),
+                    columns: compiled.plan.columns().to_vec(),
+                },
+                inputs: Vec::new(),
+            },
+            plan: compiled.plan.clone(),
+            structure: Arc::new(compiled.structure.as_ref().clone()),
+            artifacts: Arc::new(compiled.artifacts.as_ref().clone()),
+        };
+        let products = Arc::new(vec![block]);
+        let bytes =
+            pse_compiler::workspace::PreparedBlock::retained_group_bytes(&products).unwrap();
+        let lease = service
+            .reserve("test:initialization-components", bytes)
+            .unwrap();
+        let prepared = service
+            .own_initialization(
+                products,
+                lease,
+                compiled.quantities.clone(),
+                compiled.preconditions.clone(),
+                Vec::new(),
+                Vec::new(),
+            )
+            .await
+            .unwrap();
+        drop(source);
+        let driver = crate::CancelSource::new();
+        let mut bound = service
+            .bind_block(
+                &prepared.blocks[0],
+                prepared.quantities.clone(),
+                prepared.preconditions.clone(),
+                values.clone(),
+                &driver,
+                None,
+            )
+            .await
+            .unwrap();
+        let mut plateau = None;
+        // This is the production first-bind/rebind sequence and latest-view overwrite
+        // used by Blocks::attempt; reports and historical aliases are not retained here.
+        for index in 0..24 {
+            let previous = Arc::downgrade(&bound._owner);
+            let presolve = bound.compiled().presolve.clone();
+            let derived = bound.compiled().derived.clone();
+            values.scalars.insert(parameter, 2.0 + index as f64);
+            bound = service
+                .rebind(&bound, values.clone(), &driver)
+                .await
+                .unwrap();
+            assert!(previous.upgrade().is_none());
+            assert!(pse_math::SharedAllocation::ptr_eq(
+                &presolve,
+                &bound.compiled().presolve
+            ));
+            assert!(pse_math::SharedAllocation::ptr_eq(
+                &derived,
+                &bound.compiled().derived
+            ));
+            assert!(
+                bound
+                    .compiled()
+                    .coefficient_values
+                    .iter()
+                    .any(|(id, bits)| *id == parameter && *bits == (2.0 + index as f64).to_bits())
+            );
+            if index == 0 {
+                plateau = Some(service.pool.reserved());
+            }
+            assert_eq!(service.pool.reserved(), plateau.unwrap());
+        }
+        drop(bound);
+        drop(prepared);
+        // A cached program also retains its descriptor and stable plan anchors.
+        assert!(service.entries.len() > 0);
+        service.clear_program_cache();
+        assert_eq!(service.pool.reserved(), 0);
+    }
+    #[cfg(feature = "solver-kinsol")]
+    #[tokio::test]
+    async fn actual_block_attempts_plateau_and_escaped_coefficients_keep_their_charge() {
+        let (service, _cache) = super::super::tests::service_with_policy(
+            256 << 20,
+            super::super::MathPolicy {
+                foreign_bytes: 1 << 20,
+                worker_bytes: 16usize << 30,
+                ..Default::default()
+            },
+        );
+        let (source, mut values, parameter) = super::super::tests::component_fixture_source(
+            &service,
+            "package p {def Root {param p:Scalar=1;var x:Scalar;eq a:x==1;annotation start x(1);}}",
+        );
+        let compiled = source.compiled();
+        assert_eq!(compiled.plan.columns().len(), 1);
+        // The pure compiler fixture returns fixed inputs; Blocks also requires
+        // its unknown's authored initial value before profile admission.
+        values.scalars.insert(compiled.plan.columns()[0], 1.);
+        let targets = compiled
+            .plan
+            .structure()
+            .numerical_targets(&compiled.quantities)
+            .unwrap();
+        let block = pse_compiler::workspace::PreparedBlock {
+            class_proof_work: compiled.class_proof_work,
+            boundary: pse_structural::initialization::Block {
+                id: pse_structural::incidence::BlockId(pse_ids::ContentHash::from_bytes([11; 32])),
+                members: pse_structural::incidence::Part {
+                    rows: compiled
+                        .plan
+                        .structure()
+                        .rows()
+                        .iter()
+                        .map(|row| row.id)
+                        .collect(),
+                    columns: compiled.plan.columns().to_vec(),
+                },
+                inputs: Vec::new(),
+            },
+            plan: compiled.plan.clone(),
+            structure: Arc::new(compiled.structure.as_ref().clone()),
+            artifacts: Arc::new(compiled.artifacts.as_ref().clone()),
+        };
+        let products = Arc::new(vec![block]);
+        let bytes =
+            pse_compiler::workspace::PreparedBlock::retained_group_bytes(&products).unwrap();
+        let lease = service
+            .reserve("test:actual-block-components", bytes)
+            .unwrap();
+        let prepared = service
+            .own_initialization(
+                products,
+                lease,
+                compiled.quantities.clone(),
+                compiled.preconditions.clone(),
+                targets,
+                Vec::new(),
+            )
+            .await
+            .unwrap();
+        drop(source);
+        let profile = InitializationProfile {
+            solver: SolverProfile {
+                selection: SolverSelection::Explicit(Backend::Kinsol),
+                backend: execution::BackendSettings::Kinsol(kinsol::Method::default()),
+                controls: Controls {
+                    history: 0,
+                    reuse: ReusePolicy::Fresh,
+                    ..Default::default()
+                },
+                intent: SolveIntent::Initialize,
+                presolve: Default::default(),
+                numerics: Default::default(),
+                convexity: Default::default(),
+                sensitivity: None,
+                composition: Default::default(),
+                reconstruction: None,
+            },
+            stages: vec![BTreeMap::new()],
+        };
+        let (strategies, numerics) = prepared.validate_profile(&values, &profile).unwrap();
+        let providers = BTreeMap::new();
+        let progress = Arc::new(Progress::new(0));
+        let owner = service
+            .reserve(
+                "test:actual-block-reports",
+                profile.solver.controls.report_allowance().unwrap(),
+            )
+            .unwrap();
+        let cancel = crate::CancelSource::new();
+        let control = FlightCancellation::default();
+        let deadline = std::time::Instant::now()
+            .checked_add(profile.solver.controls.time_limit)
+            .unwrap();
+        let scope = pse_kernels::ExecutionScope::new(control.flag(), Some(deadline));
+        let session = service.open_session().unwrap();
+        let mut run = Blocks {
+            service: &service,
+            session: &session,
+            prepared: &prepared,
+            providers: &providers,
+            profile: &profile,
+            strategies: &strategies,
+            numerics: &numerics,
+            progress: &progress,
+            owner: &owner,
+            cancel: &cancel,
+            scope,
+            admission: None,
+            control,
+            run_id: pse_operations::mint_id(),
+            bound: vec![None],
+            attempts: Vec::new(),
+        };
+        let (report, trace) = run.attempt(0, &values, None).await.unwrap();
+        let mut committed = values.clone();
+        commit_block(
+            &mut committed,
+            &prepared.blocks[0].boundary,
+            Some(&report),
+            &numerics.policy,
+        )
+        .unwrap();
+        assert!(
+            (committed.scalars[&prepared.blocks[0].boundary.members.columns[0]] - 1.).abs() < 1e-8
+        );
+        drop((report, trace));
+        let mut plateau = None;
+        let mut escaped = Vec::new();
+        // The first 24 edits keep only the latest binding. The final 12 deliberately
+        // retain distinct old coefficient snapshots, but never old complete bindings.
+        for index in 0..36 {
+            let old = run.bound[0].as_ref().unwrap();
+            let previous = Arc::downgrade(&old._owner);
+            let presolve = old.compiled().presolve.clone();
+            let derived = old.compiled().derived.clone();
+            if index >= 24 {
+                let snapshot = old.compiled().coefficient_values.clone();
+                assert!(
+                    snapshot.iter().any(
+                        |(id, bits)| *id == parameter && *bits == (1. + index as f64).to_bits()
+                    )
+                );
+                escaped.push(snapshot);
+            }
+            values.scalars.insert(parameter, 2. + index as f64);
+            let (report, trace) = run.attempt(0, &values, None).await.unwrap();
+            let latest = run.bound[0].as_ref().unwrap();
+            assert!(
+                previous.upgrade().is_none(),
+                "actual block attempt retained a preceding complete binding"
+            );
+            assert!(pse_math::SharedAllocation::ptr_eq(
+                &presolve,
+                &latest.compiled().presolve
+            ));
+            assert!(pse_math::SharedAllocation::ptr_eq(
+                &derived,
+                &latest.compiled().derived
+            ));
+            assert!(
+                latest
+                    .compiled()
+                    .coefficient_values
+                    .iter()
+                    .any(|(id, bits)| *id == parameter && *bits == (2. + index as f64).to_bits())
+            );
+            let fresh = prepared.blocks[0]
+                .view
+                .bind(
+                    prepared.quantities.clone(),
+                    prepared.preconditions.clone(),
+                    &values,
+                    &Arc::new(AtomicBool::new(false)),
+                )
+                .unwrap();
+            assert_eq!(
+                latest.compiled().coefficient_values,
+                fresh.coefficient_values
+            );
+            assert_eq!(latest.compiled().presolve.key, fresh.presolve.key);
+            assert_eq!(
+                latest.compiled().complete(&values).scalars,
+                fresh.complete(&values).scalars
+            );
+            let mut committed = values.clone();
+            commit_block(
+                &mut committed,
+                &prepared.blocks[0].boundary,
+                Some(&report),
+                &numerics.policy,
+            )
+            .unwrap();
+            assert!(
+                (committed.scalars[&prepared.blocks[0].boundary.members.columns[0]] - 1.).abs()
+                    < 1e-8
+            );
+            assert_eq!(committed.scalars[&parameter], 2. + index as f64);
+            drop((fresh, report, trace, presolve, derived));
+            if index == 0 {
+                plateau = Some(service.pool.reserved());
+            }
+            if index < 24 {
+                assert_eq!(service.pool.reserved(), plateau.unwrap());
+            }
+        }
+        assert_eq!(escaped.len(), 12);
+        for pair in escaped.windows(2) {
+            assert!(!pse_math::SharedAllocation::ptr_eq(&pair[0], &pair[1]));
+        }
+        assert!(service.pool.reserved() > plateau.unwrap());
+        drop(escaped);
+        assert_eq!(service.pool.reserved(), plateau.unwrap());
+        assert!(
+            run.attempts.is_empty(),
+            "the latest-only control must not retain attempt history"
+        );
+        drop(run);
+        session.close().await;
+        drop((prepared, owner, progress));
+        service.clear_program_cache();
+        assert_eq!(service.pool.reserved(), 0);
     }
     #[test]
     fn block_commit_is_atomic_and_requires_native_success_plus_original_quality() {

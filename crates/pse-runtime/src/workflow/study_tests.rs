@@ -393,8 +393,11 @@ async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
             None,
             "expired-fixture",
             "departed-worker",
-            Duration::from_micros(1),
+            Duration::from_secs(60),
         )
+        .await
+        .unwrap();
+    pse_operations::testing::expire_acknowledged_attempt(runtime.canonical_store(), &claim.fence)
         .await
         .unwrap();
     let point = runtime
@@ -798,7 +801,7 @@ async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_s
     drop(package);
 }
 
-#[cfg(feature = "canonical-tests")]
+#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
 #[allow(
     unsafe_code,
     reason = "fixture asserts rejected stale success only; actual summary rebuilt by owning runtime"
@@ -1170,7 +1173,9 @@ fn study_runtime_with_population(threads: usize, jobs: usize) -> Runtime {
             .unwrap(),
     );
     Runtime::from_shared(shared, registry, sessions, tests::canonical_deployment())
-        .with_durability(Durability::Ephemeral)
+        .unwrap()
+        .with_durability(DurabilitySelection::Ephemeral)
+        .unwrap()
 }
 
 #[cfg(feature = "solver-ipopt")]
@@ -1596,13 +1601,12 @@ async fn ephemeral_study_continuation_reuses_one_private_native_session() {
 #[tokio::test]
 async fn durable_worker_sixteen_cancelled_occurrences_obey_action_bound_and_drain() {
     let runtime = parallel_study_runtime();
-    let operations = Operations::from_store(
-        runtime.canonical_store().clone(),
-        "parallel-effect-free-study",
-        durable_tests::quick(),
-        runtime.shared.pool(),
-    );
-    let runtime = runtime.with_durability(Durability::Durable(Box::new(operations)));
+    let runtime = runtime
+        .with_durability(DurabilitySelection::Durable {
+            worker: "parallel-effect-free-study".into(),
+            policy: durable_tests::quick(),
+        })
+        .unwrap();
     let (sources, definition) = admitted(&runtime, |_, _, fixed| {
         (0..16)
             .map(|index| point(fixed, (index + 1) * 7, vec![], StartPolicy::Fresh))
@@ -1788,14 +1792,13 @@ impl ManagedStudyFixture {
                 "nonce": nonce, "canonical_database": store.database(), "entries": 16, "entry_timeout_ms": 90_000,
             }),
         );
-        let operations = Operations::from_store(
-            store.clone(),
-            "managed-study-observer",
-            durable_tests::quick(),
-            runtime.shared.pool(),
-        );
         let mut fixture = Self {
-            runtime: runtime.with_durability(Durability::Durable(Box::new(operations))),
+            runtime: runtime
+                .with_durability(DurabilitySelection::Durable {
+                    worker: "managed-study-observer".into(),
+                    policy: durable_tests::quick(),
+                })
+                .unwrap(),
             directory,
             controls_resource,
             nonce,

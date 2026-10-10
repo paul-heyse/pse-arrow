@@ -58,6 +58,7 @@ indexes! {
     product_discovery: canonical_products [problem, producer] false,
     edge_source: canonical_edges [source_version] false,
     membership_pages: canonical_memberships [problem, key] false,
+    membership_scope_pages: canonical_memberships [problem, scope, key] false,
     membership_version: canonical_memberships [version] false,
     root_interval: canonical_roots [problem, sequence] false,
     protection_interval: canonical_protections [problem, sequence] false,

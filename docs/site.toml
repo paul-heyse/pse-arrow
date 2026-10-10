@@ -23,6 +23,7 @@ asset_bundles = [
   "full-arrow-datafusion-2026-09-14",
   "graph-hash-followups-2026-10-09",
   "native-producer-inputs-2026-10-06",
+  "unified-state-management-2026-10-10",
 ]
 entrypoints = [
   "README.md",
@@ -116,6 +117,18 @@ files = ["output.txt", "probe.rs", "run.sh"]
 name = "canonical-selection-2026-10-06"
 root = "design_review/evidence/canonical-selection-2026-10-06"
 files = ["query-plans.json"]
+
+[[asset_bundles]]
+name = "unified-state-management-2026-10-10"
+root = "design_review/evidence/unified-state-management-2026-10-10"
+files = [
+  "native-access-plan-baseline.json",
+  "native-access-plan-followup.json",
+  "native-access-plan-probe.py",
+  "native-inverse-plan-comparison.json",
+  "native-inverse-plan-controls.json",
+  "native-inverse-plan-probe.py",
+]
 
 [[asset_bundles]]
 name = "efficiency-principles-codebase-2026-10-09"

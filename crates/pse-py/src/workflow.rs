@@ -368,9 +368,10 @@ pub(crate) struct NativeRuntime {
 }
 #[pymethods]
 impl NativeRuntime {
-    /// Close this context's local result readers and physical RPC drivers.
+    /// Evict optional retention, then drain local readers and close physical RPC drivers.
     /// Independently supervised native workers retain their separate drain owner.
     fn close(&self, py: Python<'_>) -> PyResult<()> {
+        self.inner.clear_program_cache();
         blocking(
             py,
             &self.owner,
@@ -605,9 +606,12 @@ impl NativeRuntime {
             owner.registry.clone(),
             owner.sessions.clone(),
             native::CanonicalDeployment::new(canonical, attestation, producer),
-        );
+        )
+        .map_err(|error| errors::diagnostic(py, &error))?;
         let inner = if ephemeral {
-            inner.with_durability(native::Durability::Ephemeral)
+            inner
+                .with_durability(native::DurabilitySelection::Ephemeral)
+                .map_err(|error| errors::diagnostic(py, &error))?
         } else {
             inner
         };

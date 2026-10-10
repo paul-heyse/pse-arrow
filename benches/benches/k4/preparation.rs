@@ -102,7 +102,8 @@ async fn preparation(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Durat
             },
             None,
         ),
-    );
+    )
+    .unwrap();
     let sources = support::sources(support::SOURCE);
     let setup = Instant::now();
     let original = support::package(&runtime, owner, &sources).await;
@@ -247,7 +248,8 @@ async fn pressure(
             },
             None,
         ),
-    );
+    )
+    .unwrap();
     let service = owner.runtime.math();
     let pool = owner.runtime.pool();
     let baseline = pool.reserved();

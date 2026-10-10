@@ -984,6 +984,60 @@ status_profile = "finding"
 status_column = 2
 owner_column = 3
 
+[[exceptions]]
+path = "docs/plans/34-unified-state-management-and-persistence.md"
+[exceptions.values]
+doc_owner = "docs/plans/34-unified-state-management-and-persistence.md"
+
+[[scope_tables]]
+path = "docs/plans/34-unified-state-management-and-persistence.md"
+name = "implementation-packets-and-dependencies"
+heading = "Implementation packets and dependencies"
+headers = [
+  "Packet",
+  "Required input",
+  "Delivery and targeted acceptance",
+  "Progress",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/34-unified-state-management-and-persistence.md"
+name = "bounded-investigation-packets"
+heading = "Bounded investigation packets"
+headers = [
+  "Packet",
+  "Question, evidence and decision boundary",
+  "Integration and acceptance",
+  "Progress",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/34-unified-state-management-and-persistence.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding",
+  "Scenario",
+  "Disposition",
+  "Decision/work owner",
+  "Evidence or completion condition",
+]
+kind = "finding"
+id_column = 0
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
 # Closed immutable legacy scalar encodings: exact source spans, never fallback parsing.
 
 [[legacy_yaml]]
@@ -1212,6 +1266,12 @@ path = "docs/design_review/evidence/canonical-selection-2026-10-06/README.md"
 [exceptions.values]
 doc_role = "index"
 doc_owner = "docs/design_review/evidence/canonical-selection-2026-10-06/README.md"
+
+[[exceptions]]
+path = "docs/design_review/evidence/unified-state-management-2026-10-10/README.md"
+[exceptions.values]
+doc_role = "index"
+doc_owner = "docs/design_review/evidence/unified-state-management-2026-10-10/README.md"
 
 [[exceptions]]
 path = "docs/design_review/evidence/efficiency-principles-codebase-2026-10-09/README.md"

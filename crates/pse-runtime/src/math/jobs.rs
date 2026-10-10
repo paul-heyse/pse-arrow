@@ -16,6 +16,7 @@ struct ConstructionOwner {
     capacity: usize,
     additional: std::sync::Mutex<usize>,
     cancelled: Arc<std::sync::atomic::AtomicBool>,
+    pressure: Arc<super::retention::Pressure>,
 }
 impl pse_math::construction::ConstructionAdmission for ConstructionOwner {
     fn try_grow(&self, bytes: usize) -> Result<(), pse_math::MathError> {
@@ -39,8 +40,8 @@ impl pse_math::construction::ConstructionAdmission for ConstructionOwner {
                 available: self.capacity,
             });
         }
-        self.reservation
-            .try_grow(bytes)
+        self.pressure
+            .try_grow(&self.reservation, bytes)
             .map_err(|_| pse_math::MathError::Limit("constructor common pool"))?;
         *additional += bytes;
         Ok(())
@@ -59,6 +60,7 @@ pub struct WorkerBudget {
     used: Arc<AtomicUsize>,
     pool: Option<Arc<datafusion::execution::memory_pool::MemoryReservation>>,
     admission: Option<Arc<super::strategy::admission::TaskAdmission>>,
+    pressure: Option<Arc<super::retention::Pressure>>,
 }
 impl WorkerBudget {
     /// A budget of `capacity` bytes, the worker share of the job's reservation.
@@ -68,12 +70,24 @@ impl WorkerBudget {
             used: Arc::new(AtomicUsize::new(0)),
             pool: None,
             admission: None,
+            pressure: None,
         })
     }
     /// A budget of up to `capacity` bytes charged to `pool` as workers are built.
+    #[cfg(test)]
     pub(crate) fn drawing(
         capacity: usize,
         pool: &Arc<dyn datafusion::execution::memory_pool::MemoryPool>,
+    ) -> Arc<Self> {
+        Self::drawing_with(capacity, pool, None)
+    }
+    pub(crate) fn drawing_for(capacity: usize, service: &MathService) -> Arc<Self> {
+        Self::drawing_with(capacity, &service.pool, Some(service.pressure.clone()))
+    }
+    fn drawing_with(
+        capacity: usize,
+        pool: &Arc<dyn datafusion::execution::memory_pool::MemoryPool>,
+        pressure: Option<Arc<super::retention::Pressure>>,
     ) -> Arc<Self> {
         Arc::new(Self {
             capacity,
@@ -83,6 +97,7 @@ impl WorkerBudget {
                     .register(pool),
             )),
             admission: None,
+            pressure,
         })
     }
     pub(crate) fn with_admission(
@@ -94,6 +109,7 @@ impl WorkerBudget {
             used: self.used.clone(),
             pool: self.pool.clone(),
             admission: Some(admission),
+            pressure: self.pressure.clone(),
         })
     }
     pub(crate) fn admission(&self) -> Option<Arc<super::strategy::admission::TaskAdmission>> {
@@ -142,11 +158,15 @@ impl WorkerBudget {
                 used.checked_add(bytes).filter(|n| *n <= self.capacity)
             })
             .map_err(|_| MathRuntimeError::Limit("worker storage"))?;
-        if let Some(pool) = &self.pool
-            && let Err(error) = pool.try_grow(bytes)
-        {
-            self.used.fetch_sub(bytes, Ordering::AcqRel);
-            return Err(error.into());
+        if let Some(pool) = &self.pool {
+            let result = match &self.pressure {
+                Some(pressure) => pressure.try_grow(pool, bytes),
+                None => pool.try_grow(bytes),
+            };
+            if let Err(error) = result {
+                self.used.fetch_sub(bytes, Ordering::AcqRel);
+                return Err(error.into());
+            }
         }
         Ok(WorkerCharge {
             budget: self.clone(),
@@ -464,9 +484,12 @@ impl MathService {
         let at = self.admission_deadline(deadline)?;
         let reservation =
             datafusion::execution::memory_pool::MemoryConsumer::new(name).register(&self.pool);
+        let mut pressure = None;
         loop {
             // notify_waiters is observed even before the first poll of this future.
             let released = self.released.notified();
+            tokio::pin!(released);
+            released.as_mut().enable();
             if cancel.flag().load(Ordering::Acquire) {
                 return Err(MathRuntimeError::Cancelled);
             }
@@ -475,7 +498,14 @@ impl MathService {
             }
             match reservation.try_grow(bytes) {
                 Ok(()) => return Ok(pse_columnar::AllocationLease::new(reservation)),
-                Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {}
+                Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {
+                    pressure.get_or_insert_with(|| self.pressure.demand());
+                    match self.pressure.retry_growth(&reservation, bytes) {
+                        Ok(()) => return Ok(pse_columnar::AllocationLease::new(reservation)),
+                        Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {}
+                        Err(error) => return Err(error.into()),
+                    }
+                }
                 Err(error) => return Err(error.into()),
             }
             tokio::select! {
@@ -524,8 +554,11 @@ impl MathService {
         tokio::spawn(async move {
             let result = async {
                 let lease = Arc::new(datafusion::execution::memory_pool::MemoryConsumer::new("math:native-job").register(&service.pool));
+                let mut pressure = None;
                 let cpu = loop {
                     let released = service.released.notified();
+                    tokio::pin!(released);
+                    released.as_mut().enable();
                     let cpu = tokio::select! {
                         biased;
                         () = cancel.cancelled() => return Err(MathRuntimeError::Cancelled),
@@ -533,12 +566,19 @@ impl MathService {
                         p = service.cpu.clone().acquire_many_owned(cores as u32) =>
                             p.map_err(|_| MathRuntimeError::Limit("CPU admission closed"))?,
                     };
+                    if lease.size() == bytes { break cpu; }
                     match lease.try_grow(bytes) {
                         Ok(()) => break cpu,
                         Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {},
                         Err(error) => return Err(error.into()),
                     }
                     drop(cpu);
+                    pressure.get_or_insert_with(|| service.pressure.demand());
+                    match service.pressure.retry_growth(&lease, bytes) {
+                        Ok(()) => continue,
+                        Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {},
+                        Err(error) => return Err(error.into()),
+                    }
                     tokio::select! {
                         biased;
                         () = cancel.cancelled() => return Err(MathRuntimeError::Cancelled),
@@ -546,6 +586,7 @@ impl MathService {
                         () = released => {},
                     }
                 };
+                drop(pressure);
                 if cancel.flag().load(Ordering::Acquire) { return Err(MathRuntimeError::Cancelled); }
                 if std::time::Instant::now() >= at { return Err(Self::admission_timeout()); }
                 if let Some(admitted) = admitted { let _ = admitted.send(()); }
@@ -557,7 +598,7 @@ impl MathService {
                 let construction = Arc::new(ConstructionOwner {
                     reservation: lease.clone(), initial: construction_bytes,
                     capacity: service.policy.worker_bytes, additional: std::sync::Mutex::new(0),
-                    cancelled: flag.clone(),
+                    cancelled: flag.clone(), pressure: service.pressure.clone(),
                 });
                 let sessions = service.policy.inner_session_bytes;
                 let handle = std::thread::Builder::new().name("pse-math".into())
@@ -593,6 +634,9 @@ impl MathService {
                         .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?
                         .map_err(|_| MathRuntimeError::Panic("native worker panic".into()))?,
                 };
+                // Native thread, TLS and foreign destruction have joined. Release CPU
+                // before optional retention yields for the escaped result's growth.
+                drop(compute);
                 let result = result.and_then(|(value, retained)| {
                     if cancel.flag().load(Ordering::Acquire) { return Err(MathRuntimeError::Cancelled); }
                     // The admission-only clock ends at dispatch. Preserve actual task expiry.
@@ -600,14 +644,11 @@ impl MathService {
                         return Err(Self::admission_timeout());
                     }
                     if let Some(more) = retained.checked_sub(lease.size()).filter(|n| *n > 0) {
-                        lease.try_grow(more)?;
+                        service.pressure.try_grow(&lease, more)?;
                     }
                     Ok((value, pse_columnar::AllocationLease::new(lease.split(retained))))
                 });
                 drop(lease);
-                // This shared owner still retains the actual permit through native TLS
-                // destruction and join, even after the thread's compute scope leaves.
-                drop(compute);
                 result
             }.await;
             drop(slot);
@@ -763,6 +804,7 @@ mod construction_tests {
             capacity: 12,
             additional: std::sync::Mutex::new(0),
             cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            pressure: super::super::retention::Pressure::new(0),
         };
         owner.try_grow(4).unwrap();
         assert_eq!(reservation.size(), 12);
@@ -792,6 +834,7 @@ mod construction_tests {
             capacity: 64,
             additional: std::sync::Mutex::new(0),
             cancelled: cancelled.clone(),
+            pressure: super::super::retention::Pressure::new(0),
         };
         assert!(matches!(
             owner.try_grow(9),

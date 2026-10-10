@@ -361,6 +361,13 @@ when durable retention fails. Native study workers use the same scientific opera
 `workflow/staged`, `workflow/run`, `workflow/completion`, `workflow/modeling_results` and
 fitting preparation.
 
+Workflow assembly checks the actual consumed shared pool, CPU admission and width,
+native runtime, cache service, spill/cache managers and store registry. A supplied factory
+with foreign owners refuses construction; supported custom planning/functions and query
+partition choices remain available. Durability selection installs operations from this
+runtime's canonical store and pool with positive lease/heartbeat intervals, rather than
+accepting arbitrary live operations from another deployment.
+
 ### 19.1 Cases and overlays
 
 > Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) —

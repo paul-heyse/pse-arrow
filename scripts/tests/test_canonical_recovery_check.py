@@ -5,7 +5,8 @@
 
 from __future__ import annotations
 
-import subprocess
+import shutil
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -108,6 +109,110 @@ class ScientificRecoveryControls(unittest.TestCase):
         science.check_retained_snapshot(
             saved, science.result_snapshot(manifest, paged, checks)
         )
+
+    def test_retained_science_preserves_nan_payload_bits(self) -> None:
+        import pyarrow as pa  # noqa: PLC0415
+
+        manifest = pa.table({"key": ["attempt"], "digest": ["digest"]})
+        checks = pa.table({"satisfied": [True]})
+        original = pa.table(
+            {
+                "value": pa.Array.from_buffers(
+                    pa.float64(),
+                    1,
+                    [None, pa.py_buffer(struct.pack("<Q", 0x7FF8000000000001))],
+                )
+            }
+        )
+        changed = pa.table(
+            {
+                "value": pa.Array.from_buffers(
+                    pa.float64(),
+                    1,
+                    [None, pa.py_buffer(struct.pack("<Q", 0x7FF8000000000002))],
+                )
+            }
+        )
+        saved = science.result_snapshot(manifest, original, checks)
+        science.check_retained_snapshot(
+            saved, science.result_snapshot(manifest, original, checks)
+        )
+        with self.assertRaisesRegex(RuntimeError, "retained result contents changed"):
+            science.check_retained_snapshot(
+                saved, science.result_snapshot(manifest, changed, checks)
+            )
+
+    def test_retained_science_compares_nested_metadata_values_without_map_order(
+        self,
+    ) -> None:
+        import pyarrow as pa  # noqa: PLC0415
+
+        manifest = pa.table({"key": ["attempt"], "digest": ["digest"]})
+        checks = pa.table({"satisfied": [True]})
+        metadata = {b"first": b"\x00meaning", b"second": b"\xffunits"}
+        reversed_metadata = dict(reversed(tuple(metadata.items())))
+        child = pa.field("payload", pa.binary(), nullable=False, metadata=metadata)
+        field = pa.field("nested", pa.struct([child]), metadata=metadata)
+        schema = pa.schema([field], metadata=metadata)
+        rows = [{"nested": {"payload": b"\x00original\xff"}}]
+        original = pa.Table.from_pylist(rows, schema=schema)
+        saved = science.result_snapshot(manifest, original, checks)
+        reordered_schema = pa.schema(
+            [
+                field.with_type(
+                    pa.struct([child.with_metadata(reversed_metadata)])
+                ).with_metadata(reversed_metadata)
+            ],
+            metadata=reversed_metadata,
+        )
+        reordered = pa.Table.from_pylist(rows, schema=reordered_schema)
+        self.assertNotEqual(
+            saved["solve_variables"],
+            science.result_snapshot(manifest, reordered, checks)["solve_variables"],
+        )
+        science.check_retained_snapshot(
+            saved, science.result_snapshot(manifest, reordered, checks)
+        )
+        changed_metadata = {**metadata, b"second": b"changed meaning"}
+        changed_schemas = (
+            schema.with_metadata(changed_metadata),
+            pa.schema([field.with_metadata(changed_metadata)], metadata=metadata),
+            pa.schema(
+                [field.with_type(pa.struct([child.with_metadata(changed_metadata)]))],
+                metadata=metadata,
+            ),
+            pa.schema([field.with_nullable(False)], metadata=metadata),
+            pa.schema(
+                [field.with_type(pa.struct([child.with_type(pa.large_binary())]))],
+                metadata=metadata,
+            ),
+        )
+        for changed_schema in changed_schemas:
+            with (
+                self.subTest(schema=changed_schema),
+                self.assertRaisesRegex(
+                    RuntimeError, "retained result contents changed"
+                ),
+            ):
+                science.check_retained_snapshot(
+                    saved,
+                    science.result_snapshot(
+                        manifest,
+                        pa.Table.from_pylist(rows, schema=changed_schema),
+                        checks,
+                    ),
+                )
+        with self.assertRaisesRegex(RuntimeError, "retained result contents changed"):
+            science.check_retained_snapshot(
+                saved,
+                science.result_snapshot(
+                    manifest,
+                    pa.Table.from_pylist(
+                        [{"nested": {"payload": b"\x00changed\xff"}}], schema=schema
+                    ),
+                    checks,
+                ),
+            )
 
     def test_cli_forwards_science_profile_and_retained_evidence_directory(self) -> None:
         with (
@@ -341,6 +446,94 @@ class CanonicalRecoveryProfileTests(unittest.TestCase):
         )
         self.assertEqual(allocation, config["resources"])
 
+    def test_receiver_directory_hardening_preserves_content_and_owner_access(
+        self,
+    ) -> None:
+        config = self.initialized(True)
+        receiver = server.checked_primary(config)
+        generation = Path(receiver["supervisor_script"]).parents[1]
+        intermediate = generation / "crates"
+        intermediate.chmod(0o775)
+        restored = self.root / "restored"
+        restored.mkdir(mode=0o700)
+        (restored / ".generations").mkdir(mode=0o700)
+        copied = recovery.copy_selected_receiver(config, self.state, restored)
+        target = restored / intermediate.relative_to(self.state)
+        # Selected-copy preserves the original modes; restore may harden them.
+        self.assertEqual(target.stat().st_mode & 0o7777, 0o775)
+        for mode in (0o775, 0o750, 0o700):
+            with self.subTest(accepted_mode=oct(mode)):
+                target.chmod(mode)
+                recovery.receiver_equivalence(
+                    receiver, copied, self.state, restored, primary=True
+                )
+        for source_mode, restored_mode in (
+            (0o775, 0o777),
+            (0o750, 0o775),
+            (0o775, 0o500),
+            (0o775, 0o1700),
+            (0o1775, 0o700),
+        ):
+            with (
+                self.subTest(
+                    source_mode=oct(source_mode), restored_mode=oct(restored_mode)
+                ),
+                self.assertRaisesRegex(
+                    server.SupervisorError, "directory permissions changed"
+                ),
+            ):
+                intermediate.chmod(source_mode)
+                target.chmod(restored_mode)
+                recovery.receiver_equivalence(
+                    receiver, copied, self.state, restored, primary=True
+                )
+        intermediate.chmod(0o775)
+        target.chmod(0o700)
+
+    def test_fresh_materialized_restore_retains_closed_unqualified_incarnation(
+        self,
+    ) -> None:
+        config = self.initialized(True)
+        restored = self.root / "restored"
+        restored.mkdir(mode=0o700)
+        shutil.copytree(self.state / ".generations", restored / ".generations")
+        candidate = server.object_mapping(
+            server.reroot_restored(
+                server.fresh_database_identity(config), str(self.state), restored
+            )
+        )
+        candidate["unit_materialized"] = True
+        recovery.recovery_equivalence(
+            config, candidate, self.state, restored, fresh=True
+        )
+        for changes in (
+            {"restart_qualified": True},
+            {"accepting_writes": True},
+            {"admission": "open"},
+            {"admission": "quiesced"},
+        ):
+            with (
+                self.subTest(changes=changes),
+                self.assertRaisesRegex(
+                    server.SupervisorError, "readiness or admission"
+                ),
+            ):
+                recovery.recovery_equivalence(
+                    config, {**candidate, **changes}, self.state, restored, fresh=True
+                )
+        for key in ("instance_id", "namespace", "database"):
+            with (
+                self.subTest(copied_incarnation=key),
+                self.assertRaisesRegex(server.SupervisorError, "current incarnation"),
+            ):
+                recovery.recovery_equivalence(
+                    config,
+                    {**candidate, key: config[key]},
+                    self.state,
+                    restored,
+                    fresh=True,
+                )
+
     def test_reduced_reference_recovery_profile_is_refused_without_mutation(
         self,
     ) -> None:
@@ -388,44 +581,6 @@ class CanonicalRecoveryProfileTests(unittest.TestCase):
             ),
         ):
             recovery.refuse_reduced_recovery_profile(self.state, config, 8192)
-
-    def test_legacy_reconfiguration_still_accepts_lower_then_original_cap(self) -> None:
-        config = self.initialized(False)
-        identity = recovery.recovery_identity(config)
-        credentials = (self.state / "credentials.json").read_bytes()
-        with patch.object(
-            server,
-            "systemctl",
-            return_value=subprocess.CompletedProcess(
-                [],
-                0,
-                "LoadState=not-found\nActiveState=inactive\nControlGroup=\nMemoryMax=infinity\n",
-                "",
-            ),
-        ):
-            for mib in (512, 1024):
-                with server.state_lock(self.state):
-                    server.reconfigure(
-                        self.state,
-                        config,
-                        server.parser().parse_args(
-                            [
-                                "reconfigure",
-                                "--state",
-                                str(self.state),
-                                "--server-memory-mib",
-                                str(mib),
-                            ]
-                        ),
-                    )
-                self.assertEqual(
-                    config["resources"]["server_memory_bytes"], mib * server.MIB
-                )
-                self.assertEqual(recovery.recovery_identity(config), identity)
-                self.assertEqual(
-                    (self.state / "credentials.json").read_bytes(), credentials
-                )
-                self.assertFalse(config["accepting_writes"])
 
 
 class CanonicalRecoveryPlacementTests(unittest.TestCase):

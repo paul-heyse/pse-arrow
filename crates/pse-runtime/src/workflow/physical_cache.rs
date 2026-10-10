@@ -5,7 +5,7 @@ use super::{Operations, PhysicalContext, PhysicalSource, Runtime, WorkflowError,
 use crate::math::MathRuntimeError;
 use datafusion::execution::memory_pool::{MemoryConsumer, MemoryReservation};
 use pse_engine::cache_service::{CacheComponent, CacheEntryReport, CacheReport};
-use pse_operations::canonical::{CanonicalStore, ProtectedSelection, Revision};
+use pse_operations::canonical::{ProtectedSelection, Revision};
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicU64, AtomicUsize, Ordering},
@@ -17,23 +17,9 @@ const NAME: &str = "pse.cache.physical_admission";
 /// Active immutable values retain their own protections beyond cache eviction.
 #[derive(Debug)]
 pub(super) struct PhysicalOwner {
-    store: CanonicalStore,
     pins: Vec<ProtectedSelection>,
     _allocation: Arc<pse_columnar::AllocationLease>,
     retained_metadata: Option<Arc<pse_columnar::AllocationLease>>,
-    handle: tokio::runtime::Handle,
-}
-impl Drop for PhysicalOwner {
-    fn drop(&mut self) {
-        let store = self.store.clone();
-        let pins = std::mem::take(&mut self.pins);
-        self.handle.spawn(async move {
-            for pin in pins {
-                let _ = store.release(&pin).await;
-            }
-        });
-        // Executor shutdown can cancel bookkeeping; server expiry remains bounded.
-    }
 }
 #[derive(Debug)]
 struct Admission {
@@ -323,11 +309,9 @@ async fn protect(
         .try_grow(bytes)
         .map_err(pse_engine::EngineError::from)?;
     let mut owner = PhysicalOwner {
-        store: operations.store().clone(),
         pins: Vec::with_capacity(revisions.len()),
         _allocation: pse_columnar::AllocationLease::new(allocation),
         retained_metadata: None,
-        handle: tokio::runtime::Handle::current(),
     };
     for revision in revisions {
         let pin = operations
@@ -608,6 +592,30 @@ mod physical_admission_cache_unit {
             "active receipt consumers survive eviction"
         );
         assert!(first.same_sources(&second));
+    }
+    #[tokio::test]
+    async fn canonical_physical_final_owners_register_cleanup_before_fixture_drain() {
+        let (runtime, source) = fixture().await;
+        let physical = runtime
+            .physical_source(&source, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let operations = runtime.operations().unwrap();
+        let rows = operations
+            .put_physical_rows(&runtime, &physical)
+            .await
+            .unwrap();
+        let alias = physical.clone();
+        drop(physical);
+        runtime.clear_program_cache();
+        assert!(operations.store().remove_isolated_fixture().await.is_err());
+        drop(alias);
+        assert!(
+            operations.store().remove_isolated_fixture().await.is_err(),
+            "escaped row receipts retain their own protection after cache eviction"
+        );
+        drop(rows);
+        operations.store().remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
     async fn canonical_physical_admission_coalesces_same_source_and_localizes_cancellation() {

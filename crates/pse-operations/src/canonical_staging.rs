@@ -211,7 +211,10 @@ impl ProductBlob {
         }
         Ok((&bytes[start..end], &bytes[end..]))
     }
-    pub(crate) fn split(&self, bytes: &[u8]) -> Result<(Vec<u8>, Vec<u8>), CanonicalError> {
+    pub(crate) fn split<'a>(
+        &self,
+        bytes: &'a [u8],
+    ) -> Result<(&'a [u8], &'a [u8]), CanonicalError> {
         let header = PRODUCT_BLOB_MAGIC.len();
         if bytes.len() != self.bytes
             || !bytes.starts_with(PRODUCT_BLOB_MAGIC)
@@ -228,8 +231,8 @@ impl ProductBlob {
         }
         let start = header + 16;
         Ok((
-            bytes[start..start + self.payload_bytes].to_vec(),
-            bytes[start + self.payload_bytes..].to_vec(),
+            &bytes[start..start + self.payload_bytes],
+            &bytes[start + self.payload_bytes..],
         ))
     }
 }
@@ -3205,5 +3208,31 @@ mod canonical_server_unit {
         assert_eq!(metadata.blocks, 0);
         assert!(store.object("orphan-version").await.unwrap().is_some());
         remove(&store, &database).await;
+    }
+}
+
+#[cfg(test)]
+mod product_blob_receiving_unit {
+    use super::*;
+    #[test]
+    fn complete_frame_validation_borrows_payload_and_preserves_corruption_refusal() {
+        let payload = vec![37; SOURCE_BLOCK_BYTES + 17];
+        let dependencies = b"exact original dependency bytes";
+        let (descriptor, edit) = product_blob(&payload, dependencies).unwrap();
+        let version = edit.version.unwrap();
+        let bytes = version.payload.as_slice();
+        let (received, premises) = descriptor.split(bytes).unwrap();
+        assert_eq!(received, payload);
+        assert_eq!(premises, dependencies);
+        assert_eq!(
+            received.as_ptr(),
+            bytes[PRODUCT_BLOB_MAGIC.len() + 16..].as_ptr()
+        );
+        let mut corrupt = bytes.to_vec();
+        corrupt[PRODUCT_BLOB_MAGIC.len() + 16] ^= 1;
+        assert!(descriptor.split(&corrupt).is_err());
+        let mut changed = descriptor.clone();
+        changed.payload_bytes += 1;
+        assert!(changed.split(bytes).is_err());
     }
 }

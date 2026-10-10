@@ -24,6 +24,10 @@ tokio::task_local! {
     static CONFORMANCE_TEST_PROBE: Arc<tests::FixtureProbe>;
     static CONFORMANCE_TEST_FIXTURE: DeclarationId;
 }
+#[cfg(test)]
+fn probe_phase(fixture: DeclarationId, phase: &'static str) {
+    let _ = CONFORMANCE_TEST_PROBE.try_with(|probe| probe.phase(fixture, phase));
+}
 
 /// The authored fixture data of a test declaration, if any.
 fn authored_fixture(
@@ -1113,7 +1117,12 @@ impl ModelingPackage {
             .derivatives
             .allowance()
             .map_err(MathRuntimeError::from)?;
-        let source_rows = self.declarations().await?;
+        let source_rows = match &policy.fixtures {
+            ModelingFixtureSelection::Package => self.declarations().await?,
+            ModelingFixtureSelection::Selected(selected) => {
+                self.selected_declarations(selected, cancel).await?
+            }
+        };
         let fixtures = policy.fixtures.tests(&source_rows)?;
         // Every fixture's declared execution policy is resolved, and refused, before any
         // fixture runs.
@@ -1299,7 +1308,8 @@ impl ModelingPackage {
         let mut covered = BTreeSet::new();
         'fixture: {
             let fixture = row.declaration_id;
-
+            #[cfg(test)]
+            probe_phase(fixture, "selected source");
             let revision = match self.selected_revision(fixture, cancel).await {
                 Ok(revision) => revision,
                 Err(error) => {
@@ -1309,6 +1319,8 @@ impl ModelingPackage {
             };
             let oracle = revision.oracle(fixture);
             report.note_oracle(oracle, |oracle| revision.release_of(oracle));
+            #[cfg(test)]
+            probe_phase(fixture, "declared preparation");
             let admitted = match self
                 .declared_execution(
                     fixture,
@@ -1328,6 +1340,8 @@ impl ModelingPackage {
                 }
             };
             let model = admitted.model.clone();
+            #[cfg(test)]
+            probe_phase(fixture, "native preparation/admission");
             let bindings = admitted.analysis.bindings.clone();
             let solve_order = admitted.analysis.order;
             covered.extend(
@@ -2296,7 +2310,7 @@ fn range_rejected(error: &WorkflowError, source: SemanticId) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::workflow::Durability;
+    use crate::workflow::DurabilitySelection;
     #[derive(Clone, Default, Debug)]
     struct ProbeState {
         entered: BTreeSet<DeclarationId>,
@@ -2307,6 +2321,7 @@ mod tests {
         cancelled: BTreeSet<DeclarationId>,
         finished: Vec<DeclarationId>,
         refused: BTreeMap<DeclarationId, String>,
+        phases: BTreeMap<DeclarationId, &'static str>,
         #[cfg(feature = "solver-kinsol")]
         expected: BTreeSet<DeclarationId>,
         open: bool,
@@ -2318,6 +2333,13 @@ mod tests {
         wake: std::sync::Condvar,
     }
     impl FixtureProbe {
+        pub(super) fn phase(&self, fixture: DeclarationId, phase: &'static str) {
+            self.state
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .phases
+                .insert(fixture, phase);
+        }
         #[cfg(feature = "solver-kinsol")]
         fn for_fixtures(fixtures: &[DeclarationId]) -> Arc<Self> {
             let probe = Arc::new(Self::default());
@@ -2345,7 +2367,7 @@ mod tests {
                 .map(ToString::to_string)
                 .collect::<Vec<_>>();
             format!(
-                "active={} maximum={} entered={} finished={} cancellation_observed={} missing_native_entries=[{}]; refusals=[{}]",
+                "active={} maximum={} entered={} finished={} cancellation_observed={} missing_native_entries=[{}]; refusals=[{}]; phases={:?}",
                 state.active,
                 state.maximum,
                 state.entered.len(),
@@ -2358,7 +2380,8 @@ mod tests {
                     .take(4)
                     .cloned()
                     .collect::<Vec<_>>()
-                    .join("; ")
+                    .join("; "),
+                state.phases,
             )
         }
         // Called after admission and actual CaseWorker construction, on its native
@@ -2376,6 +2399,7 @@ mod tests {
                 panic!("one diagnostic worker per authored fixture");
             }
             state.native_threads.push(std::thread::current().id());
+            state.phases.insert(fixture, "native entered");
             state.active += 1;
             state.maximum = state.maximum.max(state.active);
             while !state.open && !state.released.contains(&fixture) {
@@ -2404,6 +2428,7 @@ mod tests {
         ) -> bool {
             let mut state = self.state.lock().unwrap();
             state.finished.push(fixture);
+            state.phases.insert(fixture, "finished");
             if !report.passed() {
                 state.refused.insert(fixture, report_summary(report));
             }
@@ -2431,9 +2456,18 @@ mod tests {
         async fn wait(&self, condition: impl Fn(&ProbeState) -> bool) {
             tokio::time::timeout(std::time::Duration::from_secs(20), async {
                 loop {
-                    if condition(&self.state.lock().unwrap()) {
+                    let state = self.state_snapshot();
+                    if condition(&state) {
                         break;
                     }
+                    assert!(
+                        !state
+                            .refused
+                            .keys()
+                            .any(|fixture| !state.entered.contains(fixture)),
+                        "fixture refused before native entry: {}",
+                        self.snapshot()
+                    );
                     tokio::time::sleep(std::time::Duration::from_millis(2)).await;
                 }
             })
@@ -2579,7 +2613,9 @@ mod tests {
             sessions,
             fixture::canonical_deployment(),
         )
-        .with_durability(Durability::Ephemeral)
+        .unwrap()
+        .with_durability(DurabilitySelection::Ephemeral)
+        .unwrap()
     }
     async fn parallel_package(source: &str, width: usize) -> ModelingPackage {
         let rows = pse_authoring::language::parse(
@@ -2648,7 +2684,23 @@ mod tests {
                 probe.wait(|state| state.finished.len() == index + 1).await;
             }
         };
-        let (report, ()) = tokio::join!(run, controls);
+        tokio::pin!(run, controls);
+        let report = tokio::select! {
+            biased;
+            () = &mut controls => run.await,
+            result = &mut run => {
+                let state = probe.state_snapshot();
+                assert!(
+                    state.entered.len() == 16 && state.finished.len() == 16 && state.released.len() == 16,
+                    "conformance completed before controlled native phases: {}; {}",
+                    result_summary(&result), probe.snapshot(),
+                );
+                // The final release can complete the run while the controller's
+                // last bounded wait is still sleeping. Join its assertions too.
+                controls.await;
+                result
+            },
+        };
         let mut report = report.unwrap();
         assert!(report.passed(), "{}", report_summary(&report));
         assert_eq!(
@@ -2823,7 +2875,12 @@ mod tests {
             drop(state);
             probe.release_all();
         };
-        let (report, ()) = tokio::join!(run, controls);
+        tokio::pin!(run, controls);
+        let report = tokio::select! {
+            biased;
+            () = &mut controls => run.await,
+            result = &mut run => panic!("conformance completed before controlled native phases: {}; {}", result_summary(&result), probe.snapshot()),
+        };
         let report = report.unwrap();
         assert!(report.passed(), "{}", report_summary(&report));
         let mut groups = Vec::new();
@@ -3301,38 +3358,43 @@ mod tests {
             observed.cancellation(),
             expected.cancellation()
         ));
+        // Provider construction expiry is a provider contract. Start its clock
+        // after native admission, with no competing supervisor execution deadline.
+        let original = resolution.providers.values().next().unwrap().clone();
+        let observed_scopes = scopes.clone();
         let control = pse_columnar::flight::FlightCancellation::default();
-        let scope = pse_kernels::ExecutionScope::new(
-            control.flag(),
-            Some(std::time::Instant::now() + std::time::Duration::from_millis(100)),
-        );
-        let called = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let observed_call = called.clone();
-        let result = service
-            .with_owned_worker(
-                assembly.clone(),
-                providers(std::time::Duration::from_millis(150)),
-                &cancel,
-                Some((scope.clone(), control.clone())),
-                move |_| {
-                    observed_call.store(true, std::sync::atomic::Ordering::Release);
-                    Ok(())
+        let (scope, result) = service
+            .job(
+                1,
+                assembly.assembly.numeric_worker_bytes(),
+                control.clone(),
+                move |flag| {
+                    let scope = pse_kernels::ExecutionScope::new(
+                        flag,
+                        Some(std::time::Instant::now() + std::time::Duration::from_millis(100)),
+                    );
+                    let factory = ObservedNestedFactory {
+                        original,
+                        scopes: observed_scopes,
+                        delay: std::time::Duration::from_millis(150),
+                    };
+                    let result =
+                        pse_kernels::ProviderFactory::create_scoped(&factory, scope.clone())
+                            .map(drop);
+                    Ok((scope, result))
                 },
             )
-            .await;
-        assert!(matches!(
-            result,
-            Err(MathRuntimeError::Solve(
-                pse_backend_native::ProblemError::Provider(pse_kernels::ProviderError::Deadline)
-            ))
-        ));
-        assert!(!called.load(std::sync::atomic::Ordering::Acquire));
+            .await
+            .unwrap();
+        assert!(matches!(result, Err(pse_kernels::ProviderError::Deadline)));
         assert!(
             !scope
                 .cancellation()
                 .load(std::sync::atomic::Ordering::Acquire)
         );
-        assert_eq!(scopes.lock().unwrap()[1].deadline(), scope.deadline());
+        let observed = scopes.lock().unwrap()[1].clone();
+        assert_eq!(observed.deadline(), scope.deadline());
+        assert!(Arc::ptr_eq(observed.cancellation(), scope.cancellation()));
         // Already-expired prepared work does not construct another provider.
         let result = service
             .with_owned_worker(

@@ -123,14 +123,14 @@ impl ModelingPackage {
             () = cancel.cancelled() => {
                 phase.cancel();
                 if let Ok(selected) = operation.await {
-                    self.runtime.canonical.store().release(selected.read.selection()).await?;
+                    selected.read.finish().await?;
                 }
                 Err(crate::math::MathRuntimeError::Cancelled.into())
             },
             () = tokio::time::sleep_until(deadline.into()) => {
                 phase.cancel();
                 if let Ok(selected) = operation.await {
-                    self.runtime.canonical.store().release(selected.read.selection()).await?;
+                    selected.read.finish().await?;
                 }
                 Err(preparation_time_limit())
             },

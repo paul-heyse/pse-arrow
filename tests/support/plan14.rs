@@ -39,6 +39,7 @@ pub(crate) fn runtime(owner: &WorkflowRuntime) -> Runtime {
             None,
         ),
     )
+    .unwrap()
 }
 fn package_documents(root: &std::path::Path) -> BTreeMap<String, Vec<u8>> {
     fn visit(

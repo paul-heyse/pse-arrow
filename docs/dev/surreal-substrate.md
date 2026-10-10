@@ -101,6 +101,22 @@ and its descendants have drained; absent, stale or conflicting ownership is refu
 Explicit stopped service readmission/start is the repair route, preserving disk and
 earlier generation evidence.
 
+Startup distinguishes a ready owned service, a compatible startup already in progress,
+observed absence, unavailable observation and mismatch. `start`/`ensure` join an existing
+compatible startup under the original caller clock, and a healthy fast path takes no
+mutation reservation. Unavailable observation is a refusal or bounded re-observation;
+it is not permission to restart a borrowed service. Actual lifecycle mutations still
+require the exact reservation and all-context drain. Borrowed-service cleanup checks the
+current launch allocation and bound incarnation inside that reservation before mutating
+the service; an old cleanup snapshot cannot stop a replacement owner.
+
+Host allocation admission reclaims ended owners without starting unrelated queued parked
+services. An explicit `--store` demand resumes only the selected service under its admitted
+owner. A functional store can reacquire its declared independent storage allocation; the
+original reference store still requires a matching exclusive/reference allocation. Explicit
+reconciliation retains failed resume intent for a later compatible owner, and an operator
+stop withdraws that service's queued resume.
+
 Run `qualify-recovery --state PATH` only on the explicitly selected owned service
 when all its contexts can be quiesced and drained. Under one original 90-second clock,
 the control explicitly provisions an administrative `pse_recovery` namespace and a
@@ -203,7 +219,10 @@ requires every registered receiver, observer, worker scope and pending launch to
 drained before
 stopping the server or copying the database. The acknowledgment does not itself
 perform or prove that drain. Server stop sends SIGTERM through the service and waits
-for the service to become inactive and its cgroup to be empty. The configured deadline can end shutdown forcibly;
+for the service to become inactive, its cgroup to be empty, and the recorded PID/start
+lifetime to disappear. An unreaped zombie still retains its allocation; host reconciliation
+uses the same exact affiliated process premise before reclaiming capacity.
+The configured deadline can end shutdown forcibly;
 RocksDB recovery then occurs at next open. Restart explicitly reopens admission once
 the server is ready, except for an unvalidated restore.
 
@@ -236,7 +255,10 @@ Restore into a new or empty owned target, never over an existing application:
 ```
 
 Restore checks the full file inventory, digests, known profile and matching interpretation
-before creating the target. Managed generation/context paths are rerooted into the
+before creating the target. Receiver equivalence checks immutable bytes, permissions,
+the exact external interpreter and the permitted source-to-restored installation mapping;
+directory permissions may narrow while retaining owner access, but may not widen; exact file
+modes remain checked. Intermediate-directory and manifest symlinks refuse. Managed generation/context paths are rerooted into the
 new state; restored serving does not depend on the original state directory. Live
 process and admission receipts are not restored. Restore reserves the destination and publishes
 a fresh closed namespace/database before copying backup bytes. It removes copied analysis
@@ -245,6 +267,10 @@ the current database into the fresh identity, rotates root credentials and remov
 old copied database. Unrelated catalog owners refuse maintenance. Non-analysis operation
 identities remain current; old authenticated clients cannot write the copied old database.
 The target records `validation_required` with `accepting_writes=false`; ordinary start refuses it.
+Credential rotation may materialize this fresh installation's systemd unit under maintenance
+ownership. That unit file establishes neither readiness nor restart qualification. Scientific
+recovery compares complete schema metadata and exact float/binary bits while disregarding
+metadata map order and transport chunk boundaries.
 
 `validate` starts the gated server, authenticates against `pse/canonical`, and requires
 `canonical_interpretations:current.interpretation` to match `pse.substrate.v3`. It then

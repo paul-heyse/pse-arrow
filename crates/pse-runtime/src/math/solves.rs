@@ -264,6 +264,7 @@ pub struct PreparedSolve {
     #[cfg(feature = "solver-kinsol")]
     causal_supplier: Option<Arc<dyn causal::CausalSupplier>>,
     pool: Arc<dyn datafusion::execution::memory_pool::MemoryPool>,
+    pressure: Arc<super::retention::Pressure>,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
 #[derive(Clone, Debug)]
@@ -1355,8 +1356,8 @@ impl PreparedSolve {
         let reservation =
             datafusion::execution::memory_pool::MemoryConsumer::new("math:prepared-composition")
                 .register(&self.pool);
-        reservation
-            .try_grow(bytes)
+        self.pressure
+            .try_grow(&reservation, bytes)
             .map_err(|error| ProblemError::memory(error.to_string()))?;
         let owner = pse_columnar::AllocationLease::new(reservation);
         self.task_scope = task_scope;
@@ -3126,6 +3127,7 @@ impl MathService {
             #[cfg(feature = "solver-kinsol")]
             causal_supplier: None,
             pool: self.pool.clone(),
+            pressure: self.pressure.clone(),
             _owner: owner,
         };
         if deferred {
@@ -3334,6 +3336,7 @@ impl MathService {
             #[cfg(feature = "solver-kinsol")]
             causal_supplier: None,
             pool: self.pool.clone(),
+            pressure: self.pressure.clone(),
             _owner: self.reserve("math:prepared-block", bytes)?,
         })
     }
@@ -3576,6 +3579,7 @@ impl MathService {
             #[cfg(feature = "solver-kinsol")]
             causal_supplier: None,
             pool: self.pool.clone(),
+            pressure: self.pressure.clone(),
             _owner: owner,
         })
     }

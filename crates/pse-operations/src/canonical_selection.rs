@@ -35,6 +35,32 @@ fn scientific_producer(producer: &str) -> bool {
         || producer.starts_with(LOCAL_RUNTIME_PRODUCER_PREFIX)
 }
 
+// Emit a scoped equality only when selected. Keeping an optional OR in SQL
+// hides the equality from the native composite (problem, scope, key) access path.
+fn membership_scope_predicate(scoped: bool, parameter: &str) -> String {
+    if scoped {
+        format!(" AND scope = ${parameter}")
+    } else {
+        String::new()
+    }
+}
+
+// Materialize the target suppliers once per protected query, rather than once
+// per candidate membership. IN preserves existence semantics for repeated edges;
+// the current membership, kind, scope and page predicates still select authority.
+fn membership_reference_predicate(targeted: bool, suffix: &str) -> (String, String) {
+    if targeted {
+        (
+            format!(
+                "\nLET $suppliers{suffix} = SELECT VALUE source_version FROM canonical_edges WHERE target_scope = $target_scope{suffix} AND target_name = $target_name{suffix} TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);"
+            ),
+            format!(" AND version IN $suppliers{suffix}"),
+        )
+    } else {
+        (String::new(), String::new())
+    }
+}
+
 /// Maximum exact inventories sharing one protected 64-membership response.
 pub const SELECTED_INVENTORY_BATCH: usize = 8;
 
@@ -260,6 +286,10 @@ impl SelectedRead {
     /// Exact canonical revision; it is not a source-content hash.
     pub fn selection(&self) -> &ProtectedSelection {
         &self.selection
+    }
+    /// Finish this reader without releasing protection still owned by another follower.
+    pub async fn finish(self) -> Result<(), CanonicalError> {
+        self.selection.finish().await
     }
     /// Record a consumed compiler/provider/configuration interpretation.
     pub fn interpretation(&mut self, role: String, identity: String) -> Result<(), CanonicalError> {
@@ -865,8 +895,13 @@ impl CanonicalStore {
         }
         let limit = 64 / cursors.len();
         let mut sql = PROTECTED_BEGIN.to_owned();
-        for index in 0..cursors.len() {
-            sql.push_str(&format!("\nLET $page{index} = SELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope{index} = NONE OR scope = $scope{index}) AND key > $after{index} AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($kind{index} = NONE OR (out.kind = $kind{index} AND out.closed = true)) AND ($target_scope{index} = NONE OR (SELECT VALUE key FROM canonical_edges WHERE source_version = $parent.version AND target_scope = $target_scope{index} AND target_name = $target_name{index} LIMIT 1) != []) ORDER BY key LIMIT {limit} TIMEOUT $pse_rpc_timeout;"));
+        for (index, cursor) in cursors.iter().enumerate() {
+            let scoped =
+                membership_scope_predicate(cursor.scope.is_some(), &format!("scope{index}"));
+            let (suppliers, referenced) =
+                membership_reference_predicate(cursor.target.is_some(), &index.to_string());
+            sql.push_str(&suppliers);
+            sql.push_str(&format!("\nLET $page{index} = SELECT * FROM canonical_memberships WHERE problem = $problem{scoped} AND key > $after{index} AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($kind{index} = NONE OR (out.kind = $kind{index} AND out.closed = true)){referenced} ORDER BY key LIMIT {limit} TIMEOUT $pse_rpc_timeout;"));
         }
         let pages = (0..cursors.len())
             .map(|index| format!("$page{index}"))
@@ -1032,7 +1067,9 @@ impl CanonicalStore {
         target: Option<(&str, &str)>,
         after: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
-        let mut response = self.protected_query(&selection.revision().problem, "canonical_selection::selection_membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope = NONE OR scope = $scope) AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($source_kind = NONE OR (out.kind = $source_kind AND out.closed = true)) AND ($target_scope = NONE OR (SELECT VALUE key FROM canonical_edges WHERE source_version = $parent.version AND target_scope = $target_scope AND target_name = $target_name LIMIT 1) != []) ORDER BY key LIMIT 64 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+        let scoped = membership_scope_predicate(scope.is_some(), "scope");
+        let (suppliers, referenced) = membership_reference_predicate(target.is_some(), "");
+        let mut response = self.protected_query(&selection.revision().problem, "canonical_selection::selection_membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}{suppliers}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem{scoped} AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($source_kind = NONE OR (out.kind = $source_kind AND out.closed = true)){referenced} ORDER BY key LIMIT 64 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("protection", selection.key().to_owned())).bind(("scope", scope.map(str::to_owned))).bind(("source_kind", source_kind.map(str::to_owned))).bind(("after", after.to_owned())).bind(("target_scope", target.map(|(scope,_)| scope.to_owned()))).bind(("target_name", target.map(|(_,name)| name.to_owned()))).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
@@ -1192,7 +1229,8 @@ impl CanonicalStore {
         scope: Option<&str>,
         after: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
-        let mut response = self.protected_query(&selection.revision().problem, "canonical_selection::membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem AND ($scope = NONE OR scope = $scope) AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) ORDER BY key LIMIT 64 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+        let scoped = membership_scope_predicate(scope.is_some(), "scope");
+        let mut response = self.protected_query(&selection.revision().problem, "canonical_selection::membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem{scoped} AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) ORDER BY key LIMIT 64 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("protection", selection.key().to_owned())).bind(("scope", scope.map(str::to_owned))).bind(("after", after.to_owned())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
@@ -1580,19 +1618,20 @@ impl CanonicalStore {
             return Ok(None);
         };
         let (payload, dependencies_bytes) = candidate.descriptor.split(blob.payload.as_slice())?;
-        let dependencies: Dependencies = serde_json::from_slice(&dependencies_bytes)
+        let dependencies: Dependencies = serde_json::from_slice(dependencies_bytes)
             .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
         if dependencies.interpretation != wire::INTERPRETATION {
             return Ok(None);
         }
-        let mut product = candidate.product.clone();
-        product.payload = payload.into();
-        product.dependencies = dependencies_bytes.into();
-        if self.recheck_dependencies(read, &dependencies).await? {
-            Ok(Some(ReusableProduct { product }))
-        } else {
-            Ok(None)
+        if !self.recheck_dependencies(read, &dependencies).await? {
+            return Ok(None);
         }
+        // Rejected candidates retain only the assembled immutable blob and parsed
+        // premises. Copy scientific bytes only after complete eligibility succeeds.
+        let mut product = candidate.product.clone();
+        product.payload = payload.to_vec().into();
+        product.dependencies = dependencies_bytes.to_vec().into();
+        Ok(Some(ReusableProduct { product }))
     }
     /// Recheck immutable in-memory premises through the same eligibility mechanism
     /// as durable scientific products. Rejected candidates do not contaminate the read.
@@ -1613,15 +1652,23 @@ impl CanonicalStore {
         if dependencies.interpretation != wire::INTERPRETATION {
             return Ok(false);
         }
+        // Supplied interpretations are already in memory. A mismatch grants no
+        // reuse authority and requires neither source hydration nor membership RPCs.
+        if dependencies.premises.iter().any(|premise| {
+            matches!(premise, Premise::Interpretation { role, identity }
+                if read.interpretations.get(role) != Some(identity))
+        }) {
+            return Ok(false);
+        }
         let mut eligible = true;
         let mut candidate_read = SelectedRead::new(read.selection.clone());
-        // Exact positive AND absent lookup premises share the existing bounded
-        // acquisition routes. Reuse must not replace hydration with singleton RPCs.
+        // Reject each bounded exact positive/absent window before acquiring later
+        // windows or inventories. Accepted candidates still check every premise.
         let mut logicals = dependencies
             .premises
             .iter()
             .filter_map(|premise| match premise {
-                Premise::Logical { logical, .. } => Some(logical.clone()),
+                Premise::Logical { logical, version } => Some((logical, version)),
                 _ => None,
             });
         loop {
@@ -1629,13 +1676,28 @@ impl CanonicalStore {
             if window.is_empty() {
                 break;
             }
-            self.resolve_logicals(&mut candidate_read, &window).await?;
+            let selected = window
+                .iter()
+                .map(|(logical, _)| (*logical).clone())
+                .collect::<Vec<_>>();
+            self.resolve_logicals(&mut candidate_read, &selected)
+                .await?;
+            if window
+                .iter()
+                .any(|(logical, expected)| candidate_read.logicals.get(*logical) != Some(*expected))
+            {
+                return Ok(false);
+            }
         }
         let mut names = dependencies
             .premises
             .iter()
             .filter_map(|premise| match premise {
-                Premise::Name { scope, name, .. } => Some((scope.clone(), name.clone())),
+                Premise::Name {
+                    scope,
+                    name,
+                    version,
+                } => Some(((scope.clone(), name.clone()), version)),
                 _ => None,
             });
         loop {
@@ -1643,8 +1705,17 @@ impl CanonicalStore {
             if window.is_empty() {
                 break;
             }
-            self.resolve_name_pairs(&mut candidate_read, &window)
-                .await?;
+            let pairs = window
+                .iter()
+                .map(|(pair, _)| pair.clone())
+                .collect::<Vec<_>>();
+            self.resolve_name_pairs(&mut candidate_read, &pairs).await?;
+            if window
+                .iter()
+                .any(|(pair, expected)| candidate_read.names.get(pair) != Some(*expected))
+            {
+                return Ok(false);
+            }
         }
         for premise in dependencies.premises.iter().cloned() {
             match premise {
@@ -1930,6 +2001,48 @@ mod canonical_server_unit {
         store.remove_isolated_fixture().await.unwrap();
     }
 
+    #[tokio::test]
+    async fn interpretation_mismatch_rejects_before_source_acquisition_without_reuse_authority() {
+        let store = fixture().await;
+        let revision = store.edit("p", None, "cheap-rejection", &[]).await.unwrap();
+        let mut original = read(&store, revision.clone()).await;
+        store
+            .resolve_logicals(&mut original, &["absent".into()])
+            .await
+            .unwrap();
+        original
+            .interpretation("physical".into(), "original".into())
+            .unwrap();
+        let dependencies = original.snapshot_dependencies().unwrap();
+        let mut incompatible = read(&store, revision.clone()).await;
+        incompatible
+            .interpretation("physical".into(), "changed".into())
+            .unwrap();
+        store.release(incompatible.selection()).await.unwrap();
+        // The expired selection cannot acquire source. An already established
+        // interpretation mismatch still refuses immediately and grants no premises.
+        assert!(
+            !store
+                .recheck_selection_dependencies(&mut incompatible, &dependencies)
+                .await
+                .unwrap()
+        );
+        assert!(incompatible.logicals.is_empty());
+        let mut compatible = read(&store, revision).await;
+        compatible
+            .interpretation("physical".into(), "original".into())
+            .unwrap();
+        store.release(compatible.selection()).await.unwrap();
+        assert!(
+            store
+                .recheck_selection_dependencies(&mut compatible, &dependencies)
+                .await
+                .is_err(),
+            "a matching interpretation still needs actual live source authority"
+        );
+        store.release(original.selection()).await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
     #[tokio::test]
     async fn sixteen_same_problem_protected_readers_share_short_turns_with_staging_and_exact_ack() {
         let store = fixture().await;
@@ -2412,6 +2525,217 @@ mod canonical_server_unit {
         for read in [&selected, &other] {
             store.release(read.selection()).await.unwrap();
         }
+    }
+
+    #[tokio::test]
+    async fn inverse_supplier_set_preserves_duplicate_edges_pages_and_revision_premises() {
+        let store = fixture().await;
+        let mut edits = (0..130)
+            .map(|index| {
+                edit(
+                    &format!("supplier-{index:03}"),
+                    &format!("supplier-v-{index}"),
+                    "dataset",
+                    vec![("target".into(), "x".into()), ("target".into(), "x".into())],
+                )
+            })
+            .collect::<Vec<_>>();
+        edits.push(edit(
+            "wrong-kind",
+            "wrong-v",
+            "definition",
+            vec![("target".into(), "x".into())],
+        ));
+        let original = store
+            .edit("p", None, "inverse-original", &edits)
+            .await
+            .unwrap();
+        store
+            .edit(
+                "foreign",
+                None,
+                "inverse-foreign",
+                &[edit(
+                    "foreign",
+                    "foreign-v",
+                    "dataset",
+                    vec![("target".into(), "x".into())],
+                )],
+            )
+            .await
+            .unwrap();
+        let mut selected = read(&store, original.clone()).await;
+        let mut cursor = store
+            .reference_pages(&mut selected, "target", "x", "dataset")
+            .unwrap();
+        let mut found = std::collections::BTreeSet::new();
+        for expected in [64, 64, 2, 0] {
+            let page = store
+                .next_membership_page(&mut selected, &mut cursor)
+                .await
+                .unwrap();
+            assert_eq!(page.len(), expected);
+            for member in page {
+                assert!(found.insert((member.logical, member.version)));
+            }
+        }
+        let expected = (0..130)
+            .map(|index| {
+                (
+                    format!("supplier-{index:03}"),
+                    format!("supplier-v-{index}"),
+                )
+            })
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(
+            found, expected,
+            "duplicate edges and foreign suppliers cannot duplicate or widen membership"
+        );
+        let dependencies = selected.snapshot_dependencies().unwrap();
+        let mut same = read(&store, original.clone()).await;
+        assert!(
+            store
+                .recheck_selection_dependencies(&mut same, &dependencies)
+                .await
+                .unwrap(),
+            "requalification uses the same complete paged supplier meaning"
+        );
+        let mut grouped = read(&store, original).await;
+        let mut cursors = [
+            store
+                .reference_pages(&mut grouped, "target", "absent", "dataset")
+                .unwrap(),
+            store
+                .reference_pages(&mut grouped, "target", "x", "definition")
+                .unwrap(),
+        ];
+        let pages = store
+            .next_membership_pages(&mut grouped, &mut cursors)
+            .await
+            .unwrap();
+        assert!(pages[0].is_empty());
+        assert_eq!(
+            pages[1]
+                .iter()
+                .map(|member| member.logical.as_str())
+                .collect::<Vec<_>>(),
+            ["wrong-kind"]
+        );
+        assert!(
+            store
+                .next_membership_page(&mut grouped, &mut cursors[1])
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert!(grouped.dependency_bytes().is_ok());
+        let mut removed = edit("supplier-000", "unused", "dataset", vec![]);
+        removed.version = None;
+        let current = store
+            .edit("p", Some("inverse-original"), "inverse-removed", &[removed])
+            .await
+            .unwrap();
+        let mut changed = read(&store, current).await;
+        assert!(
+            !store
+                .recheck_selection_dependencies(&mut changed, &dependencies)
+                .await
+                .unwrap()
+        );
+        assert_eq!(
+            selected.references[&("target".into(), "x".into(), "dataset".into())].len(),
+            130,
+            "later removal does not change the protected historical inventory"
+        );
+        for read in [&selected, &same, &grouped, &changed] {
+            store.release(read.selection()).await.unwrap();
+        }
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn scoped_inventory_preserves_exact_and_absent_premises_under_skew() {
+        let store = fixture().await;
+        let mut edits = (0..256)
+            .map(|index| {
+                edit(
+                    &format!("common-{index:03}"),
+                    &format!("common-v-{index}"),
+                    "definition",
+                    vec![],
+                )
+            })
+            .collect::<Vec<_>>();
+        let mut rare = edit(
+            "rare",
+            "rare-v",
+            "dataset",
+            vec![("target".into(), "x".into())],
+        );
+        rare.scope = "rare".into();
+        edits.push(rare);
+        let revision = store.edit("p", None, "scoped-skew", &edits).await.unwrap();
+        let mut selected = read(&store, revision).await;
+        let scope = store
+            .membership_page(selected.selection(), Some("rare"), "")
+            .await
+            .unwrap();
+        assert_eq!(
+            scope
+                .iter()
+                .map(|row| row.version.as_str())
+                .collect::<Vec<_>>(),
+            ["rare-v"]
+        );
+        assert!(
+            store
+                .membership_page(selected.selection(), Some("absent"), "")
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            store
+                .membership_page(selected.selection(), None, "")
+                .await
+                .unwrap()
+                .len(),
+            64
+        );
+        let mut cursors = [
+            store.scope_pages(&mut selected, "rare").unwrap(),
+            store
+                .kind_pages(&mut selected, Some("rare"), "definition")
+                .unwrap(),
+            store
+                .kind_pages(&mut selected, Some("rare"), "dataset")
+                .unwrap(),
+            store
+                .reference_pages(&mut selected, "target", "x", "dataset")
+                .unwrap(),
+        ];
+        let pages = store
+            .next_membership_pages(&mut selected, &mut cursors)
+            .await
+            .unwrap();
+        assert_eq!(pages.iter().map(Vec::len).collect::<Vec<_>>(), [1, 0, 1, 1]);
+        for index in [0, 2, 3] {
+            assert!(
+                store
+                    .next_membership_page(&mut selected, &mut cursors[index])
+                    .await
+                    .unwrap()
+                    .is_empty()
+            );
+        }
+        assert_eq!(selected.scopes["rare"], [("rare".into(), "rare-v".into())]);
+        assert!(selected.kinds[&(Some("rare".into()), "definition".into())].is_empty());
+        assert_eq!(
+            selected.references[&("target".into(), "x".into(), "dataset".into())],
+            [("rare".into(), "rare-v".into())]
+        );
+        assert!(selected.dependency_bytes().is_ok());
+        store.release(selected.selection()).await.unwrap();
     }
 
     #[tokio::test]

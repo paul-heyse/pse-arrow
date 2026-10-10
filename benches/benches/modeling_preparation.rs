@@ -136,7 +136,8 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
             },
             None,
         ),
-    );
+    )
+    .unwrap();
     let physical = runtime
         .physical_from_documents(&documents(&["physical"], None), &owner.cancel)
         .await

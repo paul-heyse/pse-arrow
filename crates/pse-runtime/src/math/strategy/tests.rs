@@ -8,6 +8,21 @@ use pse_model::{
 };
 use std::sync::atomic::AtomicBool;
 
+fn export_service(pool: Arc<dyn pse_columnar::MemoryPool>) -> Arc<crate::math::MathService> {
+    let native = pse_engine::cache_service::NativeCacheService::new(
+        pse_engine::cache_service::CacheBudget::disabled(1),
+        &pool,
+    )
+    .unwrap();
+    crate::math::MathService::new(
+        pool,
+        Arc::new(tokio::sync::Semaphore::new(2)),
+        2,
+        Default::default(),
+        &native,
+    )
+}
+
 fn hash(n: u8) -> ContentHash {
     ContentHash::from_bytes([n; 32])
 }
@@ -43,9 +58,10 @@ fn event_export_admits_current_copy_before_projection() {
     };
     let run = pse_model::generated::identities::RunId::from_bytes([8; 16]);
     let tiny: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(64));
+    let tiny_service = export_service(tiny.clone());
     assert!(
         trace
-            .rows(run, 0, tiny.clone(), 0..usize::MAX)
+            .rows(run, 0, &tiny_service, 0..usize::MAX)
             .unwrap()
             .next()
             .unwrap()
@@ -53,7 +69,8 @@ fn event_export_admits_current_copy_before_projection() {
     );
     assert_eq!(tiny.reserved(), 0);
     let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(1 << 20));
-    let mut rows = trace.rows(run, 0, pool.clone(), 0..usize::MAX).unwrap();
+    let service = export_service(pool.clone());
+    let mut rows = trace.rows(run, 0, &service, 0..usize::MAX).unwrap();
     assert_eq!(
         pool.reserved(),
         0,
@@ -72,7 +89,7 @@ fn event_export_admits_current_copy_before_projection() {
     trace.events.clear();
     assert!(
         trace
-            .rows(run, 0, tiny, 0..usize::MAX)
+            .rows(run, 0, &tiny_service, 0..usize::MAX)
             .unwrap()
             .next()
             .is_none()
@@ -150,18 +167,19 @@ fn strategy_export_windows_skip_malformed_events_products_and_empty_ranges() {
     let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(
         datafusion::execution::memory_pool::GreedyMemoryPool::new(1 << 20),
     );
+    let service = export_service(pool.clone());
     assert_eq!(trace.event_count(), 2);
     assert_eq!(trace.product_count().unwrap(), 2);
     assert!(
         trace
-            .rows(run, 0, pool.clone(), 0..1)
+            .rows(run, 0, &service, 0..1)
             .unwrap()
             .next()
             .unwrap()
             .is_err()
     );
     let rows = trace
-        .rows(run, 0, pool.clone(), 1..2)
+        .rows(run, 0, &service, 1..2)
         .unwrap()
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
@@ -185,7 +203,7 @@ fn strategy_export_windows_skip_malformed_events_products_and_empty_ranges() {
     for range in [0..0, 1..1, 2..2, 50..100] {
         assert!(
             trace
-                .rows(run, 0, pool.clone(), range.clone())
+                .rows(run, 0, &service, range.clone())
                 .unwrap()
                 .next()
                 .is_none()
@@ -311,7 +329,9 @@ async fn automatic_refusal_only_trace_publishes_without_admitting_empty_executio
             .rows(
                 run_id,
                 0,
-                Arc::new(datafusion::execution::memory_pool::UnboundedMemoryPool::default()),
+                &export_service(Arc::new(
+                    datafusion::execution::memory_pool::UnboundedMemoryPool::default()
+                )),
                 0..usize::MAX
             )
             .unwrap()
@@ -355,7 +375,9 @@ async fn automatic_refusal_only_trace_publishes_without_admitting_empty_executio
         .rows(
             run_id,
             0,
-            Arc::new(datafusion::execution::memory_pool::UnboundedMemoryPool::default()),
+            &export_service(Arc::new(
+                datafusion::execution::memory_pool::UnboundedMemoryPool::default(),
+            )),
             0..usize::MAX,
         )
         .unwrap()
@@ -404,7 +426,9 @@ async fn automatic_refusal_only_trace_publishes_without_admitting_empty_executio
             .rows(
                 run_id,
                 0,
-                Arc::new(datafusion::execution::memory_pool::UnboundedMemoryPool::default()),
+                &export_service(Arc::new(
+                    datafusion::execution::memory_pool::UnboundedMemoryPool::default()
+                )),
                 0..usize::MAX
             )
             .is_err(),

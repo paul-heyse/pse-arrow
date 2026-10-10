@@ -90,7 +90,7 @@ class Runtime:
         )
 
     def close(self) -> None:
-        """Drain this runtime's local readers and canonical connections."""
+        """Evict optional caches, then drain local readers and canonical connections."""
         self._handle.close()
 
     @property

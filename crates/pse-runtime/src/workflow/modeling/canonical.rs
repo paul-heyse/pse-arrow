@@ -82,7 +82,7 @@ impl SourceRevision {
         let result = context(runtime, &mut read).await.map_err(|error| {
             super::super::diagnostics::operation_context(error, "modeling_revision.context")
         });
-        let release = store.release(read.selection()).await.map_err(|error| {
+        let release = read.finish().await.map_err(|error| {
             super::super::diagnostics::operation_context(error.into(), "modeling_revision.release")
         });
         let identity = result?;
@@ -568,7 +568,7 @@ pub(super) async fn persist(
             Ok(old)
         }
         .await;
-        let release = runtime.canonical.store().release(&protection).await;
+        let release = protection.finish().await;
         let old = old?;
         release?;
         let retained = edits
@@ -1161,15 +1161,26 @@ impl ModelingPackage {
                     break;
                 };
                 after = last.key.clone();
-                for member in page.into_iter().filter(|member| {
-                    member.logical.starts_with("modeling:")
-                        && member.logical != CONTEXT_LOGICAL
-                        && member.logical != PHYSICAL_SCOPE_LOGICAL
-                }) {
-                    let value = selected_object(&self.runtime, &read, &member.version).await?;
-                    let (row, _): SourcePayload = decode(value.payload.as_slice())?;
-                    leases.push(value.lease.clone());
-                    rows.push(row);
+                let versions = page
+                    .into_iter()
+                    .filter(|member| {
+                        member.logical.starts_with("modeling:")
+                            && member.logical != CONTEXT_LOGICAL
+                            && member.logical != PHYSICAL_SCOPE_LOGICAL
+                    })
+                    .map(|member| member.version)
+                    .collect::<Vec<_>>();
+                for chunk in
+                    versions.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH)
+                {
+                    for value in
+                        selected_objects(&self.runtime, &read, chunk, &crate::CancelSource::new())
+                            .await?
+                    {
+                        let (row, _): SourcePayload = decode(value.payload.as_slice())?;
+                        leases.push(value.lease.clone());
+                        rows.push(row);
+                    }
                 }
             }
             Ok(super::OwnedDeclarations {
@@ -1178,7 +1189,7 @@ impl ModelingPackage {
             })
         }
         .await;
-        let release = store.release(read.selection()).await;
+        let release = read.finish().await;
         let result = result?;
         release?;
         Ok(result)
@@ -1198,17 +1209,26 @@ impl ModelingPackage {
         let result: Result<_, WorkflowError> = async {
             let mut fits = Vec::new();
             let mut leases = Vec::new();
-            for member in store.resolve_kind_scope(&mut read, None, "fit").await? {
-                let value = selected_object(&self.runtime, &read, &member.version).await?;
-                fits.push(decode(value.payload.as_slice())?);
-                leases.push(value.lease.clone());
+            let members = store.resolve_kind_scope(&mut read, None, "fit").await?;
+            for chunk in members.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH) {
+                let versions = chunk
+                    .iter()
+                    .map(|member| member.version.clone())
+                    .collect::<Vec<_>>();
+                for value in
+                    selected_objects(&self.runtime, &read, &versions, &crate::CancelSource::new())
+                        .await?
+                {
+                    fits.push(decode(value.payload.as_slice())?);
+                    leases.push(value.lease.clone());
+                }
             }
             Ok(super::super::fitting::FitDeclarations::from_owned_rows(
                 fits, leases,
             ))
         }
         .await;
-        let release = store.release(read.selection()).await;
+        let release = read.finish().await;
         let result = result?;
         release?;
         Ok(result)
@@ -1232,7 +1252,7 @@ impl ModelingPackage {
             decode(value.payload.as_slice())
         }
         .await;
-        let release = store.release(read.selection()).await;
+        let release = read.finish().await;
         let result = result?;
         release?;
         Ok(result)
@@ -1273,7 +1293,7 @@ impl ModelingPackage {
             .await?;
         let mut read = SelectedRead::new(protection);
         let old = store.resolve_kind_scope(&mut read, None, "fit").await;
-        let release = store.release(read.selection()).await;
+        let release = read.finish().await;
         let old = old?;
         release?;
         let mut edits = fits
@@ -1471,7 +1491,66 @@ impl ModelingPackage {
                 ))
             }
             .await;
-        let release = store.release(read.selection()).await;
+        let release = read.finish().await;
+        let result = result?;
+        release?;
+        Ok(result)
+    }
+    /// Read the exact fixture selection in canonical membership order.
+    pub(super) async fn selected_declarations(
+        &self,
+        selected: &BTreeSet<DeclarationId>,
+        cancel: &crate::CancelSource,
+    ) -> Result<super::OwnedDeclarations, WorkflowError> {
+        if selected.is_empty() {
+            return Err(contract("a fixture selection names at least one test"));
+        }
+        let store = self.runtime.canonical.store();
+        let protection = store
+            .protect(
+                self.revision.canonical.clone(),
+                std::time::Duration::from_secs(3600),
+            )
+            .await?;
+        let mut read = SelectedRead::new(protection);
+        let result = async {
+            let logicals = selected.iter().map(|id| logical(*id)).collect::<Vec<_>>();
+            let mut members = Vec::new();
+            for chunk in logicals.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH) {
+                checkpoint(cancel)?;
+                let _scratch = self.runtime.shared.math().reserve(
+                    "modeling:selected-fixture-membership",
+                    pse_operations::canonical_staging::SELECTED_OBJECT_HEADER_SCRATCH,
+                )?;
+                members.extend(store.resolve_logicals(&mut read, chunk).await?);
+            }
+            members.sort_by(|a, b| a.key.cmp(&b.key));
+            let mut rows = Vec::new();
+            let mut leases = Vec::new();
+            for chunk in members.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH) {
+                let versions = chunk
+                    .iter()
+                    .map(|member| member.version.clone())
+                    .collect::<Vec<_>>();
+                for (member, value) in chunk
+                    .iter()
+                    .zip(selected_objects(&self.runtime, &read, &versions, cancel).await?)
+                {
+                    if value.logical != member.logical || value.key != member.version {
+                        return Err(contract("selected fixture association differs"));
+                    }
+                    let (row, _): SourcePayload = decode(value.payload.as_slice())?;
+                    rows.push(row);
+                    leases.push(value.lease);
+                }
+            }
+            Ok::<_, WorkflowError>(super::OwnedDeclarations {
+                rows,
+                _leases: leases,
+            })
+        }
+        .await;
+        let release = read.finish().await;
         let result = result?;
         release?;
         Ok(result)
@@ -1497,7 +1576,7 @@ impl ModelingPackage {
             Ok(row)
         }
         .await;
-        let release = store.release(read.selection()).await;
+        let release = read.finish().await;
         let result = result?;
         release?;
         Ok(result)
@@ -1681,7 +1760,7 @@ impl ModelingPackage {
                 _premises_metadata: premises_metadata,
             }),
             Err(error) => {
-                let _ = store.release(read.selection()).await;
+                let _ = read.finish().await;
                 Err(error)
             }
         }
@@ -1721,12 +1800,7 @@ impl ModelingPackage {
                 .map_err(WorkflowError::from),
             Err(error) => Err(error),
         };
-        let release = self
-            .runtime
-            .canonical
-            .store()
-            .release(selected.read.selection())
-            .await;
+        let release = selected.read.finish().await;
         let result = result?;
         release?;
         Ok(result)
@@ -1738,12 +1812,7 @@ impl ModelingPackage {
     ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
         let selected = self.checked_selection(&[root], cancel).await?;
         let result = Ok::<_, WorkflowError>(selected.admission.revision.clone());
-        let release = self
-            .runtime
-            .canonical
-            .store()
-            .release(selected.read.selection())
-            .await;
+        let release = selected.read.finish().await;
         let result = result?;
         release?;
         Ok(result)
@@ -1755,12 +1824,7 @@ impl ModelingPackage {
     ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
         let selected = self.checked_selection(roots, cancel).await?;
         let result = Ok::<_, WorkflowError>(selected.admission.revision.clone());
-        let release = self
-            .runtime
-            .canonical
-            .store()
-            .release(selected.read.selection())
-            .await;
+        let release = selected.read.finish().await;
         let result = result?;
         release?;
         Ok(result)
@@ -1811,7 +1875,7 @@ impl ModelingPackage {
                 _leases: leases,
             }),
             Err(error) => {
-                let _ = store.release(read.selection()).await;
+                let _ = read.finish().await;
                 Err(error)
             }
         }
@@ -2371,6 +2435,69 @@ mod tests {
             index.requests.is_empty(),
             "complete inventories and grammar leaves need no negative re-probe"
         );
+    }
+
+    #[tokio::test]
+    async fn selected_declaration_windows_preserve_sparse_inventory_order_and_cancellation() {
+        let runtime = crate::workflow::tests::runtime();
+        let fixtures = (0..145)
+            .map(|index| format!("test f{index} {{expect 1==1 tolerance 1e-8;}}"))
+            .collect::<String>();
+        let rows = parse(&format!(
+            "package p {{{fixtures} def Unrelated {{var bad:NotPhysical;}}}}"
+        ));
+        let selected = rows
+            .iter()
+            .filter(|row| row.value.kind == Kind::Test && row.name != "f70")
+            .map(|row| row.declaration_id)
+            .collect::<BTreeSet<_>>();
+        assert!(selected.len() > 2 * pse_operations::canonical_staging::SELECTED_OBJECT_BATCH);
+        let package = runtime
+            .modeling_package(rows, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let cancel = crate::CancelSource::new();
+        let full = package.declaration_inventory().await.unwrap();
+        let expected = full
+            .rows
+            .iter()
+            .filter(|row| selected.contains(&row.declaration_id))
+            .map(|row| (row.declaration_id, row.name.clone()))
+            .collect::<Vec<_>>();
+        let acquired = package
+            .selected_declarations(&selected, &cancel)
+            .await
+            .unwrap();
+        assert_eq!(
+            acquired
+                .rows
+                .iter()
+                .map(|row| (row.declaration_id, row.name.clone()))
+                .collect::<Vec<_>>(),
+            expected
+        );
+        let sparse = BTreeSet::from([
+            expected[0].0,
+            expected[expected.len() - 1].0,
+            DeclarationId::from_bytes([7; 16]),
+        ]);
+        let sparse_rows = package
+            .selected_declarations(&sparse, &cancel)
+            .await
+            .unwrap();
+        assert_eq!(sparse_rows.rows.len(), 2);
+        assert_eq!(sparse_rows.rows[0].declaration_id, expected[0].0);
+        assert_eq!(
+            sparse_rows.rows[1].declaration_id,
+            expected[expected.len() - 1].0
+        );
+        cancel.cancel();
+        assert!(matches!(
+            package.selected_declarations(&selected, &cancel).await,
+            Err(WorkflowError::Math(
+                crate::math::MathRuntimeError::Cancelled
+            ))
+        ));
     }
 
     #[tokio::test]

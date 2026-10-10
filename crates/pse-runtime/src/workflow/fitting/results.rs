@@ -502,7 +502,7 @@ impl RunResult {
             && request.wants(solve_strategy_events::RELATION_ID)
         {
             strategy_events
-                .strategy_events(trace, self.run_id, 0)
+                .strategy_events(trace, self.run_id, 0, self.runtime.shared.math())
                 .await?;
         }
         strategy_events.finish().await.map_err(relation)?;

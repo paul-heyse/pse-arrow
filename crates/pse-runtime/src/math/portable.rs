@@ -2219,7 +2219,7 @@ mod canonical_portable_body_tests {
         assert_eq!(service.modeling_cache.report(0).entries, 2);
         assert!(service.modeling_cache.report(0).retained_bytes > encoded.retained_bytes());
         let old_generation = memory.generation();
-        service.modeling_cache.clear();
+        service.clear_program_cache();
         assert!(memory.get(identity).unwrap().is_none());
         assert!(service.modeling_cache.encoded_body(identity).is_none());
         assert!(

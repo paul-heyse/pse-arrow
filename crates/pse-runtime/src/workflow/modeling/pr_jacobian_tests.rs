@@ -112,7 +112,7 @@ async fn package(
         registry.clone(),
         sessions.clone(),
         crate::workflow::tests::canonical_deployment(),
-    );
+    )?;
     let token = pse_columnar::CancellationToken::new();
     let pool = shared.pool();
     let validation = sessions.validation_context(&registry)?;

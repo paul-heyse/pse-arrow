@@ -423,6 +423,7 @@ DEFINE INDEX root_owner ON canonical_roots FIELDS owner_kind, owner, key;
 DEFINE INDEX product_discovery ON canonical_products FIELDS problem, producer;
 DEFINE INDEX edge_source ON canonical_edges FIELDS source_version;
 DEFINE INDEX membership_pages ON canonical_memberships FIELDS problem, key;
+DEFINE INDEX membership_scope_pages ON canonical_memberships FIELDS problem, scope, key;
 DEFINE INDEX membership_version ON canonical_memberships FIELDS version;
 DEFINE INDEX root_interval ON canonical_roots FIELDS problem, sequence;
 DEFINE INDEX protection_interval ON canonical_protections FIELDS problem, sequence;
@@ -545,18 +546,27 @@ DEFINE FUNCTION fn::pse_execution_v1::summary_cancelled($rpc_expiry: int, $run: 
     RETURN $rpc_result;
 };
 
-DEFINE FUNCTION fn::pse_execution_v1::fence($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal) -> object {
+DEFINE FUNCTION fn::pse_execution_v1::writer($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal, $operation: string) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::available($rpc_expiry, $run);
     fn::pse_execution_v1::touch($rpc_expiry, 'execution-run:' + $run);
     LET $r = SELECT * FROM ONLY type::record('canonical_runs', $run);
     LET $a = SELECT * FROM ONLY type::record('canonical_attempts', $attempt);
-    IF fn::pse_execution_v1::study_cancelled($rpc_expiry, $run) { THROW 'execution study cancellation fence revoked'; };
     IF $r = NONE OR $a = NONE OR $a.run != $run OR $r.current_attempt != $attempt OR $r.current_generation != $generation OR $a.generation != $generation OR $r.cancelled OR $r.terminal_attempt != NONE OR $a.terminal OR $a.expires_at <= time::micros() { THROW 'execution attempt fence revoked'; };
-    LET $rpc_result = $a;
+    IF fn::pse_execution_v1::study_cancelled($rpc_expiry, $run) {
+        fn::pse_execution_v1::deadline($rpc_expiry);
+        fn::pse_execution_v1::lease($rpc_expiry, $a.expires_at);
+        RETURN {pse_writer:'study-cancelled',run:$run,attempt:$attempt,generation:$generation,operation:$operation};
+    };
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::lease($rpc_expiry, $a.expires_at);
-    RETURN $rpc_result;
+    RETURN {pse_writer:'admitted',attempt:$a};
+};
+
+DEFINE FUNCTION fn::pse_execution_v1::fence($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal) -> object {
+    LET $writer = fn::pse_execution_v1::writer($rpc_expiry, $run, $attempt, $generation, 'dispatch');
+    IF $writer.pse_writer != 'admitted' { THROW 'execution study cancellation fence revoked'; };
+    RETURN $writer.attempt;
 };
 
 DEFINE FUNCTION fn::pse_execution_v1::begin_run($rpc_expiry: int, $row: object, $sources: array<object>) -> object {
@@ -629,7 +639,9 @@ DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $at
     IF array::len($cells) > 18724 OR array::len($outputs) > 18724 OR bytes::len(encoding::cbor::encode({block:$block,cells:$cells,outputs:$outputs})) > 131072 { THROW 'execution index metadata extent exceeded'; };
     fn::pse_execution_v1::available($rpc_expiry, $run);
     LET $op = fn::pse_execution_v1::operation($rpc_expiry, $operation, 'append', $request);
-    LET $a = IF $op = NONE { fn::pse_execution_v1::fence($rpc_expiry, $run, $attempt, $generation) } ELSE { NONE };
+    LET $writer = IF $op = NONE { fn::pse_execution_v1::writer($rpc_expiry, $run, $attempt, $generation, $operation) } ELSE { NONE };
+    IF $writer != NONE AND $writer.pse_writer != 'admitted' { RETURN $writer; };
+    LET $a = $writer.attempt;
     IF $op = NONE AND ($a.ingestion_open = false OR $a.closed) { THROW 'execution result ingestion closed'; };
     IF $batch.attempt != $attempt OR $set.attempt != $attempt OR $batch.result_set != $set.key { THROW 'execution batch coordinate mismatch'; };
     LET $existing = SELECT * FROM ONLY type::record('canonical_result_batches', $batch.key);
@@ -677,7 +689,9 @@ DEFINE FUNCTION fn::pse_execution_v1::close($rpc_expiry: int, $run: string, $att
     fn::pse_execution_v1::available($rpc_expiry, $run);
     LET $op = fn::pse_execution_v1::operation($rpc_expiry, $operation, 'close', $request);
     IF $op != NONE { LET $rpc_result = SELECT * FROM ONLY type::record('canonical_attempts', $op.attempt); fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rpc_result; };
-    LET $a = fn::pse_execution_v1::fence($rpc_expiry, $run, $attempt, $generation);
+    LET $writer = fn::pse_execution_v1::writer($rpc_expiry, $run, $attempt, $generation, $operation);
+    IF $writer.pse_writer != 'admitted' { RETURN $writer; };
+    LET $a = $writer.attempt;
     IF $a.closed { THROW 'execution ingestion already closed'; };
     LET $saved = UPDATE ONLY type::record('canonical_attempts', $attempt) SET ingestion_open = false, closed = true, close_generation = $generation;
     CREATE ONLY type::record('canonical_execution_operations', $operation) SET key = $operation, run = $run, attempt = $attempt, kind = 'close', request = $request, result = type::bytes(<string>$generation);
@@ -758,7 +772,7 @@ DEFINE FUNCTION fn::pse_execution_v1::seal($rpc_expiry: int, $run: string, $atte
     IF $r = NONE OR $a = NONE OR $m = NONE OR $r.current_attempt != $attempt OR $r.current_generation != $authority OR $a.close_generation != $authority OR $a.run != $run OR $a.terminal OR $r.terminal_attempt != NONE OR $a.closed = false OR $a.ingestion_open OR $a.closed_manifest != $manifest OR $m.attempt != $attempt OR $m.generation != $a.generation OR $m.digest != $digest { THROW 'execution terminal seal fenced'; };
     IF $outcome NOT IN ['succeeded','failed','partial','cancelled'] { THROW 'execution unknown terminal outcome'; };
     LET $study_cancelled = fn::pse_execution_v1::study_cancelled($rpc_expiry, $run);
-    IF $study_cancelled AND ($r.cancelled = false OR $authority = $a.generation) { THROW 'execution cancelled study requires current recovery authority'; };
+    IF $study_cancelled AND ($r.cancelled = false OR $authority = $a.generation OR $outcome != 'cancelled') { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {pse_writer:'study-cancelled',run:$run,attempt:$attempt,generation:$a.generation,operation:$operation}; };
     IF fn::pse_execution_v1::summary_cancelled($rpc_expiry, $run) AND $outcome != 'cancelled' { THROW 'execution summary cancellation wins terminal seal'; };
     IF ($r.cancelled OR $study_cancelled) AND $outcome != 'cancelled' { THROW 'execution cancellation wins terminal seal'; };
     IF $outcome = 'succeeded' AND ($authority != $a.generation OR $a.expires_at <= time::micros()) { THROW 'execution expired worker cannot seal success'; };
@@ -776,7 +790,9 @@ DEFINE FUNCTION fn::pse_execution_v1::seal($rpc_expiry: int, $run: string, $atte
 
 DEFINE FUNCTION fn::pse_execution_v1::renew($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal, $lifetime: int) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
-    LET $a = fn::pse_execution_v1::fence($rpc_expiry, $run, $attempt, $generation);
+    LET $writer = fn::pse_execution_v1::writer($rpc_expiry, $run, $attempt, $generation, 'renew');
+    IF $writer.pse_writer != 'admitted' { RETURN $writer; };
+    LET $a = $writer.attempt;
     LET $original_expiry = $a.expires_at;
     LET $rpc_result = UPDATE ONLY type::record('canonical_attempts', $attempt) SET expires_at = time::micros() + $lifetime;
     fn::pse_execution_v1::deadline($rpc_expiry);
@@ -793,7 +809,9 @@ DEFINE FUNCTION fn::pse_execution_v1::seed($rpc_expiry: int, $run: string, $atte
         IF object::remove($old, 'id') != $seed { THROW 'execution immutable seed descriptor changed'; };
         IF $op != NONE { LET $rpc_result = $old; fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rpc_result; };
     };
-    LET $a = fn::pse_execution_v1::fence($rpc_expiry, $run, $attempt, $generation);
+    LET $writer = fn::pse_execution_v1::writer($rpc_expiry, $run, $attempt, $generation, $operation);
+    IF $writer.pse_writer != 'admitted' { RETURN $writer; };
+    LET $a = $writer.attempt;
     IF $a.ingestion_open = false OR $a.closed { THROW 'execution seed ingestion closed'; };
     IF $seed.run != $run OR $seed.attempt != $attempt OR $seed.batch_count <= 0dec { THROW 'execution seed coordinate mismatch'; };
     LET $set = SELECT * FROM ONLY type::record('canonical_result_sets', $seed.result_set);

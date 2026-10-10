@@ -35,6 +35,7 @@ import tomllib
 import urllib.error
 import urllib.request
 import uuid
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -70,8 +71,24 @@ _LIFECYCLE = threading.local()
 WORKER_CAPABILITIES = ("solver", "klu", "isolation", "uno", "petsc")
 
 
+class Readiness(Enum):
+    READY = "ready"
+    STARTING = "starting"
+    ACTIONABLE_ABSENT = "actionable-absent"
+    UNAVAILABLE = "unavailable"
+    MISMATCH = "mismatch"
+
+
 class SupervisorError(RuntimeError):
     """An actionable lifecycle error with no credential-bearing output."""
+
+
+class LifecycleBusyError(SupervisorError):
+    def __init__(self, nonce: object) -> None:
+        super().__init__(
+            "Another live owner is changing this service; retry after its operation finishes"
+        )
+        self.nonce = nonce
 
 
 def read_json(path: Path, *, deadline: float | None = None) -> dict[str, object]:
@@ -249,13 +266,13 @@ def lifecycle_reservation(state: Path) -> Generator[None, None, None]:
         "boot": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
     }
     with state_lock(state):
-        if path.exists():
-            previous = read_json(path)
-            live = previous["boot"] == selected["boot"] and reservation_live(previous)
-            if live:
-                raise SupervisorError(
-                    "Another live owner is changing this service; retry after its operation finishes"
-                )
+        previous = read_json(path) if path.exists() else None
+        if (
+            previous is not None
+            and previous["boot"] == selected["boot"]
+            and reservation_live(previous)
+        ):
+            raise LifecycleBusyError(previous["nonce"])
         write_json(path, selected)
     previous_state = getattr(_LIFECYCLE, "state", None)
     _LIFECYCLE.state = state
@@ -269,6 +286,19 @@ def lifecycle_reservation(state: Path) -> Generator[None, None, None]:
                     path.unlink()
         finally:
             _LIFECYCLE.state = previous_state
+
+
+def wait_reservation(state: Path, path: Path, nonce: object, deadline: float) -> None:
+    """Wait for this exact owner without extending the caller's admission clock."""
+    while True:
+        remaining(deadline)
+        with state_lock(state):
+            if not path.exists():
+                return
+            current = read_json(path)
+            if current.get("nonce") != nonce or not reservation_live(current):
+                return
+        time.sleep(min(0.02, remaining(deadline)))
 
 
 def reservation_live(reservation: dict[str, object]) -> bool:
@@ -294,23 +324,31 @@ def reservation_live(reservation: dict[str, object]) -> bool:
 
 
 @contextlib.contextmanager
-def context_admission(state: Path) -> Generator[None, None, None]:
+def context_admission(
+    state: Path, *, deadline: float | None = None
+) -> Generator[None, None, None]:
     """Serialize only admission metadata against all service lifecycle changes."""
     service = service_directory(state)
-    with state_lock(service):
-        lifecycle = service / "lifecycle-owner.json"
-        if lifecycle.exists() and reservation_live(read_json(lifecycle)):
-            raise SupervisorError(
-                "Service lifecycle operation has closed context admission"
-            )
-        config = config_for(service)
-        if config["admission"] != "open" or not config["accepting_writes"]:
-            raise SupervisorError("Service context admission is closed")
-        if service == state:
-            yield
-        else:
-            with state_lock(state):
-                yield
+    while True:
+        with state_lock(service):
+            lifecycle = service / "lifecycle-owner.json"
+            owner = read_json(lifecycle) if lifecycle.exists() else None
+            live = owner is not None and reservation_live(owner)
+            if not live:
+                config = config_for(service)
+                if config["admission"] != "open" or not config["accepting_writes"]:
+                    raise SupervisorError("Service context admission is closed")
+                if service == state:
+                    yield
+                else:
+                    with state_lock(state):
+                        yield
+                return
+            if deadline is None:
+                raise SupervisorError(
+                    "Service lifecycle operation has closed context admission"
+                )
+        wait_reservation(service, lifecycle, owner["nonce"], deadline)
 
 
 def managed_contexts(state: Path) -> list[Path]:
@@ -484,7 +522,10 @@ def _readmit_supervisor(state: Path) -> dict[str, object]:
 def verify_generation(directory: Path) -> None:
     if any(path.is_symlink() for path in (directory, *directory.parents)):
         raise SupervisorError("Immutable generation must not traverse symlinks")
-    receipt = read_json(directory / "generation.json")
+    manifest = directory / "generation.json"
+    if manifest.is_symlink():
+        raise SupervisorError("Immutable generation must not traverse symlinks")
+    receipt = read_json(manifest)
     if (
         receipt.get("version") != 1
         or receipt.get("identity") != directory.name
@@ -499,12 +540,15 @@ def verify_generation(directory: Path) -> None:
         raise SupervisorError("Immutable generation declaration changed")
     for name, expected in files.items():
         path = directory / name
-        if (
-            not path.is_relative_to(directory)
-            or ".." in Path(name).parts
-            or path.is_symlink()
-            or file_digest(path) != expected
+        if not path.is_relative_to(directory) or ".." in Path(name).parts:
+            raise SupervisorError("Immutable supervisor/receiver closure changed")
+        if any(
+            part.is_symlink()
+            for part in (path, *path.parents)
+            if part.is_relative_to(directory)
         ):
+            raise SupervisorError("Immutable generation must not traverse symlinks")
+        if file_digest(path) != expected:
             raise SupervisorError("Immutable supervisor/receiver closure changed")
         if (
             name in {"scripts/sccache", "bin/pse-worker"}
@@ -1698,19 +1742,25 @@ def role_command(allocation: dict[str, object], command: list[str]) -> list[str]
 def role_affinity_ready(
     pid: int, execution: dict[str, object], cpus: list[int] | None = None
 ) -> bool:
-    """Read the actual leader and every current thread's kernel affinity."""
     try:
-        allowed = set(
-            physical_cpus(integer(execution["cpu_threads"])) if cpus is None else cpus
-        )
-        if os.sched_getaffinity(pid) != allowed:
-            return False
-        return all(
-            bool(actual := os.sched_getaffinity(int(thread.name))) and actual <= allowed
-            for thread in (Path("/proc") / str(pid) / "task").iterdir()
-        )
+        return observed_role_affinity(pid, execution, cpus)
     except (OSError, ValueError, SupervisorError):
         return False
+
+
+def observed_role_affinity(
+    pid: int, execution: dict[str, object], cpus: list[int] | None = None
+) -> bool:
+    """Read the actual leader and every current thread's kernel affinity."""
+    allowed = set(
+        physical_cpus(integer(execution["cpu_threads"])) if cpus is None else cpus
+    )
+    if os.sched_getaffinity(pid) != allowed:
+        return False
+    return all(
+        bool(actual := os.sched_getaffinity(int(thread.name))) and actual <= allowed
+        for thread in (Path("/proc") / str(pid) / "task").iterdir()
+    )
 
 
 def worker_scope_command(
@@ -1830,8 +1880,7 @@ def worker(
             raise SupervisorError(
                 "Selected worker allocation became occupied during admission"
             )
-        if not ready(state, config):
-            start(state, config)
+        start(state, config)
         # Pin the launch window before crossing into an independent worker scope.
         # The common child owner binds this guard using actual kernel membership.
         root = str(Path(__file__).resolve().parents[1])
@@ -2643,33 +2692,34 @@ def ensure_primary(
     reservation = state / "primary-admission.json"
     token = uuid.uuid4().hex
 
-    with context_admission(state):
-        if any(
-            reservation_live(read_json(pending))
-            for pending in state.glob("worker-admission-*.json")
-        ):
-            raise SupervisorError(
-                "A pending native worker launch owns this receiver allocation"
-            )
-        if reservation.exists():
-            owner = read_json(reservation)
-            try:
-                alive = (
-                    native_operation.start_identity(integer(owner["pid"]))
-                    == owner["start"]
+    deadline = deadline if prior is None else min(deadline, prior)
+    selection = startup_selection(config_for(state))
+    while True:
+        remaining(deadline)
+        with context_admission(state, deadline=deadline):
+            if startup_selection(config_for(state)) != selection:
+                raise SupervisorError(
+                    "Primary selection changed while joining admission"
                 )
-            except FileNotFoundError:
-                alive = False
-            if alive:
-                raise SupervisorError("Another live owner is admitting this receiver")
-        write_json(
-            reservation,
-            {
-                "nonce": token,
-                "pid": os.getpid(),
-                "start": native_operation.start_identity(os.getpid()),
-            },
-        )
+            if any(
+                reservation_live(read_json(pending))
+                for pending in state.glob("worker-admission-*.json")
+            ):
+                raise SupervisorError(
+                    "A pending native worker launch owns this receiver allocation"
+                )
+            owner = read_json(reservation) if reservation.exists() else None
+            if owner is None or not reservation_live(owner):
+                write_json(
+                    reservation,
+                    {
+                        "nonce": token,
+                        "pid": os.getpid(),
+                        "start": native_operation.start_identity(os.getpid()),
+                    },
+                )
+                break
+        wait_reservation(state, reservation, owner["nonce"], deadline)
     _STARTUP.deadline = deadline if prior is None else min(deadline, prior)
     try:
         return _ensure_primary(
@@ -2716,8 +2766,7 @@ def _ensure_primary(
     observed = primary_observation(state)
     ready_arguments = () if qualification is None else (qualification,)
     if primary_ready(state, config, observed, selected_database, *ready_arguments):
-        if not ready(state, config):
-            start(state, config, deadline=deadline)
+        start(state, config, deadline=deadline)
         return {
             "ready": True,
             "unit": primary_unit(state),
@@ -2729,8 +2778,7 @@ def _ensure_primary(
         raise SupervisorError(
             "An active unmatched receiver or canonical database owns the primary allocation; quiesce and drain it before reuse"
         )
-    if not ready(state, config):
-        start(state, config, deadline=deadline)
+    start(state, config, deadline=deadline)
     root = str(SCRIPT.parents[1])
     if root not in sys.path:
         sys.path.insert(0, root)
@@ -2891,11 +2939,15 @@ def public_status(state: Path, config: dict[str, object]) -> dict[str, object]:
     allocation = config["resources"]
     if not isinstance(allocation, dict):
         raise SupervisorError("Invalid resource configuration")
+    is_active = active(state)
+    listener_owned = owns_listener(state, config)
     return {
         "state": str(state),
-        "active": active(state),
-        "listener_owned": owns_listener(state, config),
-        "authenticated_websocket_ready": protocol_ready(state, config),
+        "active": is_active,
+        "listener_owned": listener_owned,
+        "authenticated_websocket_ready": is_active
+        and listener_owned
+        and protocol_ready(state, config),
         "service_generation": config["instance_id"],
         "supervisor_generation": config.get("service_supervisor"),
         "parked": bool(config.get("parked")),
@@ -2938,12 +2990,17 @@ def protocol_ready(state: Path, config: dict[str, object]) -> bool:
     if owner != state:
         return protocol_ready(owner, config_for(owner))
     path = state / "protocol-readiness.json"
-    if not path.is_file():
+    try:
+        if not stat.S_ISREG(path.stat().st_mode):
+            raise SupervisorError("Protocol readiness is not a regular owned record")
+    except FileNotFoundError:
         return False
     proof = read_json(path)
     observed = systemctl(
         "show", "--property=InvocationID", "--value", unit_name(state), check=False
     )
+    if observed.returncode:
+        raise SupervisorError("Protocol invocation observation is unavailable")
     return (
         proof.get("schema") == "native-ws-readiness-v1"
         and proof.get("instance_id") == config["instance_id"]
@@ -3048,65 +3105,9 @@ def process_owns_listening_socket(proc: Path, inodes: set[str]) -> bool:
 def owns_listener(
     state: Path, config: dict[str, object], *, deadline: float | None = None
 ) -> bool:
-    """Linux listener ownership, independent of another server's /health response."""
-    owner_state = service_directory(state, deadline=deadline)
-    if owner_state != state:
-        return owns_listener(
-            owner_state, config_for(owner_state, deadline=deadline), deadline=deadline
-        )
+    """Status-only projection; lifecycle decisions consume service_readiness."""
     try:
-        if deadline is not None:
-            remaining(deadline)
-        process = read_json(state / "server-process.json", deadline=deadline)
-        if process.get("instance_id") != config["instance_id"]:
-            return False
-        pid = integer(process["pid"])
-        proc = Path("/proc") / str(pid)
-        if process.get("start") != native_operation.start_identity(pid):
-            return False
-        membership = (proc / "cgroup").read_text()
-        owner, launch = recorded_storage_owner(state, config, deadline=deadline)
-        placement = storage_placement(config, owner)
-        observed = storage_unit_observation(state, deadline=deadline)
-        binding = object_mapping(launch["binding"])
-        relative = next(
-            line.removeprefix("0::")
-            for line in membership.splitlines()
-            if line.startswith("0::")
-        )
-        group = Path("/sys/fs/cgroup") / relative.lstrip("/")
-        memory, cpu = effective_limits(group)
-        quota, period = (group / "cpu.max").read_text().split()
-        if (
-            observed.get("ActiveState") != "active"
-            or observed.get("InvocationID") != binding["invocation"]
-            or observed.get("ControlGroup") != binding["group"]
-            or relative != binding["group"]
-            or host_admission.group_identity(relative) != binding["inode"]
-            or process.get("allocation") != launch["allocation"]
-            or memory != placement["memory_bytes"]
-            or cpu != placement["cpu_threads"]
-            or (group / "memory.max").read_text().strip()
-            != str(placement["memory_bytes"])
-            or quota == "max"
-            or int(quota) / int(period) != placement["cpu_threads"]
-            or not group.is_relative_to(group_for_slice(str(placement["slice"])))
-            or not role_affinity_ready(
-                pid,
-                {"cpu_threads": placement["cpu_threads"]},
-                list(owner.profile.cores),
-            )
-        ):
-            return False
-        address = f"0100007F:{integer(config['port']):04X}"
-        inodes = {
-            row.split()[9]
-            for row in Path("/proc/net/tcp").read_text().splitlines()[1:]
-            if row.split()[1] == address and row.split()[3] == "0A"
-        }
-        matched = process_owns_listening_socket(proc, inodes)
-        if deadline is not None:
-            remaining(deadline)
+        return _owns_listener(state, config, deadline=deadline)
     except (
         OSError,
         KeyError,
@@ -3116,7 +3117,148 @@ def owns_listener(
         host_admission.AdmissionError,
     ):
         return False
+
+
+def service_readiness(
+    state: Path, config: dict[str, object], *, deadline: float | None = None
+) -> Readiness:
+    """Observe absence separately from unavailable or incompatible ownership proof."""
+    try:
+        owner = service_directory(state)
+        if owner != state:
+            return service_readiness(owner, config_for(owner), deadline=deadline)
+        reservation = state / "lifecycle-owner.json"
+        if (
+            getattr(_LIFECYCLE, "state", None) != state
+            and reservation.exists()
+            and reservation_live(read_json(reservation))
+        ):
+            return Readiness.STARTING
+        observed = systemctl(
+            "show",
+            "--property=ActiveState",
+            "--property=ControlGroup",
+            unit_name(state),
+            check=False,
+        )
+        if observed.returncode:
+            return Readiness.UNAVAILABLE
+        fields = dict(
+            line.split("=", 1) for line in observed.stdout.splitlines() if "=" in line
+        )
+        status = fields.get("ActiveState")
+        if status in {"inactive", "failed"}:
+            # An inactive unit is actionable only when no recorded process survives.
+            try:
+                process = read_json(state / "server-process.json")
+                pid = integer(process["pid"])
+                live = native_operation.start_identity(pid) == process.get("start")
+            except FileNotFoundError:
+                live = False
+            group = fields.get("ControlGroup", "")
+            if live or (group and group_populated(group)) or listening_inodes(config):
+                return Readiness.MISMATCH
+            return Readiness.ACTIONABLE_ABSENT
+        if status == "activating":
+            return (
+                Readiness.STARTING
+                if getattr(_LIFECYCLE, "state", None) == state
+                else Readiness.UNAVAILABLE
+            )
+        if status != "active":
+            return Readiness.UNAVAILABLE
+        if not listening_inodes(config):
+            # An activated owned launch may not have bound its listener yet.
+            # This permits observation under its existing clock, never a restart.
+            return Readiness.UNAVAILABLE
+        if not _owns_listener(state, config, deadline=deadline):
+            return Readiness.MISMATCH
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{config['port']}/health",
+            timeout=1 if deadline is None else min(1, remaining(deadline)),
+        ) as response:
+            if response.status != 200:
+                return Readiness.UNAVAILABLE
+        if (state / ".maintenance-listener.json").exists():
+            require_maintenance_owner(state, config)
+            return Readiness.STARTING
+        return Readiness.READY if protocol_ready(state, config) else Readiness.STARTING
+    except (
+        OSError,
+        SupervisorError,
+        host_admission.AdmissionError,
+        subprocess.SubprocessError,
+    ):
+        return Readiness.UNAVAILABLE
+    except (KeyError, ValueError, StopIteration):
+        return Readiness.MISMATCH
+
+
+def _owns_listener(
+    state: Path, config: dict[str, object], *, deadline: float | None = None
+) -> bool:
+    """Linux listener ownership, independent of another server's /health response."""
+    owner_state = service_directory(state, deadline=deadline)
+    if owner_state != state:
+        return _owns_listener(
+            owner_state, config_for(owner_state, deadline=deadline), deadline=deadline
+        )
+    if deadline is not None:
+        remaining(deadline)
+    process = read_json(state / "server-process.json", deadline=deadline)
+    if process.get("instance_id") != config["instance_id"]:
+        return False
+    pid = integer(process["pid"])
+    proc = Path("/proc") / str(pid)
+    if process.get("start") != native_operation.start_identity(pid):
+        return False
+    membership = (proc / "cgroup").read_text()
+    owner, launch = recorded_storage_owner(state, config, deadline=deadline)
+    placement = storage_placement(config, owner)
+    observed = storage_unit_observation(state, deadline=deadline)
+    binding = object_mapping(launch["binding"])
+    relative = next(
+        line.removeprefix("0::")
+        for line in membership.splitlines()
+        if line.startswith("0::")
+    )
+    group = Path("/sys/fs/cgroup") / relative.lstrip("/")
+    memory, cpu = effective_limits(group)
+    quota, period = (group / "cpu.max").read_text().split()
+    if (
+        observed.get("ActiveState") != "active"
+        or observed.get("InvocationID") != binding["invocation"]
+        or observed.get("ControlGroup") != binding["group"]
+        or relative != binding["group"]
+        or host_admission.group_identity(relative) != binding["inode"]
+        or process.get("allocation") != launch["allocation"]
+        or memory != placement["memory_bytes"]
+        or cpu != placement["cpu_threads"]
+        or (group / "memory.max").read_text().strip() != str(placement["memory_bytes"])
+        or quota == "max"
+        or int(quota) / int(period) != placement["cpu_threads"]
+        or not group.is_relative_to(group_for_slice(str(placement["slice"])))
+        or not observed_role_affinity(
+            pid,
+            {"cpu_threads": placement["cpu_threads"]},
+            list(owner.profile.cores),
+        )
+    ):
+        return False
+    inodes = listening_inodes(config)
+    matched = process_owns_listening_socket(proc, inodes)
+    if deadline is not None:
+        remaining(deadline)
     return matched
+
+
+def listening_inodes(config: dict[str, object]) -> set[str]:
+    address = f"0100007F:{integer(config['port']):04X}"
+    return {
+        row.split()[9]
+        for row in Path("/proc/net/tcp").read_text().splitlines()[1:]
+        if row.split()[1] == address and row.split()[3] == "0A"
+    }
 
 
 def remaining(deadline: float) -> float:
@@ -3473,6 +3615,21 @@ def unpark_service(state: Path, *, deadline: float | None = None) -> None:
             start(state, config, deadline=deadline)
 
 
+def startup_selection(config: dict[str, object]) -> dict[str, object]:
+    return {
+        key: value
+        for key, value in config.items()
+        if key
+        not in {
+            "admission",
+            "accepting_writes",
+            "unit_materialized",
+            "restart_qualified",
+            "parked",
+        }
+    }
+
+
 def start(
     state: Path,
     config: dict[str, object],
@@ -3486,8 +3643,57 @@ def start(
     _STARTUP.deadline = deadline
     try:
         remaining(deadline)
-        with lifecycle_reservation(state):
-            _start(state, config, validation=validation, deadline=deadline)
+        owner = service_directory(state)
+        if owner != state:
+            return start(
+                owner, config_for(owner), validation=validation, deadline=deadline
+            )
+        if (
+            config["admission"] == "validation_required"
+            or config.get("derived_rebuild_pending")
+        ) and not validation:
+            raise SupervisorError(
+                "Restored database requires validate before normal server start"
+            )
+        selection = startup_selection(config)
+        while True:
+            remaining(deadline)
+            current = config_for(state)
+            if startup_selection(current) != selection:
+                raise SupervisorError(
+                    "Service selection changed while joining lifecycle owner"
+                )
+            config.update(current)
+            observed = service_readiness(state, config, deadline=deadline)
+            if observed in {Readiness.UNAVAILABLE, Readiness.MISMATCH}:
+                raise SupervisorError(
+                    f"Service readiness is {observed.value}; startup refused"
+                )
+            if (
+                observed is Readiness.READY
+                and config["admission"] == "open"
+                and config["accepting_writes"]
+                and not config.get("parked")
+                and not (state / ".maintenance-listener.json").exists()
+            ):
+                return None
+            try:
+                with lifecycle_reservation(state):
+                    current = config_for(state)
+                    if startup_selection(current) != selection:
+                        raise SupervisorError(
+                            "Service selection changed before startup reservation"
+                        )
+                    config.update(current)
+                    _start(state, config, validation=validation, deadline=deadline)
+            except LifecycleBusyError as busy:
+                # The live owner may be stopping or maintaining, not starting.
+                # Wait only for its release, then observe again before reserving.
+                wait_reservation(
+                    state, state / "lifecycle-owner.json", busy.nonce, deadline
+                )
+            else:
+                return None
     finally:
         _STARTUP.deadline = previous
 
@@ -3519,7 +3725,12 @@ def _start(
     parked = bool(config.get("parked"))
     resumed = False
     try:
-        if active(state):
+        observed = service_readiness(state, config, deadline=deadline)
+        if observed in {Readiness.UNAVAILABLE, Readiness.MISMATCH}:
+            raise SupervisorError(
+                f"Service readiness is {observed.value}; startup refused"
+            )
+        if observed in {Readiness.READY, Readiness.STARTING}:
             if not listener_ready(state, config):
                 raise SupervisorError("Owned server unit is active but unhealthy")
             if not maintenance and not protocol_ready(state, config):
@@ -3557,6 +3768,14 @@ def _start(
             allocation_owner.release()
             raise SupervisorError("Cannot start owned persistent service unit")
         while time.monotonic() < deadline:
+            observed = service_readiness(state, config, deadline=deadline)
+            if observed is Readiness.UNAVAILABLE:
+                time.sleep(min(0.1, remaining(deadline)))
+                continue
+            if observed is Readiness.MISMATCH:
+                raise SupervisorError(
+                    "Service readiness became mismatch; admission remains closed"
+                )
             if listener_ready(state, config):
                 if not maintenance:
                     establish_protocol_readiness(state, config, deadline)
@@ -3570,6 +3789,13 @@ def _start(
             if not active(state):
                 break
             time.sleep(0.1)
+        if service_readiness(state, config, deadline=deadline) in {
+            Readiness.UNAVAILABLE,
+            Readiness.MISMATCH,
+        }:
+            raise SupervisorError(
+                "Startup observation is unavailable or mismatched; admission remains closed"
+            )
         systemctl("stop", unit_name(state), check=False)
         raise SupervisorError(
             "Server did not become healthy; inspect the private bounded server.log"
@@ -3656,6 +3882,24 @@ def _stop(state: Path, config: dict[str, object], *, abrupt: bool = False) -> No
         while group_path.exists():
             events = group_path / "cgroup.events"
             if not events.exists() or "populated 1" not in events.read_text():
+                break
+            remaining(_STARTUP.deadline)
+            time.sleep(0.05)
+
+    # Kernel cgroup population excludes zombies. Keep the allocation charged
+    # until the recorded lifetime also disappears, as restart readiness requires.
+    try:
+        process = read_json(state / "server-process.json")
+    except FileNotFoundError:
+        process = None
+    if process is not None:
+        pid = integer(process["pid"])
+        while True:
+            try:
+                identity = native_operation.start_identity(pid)
+            except FileNotFoundError:
+                break
+            if identity != process.get("start"):
                 break
             remaining(_STARTUP.deadline)
             time.sleep(0.05)
@@ -6027,7 +6271,7 @@ def dispatch(args: argparse.Namespace) -> int:
         state = checked_directory(state)
         with (
             contextlib.nullcontext()
-            if args.command == "status"
+            if args.command in {"status", "start", "ensure"}
             else lifecycle_reservation(state)
         ):
             config = config_for(state)

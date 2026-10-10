@@ -86,14 +86,24 @@ Plan 32 owns workspace content lifecycle work; Plan 28 retains its own scope.
 
 ## Latest completed plan
 
+[Plan 34: Unified state management and persistence](34-unified-state-management-and-persistence.md)
+records the standalone implementation of all nine state-management findings and nine bounded
+investigation decisions. Its
+[Outcome](34-unified-state-management-and-persistence.md#outcome-recorded-after-implementation)
+owns affected Rust/native/Python acceptance, actual scientific restart/restore/rebuild,
+scope-end checks and qualification limits. Enduring contracts belong to the architecture and
+substrate guide. The highest-numbered plan is retained under ADR-0096; it is not active work.
+Its [coordination handoff](34-unified-state-management-and-persistence.md#existing-plan-coordination-and-qualification-handoff)
+supplies prerequisites to Plan 28 without closing that plan's separately owned E3/E4/E5 campaign.
+
 [Plan 33: Efficiency principles remediation](33-efficiency-principles-remediation.md)
 records the standalone implementation of all eleven efficiency findings and the six
 bounded investigation decisions. Its
 [Outcome](33-efficiency-principles-remediation.md#outcome-recorded-after-implementation)
 owns affected Rust/native/Python acceptance, external-reference comparisons, actual
 maintenance recovery and the explicit qualification limits. Enduring contracts belong to
-the architecture and linked development guides. The highest-numbered plan is retained
-under ADR-0096; it is not active work. Plan 28's separately authorized campaign keeps its own owner.
+the architecture and linked development guides. Its retained handoff serves existing Plan 28
+readers; it is not active work. Plan 28's separately authorized campaign keeps its own owner.
 
 [Plan 31: Agent effectiveness enhancements](31-agent-effectiveness-enhancements.md)
 records the completed tooling work, resolved F01–F05 and

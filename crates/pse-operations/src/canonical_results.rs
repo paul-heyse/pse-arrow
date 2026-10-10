@@ -38,10 +38,14 @@ pub(crate) struct ResultReadDrain {
 }
 #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
 impl ResultReadDrain {
-    fn retain(&self) {
+    #[cfg(all(test, feature = "canonical-tests"))]
+    pub(crate) fn live(&self) -> usize {
+        self.live.load(std::sync::atomic::Ordering::SeqCst)
+    }
+    pub(crate) fn retain(&self) {
         self.live.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     }
-    fn release(self: &Arc<Self>) -> ResultReleaseTask {
+    pub(crate) fn release(self: &Arc<Self>) -> ResultReleaseTask {
         self.pending
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         self.live.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
@@ -61,7 +65,7 @@ impl ResultReadDrain {
     }
     pub(crate) async fn drain(&self) -> Result<(), CanonicalError> {
         if self.live.load(std::sync::atomic::Ordering::SeqCst) != 0 {
-            return Err(invalid("isolated fixture still has live result buffers"));
+            return Err(invalid("isolated fixture still has live protected readers"));
         }
         tokio::time::timeout(crate::canonical::REQUEST_TIMEOUT, async {
             loop {
@@ -88,13 +92,13 @@ impl ResultReadDrain {
     }
 }
 #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
-struct ResultReleaseTask {
+pub(crate) struct ResultReleaseTask {
     drain: Arc<ResultReadDrain>,
     completed: bool,
 }
 #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
 impl ResultReleaseTask {
-    fn complete(mut self, result: Result<(), CanonicalError>) {
+    pub(crate) fn complete(mut self, result: Result<(), CanonicalError>) {
         if let Err(error) = result {
             self.drain.failure(error);
         }
@@ -122,24 +126,6 @@ impl Drop for ResultReleaseTask {
 struct ReadOwner {
     store: CanonicalStore,
     selection: ProtectedSelection,
-    executor: Option<tokio::runtime::Handle>,
-}
-impl Drop for ReadOwner {
-    fn drop(&mut self) {
-        #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
-        let release = self.store.result_read_drain.release();
-        if let Some(runtime) = self.executor.as_ref() {
-            let store = self.store.clone();
-            let selection = self.selection.clone();
-            runtime.spawn(async move {
-                let result = store.release(&selection).await;
-                #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
-                release.complete(result);
-                #[cfg(not(any(feature = "test-support", feature = "canonical-tests")))]
-                let _ = result;
-            });
-        }
-    }
 }
 
 /// An exact terminal attempt and its closed membership, pinned before paging.
@@ -628,12 +614,9 @@ impl CanonicalStore {
             return Err(invalid("run/revision problem mismatch"));
         }
         let protection = self.protect(revision, lifetime).await?;
-        #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
-        self.result_read_drain.retain();
         let owner = Arc::new(ReadOwner {
             store: self.clone(),
             selection: protection,
-            executor: tokio::runtime::Handle::try_current().ok(),
         });
         let key = attempt
             .closed_manifest

@@ -540,12 +540,7 @@ async fn shared_original_driver(permit_recovery: bool) {
         "identity repair cannot invent assessment work"
     );
     let rows = trace
-        .rows(
-            result.run_id,
-            0,
-            Arc::new(datafusion::execution::memory_pool::UnboundedMemoryPool::default()),
-            0..usize::MAX,
-        )
+        .rows(result.run_id, 0, service, 0..usize::MAX)
         .unwrap()
         .collect::<Result<Vec<_>, _>>()
         .unwrap();

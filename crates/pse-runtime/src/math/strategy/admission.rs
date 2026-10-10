@@ -13,6 +13,7 @@ pub(crate) struct TaskAdmission {
     state: Mutex<State>,
     scope: pse_kernels::ExecutionScope,
     pool: Option<Arc<dyn MemoryPool>>,
+    pressure: Option<Arc<super::super::retention::Pressure>>,
     strict_storage: bool,
     entry_dispatched: std::sync::atomic::AtomicBool,
 }
@@ -61,6 +62,29 @@ impl TaskAdmission {
         pool: Option<Arc<dyn MemoryPool>>,
         strict_storage: bool,
     ) -> Arc<Self> {
+        Self::new_with_pressure(limits, scope, pool, strict_storage, None)
+    }
+    pub(crate) fn new_for(
+        limits: WorkLimits,
+        scope: pse_kernels::ExecutionScope,
+        service: &super::super::MathService,
+        strict_storage: bool,
+    ) -> Arc<Self> {
+        Self::new_with_pressure(
+            limits,
+            scope,
+            Some(service.pool.clone()),
+            strict_storage,
+            Some(service.pressure.clone()),
+        )
+    }
+    fn new_with_pressure(
+        limits: WorkLimits,
+        scope: pse_kernels::ExecutionScope,
+        pool: Option<Arc<dyn MemoryPool>>,
+        strict_storage: bool,
+        pressure: Option<Arc<super::super::retention::Pressure>>,
+    ) -> Arc<Self> {
         Arc::new(Self {
             state: Mutex::new(State {
                 ledger: Ledger::new(limits),
@@ -77,6 +101,7 @@ impl TaskAdmission {
             }),
             scope,
             pool,
+            pressure,
             strict_storage,
             entry_dispatched: std::sync::atomic::AtomicBool::new(false),
         })
@@ -430,9 +455,11 @@ impl WorkAdmission for TaskAdmission {
                 .ok_or_else(|| ProblemError::memory("native storage has no allocation pool"))?;
             let reservation =
                 MemoryConsumer::new(format!("math:native-linear:{owner}")).register(pool);
-            reservation
-                .try_grow(known_bytes)
-                .map_err(|error| ProblemError::memory(error.to_string()))?;
+            match &self.pressure {
+                Some(pressure) => pressure.try_grow(&reservation, known_bytes),
+                None => reservation.try_grow(known_bytes),
+            }
+            .map_err(|error| ProblemError::memory(error.to_string()))?;
             self.state()?
                 .storage
                 .push(pse_columnar::AllocationLease::new(reservation));

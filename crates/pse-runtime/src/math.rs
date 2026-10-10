@@ -318,7 +318,7 @@ pub struct MathService {
     cores: usize,
     policy: MathPolicy,
     jobs: Arc<tokio::sync::Semaphore>,
-    entries: DefaultCache<Key, Value>,
+    entries: Arc<DefaultCache<Key, Value>>,
     pub(crate) modeling_cache: retention::ModelingCache,
     flights: Flights<Key, Artifact, MathRuntimeError>,
     pub(crate) selected_flights: Flights<
@@ -340,7 +340,8 @@ pub struct MathService {
         modeling::PreparedBasis,
         MathRuntimeError,
     >,
-    retention: pse_columnar::retention::RetentionFence,
+    retention: Arc<pse_columnar::retention::RetentionFence>,
+    pressure: Arc<retention::Pressure>,
     live: Arc<AtomicUsize>,
     hits: AtomicUsize,
     misses: AtomicUsize,
@@ -497,7 +498,7 @@ pub struct Workspace {
 #[derive(Clone, Debug)]
 pub struct Preparation {
     prepared: Arc<PreparedCase>,
-    owner: Arc<products::ProductOwner>,
+    _owner: Arc<products::ProductOwner>,
     /// The assembled programs of this structure, shared by every value rebind (A6).
     executable: Arc<std::sync::OnceLock<Arc<ExecutableCase>>>,
 }
@@ -572,21 +573,23 @@ impl MathService {
                     (Arc::new(notifying), released)
                 }
             };
+        let pressure = retention::Pressure::new(policy.artifact_bytes);
         let service = Arc::new(Self {
             pool,
             released,
             cpu,
             cores,
             jobs: Arc::new(tokio::sync::Semaphore::new(policy.jobs)),
-            entries: DefaultCache::new(policy.artifact_bytes).with_name("pse.cache.math_artifacts"),
-            modeling_cache: retention::ModelingCache::new(policy.artifact_bytes),
+            entries: pressure.artifacts(),
+            modeling_cache: retention::ModelingCache::new(pressure.clone()),
             flights: Flights::new(policy.flights),
             selected_flights: Flights::new(policy.flights),
             selected_qualifications: Default::default(),
             frontier_flights: Flights::new(policy.flights),
             basis_flights: Flights::new(policy.flights),
             policy,
-            retention: Default::default(),
+            retention: pressure.artifact_fence(),
+            pressure,
             live: Arc::default(),
             hits: AtomicUsize::new(0),
             misses: AtomicUsize::new(0),
@@ -603,7 +606,7 @@ impl MathService {
         bytes: usize,
     ) -> Result<Arc<pse_columnar::AllocationLease>, MathRuntimeError> {
         let r = MemoryConsumer::new(name).register(&self.pool);
-        r.try_grow(bytes)?;
+        self.pressure.try_grow(&r, bytes)?;
         Ok(pse_columnar::AllocationLease::new(r))
     }
     pub(crate) fn selected_qualification_turn(
@@ -707,7 +710,9 @@ impl MathService {
         Ok(Arc::new(ExecutableCase {
             assembly,
             _artifacts: artifacts,
-            _owner: prepared.owner,
+            // The executable is shared by every binding of this stable plan.
+            // Its programs retain their own leases; binding allocations must retire.
+            _owner: plan,
         }))
     }
     /// Construct, use and destroy native workers on the same admitted thread.

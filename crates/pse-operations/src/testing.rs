@@ -572,3 +572,40 @@ pub async fn pending_result_batch_rows(
         "row_count",
     )?)?))
 }
+
+/// Expire only an acknowledged current claim in a registered isolated fixture.
+pub async fn expire_acknowledged_attempt(
+    store: &crate::canonical::CanonicalStore,
+    fence: &crate::canonical_execution::AttemptFence,
+) -> Result<(), crate::canonical::CanonicalError> {
+    use crate::canonical::{CanonicalError, bounded_query};
+    if !store.database().starts_with("canonical_test_") || store.fixture_lifetime.is_none() {
+        return Err(CanonicalError::Configuration(
+            "claim expiry requires a registered isolated fixture".into(),
+        ));
+    }
+    let generation = crate::canonical_codec::encode_uint(fence.generation())?;
+    let mut response = bounded_query(store.db.query("BEGIN; LET $run = SELECT * FROM ONLY type::record('canonical_runs',$run); LET $attempt = SELECT * FROM ONLY type::record('canonical_attempts',$attempt); IF $run = NONE OR $attempt = NONE OR $attempt.run != $run.key OR $run.current_attempt != $attempt.key OR $run.current_generation != $generation OR $attempt.generation != $generation OR $attempt.terminal OR $attempt.closed { THROW 'fixture expiry claim changed'; }; UPDATE ONLY $attempt.id SET expires_at = time::micros() - 1; RETURN true; COMMIT;")
+        .bind(("run", fence.run().to_owned())).bind(("attempt", fence.attempt().to_owned())).bind(("generation",generation))).await?;
+    let index = response.num_statements().saturating_sub(2);
+    if response.take::<Option<bool>>(index)? != Some(true) {
+        return Err(CanonicalError::IncompleteResponse);
+    }
+    Ok(())
+}
+
+/// Remove one prepared source revision to exercise same-store registration refusal.
+pub async fn invalidate_prepared_revision(
+    store: &crate::canonical::CanonicalStore,
+    revision: &crate::canonical::Revision,
+) -> Result<(), crate::canonical::CanonicalError> {
+    use crate::canonical::{CanonicalError, bounded_query};
+    if !store.database().starts_with("canonical_test_") || store.fixture_lifetime.is_none() {
+        return Err(CanonicalError::Configuration(
+            "revision invalidation requires a registered isolated fixture".into(),
+        ));
+    }
+    bounded_query(store.db.query("DELETE ONLY type::record('canonical_revisions',$key) WHERE problem=$problem AND sequence=$sequence;")
+        .bind(("key",revision.key.clone())).bind(("problem",revision.problem.clone())).bind(("sequence",crate::canonical_codec::encode_uint(revision.sequence)?))).await?;
+    Ok(())
+}

@@ -159,7 +159,7 @@ async fn declared_native_profiles_execute_actual_rungs_under_one_original_contra
         .rows(
             pse_model::generated::identities::RunId::from_bytes([44; 16]),
             0,
-            Arc::new(datafusion::execution::memory_pool::UnboundedMemoryPool::default()),
+            runtime.native(),
             0..usize::MAX,
         )
         .unwrap()
@@ -342,12 +342,7 @@ async fn failed_continuation_preserves_original_bindings_and_prior_solved_unknow
             .as_ref()
             .expect("actual native block must retain its shared driver events");
         let rows = trace
-            .rows(
-                report.run_id,
-                ordinal,
-                Arc::new(datafusion::execution::memory_pool::UnboundedMemoryPool::default()),
-                0..usize::MAX,
-            )
+            .rows(report.run_id, ordinal, runtime.native(), 0..usize::MAX)
             .unwrap()
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
@@ -494,12 +489,7 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
     );
     let trace_rows = report
         .strategy
-        .rows(
-            report.run_id,
-            0,
-            Arc::new(datafusion::execution::memory_pool::UnboundedMemoryPool::default()),
-            0..usize::MAX,
-        )
+        .rows(report.run_id, 0, runtime.native(), 0..usize::MAX)
         .unwrap()
         .collect::<Result<Vec<_>, _>>()
         .unwrap();

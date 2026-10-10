@@ -778,7 +778,7 @@ impl MathService {
                     let boxed = rebound;
                     *boxed
                 };
-                return Ok(Self::own_rebind(prepared, rebound, lease));
+                return self.own_rebind(prepared, rebound, lease);
             }
             Comparison::Rebuild(values) => values,
         };
@@ -801,7 +801,7 @@ impl MathService {
         tokio::pin!(operation);
         let (rebound, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         self.count(|p| &p.rebuilt);
-        Ok(Self::own_rebind(prepared, rebound, lease))
+        self.own_rebind(prepared, rebound, lease)
     }
     /// Rebind inside an existing attempt, including CPU waiting and late completion.
     #[cfg(feature = "solver-kinsol")]
@@ -852,7 +852,7 @@ impl MathService {
         // workspace's lease; the retained lease then takes the revision's actual extent.
         let reservation =
             pse_columnar::MemoryConsumer::new("modeling:source-revision").register(&self.pool);
-        reservation.try_grow(bytes)?;
+        self.pressure.try_grow(&reservation, bytes)?;
         let admitted = workspace
             .compiler
             .lock()
@@ -867,7 +867,13 @@ impl MathService {
         if admitted.retained_bytes() > self.policy.workspace_bytes / 2 {
             return Err(MathRuntimeError::Limit("modeling admitted source bytes"));
         }
-        reservation.try_resize(admitted.retained_bytes())?;
+        let retained = admitted.retained_bytes();
+        if retained > reservation.size() {
+            self.pressure
+                .try_grow(&reservation, retained - reservation.size())?;
+        } else {
+            reservation.try_resize(retained)?;
+        }
         Ok(ModelingRevision {
             identity,
             admitted,

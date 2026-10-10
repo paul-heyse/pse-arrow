@@ -410,7 +410,7 @@ pub(super) fn measure(
                 }
                 let runtime_profile=json!({"threads":budget.threads.pool_threads.get(),"target_partitions":budget.threads.target_partitions.get(),"jobs":budget.math.jobs,"pool_limit_bytes":budget.memory_limit_bytes.get(),"worker_bytes":budget.math.worker_bytes,"cache":format!("{:?}",budget.cache),"math_policy":format!("{:?}",budget.math)});
                 let runtime=if durable_mode || managed { runtime(&owner) } else {
-                    runtime(&owner).with_durability(workflow::Durability::Ephemeral)
+                    runtime(&owner).with_durability(workflow::DurabilitySelection::Ephemeral).unwrap()
                 };
                 let mut receiver=managed.then(|| ManagedReceiver::new(&runtime));
                 let receiving_profile=if managed {

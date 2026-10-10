@@ -1223,6 +1223,9 @@ mod tests {
         drop(restored);
         drop(original);
         drop(changed);
+        // Caller departure does not release prepared bases retained by the service.
+        // Explicitly retire optional program retention before asserting final release.
+        rt.clear_program_cache();
         assert!(pool.reserved() < retained);
     }
 }

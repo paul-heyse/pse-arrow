@@ -30,8 +30,8 @@ pub struct Artifact {
 }
 #[derive(Debug)]
 pub(super) struct ProgramOwner {
-    lease: Arc<pse_columnar::AllocationLease>,
-    live: Arc<std::sync::atomic::AtomicUsize>,
+    pub(super) lease: Arc<pse_columnar::AllocationLease>,
+    pub(super) live: Arc<std::sync::atomic::AtomicUsize>,
 }
 impl ProgramOwner {
     pub(super) fn size(&self) -> usize {
@@ -53,10 +53,7 @@ impl CacheValue for Value {
 impl MathService {
     /// Clear retained programs without cancelling live owners or permitting late reinsertion.
     pub fn clear_program_cache(&self) {
-        self.retention.clear(|| {
-            self.entries.clear();
-            self.modeling_cache.clear();
-        });
+        self.pressure.clear();
     }
     /// Obtain a compiler-issued artifact; callers cannot supply an independent cache key.
     pub async fn artifact(
@@ -112,8 +109,8 @@ impl MathService {
                     lease,
                 });
                 service
-                    .retention
-                    .admit(epoch, || service.entries.put(&key, Value(artifact.clone())));
+                    .pressure
+                    .publish_artifact(epoch, &key, Value(artifact.clone()));
                 Ok(artifact)
             })
             .await

@@ -777,6 +777,16 @@ facts, compact Recipe, fitting, export and tooling corrections are current prere
 not another Plan 28 implementation backlog. RC02 durable fast hashes and RC03 persisted
 incremental runtime remain unselected.
 
+[Plan 34](34-unified-state-management-and-persistence.md) independently owns the new
+state-management review's corrections and inquiries; they are not additional Plan 28 packets.
+Its [qualification handoff](34-unified-state-management-and-persistence.md#existing-plan-coordination-and-qualification-handoff)
+identifies the exact prerequisites consumed by recovery, cancellation, preparation/allocation
+and concurrent-startup acceptance. Its [Outcome](34-unified-state-management-and-persistence.md#outcome-recorded-after-implementation)
+and [affected acceptance](34-unified-state-management-and-persistence.md#acceptance-evidence)
+now supply integrated corrections and actual native/Python/recovery evidence. Reconcile the
+exact source/profile/tool closure before relaunching invalidated covering invocations;
+these scoped passes do not establish E3/E4/E5 or transfer their ownership.
+
 First reconcile stale live execution instructions and packet statuses. Then finish bounded
 campaign preparation: scientific rebuild/restore acceptance, profile-matching measurement
 prerequisites, setup/admission/drain timing at the build-measurement owner, and missing

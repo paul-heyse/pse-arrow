@@ -91,12 +91,7 @@ pub(crate) fn callable<T>(
         )
         .map_err(|_| ProblemError::memory("callable profile catalog extent"))?;
     }
-    let admission = TaskAdmission::new(
-        declaration.limits,
-        scope.clone(),
-        Some(service.pool.clone()),
-        false,
-    );
+    let admission = TaskAdmission::new_for(declaration.limits, scope.clone(), service, false);
     #[cfg(feature = "solver-pounce")]
     let mut profiles = vec![source.solver.cloned()];
     #[cfg(not(feature = "solver-pounce"))]

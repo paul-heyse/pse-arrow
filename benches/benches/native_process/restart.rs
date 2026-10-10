@@ -68,6 +68,7 @@ fn runtime_on(
             admission,
         ),
     )
+    .unwrap()
 }
 
 fn body_counts(phases: &phases::Phases, replay: bool) -> Value {

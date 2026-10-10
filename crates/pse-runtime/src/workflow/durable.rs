@@ -12,9 +12,9 @@ use pse_model::generated::{
 use pse_operations::{
     canonical::{CanonicalOptions, CanonicalStore, Revision},
     canonical_execution::{
-        AttemptFence, CanonicalAttempt, CanonicalRun, RESULT_BATCH_BYTES, ResultManifest,
-        TerminalClass, execution_attempt_key, result_batch_key, result_payload_digest,
-        result_set_key,
+        AttemptFence, CanonicalAttempt, CanonicalRun, ClosedAttempt, RESULT_BATCH_BYTES,
+        ResultManifest, TerminalClass, execution_attempt_key, result_batch_key,
+        result_payload_digest, result_set_key,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -221,6 +221,56 @@ impl Operations {
             solutions,
         })
     }
+    /// Admit this exact closed selection and reopen the acknowledged immutable receipt.
+    #[allow(
+        unsafe_code,
+        reason = "scientific settlement supplies the prepared original completion or explicit unavailable science"
+    )]
+    async fn settle(
+        &self,
+        closed: &ClosedAttempt,
+        operation: &str,
+        class: TerminalClass,
+        receipt: &CompletionReceipt,
+        heartbeat: Option<Heartbeat>,
+    ) -> Result<DurableRecord, WorkflowError> {
+        let prepared = async {
+            let completion = serde_json::to_vec(receipt).map_err(|e| contract(e.to_string()))?;
+            let manifest = self.store.reconcile_closed_attempt(closed).await?;
+            Ok::<_, WorkflowError>((manifest, completion))
+        }
+        .await;
+        // Healthy renewal remains valid after ingestion closes. Keep it through
+        // every reconciliation page, then join and inspect it before terminal admission.
+        let heartbeat = match heartbeat {
+            Some(heartbeat) => heartbeat.stop().await,
+            None => None,
+        };
+        let (manifest, completion) = match prepared {
+            Ok(prepared) => {
+                if let Some(error) = heartbeat {
+                    return Err(WorkflowError::Shared(error));
+                }
+                prepared
+            }
+            Err(error) => {
+                let error = Arc::new(error);
+                return Err(WorkflowError::Shared(
+                    export_failure(Some(error.clone()), heartbeat, Some(closed.fence()))
+                        .unwrap_or(error),
+                ));
+            }
+        };
+        // SAFETY: normal execution supplies its joined assessment, recovery supplies
+        // no scientific completion. Both refer to this exact frozen manifest.
+        unsafe {
+            self.store
+                .seal_attempt(&manifest, operation, class, &completion)
+                .await
+        }?;
+        self.record(closed.fence().run(), closed.fence().attempt())
+            .await
+    }
     /// Recover only explicitly selected expired/cancelled run authority. No numerical dispatch.
     #[allow(
         unsafe_code,
@@ -247,7 +297,6 @@ impl Operations {
             });
         }
         let closed = self.store.recover_closed_attempt(run, operation).await?;
-        let manifest = self.store.reconcile_closed_attempt(&closed).await?;
         let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
         hash.str("scientific.attempt.lineage.v1")
             .str(closed.fence().attempt());
@@ -289,18 +338,14 @@ impl Operations {
         } else {
             TerminalClass::Failed
         };
-        // SAFETY: current native recovery authority froze and reconciled this exact
-        // attempt; the receipt reports cancellation or worker loss without scientific success.
-        unsafe {
-            self.store
-                .seal_attempt(
-                    &manifest,
-                    &format!("{operation}:terminal"),
-                    class,
-                    &serde_json::to_vec(&receipt).map_err(|e| contract(e.to_string()))?,
-                )
-                .await
-        }?;
+        self.settle(
+            &closed,
+            &format!("{operation}:terminal"),
+            class,
+            &receipt,
+            None,
+        )
+        .await?;
         Ok(Recovery {
             recovered: vec![closed.fence().attempt().into()],
         })
@@ -372,6 +417,53 @@ pub(super) struct Outcome {
     pub(super) state: AttemptState,
     pub(super) detail: TerminationDetail,
     pub(super) retryable: bool,
+}
+// Task-local export control: absent from production and never shared across attempts.
+#[cfg(all(test, feature = "canonical-tests"))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FinishExportPhase {
+    Progress,
+    Table,
+    Seed,
+    Completion,
+}
+#[cfg(all(test, feature = "canonical-tests"))]
+#[derive(Debug)]
+struct FinishExportGate {
+    phase: FinishExportPhase,
+    reached: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
+    release: Mutex<Option<tokio::sync::oneshot::Receiver<()>>>,
+    failure: Option<Arc<WorkflowError>>,
+}
+#[cfg(all(test, feature = "canonical-tests"))]
+impl FinishExportGate {
+    async fn at(gate: &OnceLock<Self>, phase: FinishExportPhase) -> Result<(), WorkflowError> {
+        let Some(gate) = gate.get().filter(|gate| gate.phase == phase) else {
+            return Ok(());
+        };
+        let reached = gate
+            .reached
+            .lock()
+            .map_err(|_| contract("export control lock"))?
+            .take();
+        let Some(reached) = reached else {
+            return Ok(());
+        };
+        let release = gate
+            .release
+            .lock()
+            .map_err(|_| contract("export control lock"))?
+            .take()
+            .ok_or_else(|| contract("export control release absent"))?;
+        let _ = reached.send(());
+        release
+            .await
+            .map_err(|_| contract("export control release dropped"))?;
+        match &gate.failure {
+            Some(error) => Err(WorkflowError::Shared(error.clone())),
+            None => Ok(()),
+        }
+    }
 }
 #[derive(Debug)]
 pub(crate) struct DurableAttempt {
@@ -594,87 +686,70 @@ impl DurableAttempt {
         Ok(())
     }
     pub(super) async fn finish(mut self, result: &RunResult, cancelled: bool) -> DurableRecord {
-        let stream = self.stream.finish().await;
-        let lost = self
-            .heartbeat
-            .as_ref()
-            .is_some_and(|h| h.lost.load(Ordering::Acquire));
-        let mut outcome = classify(result, cancelled);
-        if lost {
-            outcome = match self.heartbeat.as_ref().and_then(|heartbeat| {
-                heartbeat
-                    .failure
-                    .lock()
-                    .ok()
-                    .and_then(|failure| failure.clone())
-            }) {
-                Some(error) => infrastructure(&error),
-                None => infrastructure(&contract("durable lease renewal failed")),
-            };
-        }
-        let mut solutions = Vec::new();
+        // Keep renewal alive through every export phase, including progress drain.
         let ingestion = async {
-            stream?;
+            self.stream.finish().await?;
             self.store_tables(result).await?;
-            solutions = store_seeds(&self.operations, self.fence()?, result).await?;
+            store_seeds(
+                &self.operations,
+                self.fence()?,
+                result,
+                #[cfg(all(test, feature = "canonical-tests"))]
+                &self.stream.export_gate,
+            )
+            .await?;
             Ok::<(), WorkflowError>(())
         }
         .await;
-        if let Err(error) = &ingestion {
-            outcome = infrastructure(error);
+        let tables_complete = ingestion.is_ok();
+        let ingestion_error = ingestion.err().map(Arc::new);
+        let error = ingestion_error;
+        let mut outcome = classify(result, cancelled);
+        if let Some(error) = &error {
+            if !self.cancelled_refusal(error) {
+                // Cleanup cannot convert an unrelated or unacknowledged error into
+                // successful cancellation, even if the study later becomes cancelled.
+                return self.reject_export(error.clone()).await;
+            }
+            if tables_complete {
+                outcome.state = AttemptState::Cancelled;
+            } else {
+                outcome = failure(error, true);
+            }
         }
         let stored = StoredCompletion {
             version: 1,
             attempt_id: self.attempt,
-            completion: result.completion().ok().cloned(),
+            completion: if tables_complete {
+                result.completion().ok().cloned()
+            } else {
+                None
+            },
             termination: outcome.detail.clone(),
             state: outcome.state,
         };
-        let terminal = self.terminate(&outcome, &stored, ingestion.is_ok()).await;
-        if let Some(heartbeat) = self.heartbeat.take() {
-            heartbeat.stop().await;
+        match self.terminate(&stored).await {
+            Ok(record) => record,
+            Err(error) => self.reject_export(Arc::new(error)).await,
         }
-        let mut record = self.record(terminal, Some(stored), solutions).await;
-        if let Err(error) = ingestion {
-            // Cancellation revokes ingestion authority before native drain. An exact
-            // acknowledged cancelled terminal settles that lifecycle; its stored
-            // termination still retains the ingestion diagnostic. Other persistence
-            // errors must remain errors, including an unacknowledged cancellation.
-            let settled_cancellation = record.attempt.as_ref().is_ok_and(|attempt| {
-                attempt.terminal
-                    && attempt.closed
-                    && attempt.outcome.as_deref() == Some("cancelled")
-                    && record.attempt_key.as_deref() == Some(attempt.key.as_str())
-                    && record
-                        .run
-                        .as_ref()
-                        .is_some_and(|run| run.cancelled && run.key == attempt.run)
-                    && record.manifest.is_some()
-                    && record.completion.as_ref().is_some_and(|completion| {
-                        completion.attempt_id == self.attempt
-                            && completion.state == AttemptState::Cancelled
-                    })
-            });
-            if !settled_cancellation {
-                record.attempt = Err(Arc::new(error));
-            }
-        }
-        record
     }
     pub(crate) async fn abandon(mut self, error: &Arc<WorkflowError>) -> DurableRecord {
-        let _ = self.stream.finish().await;
+        let stream = self.stream.finish().await;
         if self.fence.get().is_none() {
-            return DurableRecord {
-                attempt_id: self.attempt,
-                attempt_key: None,
-                run: self.run.get().cloned(),
-                attempt: Err(error.clone()),
-                manifest: None,
-                completion: None,
-                solutions: Vec::new(),
-            };
+            return self.failed_record(error.clone());
         }
-        let outcome = failure(error, false);
+        let export_error = stream.err().map(Arc::new);
+        let export_error = if is_canonical_failure(error) {
+            export_failure(Some(error.clone()), export_error, self.fence.get())
+        } else {
+            export_error
+        };
+        if let Some(error) = &export_error
+            && !self.cancelled_refusal(error)
+        {
+            return self.reject_export(error.clone()).await;
+        }
+        let outcome = failure(error, export_error.is_some());
         let stored = StoredCompletion {
             version: 1,
             attempt_id: self.attempt,
@@ -682,11 +757,52 @@ impl DurableAttempt {
             termination: outcome.detail.clone(),
             state: outcome.state,
         };
-        let terminal = self.terminate(&outcome, &stored, true).await;
-        if let Some(heartbeat) = self.heartbeat.take() {
-            heartbeat.stop().await;
+        match self.terminate(&stored).await {
+            Ok(record) => record,
+            Err(error) => self.reject_export(Arc::new(error)).await,
         }
-        self.record(terminal, Some(stored), Vec::new()).await
+    }
+    async fn stop_heartbeat(&mut self) -> Option<Arc<WorkflowError>> {
+        match self.heartbeat.take() {
+            Some(heartbeat) => heartbeat.stop().await,
+            None => None,
+        }
+    }
+    async fn reject_export(&mut self, error: Arc<WorkflowError>) -> DurableRecord {
+        let heartbeat = self.stop_heartbeat().await;
+        let error =
+            export_failure(Some(error.clone()), heartbeat, self.fence.get()).unwrap_or(error);
+        if let Some(fence) = self.fence.get()
+            && self
+                .operations
+                .store
+                .close_result_ingestion(fence, &format!("export-close:{}", fence.attempt()))
+                .await
+                .is_err()
+        {
+            let _ = self
+                .operations
+                .store
+                .recover_closed_attempt(fence.run(), &format!("export-cleanup:{}", fence.attempt()))
+                .await;
+        }
+        self.failed_record(error)
+    }
+    pub(crate) fn cancelled_refusal(&self, error: &WorkflowError) -> bool {
+        self.fence
+            .get()
+            .is_some_and(|fence| acknowledged_cancellation(error, fence))
+    }
+    fn failed_record(&self, error: Arc<WorkflowError>) -> DurableRecord {
+        DurableRecord {
+            attempt_id: self.attempt,
+            attempt_key: self.fence.get().map(|f| f.attempt().to_owned()),
+            run: self.run.get().cloned(),
+            attempt: Err(error),
+            manifest: None,
+            completion: None,
+            solutions: Vec::new(),
+        }
     }
     fn fence(&self) -> Result<&AttemptFence, WorkflowError> {
         self.fence
@@ -699,6 +815,8 @@ impl DurableAttempt {
             let cursor = result
                 .cursor_by_id(relation, 1024, super::ResultOrder::Canonical)
                 .map_err(WorkflowError::Shared)?;
+            #[cfg(all(test, feature = "canonical-tests"))]
+            FinishExportGate::at(&self.stream.export_gate, FinishExportPhase::Table).await?;
             super::result_projection::store_result_table(
                 &self.operations.store,
                 &fence,
@@ -710,69 +828,58 @@ impl DurableAttempt {
         }
         Ok(())
     }
-    #[allow(
-        unsafe_code,
-        reason = "controlled scientific owner admits original completed observations; no pointer or ABI operations"
-    )]
     async fn terminate(
-        &self,
-        outcome: &Outcome,
+        &mut self,
         stored: &StoredCompletion,
-        tables_complete: bool,
-    ) -> Result<(CanonicalAttempt, ResultManifest), WorkflowError> {
-        let fence = self.fence()?;
-        let current_run = self
-            .operations
-            .store
-            .canonical_run(fence.run())
-            .await?
-            .ok_or_else(|| contract("completion run absent"))?;
-        let mut outcome = outcome.clone();
-        let mut stored = stored.clone();
-        if current_run.cancelled {
-            outcome.state = AttemptState::Cancelled;
-            stored.state = AttemptState::Cancelled;
-        }
-        let bytes = serde_json::to_vec(&stored).map_err(|e| contract(e.to_string()))?;
+    ) -> Result<DurableRecord, WorkflowError> {
+        let fence = self.fence()?.clone();
         let current = self
             .operations
             .store
             .canonical_attempt(fence.attempt())
             .await?
             .ok_or_else(|| contract("completion attempt absent"))?;
-        let mut receipt = if current.ingestion_open
-            && current.expires_at > chrono::Utc::now().timestamp_micros()
-        {
-            match write_chunks(&self.operations.store, fence, "__completion", 0, &bytes).await {
+        if current.terminal {
+            let _ = self.stop_heartbeat().await;
+            return self.operations.record(fence.run(), fence.attempt()).await;
+        }
+        let current_run = self
+            .operations
+            .store
+            .canonical_run(fence.run())
+            .await?
+            .ok_or_else(|| contract("completion run absent"))?;
+        let mut stored = stored.clone();
+        if current_run.cancelled {
+            stored.state = AttemptState::Cancelled;
+        }
+        let bytes = serde_json::to_vec(&stored).map_err(|e| contract(e.to_string()))?;
+        let mut receipt = if stored.state == AttemptState::Cancelled || !current.ingestion_open {
+            inline_completion(stored.clone())
+        } else {
+            #[cfg(all(test, feature = "canonical-tests"))]
+            FinishExportGate::at(&self.stream.export_gate, FinishExportPhase::Completion).await?;
+            match write_chunks(&self.operations.store, &fence, "__completion", 0, &bytes).await {
                 Ok(receipt) => receipt,
-                Err(_) if outcome.state != AttemptState::Completed => CompletionReceipt {
-                    version: 1,
-                    batch_count: 0,
-                    payload_bytes: 0,
-                    digest: String::new(),
-                    inline: Some(Box::new(stored.clone())),
-                },
+                Err(error) if self.cancelled_refusal(&error) => {
+                    stored.state = AttemptState::Cancelled;
+                    inline_completion(stored.clone())
+                }
                 Err(error) => return Err(error),
             }
-        } else {
-            if outcome.state == AttemptState::Completed {
-                return Err(contract(
-                    "scientifically completed run lost live durable authority",
-                ));
-            }
-            CompletionReceipt {
-                version: 1,
-                batch_count: 0,
-                payload_bytes: 0,
-                digest: String::new(),
-                inline: Some(Box::new(stored.clone())),
-            }
         };
-        let closed = if outcome.state == AttemptState::Cancelled {
-            self.operations
-                .store
-                .cancel_run(fence.run(), &format!("cancel:{}", fence.attempt()))
-                .await?;
+        let closed = if stored.state == AttemptState::Cancelled {
+            if let Some(error) = self.stop_heartbeat().await
+                && !self.cancelled_refusal(&error)
+            {
+                return Err(WorkflowError::Shared(error));
+            }
+            if !current_run.cancelled {
+                self.operations
+                    .store
+                    .cancel_run(fence.run(), &format!("cancel:{}", fence.attempt()))
+                    .await?;
+            }
             self.operations
                 .store
                 .recover_closed_attempt(fence.run(), &format!("recovery:{}", fence.attempt()))
@@ -781,133 +888,68 @@ impl DurableAttempt {
             match self
                 .operations
                 .store
-                .close_result_ingestion(fence, &format!("close:{}", fence.attempt()))
+                .close_result_ingestion(&fence, &format!("close:{}", fence.attempt()))
                 .await
             {
                 Ok(closed) => closed,
-                Err(original) => {
-                    match self
-                        .operations
+                Err(error) if canonical_cancellation(&error, &fence) => {
+                    if let Some(error) = self.stop_heartbeat().await
+                        && !self.cancelled_refusal(&error)
+                    {
+                        return Err(WorkflowError::Shared(error));
+                    }
+                    stored.state = AttemptState::Cancelled;
+                    receipt = inline_completion(stored.clone());
+                    self.operations
                         .store
                         .recover_closed_attempt(
                             fence.run(),
                             &format!("recovery:{}", fence.attempt()),
                         )
-                        .await
-                    {
-                        Ok(closed) => closed,
-                        Err(_) => return Err(original.into()),
-                    }
+                        .await?
                 }
+                Err(error) => return Err(error.into()),
             }
         };
-        let current_run = self
-            .operations
-            .store
-            .canonical_run(fence.run())
-            .await?
-            .ok_or_else(|| contract("recovered completion run absent"))?;
-        if current_run.cancelled {
-            outcome.state = AttemptState::Cancelled;
-            stored.state = AttemptState::Cancelled;
-            receipt = CompletionReceipt {
-                version: 1,
-                batch_count: 0,
-                payload_bytes: 0,
-                digest: String::new(),
-                inline: Some(Box::new(stored.clone())),
-            };
-        }
-        if !tables_complete {
-            // Staging is closed for reclamation/recovery, but a failed transport prefix
-            // cannot acquire a scientific manifest or activation, even as a failed result.
-            return Err(contract("incomplete result export remains unsealed"));
-        }
-        let manifest = self
-            .operations
-            .store
-            .reconcile_closed_attempt(&closed)
-            .await?;
-        let class = match outcome.state {
+        let class = match stored.state {
             AttemptState::Completed => TerminalClass::Succeeded,
             AttemptState::Partial => TerminalClass::Partial,
             AttemptState::Cancelled => TerminalClass::Cancelled,
             _ => TerminalClass::Failed,
         };
-        // SAFETY: this scientific owner captured the actual completion and admitted
-        // table projections; the reconciled manifest covers them exactly. Lost live
-        // authority cannot admit success, and current cancellation is reflected above.
-        let terminal = unsafe {
-            self.operations
-                .store
-                .seal_attempt(
-                    &manifest,
-                    &format!("seal:{}", fence.attempt()),
-                    class,
-                    &serde_json::to_vec(&receipt).map_err(|e| contract(e.to_string()))?,
-                )
-                .await
-        }?;
-        Ok((terminal, manifest.row().clone()))
-    }
-    async fn record(
-        &self,
-        terminal: Result<(CanonicalAttempt, ResultManifest), WorkflowError>,
-        completion: Option<StoredCompletion>,
-        solutions: Vec<(usize, SolutionId)>,
-    ) -> DurableRecord {
-        let mut terminal = terminal;
-        let run_key = self
-            .fence
-            .get()
-            .map(AttemptFence::run)
-            .or_else(|| self.run.get().map(|row| row.key.as_str()));
-        let run = match run_key {
-            Some(key) => match self.operations.store.canonical_run(key).await {
-                Ok(row) => row,
-                Err(error) => {
-                    terminal = Err(error.into());
-                    None
-                }
-            },
-            None => None,
-        };
-        let completion = match completion {
-            Some(mut completion) => {
-                if terminal
-                    .as_ref()
-                    .is_ok_and(|(attempt, _)| attempt.outcome.as_deref() == Some("cancelled"))
-                {
-                    completion.state = AttemptState::Cancelled;
-                }
-                match serde_json::to_vec(&completion)
-                    .map_err(|e| contract(e.to_string()))
-                    .and_then(|bytes| reserve(&self.operations.pool, bytes.len()))
-                {
-                    Ok(owner) => Some(Arc::new(pse_columnar::Leased::new(
-                        Arc::new(completion),
-                        owner,
-                    ))),
-                    Err(error) => {
-                        terminal = Err(error);
-                        None
-                    }
-                }
+        let heartbeat = self.heartbeat.take();
+        match self
+            .operations
+            .settle(
+                &closed,
+                &format!("seal:{}", fence.attempt()),
+                class,
+                &receipt,
+                heartbeat,
+            )
+            .await
+        {
+            Ok(record) => Ok(record),
+            Err(error) if self.cancelled_refusal(&error) => {
+                // Cancellation after intentional close has an acknowledged refusal.
+                // Preserve the fully exported original assessments under recovery authority.
+                stored.state = AttemptState::Cancelled;
+                let closed = self
+                    .operations
+                    .store
+                    .recover_closed_attempt(fence.run(), &format!("recovery:{}", fence.attempt()))
+                    .await?;
+                self.operations
+                    .settle(
+                        &closed,
+                        &format!("seal-cancel:{}", fence.attempt()),
+                        TerminalClass::Cancelled,
+                        &inline_completion(stored),
+                        None,
+                    )
+                    .await
             }
-            None => None,
-        };
-        let (attempt, manifest) = match terminal {
-            Ok((attempt, manifest)) => (Ok(attempt), Some(manifest)),
-            Err(error) => (Err(Arc::new(error)), None),
-        };
-        DurableRecord {
-            attempt_id: self.attempt,
-            attempt_key: self.fence.get().map(|f| f.attempt().to_owned()),
-            run,
-            attempt,
-            manifest,
-            completion,
-            solutions,
+            Err(error) => Err(error),
         }
     }
 }
@@ -992,13 +1034,6 @@ fn failure(error: &WorkflowError, cancelled: bool) -> Outcome {
         ),
         retryable,
     }
-}
-fn infrastructure(error: &WorkflowError) -> Outcome {
-    let mut outcome = failure(error, false);
-    outcome.detail.cause = TerminationCause::Infrastructure {
-        diagnostic: error.boundary_diagnostic(),
-    };
-    outcome
 }
 fn classify(result: &RunResult, cancelled: bool) -> Outcome {
     if let Err(error) = result.report() {
@@ -1113,38 +1148,86 @@ fn request_provenance(request: &RunRequest) -> Result<Vec<serde_json::Value>, Wo
         ]),
     }
 }
+fn inline_completion(stored: StoredCompletion) -> CompletionReceipt {
+    CompletionReceipt {
+        version: 1,
+        batch_count: 0,
+        payload_bytes: 0,
+        digest: String::new(),
+        inline: Some(Box::new(stored)),
+    }
+}
+fn canonical_cancellation(
+    error: &pse_operations::canonical::CanonicalError,
+    fence: &AttemptFence,
+) -> bool {
+    matches!(error, pse_operations::canonical::CanonicalError::StudyCancellation { run, attempt, generation, .. }
+        if run == fence.run() && attempt == fence.attempt() && *generation == fence.generation())
+}
+fn acknowledged_cancellation(error: &WorkflowError, fence: &AttemptFence) -> bool {
+    match error {
+        WorkflowError::Canonical(error) => canonical_cancellation(error, fence),
+        WorkflowError::Shared(error) => acknowledged_cancellation(error, fence),
+        _ => false,
+    }
+}
+fn is_canonical_failure(error: &WorkflowError) -> bool {
+    match error {
+        WorkflowError::Canonical(_) => true,
+        WorkflowError::Shared(error) => is_canonical_failure(error),
+        _ => false,
+    }
+}
+fn export_failure(
+    ingestion: Option<Arc<WorkflowError>>,
+    heartbeat: Option<Arc<WorkflowError>>,
+    fence: Option<&AttemptFence>,
+) -> Option<Arc<WorkflowError>> {
+    // Any unrelated error takes precedence over an acknowledged cancellation.
+    let cancelled =
+        |error: &WorkflowError| fence.is_some_and(|f| acknowledged_cancellation(error, f));
+    match (ingestion, heartbeat) {
+        (Some(ingestion), Some(heartbeat)) if cancelled(&ingestion) && !cancelled(&heartbeat) => {
+            Some(heartbeat)
+        }
+        (Some(error), _) | (None, Some(error)) => Some(error),
+        (None, None) => None,
+    }
+}
 #[derive(Debug)]
 struct Heartbeat {
     stop: tokio::sync::oneshot::Sender<()>,
     task: tokio::task::JoinHandle<()>,
-    lost: Arc<AtomicBool>,
     failure: Arc<Mutex<Option<Arc<WorkflowError>>>>,
 }
 impl Heartbeat {
     fn spawn(operations: &Operations, fence: AttemptFence, cancel: Canceller) -> Self {
         let (stop, mut stopped) = tokio::sync::oneshot::channel();
         let operations = operations.clone();
-        let lost = Arc::new(AtomicBool::new(false));
-        let flag = lost.clone();
         let failure = Arc::new(Mutex::new(None));
         let recorded = failure.clone();
         let task = tokio::spawn(async move {
             let mut interval = tokio::time::interval(operations.policy.heartbeat);
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
-                tokio::select! {_=&mut stopped=>break,_=interval.tick()=>{if let Err(error)=operations.store.renew_attempt(&fence,operations.policy.lease).await{if let Ok(mut failure)=recorded.lock(){*failure=Some(Arc::new(WorkflowError::Canonical(error)));}flag.store(true,Ordering::Release);cancel();break;}}}
+                tokio::select! {_=&mut stopped=>break,_=interval.tick()=>{if let Err(error)=operations.store.renew_attempt(&fence,operations.policy.lease).await{if let Ok(mut failure)=recorded.lock(){*failure=Some(Arc::new(WorkflowError::Canonical(error)));}cancel();break;}}}
             }
         });
         Self {
             stop,
             task,
-            lost,
             failure,
         }
     }
-    async fn stop(self) {
+    async fn stop(self) -> Option<Arc<WorkflowError>> {
         let _ = self.stop.send(());
-        let _ = self.task.await;
+        if let Err(error) = self.task.await {
+            return Some(Arc::new(contract(format!("heartbeat join: {error}"))));
+        }
+        match self.failure.lock() {
+            Ok(mut failure) => failure.take(),
+            Err(_) => Some(Arc::new(contract("heartbeat failure observation poisoned"))),
+        }
     }
 }
 struct Tap {
@@ -1213,6 +1296,8 @@ struct Streamer {
     tap: Arc<Tap>,
     ready: Arc<tokio::sync::Notify>,
     task: Option<tokio::task::JoinHandle<Result<(), WorkflowError>>>,
+    #[cfg(all(test, feature = "canonical-tests"))]
+    export_gate: Arc<OnceLock<FinishExportGate>>,
 }
 impl Streamer {
     fn new(operations: &Operations, fence: Arc<OnceLock<AttemptFence>>) -> Self {
@@ -1230,6 +1315,10 @@ impl Streamer {
         let ready = Arc::new(tokio::sync::Notify::new());
         let signal = ready.clone();
         let operations = operations.clone();
+        #[cfg(all(test, feature = "canonical-tests"))]
+        let export_gate = Arc::new(OnceLock::new());
+        #[cfg(all(test, feature = "canonical-tests"))]
+        let writer_gate = export_gate.clone();
         let task = tokio::spawn(async move {
             while fence.get().is_none() {
                 tokio::select! {_=signal.notified()=>{},event=receiver.recv()=>{if event.is_some(){return Err(contract("native progress observed before claim"));}return Ok(());}}
@@ -1274,6 +1363,8 @@ impl Streamer {
                         .map_err(|_| contract("progress payload allocation refused"))?;
                     match serde_json::to_writer(&mut output, &events[start..end]) {
                         Ok(()) => {
+                            #[cfg(all(test, feature = "canonical-tests"))]
+                            FinishExportGate::at(&writer_gate, FinishExportPhase::Progress).await?;
                             operations
                                 .store
                                 .append_result_batch(
@@ -1309,6 +1400,8 @@ impl Streamer {
             tap,
             ready,
             task: Some(task),
+            #[cfg(all(test, feature = "canonical-tests"))]
+            export_gate,
         }
     }
     async fn finish(&mut self) -> Result<(), WorkflowError> {
@@ -1585,6 +1678,7 @@ async fn store_seeds(
     operations: &Operations,
     fence: &AttemptFence,
     result: &RunResult,
+    #[cfg(all(test, feature = "canonical-tests"))] export_gate: &OnceLock<FinishExportGate>,
 ) -> Result<Vec<(usize, SolutionId)>, WorkflowError> {
     let (Ok(RunReport::Modeling(steps)), RunRequest::Modeling(requests)) =
         (result.report(), result.request())
@@ -1677,6 +1771,8 @@ async fn store_seeds(
             run_sequence: run.sequence,
             attempt_generation: fence.generation(),
         };
+        #[cfg(all(test, feature = "canonical-tests"))]
+        FinishExportGate::at(export_gate, FinishExportPhase::Seed).await?;
         operations
             .store
             .register_result_seed(fence, &format!("seed:{}:{solution}", fence.attempt()), &row)
@@ -2039,6 +2135,806 @@ mod canonical_durable_codec {
             .unwrap();
         (operations, fence)
     }
+    async fn study_claimed() -> (Operations, AttemptFence) {
+        let (operations, claim) = study_claim().await;
+        (operations, claim.fence)
+    }
+    async fn study_claim() -> (Operations, pse_operations::canonical_studies::StudyClaim) {
+        let (runtime, claim) = study_claim_runtime().await;
+        (runtime.operations().unwrap().clone(), claim)
+    }
+    async fn study_claim_runtime() -> (
+        super::super::Runtime,
+        pse_operations::canonical_studies::StudyClaim,
+    ) {
+        let runtime = super::super::durable_tests::durable_runtime();
+        let claim = study_claim_on(&runtime, "cancel").await;
+        (runtime, claim)
+    }
+    async fn study_claim_on(
+        runtime: &super::super::Runtime,
+        prefix: &str,
+    ) -> pse_operations::canonical_studies::StudyClaim {
+        use pse_model::study::{OccurrenceKey, PointPolicy, SeedNeed, StartPolicy};
+        use pse_operations::canonical_studies::{NewOccurrence, point_key};
+        let operations = runtime.operations().unwrap();
+        let study = format!("{prefix}-study");
+        let revision = operations
+            .store
+            .edit(
+                &format!("{prefix}-fixture"),
+                None,
+                &format!("{prefix}-source"),
+                &[],
+            )
+            .await
+            .unwrap();
+        let request = |key: &str| pse_operations::canonical_execution::RunRequest {
+            key: key.into(),
+            revision: revision.clone(),
+            sources: vec![],
+            request: vec![1],
+            source_selection: vec![2],
+            attestation: vec![3],
+        };
+        operations
+            .store
+            .create_study(
+                &study,
+                &request(&format!("{prefix}-summary")),
+                &[9],
+                &[NewOccurrence {
+                    policy: PointPolicy {
+                        key: OccurrenceKey(1),
+                        dependencies: vec![],
+                        start: StartPolicy::Fresh,
+                        seed_need: SeedNeed::NotNeeded,
+                        attempt_limit: 1,
+                    },
+                    descriptor: vec![9],
+                    run: request(&format!("{prefix}-point")),
+                }],
+                &|| false,
+            )
+            .await
+            .unwrap();
+        let scope = operations
+            .store
+            .study_scope(&point_key(&study, OccurrenceKey(1)))
+            .await
+            .unwrap();
+        operations
+            .store
+            .claim_study_point(
+                &scope,
+                None,
+                &format!("{prefix}-claim"),
+                "cancel-worker",
+                Duration::from_secs(60),
+            )
+            .await
+            .unwrap()
+    }
+    #[cfg(feature = "solver-kinsol")]
+    #[tokio::test]
+    async fn canonical_finish_cancellation_at_each_export_boundary_keeps_exact_prefix_and_science()
+    {
+        use super::super::durable_tests::{LINEAR, package_on};
+        use super::super::{RunDurability, tests};
+        let runtime = tests::runtime_with_workspace(32 << 20);
+        let (package, analysis) = package_on(&runtime, LINEAR).await;
+        let prepared = package
+            .prepare_analysis(&analysis, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let handle = prepared.start().unwrap();
+        // wait publishes only after the actual native owner has joined. Exporting
+        // this immutable seed-bearing result cannot perform another native solve.
+        let result = handle.wait().await.unwrap();
+        assert!(matches!(result.durability(), RunDurability::Ephemeral));
+        assert!(result.usable(), "{:?}", result.report());
+        let RunReport::Modeling(steps) = result.report().unwrap() else {
+            unreachable!()
+        };
+        assert!(matches!(
+            steps[0].outcome,
+            crate::math::solves::Outcome::Native(_)
+        ));
+        assert!(super::super::study_execution::completed_modeling_seed(&steps[0]).is_some());
+        let RunRequest::Modeling(requests) = result.request() else {
+            unreachable!()
+        };
+        assert!(requests[0].solve.seed_preparation_identity().is_some());
+        let original = serde_json::to_value(result.completion().unwrap()).unwrap();
+        assert!(result.completion().unwrap().assessments[0].permits_seed);
+        let expected_tables = result
+            .tables()
+            .unwrap()
+            .into_iter()
+            .map(|(relation, table)| (relation.to_string(), table.batch().num_rows() as u64))
+            .collect::<BTreeMap<_, _>>();
+
+        // Each case has its own exact study/attempt identities in one installed
+        // fixture, avoiding six repeated complete-schema installations.
+        let point_runtime = super::super::durable_tests::durable_runtime();
+        let operations = point_runtime.operations().unwrap().clone();
+        for (index, (phase, unrelated_export, unrelated_heartbeat)) in [
+            (FinishExportPhase::Progress, false, false),
+            (FinishExportPhase::Table, false, false),
+            (FinishExportPhase::Seed, false, false),
+            (FinishExportPhase::Completion, false, false),
+            (FinishExportPhase::Table, true, false),
+            (FinishExportPhase::Table, false, true),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let claim = study_claim_on(&point_runtime, &format!("cancel-{index}")).await;
+            let fence = claim.fence.clone();
+            operations.store.mark_study_started(&claim).await.unwrap();
+            operations
+                .store
+                .append_result_batch(
+                    &fence,
+                    &format!("accepted-prefix:{}", fence.attempt()),
+                    "__prefix",
+                    0,
+                    &[7],
+                    1,
+                )
+                .await
+                .unwrap();
+            let attempt_id = pse_operations::mint_id();
+            let mut attempt =
+                DurableAttempt::claimed(&operations, fence.clone(), result.run_id, attempt_id);
+            let (reached, reached_rx) = tokio::sync::oneshot::channel();
+            let (release, release_rx) = tokio::sync::oneshot::channel();
+            let unrelated = Arc::new(WorkflowError::Canonical(
+                pse_operations::canonical::CanonicalError::Timeout,
+            ));
+            attempt
+                .stream
+                .export_gate
+                .set(FinishExportGate {
+                    phase,
+                    reached: Mutex::new(Some(reached)),
+                    release: Mutex::new(Some(release_rx)),
+                    failure: unrelated_export.then(|| unrelated.clone()),
+                })
+                .unwrap();
+            if unrelated_export || unrelated_heartbeat {
+                // Compose both unrelated-error precedences through finish and the
+                // final heartbeat join, after real acknowledged study cancellation.
+                let (stop, stopped) = tokio::sync::oneshot::channel();
+                let failure = Arc::new(Mutex::new(None));
+                let recorded = failure.clone();
+                let joined_operations = operations.clone();
+                let joined_fence = fence.clone();
+                let unrelated = unrelated.clone();
+                let task = tokio::spawn(async move {
+                    stopped.await.unwrap();
+                    let refusal = joined_operations
+                        .store
+                        .renew_attempt(&joined_fence, Duration::from_secs(60))
+                        .await
+                        .unwrap_err();
+                    assert!(canonical_cancellation(&refusal, &joined_fence));
+                    *recorded.lock().unwrap() = Some(if unrelated_heartbeat {
+                        unrelated
+                    } else {
+                        Arc::new(WorkflowError::Canonical(refusal))
+                    });
+                });
+                attempt.heartbeat = Some(Heartbeat {
+                    stop,
+                    task,
+                    failure,
+                });
+            } else {
+                attempt.start(Arc::new(|| {})).await.unwrap();
+            }
+            attempt.stream.tap.observe(&Event {
+                phase: "joined-export".into(),
+                elapsed: Duration::ZERO,
+                values: BTreeMap::from([("counter".into(), Metric::Integer(1))]),
+                incumbent: None,
+            });
+            let joined = result.clone();
+            let mut finishing = tokio::spawn(async move { attempt.finish(&joined, false).await });
+            tokio::select! {
+                reached = reached_rx => reached.unwrap(),
+                early = &mut finishing => { unreachable!("finish returned before {phase:?}: {early:?}"); }
+            }
+            if phase == FinishExportPhase::Progress {
+                // Establish an acknowledged baseline using the installed lease,
+                // then observe the real independent heartbeat extend it while
+                // the progress writer remains blocked. No test clock is advanced.
+                let baseline = operations
+                    .store
+                    .renew_attempt(&fence, operations.policy.lease)
+                    .await
+                    .unwrap();
+                let deadline = tokio::time::Instant::now() + operations.policy.lease;
+                loop {
+                    let renewed = operations
+                        .store
+                        .canonical_attempt(fence.attempt())
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    if renewed.expires_at > baseline.expires_at {
+                        break;
+                    }
+                    assert!(
+                        tokio::time::Instant::now() < deadline,
+                        "heartbeat did not extend its original lease while export was gated"
+                    );
+                    tokio::task::yield_now().await;
+                }
+            }
+            // These are acknowledged real writes before the selected export boundary.
+            assert_eq!(
+                operations
+                    .store
+                    .result_seed_page(fence.attempt(), None)
+                    .await
+                    .unwrap()
+                    .len(),
+                usize::from(phase == FinishExportPhase::Completion)
+            );
+            operations
+                .store
+                .cancel_study(&claim.point.study)
+                .await
+                .unwrap();
+            release.send(()).unwrap();
+            let record = finishing.await.unwrap();
+            assert_eq!(record.attempt_id, attempt_id);
+            assert_eq!(record.attempt_key.as_deref(), Some(fence.attempt()));
+            let retained = operations
+                .store
+                .canonical_attempt(fence.attempt())
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(retained.generation, fence.generation());
+            assert!(retained.closed && !retained.ingestion_open);
+            assert!(
+                operations.store.mark_study_started(&claim).await.is_err(),
+                "cancellation cannot redispatch this native start"
+            );
+            let point = operations
+                .store
+                .canonical_study_point(&claim.point.key)
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(point.attempt.as_deref(), Some(fence.attempt()));
+            let facts = pse_operations::canonical_studies::point_facts(&point).unwrap();
+            assert_eq!(facts.attempt_count, 1);
+            assert!(facts.native_started);
+            if unrelated_export || unrelated_heartbeat {
+                let WorkflowError::Shared(cause) = record.attempt.as_ref().unwrap_err().as_ref()
+                else {
+                    unreachable!()
+                };
+                assert!(Arc::ptr_eq(cause, &unrelated));
+                assert!(
+                    !retained.terminal && record.manifest.is_none() && record.completion.is_none()
+                );
+                assert!(record.solutions.is_empty());
+                let error = point_runtime
+                    .record_study_attempt(&point, &claim.start, &record)
+                    .await
+                    .unwrap_err();
+                let WorkflowError::Shared(retained_error) = error else {
+                    unreachable!()
+                };
+                assert!(Arc::ptr_eq(
+                    &retained_error,
+                    record.attempt.as_ref().unwrap_err()
+                ));
+                let unchanged = operations
+                    .store
+                    .canonical_study_point(&point.key)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(unchanged, point);
+                assert!(
+                    pse_operations::canonical_studies::point_outcome(&unchanged)
+                        .unwrap()
+                        .is_none()
+                );
+            } else {
+                assert!(retained.terminal);
+                assert_eq!(record.attempt.as_ref().unwrap().key, fence.attempt());
+                assert_eq!(
+                    record.attempt.as_ref().unwrap().outcome.as_deref(),
+                    Some("cancelled")
+                );
+                let stored = record.completion.as_ref().unwrap();
+                assert_eq!(stored.state, AttemptState::Cancelled);
+                let descriptors = pse_operations::canonical_execution::decode_result_descriptors(
+                    record.manifest.as_ref().unwrap(),
+                )
+                .unwrap();
+                let prefix = descriptors
+                    .iter()
+                    .find(|set| set.name == "__prefix")
+                    .unwrap();
+                assert_eq!((prefix.batch_count, prefix.row_count), (1, 1));
+                let selection = operations
+                    .store
+                    .read_results(fence.run(), fence.attempt(), Duration::from_secs(60))
+                    .await
+                    .unwrap();
+                let payload = operations
+                    .store
+                    .result_payload(&selection, &prefix.key, 0)
+                    .await
+                    .unwrap();
+                assert_eq!(&payload.batch.payload[..], &[7]);
+                drop(payload);
+                drop(selection);
+                assert_eq!(
+                    descriptors.iter().any(|set| set.name == "__progress"),
+                    phase != FinishExportPhase::Progress
+                );
+                assert_eq!(
+                    descriptors.iter().any(|set| set.name == "__seeds"),
+                    matches!(
+                        phase,
+                        FinishExportPhase::Seed | FinishExportPhase::Completion
+                    )
+                );
+                let has_tables = descriptors.iter().any(|set| !set.name.starts_with("__"));
+                assert_eq!(
+                    has_tables,
+                    matches!(
+                        phase,
+                        FinishExportPhase::Seed | FinishExportPhase::Completion
+                    )
+                );
+                if has_tables {
+                    let actual_tables = descriptors
+                        .iter()
+                        .filter(|set| !set.name.starts_with("__"))
+                        .map(|set| (set.name.clone(), set.row_count))
+                        .collect::<BTreeMap<_, _>>();
+                    assert_eq!(actual_tables, expected_tables);
+                }
+                if phase == FinishExportPhase::Completion {
+                    assert_eq!(
+                        serde_json::to_value(stored.completion.as_ref().unwrap()).unwrap(),
+                        original
+                    );
+                    assert_eq!(record.solutions.len(), 1);
+                    let seed = operations
+                        .store
+                        .result_seed_page(fence.attempt(), None)
+                        .await
+                        .unwrap()
+                        .remove(0);
+                    let operation = format!("seed:{}:{}", fence.attempt(), seed.key);
+                    // Replay a definitely acknowledged registration after cancellation.
+                    // This is receipt-first replay, not a simulated lost response.
+                    operations
+                        .store
+                        .register_result_seed(&fence, &operation, &seed)
+                        .await
+                        .unwrap();
+                    assert_eq!(
+                        operations
+                            .store
+                            .result_seed_page(fence.attempt(), None)
+                            .await
+                            .unwrap(),
+                        [seed]
+                    );
+                } else {
+                    assert!(stored.completion.is_none());
+                    assert!(record.solutions.is_empty());
+                }
+                let reopened = operations
+                    .record(fence.run(), fence.attempt())
+                    .await
+                    .unwrap();
+                assert_eq!(reopened.attempt_id, attempt_id);
+                assert_eq!(reopened.manifest, record.manifest);
+                assert_eq!(
+                    serde_json::to_value(&***reopened.completion.as_ref().unwrap()).unwrap(),
+                    serde_json::to_value(&***stored).unwrap()
+                );
+                assert_eq!(reopened.solutions, record.solutions);
+                let actual = operations
+                    .store
+                    .canonical_run(fence.run())
+                    .await
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(actual.terminal_attempt.as_deref(), Some(fence.attempt()));
+                // Exercise both owning projections on the same settled attempt.
+                // Recovery reads its existing terminal receipt and never dispatches.
+                let projected = if matches!(
+                    phase,
+                    FinishExportPhase::Seed | FinishExportPhase::Completion
+                ) {
+                    assert!(point_runtime.recover_study_point(&point.key).await.unwrap());
+                    operations
+                        .store
+                        .canonical_study_point(&point.key)
+                        .await
+                        .unwrap()
+                        .unwrap()
+                } else {
+                    point_runtime
+                        .record_study_attempt(&point, &claim.start, &record)
+                        .await
+                        .unwrap()
+                };
+                let expected_science = if phase == FinishExportPhase::Completion {
+                    let assessment = &result.completion().unwrap().assessments[0];
+                    pse_model::study::ScientificFacts {
+                        usable: result.usable(),
+                        candidate_use: Some(assessment.usability),
+                        seed_permission: assessment.permits_seed,
+                    }
+                } else {
+                    pse_model::study::ScientificFacts::default()
+                };
+                assert_eq!(projected.attempt.as_deref(), Some(fence.attempt()));
+                assert!(projected.settled && !projected.assigned);
+                let projected_facts =
+                    pse_operations::canonical_studies::point_facts(&projected).unwrap();
+                assert_eq!(
+                    projected_facts.lifecycle,
+                    pse_model::generated::enums::StudyPointState::Cancelled
+                );
+                assert_eq!(projected_facts.scientific, expected_science);
+                assert_eq!(projected_facts.attempt_count, 1);
+                assert!(projected_facts.native_started);
+                assert_eq!(
+                    projected_facts.retry_failure,
+                    stored.termination.retry_failure
+                );
+                assert_eq!(projected_facts.effect, stored.termination.effect);
+                let outcome = pse_operations::canonical_studies::point_outcome(&projected)
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(outcome.lifecycle, projected_facts.lifecycle);
+                assert_eq!(outcome.scientific, expected_science);
+                assert_eq!(outcome.start.as_ref(), Some(&claim.start));
+                assert_eq!(outcome.attempts.len(), 1);
+                let observed_attempt = &outcome.attempts[0];
+                assert_eq!(observed_attempt.attempt_id, Some(attempt_id));
+                assert_eq!(observed_attempt.lifecycle, Some(AttemptState::Cancelled));
+                assert_eq!(observed_attempt.scientific, expected_science);
+                assert_eq!(observed_attempt.start.as_ref(), Some(&claim.start));
+                assert_eq!(observed_attempt.effect, stored.termination.effect);
+            }
+        }
+        drop(point_runtime);
+        operations.store.remove_isolated_fixture().await.unwrap();
+        // The originally joined scientific owner retains its original conclusion.
+        assert_eq!(
+            serde_json::to_value(result.completion().unwrap()).unwrap(),
+            original
+        );
+        drop(result);
+        drop(handle);
+        drop(package);
+        runtime
+            .canonical_store()
+            .remove_isolated_fixture()
+            .await
+            .unwrap();
+    }
+    #[tokio::test]
+    async fn canonical_cancelled_prefix_and_late_heartbeat_reopen_acknowledged_unavailable_science()
+    {
+        let (operations, fence) = study_claimed().await;
+        operations
+            .store
+            .append_result_batch(&fence, "prefix", "observations", 0, &[7], 1)
+            .await
+            .unwrap();
+        let attempt_id = pse_operations::mint_id();
+        let mut attempt = DurableAttempt::claimed(
+            &operations,
+            fence.clone(),
+            pse_operations::mint_id(),
+            attempt_id,
+        );
+        // The earlier heartbeat observation is healthy. Its final joined result
+        // observes the cancellation acknowledged after export has already begun.
+        let (noticed, notice) = tokio::sync::oneshot::channel();
+        let noticed = Mutex::new(Some(noticed));
+        attempt
+            .start(Arc::new(move || {
+                if let Some(noticed) = noticed.lock().unwrap().take() {
+                    let _ = noticed.send(());
+                }
+            }))
+            .await
+            .unwrap();
+        operations
+            .store
+            .renew_attempt(&fence, Duration::from_secs(60))
+            .await
+            .unwrap();
+        operations.store.cancel_study("cancel-study").await.unwrap();
+        notice.await.unwrap();
+        let failure = attempt.heartbeat.take().unwrap().stop().await.unwrap();
+        assert!(attempt.cancelled_refusal(&failure));
+        let unrelated = Arc::new(WorkflowError::Canonical(
+            pse_operations::canonical::CanonicalError::Timeout,
+        ));
+        assert!(Arc::ptr_eq(
+            &export_failure(Some(failure.clone()), Some(unrelated.clone()), Some(&fence)).unwrap(),
+            &unrelated
+        ));
+        assert!(Arc::ptr_eq(
+            &export_failure(Some(unrelated.clone()), Some(failure.clone()), Some(&fence)).unwrap(),
+            &unrelated
+        ));
+        let wrong = Arc::new(WorkflowError::Canonical(
+            pse_operations::canonical::CanonicalError::StudyCancellation {
+                run: fence.run().into(),
+                attempt: fence.attempt().into(),
+                generation: fence.generation() + 1,
+                operation: "renew".into(),
+            },
+        ));
+        assert!(!attempt.cancelled_refusal(&wrong));
+        let outcome = super::failure(&failure, true);
+        let stored = StoredCompletion {
+            version: 1,
+            attempt_id,
+            completion: None,
+            termination: outcome.detail,
+            state: AttemptState::Cancelled,
+        };
+        attempt.stream.finish().await.unwrap();
+        let record = attempt.terminate(&stored).await.unwrap();
+        assert_eq!(record.attempt_id, attempt_id);
+        assert_eq!(
+            record.attempt.as_ref().unwrap().outcome.as_deref(),
+            Some("cancelled")
+        );
+        assert!(record.completion.as_ref().unwrap().completion.is_none());
+        assert!(record.solutions.is_empty());
+        assert_eq!(
+            pse_operations::canonical_execution::decode_result_descriptors(
+                record.manifest.as_ref().unwrap()
+            )
+            .unwrap()[0]
+                .row_count,
+            1
+        );
+        // Existing acknowledged terminal data remains immutable on repeat settlement.
+        let mut changed = stored;
+        changed.attempt_id = pse_operations::mint_id();
+        changed.state = AttemptState::Failed;
+        changed.completion = Some(super::super::Completion::default());
+        let repeated = attempt.terminate(&changed).await.unwrap();
+        assert_eq!(repeated.attempt_id, attempt_id);
+        assert!(repeated.completion.as_ref().unwrap().completion.is_none());
+        assert_eq!(
+            repeated.completion.as_ref().unwrap().state,
+            AttemptState::Cancelled
+        );
+    }
+    #[tokio::test]
+    async fn canonical_complete_export_cancelled_at_seal_preserves_original_completion() {
+        let (operations, fence) = study_claimed().await;
+        let closed = operations
+            .store
+            .close_result_ingestion(&fence, "completed-close")
+            .await
+            .unwrap();
+        let attempt_id = pse_operations::mint_id();
+        let original = StoredCompletion {
+            version: 1,
+            attempt_id,
+            completion: Some(super::super::Completion::default()),
+            termination: detail(
+                TerminationCause::Assessment {
+                    usable: false,
+                    candidate_use: vec![],
+                    diagnostics: vec![],
+                },
+                false,
+            ),
+            state: AttemptState::Failed,
+        };
+        operations.store.cancel_study("cancel-study").await.unwrap();
+        let refusal = operations
+            .settle(
+                &closed,
+                "original-seal",
+                TerminalClass::Failed,
+                &inline_completion(original.clone()),
+                None,
+            )
+            .await
+            .unwrap_err();
+        assert!(acknowledged_cancellation(&refusal, &fence));
+        let mut attempt =
+            DurableAttempt::claimed(&operations, fence, pse_operations::mint_id(), attempt_id);
+        attempt.stream.finish().await.unwrap();
+        let record = attempt.terminate(&original).await.unwrap();
+        assert_eq!(
+            record.completion.as_ref().unwrap().state,
+            AttemptState::Cancelled
+        );
+        assert!(record.completion.as_ref().unwrap().completion.is_some());
+        assert_eq!(record.attempt_id, attempt_id);
+    }
+    #[tokio::test]
+    async fn canonical_preentry_refusal_settles_only_acknowledged_cancellation() {
+        let (operations, fence) = study_claimed().await;
+        operations.store.cancel_study("cancel-study").await.unwrap();
+        let refused = Arc::new(WorkflowError::Canonical(
+            operations
+                .store
+                .renew_attempt(&fence, Duration::from_secs(60))
+                .await
+                .unwrap_err(),
+        ));
+        let attempt = DurableAttempt::claimed(
+            &operations,
+            fence.clone(),
+            pse_operations::mint_id(),
+            pse_operations::mint_id(),
+        );
+        assert!(attempt.cancelled_refusal(&refused));
+        // No heartbeat or scientific owner has entered: the direct response alone
+        // must retain the exact cancellation and unavailable scientific facts.
+        let record = attempt.abandon(&refused).await;
+        assert!(record.attempt.is_ok());
+        assert_eq!(
+            record.completion.as_ref().unwrap().state,
+            AttemptState::Cancelled
+        );
+        assert!(record.completion.as_ref().unwrap().completion.is_none());
+        let reopened = operations
+            .record(fence.run(), fence.attempt())
+            .await
+            .unwrap();
+        assert_eq!(reopened.attempt_id, record.attempt_id);
+        assert!(reopened.completion.as_ref().unwrap().completion.is_none());
+
+        let (operations, fence) = study_claimed().await;
+        operations.store.cancel_study("cancel-study").await.unwrap();
+        let attempt = DurableAttempt::claimed(
+            &operations,
+            fence.clone(),
+            pse_operations::mint_id(),
+            pse_operations::mint_id(),
+        );
+        let unrelated = Arc::new(WorkflowError::Shared(Arc::new(WorkflowError::Canonical(
+            pse_operations::canonical::CanonicalError::Timeout,
+        ))));
+        let record = attempt.abandon(&unrelated).await;
+        assert!(Arc::ptr_eq(
+            record.attempt.as_ref().unwrap_err(),
+            &unrelated
+        ));
+        assert!(record.manifest.is_none());
+        assert!(record.completion.is_none());
+        assert!(
+            !operations
+                .store
+                .canonical_attempt(fence.attempt())
+                .await
+                .unwrap()
+                .unwrap()
+                .terminal
+        );
+    }
+    #[tokio::test]
+    async fn canonical_completion_export_and_reconciliation_precede_final_heartbeat_join() {
+        for final_failure in 0..3 {
+            let (operations, fence) = study_claimed().await;
+            let attempt_id = pse_operations::mint_id();
+            let mut attempt = DurableAttempt::claimed(
+                &operations,
+                fence.clone(),
+                pse_operations::mint_id(),
+                attempt_id,
+            );
+            let original = StoredCompletion {
+                version: 1,
+                attempt_id,
+                completion: Some(super::super::Completion::default()),
+                termination: detail(
+                    TerminationCause::Assessment {
+                        usable: false,
+                        candidate_use: vec![],
+                        diagnostics: vec![],
+                    },
+                    false,
+                ),
+                state: AttemptState::Failed,
+            };
+            let (stop, stopped) = tokio::sync::oneshot::channel();
+            let failure = Arc::new(Mutex::new(None));
+            let recorded = failure.clone();
+            let final_operations = operations.clone();
+            let final_fence = fence.clone();
+            let task = tokio::spawn(async move {
+                stopped.await.unwrap();
+                // The stop/join boundary must see the actual completion chunks
+                // frozen in a reconciled manifest, with terminal admission pending.
+                let actual = final_operations
+                    .store
+                    .canonical_attempt(final_fence.attempt())
+                    .await
+                    .unwrap()
+                    .unwrap();
+                assert!(actual.closed && !actual.ingestion_open && !actual.terminal);
+                assert!(actual.closed_manifest.is_some());
+                if final_failure != 0 {
+                    final_operations
+                        .store
+                        .cancel_study("cancel-study")
+                        .await
+                        .unwrap();
+                    let error = if final_failure == 1 {
+                        final_operations
+                            .store
+                            .renew_attempt(&final_fence, Duration::from_secs(60))
+                            .await
+                            .unwrap_err()
+                    } else {
+                        pse_operations::canonical::CanonicalError::Timeout
+                    };
+                    *recorded.lock().unwrap() = Some(Arc::new(WorkflowError::Canonical(error)));
+                }
+            });
+            attempt.heartbeat = Some(Heartbeat {
+                stop,
+                task,
+                failure,
+            });
+            attempt.stream.finish().await.unwrap();
+            let settled = attempt.terminate(&original).await;
+            if final_failure == 2 {
+                let error = settled.unwrap_err();
+                assert!(!acknowledged_cancellation(&error, &fence));
+                assert!(
+                    !operations
+                        .store
+                        .canonical_attempt(fence.attempt())
+                        .await
+                        .unwrap()
+                        .unwrap()
+                        .terminal
+                );
+            } else {
+                let record = settled.unwrap();
+                assert_eq!(record.attempt_id, attempt_id);
+                assert!(record.completion.as_ref().unwrap().completion.is_some());
+                assert_eq!(
+                    record.completion.as_ref().unwrap().state,
+                    if final_failure == 1 {
+                        AttemptState::Cancelled
+                    } else {
+                        AttemptState::Failed
+                    }
+                );
+                assert!(
+                    pse_operations::canonical_execution::decode_result_descriptors(
+                        record.manifest.as_ref().unwrap()
+                    )
+                    .unwrap()
+                    .iter()
+                    .any(|d| d.name == "__completion")
+                );
+            }
+        }
+    }
     #[allow(
         unsafe_code,
         reason = "native mechanism fixture records truthful failed observations only"
@@ -2141,7 +3037,6 @@ mod canonical_durable_codec {
             .unwrap(),
             Some(1)
         );
-        let outcome = infrastructure(&failure);
         let attempt_id = pse_operations::mint_id();
         let mut attempt = DurableAttempt::claimed(
             &operations,
@@ -2150,14 +3045,9 @@ mod canonical_durable_codec {
             attempt_id,
         );
         attempt.stream.finish().await.unwrap();
-        let stored = StoredCompletion {
-            version: 1,
-            attempt_id,
-            completion: None,
-            termination: outcome.detail.clone(),
-            state: outcome.state,
-        };
-        assert!(attempt.terminate(&outcome, &stored, false).await.is_err());
+        let record = attempt.reject_export(Arc::new(failure)).await;
+        assert!(record.attempt.is_err());
+        assert!(record.completion.is_none());
         let retained = operations
             .store
             .canonical_attempt(fence.attempt())

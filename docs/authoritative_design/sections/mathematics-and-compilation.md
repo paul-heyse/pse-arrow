@@ -742,6 +742,15 @@ reservation until the work actually exits. Storage maintenance does not evict
 mathematical programs; explicit clearing fences late insertion
 ([ADR-0089](../../adr/0089-semantic-identity-projections.md)).
 
+Optional retention yields when otherwise eligible work cannot reserve its existing pool
+allowance. A scoped pressure demand trims both mathematical cache families through their
+native limits and suppresses new retention while admission waits under its original clock.
+The last demand restores the configured retention ceilings. Eviction drops references;
+actual allocation owners decide whether capacity becomes available. Pressure neither
+advances semantic clear generations nor cancels flights or invalidates live products.
+Synchronous construction retains its synchronous refusal contract; hard workspace bounds
+and genuine live saturation remain refusals.
+
 Relational operations follow the analogous completion contract in `pse-engine::operation`:
 one invocation owns execution, typed finite output ports, and a shared completion; partial
 streams or failed work are never promoted to a complete result, and a dropped last waiter
@@ -915,6 +924,10 @@ Cache size measures retained reachable payload with positive entry overhead. Uni
 allocation leases follow shared mathematical storage, value products and attribution
 owners independently of eviction. Rebinding retains unchanged provenance and only charges
 new bindings; an escaped alias keeps its lease after cache clear or workspace rotation.
+Stable plans and artifacts retain their component allocations rather than a preceding
+complete binding. A new changed binding owns its current allocations without retaining
+obsolete values through ancestry; deliberately held prior bindings keep their own charges.
+Assembled executable and initialization consumers preserve the same separation.
 Job reservations partition by transfer before retention, without a release/reacquire gap.
 
 A complete physical-inventory identity conservatively re-admits all bodies after any

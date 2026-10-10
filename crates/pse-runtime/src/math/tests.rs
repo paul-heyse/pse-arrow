@@ -962,3 +962,193 @@ async fn general_rebind_admits_small_projection_with_generous_worker_capacity() 
         &prepared.model.case.compiled().presolve
     ));
 }
+
+/// Local compiler fixture: no canonical store or native solve participates.
+pub(super) fn component_fixture(
+    service: &MathService,
+) -> (
+    Preparation,
+    pse_math::binding::CaseValues,
+    pse_ids::SemanticId,
+) {
+    component_fixture_source(
+        service,
+        "package p {def Root {param p:Scalar=1;var x:Scalar;eq a:x*p==1;annotation start x(1);}}",
+    )
+}
+pub(super) fn component_fixture_source(
+    service: &MathService,
+    source: &str,
+) -> (
+    Preparation,
+    pse_math::binding::CaseValues,
+    pse_ids::SemanticId,
+) {
+    pse_math::initialize().unwrap();
+    let rows = pse_authoring::language::parse(
+        source,
+        pse_ids::SemanticId::NIL,
+        pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    )
+    .unwrap();
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let inputs = CompilerContext {
+        quantities: Arc::new(pse_quantity::standard::standard_registry().unwrap()),
+        preconditions: Arc::new(
+            pse_quantity::PhysicalPreconditions::new(
+                pse_quantity::generated::standard_preconditions(),
+            )
+            .unwrap(),
+        ),
+        providers: BTreeMap::new(),
+    };
+    let mut compiler = CompilerWorkspace::new(inputs, WorkspaceLimits::default()).unwrap();
+    compiler
+        .publish_modeling(rows, pse_modeling::PhysicalScope::default())
+        .unwrap();
+    let (_model, compiled, values, _) = compiler
+        .prepare_modeling_case_cancellable(
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Default::default(),
+            Default::default(),
+            &Default::default(),
+            pse_kernels::DerivativeOrder::First,
+            Default::default(),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+    let parameter = compiled.plan.structure().parameters()[0].id;
+    let lease = service
+        .reserve("test:component-fixture", compiled.retained_bytes())
+        .unwrap();
+    (
+        service.own_preparation((compiled, lease)).unwrap(),
+        values,
+        parameter,
+    )
+}
+
+#[tokio::test]
+async fn latest_only_changed_rebinds_plateau_and_escaped_fields_keep_only_their_components() {
+    let service = service();
+    let (mut latest, mut values, parameter) = component_fixture(&service);
+    let source = latest.clone();
+    let mut plateau = None;
+    for index in 0..24 {
+        values.scalars.insert(parameter, 2.0 + index as f64);
+        let previous = Arc::downgrade(&latest._owner);
+        latest = service
+            .rebind(&latest, values.clone(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        if index > 0 {
+            assert!(
+                previous.upgrade().is_none(),
+                "preceding complete binding remains reachable"
+            );
+        }
+        // Compare the scientific projection with a fresh rebind from the original.
+        let fresh = source
+            .compiled()
+            .rebind(&values, &Arc::new(AtomicBool::new(false)))
+            .unwrap();
+        assert_eq!(
+            latest.compiled().coefficient_values,
+            fresh.coefficient_values
+        );
+        assert_eq!(latest.compiled().presolve.key, fresh.presolve.key);
+        assert_eq!(
+            latest.compiled().complete(&values).scalars,
+            fresh.complete(&values).scalars
+        );
+        drop(fresh);
+        if index == 1 {
+            plateau = Some(service.pool.reserved());
+        }
+        if index > 1 {
+            assert_eq!(service.pool.reserved(), plateau.unwrap());
+        }
+    }
+    let stable = latest.structural_witness();
+    drop(source);
+    drop(latest);
+    assert!(service.pool.reserved() > 0);
+    drop(stable);
+    assert_eq!(service.pool.reserved(), 0);
+}
+
+#[tokio::test]
+async fn changed_unused_coefficients_do_not_pin_obsolete_bindings_through_reused_fields() {
+    let (service, _) = service_with_policy(
+        512 << 20,
+        MathPolicy {
+            worker_bytes: 16usize << 30,
+            foreign_bytes: 1 << 20,
+            ..Default::default()
+        },
+    );
+    let (mut latest, mut values, parameter) = component_fixture_source(
+        &service,
+        "package p {def Root {param p:Scalar=1;var x:Scalar;eq a:x==1;annotation start x(1);}}",
+    );
+    // The memoized executable survives every edit, but must retain only the plan
+    // and programs rather than the first complete coefficient binding.
+    drop(service.assemble(latest.clone()).await.unwrap());
+    service.clear_program_cache();
+    let mut held = Vec::new();
+    for index in 0..12 {
+        let old_snapshot = latest.compiled().coefficient_values.clone();
+        let old_presolve = latest.compiled().presolve.clone();
+        let old_derived = latest.compiled().derived.clone();
+        let previous = Arc::downgrade(&latest._owner);
+        values.scalars.insert(parameter, 2.0 + index as f64);
+        latest = service
+            .rebind(&latest, values.clone(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert!(
+            previous.upgrade().is_none(),
+            "a reused value field retained the preceding binding"
+        );
+        assert!(pse_math::SharedAllocation::ptr_eq(
+            &old_presolve,
+            &latest.compiled().presolve
+        ));
+        assert!(pse_math::SharedAllocation::ptr_eq(
+            &old_derived,
+            &latest.compiled().derived
+        ));
+        assert!(!pse_math::SharedAllocation::ptr_eq(
+            &old_snapshot,
+            &latest.compiled().coefficient_values
+        ));
+        assert!(
+            latest
+                .compiled()
+                .coefficient_values
+                .iter()
+                .any(|(id, bits)| *id == parameter && *bits == (2.0 + index as f64).to_bits())
+        );
+        held.push(old_snapshot);
+    }
+    let with_aliases = service.pool.reserved();
+    drop(held);
+    assert!(service.pool.reserved() < with_aliases);
+    let plateau = service.pool.reserved();
+    for index in 0..12 {
+        values.scalars.insert(parameter, 20.0 + index as f64);
+        latest = service
+            .rebind(&latest, values.clone(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert_eq!(service.pool.reserved(), plateau);
+    }
+    drop(latest);
+    assert_eq!(service.pool.reserved(), 0);
+}

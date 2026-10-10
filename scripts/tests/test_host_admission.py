@@ -11,10 +11,12 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
 from scripts import host_admission as host
@@ -29,6 +31,418 @@ class HostAdmissionTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.directory = Path(temporary.name) / "admission"
+
+    def storage_process_fixture(
+        self, *, borrowed: bool = False
+    ) -> tuple[host.Allocation, Path, str]:
+        with patch.object(
+            host,
+            "memory_info",
+            return_value={"MemAvailable": 1 << 40, "MemTotal": 1 << 40},
+        ):
+            owner = host.acquire(
+                host.select("store-functional"),
+                directory=self.directory,
+                deadline=time.monotonic() + 10,
+            )
+        service = self.directory / "service"
+        service.mkdir()
+        unit = surreal_server.unit_name(service)
+        with host.allocation_metadata(self.directory) as ledger:
+            record = ledger["owners"][owner.nonce]
+            record.update(pid=-1, start="ended")
+            if borrowed:
+                record["borrowed_services"] = [str(service)]
+            else:
+                record["service"] = str(service)
+            record["units"][unit] = {
+                "group": "/owned-store",
+                "inode": 123,
+                "invocation": "a" * 32,
+            }
+        surreal_server.write_json(
+            service / "service-launch.json",
+            {"allocation": str(self.directory / owner.nonce), "generation": "original"},
+        )
+        surreal_server.write_json(
+            service / "server-process.json",
+            {
+                "allocation": str(self.directory / owner.nonce),
+                "instance_id": "original",
+                "pid": 12345,
+                "start": "child",
+            },
+        )
+        return owner, service, unit
+
+    def test_concurrent_acquisition_retains_exact_zombie_while_stop_waits(self) -> None:
+        owner, service, _unit = self.storage_process_fixture()
+        child = subprocess.Popen([sys.executable, "-c", "pass"])
+        self.addCleanup(child.wait)
+        os.waitid(os.P_PID, child.pid, os.WEXITED | os.WNOWAIT)
+        process = surreal_server.read_json(service / "server-process.json")
+        process.update(pid=child.pid, start=host.operation.start_identity(child.pid))
+        surreal_server.write_json(service / "server-process.json", process)
+        entered, resume = threading.Event(), threading.Event()
+        config: dict[str, object] = {"admission": "quiesced", "accepting_writes": False}
+
+        def wait(_duration: float) -> None:
+            entered.set()
+            if not resume.wait(5):
+                raise AssertionError("stop wait was not released")
+
+        def stop() -> None:
+            surreal_server._STARTUP.deadline = time.monotonic() + 10  # noqa: SLF001 -- exercise the captured stop clock directly
+            surreal_server._stop(service, config)  # noqa: SLF001 -- hold exact process drain independently of lifecycle admission
+
+        def observation(
+            *arguments: str, **_kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(
+                [],
+                0,
+                "" if "--property=ControlGroup" in arguments else "inactive\n",
+                "",
+            )
+
+        with (
+            patch.object(surreal_server, "systemctl", side_effect=observation),
+            patch.object(surreal_server, "all_contexts_drained"),
+            patch.object(surreal_server, "release_stopped_service") as released,
+            patch.object(surreal_server.time, "sleep", side_effect=wait),
+            patch.object(host, "group_identity", return_value=123),
+            patch.object(host.operation, "populated", return_value=False),
+            patch.object(
+                host.operation,
+                "unit_observation",
+                return_value={
+                    "LoadState": "loaded",
+                    "ActiveState": "inactive",
+                    "ControlGroup": "",
+                },
+            ),
+            ThreadPoolExecutor(max_workers=1) as executor,
+        ):
+            pending = executor.submit(stop)
+            try:
+                self.assertTrue(entered.wait(5))
+                observer = host.acquire(
+                    host.select("light"),
+                    directory=self.directory,
+                    deadline=time.monotonic() + 5,
+                )
+                with host.allocation_metadata(self.directory) as ledger:
+                    self.assertIn(owner.nonce, ledger["owners"])
+                released.assert_not_called()
+                child.wait()
+            finally:
+                resume.set()
+            pending.result(timeout=5)
+            released.assert_called_once_with(service, config)
+            host.reconcile(self.directory, resume_parked=False)
+            with host.allocation_metadata(self.directory) as ledger:
+                self.assertNotIn(owner.nonce, ledger["owners"])
+                self.assertIn(observer.nonce, ledger["owners"])
+
+    def test_storage_reclaim_requires_matching_process_affiliation(self) -> None:
+        owner, service, _unit = self.storage_process_fixture()
+        with host.allocation_metadata(self.directory) as ledger:
+            record = cast("host.AllocationRecord", dict(ledger["owners"][owner.nonce]))
+        original = surreal_server.read_json(service / "server-process.json")
+        for changes in (
+            {"allocation": str(self.directory / ("b" * 32))},
+            {"instance_id": "other"},
+            {"start": None},
+        ):
+            with self.subTest(changes=changes):
+                surreal_server.write_json(
+                    service / "server-process.json", {**original, **changes}
+                )
+                self.assertFalse(
+                    host.drained(record, allocation=self.directory / owner.nonce)
+                )
+        (service / "server-process.json").unlink()
+        self.assertFalse(host.drained(record, allocation=self.directory / owner.nonce))
+        (service / "server-process.json").write_text("not JSON")
+        self.assertFalse(host.drained(record, allocation=self.directory / owner.nonce))
+        surreal_server.write_json(service / "server-process.json", original)
+        with patch.object(
+            host.operation, "start_identity", side_effect=PermissionError("unavailable")
+        ):
+            self.assertFalse(
+                host.drained(record, allocation=self.directory / owner.nonce)
+            )
+        with patch.object(
+            host, "boot", return_value="00000000-0000-0000-0000-000000000000"
+        ):
+            self.assertTrue(
+                host.drained(record, allocation=self.directory / owner.nonce)
+            )
+
+    def test_stale_service_descriptor_does_not_pin_different_allocation(self) -> None:
+        owner, service, _unit = self.storage_process_fixture()
+        launch = surreal_server.read_json(service / "service-launch.json")
+        launch["allocation"] = str(self.directory / ("b" * 32))
+        surreal_server.write_json(service / "service-launch.json", launch)
+        with (
+            patch.object(host, "group_identity", return_value=123),
+            patch.object(host.operation, "populated", return_value=False),
+            patch.object(
+                host.operation,
+                "unit_observation",
+                return_value={"LoadState": "loaded", "ActiveState": "inactive"},
+            ),
+        ):
+            host.reconcile(self.directory, resume_parked=False)
+        with host.allocation_metadata(self.directory) as ledger:
+            self.assertNotIn(owner.nonce, ledger["owners"])
+
+    def test_borrowed_storage_guard_only_applies_to_selected_service_unit(self) -> None:
+        owner, _service, _unit = self.storage_process_fixture(borrowed=True)
+        with host.allocation_metadata(self.directory) as ledger:
+            record = cast("host.AllocationRecord", dict(ledger["owners"][owner.nonce]))
+        with patch.object(host.operation, "start_identity", return_value="child"):
+            self.assertFalse(
+                host.drained(record, allocation=self.directory / owner.nonce)
+            )
+            self.assertFalse(host.drained(record))
+        observer = {**record, "units": {}, "released": True}
+        self.assertTrue(host.drained(observer))
+
+    def test_unbound_not_found_storage_without_child_can_be_reclaimed(self) -> None:
+        owner, service, unit = self.storage_process_fixture()
+        (service / "server-process.json").unlink()
+        with host.allocation_metadata(self.directory) as ledger:
+            ledger["owners"][owner.nonce]["units"][unit] = {}
+        with patch.object(
+            host.operation, "unit_observation", return_value={"LoadState": "not-found"}
+        ):
+            host.reconcile(self.directory, resume_parked=False)
+        with host.allocation_metadata(self.directory) as ledger:
+            self.assertNotIn(owner.nonce, ledger["owners"])
+
+    def test_stale_borrowed_snapshot_cannot_park_resumed_allocation(self) -> None:
+        original, service, unit = self.storage_process_fixture(borrowed=True)
+        replacement: host.Allocation | None = None
+
+        @contextlib.contextmanager
+        def replaced_lifecycle(_state: Path) -> Generator[None, None, None]:
+            nonlocal replacement
+            # R1 took A's snapshot before acquiring lifecycle ownership. R2
+            # has since drained A and admitted the same service under B.
+            with host.allocation_metadata(self.directory) as ledger:
+                del ledger["owners"][original.nonce]
+            replacement = host.acquire(
+                host.select("store-functional"),
+                directory=self.directory,
+                deadline=time.monotonic() + 5,
+            )
+            with host.allocation_metadata(self.directory) as ledger:
+                ledger["owners"][replacement.nonce].update(
+                    borrowed_services=[str(service)],
+                    units={
+                        unit: {
+                            "group": "/replacement",
+                            "inode": 456,
+                            "invocation": "b" * 32,
+                        }
+                    },
+                )
+            surreal_server.write_json(
+                service / "service-launch.json",
+                {
+                    "allocation": str(self.directory / replacement.nonce),
+                    "generation": "replacement",
+                    "binding": {
+                        "group": "/replacement",
+                        "inode": 456,
+                        "invocation": "b" * 32,
+                    },
+                },
+            )
+            yield
+
+        with (
+            patch.object(
+                host,
+                "memory_info",
+                return_value={"MemAvailable": 1 << 40, "MemTotal": 1 << 40},
+            ),
+            patch.object(
+                surreal_server, "lifecycle_reservation", side_effect=replaced_lifecycle
+            ),
+            patch.object(host, "group_identity", return_value=456),
+            patch.object(
+                host.operation,
+                "unit_observation",
+                return_value={
+                    "LoadState": "loaded",
+                    "ActiveState": "active",
+                    "ControlGroup": "/replacement",
+                    "InvocationID": "b" * 32,
+                },
+            ),
+            patch.object(surreal_server, "config_for") as config,
+            patch.object(surreal_server, "workers_drained") as workers,
+            patch.object(surreal_server, "stop") as stop,
+            patch.object(surreal_server, "park_service") as park,
+            patch.object(host, "queue_parked_service") as queue,
+        ):
+            host.reconcile(self.directory, resume_parked=False)
+        self.assertIsNotNone(replacement)
+        assert replacement is not None
+        with host.allocation_metadata(self.directory) as ledger:
+            self.assertNotIn(original.nonce, ledger["owners"])
+            self.assertIn(replacement.nonce, ledger["owners"])
+            self.assertEqual(
+                ledger["owners"][replacement.nonce]["units"][unit]["inode"], 456
+            )
+            self.assertEqual(ledger.get("parked_services", []), [])
+        for effect in (config, workers, stop, park, queue):
+            effect.assert_not_called()
+
+    def test_borrowed_drain_refuses_changed_or_unavailable_incarnation(self) -> None:
+        owner, service, unit = self.storage_process_fixture(borrowed=True)
+        with host.allocation_metadata(self.directory) as ledger:
+            record = cast("host.AllocationRecord", dict(ledger["owners"][owner.nonce]))
+        launch = surreal_server.read_json(service / "service-launch.json")
+        launch["binding"] = record["units"][unit]
+        surreal_server.write_json(service / "service-launch.json", launch)
+        active = {
+            "LoadState": "loaded",
+            "ActiveState": "active",
+            "ControlGroup": "/owned-store",
+            "InvocationID": "a" * 32,
+        }
+        for observed, inode, generation in (
+            ({**active, "InvocationID": "b" * 32}, 123, "original"),
+            (active, 456, "original"),
+            (active, 123, "replacement"),
+            ({}, 123, "original"),
+            (PermissionError("unavailable"), 123, "original"),
+        ):
+            with (
+                self.subTest(observed=observed, inode=inode, generation=generation),
+                patch.object(
+                    surreal_server,
+                    "lifecycle_reservation",
+                    side_effect=lambda _: contextlib.nullcontext(),
+                ),
+                patch.object(host, "group_identity", return_value=inode),
+                patch.object(
+                    host.operation, "unit_observation", side_effect=[observed]
+                ),
+                patch.object(
+                    surreal_server,
+                    "config_for",
+                    return_value={"instance_id": generation, "resident": True},
+                ),
+                patch.object(surreal_server, "workers_drained") as workers,
+                patch.object(surreal_server, "stop") as stop,
+                patch.object(surreal_server, "park_service") as park,
+                patch.object(host, "queue_parked_service") as queue,
+                self.assertRaises((host.AdmissionError, OSError)),
+            ):
+                host.drain_borrowed_services(
+                    self.directory,
+                    record,
+                    allocation=self.directory / owner.nonce,
+                    explicit=True,
+                )
+            for effect in (workers, stop, park, queue):
+                effect.assert_not_called()
+
+    def test_acquisition_defers_unrelated_queued_resume_under_original_clock(
+        self,
+    ) -> None:
+        for name in ("light", "functional", "reference", "store-functional"):
+            with self.subTest(profile=name):
+                directory = self.directory / name
+                parked = str(directory / "parked-service")
+                with host.allocation_metadata(directory) as ledger:
+                    ledger["parked_services"] = [parked]
+                deadline = time.monotonic() + 1
+                with (
+                    patch.object(
+                        host,
+                        "memory_info",
+                        return_value={"MemAvailable": 1 << 40, "MemTotal": 1 << 40},
+                    ),
+                    patch.object(
+                        surreal_server,
+                        "unpark_service",
+                        side_effect=AssertionError(
+                            "unrelated startup consumed admission"
+                        ),
+                    ) as resume,
+                ):
+                    owner = host.acquire(
+                        host.select(name), directory=directory, deadline=deadline
+                    )
+                self.assertEqual(owner.deadline, deadline)
+                resume.assert_not_called()
+                with host.allocation_metadata(directory) as ledger:
+                    self.assertIn(owner.nonce, ledger["owners"])
+                    self.assertEqual(ledger["parked_services"], [parked])
+
+    def test_acquisition_still_reconciles_only_drained_owner_lifetimes(self) -> None:
+        owner = host.acquire_light_control(
+            directory=self.directory, deadline=time.monotonic() + 1
+        )
+        unit = "pse-reconcile-fixture.scope"
+        owner.register(unit)
+        with host.allocation_metadata(self.directory) as ledger:
+            ledger["owners"][owner.nonce].update(pid=-1, start="ended")
+            ledger["owners"][owner.nonce]["units"][unit] = {
+                "group": "/owned",
+                "invocation": "a" * 32,
+            }
+            ledger["parked_services"] = ["/unrelated-parked-service"]
+        with (
+            patch.object(
+                host.operation,
+                "unit_observation",
+                return_value={
+                    "LoadState": "loaded",
+                    "ControlGroup": "/owned",
+                    "InvocationID": "a" * 32,
+                },
+            ),
+            patch.object(host.operation, "populated", return_value=True),
+            patch.object(
+                surreal_server,
+                "unpark_service",
+                side_effect=AssertionError("unrelated resume"),
+            ),
+        ):
+            host.acquire(
+                host.select("light"),
+                directory=self.directory,
+                deadline=time.monotonic() + 1,
+            )
+        with host.allocation_metadata(self.directory) as ledger:
+            self.assertIn(owner.nonce, ledger["owners"])
+        with (
+            patch.object(
+                host.operation,
+                "unit_observation",
+                return_value={"LoadState": "not-found"},
+            ),
+            patch.object(host.operation, "populated", return_value=False),
+            patch.object(
+                surreal_server,
+                "unpark_service",
+                side_effect=AssertionError("unrelated resume"),
+            ),
+        ):
+            host.acquire(
+                host.select("light"),
+                directory=self.directory,
+                deadline=time.monotonic() + 1,
+            )
+        with host.allocation_metadata(self.directory) as ledger:
+            self.assertNotIn(owner.nonce, ledger["owners"])
+            self.assertEqual(ledger["parked_services"], ["/unrelated-parked-service"])
 
     def test_explicit_stop_withdraws_only_selected_queued_resume(self) -> None:
         owner = host.acquire_light_control(
@@ -103,6 +517,11 @@ class HostAdmissionTests(unittest.TestCase):
             patch.object(surreal_server, "active", return_value=False),
             patch.object(
                 surreal_server,
+                "service_readiness",
+                return_value=surreal_server.Readiness.ACTIONABLE_ABSENT,
+            ),
+            patch.object(
+                surreal_server,
                 "systemctl",
                 return_value=subprocess.CompletedProcess([], 0, "", ""),
             ) as manager,
@@ -166,6 +585,22 @@ class HostAdmissionTests(unittest.TestCase):
             "InvocationID": "a" * 32,
         }
         owner = host.acquire(host.select("store-functional"), directory=self.directory)
+        surreal_server.write_json(
+            service / "service-launch.json",
+            {
+                "allocation": str(self.directory / owner.nonce),
+                "generation": "stopped-fixture",
+            },
+        )
+        surreal_server.write_json(
+            service / "server-process.json",
+            {
+                "allocation": str(self.directory / owner.nonce),
+                "instance_id": "stopped-fixture",
+                "pid": os.getpid(),
+                "start": str(int(host.operation.start_identity(os.getpid())) - 1),
+            },
+        )
         with host.allocation_metadata(self.directory) as ledger:
             ledger["owners"][owner.nonce].update(
                 service=str(service),
@@ -991,8 +1426,13 @@ class HostAdmissionTests(unittest.TestCase):
         self.assertEqual(functional | timing, set(range(32)))
 
     def test_borrow_release_never_resumes_intentionally_stopped_resident(self) -> None:
-        service = str(self.directory / "service")
-        record = {"borrowed_services": [service], "units": {}}
+        owner, state, unit = self.storage_process_fixture(borrowed=True)
+        service = str(state)
+        with host.allocation_metadata(self.directory) as ledger:
+            record = cast("host.AllocationRecord", dict(ledger["owners"][owner.nonce]))
+        launch = surreal_server.read_json(state / "service-launch.json")
+        launch["binding"] = record["units"][unit]
+        surreal_server.write_json(state / "service-launch.json", launch)
         with (
             patch.object(host, "drained", return_value=True),
             patch.object(
@@ -1000,32 +1440,58 @@ class HostAdmissionTests(unittest.TestCase):
                 "lifecycle_reservation",
                 side_effect=lambda _: contextlib.nullcontext(),
             ),
-            patch.object(surreal_server, "config_for", return_value={"resident": True}),
+            patch.object(
+                surreal_server,
+                "config_for",
+                return_value={"resident": True, "instance_id": "original"},
+            ),
+            patch.object(host, "group_identity", return_value=123),
             patch.object(
                 host.operation,
                 "unit_observation",
-                return_value={"ActiveState": "inactive"},
+                return_value={
+                    "LoadState": "loaded",
+                    "ActiveState": "inactive",
+                    "ControlGroup": "",
+                    "InvocationID": "a" * 32,
+                },
             ),
             patch.object(surreal_server, "workers_drained"),
             patch.object(surreal_server, "stop") as stop,
             patch.object(surreal_server, "park_service") as park,
         ):
-            host.drain_borrowed_services(self.directory, record, explicit=True)
+            host.drain_borrowed_services(
+                self.directory,
+                record,
+                allocation=self.directory / owner.nonce,
+                explicit=True,
+            )
         stop.assert_called_once()
         park.assert_not_called()
         with host.allocation_metadata(self.directory) as ledger:
             self.assertNotIn(service, ledger.get("parked_services", []))
 
     def test_borrowed_partial_park_preserves_actual_resume_intent(self) -> None:
-        service = self.directory / "service"
-        config: dict[str, object] = {"resident": True, "parked": False}
+        owner, service, unit = self.storage_process_fixture(borrowed=True)
+        with host.allocation_metadata(self.directory) as ledger:
+            record = cast("host.AllocationRecord", dict(ledger["owners"][owner.nonce]))
+        launch = surreal_server.read_json(service / "service-launch.json")
+        launch["binding"] = record["units"][unit]
+        surreal_server.write_json(service / "service-launch.json", launch)
+        config: dict[str, object] = {
+            "resident": True,
+            "parked": False,
+            "instance_id": "original",
+        }
 
-        def park(_state: Path) -> None:
+        def park(_state: Path, *, expected_binding: host.BoundUnit) -> None:
+            self.assertEqual(expected_binding, record["units"][unit])
             config["parked"] = True
             raise surreal_server.SupervisorError("partial owned stop")
 
         with (
             patch.object(host, "drained", return_value=True),
+            patch.object(host, "group_identity", return_value=123),
             patch.object(
                 surreal_server,
                 "lifecycle_reservation",
@@ -1037,7 +1503,12 @@ class HostAdmissionTests(unittest.TestCase):
             patch.object(
                 host.operation,
                 "unit_observation",
-                return_value={"ActiveState": "active"},
+                return_value={
+                    "LoadState": "loaded",
+                    "ActiveState": "active",
+                    "ControlGroup": "/owned-store",
+                    "InvocationID": "a" * 32,
+                },
             ),
             patch.object(surreal_server, "park_service", side_effect=park),
             self.assertRaisesRegex(
@@ -1046,7 +1517,8 @@ class HostAdmissionTests(unittest.TestCase):
         ):
             host.drain_borrowed_services(
                 self.directory,
-                {"borrowed_services": [str(service)], "units": {}},
+                record,
+                allocation=self.directory / owner.nonce,
                 explicit=True,
             )
         with host.allocation_metadata(self.directory) as ledger:

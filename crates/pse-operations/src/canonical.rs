@@ -58,6 +58,18 @@ pub enum CanonicalError {
     #[error("canonical immutable operation identity was reused for different inputs")]
     /// An idempotency identity was reused for different supplied bytes.
     OperationReused,
+    /// The guarded writer acknowledged cancellation of this exact study attempt.
+    #[error("study cancellation refused {operation} for {run}/{attempt} generation {generation}")]
+    StudyCancellation {
+        /// Exact selected run.
+        run: String,
+        /// Exact selected attempt.
+        attempt: String,
+        /// Original writer generation.
+        generation: u64,
+        /// Refused writer operation, never inferred from a later observation.
+        operation: String,
+    },
     /// Publication may have reached the server; retain this exact operation for recovery.
     #[error("analysis {key} publication did not complete: {source}", key = .intent.key)]
     AnalysisUnsettled {
@@ -510,16 +522,84 @@ pub struct ObjectEdit {
 /// A store-issued immutable preparation/read protection; its expiry is checked server-side.
 #[derive(Clone, Debug)]
 pub struct ProtectedSelection {
+    owner: Arc<ProtectionOwner>,
+}
+#[derive(Debug)]
+struct ProtectionOwner {
     key: String,
     revision: Revision,
+    store: Option<CanonicalStore>,
+    executor: Option<tokio::runtime::Handle>,
+    released: std::sync::atomic::AtomicBool,
 }
 impl ProtectedSelection {
     pub(crate) fn key(&self) -> &str {
-        &self.key
+        &self.owner.key
     }
     /// Exact canonical revision retained by this protection.
     pub fn revision(&self) -> &Revision {
-        &self.revision
+        &self.owner.revision
+    }
+    /// Relinquish this reader. The final follower awaits exact protection cleanup.
+    /// Other live followers retain their authority until they finish or drop.
+    pub async fn finish(self) -> Result<(), CanonicalError> {
+        if let Some(owner) = Arc::into_inner(self.owner) {
+            let Some(store) = owner.store.as_ref() else {
+                return Ok(());
+            };
+            let store = store.clone();
+            let key = owner.key.clone();
+            let revision = owner.revision.clone();
+            let executor = owner.executor.clone().ok_or_else(|| {
+                CanonicalError::Configuration("protection cleanup executor unavailable".into())
+            })?;
+            let task = executor.spawn(async move {
+                let result = store.release_protection(&revision, &key).await;
+                if result.is_ok() {
+                    owner.acknowledge_release();
+                }
+                result
+            });
+            return task.await.map_err(|error| {
+                CanonicalError::Configuration(format!("protection cleanup task failed: {error}"))
+            })?;
+        }
+        Ok(())
+    }
+}
+impl ProtectionOwner {
+    fn acknowledge_release(&self) {
+        if !self
+            .released
+            .swap(true, std::sync::atomic::Ordering::AcqRel)
+        {
+            #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
+            if let Some(store) = &self.store {
+                store.result_read_drain.release().complete(Ok(()));
+            }
+        }
+    }
+}
+impl Drop for ProtectionOwner {
+    fn drop(&mut self) {
+        if self.released.load(std::sync::atomic::Ordering::Acquire) {
+            return;
+        }
+        if let (Some(store), Some(executor)) = (&self.store, &self.executor) {
+            #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
+            let release = store.result_read_drain.release();
+            let store = store.clone();
+            let revision = self.revision.clone();
+            let key = self.key.clone();
+            executor.spawn(async move {
+                let result = store.release_protection(&revision, &key).await;
+                if let Err(error) = &result {
+                    operation_failed("canonical::protection_drop", error);
+                }
+                #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
+                release.complete(result);
+            });
+        }
     }
 }
 
@@ -1033,7 +1113,36 @@ impl CanonicalStore {
                 "positive protection lifetime required".into(),
             ));
         }
-        let key = uuid::Uuid::new_v4().to_string();
+        #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
+        self.result_read_drain.retain();
+        let selection = ProtectedSelection {
+            owner: Arc::new(ProtectionOwner {
+                key: uuid::Uuid::new_v4().to_string(),
+                revision,
+                store: Some(self.clone()),
+                executor: Some(tokio::runtime::Handle::current()),
+                released: std::sync::atomic::AtomicBool::new(false),
+            }),
+        };
+        let store = self.clone();
+        let deadline = original_deadline(REQUEST_TIMEOUT);
+        // Submission owns the protection before any RPC. Abandoning the caller detaches
+        // this task; its eventual result still owns cleanup through acknowledgement.
+        tokio::spawn(async move {
+            within_clock(deadline, store.acquire_protection(selection, micros)).await
+        })
+        .await
+        .map_err(|error| {
+            CanonicalError::Configuration(format!("protection acquisition task failed: {error}"))
+        })?
+    }
+    async fn acquire_protection(
+        &self,
+        selection: ProtectedSelection,
+        micros: i64,
+    ) -> Result<ProtectedSelection, CanonicalError> {
+        let key = selection.key();
+        let revision = selection.revision();
         let mut response = self.protected_query(&revision.problem, "canonical::protect", || Ok(self.db.query(r#"BEGIN;
             SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
             LET $revision = SELECT * FROM ONLY type::record('canonical_revisions', $revision);
@@ -1047,12 +1156,17 @@ impl CanonicalStore {
             LET $protection = SELECT * FROM ONLY type::record('canonical_protections', $key);
             IF $protection = NONE OR $protection.released OR $protection.expires_at <= time::micros() { THROW 'immutable selection protection expired'; };
             RETURN $rpc_result;
-            COMMIT;"#).bind(("problem", revision.problem.clone())).bind(("revision", revision.key.clone())).bind(("key", key.clone())).bind(("lifetime", micros)))).await?;
+            COMMIT;"#).bind(("problem", revision.problem.clone())).bind(("revision", revision.key.clone())).bind(("key", key.to_owned())).bind(("lifetime", micros)))).await?;
         let actual: Option<Object> = response.take(response.num_statements().saturating_sub(2))?;
         let revision = wire::decode_canonical_revisions(actual.ok_or_else(|| {
             CanonicalError::Configuration("protected revision unavailable".into())
         })?)?;
-        Ok(ProtectedSelection { key, revision })
+        if revision != *selection.revision() {
+            return Err(CanonicalError::Configuration(
+                "protected revision differs from requested revision".into(),
+            ));
+        }
+        Ok(selection)
     }
     /// Resolve a bounded namespace/name premise in the exact protected revision.
     pub async fn select_names(
@@ -1064,8 +1178,8 @@ impl CanonicalStore {
         if names.len() > 256 {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = self.protected_query(&selection.revision.problem, "canonical::select_names", || Ok(self.db.query(format!("{}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem AND scope = $scope AND name IN $names AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;", PROTECTED_BEGIN))
-            .bind(("problem", selection.revision.problem.clone())).bind(("revision", selection.revision.key.clone())).bind(("protection", selection.key.clone())).bind(("scope", scope.to_owned())).bind(("names", names.to_vec())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision.sequence)?)))).await?;
+        let mut response = self.protected_query(&selection.revision().problem, "canonical::select_names", || Ok(self.db.query(format!("{}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem AND scope = $scope AND name IN $names AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;", PROTECTED_BEGIN))
+            .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("protection", selection.key().to_owned())).bind(("scope", scope.to_owned())).bind(("names", names.to_vec())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
             .map(wire::decode_canonical_memberships)
@@ -1082,8 +1196,8 @@ impl CanonicalStore {
     ) -> Result<String, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
         self.ensure_writes()?;
-        if product.problem != selection.revision.problem
-            || product.revision != selection.revision.key
+        if product.problem != selection.revision().problem
+            || product.revision != selection.revision().key
             || product.interpretation != wire::INTERPRETATION
         {
             return Err(CanonicalError::Configuration(
@@ -1103,15 +1217,15 @@ impl CanonicalStore {
             self.ensure_writes()?;
             let result = self
                 .staging_query(
-                    &selection.revision.problem,
+                    &selection.revision().problem,
                     self.db
                         .query(format!("{PROTECTED_BEGIN}\n{ADMIT_PRODUCT}\nCOMMIT;"))
-                        .bind(("problem", selection.revision.problem.clone()))
-                        .bind(("revision", selection.revision.key.clone()))
-                        .bind(("protection", selection.key.clone()))
+                        .bind(("problem", selection.revision().problem.clone()))
+                        .bind(("revision", selection.revision().key.clone()))
+                        .bind(("protection", selection.key().to_owned()))
                         .bind((
                             "sequence",
-                            crate::canonical_codec::encode_uint(selection.revision.sequence)?,
+                            crate::canonical_codec::encode_uint(selection.revision().sequence)?,
                         ))
                         .bind(("product", wire::encode_canonical_products(product)?))
                         .bind(("operation", stage.operation.clone()))
@@ -1189,11 +1303,37 @@ impl CanonicalStore {
         }
         Ok(Some(crate::canonical_codec::decode_string(value)?))
     }
-    /// End a selection protection under its retention conflict guard.
+    /// End a selection protection through its issuing store and retention conflict guard.
     pub async fn release(&self, selection: &ProtectedSelection) -> Result<(), CanonicalError> {
+        let store = selection.owner.store.as_ref().ok_or_else(|| {
+            CanonicalError::Configuration("protection issuing store unavailable".into())
+        })?;
+        store
+            .release_protection(selection.revision(), selection.key())
+            .await?;
+        selection.owner.acknowledge_release();
+        Ok(())
+    }
+    async fn release_protection(
+        &self,
+        revision: &Revision,
+        key: &str,
+    ) -> Result<(), CanonicalError> {
         // Quiescing scientific writes must still let in-flight readers drain.
-        self.protected_query(&selection.revision.problem, "canonical::release", || Ok(self.db.query("BEGIN; SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at); UPDATE type::record('canonical_protections', $protection) SET released = true; UPSERT type::record('canonical_guards', 'retention:' + $problem) SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec; fn::pse_execution_v1::deadline($pse_rpc_expires_at); COMMIT;")
-            .bind(("problem", selection.revision.problem.clone())).bind(("protection", selection.key.clone())))).await?;
+        // A submitted acquisition can outlive its failed local response. Record
+        // release even before its row exists so that a later acquisition refuses it.
+        let sequence = crate::canonical_codec::encode_uint(revision.sequence)?;
+        self.protected_query(&revision.problem, "canonical::release", || Ok(self.db.query(r#"BEGIN;
+            SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE;
+            fn::pse_execution_v1::deadline($pse_rpc_expires_at);
+            LET $pin = SELECT * FROM ONLY type::record('canonical_protections', $protection);
+            IF $pin != NONE AND ($pin.key != $protection OR $pin.problem != $problem OR $pin.revision != $revision OR $pin.sequence != $sequence) { THROW 'immutable selection protection identity differs'; };
+            UPSERT type::record('canonical_protections', $protection) SET key = $protection, problem = $problem, revision = $revision, sequence = $sequence, expires_at = 0, released = true;
+            UPSERT type::record('canonical_guards', 'retention:' + $problem) SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
+            fn::pse_execution_v1::deadline($pse_rpc_expires_at);
+            COMMIT;"#)
+            .bind(("problem", revision.problem.clone())).bind(("revision", revision.key.clone()))
+            .bind(("sequence", sequence.clone())).bind(("protection", key.to_owned())))).await?;
         Ok(())
     }
     /// Drain a registered fixture locally; runner disposition owns disposal.
@@ -1930,16 +2070,21 @@ mod description_unit {
 
     fn read(revision: &str, protection: &str) -> SelectedRead {
         let mut read = SelectedRead::new(ProtectedSelection {
-            key: protection.into(),
-            revision: Revision {
-                key: revision.into(),
-                problem: "problem".into(),
-                sequence: 1,
-                parent: None,
-                operation: revision.into(),
-                request: Vec::new().into(),
-                interpretation: wire::INTERPRETATION.into(),
-            },
+            owner: Arc::new(ProtectionOwner {
+                store: None,
+                executor: None,
+                released: std::sync::atomic::AtomicBool::new(false),
+                key: protection.into(),
+                revision: Revision {
+                    key: revision.into(),
+                    problem: "problem".into(),
+                    sequence: 1,
+                    parent: None,
+                    operation: revision.into(),
+                    request: Vec::new().into(),
+                    interpretation: wire::INTERPRETATION.into(),
+                },
+            }),
         });
         read.interpretation("physical".into(), "provider-v1".into())
             .unwrap();
@@ -2028,6 +2173,412 @@ mod canonical_server_unit {
             crate::testing::canonical_fixture_with_options(&options, false).unwrap(),
             options,
         )
+    }
+    #[tokio::test]
+    async fn source_protection_follows_last_reader_and_abandoned_acquisition() {
+        let (store, _) = initialization_fixture().await;
+        store.create().await.unwrap();
+        let revision = store
+            .edit(
+                "protected-problem",
+                None,
+                "initial",
+                &[ObjectEdit {
+                    logical: "x".into(),
+                    scope: "root".into(),
+                    name: "x".into(),
+                    version: Some(version("x-version", "x", &[1, 2, 3])),
+                    references: vec![],
+                }],
+            )
+            .await
+            .unwrap();
+        let first = store
+            .protect(revision.clone(), std::time::Duration::from_secs(30))
+            .await
+            .unwrap();
+        let follower = first.clone();
+        first.finish().await.unwrap();
+        assert_eq!(
+            store
+                .select_names(&follower, "root", &["x".into()])
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(store.result_read_drain.live(), 1);
+        drop(follower);
+        store.result_read_drain.drain().await.unwrap();
+
+        // Hold local pacing so submission is known to own its token before the
+        // caller disappears. The completion task must still acquire and release it.
+        let gate = store.staging_turns.gate(&revision.problem).unwrap();
+        let held = gate.lock_owned().await;
+        let pending_store = store.clone();
+        let pending = tokio::spawn(async move {
+            pending_store
+                .protect(revision, std::time::Duration::from_secs(30))
+                .await
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while store.result_read_drain.live() == 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        pending.abort();
+        assert!(pending.await.unwrap_err().is_cancelled());
+        drop(held);
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while store.result_read_drain.live() != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        store.result_read_drain.drain().await.unwrap();
+        let mut response = bounded_query(store.db.query(
+            "SELECT released FROM canonical_protections WHERE problem = 'protected-problem';",
+        ))
+        .await
+        .unwrap();
+        let rows: Vec<Object> = response.take(0).unwrap();
+        assert_eq!(rows.len(), 2);
+        assert!(
+            rows.into_iter()
+                .all(|mut row| row.remove("released") == Some(Value::Bool(true)))
+        );
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn source_protection_concurrent_finish_awaits_final_release() {
+        const FOLLOWERS: usize = 16;
+        let (store, _) = initialization_fixture().await;
+        store.create().await.unwrap();
+        let revision = store
+            .edit(
+                "concurrent-protection",
+                None,
+                "initial",
+                &[ObjectEdit {
+                    logical: "x".into(),
+                    scope: "root".into(),
+                    name: "x".into(),
+                    version: Some(version("x-version", "x", &[1, 2, 3])),
+                    references: vec![],
+                }],
+            )
+            .await
+            .unwrap();
+        let selection = store
+            .protect(revision.clone(), std::time::Duration::from_secs(30))
+            .await
+            .unwrap();
+        let key = selection.key().to_owned();
+        let mut followers = (1..FOLLOWERS)
+            .map(|_| selection.clone())
+            .collect::<Vec<_>>();
+        followers.push(selection);
+        let held = store
+            .staging_turns
+            .gate(&revision.problem)
+            .unwrap()
+            .lock_owned()
+            .await;
+        let barrier = Arc::new(tokio::sync::Barrier::new(FOLLOWERS));
+        let mut finishes = tokio::task::JoinSet::new();
+        for follower in followers {
+            let barrier = barrier.clone();
+            finishes.spawn(async move {
+                barrier.wait().await;
+                follower.finish().await
+            });
+        }
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            for _ in 1..FOLLOWERS {
+                finishes.join_next().await.unwrap().unwrap().unwrap();
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(finishes.len(), 1);
+        assert!(
+            finishes.try_join_next().is_none(),
+            "the final finish must await release acknowledgment"
+        );
+        assert_eq!(
+            store.result_read_drain.live(),
+            1,
+            "cleanup retains its owner until acknowledgment"
+        );
+        let mut response = bounded_query(
+            store
+                .db
+                .query(
+                    "SELECT VALUE released FROM ONLY type::record('canonical_protections', $key);",
+                )
+                .bind(("key", key.clone())),
+        )
+        .await
+        .unwrap();
+        assert_eq!(response.take::<Value>(0).unwrap(), Value::Bool(false));
+        drop(held);
+        tokio::time::timeout(std::time::Duration::from_secs(5), finishes.join_next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        store.result_read_drain.drain().await.unwrap();
+        let mut response = bounded_query(
+            store
+                .db
+                .query(
+                    "SELECT VALUE released FROM ONLY type::record('canonical_protections', $key);",
+                )
+                .bind(("key", key)),
+        )
+        .await
+        .unwrap();
+        assert_eq!(response.take::<Value>(0).unwrap(), Value::Bool(true));
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn source_protection_release_uses_issuing_store_through_foreign_handle() {
+        let (store, options) = initialization_fixture().await;
+        store.create().await.unwrap();
+        let revision = store
+            .edit(
+                "issuing-protection",
+                None,
+                "initial",
+                &[ObjectEdit {
+                    logical: "x".into(),
+                    scope: "root".into(),
+                    name: "x".into(),
+                    version: Some(version("x-version", "x", &[1, 2, 3])),
+                    references: vec![],
+                }],
+            )
+            .await
+            .unwrap();
+        let (foreign, _) = initialization_fixture().await;
+        foreign.create().await.unwrap();
+        let selection = store
+            .protect(revision.clone(), std::time::Duration::from_secs(30))
+            .await
+            .unwrap();
+        let key = selection.key().to_owned();
+        foreign.release(&selection).await.unwrap();
+        let mut response = bounded_query(
+            store
+                .db
+                .query(
+                    "SELECT VALUE released FROM ONLY type::record('canonical_protections', $key);",
+                )
+                .bind(("key", key)),
+        )
+        .await
+        .unwrap();
+        assert_eq!(response.take::<Value>(0).unwrap(), Value::Bool(true));
+        assert!(
+            store
+                .select_names(&selection, "root", &["x".into()])
+                .await
+                .is_err()
+        );
+        assert_eq!(store.result_read_drain.live(), 0);
+        drop(selection);
+        store.result_read_drain.drain().await.unwrap();
+        // A separately connected handle for the same database remains supported.
+        let peer = crate::testing::canonical_fixture_peer(&store, &options).unwrap();
+        let selection = store
+            .protect(revision, std::time::Duration::from_secs(30))
+            .await
+            .unwrap();
+        peer.release(&selection).await.unwrap();
+        assert!(
+            store
+                .select_names(&selection, "root", &["x".into()])
+                .await
+                .is_err()
+        );
+        drop(selection);
+        store.result_read_drain.drain().await.unwrap();
+        foreign.remove_isolated_fixture().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn source_protection_release_before_acquire_refuses_late_admission() {
+        let (store, _) = initialization_fixture().await;
+        store.create().await.unwrap();
+        let revision = store
+            .edit(
+                "late-protection",
+                None,
+                "initial",
+                &[ObjectEdit {
+                    logical: "x".into(),
+                    scope: "root".into(),
+                    name: "x".into(),
+                    version: Some(version("x-version", "x", &[1, 2, 3])),
+                    references: vec![],
+                }],
+            )
+            .await
+            .unwrap();
+        // Control the server ordering directly: cleanup acknowledges this exact
+        // owner before its delayed acquisition reaches the guarded transaction.
+        store.result_read_drain.retain();
+        let key = uuid::Uuid::new_v4().to_string();
+        let selection = ProtectedSelection {
+            owner: Arc::new(ProtectionOwner {
+                key: key.clone(),
+                revision: revision.clone(),
+                store: Some(store.clone()),
+                executor: Some(tokio::runtime::Handle::current()),
+                released: std::sync::atomic::AtomicBool::new(false),
+            }),
+        };
+        let mut response = bounded_query(
+            store
+                .db
+                .query("SELECT * FROM ONLY type::record('canonical_protections', $key);")
+                .bind(("key", key.clone())),
+        )
+        .await
+        .unwrap();
+        assert!(response.take::<Option<Object>>(0).unwrap().is_none());
+        store.release(&selection).await.unwrap();
+        assert_eq!(store.result_read_drain.live(), 0);
+        store.result_read_drain.drain().await.unwrap();
+        let mut response = bounded_query(
+            store
+                .db
+                .query("SELECT * FROM ONLY type::record('canonical_protections', $key);")
+                .bind(("key", key.clone())),
+        )
+        .await
+        .unwrap();
+        let released = wire::decode_canonical_protections(
+            response.take::<Option<Object>>(0).unwrap().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(released.key, key);
+        assert_eq!(released.problem, revision.problem);
+        assert_eq!(released.revision, revision.key);
+        assert_eq!(released.sequence, revision.sequence);
+        assert!(released.released);
+        assert_eq!(released.expires_at, 0);
+        // This is the actual acquisition path with a fresh, unexpired RPC clock,
+        // so refusal depends on release bookkeeping rather than deadline expiry.
+        assert!(
+            store
+                .acquire_protection(selection, 30_000_000)
+                .await
+                .is_err()
+        );
+        let mut response = bounded_query(
+            store
+                .db
+                .query("SELECT * FROM ONLY type::record('canonical_protections', $key);")
+                .bind(("key", key)),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            wire::decode_canonical_protections(
+                response.take::<Option<Object>>(0).unwrap().unwrap()
+            )
+            .unwrap(),
+            released
+        );
+        store.result_read_drain.drain().await.unwrap();
+
+        // The opposite ordering remains live until release, and mismatched
+        // captured metadata cannot revoke that valid protection.
+        let selection = store
+            .protect(revision.clone(), std::time::Duration::from_secs(30))
+            .await
+            .unwrap();
+        let mut wrong = revision;
+        wrong.sequence = wrong.sequence.checked_add(1).unwrap();
+        assert!(
+            store
+                .release_protection(&wrong, selection.key())
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            store
+                .select_names(&selection, "root", &["x".into()])
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(store.result_read_drain.live(), 1);
+        selection.finish().await.unwrap();
+        store.result_read_drain.drain().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn source_protection_release_timeout_retains_cleanup_authority() {
+        let (store, _) = initialization_fixture().await;
+        store.create().await.unwrap();
+        let revision = store
+            .edit(
+                "release-timeout",
+                None,
+                "initial",
+                &[ObjectEdit {
+                    logical: "x".into(),
+                    scope: "root".into(),
+                    name: "x".into(),
+                    version: Some(version("x-version", "x", &[1, 2, 3])),
+                    references: vec![],
+                }],
+            )
+            .await
+            .unwrap();
+        let selection = store
+            .protect(revision.clone(), std::time::Duration::from_secs(30))
+            .await
+            .unwrap();
+        let held = store
+            .staging_turns
+            .gate(&revision.problem)
+            .unwrap()
+            .lock_owned()
+            .await;
+        let release = within_clock(
+            tokio::time::Instant::now() + std::time::Duration::from_millis(25),
+            store.release(&selection),
+        )
+        .await;
+        assert!(matches!(release, Err(CanonicalError::Timeout)));
+        assert!(
+            !selection
+                .owner
+                .released
+                .load(std::sync::atomic::Ordering::Acquire)
+        );
+        assert_eq!(store.result_read_drain.live(), 1);
+        drop(held);
+        assert_eq!(
+            store
+                .select_names(&selection, "root", &["x".into()])
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        // Failed explicit release must leave the final-drop backstop intact.
+        drop(selection);
+        store.result_read_drain.drain().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
     async fn connection_and_open_never_provision_unknown_database() {

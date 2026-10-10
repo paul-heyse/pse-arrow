@@ -1700,7 +1700,9 @@ impl ModelingResult {
             }
             if request.wants(pse_relations::generated::runtime::solve_strategy_events::RELATION_ID)
             {
-                columns.strategy_events(strategy, self.run_id, 0).await?;
+                columns
+                    .strategy_events(strategy, self.run_id, 0, self.runtime.shared.math())
+                    .await?;
             }
         }
 

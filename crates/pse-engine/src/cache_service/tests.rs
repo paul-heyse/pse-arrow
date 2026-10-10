@@ -48,8 +48,9 @@ fn native_eviction_resize_clear_and_owner_drop_preserve_the_envelope() {
 fn store_namespaces_never_alias_identical_paths() {
     let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(4096));
     let cache = Envelope::<Path, Value>::new("unit", 2048, None, &pool).unwrap();
-    let left = Namespaced::new(cache.clone(), 1);
-    let right = Namespaced::new(cache, 2);
+    let maintenance = Arc::default();
+    let left = Namespaced::new(cache.clone(), 1, Arc::clone(&maintenance));
+    let right = Namespaced::new(cache, 2, maintenance);
     let path = Path::from("part-0.parquet");
     left.put(&path, Value(10));
     assert_eq!(left.get(&path), Some(Value(10)));
@@ -58,6 +59,35 @@ fn store_namespaces_never_alias_identical_paths() {
     assert_eq!(left.get(&path), Some(Value(10)));
     assert_eq!(right.get(&path), Some(Value(20)));
     assert_eq!(left.list_entries().keys().collect::<Vec<_>>(), [&path]);
+}
+
+#[test]
+fn maintenance_fences_old_views_without_invalidating_escaped_values() {
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(4096));
+    let cache = Envelope::<Path, Value>::new("unit", 2048, None, &pool).unwrap();
+    let maintenance = Arc::new(pse_columnar::retention::RetentionFence::default());
+    let old = Namespaced::new(cache.clone(), 1, maintenance.clone());
+    let path = Path::from("part-0.parquet");
+    old.put(&path, Value(10));
+    let escaped = old.get(&path).unwrap();
+    maintenance.clear(|| cache.clear());
+    let fresh = Namespaced::new(cache.clone(), 1, maintenance);
+    fresh.put(&path, Value(20));
+    old.put(&path, Value(99));
+    old.remove(&path);
+    old.clear();
+    old.update_cache_limit(0);
+    old.update_cache_ttl(Some(Duration::ZERO));
+    old.drop_table_entries(&datafusion::common::TableReference::bare("table"))
+        .unwrap();
+    assert_eq!(old.get(&path), None);
+    assert!(!old.contains_key(&path));
+    assert_eq!(old.len(), 0);
+    assert!(old.list_entries().is_empty());
+    assert_eq!(fresh.get(&path), Some(Value(20)));
+    assert_eq!(fresh.cache_limit(), 2048);
+    assert_eq!(fresh.cache_ttl(), None);
+    assert_eq!(escaped, Value(10));
 }
 
 #[test]

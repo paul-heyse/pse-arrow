@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 144
-date: 2026-10-09
+revision: 145
+date: 2026-10-10
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 145 | 2026-10-10 | Plan 34 implementation handoff within ADR-0164/0166: §14.3/§14.4 component allocation anchors and pressure-aware optional retention; §5.4 completion-owned protected grouped acquisition; §19 checked deployment composition; §20.6 exact cancelled-export settlement, typed readiness, selected-demand service resumption and content/association recovery meaning. | Maintainer-authorized implementation; visible `.design-edit`; existing decision status unchanged; affected assembled qualification remains owned by Plan 34. |
 | 144 | 2026-10-09 | Proposed ADR-0172: §5.2/§20.3–§20.6/§21.1 fresh analysis occurrences, immutable creation grants, exact absent-header/primary conflict fences, constant-size shared closure authority full bounded retirement without per-analysis history, and explicit preserving cutover/restore fencing with durable closed-phase recovery and resource-configured owner-only maintenance. | Maintainer-authorized Plan 33 RC03; independent scoped target verdict Accept at Proposed strength; `PSE_DESIGN_EDIT=1`; EFF10 implementation and emitted-query qualification remain outstanding. |
 | 143 | 2026-10-09 | Proposed ADR-0171: §5.3/§14.3 compact physical occurrences against immutable body inventories, collision-independent membership and versioned direct derived-product cutover. | Maintainer-authorized Plan 33 RC04; scoped target review Accept at Proposed strength; `PSE_DESIGN_EDIT=1`; EFF03 implementation remains outstanding. |
 | 142 | 2026-10-09 | Proposed ADR-0170: §24.1 actual Arrow-consuming correctness closures, opt-in owner propagation, verified target/host validation and pure build-root isolation. | Maintainer-authorized Plan 33 conditional RC01 fallback; scoped target review Accept at Proposed strength; `PSE_DESIGN_EDIT=1`; EFF02 implementation remains in progress. |

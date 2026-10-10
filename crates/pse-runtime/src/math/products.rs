@@ -211,12 +211,6 @@ impl MathService {
             prepared.derived.retained_bytes() + 64,
             prepared.derived.allocation_payload(),
         );
-        add(
-            20,
-            prepared.artifacts.allocation_identity(),
-            prepared.artifact_descriptor_bytes(),
-            prepared.artifacts.allocation_payload(),
-        );
         if let Some(coefficients) = &prepared.coefficients {
             add(
                 19,
@@ -227,8 +221,13 @@ impl MathService {
         }
         components.push((
             plan_key,
-            prepared.plan.allocation_bytes(),
+            prepared.plan.allocation_bytes() + prepared.plan.owner_wrapper_bytes(),
             prepared.plan.clone(),
+        ));
+        components.push((
+            vec![20, prepared.artifacts.allocation_identity()],
+            2 * prepared.artifact_descriptor_bytes(),
+            prepared.artifacts.allocation_payload(),
         ));
         let total: usize = components.iter().map(|(_, b, _)| *b).sum();
         let wrappers = lease.size().checked_sub(total).ok_or_else(|| {
@@ -246,31 +245,49 @@ impl MathService {
         let wrapper_lease = leases.pop().ok_or_else(|| {
             MathRuntimeError::Infrastructure("prepared wrapper lease missing".into())
         })?;
+        let mut fields: BTreeMap<usize, Arc<ProductOwner>> = BTreeMap::new();
+        let mut bodies = Vec::new();
         let parents = components
             .into_iter()
             .zip(leases)
-            .map(|((key, _, payload), lease)| self.shared_product(key, payload, lease, Vec::new()))
-            .collect::<Result<Vec<_>, _>>()?;
+            .map(|((key, _, payload), lease)| {
+                let kind = key[0];
+                let parents = match kind {
+                    11 => bodies.clone(),
+                    20 => fields.get(&11).cloned().into_iter().collect(),
+                    _ => Vec::new(),
+                };
+                let owner = self.shared_product(key, payload, lease, parents)?;
+                if kind == 10 {
+                    bodies.push(owner.clone());
+                }
+                fields.insert(kind, owner.clone());
+                Ok(owner)
+            })
+            .collect::<Result<Vec<_>, MathRuntimeError>>()?;
         let owner = Arc::new(ProductOwner {
             _lease: wrapper_lease,
             _payload: Arc::new(prepared.clone()),
             _parents: parents,
         });
-        attach_field_owners(&mut prepared, owner.clone());
-        prepared.plan = Arc::new(prepared.plan.as_ref().clone().with_owner(owner.clone()));
+        attach_field_owners(&mut prepared, &fields);
+        let plan_owner = fields.get(&11).cloned().ok_or_else(|| {
+            MathRuntimeError::Infrastructure("prepared plan owner missing".into())
+        })?;
+        prepared.plan = Arc::new(prepared.plan.as_ref().clone().with_owner(plan_owner));
         prepared.artifacts = Arc::new(
             prepared
                 .artifacts
                 .iter()
                 .cloned()
-                .map(|request| request.with_owner(owner.clone()))
+                .map(|request| request.with_owner(fields[&20].clone()))
                 .collect::<Vec<_>>(),
         )
         .into();
-        prepared.artifacts = prepared.artifacts.with_owner(owner.clone());
+        prepared.artifacts = prepared.artifacts.with_owner(fields[&20].clone());
         Ok(Preparation {
             prepared: Arc::new(prepared),
-            owner,
+            _owner: owner,
             executable: Arc::default(),
         })
     }
@@ -381,59 +398,155 @@ impl MathService {
         }
         let mut prepared = view.compiled().clone();
         prepared.occurrences = Arc::new(occurrences).into();
-        Ok(Self::own_rebind(view, prepared, lease))
+        self.own_rebind(view, prepared, lease)
     }
-    /// Own the value-dependent products of a rebind (A6). The structure, its artifact
-    /// owners and its assembled programs stay those of `structure`; `lease` covers only the
-    /// rebuilt value products.
+    /// Retain each current allocation independently. Reused fields already carry their
+    /// own component anchor; no preceding whole binding becomes their ancestor.
     pub(super) fn own_rebind(
+        &self,
         structure: &Preparation,
         prepared: PreparedCase,
         lease: Arc<pse_columnar::AllocationLease>,
-    ) -> Preparation {
-        Self::own_binding(
-            structure.owner.clone(),
-            prepared,
-            lease,
-            structure.executable.clone(),
-        )
+    ) -> Result<Preparation, MathRuntimeError> {
+        self.own_binding_fields(prepared, lease, structure.executable.clone())
     }
-    /// Attach newly allocated bindings to an existing structural/evaluator owner.
+    /// First block bindings inherit only the block's stable allocation owner.
+    #[cfg(feature = "solver-kinsol")]
     pub(super) fn own_binding(
+        &self,
         parent: Arc<ProductOwner>,
-        prepared: PreparedCase,
+        mut prepared: PreparedCase,
         lease: Arc<pse_columnar::AllocationLease>,
         executable: Arc<std::sync::OnceLock<Arc<ExecutableCase>>>,
-    ) -> Preparation {
-        let mut prepared = prepared;
+    ) -> Result<Preparation, MathRuntimeError> {
+        prepared.quantities = prepared.quantities.with_owner(parent.clone());
+        prepared.preconditions = prepared.preconditions.with_owner(parent.clone());
+        prepared.structure = prepared.structure.with_owner(parent.clone());
+        prepared.artifacts = prepared.artifacts.with_owner(parent);
+        self.own_binding_fields(prepared, lease, executable)
+    }
+    fn own_binding_fields(
+        &self,
+        mut prepared: PreparedCase,
+        lease: Arc<pse_columnar::AllocationLease>,
+        executable: Arc<std::sync::OnceLock<Arc<ExecutableCase>>>,
+    ) -> Result<Preparation, MathRuntimeError> {
+        let mut components: Vec<(usize, usize, usize, Arc<dyn pse_math::AllocationOwner>)> = vec![
+            (
+                14,
+                prepared.presolve.allocation_identity(),
+                prepared.presolve.bytes(),
+                prepared.presolve.allocation_payload(),
+            ),
+            (
+                15,
+                prepared.coefficient_values.allocation_identity(),
+                prepared.binding_bytes(),
+                prepared.coefficient_values.allocation_payload(),
+            ),
+            (
+                16,
+                prepared.occurrences.allocation_identity(),
+                prepared.provenance_bytes(),
+                prepared.occurrences.allocation_payload(),
+            ),
+            (
+                17,
+                prepared.derivation.allocation_identity(),
+                prepared.derivation.retained_bytes() + 64,
+                prepared.derivation.allocation_payload(),
+            ),
+            (
+                18,
+                prepared.derived.allocation_identity(),
+                prepared.derived.retained_bytes() + 64,
+                prepared.derived.allocation_payload(),
+            ),
+        ];
+        if let Some(coefficients) = &prepared.coefficients {
+            components.push((
+                19,
+                coefficients.allocation_identity(),
+                coefficients.retained_bytes() + 64,
+                coefficients.allocation_payload(),
+            ));
+        }
+        // Reused allocations retain their existing component lease. Partition this
+        // job's lease only for newly allocated fields, leaving wrappers independent.
+        let existing = {
+            let products = self.products.lock().map_err(|_| {
+                MathRuntimeError::Infrastructure("product ownership lock poisoned".into())
+            })?;
+            components
+                .iter()
+                .map(|(kind, pointer, _, _)| {
+                    products
+                        .get(&vec![*kind, *pointer])
+                        .and_then(std::sync::Weak::upgrade)
+                })
+                .collect::<Vec<_>>()
+        };
+        let mut sizes = components
+            .iter()
+            .zip(&existing)
+            .map(|((_, _, bytes, _), owner)| if owner.is_some() { 0 } else { *bytes })
+            .collect::<Vec<_>>();
+        let total: usize = sizes.iter().sum();
+        sizes.push(lease.size().checked_sub(total).ok_or_else(|| {
+            MathRuntimeError::Infrastructure(
+                "binding allocation extent does not cover components".into(),
+            )
+        })?);
+        let mut leases = lease.partition(&sizes).map_err(|_| {
+            MathRuntimeError::Infrastructure("binding job lease already shared".into())
+        })?;
+        let wrapper = leases.pop().ok_or_else(|| {
+            MathRuntimeError::Infrastructure("binding wrapper lease missing".into())
+        })?;
+        let mut fields = BTreeMap::new();
+        for (((kind, pointer, _, payload), existing), lease) in
+            components.into_iter().zip(existing).zip(leases)
+        {
+            let owner = match existing {
+                Some(owner) => owner,
+                None => self.shared_product(vec![kind, pointer], payload, lease, Vec::new())?,
+            };
+            fields.insert(kind, owner);
+        }
+        attach_field_owners(&mut prepared, &fields);
         let owner = Arc::new(ProductOwner {
-            _lease: lease,
+            _lease: wrapper,
             _payload: Arc::new(prepared.clone()),
-            _parents: vec![parent],
+            _parents: fields.into_values().collect(),
         });
-        attach_field_owners(&mut prepared, owner.clone());
-        Preparation {
-            owner,
+        Ok(Preparation {
+            _owner: owner,
             prepared: Arc::new(prepared),
             executable,
-        }
+        })
     }
 }
-fn attach_field_owners(prepared: &mut PreparedCase, owner: Arc<ProductOwner>) {
-    prepared.artifacts = prepared.artifacts.clone().with_owner(owner.clone());
-    prepared.quantities = prepared.quantities.clone().with_owner(owner.clone());
-    prepared.preconditions = prepared.preconditions.clone().with_owner(owner.clone());
-    prepared.structure = prepared.structure.clone().with_owner(owner.clone());
-    prepared.presolve = prepared.presolve.clone().with_owner(owner.clone());
-    prepared.coefficient_values = prepared
-        .coefficient_values
-        .clone()
-        .with_owner(owner.clone());
-    prepared.occurrences = prepared.occurrences.clone().with_owner(owner.clone());
-    prepared.derivation = prepared.derivation.clone().with_owner(owner.clone());
-    prepared.derived = prepared.derived.clone().with_owner(owner.clone());
-    prepared.coefficients = prepared
-        .coefficients
-        .take()
-        .map(|value| value.with_owner(owner));
+fn attach_field_owners(prepared: &mut PreparedCase, owners: &BTreeMap<usize, Arc<ProductOwner>>) {
+    macro_rules! attach {
+        ($field:ident, $kind:literal) => {
+            if let Some(owner) = owners.get(&$kind) {
+                prepared.$field = prepared.$field.clone().with_owner(owner.clone());
+            }
+        };
+    }
+    attach!(quantities, 12);
+    attach!(preconditions, 21);
+    attach!(structure, 13);
+    attach!(presolve, 14);
+    attach!(coefficient_values, 15);
+    attach!(occurrences, 16);
+    attach!(derivation, 17);
+    attach!(derived, 18);
+    attach!(artifacts, 20);
+    if let Some(owner) = owners.get(&19) {
+        prepared.coefficients = prepared
+            .coefficients
+            .take()
+            .map(|value| value.with_owner(owner.clone()));
+    }
 }

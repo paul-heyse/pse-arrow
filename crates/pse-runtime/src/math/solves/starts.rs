@@ -198,12 +198,13 @@ impl MathService {
             {
                 limits.attempts = target.automatic_attempt_capacity(scope.cancellation())?;
             }
-            target.task_admission = Some(super::super::strategy::admission::TaskAdmission::new(
-                limits,
-                scope,
-                Some(self.pool.clone()),
-                target.declared_foreign_bytes() > 0,
-            ));
+            target.task_admission =
+                Some(super::super::strategy::admission::TaskAdmission::new_for(
+                    limits,
+                    scope,
+                    self,
+                    target.declared_foreign_bytes() > 0,
+                ));
         }
         Ok(target)
     }

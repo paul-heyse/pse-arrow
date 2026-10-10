@@ -69,13 +69,12 @@ pub(super) fn durable_runtime() -> Runtime {
 
 /// Attach durable operations to an existing worker runtime without changing its budget.
 pub(super) fn durable_runtime_on(runtime: Runtime) -> Runtime {
-    let operations = Operations::from_store(
-        runtime.canonical().store().clone(),
-        "native-fixture",
-        quick(),
-        runtime.shared.pool(),
-    );
-    runtime.with_durability(Durability::Durable(Box::new(operations)))
+    runtime
+        .with_durability(DurabilitySelection::Durable {
+            worker: "native-fixture".into(),
+            policy: quick(),
+        })
+        .unwrap()
 }
 
 #[cfg(feature = "canonical-tests")]
@@ -163,14 +162,6 @@ async fn canonical_durable_constant_completion_reopens_exact_manifest() {
 #[tokio::test]
 async fn canonical_registration_refusal_never_returns_success_or_fabricates_header() {
     let runtime = durable_runtime();
-    let empty = pse_operations::testing::canonical_fixture_store().unwrap();
-    let operations = Operations::from_store(
-        empty.clone(),
-        "refused-fixture",
-        quick(),
-        runtime.shared.pool(),
-    );
-    let runtime = runtime.with_durability(Durability::Durable(Box::new(operations)));
     let (package, analysis) = package_on(
         &runtime,
         "package p { def Root { param x:Scalar=3; annotation report x(\"constant\"); } }",
@@ -180,6 +171,13 @@ async fn canonical_registration_refusal_never_returns_success_or_fabricates_head
         .prepare_analysis(&analysis, &crate::CancelSource::new())
         .await
         .unwrap();
+    // Refuse registration on the actual installed store, without bypassing composition.
+    pse_operations::testing::invalidate_prepared_revision(
+        runtime.canonical_store(),
+        package.canonical_revision(),
+    )
+    .await
+    .unwrap();
     let handle = prepared.start().unwrap();
     let run = handle.canonical_run_key().unwrap().to_owned();
     let result = handle.wait().await.unwrap();
@@ -201,11 +199,17 @@ async fn canonical_registration_refusal_never_returns_success_or_fabricates_head
         matches!(&record.attempt,Err(error) if matches!(error.as_ref(),WorkflowError::Canonical(_))),
         "registration receipt must keep the original cause"
     );
-    assert!(empty.canonical_run(&run).await.unwrap().is_none());
+    assert!(
+        runtime
+            .canonical_store()
+            .canonical_run(&run)
+            .await
+            .unwrap()
+            .is_none()
+    );
     drop(result);
     drop(handle);
     drop(package);
-    empty.remove_isolated_fixture().await.unwrap();
     runtime
         .canonical()
         .store()

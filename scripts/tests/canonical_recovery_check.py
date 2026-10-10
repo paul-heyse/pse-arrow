@@ -6,15 +6,21 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
 from contextlib import nullcontext
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts import surreal_server as server
 from scripts.tests import canonical_recovery_science as science
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 def science_command(state: Path, inputs: Path, receipt: Path, phase: str) -> list[str]:
@@ -100,12 +106,222 @@ def reference_recovery_receiver(config: dict[str, object]) -> dict[str, str]:
     return server.checked_primary(config)
 
 
-def recovery_identity(config: dict[str, object]) -> dict[str, object]:
-    return {
-        key: value
-        for key, value in config.items()
-        if key not in {"resources", "admission", "accepting_writes"}
+def receiver_equivalence(
+    original: Mapping[str, object],
+    restored: Mapping[str, object],
+    original_root: Path,
+    restored_root: Path,
+    *,
+    primary: bool,
+) -> None:
+    """Compare immutable content and its exact installation association separately."""
+    fields = {"supervisor_executable", "supervisor_script", "supervisor_sha256"}
+    if primary:
+        fields |= {"worker_executable", "worker_sha256"}
+    if set(original) != fields or set(restored) != fields:
+        raise server.SupervisorError("Recovery receiver has unsupported fields")
+    # The interpreter is an external qualification, never a relocated artifact.
+    if original["supervisor_executable"] != restored["supervisor_executable"]:
+        raise server.SupervisorError("Recovery external interpreter changed")
+    interpreter = Path(str(restored["supervisor_executable"]))
+    if (
+        not interpreter.is_absolute()
+        or not interpreter.is_file()
+        or not os.access(interpreter, os.X_OK)
+    ):
+        raise server.SupervisorError("Recovery external interpreter is unavailable")
+    for root, receiver in ((original_root, original), (restored_root, restored)):
+        generation = Path(str(receiver["supervisor_script"])).parents[1]
+        if generation.parent != root / ".generations":
+            raise server.SupervisorError(
+                "Recovery receiver is outside its exact installation"
+            )
+        server.verify_generation(generation)
+        if Path(
+            str(receiver["supervisor_script"])
+        ) != generation / "scripts/surreal_server.py" or (
+            primary
+            and Path(str(receiver["worker_executable"]))
+            != generation / "bin/pse-worker"
+        ):
+            raise server.SupervisorError(
+                "Recovery receiver does not name its declared artifacts"
+            )
+        manifest = server.read_json(generation / "generation.json")
+        for name in ["generation.json", *server.object_mapping(manifest["files"])]:
+            artifact = generation / name
+            mode = 0o700 if name in {"scripts/sccache", "bin/pse-worker"} else 0o600
+            if (
+                stat.S_IMODE(artifact.stat().st_mode) != mode
+                or artifact.stat().st_uid != os.getuid()
+            ):
+                raise server.SupervisorError("Recovery generation permissions changed")
+            for parent in (artifact.parent, *artifact.parent.parents):
+                if parent == root:
+                    break
+                if parent.stat().st_uid != os.getuid():
+                    raise server.SupervisorError(
+                        "Recovery generation directory permissions changed"
+                    )
+    mapped = server.reroot_restored(dict(original), str(original_root), restored_root)
+    if mapped != restored:
+        raise server.SupervisorError(
+            "Recovery receiver content or installation association changed"
+        )
+    for key in (
+        ("supervisor_script", "worker_executable")
+        if primary
+        else ("supervisor_script",)
+    ):
+        before, after = Path(str(original[key])), Path(str(restored[key]))
+        digest_key = (
+            "worker_sha256" if key == "worker_executable" else "supervisor_sha256"
+        )
+        if (
+            server.file_digest(before) != original[digest_key]
+            or server.file_digest(after) != restored[digest_key]
+        ):
+            raise server.SupervisorError("Recovery receiver bytes changed")
+        if stat.S_IMODE(before.stat().st_mode) != stat.S_IMODE(after.stat().st_mode):
+            raise server.SupervisorError("Recovery receiver permissions changed")
+    before = Path(str(original["supervisor_script"])).parents[1]
+    after = Path(str(restored["supervisor_script"])).parents[1]
+    manifest = server.read_json(before / "generation.json")
+    if server.read_json(after / "generation.json") != manifest:
+        raise server.SupervisorError("Recovery generation manifest changed")
+    for name in ["generation.json", *server.object_mapping(manifest["files"])]:
+        source, target = before / name, after / name
+        if stat.S_IMODE(source.stat().st_mode) != stat.S_IMODE(target.stat().st_mode):
+            raise server.SupervisorError("Recovery generation permissions changed")
+        for parent in (source.parent, *source.parent.parents):
+            if parent == original_root:
+                break
+            mapped_parent = Path(
+                str(
+                    server.reroot_restored(
+                        str(parent), str(original_root), restored_root
+                    )
+                )
+            )
+            original_mode = stat.S_IMODE(parent.stat().st_mode)
+            restored_mode = stat.S_IMODE(mapped_parent.stat().st_mode)
+            # Restore may remove group/other access while retaining owner access.
+            if (
+                original_mode & 0o700 != 0o700
+                or restored_mode & 0o700 != 0o700
+                or original_mode & 0o7000 != restored_mode & 0o7000
+                or restored_mode & 0o077 & ~original_mode
+            ):
+                raise server.SupervisorError(
+                    "Recovery generation directory permissions changed"
+                )
+
+
+def copy_selected_receiver(
+    config: dict[str, object], source: Path, state: Path
+) -> dict[str, object]:
+    """Copy only the admitted closure, retaining its declared bytes and directory modes."""
+    receiver = server.checked_primary(config)
+    receiver_equivalence(receiver, receiver, source, source, primary=True)
+    generation = Path(receiver["supervisor_script"]).parents[1]
+    manifest = server.read_json(generation / "generation.json")
+    destination = state / ".generations" / generation.name
+    directories = {generation}
+    for name in ["generation.json", *server.object_mapping(manifest["files"])]:
+        original = generation / name
+        target = destination / name
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        shutil.copy2(original, target)
+        directories.update(
+            parent for parent in original.parents if parent.is_relative_to(generation)
+        )
+    for original in directories:
+        shutil.copystat(original, destination / original.relative_to(generation))
+    mapped = server.object_mapping(server.reroot_restored(receiver, str(source), state))
+    receiver_equivalence(receiver, mapped, source, state, primary=True)
+    return mapped
+
+
+def recovery_equivalence(
+    original: dict[str, object],
+    restored: dict[str, object],
+    original_root: Path,
+    restored_root: Path,
+    *,
+    fresh: bool = False,
+    expected_resources: dict[str, object] | None = None,
+) -> None:
+    immutable = {
+        "owner",
+        "profile_version",
+        "port",
+        "endpoint",
+        "schema_interpretation",
+        "interpretation",
+        "max_message_bytes",
+        "websocket_max_message_bytes",
+        "log_max_bytes",
+        "log_backups",
+        "service_class",
+        "resident",
     }
+    installation = {
+        "credentials_file",
+        "server",
+        "service_supervisor",
+        "primary_receiver",
+    }
+    incarnation = {
+        "instance_id",
+        "namespace",
+        "database",
+        "unit_materialized",
+        "restart_qualified",
+        "admission",
+        "accepting_writes",
+        "parked",
+    }
+    if (set(original) | set(restored)) - (
+        immutable | installation | incarnation | {"resources"}
+    ):
+        raise server.SupervisorError(
+            "Recovery profile has unclassified consequential fields"
+        )
+    if any(original.get(key) != restored.get(key) for key in immutable):
+        raise server.SupervisorError("Recovery immutable profile changed")
+    if restored["resources"] != (
+        original["resources"] if expected_resources is None else expected_resources
+    ):
+        raise server.SupervisorError("Recovery exact resource profile changed")
+    for key in ("credentials_file", "server"):
+        if (
+            server.reroot_restored(original[key], str(original_root), restored_root)
+            != restored[key]
+        ):
+            raise server.SupervisorError("Recovery installation association changed")
+    for key, primary in (("service_supervisor", False), ("primary_receiver", True)):
+        if original.get(key) is None and restored.get(key) is None:
+            continue
+        receiver_equivalence(
+            server.object_mapping(original[key]),
+            server.object_mapping(restored[key]),
+            original_root,
+            restored_root,
+            primary=primary,
+        )
+    for key in ("instance_id", "namespace", "database"):
+        if fresh == (original[key] == restored[key]):
+            raise server.SupervisorError(
+                "Recovery current incarnation was not re-established"
+            )
+    # Closed restore maintenance may materialize this fresh incarnation's unit;
+    # that file does not establish restart qualification or scientific admission.
+    if fresh and (
+        restored.get("restart_qualified")
+        or restored["accepting_writes"]
+        or restored["admission"] != "validation_required"
+    ):
+        raise server.SupervisorError("Recovery copied current readiness or admission")
 
 
 def refuse_reduced_recovery_profile(state: Path, config: dict, server_mib: int) -> None:
@@ -244,13 +460,20 @@ def journey(
             raise server.SupervisorError("Invalid recovery fixture resource allocation")
         original_allocation = dict(allocation)
         reference = allocation.get("execution") is not None
-        if selected is not None and (
-            allocation != selected["resources"]
-            or config.get("primary_receiver") != selected.get("primary_receiver")
-        ):
-            raise server.SupervisorError(
-                "Recovery fixture did not copy the selected allocation and receiver"
-            )
+        if selected is not None:
+            if allocation != selected["resources"]:
+                raise server.SupervisorError(
+                    "Recovery fixture changed the selected allocation"
+                )
+            if selected.get("primary_receiver") is not None:
+                if profile_state is None:
+                    raise server.SupervisorError(
+                        "Selected receiver has no original installation"
+                    )
+                config["primary_receiver"] = copy_selected_receiver(
+                    selected, profile_state.resolve(), state
+                )
+                server.write_json(state / "config.json", config)
         original_server_mib = (
             server.integer(allocation["server_memory_bytes"]) // server.MIB
         )
@@ -259,7 +482,7 @@ def journey(
             raise server.SupervisorError(
                 "Recovery reconfiguration requires an original server cap above 512 MiB"
             )
-        identity = recovery_identity(config)
+        identity = dict(config)
         credentials = (state / "credentials.json").read_bytes()
         command = [str(binary.resolve())]
         try:
@@ -285,7 +508,7 @@ def journey(
                 subprocess.run(
                     science_command(state, inputs, receipt, "seed"), check=True
                 )
-            with server.state_lock(state):
+            with server.lifecycle_reservation(state):
                 server.stop(state, config, abrupt=True)
                 if reference:
                     refuse_reduced_recovery_profile(state, config, lower_server_mib)
@@ -295,7 +518,7 @@ def journey(
                 else (lower_server_mib, original_server_mib)
             )
             for server_mib in caps:
-                with server.state_lock(state):
+                with server.lifecycle_reservation(state):
                     config = server.config_for(state)
                     server.reconfigure(
                         state,
@@ -319,11 +542,10 @@ def journey(
                         ),
                         original_allocation.get("execution"),
                     )
-                    if (
-                        config["resources"] != expected
-                        or recovery_identity(config) != identity
-                        or (state / "credentials.json").read_bytes() != credentials
-                    ):
+                    recovery_equivalence(
+                        identity, config, state, state, expected_resources=expected
+                    )
+                    if (state / "credentials.json").read_bytes() != credentials:
                         raise server.SupervisorError(
                             "Resource reconfiguration changed recovery identity, credentials or joint profile"
                         )
@@ -353,13 +575,13 @@ def journey(
                     server.write_json(state / "config.json", config)
                 subprocess.run([*command, str(state)], check=True, timeout=120)
                 if server_mib == lower_server_mib:
-                    with server.state_lock(state):
+                    with server.lifecycle_reservation(state):
                         server.stop(state, config)
             if config["resources"] != original_allocation:
                 raise server.SupervisorError(
                     "Recovery backup did not regain its original selected profile"
                 )
-            with server.state_lock(state):
+            with server.lifecycle_reservation(state):
                 server.backup(state, config, directory / "backup")
             server.restore(
                 directory / "backup", restored, server.SUBSTRATE_INTERPRETATION
@@ -368,14 +590,7 @@ def journey(
             restored_allocation = restored_config["resources"]
             if not isinstance(restored_allocation, dict):
                 raise server.SupervisorError("Invalid restored recovery allocation")
-            if restored_config[
-                "resources"
-            ] != original_allocation or restored_config.get(
-                "primary_receiver"
-            ) != config.get("primary_receiver"):
-                raise server.SupervisorError(
-                    "Offline restore changed the selected allocation or receiver"
-                )
+            recovery_equivalence(config, restored_config, state, restored, fresh=True)
             refuse_old_credentials(
                 restored, server.read_json(state / "credentials.json")
             )

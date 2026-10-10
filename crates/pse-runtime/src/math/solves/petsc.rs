@@ -933,7 +933,7 @@ impl MathService {
             vec![31, Arc::as_ptr(&products) as usize],
             products.clone(),
             lease,
-            vec![source.source.prepared.owner.clone()],
+            vec![source.source.prepared._owner.clone()],
         )?;
         let mut blocks = Vec::with_capacity(products.len());
         let mut covered_rows = BTreeSet::new();

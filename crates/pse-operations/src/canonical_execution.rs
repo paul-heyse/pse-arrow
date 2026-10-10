@@ -23,6 +23,32 @@ use serde::{Deserialize, Serialize};
 use std::{future::IntoFuture, time::Duration};
 use surrealdb::types::{Bytes, Object, Value};
 
+/// Decode an acknowledged guarded refusal before the ordinary generated row codec.
+/// No driver error or later cancellation observation grants this classification.
+fn writer_response(mut row: Object) -> Result<Object, CanonicalError> {
+    let Some(tag) = row.remove("pse_writer") else {
+        return Ok(row);
+    };
+    if canonical_codec::decode_string(tag)? != "study-cancelled" {
+        return Err(canonical_codec::CodecError::Domain("writer refusal tag").into());
+    }
+    let run = canonical_codec::decode_string(canonical_codec::required(&mut row, "run")?)?;
+    let attempt = canonical_codec::decode_string(canonical_codec::required(&mut row, "attempt")?)?;
+    let generation =
+        canonical_codec::decode_uint(canonical_codec::required(&mut row, "generation")?)?;
+    let operation =
+        canonical_codec::decode_string(canonical_codec::required(&mut row, "operation")?)?;
+    if !row.is_empty() {
+        return Err(canonical_codec::CodecError::UnknownFields.into());
+    }
+    Err(CanonicalError::StudyCancellation {
+        run,
+        attempt,
+        generation,
+        operation,
+    })
+}
+
 /// Independently submitted scientific block limit, below the protocol envelope.
 pub const RESULT_BATCH_BYTES: usize = wire::RESULT_BLOCK_BYTES;
 /// Completion and closed descriptors are bounded metadata, never trajectories.
@@ -265,10 +291,22 @@ mod canonical_execution_server_unit {
         let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
         store.cancel_study("cancel-study").await.unwrap();
         assert!(
+            matches!(store.renew_attempt(first, Duration::from_secs(60)).await,
+            Err(CanonicalError::StudyCancellation { run, attempt, generation, operation })
+            if run == first.run() && attempt == first.attempt() && generation == first.generation() && operation == "renew")
+        );
+        // An acknowledged original append/close survives subsequent writer refusal.
+        assert!(
             store
-                .renew_attempt(first, Duration::from_secs(60))
+                .append_result_batch(first, "before-cancel", "observations", 0, &[7], 1)
                 .await
-                .is_err()
+                .is_ok()
+        );
+        assert!(
+            store
+                .close_result_ingestion(first, "before-cancel-close")
+                .await
+                .is_ok()
         );
         assert!(
             // SAFETY: the isolated fixture owns these synthetic observations; this cancelled stale capability must refuse success.
@@ -1662,11 +1700,11 @@ impl CanonicalStore {
                         .bind(("lifetime", lifetime)))
                 })
                 .await?;
-            Ok(wire::decode_canonical_attempts(
+            Ok(wire::decode_canonical_attempts(writer_response(
                 response
                     .take::<Option<Object>>(0)?
                     .ok_or(CanonicalError::IncompleteResponse)?,
-            )?)
+            )?)?)
         }).await
     }
     /// Register only a structurally complete immutable chunked seed under its live gate.
@@ -1704,11 +1742,11 @@ impl CanonicalStore {
             let result=self.protected_execution_query(&fence.run, "canonical_execution::register_result_seed", ||Ok(self.db.query("RETURN fn::pse_execution_v1::seed($pse_rpc_expires_at, $run,$attempt,$generation,$operation,$request,$seed);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("seed",encoded.clone())))).await;
             match result {
                 Ok(mut response) => {
-                    let saved = wire::decode_canonical_result_seeds(
+                    let saved = wire::decode_canonical_result_seeds(writer_response(
                         response
                             .take::<Option<Object>>(0)?
                             .ok_or(CanonicalError::IncompleteResponse)?,
-                    )?;
+                    )?)?;
                     if saved != *seed {
                         return Err(CanonicalError::OperationReused);
                     }
@@ -2221,9 +2259,9 @@ impl CanonicalStore {
             let result = self.protected_execution_query(&fence.run, "canonical_execution::append_execution_batch", || Ok(self.db.query("RETURN fn::pse_execution_v1::append($pse_rpc_expires_at, $run,$attempt,$generation,$operation,$request,$set,$batch,$block,$cells,$outputs);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("set",encoded_set.clone())).bind(("batch",encoded_batch.clone())).bind(("block",block.clone().map(Value::Object).unwrap_or(Value::None))).bind(("cells",cells.clone())).bind(("outputs",outputs.clone())))).await;
             match result {
                 Ok(mut response) => {
-                    let saved = response
+                    let saved = writer_response(response
                         .take::<Option<Object>>(0)?
-                        .ok_or(CanonicalError::IncompleteResponse)?;
+                        .ok_or(CanonicalError::IncompleteResponse)?)?;
                     let mut expected = encoded_batch;
                     expected.remove("payload");
                     expected.insert("request", Value::Bytes(Bytes::from(request.clone())));
@@ -2305,6 +2343,14 @@ impl CanonicalStore {
         request: &[u8],
     ) -> Result<ClosedAttempt, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            let result = match result {
+                Ok(mut response) => Ok(writer_response(
+                    response
+                        .take::<Option<Object>>(0)?
+                        .ok_or(CanonicalError::IncompleteResponse)?,
+                )?),
+                Err(error) => Err(error),
+            };
             let receipt = self
                 .closure_operation(operation, kind, Some(request))
                 .await?;
@@ -2312,11 +2358,7 @@ impl CanonicalStore {
                 return Err(result.err().unwrap_or(CanonicalError::IncompleteResponse));
             };
             let mut value = match result {
-                Ok(mut response) => closed(wire::decode_canonical_attempts(
-                    response
-                        .take::<Option<Object>>(0)?
-                        .ok_or(CanonicalError::IncompleteResponse)?,
-                )?)?,
+                Ok(row) => closed(wire::decode_canonical_attempts(row)?)?,
                 Err(error) => closed(self.canonical_attempt(&key).await?.ok_or(error)?)?,
             };
             value.authority = authority;
@@ -2669,11 +2711,11 @@ impl CanonicalStore {
                 })
                 .await;
             match result {
-                Ok(mut response) => Ok(wire::decode_canonical_attempts(
+                Ok(mut response) => Ok(wire::decode_canonical_attempts(writer_response(
                     response
                         .take::<Option<Object>>(0)?
                         .ok_or(CanonicalError::IncompleteResponse)?,
-                )?),
+                )?)?),
                 Err(error) => match self.settle_operation(operation, "seal", &request).await? {
                     Some(key) => self.canonical_attempt(&key).await?.ok_or(error),
                     None => Err(error),
@@ -2686,6 +2728,41 @@ impl CanonicalStore {
 #[cfg(test)]
 mod canonical_result_admission_unit {
     use super::*;
+    #[test]
+    fn writer_refusal_retains_exact_identity_and_rejects_malformed_tags() {
+        let mut row = Object::new();
+        row.insert("pse_writer", Value::String("study-cancelled".into()));
+        row.insert("run", Value::String("run".into()));
+        row.insert("attempt", Value::String("attempt".into()));
+        row.insert("generation", canonical_codec::encode_uint(7).unwrap());
+        row.insert("operation", Value::String("append-17".into()));
+        assert!(
+            matches!(writer_response(row.clone()), Err(CanonicalError::StudyCancellation { run, attempt, generation: 7, operation })
+            if run == "run" && attempt == "attempt" && operation == "append-17")
+        );
+        row.insert(
+            "generation",
+            Value::Number(surrealdb::types::Number::Int(7)),
+        );
+        assert!(matches!(
+            writer_response(row.clone()),
+            Err(CanonicalError::Codec(_))
+        ));
+        row.insert("generation", canonical_codec::encode_uint(7).unwrap());
+        row.insert("extra", Value::Bool(true));
+        assert!(matches!(
+            writer_response(row.clone()),
+            Err(CanonicalError::Codec(_))
+        ));
+        row.remove("extra");
+        row.insert("pse_writer", Value::String("unknown".into()));
+        assert!(matches!(
+            writer_response(row),
+            Err(CanonicalError::Codec(_))
+        ));
+        let ordinary = Object::new();
+        assert_eq!(writer_response(ordinary.clone()).unwrap(), ordinary);
+    }
     #[test]
     fn index_metadata_accounts_strings_optional_values_and_combined_arrays() {
         let mut row = Object::new();

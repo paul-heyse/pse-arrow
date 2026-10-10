@@ -3211,12 +3211,7 @@ mod tests {
                 .strategy
                 .as_ref()
                 .unwrap()
-                .rows(
-                    result.run_id,
-                    0,
-                    Arc::new(datafusion::execution::memory_pool::UnboundedMemoryPool::default()),
-                    0..usize::MAX,
-                )
+                .rows(result.run_id, 0, runtime.native(), 0..usize::MAX)
                 .unwrap()
                 .collect::<Result<Vec<_>, _>>()
                 .unwrap();

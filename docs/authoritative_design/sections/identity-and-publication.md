@@ -419,6 +419,14 @@ preserving each exact selector. Absence and complete inventory are meanings, sep
 the conflict-guard generations used to recheck them atomically. An edit outside consumed
 meaning need not invalidate a product; changed consumed membership or interpretation does.
 
+Protection acquisition and cleanup have a completion owner established before submission.
+Cloned followers retain the same exact issuing-store protection; explicit final finish waits
+for release acknowledgement, and final-owner drop schedules cleanup through its retained
+executor. Abandoning an outer future cannot release another follower's live protection or
+resurrect an already released acquisition. Process loss and failed cleanup still rely on
+server expiry. Selected modeling acquisition resolves only its demanded logical closure;
+complete inventory uses grouped bounded reads with stable ordering and complete premises.
+
 **Selected results.** A result read selects one admitted terminal attempt and its exact
 closed manifest, then resolves only the sets and contiguous batch ordinals admitted by that
 manifest. Batch identity, payload digest, row count, schema and range coverage are checked
@@ -741,6 +749,17 @@ Qualified restart retains that storage charge through the restart delay and only
 after the owned predecessor drains. Missing or stale ownership refuses replacement.
 Dedicated timing storage and its separately admitted timing caller retain their selected lane.
 
+Host readiness distinguishes compatible ready, owned startup, actionable absence,
+unavailable observation and authenticated mismatch. Compatible borrowers join the startup
+owner under their original clock; uncertainty or mismatch cannot authorize restart.
+Actual mutations retain lifecycle exclusion and authentic descendant-drain checks.
+Allocation admission reconciles ended owners without starting unrelated parked services.
+An explicit store demand resumes only its selected service through the current allocation
+owner; independent storage and reference storage retain their respective admission rules.
+Recovery compares immutable receiver content and exact permitted installation mapping,
+including intermediate-directory associations, permissions and the external interpreter.
+Service invocation, readiness and admission are re-established for the restored incarnation.
+
 Context selection uses a private read-only system account and an exact-record probe,
 then restores the write account. Selection and acknowledged reconnect replay cannot
 implicitly define missing namespaces/databases or enumerate unbounded catalogs.
@@ -771,6 +790,16 @@ records truthful interruption/worker-loss completion or settles an already commi
 operation. A revoked or expired worker cannot append late science. Recovery never infers
 success or repeats numerical work merely to repair storage. Study cancellation participates
 through indexed point/header association in renewal and append fences.
+
+Acknowledged study cancellation may interrupt export after native work has joined. Exact
+typed writer refusal permits the existing recovery/reconciliation owner to freeze that
+attempt's prefix and settle Cancelled with scientific completion unavailable. A complete
+export preserves its original assessment under existing cancellation-race semantics.
+Unrelated transport/export failures remain errors. Durable records and study facts consume
+the acknowledged stored completion, never provisional in-memory success. Renewal continues
+through completion export and normal reconciliation, then its joined outcome is inspected
+before terminal admission. Immutable operation receipts settle uncertainty without science
+rerun; incomplete observations confer no seed, activation or scientific usability.
 
 **Progress and seeds.** Retained progress is appended in bounded typed chunks under the
 same ingestion gate; exact counters and event order do not depend on floating projections.

@@ -848,10 +848,32 @@ impl Runtime {
                                 None,
                             ));
                         }
-                        operations
+                        if let Err(error) = operations
                             .store()
                             .renew_attempt(&claim.fence, operations.policy().lease)
-                            .await?;
+                            .await
+                        {
+                            let error = Arc::new(WorkflowError::Canonical(error));
+                            let cancelled = attempt.cancelled_refusal(&error);
+                            let record = attempt.abandon(&error).await;
+                            // Drain the owner on every refusal. Only an acknowledged
+                            // exact cancellation can settle without native entry.
+                            if !cancelled {
+                                return Err(WorkflowError::Shared(error));
+                            }
+                            record
+                                .attempt
+                                .as_ref()
+                                .map_err(|error| WorkflowError::Shared(error.clone()))?;
+                            self.recover_study_point(&point.key).await?;
+                            return Ok((
+                                Processed::Ran {
+                                    point: point.key,
+                                    record: Box::new(record),
+                                },
+                                None,
+                            ));
+                        }
                         let handle = prepared
                             .operation
                             .start_attempt(self, cancel, attempt)
@@ -865,7 +887,7 @@ impl Runtime {
                                 ));
                             }
                         };
-                        self.record_study_attempt(&point, &claim.start, &result, &record)
+                        self.record_study_attempt(&point, &claim.start, &record)
                             .await?;
                         return Ok((
                             Processed::Ran {

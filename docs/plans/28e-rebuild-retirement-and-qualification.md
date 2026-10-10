@@ -770,6 +770,29 @@ failed-identity-only and sequential correction instructions are superseded by th
 The starting tree is clean `91dc7fdf142442d56d89a9fd97f173a3b5633bb7`; historical attempts and
 scoped corrected results retain their original Outcomes and cannot qualify the final tree.
 
+[Plan 34](34-unified-state-management-and-persistence.md) independently owns the new
+state-management corrections, inquiries and finding dispositions. Its
+[handoff](34-unified-state-management-and-persistence.md#existing-plan-coordination-and-qualification-handoff)
+supersedes the unconditional restart instructions from earlier continuation attempts below.
+Before relaunching an invalidated covering invocation, consume the applicable implemented
+and targeted-tested slices: SM06/SM09 for durable cancellation, SM07/SM09 for recovery,
+SM09 for phase/owner-correct preparation and claim controls, and SM01–SM05/SM08 where the
+journey consumes allocation, retrieval or concurrent-startup changes. The integrated Plan 34
+corrections and its actual native, cross-process, Python and scientific restore/rebuild
+acceptance are available at its [Outcome](34-unified-state-management-and-persistence.md#outcome-recorded-after-implementation)
+and [evidence](34-unified-state-management-and-persistence.md#acceptance-evidence).
+Its owning checkpoint retains final qualification status. Reconcile the exact current
+source/profile/tool closure before relaunch; scoped Plan 34 passes do not qualify this campaign.
+E3/E4/E5 remain owned here. Share exact matching evidence rather than duplicate campaigns;
+no completed Plan 30/33 Outcome is reopened and no existing process is stopped by this handoff.
+
+The retained `plan28-e3-development-creator-completion-listener-fixed-20261010` native gate
+terminated with exit 100: 3,114 tests run, 3,105 passed, nine failed and eight skipped
+against a zero-failure target (native-test summary 5,159.997 s). The enclosing assessment
+has not established E3 completion. Its cancellation, conformance, caller-drop and claim-expiry
+failures inform Plan 34's corrections; the source review retains its original observation date
+and incomplete-capture scope. Reconcile final assessment receipts before selecting a relaunch.
+
 1. Reconcile live plan/index/command instructions before implementation. Implemented packet
    mechanisms remain implemented; N4/T5/L4 and E3–E5 acceptance remain open. Plan 33's completed
    corrections and decisions keep their separate owner.
@@ -827,15 +850,20 @@ are complete before the stable assembled capture. The operator restored
 host inotify capacity, and the unchanged real lifecycle controls and complete affected tooling
 selection now pass. Actual systemd lifetime termination remains required for native drain;
 an empty cgroup alone does not discharge that obligation. Both campaign profiles were
-refreshed before those captures; the foreground-cancellation correction below requires
-another refresh of their frozen Python closures before the next comprehensive development
-assessment, current conformance, external parity and scientific recovery. E3 acceptance remains pending;
+refreshed before those captures; the foreground-cancellation correction below required
+another refresh of their frozen Python closures for its subsequent capture. Current launch
+prerequisites follow the handoff above. E3 acceptance remains pending;
 E4 is not measured; E5 is not accepted. Keep these inputs stable through E4.
+
+The continuation account below explains earlier repairs and launch premises. Its historical
+successes retain their stated scope; the next launch follows the Plan 34 prerequisite handoff
+above and this checkpoint's campaign sequence, rather than an earlier corrected-tree instruction.
+
 The first assembled attempt exposed four stale tooling fixtures before the scientific
 gates. They now exercise the current validation-composer entry, independent native
 fixture allocation, admitted observer observation and supported standalone restore,
 with explicit refusal of shared-context restore. The complete setup suite passes under
-a real native owner. Restart the comprehensive capture on that corrected tree;
+a real native owner. That correction supplied the next attempted capture's premise;
 the interrupted attempt supplies no assembled acceptance.
 The subsequent launch exposed a failed-resume state transition: ordinary-lane admission
 correctly refused the reference service, but its parked flag had already been cleared,
@@ -843,12 +871,12 @@ allowing reconciliation to discard the pending resume. Admission and materializa
 precede that transition; failed startup restores closed parked state while retaining the
 actual allocation and restored-state validation requirement. A successful retry must
 establish listener and protocol readiness. Affected lifecycle/admission controls and
-independent source review cover the correction. Refresh both frozen supervisor/worker
-closures before the next comprehensive capture; interrupted captures remain nonqualifying.
+independent source review cover the correction. Both frozen supervisor/worker closures
+required refresh before its subsequent capture; interrupted captures remain nonqualifying.
 The next capture reached the ordinary Rust inventory and exposed one omitted approved
 frame spelling for the implemented structural-body index. The fixture now declares that
 existing versioned frame; production hashing and scientific behavior are unchanged.
-Restart on the corrected fixture after its targeted integration control passes.
+Its subsequent capture required the corrected fixture's targeted integration control.
 Ordinary Rust execution then exposed a cancellation fixture that applied its deliberately
 short transaction budget to authentication before the tested operation. The two related
 controls now establish selected connections under the normal setup clock and impose the
@@ -865,8 +893,8 @@ from immediately reusing the deliberately short ordinary session after an uncert
 probe. The atomic-clock fixture now starts schema setup on a fresh retained ordinary client
 with the same short budget, while preserving the separate activation clock and one creation
 attempt. It does not claim immediate reuse of the canceled session. Independent source review
-found no material defect. No production deadline or actual-drain requirement is relaxed;
-restart the stable comprehensive capture, and retain interrupted captures as nonqualifying.
+found no material defect. No production deadline or actual-drain requirement was relaxed;
+that corrected tree supplied a subsequent capture's premise. Interrupted captures remain nonqualifying.
 The next ordinary execution control retained its historical result-read owner through
 explicit fixture removal. It now releases that owner after the final assertion; cleanup
 retains its refusal to remove a database with live result buffers and waits for queued
@@ -885,7 +913,7 @@ defect. The full production observer route remains an E3 obligation. Affected co
 scope-end type/lint repairs, independent re-review and formatting are complete. Both frozen
 Python closures have been refreshed through stopped reconfiguration/readmission; the existing
 databases, credentials and Rust worker bytes are preserved. The canonical fixture group now
-passes together. Restart the stable comprehensive capture on these inputs.
+passes together. Those inputs supplied the next attempted capture's premise.
 That expanded capture passed setup and prerequisite gates but encountered a transient
 service lifecycle reservation during parallel fixture registration; the service retained
 its PID/invocation and open admission. Its first reservation owner was not retained, so
@@ -899,8 +927,8 @@ preempt the observer supervisor's drain handler. Creator retirement now settles 
 foreground handoffs, and parent-owned observer supervisors occupy separate sessions.
 Nested borrowers and independent worker/primary owners remain unchanged. The actual
 production-observer interruption regression and complete affected/static checks pass.
-Final formatting and both stopped-profile frozen-tooling refreshes are complete;
-restart the comprehensive capture on these inputs. Independently killed observer
+Final formatting and both stopped-profile frozen-tooling refreshes were complete for the
+subsequent attempted capture. Independently killed observer
 supervisors still require demonstrated drain and may conservatively refuse completion.
 
 ## Outcome (recorded after implementation)

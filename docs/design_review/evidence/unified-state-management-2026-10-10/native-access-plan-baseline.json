@@ -1,0 +1,2334 @@
+{
+  "database": "canonical_test_86e5b7e2ad5240c09fe53ef0fd12d2ee",
+  "resource": "90580ca169864d6fa87c7b2110173b31",
+  "cases": [
+    {
+      "n": 256,
+      "case": "membership",
+      "returned": 64,
+      "time": "1.182942ms",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "64"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "predicate": "NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "access": "['p256'] MoreThan ''",
+                      "direction": "Forward",
+                      "index": "membership_pages"
+                    },
+                    "context": "Db",
+                    "metrics": {
+                      "elapsed_ns": 598981,
+                      "output_batches": 1,
+                      "output_rows": 256,
+                      "records_fetched": 0
+                    },
+                    "operator": "IndexScan"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "role": "predicate",
+                    "sql": "NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 57983,
+                  "output_batches": 1,
+                  "output_rows": 256,
+                  "records_fetched": 0
+                },
+                "operator": "Filter"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "64"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 9370,
+              "output_batches": 1,
+              "output_rows": 64,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 3610,
+          "output_batches": 1,
+          "output_rows": 64,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 64
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 64, batches: 1, elapsed: 4.95\u00b5s}\n    Limit [ctx: Db] [limit: 64] {rows: 64, batches: 1, elapsed: 8.82\u00b5s}\n        Filter [ctx: Db] [predicate: NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec] {rows: 256, batches: 1, elapsed: 60.89\u00b5s}\n            IndexScan [ctx: Db] [index: membership_pages, access: ['p256'] MoreThan '', direction: Forward] {rows: 256, batches: 1, elapsed: 675.64\u00b5s}\n\nTotal rows: 64",
+        "status": "OK",
+        "time": "1.122011ms",
+        "type": null
+      }
+    },
+    {
+      "n": 256,
+      "case": "scoped_skew",
+      "returned": 1,
+      "time": "942.054\u00b5s",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "64"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "predicate": "'rare' = NONE OR scope = 'rare' AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "access": "['p256'] MoreThan ''",
+                      "direction": "Forward",
+                      "index": "membership_pages"
+                    },
+                    "context": "Db",
+                    "metrics": {
+                      "elapsed_ns": 538969,
+                      "output_batches": 1,
+                      "output_rows": 256,
+                      "records_fetched": 0
+                    },
+                    "operator": "IndexScan"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "role": "predicate",
+                    "sql": "'rare' = NONE OR scope = 'rare' AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 68133,
+                  "output_batches": 1,
+                  "output_rows": 1,
+                  "records_fetched": 0
+                },
+                "operator": "Filter"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "64"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 3500,
+              "output_batches": 1,
+              "output_rows": 1,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 1970,
+          "output_batches": 1,
+          "output_rows": 1,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 1
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 1, batches: 1, elapsed: 2.34\u00b5s}\n    Limit [ctx: Db] [limit: 64] {rows: 1, batches: 1, elapsed: 3.72\u00b5s}\n        Filter [ctx: Db] [predicate: 'rare' = NONE OR scope = 'rare' AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec] {rows: 1, batches: 1, elapsed: 56.30\u00b5s}\n            IndexScan [ctx: Db] [index: membership_pages, access: ['p256'] MoreThan '', direction: Forward] {rows: 256, batches: 1, elapsed: 545.16\u00b5s}\n\nTotal rows: 1",
+        "status": "OK",
+        "time": "1.000136ms",
+        "type": null
+      }
+    },
+    {
+      "n": 256,
+      "case": "kind_skew",
+      "returned": 1,
+      "time": "1.732872ms",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "64"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "predicate": "NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec AND 'rare' = NONE OR out.kind = 'rare' AND out.closed = true AND NONE = NONE OR (ProjectValue) != []"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "access": "['p256'] MoreThan ''",
+                      "direction": "Forward",
+                      "index": "membership_pages"
+                    },
+                    "context": "Db",
+                    "metrics": {
+                      "elapsed_ns": 643823,
+                      "output_batches": 1,
+                      "output_rows": 256,
+                      "records_fetched": 0
+                    },
+                    "operator": "IndexScan"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "embedded_operators": [
+                      {
+                        "plan": {
+                          "attributes": {
+                            "expr": "key"
+                          },
+                          "children": [
+                            {
+                              "attributes": {
+                                "limit": "1"
+                              },
+                              "children": [
+                                {
+                                  "attributes": {
+                                    "predicate": "source_version = $parent.version"
+                                  },
+                                  "children": [
+                                    {
+                                      "attributes": {
+                                        "access": "[NONE, NONE]",
+                                        "direction": "Forward",
+                                        "index": "edge_target"
+                                      },
+                                      "context": "Db",
+                                      "metrics": {
+                                        "elapsed_ns": 0,
+                                        "output_batches": 0,
+                                        "output_rows": 0,
+                                        "records_fetched": 0
+                                      },
+                                      "operator": "IndexScan"
+                                    }
+                                  ],
+                                  "context": "Db",
+                                  "expressions": [
+                                    {
+                                      "role": "predicate",
+                                      "sql": "source_version = $parent.version"
+                                    }
+                                  ],
+                                  "metrics": {
+                                    "elapsed_ns": 0,
+                                    "output_batches": 0,
+                                    "output_rows": 0,
+                                    "records_fetched": 0
+                                  },
+                                  "operator": "Filter"
+                                }
+                              ],
+                              "context": "Db",
+                              "expressions": [
+                                {
+                                  "role": "limit",
+                                  "sql": "1"
+                                }
+                              ],
+                              "metrics": {
+                                "elapsed_ns": 0,
+                                "output_batches": 0,
+                                "output_rows": 0,
+                                "records_fetched": 0
+                              },
+                              "operator": "Limit"
+                            }
+                          ],
+                          "context": "Db",
+                          "expressions": [
+                            {
+                              "role": "expr",
+                              "sql": "key"
+                            }
+                          ],
+                          "metrics": {
+                            "elapsed_ns": 0,
+                            "output_batches": 0,
+                            "output_rows": 0,
+                            "records_fetched": 0
+                          },
+                          "operator": "ProjectValue"
+                        },
+                        "role": "subquery"
+                      }
+                    ],
+                    "role": "predicate",
+                    "sql": "NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec AND 'rare' = NONE OR out.kind = 'rare' AND out.closed = true AND NONE = NONE OR (ProjectValue) != []"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 836100,
+                  "output_batches": 1,
+                  "output_rows": 1,
+                  "records_fetched": 0
+                },
+                "operator": "Filter"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "64"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 2800,
+              "output_batches": 1,
+              "output_rows": 1,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 2151,
+          "output_batches": 1,
+          "output_rows": 1,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 1
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 1, batches: 1, elapsed: 2.03\u00b5s}\n    Limit [ctx: Db] [limit: 64] {rows: 1, batches: 1, elapsed: 2.58\u00b5s}\n        Filter [ctx: Db] [predicate: NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec AND 'rare' = NONE OR out.kind = 'rare' AND out.closed = true AND NONE = NONE OR (ProjectValue) != []] {rows: 1, batches: 1, elapsed: 856.64\u00b5s}\n          predicate.subquery: ProjectValue [ctx: Db] [expr: key] {rows: 0, batches: 0, elapsed: 0ns}\n              Limit [ctx: Db] [limit: 1] {rows: 0, batches: 0, elapsed: 0ns}\n                  Filter [ctx: Db] [predicate: source_version = $parent.version] {rows: 0, batches: 0, elapsed: 0ns}\n                      IndexScan [ctx: Db] [index: edge_target, access: [NONE, NONE], direction: Forward] {rows: 0, batches: 0, elapsed: 0ns}\n            IndexScan [ctx: Db] [index: membership_pages, access: ['p256'] MoreThan '', direction: Forward] {rows: 256, batches: 1, elapsed: 526.01\u00b5s}\n\nTotal rows: 1",
+        "status": "OK",
+        "time": "1.853007ms",
+        "type": null
+      }
+    },
+    {
+      "n": 256,
+      "case": "inverse_skew",
+      "returned": 1,
+      "time": "3.752736ms",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "64"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "predicate": "NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec AND NONE = NONE OR out.kind = NONE AND out.closed = true AND 'target' = NONE OR (ProjectValue) != []"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "access": "['p256'] MoreThan ''",
+                      "direction": "Forward",
+                      "index": "membership_pages"
+                    },
+                    "context": "Db",
+                    "metrics": {
+                      "elapsed_ns": 811259,
+                      "output_batches": 1,
+                      "output_rows": 256,
+                      "records_fetched": 0
+                    },
+                    "operator": "IndexScan"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "embedded_operators": [
+                      {
+                        "plan": {
+                          "attributes": {
+                            "expr": "key"
+                          },
+                          "children": [
+                            {
+                              "attributes": {
+                                "limit": "1"
+                              },
+                              "children": [
+                                {
+                                  "attributes": {
+                                    "predicate": "source_version = $parent.version"
+                                  },
+                                  "children": [
+                                    {
+                                      "attributes": {
+                                        "access": "['target', 'rare']",
+                                        "direction": "Forward",
+                                        "index": "edge_target"
+                                      },
+                                      "context": "Db",
+                                      "metrics": {
+                                        "elapsed_ns": 1197392,
+                                        "output_batches": 256,
+                                        "output_rows": 256,
+                                        "records_fetched": 0
+                                      },
+                                      "operator": "IndexScan"
+                                    }
+                                  ],
+                                  "context": "Db",
+                                  "expressions": [
+                                    {
+                                      "role": "predicate",
+                                      "sql": "source_version = $parent.version"
+                                    }
+                                  ],
+                                  "metrics": {
+                                    "elapsed_ns": 296933,
+                                    "output_batches": 1,
+                                    "output_rows": 1,
+                                    "records_fetched": 0
+                                  },
+                                  "operator": "Filter"
+                                }
+                              ],
+                              "context": "Db",
+                              "expressions": [
+                                {
+                                  "role": "limit",
+                                  "sql": "1"
+                                }
+                              ],
+                              "metrics": {
+                                "elapsed_ns": 140287,
+                                "output_batches": 1,
+                                "output_rows": 1,
+                                "records_fetched": 0
+                              },
+                              "operator": "Limit"
+                            }
+                          ],
+                          "context": "Db",
+                          "expressions": [
+                            {
+                              "role": "expr",
+                              "sql": "key"
+                            }
+                          ],
+                          "metrics": {
+                            "elapsed_ns": 41051,
+                            "output_batches": 1,
+                            "output_rows": 1,
+                            "records_fetched": 0
+                          },
+                          "operator": "ProjectValue"
+                        },
+                        "role": "subquery"
+                      }
+                    ],
+                    "role": "predicate",
+                    "sql": "NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec AND NONE = NONE OR out.kind = NONE AND out.closed = true AND 'target' = NONE OR (ProjectValue) != []"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 944889,
+                  "output_batches": 1,
+                  "output_rows": 1,
+                  "records_fetched": 0
+                },
+                "operator": "Filter"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "64"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 940,
+              "output_batches": 1,
+              "output_rows": 1,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 2850,
+          "output_batches": 1,
+          "output_rows": 1,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 1
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 1, batches: 1, elapsed: 2.20\u00b5s}\n    Limit [ctx: Db] [limit: 64] {rows: 1, batches: 1, elapsed: 1.94\u00b5s}\n        Filter [ctx: Db] [predicate: NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec AND NONE = NONE OR out.kind = NONE AND out.closed = true AND 'target' = NONE OR (ProjectValue) != []] {rows: 1, batches: 1, elapsed: 955.98\u00b5s}\n          predicate.subquery: ProjectValue [ctx: Db] [expr: key] {rows: 1, batches: 1, elapsed: 39.23\u00b5s}\n              Limit [ctx: Db] [limit: 1] {rows: 1, batches: 1, elapsed: 145.12\u00b5s}\n                  Filter [ctx: Db] [predicate: source_version = $parent.version] {rows: 1, batches: 1, elapsed: 307.62\u00b5s}\n                      IndexScan [ctx: Db] [index: edge_target, access: ['target', 'rare'], direction: Forward] {rows: 256, batches: 256, elapsed: 1.15ms}\n            IndexScan [ctx: Db] [index: membership_pages, access: ['p256'] MoreThan '', direction: Forward] {rows: 256, batches: 1, elapsed: 557.98\u00b5s}\n\nTotal rows: 1",
+        "status": "OK",
+        "time": "3.800397ms",
+        "type": null
+      }
+    },
+    {
+      "n": 256,
+      "case": "inverse_negative",
+      "returned": 0,
+      "time": "3.212936ms",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "64"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "predicate": "NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec AND NONE = NONE OR out.kind = NONE AND out.closed = true AND 'target' = NONE OR (ProjectValue) != []"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "access": "['p256'] MoreThan ''",
+                      "direction": "Forward",
+                      "index": "membership_pages"
+                    },
+                    "context": "Db",
+                    "metrics": {
+                      "elapsed_ns": 489767,
+                      "output_batches": 1,
+                      "output_rows": 256,
+                      "records_fetched": 0
+                    },
+                    "operator": "IndexScan"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "embedded_operators": [
+                      {
+                        "plan": {
+                          "attributes": {
+                            "expr": "key"
+                          },
+                          "children": [
+                            {
+                              "attributes": {
+                                "limit": "1"
+                              },
+                              "children": [
+                                {
+                                  "attributes": {
+                                    "predicate": "source_version = $parent.version"
+                                  },
+                                  "children": [
+                                    {
+                                      "attributes": {
+                                        "access": "['target', 'absent']",
+                                        "direction": "Forward",
+                                        "index": "edge_target"
+                                      },
+                                      "context": "Db",
+                                      "metrics": {
+                                        "elapsed_ns": 544306,
+                                        "output_batches": 0,
+                                        "output_rows": 0,
+                                        "records_fetched": 0
+                                      },
+                                      "operator": "IndexScan"
+                                    }
+                                  ],
+                                  "context": "Db",
+                                  "expressions": [
+                                    {
+                                      "role": "predicate",
+                                      "sql": "source_version = $parent.version"
+                                    }
+                                  ],
+                                  "metrics": {
+                                    "elapsed_ns": 83803,
+                                    "output_batches": 0,
+                                    "output_rows": 0,
+                                    "records_fetched": 0
+                                  },
+                                  "operator": "Filter"
+                                }
+                              ],
+                              "context": "Db",
+                              "expressions": [
+                                {
+                                  "role": "limit",
+                                  "sql": "1"
+                                }
+                              ],
+                              "metrics": {
+                                "elapsed_ns": 153605,
+                                "output_batches": 0,
+                                "output_rows": 0,
+                                "records_fetched": 0
+                              },
+                              "operator": "Limit"
+                            }
+                          ],
+                          "context": "Db",
+                          "expressions": [
+                            {
+                              "role": "expr",
+                              "sql": "key"
+                            }
+                          ],
+                          "metrics": {
+                            "elapsed_ns": 36512,
+                            "output_batches": 0,
+                            "output_rows": 0,
+                            "records_fetched": 0
+                          },
+                          "operator": "ProjectValue"
+                        },
+                        "role": "subquery"
+                      }
+                    ],
+                    "role": "predicate",
+                    "sql": "NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec AND NONE = NONE OR out.kind = NONE AND out.closed = true AND 'target' = NONE OR (ProjectValue) != []"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 860119,
+                  "output_batches": 0,
+                  "output_rows": 0,
+                  "records_fetched": 0
+                },
+                "operator": "Filter"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "64"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 2870,
+              "output_batches": 0,
+              "output_rows": 0,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 900,
+          "output_batches": 0,
+          "output_rows": 0,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 0
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 0, batches: 0, elapsed: 1.40\u00b5s}\n    Limit [ctx: Db] [limit: 64] {rows: 0, batches: 0, elapsed: 1.74\u00b5s}\n        Filter [ctx: Db] [predicate: NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec AND NONE = NONE OR out.kind = NONE AND out.closed = true AND 'target' = NONE OR (ProjectValue) != []] {rows: 0, batches: 0, elapsed: 972.57\u00b5s}\n          predicate.subquery: ProjectValue [ctx: Db] [expr: key] {rows: 0, batches: 0, elapsed: 39.66\u00b5s}\n              Limit [ctx: Db] [limit: 1] {rows: 0, batches: 0, elapsed: 152.11\u00b5s}\n                  Filter [ctx: Db] [predicate: source_version = $parent.version] {rows: 0, batches: 0, elapsed: 89.21\u00b5s}\n                      IndexScan [ctx: Db] [index: edge_target, access: ['target', 'absent'], direction: Forward] {rows: 0, batches: 0, elapsed: 668.13\u00b5s}\n            IndexScan [ctx: Db] [index: membership_pages, access: ['p256'] MoreThan '', direction: Forward] {rows: 256, batches: 1, elapsed: 478.55\u00b5s}\n\nTotal rows: 0",
+        "status": "OK",
+        "time": "3.160214ms",
+        "type": null
+      }
+    },
+    {
+      "n": 256,
+      "case": "negative_name",
+      "returned": 0,
+      "time": "381.674\u00b5s",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "1"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "predicate": "to_sequence = NONE OR to_sequence > 1dec"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "access": "['p256', 'rare', 'absent'] LessThanEqual 1dec",
+                      "direction": "Backward",
+                      "index": "membership_selection"
+                    },
+                    "context": "Db",
+                    "metrics": {
+                      "elapsed_ns": 45022,
+                      "output_batches": 0,
+                      "output_rows": 0,
+                      "records_fetched": 0
+                    },
+                    "operator": "IndexScan"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "role": "predicate",
+                    "sql": "to_sequence = NONE OR to_sequence > 1dec"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 1300,
+                  "output_batches": 0,
+                  "output_rows": 0,
+                  "records_fetched": 0
+                },
+                "operator": "Filter"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "1"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 1630,
+              "output_batches": 0,
+              "output_rows": 0,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 860,
+          "output_batches": 0,
+          "output_rows": 0,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 0
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 0, batches: 0, elapsed: 920ns}\n    Limit [ctx: Db] [limit: 1] {rows: 0, batches: 0, elapsed: 2.32\u00b5s}\n        Filter [ctx: Db] [predicate: to_sequence = NONE OR to_sequence > 1dec] {rows: 0, batches: 0, elapsed: 2.14\u00b5s}\n            IndexScan [ctx: Db] [index: membership_selection, access: ['p256', 'rare', 'absent'] LessThanEqual 1dec, direction: Backward] {rows: 0, batches: 0, elapsed: 47.56\u00b5s}\n\nTotal rows: 0",
+        "status": "OK",
+        "time": "446.426\u00b5s",
+        "type": null
+      }
+    },
+    {
+      "n": 256,
+      "case": "product_present",
+      "returned": 1,
+      "time": "978.185\u00b5s",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "1"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "limit": "1",
+                  "sort_keys": "key ASC"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "predicate": "request = b\"746172676574\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "access": "['p256', 'producer']",
+                          "direction": "Forward",
+                          "index": "product_discovery"
+                        },
+                        "context": "Db",
+                        "metrics": {
+                          "elapsed_ns": 576111,
+                          "output_batches": 1,
+                          "output_rows": 256,
+                          "records_fetched": 0
+                        },
+                        "operator": "IndexScan"
+                      }
+                    ],
+                    "context": "Db",
+                    "expressions": [
+                      {
+                        "role": "predicate",
+                        "sql": "request = b\"746172676574\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision"
+                      }
+                    ],
+                    "metrics": {
+                      "elapsed_ns": 133726,
+                      "output_batches": 1,
+                      "output_rows": 1,
+                      "records_fetched": 0
+                    },
+                    "operator": "Filter"
+                  }
+                ],
+                "context": "Db",
+                "metrics": {
+                  "elapsed_ns": 3380,
+                  "output_batches": 1,
+                  "output_rows": 1,
+                  "records_fetched": 0
+                },
+                "operator": "SortTopKByKey"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "1"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 5930,
+              "output_batches": 1,
+              "output_rows": 1,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 2140,
+          "output_batches": 1,
+          "output_rows": 1,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 1
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 1, batches: 1, elapsed: 1.99\u00b5s}\n    Limit [ctx: Db] [limit: 1] {rows: 1, batches: 1, elapsed: 6.41\u00b5s}\n        SortTopKByKey [ctx: Db] [sort_keys: key ASC, limit: 1] {rows: 1, batches: 1, elapsed: 3.81\u00b5s}\n            Filter [ctx: Db] [predicate: request = b\"746172676574\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision] {rows: 1, batches: 1, elapsed: 134.09\u00b5s}\n                IndexScan [ctx: Db] [index: product_discovery, access: ['p256', 'producer'], direction: Forward] {rows: 256, batches: 1, elapsed: 507.24\u00b5s}\n\nTotal rows: 1",
+        "status": "OK",
+        "time": "977.075\u00b5s",
+        "type": null
+      }
+    },
+    {
+      "n": 256,
+      "case": "product_absent",
+      "returned": 0,
+      "time": "946.454\u00b5s",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "1"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "limit": "1",
+                  "sort_keys": "key ASC"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "predicate": "request = b\"616273656E74\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "access": "['p256', 'producer']",
+                          "direction": "Forward",
+                          "index": "product_discovery"
+                        },
+                        "context": "Db",
+                        "metrics": {
+                          "elapsed_ns": 454787,
+                          "output_batches": 1,
+                          "output_rows": 256,
+                          "records_fetched": 0
+                        },
+                        "operator": "IndexScan"
+                      }
+                    ],
+                    "context": "Db",
+                    "expressions": [
+                      {
+                        "role": "predicate",
+                        "sql": "request = b\"616273656E74\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision"
+                      }
+                    ],
+                    "metrics": {
+                      "elapsed_ns": 56782,
+                      "output_batches": 0,
+                      "output_rows": 0,
+                      "records_fetched": 0
+                    },
+                    "operator": "Filter"
+                  }
+                ],
+                "context": "Db",
+                "metrics": {
+                  "elapsed_ns": 2560,
+                  "output_batches": 0,
+                  "output_rows": 0,
+                  "records_fetched": 0
+                },
+                "operator": "SortTopKByKey"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "1"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 5440,
+              "output_batches": 0,
+              "output_rows": 0,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 780,
+          "output_batches": 0,
+          "output_rows": 0,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 0
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 0, batches: 0, elapsed: 840ns}\n    Limit [ctx: Db] [limit: 1] {rows: 0, batches: 0, elapsed: 5.78\u00b5s}\n        SortTopKByKey [ctx: Db] [sort_keys: key ASC, limit: 1] {rows: 0, batches: 0, elapsed: 2.81\u00b5s}\n            Filter [ctx: Db] [predicate: request = b\"616273656E74\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision] {rows: 0, batches: 0, elapsed: 55.73\u00b5s}\n                IndexScan [ctx: Db] [index: product_discovery, access: ['p256', 'producer'], direction: Forward] {rows: 256, batches: 1, elapsed: 453.11\u00b5s}\n\nTotal rows: 0",
+        "status": "OK",
+        "time": "870.072\u00b5s",
+        "type": null
+      }
+    },
+    {
+      "n": 4096,
+      "case": "membership",
+      "returned": 64,
+      "time": "2.731299ms",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "64"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "predicate": "NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "access": "['p4096'] MoreThan ''",
+                      "direction": "Forward",
+                      "index": "membership_pages"
+                    },
+                    "context": "Db",
+                    "metrics": {
+                      "elapsed_ns": 1391220,
+                      "output_batches": 3,
+                      "output_rows": 768,
+                      "records_fetched": 0
+                    },
+                    "operator": "IndexScan"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "role": "predicate",
+                    "sql": "NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 144696,
+                  "output_batches": 3,
+                  "output_rows": 768,
+                  "records_fetched": 0
+                },
+                "operator": "Filter"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "64"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 9500,
+              "output_batches": 1,
+              "output_rows": 64,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 4210,
+          "output_batches": 1,
+          "output_rows": 64,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 64
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 64, batches: 1, elapsed: 3.88\u00b5s}\n    Limit [ctx: Db] [limit: 64] {rows: 64, batches: 1, elapsed: 9.28\u00b5s}\n        Filter [ctx: Db] [predicate: NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec] {rows: 768, batches: 3, elapsed: 162.82\u00b5s}\n            IndexScan [ctx: Db] [index: membership_pages, access: ['p4096'] MoreThan '', direction: Forward] {rows: 768, batches: 3, elapsed: 1.41ms}\n\nTotal rows: 64",
+        "status": "OK",
+        "time": "2.218571ms",
+        "type": null
+      }
+    },
+    {
+      "n": 4096,
+      "case": "scoped_skew",
+      "returned": 1,
+      "time": "10.421378ms",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "64"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "predicate": "'rare' = NONE OR scope = 'rare' AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "access": "['p4096'] MoreThan ''",
+                      "direction": "Forward",
+                      "index": "membership_pages"
+                    },
+                    "context": "Db",
+                    "metrics": {
+                      "elapsed_ns": 8723247,
+                      "output_batches": 16,
+                      "output_rows": 4096,
+                      "records_fetched": 0
+                    },
+                    "operator": "IndexScan"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "role": "predicate",
+                    "sql": "'rare' = NONE OR scope = 'rare' AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 1003766,
+                  "output_batches": 1,
+                  "output_rows": 1,
+                  "records_fetched": 0
+                },
+                "operator": "Filter"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "64"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 4110,
+              "output_batches": 1,
+              "output_rows": 1,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 3020,
+          "output_batches": 1,
+          "output_rows": 1,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 1
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 1, batches: 1, elapsed: 3.44\u00b5s}\n    Limit [ctx: Db] [limit: 64] {rows: 1, batches: 1, elapsed: 4.72\u00b5s}\n        Filter [ctx: Db] [predicate: 'rare' = NONE OR scope = 'rare' AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec] {rows: 1, batches: 1, elapsed: 986.66\u00b5s}\n            IndexScan [ctx: Db] [index: membership_pages, access: ['p4096'] MoreThan '', direction: Forward] {rows: 4096, batches: 16, elapsed: 8.03ms}\n\nTotal rows: 1",
+        "status": "OK",
+        "time": "9.073669ms",
+        "type": null
+      }
+    },
+    {
+      "n": 4096,
+      "case": "kind_skew",
+      "returned": 1,
+      "time": "18.361035ms",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "64"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "predicate": "NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec AND 'rare' = NONE OR out.kind = 'rare' AND out.closed = true AND NONE = NONE OR (ProjectValue) != []"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "access": "['p4096'] MoreThan ''",
+                      "direction": "Forward",
+                      "index": "membership_pages"
+                    },
+                    "context": "Db",
+                    "metrics": {
+                      "elapsed_ns": 6946531,
+                      "output_batches": 16,
+                      "output_rows": 4096,
+                      "records_fetched": 0
+                    },
+                    "operator": "IndexScan"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "embedded_operators": [
+                      {
+                        "plan": {
+                          "attributes": {
+                            "expr": "key"
+                          },
+                          "children": [
+                            {
+                              "attributes": {
+                                "limit": "1"
+                              },
+                              "children": [
+                                {
+                                  "attributes": {
+                                    "predicate": "source_version = $parent.version"
+                                  },
+                                  "children": [
+                                    {
+                                      "attributes": {
+                                        "access": "[NONE, NONE]",
+                                        "direction": "Forward",
+                                        "index": "edge_target"
+                                      },
+                                      "context": "Db",
+                                      "metrics": {
+                                        "elapsed_ns": 0,
+                                        "output_batches": 0,
+                                        "output_rows": 0,
+                                        "records_fetched": 0
+                                      },
+                                      "operator": "IndexScan"
+                                    }
+                                  ],
+                                  "context": "Db",
+                                  "expressions": [
+                                    {
+                                      "role": "predicate",
+                                      "sql": "source_version = $parent.version"
+                                    }
+                                  ],
+                                  "metrics": {
+                                    "elapsed_ns": 0,
+                                    "output_batches": 0,
+                                    "output_rows": 0,
+                                    "records_fetched": 0
+                                  },
+                                  "operator": "Filter"
+                                }
+                              ],
+                              "context": "Db",
+                              "expressions": [
+                                {
+                                  "role": "limit",
+                                  "sql": "1"
+                                }
+                              ],
+                              "metrics": {
+                                "elapsed_ns": 0,
+                                "output_batches": 0,
+                                "output_rows": 0,
+                                "records_fetched": 0
+                              },
+                              "operator": "Limit"
+                            }
+                          ],
+                          "context": "Db",
+                          "expressions": [
+                            {
+                              "role": "expr",
+                              "sql": "key"
+                            }
+                          ],
+                          "metrics": {
+                            "elapsed_ns": 0,
+                            "output_batches": 0,
+                            "output_rows": 0,
+                            "records_fetched": 0
+                          },
+                          "operator": "ProjectValue"
+                        },
+                        "role": "subquery"
+                      }
+                    ],
+                    "role": "predicate",
+                    "sql": "NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec AND 'rare' = NONE OR out.kind = 'rare' AND out.closed = true AND NONE = NONE OR (ProjectValue) != []"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 11454235,
+                  "output_batches": 1,
+                  "output_rows": 1,
+                  "records_fetched": 0
+                },
+                "operator": "Filter"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "64"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 3390,
+              "output_batches": 1,
+              "output_rows": 1,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 2831,
+          "output_batches": 1,
+          "output_rows": 1,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 1
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 1, batches: 1, elapsed: 2.61\u00b5s}\n    Limit [ctx: Db] [limit: 64] {rows: 1, batches: 1, elapsed: 3.88\u00b5s}\n        Filter [ctx: Db] [predicate: NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec AND 'rare' = NONE OR out.kind = 'rare' AND out.closed = true AND NONE = NONE OR (ProjectValue) != []] {rows: 1, batches: 1, elapsed: 11.81ms}\n          predicate.subquery: ProjectValue [ctx: Db] [expr: key] {rows: 0, batches: 0, elapsed: 0ns}\n              Limit [ctx: Db] [limit: 1] {rows: 0, batches: 0, elapsed: 0ns}\n                  Filter [ctx: Db] [predicate: source_version = $parent.version] {rows: 0, batches: 0, elapsed: 0ns}\n                      IndexScan [ctx: Db] [index: edge_target, access: [NONE, NONE], direction: Forward] {rows: 0, batches: 0, elapsed: 0ns}\n            IndexScan [ctx: Db] [index: membership_pages, access: ['p4096'] MoreThan '', direction: Forward] {rows: 4096, batches: 16, elapsed: 7.40ms}\n\nTotal rows: 1",
+        "status": "OK",
+        "time": "19.841849ms",
+        "type": null
+      }
+    },
+    {
+      "n": 4096,
+      "case": "inverse_skew",
+      "returned": 1,
+      "time": "55.460181ms",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "64"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "predicate": "NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec AND NONE = NONE OR out.kind = NONE AND out.closed = true AND 'target' = NONE OR (ProjectValue) != []"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "access": "['p4096'] MoreThan ''",
+                      "direction": "Forward",
+                      "index": "membership_pages"
+                    },
+                    "context": "Db",
+                    "metrics": {
+                      "elapsed_ns": 8324213,
+                      "output_batches": 16,
+                      "output_rows": 4096,
+                      "records_fetched": 0
+                    },
+                    "operator": "IndexScan"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "embedded_operators": [
+                      {
+                        "plan": {
+                          "attributes": {
+                            "expr": "key"
+                          },
+                          "children": [
+                            {
+                              "attributes": {
+                                "limit": "1"
+                              },
+                              "children": [
+                                {
+                                  "attributes": {
+                                    "predicate": "source_version = $parent.version"
+                                  },
+                                  "children": [
+                                    {
+                                      "attributes": {
+                                        "access": "['target', 'rare']",
+                                        "direction": "Forward",
+                                        "index": "edge_target"
+                                      },
+                                      "context": "Db",
+                                      "metrics": {
+                                        "elapsed_ns": 22785005,
+                                        "output_batches": 4096,
+                                        "output_rows": 8192,
+                                        "records_fetched": 0
+                                      },
+                                      "operator": "IndexScan"
+                                    }
+                                  ],
+                                  "context": "Db",
+                                  "expressions": [
+                                    {
+                                      "role": "predicate",
+                                      "sql": "source_version = $parent.version"
+                                    }
+                                  ],
+                                  "metrics": {
+                                    "elapsed_ns": 6093940,
+                                    "output_batches": 1,
+                                    "output_rows": 1,
+                                    "records_fetched": 0
+                                  },
+                                  "operator": "Filter"
+                                }
+                              ],
+                              "context": "Db",
+                              "expressions": [
+                                {
+                                  "role": "limit",
+                                  "sql": "1"
+                                }
+                              ],
+                              "metrics": {
+                                "elapsed_ns": 2417214,
+                                "output_batches": 1,
+                                "output_rows": 1,
+                                "records_fetched": 0
+                              },
+                              "operator": "Limit"
+                            }
+                          ],
+                          "context": "Db",
+                          "expressions": [
+                            {
+                              "role": "expr",
+                              "sql": "key"
+                            }
+                          ],
+                          "metrics": {
+                            "elapsed_ns": 591201,
+                            "output_batches": 1,
+                            "output_rows": 1,
+                            "records_fetched": 0
+                          },
+                          "operator": "ProjectValue"
+                        },
+                        "role": "subquery"
+                      }
+                    ],
+                    "role": "predicate",
+                    "sql": "NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec AND NONE = NONE OR out.kind = NONE AND out.closed = true AND 'target' = NONE OR (ProjectValue) != []"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 13913097,
+                  "output_batches": 1,
+                  "output_rows": 1,
+                  "records_fetched": 0
+                },
+                "operator": "Filter"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "64"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 2881,
+              "output_batches": 1,
+              "output_rows": 1,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 2570,
+          "output_batches": 1,
+          "output_rows": 1,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 1
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 1, batches: 1, elapsed: 2.31\u00b5s}\n    Limit [ctx: Db] [limit: 64] {rows: 1, batches: 1, elapsed: 2.66\u00b5s}\n        Filter [ctx: Db] [predicate: NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec AND NONE = NONE OR out.kind = NONE AND out.closed = true AND 'target' = NONE OR (ProjectValue) != []] {rows: 1, batches: 1, elapsed: 13.88ms}\n          predicate.subquery: ProjectValue [ctx: Db] [expr: key] {rows: 1, batches: 1, elapsed: 600.08\u00b5s}\n              Limit [ctx: Db] [limit: 1] {rows: 1, batches: 1, elapsed: 2.35ms}\n                  Filter [ctx: Db] [predicate: source_version = $parent.version] {rows: 1, batches: 1, elapsed: 6.06ms}\n                      IndexScan [ctx: Db] [index: edge_target, access: ['target', 'rare'], direction: Forward] {rows: 8192, batches: 4096, elapsed: 23.20ms}\n            IndexScan [ctx: Db] [index: membership_pages, access: ['p4096'] MoreThan '', direction: Forward] {rows: 4096, batches: 16, elapsed: 7.33ms}\n\nTotal rows: 1",
+        "status": "OK",
+        "time": "55.496644ms",
+        "type": null
+      }
+    },
+    {
+      "n": 4096,
+      "case": "inverse_negative",
+      "returned": 0,
+      "time": "35.422985ms",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "64"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "predicate": "NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec AND NONE = NONE OR out.kind = NONE AND out.closed = true AND 'target' = NONE OR (ProjectValue) != []"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "access": "['p4096'] MoreThan ''",
+                      "direction": "Forward",
+                      "index": "membership_pages"
+                    },
+                    "context": "Db",
+                    "metrics": {
+                      "elapsed_ns": 7690555,
+                      "output_batches": 16,
+                      "output_rows": 4096,
+                      "records_fetched": 0
+                    },
+                    "operator": "IndexScan"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "embedded_operators": [
+                      {
+                        "plan": {
+                          "attributes": {
+                            "expr": "key"
+                          },
+                          "children": [
+                            {
+                              "attributes": {
+                                "limit": "1"
+                              },
+                              "children": [
+                                {
+                                  "attributes": {
+                                    "predicate": "source_version = $parent.version"
+                                  },
+                                  "children": [
+                                    {
+                                      "attributes": {
+                                        "access": "['target', 'absent']",
+                                        "direction": "Forward",
+                                        "index": "edge_target"
+                                      },
+                                      "context": "Db",
+                                      "metrics": {
+                                        "elapsed_ns": 10271261,
+                                        "output_batches": 0,
+                                        "output_rows": 0,
+                                        "records_fetched": 0
+                                      },
+                                      "operator": "IndexScan"
+                                    }
+                                  ],
+                                  "context": "Db",
+                                  "expressions": [
+                                    {
+                                      "role": "predicate",
+                                      "sql": "source_version = $parent.version"
+                                    }
+                                  ],
+                                  "metrics": {
+                                    "elapsed_ns": 1413749,
+                                    "output_batches": 0,
+                                    "output_rows": 0,
+                                    "records_fetched": 0
+                                  },
+                                  "operator": "Filter"
+                                }
+                              ],
+                              "context": "Db",
+                              "expressions": [
+                                {
+                                  "role": "limit",
+                                  "sql": "1"
+                                }
+                              ],
+                              "metrics": {
+                                "elapsed_ns": 2443976,
+                                "output_batches": 0,
+                                "output_rows": 0,
+                                "records_fetched": 0
+                              },
+                              "operator": "Limit"
+                            }
+                          ],
+                          "context": "Db",
+                          "expressions": [
+                            {
+                              "role": "expr",
+                              "sql": "key"
+                            }
+                          ],
+                          "metrics": {
+                            "elapsed_ns": 610238,
+                            "output_batches": 0,
+                            "output_rows": 0,
+                            "records_fetched": 0
+                          },
+                          "operator": "ProjectValue"
+                        },
+                        "role": "subquery"
+                      }
+                    ],
+                    "role": "predicate",
+                    "sql": "NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec AND NONE = NONE OR out.kind = NONE AND out.closed = true AND 'target' = NONE OR (ProjectValue) != []"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 14101495,
+                  "output_batches": 0,
+                  "output_rows": 0,
+                  "records_fetched": 0
+                },
+                "operator": "Filter"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "64"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 2771,
+              "output_batches": 0,
+              "output_rows": 0,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 1130,
+          "output_batches": 0,
+          "output_rows": 0,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 0
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 0, batches: 0, elapsed: 1.46\u00b5s}\n    Limit [ctx: Db] [limit: 64] {rows: 0, batches: 0, elapsed: 2.06\u00b5s}\n        Filter [ctx: Db] [predicate: NONE = NONE OR scope = NONE AND from_sequence <= 1dec AND to_sequence = NONE OR to_sequence > 1dec AND NONE = NONE OR out.kind = NONE AND out.closed = true AND 'target' = NONE OR (ProjectValue) != []] {rows: 0, batches: 0, elapsed: 13.68ms}\n          predicate.subquery: ProjectValue [ctx: Db] [expr: key] {rows: 0, batches: 0, elapsed: 630.91\u00b5s}\n              Limit [ctx: Db] [limit: 1] {rows: 0, batches: 0, elapsed: 2.19ms}\n                  Filter [ctx: Db] [predicate: source_version = $parent.version] {rows: 0, batches: 0, elapsed: 1.23ms}\n                      IndexScan [ctx: Db] [index: edge_target, access: ['target', 'absent'], direction: Forward] {rows: 0, batches: 0, elapsed: 10.04ms}\n            IndexScan [ctx: Db] [index: membership_pages, access: ['p4096'] MoreThan '', direction: Forward] {rows: 4096, batches: 16, elapsed: 7.13ms}\n\nTotal rows: 0",
+        "status": "OK",
+        "time": "36.250975ms",
+        "type": null
+      }
+    },
+    {
+      "n": 4096,
+      "case": "negative_name",
+      "returned": 0,
+      "time": "388.614\u00b5s",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "1"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "predicate": "to_sequence = NONE OR to_sequence > 1dec"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "access": "['p4096', 'rare', 'absent'] LessThanEqual 1dec",
+                      "direction": "Backward",
+                      "index": "membership_selection"
+                    },
+                    "context": "Db",
+                    "metrics": {
+                      "elapsed_ns": 44322,
+                      "output_batches": 0,
+                      "output_rows": 0,
+                      "records_fetched": 0
+                    },
+                    "operator": "IndexScan"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "role": "predicate",
+                    "sql": "to_sequence = NONE OR to_sequence > 1dec"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 2060,
+                  "output_batches": 0,
+                  "output_rows": 0,
+                  "records_fetched": 0
+                },
+                "operator": "Filter"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "1"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 2650,
+              "output_batches": 0,
+              "output_rows": 0,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 900,
+          "output_batches": 0,
+          "output_rows": 0,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 0
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 0, batches: 0, elapsed: 810ns}\n    Limit [ctx: Db] [limit: 1] {rows: 0, batches: 0, elapsed: 2.76\u00b5s}\n        Filter [ctx: Db] [predicate: to_sequence = NONE OR to_sequence > 1dec] {rows: 0, batches: 0, elapsed: 2.51\u00b5s}\n            IndexScan [ctx: Db] [index: membership_selection, access: ['p4096', 'rare', 'absent'] LessThanEqual 1dec, direction: Backward] {rows: 0, batches: 0, elapsed: 54.51\u00b5s}\n\nTotal rows: 0",
+        "status": "OK",
+        "time": "450.156\u00b5s",
+        "type": null
+      }
+    },
+    {
+      "n": 4096,
+      "case": "product_present",
+      "returned": 1,
+      "time": "7.919477ms",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "1"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "limit": "1",
+                  "sort_keys": "key ASC"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "predicate": "request = b\"746172676574\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "access": "['p4096', 'producer']",
+                          "direction": "Forward",
+                          "index": "product_discovery"
+                        },
+                        "context": "Db",
+                        "metrics": {
+                          "elapsed_ns": 6493935,
+                          "output_batches": 5,
+                          "output_rows": 4096,
+                          "records_fetched": 0
+                        },
+                        "operator": "IndexScan"
+                      }
+                    ],
+                    "context": "Db",
+                    "expressions": [
+                      {
+                        "role": "predicate",
+                        "sql": "request = b\"746172676574\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision"
+                      }
+                    ],
+                    "metrics": {
+                      "elapsed_ns": 915593,
+                      "output_batches": 1,
+                      "output_rows": 1,
+                      "records_fetched": 0
+                    },
+                    "operator": "Filter"
+                  }
+                ],
+                "context": "Db",
+                "metrics": {
+                  "elapsed_ns": 4000,
+                  "output_batches": 1,
+                  "output_rows": 1,
+                  "records_fetched": 0
+                },
+                "operator": "SortTopKByKey"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "1"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 7580,
+              "output_batches": 1,
+              "output_rows": 1,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 2220,
+          "output_batches": 1,
+          "output_rows": 1,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 1
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 1, batches: 1, elapsed: 2.35\u00b5s}\n    Limit [ctx: Db] [limit: 1] {rows: 1, batches: 1, elapsed: 7.73\u00b5s}\n        SortTopKByKey [ctx: Db] [sort_keys: key ASC, limit: 1] {rows: 1, batches: 1, elapsed: 4.13\u00b5s}\n            Filter [ctx: Db] [predicate: request = b\"746172676574\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision] {rows: 1, batches: 1, elapsed: 825.27\u00b5s}\n                IndexScan [ctx: Db] [index: product_discovery, access: ['p4096', 'producer'], direction: Forward] {rows: 4096, batches: 5, elapsed: 6.22ms}\n\nTotal rows: 1",
+        "status": "OK",
+        "time": "7.43468ms",
+        "type": null
+      }
+    },
+    {
+      "n": 4096,
+      "case": "product_absent",
+      "returned": 0,
+      "time": "7.304095ms",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "1"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "limit": "1",
+                  "sort_keys": "key ASC"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "predicate": "request = b\"616273656E74\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "access": "['p4096', 'producer']",
+                          "direction": "Forward",
+                          "index": "product_discovery"
+                        },
+                        "context": "Db",
+                        "metrics": {
+                          "elapsed_ns": 6197045,
+                          "output_batches": 5,
+                          "output_rows": 4096,
+                          "records_fetched": 0
+                        },
+                        "operator": "IndexScan"
+                      }
+                    ],
+                    "context": "Db",
+                    "expressions": [
+                      {
+                        "role": "predicate",
+                        "sql": "request = b\"616273656E74\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision"
+                      }
+                    ],
+                    "metrics": {
+                      "elapsed_ns": 758258,
+                      "output_batches": 0,
+                      "output_rows": 0,
+                      "records_fetched": 0
+                    },
+                    "operator": "Filter"
+                  }
+                ],
+                "context": "Db",
+                "metrics": {
+                  "elapsed_ns": 3310,
+                  "output_batches": 0,
+                  "output_rows": 0,
+                  "records_fetched": 0
+                },
+                "operator": "SortTopKByKey"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "1"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 6830,
+              "output_batches": 0,
+              "output_rows": 0,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 1120,
+          "output_batches": 0,
+          "output_rows": 0,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 0
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 0, batches: 0, elapsed: 920ns}\n    Limit [ctx: Db] [limit: 1] {rows: 0, batches: 0, elapsed: 5.18\u00b5s}\n        SortTopKByKey [ctx: Db] [sort_keys: key ASC, limit: 1] {rows: 0, batches: 0, elapsed: 2.27\u00b5s}\n            Filter [ctx: Db] [predicate: request = b\"616273656E74\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision] {rows: 0, batches: 0, elapsed: 755.05\u00b5s}\n                IndexScan [ctx: Db] [index: product_discovery, access: ['p4096', 'producer'], direction: Forward] {rows: 4096, batches: 5, elapsed: 5.98ms}\n\nTotal rows: 0",
+        "status": "OK",
+        "time": "7.097308ms",
+        "type": null
+      }
+    },
+    {
+      "n": 256,
+      "case": "product_present_index_request_key",
+      "returned": 1,
+      "time": "1.035718ms",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "1"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "limit": "1",
+                  "sort_keys": "key ASC"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "predicate": "request = b\"746172676574\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "access": "['p256', 'producer']",
+                          "direction": "Forward",
+                          "index": "product_discovery"
+                        },
+                        "context": "Db",
+                        "metrics": {
+                          "elapsed_ns": 443386,
+                          "output_batches": 1,
+                          "output_rows": 256,
+                          "records_fetched": 0
+                        },
+                        "operator": "IndexScan"
+                      }
+                    ],
+                    "context": "Db",
+                    "expressions": [
+                      {
+                        "role": "predicate",
+                        "sql": "request = b\"746172676574\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision"
+                      }
+                    ],
+                    "metrics": {
+                      "elapsed_ns": 145875,
+                      "output_batches": 1,
+                      "output_rows": 1,
+                      "records_fetched": 0
+                    },
+                    "operator": "Filter"
+                  }
+                ],
+                "context": "Db",
+                "metrics": {
+                  "elapsed_ns": 4180,
+                  "output_batches": 1,
+                  "output_rows": 1,
+                  "records_fetched": 0
+                },
+                "operator": "SortTopKByKey"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "1"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 7351,
+              "output_batches": 1,
+              "output_rows": 1,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 1920,
+          "output_batches": 1,
+          "output_rows": 1,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 1
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 1, batches: 1, elapsed: 2.19\u00b5s}\n    Limit [ctx: Db] [limit: 1] {rows: 1, batches: 1, elapsed: 6.94\u00b5s}\n        SortTopKByKey [ctx: Db] [sort_keys: key ASC, limit: 1] {rows: 1, batches: 1, elapsed: 4.09\u00b5s}\n            Filter [ctx: Db] [predicate: request = b\"746172676574\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision] {rows: 1, batches: 1, elapsed: 167.26\u00b5s}\n                IndexScan [ctx: Db] [index: product_discovery, access: ['p256', 'producer'], direction: Forward] {rows: 256, batches: 1, elapsed: 744.17\u00b5s}\n\nTotal rows: 1",
+        "status": "OK",
+        "time": "1.312697ms",
+        "type": null
+      }
+    },
+    {
+      "n": 256,
+      "case": "product_absent_index_request_key",
+      "returned": 0,
+      "time": "907.193\u00b5s",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "1"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "limit": "1",
+                  "sort_keys": "key ASC"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "predicate": "request = b\"616273656E74\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "access": "['p256', 'producer']",
+                          "direction": "Forward",
+                          "index": "product_discovery"
+                        },
+                        "context": "Db",
+                        "metrics": {
+                          "elapsed_ns": 440046,
+                          "output_batches": 1,
+                          "output_rows": 256,
+                          "records_fetched": 0
+                        },
+                        "operator": "IndexScan"
+                      }
+                    ],
+                    "context": "Db",
+                    "expressions": [
+                      {
+                        "role": "predicate",
+                        "sql": "request = b\"616273656E74\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision"
+                      }
+                    ],
+                    "metrics": {
+                      "elapsed_ns": 57512,
+                      "output_batches": 0,
+                      "output_rows": 0,
+                      "records_fetched": 0
+                    },
+                    "operator": "Filter"
+                  }
+                ],
+                "context": "Db",
+                "metrics": {
+                  "elapsed_ns": 2420,
+                  "output_batches": 0,
+                  "output_rows": 0,
+                  "records_fetched": 0
+                },
+                "operator": "SortTopKByKey"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "1"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 5230,
+              "output_batches": 0,
+              "output_rows": 0,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 820,
+          "output_batches": 0,
+          "output_rows": 0,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 0
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 0, batches: 0, elapsed: 790ns}\n    Limit [ctx: Db] [limit: 1] {rows: 0, batches: 0, elapsed: 4.71\u00b5s}\n        SortTopKByKey [ctx: Db] [sort_keys: key ASC, limit: 1] {rows: 0, batches: 0, elapsed: 2.26\u00b5s}\n            Filter [ctx: Db] [predicate: request = b\"616273656E74\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision] {rows: 0, batches: 0, elapsed: 57.12\u00b5s}\n                IndexScan [ctx: Db] [index: product_discovery, access: ['p256', 'producer'], direction: Forward] {rows: 256, batches: 1, elapsed: 444.49\u00b5s}\n\nTotal rows: 0",
+        "status": "OK",
+        "time": "844.851\u00b5s",
+        "type": null
+      }
+    },
+    {
+      "n": 4096,
+      "case": "product_present_index_request_key",
+      "returned": 1,
+      "time": "7.469621ms",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "1"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "limit": "1",
+                  "sort_keys": "key ASC"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "predicate": "request = b\"746172676574\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "access": "['p4096', 'producer']",
+                          "direction": "Forward",
+                          "index": "product_discovery"
+                        },
+                        "context": "Db",
+                        "metrics": {
+                          "elapsed_ns": 6154563,
+                          "output_batches": 5,
+                          "output_rows": 4096,
+                          "records_fetched": 0
+                        },
+                        "operator": "IndexScan"
+                      }
+                    ],
+                    "context": "Db",
+                    "expressions": [
+                      {
+                        "role": "predicate",
+                        "sql": "request = b\"746172676574\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision"
+                      }
+                    ],
+                    "metrics": {
+                      "elapsed_ns": 809560,
+                      "output_batches": 1,
+                      "output_rows": 1,
+                      "records_fetched": 0
+                    },
+                    "operator": "Filter"
+                  }
+                ],
+                "context": "Db",
+                "metrics": {
+                  "elapsed_ns": 3900,
+                  "output_batches": 1,
+                  "output_rows": 1,
+                  "records_fetched": 0
+                },
+                "operator": "SortTopKByKey"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "1"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 7570,
+              "output_batches": 1,
+              "output_rows": 1,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 2280,
+          "output_batches": 1,
+          "output_rows": 1,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 1
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 1, batches: 1, elapsed: 2.33\u00b5s}\n    Limit [ctx: Db] [limit: 1] {rows: 1, batches: 1, elapsed: 6.66\u00b5s}\n        SortTopKByKey [ctx: Db] [sort_keys: key ASC, limit: 1] {rows: 1, batches: 1, elapsed: 3.81\u00b5s}\n            Filter [ctx: Db] [predicate: request = b\"746172676574\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision] {rows: 1, batches: 1, elapsed: 799.19\u00b5s}\n                IndexScan [ctx: Db] [index: product_discovery, access: ['p4096', 'producer'], direction: Forward] {rows: 4096, batches: 5, elapsed: 5.61ms}\n\nTotal rows: 1",
+        "status": "OK",
+        "time": "6.774636ms",
+        "type": null
+      }
+    },
+    {
+      "n": 4096,
+      "case": "product_absent_index_request_key",
+      "returned": 0,
+      "time": "7.089597ms",
+      "full": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "1"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "limit": "1",
+                  "sort_keys": "key ASC"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "predicate": "request = b\"616273656E74\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "access": "['p4096', 'producer']",
+                          "direction": "Forward",
+                          "index": "product_discovery"
+                        },
+                        "context": "Db",
+                        "metrics": {
+                          "elapsed_ns": 6065290,
+                          "output_batches": 5,
+                          "output_rows": 4096,
+                          "records_fetched": 0
+                        },
+                        "operator": "IndexScan"
+                      }
+                    ],
+                    "context": "Db",
+                    "expressions": [
+                      {
+                        "role": "predicate",
+                        "sql": "request = b\"616273656E74\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision"
+                      }
+                    ],
+                    "metrics": {
+                      "elapsed_ns": 924794,
+                      "output_batches": 0,
+                      "output_rows": 0,
+                      "records_fetched": 0
+                    },
+                    "operator": "Filter"
+                  }
+                ],
+                "context": "Db",
+                "metrics": {
+                  "elapsed_ns": 3140,
+                  "output_batches": 0,
+                  "output_rows": 0,
+                  "records_fetched": 0
+                },
+                "operator": "SortTopKByKey"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "1"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 6210,
+              "output_batches": 0,
+              "output_rows": 0,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 820,
+          "output_batches": 0,
+          "output_rows": 0,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 0
+      },
+      "analyze": {
+        "result": "SelectProject [ctx: Db] [projections: *] {rows: 0, batches: 0, elapsed: 1.15\u00b5s}\n    Limit [ctx: Db] [limit: 1] {rows: 0, batches: 0, elapsed: 5.05\u00b5s}\n        SortTopKByKey [ctx: Db] [sort_keys: key ASC, limit: 1] {rows: 0, batches: 0, elapsed: 2.46\u00b5s}\n            Filter [ctx: Db] [predicate: request = b\"616273656E74\" AND key > '' AND interpretation = 'fixture' AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision] {rows: 0, batches: 0, elapsed: 748.76\u00b5s}\n                IndexScan [ctx: Db] [index: product_discovery, access: ['p4096', 'producer'], direction: Forward] {rows: 4096, batches: 5, elapsed: 5.65ms}\n\nTotal rows: 0",
+        "status": "OK",
+        "time": "6.781436ms",
+        "type": null
+      }
+    }
+  ],
+  "complete": true,
+  "cleanup": "removed"
+}

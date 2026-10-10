@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import math
 import shutil
+import sys
 import traceback
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -29,7 +30,7 @@ SOURCE = """package recovery { def LengthBalance {
     annotation check x(x>1{m});
 } }"""
 PRIMITIVES = (
-    'dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", '
+    'dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", '
     'version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]'
 )
 
@@ -80,11 +81,9 @@ def result_snapshot(
 ) -> dict[str, str]:
     """Retain complete current typed rows, including exact float and binary bits.
 
-    Combining chunks removes transport paging as a comparison input. IPC retains
-    the complete schema and values without JSON's float or binary conversions.
+    IPC retains the complete schema and values without JSON's float or binary
+    conversions. Comparison normalizes transport chunks and metadata map order.
     """
-    import pyarrow as pa  # noqa: PLC0415
-
     snapshot: dict[str, str] = {}
     (header,) = manifest.to_pylist()
     snapshot["manifest_digest"] = header["digest"]
@@ -93,19 +92,44 @@ def result_snapshot(
         ("solve_variables", variables),
         ("modeling_checks", checks),
     ):
-        combined = table.combine_chunks()
-        sink = pa.BufferOutputStream()
-        with pa.ipc.new_stream(sink, combined.schema) as writer:
-            writer.write_table(combined)
-        snapshot[name] = sink.getvalue().to_pybytes().hex()
+        snapshot[name] = _table_ipc(table, table.schema).hex()
     return snapshot
 
 
+def _table_ipc(table: pa.Table, schema: pa.Schema) -> bytes:
+    import pyarrow as pa  # noqa: PLC0415
+
+    sink = pa.BufferOutputStream()
+    with pa.ipc.new_stream(sink, schema) as writer:
+        writer.write_table(table.combine_chunks())
+    return sink.getvalue().to_pybytes()
+
+
 def check_retained_snapshot(saved: object, current: dict[str, str]) -> None:
-    if saved != current:
-        raise RuntimeError(
-            "Acknowledged scientific manifest or retained result contents changed"
-        )
+    import pyarrow as pa  # noqa: PLC0415
+
+    failure = "Acknowledged scientific manifest or retained result contents changed"
+    if (
+        not isinstance(saved, dict)
+        or saved.keys() != current.keys()
+        or saved.get("manifest_digest") != current["manifest_digest"]
+    ):
+        raise RuntimeError(failure)
+    for name in ("manifest", "solve_variables", "modeling_checks"):
+        previous = saved.get(name)
+        if not isinstance(previous, str):
+            raise TypeError(failure)
+        original = pa.ipc.open_stream(bytes.fromhex(previous)).read_all()
+        observed = pa.ipc.open_stream(bytes.fromhex(current[name])).read_all()
+        # Arrow compares metadata maps by content, including nested fields. Only
+        # after that full schema check may both encodings use the same schema.
+        # This preserves exact float/binary bits without treating metadata map
+        # insertion order or transport chunking as scientific changes.
+        if not original.schema.equals(observed.schema, check_metadata=True) or (
+            _table_ipc(original, original.schema)
+            != _table_ipc(observed, original.schema)
+        ):
+            raise RuntimeError(failure)
 
 
 def run(state: Path, inputs: Path, receipt: Path, phase: str) -> None:
@@ -147,6 +171,7 @@ def run(state: Path, inputs: Path, receipt: Path, phase: str) -> None:
             settings, substrate=str(state), database=str(config["database"])
         )
     runtime = pse.Runtime(settings, substrate=str(state))
+    physical = package = result = variable_table = check_table = None
     try:
         physical = runtime.physical_from_documents(documents(inputs / "physical"))
         if phase in {"seed", "rebuild"}:
@@ -254,7 +279,22 @@ def run(state: Path, inputs: Path, receipt: Path, phase: str) -> None:
             )
         print("scientific public-API " + phase + " passed", flush=True)
     finally:
-        runtime.close()
+        primary_error = sys.exception()
+        # Depart actual local borrowers before evicting optional source/program
+        # owners. A partially constructed journey follows the same drain path.
+        variable_table = check_table = None
+        result = None
+        package = None
+        physical = None
+        try:
+            runtime.clear_program_cache()
+            runtime.close()
+        except BaseException as cleanup_error:
+            if primary_error is None:
+                raise
+            primary_error.add_note(
+                f"Scientific recovery cleanup also failed: {cleanup_error}"
+            )
 
 
 def main() -> None:

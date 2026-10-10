@@ -146,7 +146,7 @@ impl RunResult {
 
                 if projection.wants(solve_strategy_events::RELATION_ID) {
                     collection
-                        .strategy_events(trace, self.run_id, ordinal)
+                        .strategy_events(trace, self.run_id, ordinal, self.runtime.shared.math())
                         .await?;
                 }
             }

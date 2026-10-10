@@ -34,6 +34,10 @@ class CanonicalFixture:
         return runtime
 
     def drain(self) -> None:
+        # Optional caches may retain another borrower's source protection. Evict
+        # all of them before disconnecting; live external aliases still refuse.
+        for runtime in self.borrowers:
+            runtime.clear_program_cache()
         for runtime in self.borrowers:
             runtime.close()
         self.borrowers.clear()

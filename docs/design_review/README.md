@@ -15,6 +15,17 @@ findings have one disposition owner in the relevant plan. A review stays here wh
 or a pending decision depends on it and then retires to Git history (ADR-0096); retained ADRs
 cite retired reviews as `git:<commit>:<path>`.
 
+The [unified state-management and persistence review](reviews/design_review_unified-state-management-and-persistence_2026-10-10.md)
+assesses active memory, caches, identification, canonical SurrealDB operations and host/native
+lifecycles together, including the recent campaign failures. Its Revise verdict identifies
+nine findings and distinguishes source-backed defects, test-oracle mismatches and unresolved
+causes. [Plan 34](../plans/34-unified-state-management-and-persistence.md) owns the integrated
+target, resolved finding dispositions, investigation decisions and affected qualification independently of Plan 28;
+its [Outcome](../plans/34-unified-state-management-and-persistence.md#outcome-recorded-after-implementation)
+records corrections, actual acceptance and exclusions. The review retains its original observation scope.
+[Plan 28e](../plans/28e-rebuild-retirement-and-qualification.md) retains the existing campaign's
+qualification status.
+
 The [codebase efficiency-principles review](reviews/design_review_efficiency-principles-codebase_2026-10-09.md)
 assesses build/test turnaround and simulator runtime against all seven architectural
 foundations, with particular attention to execution fit. It distinguishes concrete work
@@ -25,8 +36,9 @@ document the inspected baseline and evidence limits.
 [Plan 33](../plans/33-efficiency-principles-remediation.md) now independently owns the
 adopted findings, six investigation avenues and affected qualification. Its confirmed
 design-phase directions replace the review's proposed preservation of retired analysis
-lineage and obsolete internal history. Remedies remain Proposed; plan authoring does not
-implement them or resume the cancelled feature matrix.
+lineage and obsolete internal history. Its completed
+[Outcome](../plans/33-efficiency-principles-remediation.md#outcome-recorded-after-implementation)
+owns implemented remedies, affected acceptance and exclusions; the review retains its original scope.
 
 The [workspace content-lifecycle review](reviews/design_review_workspace-content-lifecycle_2026-10-09.md)
 assesses document relevance, publication, agent discovery and repo-linked storage.

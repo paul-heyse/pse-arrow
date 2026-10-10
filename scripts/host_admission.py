@@ -654,7 +654,83 @@ def group_identity(group: str) -> int | None:
         return None
 
 
-def drained(record: Mapping[str, object]) -> bool:
+def service_processes_drained(
+    record: Mapping[str, object], allocation: Path | None
+) -> bool:
+    """Do not reclaim an affiliated storage process merely because its cgroup emptied."""
+    from scripts import surreal_server  # noqa: PLC0415 -- reciprocal ownership
+
+    raw_services = record.get("borrowed_services", [])
+    units = record.get("units")
+    if (
+        not isinstance(raw_services, list)
+        or any(not isinstance(value, str) for value in raw_services)
+        or not isinstance(units, dict)
+    ):
+        return False
+    services = list(cast("list[str]", raw_services))
+    if record.get("service"):
+        if not isinstance(record["service"], str):
+            return False
+        services.append(record["service"])
+    for selected in services:
+        state = Path(selected)
+        unit = surreal_server.unit_name(state)
+        if unit not in units:
+            continue  # A caller observing another role did not select this storage unit.
+        if allocation is None:
+            return False
+        launch = None
+        try:
+            launch = json.loads((state / "service-launch.json").read_text())
+            affiliation = launch["allocation"]
+            if not isinstance(affiliation, str) or not re.fullmatch(
+                r"[a-f0-9]{32}", Path(affiliation).name
+            ):
+                return False
+            if Path(affiliation).absolute() != allocation.absolute():
+                continue  # A stale service descriptor belongs to a different owner.
+            process = json.loads((state / "server-process.json").read_text())
+            generation = launch["generation"]
+            if (
+                not isinstance(generation, str)
+                or not generation
+                or process["allocation"] != affiliation
+                or process["instance_id"] != generation
+                or not isinstance(process["start"], str)
+                or not process["start"]
+            ):
+                return False
+            pid = integer(process["pid"])
+            if pid <= 0:
+                return False
+            try:
+                if operation.start_identity(pid) == process["start"]:
+                    return False
+            except FileNotFoundError:
+                pass
+        except FileNotFoundError:
+            # Registration precedes the launch. An unbound, nonexistent unit
+            # with no recorded child has no admitted storage process to retain.
+            if units[unit] or (launch is not None and "binding" in launch):
+                return False
+            try:
+                (state / "server-process.json").read_text()
+            except FileNotFoundError:
+                try:
+                    if operation.unit_observation(unit).get("LoadState") == "not-found":
+                        continue
+                except (OSError, ValueError, subprocess.SubprocessError):
+                    pass
+            except OSError:
+                pass
+            return False
+        except (OSError, ValueError, TypeError, KeyError):
+            return False
+    return True
+
+
+def drained(record: Mapping[str, object], *, allocation: Path | None = None) -> bool:
     generation = record.get("boot")
     if not isinstance(generation, str) or not re.fullmatch(
         r"[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}", generation
@@ -664,6 +740,10 @@ def drained(record: Mapping[str, object]) -> bool:
         return True  # No kernel lifetime survives a verified boot generation change.
     units = record.get("units")
     if not isinstance(units, dict):
+        return False
+    if (
+        record.get("service") or record.get("borrowed_services")
+    ) and not service_processes_drained(record, allocation):
         return False
     for unit, owner in units.items():
         if not isinstance(owner, dict):
@@ -707,7 +787,11 @@ def drained(record: Mapping[str, object]) -> bool:
 
 
 def drain_borrowed_services(
-    directory: Path, record: Mapping[str, object], *, explicit: bool = False
+    directory: Path,
+    record: Mapping[str, object],
+    *,
+    allocation: Path,
+    explicit: bool = False,
 ) -> None:
     """An exclusive caller returns borrowed storage after all other roles drain."""
     raw_services = record.get("borrowed_services", [])
@@ -739,8 +823,58 @@ def drain_borrowed_services(
     for value in services:
         state = Path(value)
         with surreal_server.lifecycle_reservation(state):
+            launch = json.loads((state / "service-launch.json").read_text())
+            affiliation = launch["allocation"]
+            if not isinstance(affiliation, str) or not re.fullmatch(
+                r"[a-f0-9]{32}", Path(affiliation).name
+            ):
+                raise AdmissionError("Borrowed storage allocation is unobservable")
+            if Path(affiliation).absolute() != allocation.absolute():
+                continue  # A newer allocation owns this service; the snapshot cannot act on it.
+            unit = surreal_server.unit_name(state)
+            expected = bound_units.get(unit)
+            observed = operation.unit_observation(unit)
+            if (
+                not expected
+                and "binding" not in launch
+                and observed.get("LoadState") == "not-found"
+            ):
+                continue  # No storage lifetime was ever bound for this launch.
+            if (
+                not isinstance(expected, dict)
+                or type(expected.get("inode")) is not int
+                or not isinstance(expected.get("group"), str)
+                or not expected.get("group")
+                or not re.fullmatch(r"[a-f0-9]{32}", expected.get("invocation", ""))
+                or launch.get("binding") != expected
+            ):
+                raise AdmissionError("Borrowed storage binding changed")
             config = surreal_server.config_for(state)
-            observed = operation.unit_observation(surreal_server.unit_name(state))
+            if config.get("instance_id") != launch.get("generation"):
+                raise AdmissionError("Borrowed storage generation changed")
+            if observed.get("LoadState") != "not-found":
+                stopped = observed.get("ActiveState") in {"inactive", "failed"}
+                identity = group_identity(expected["group"])
+                if (
+                    observed.get("ControlGroup")
+                    not in ({"", expected["group"]} if stopped else {expected["group"]})
+                    or observed.get("InvocationID")
+                    not in (
+                        {"", expected["invocation"]}
+                        if stopped
+                        else {expected["invocation"]}
+                    )
+                    or (
+                        not stopped
+                        and observed.get("ActiveState")
+                        not in {"active", "activating", "deactivating"}
+                    )
+                    or identity
+                    not in (
+                        {None, expected["inode"]} if stopped else {expected["inode"]}
+                    )
+                ):
+                    raise AdmissionError("Borrowed storage lifetime changed")
             # Residency permits borrowing a running service; it does not reverse
             # an intentional stop or a failed service on allocation release.
             if not config.get("resident") or observed.get("ActiveState") != "active":
@@ -748,7 +882,7 @@ def drain_borrowed_services(
                 surreal_server.stop(state, config)
             else:
                 try:
-                    surreal_server.park_service(state)
+                    surreal_server.park_service(state, expected_binding=expected)
                 finally:
                     queue_parked_service(directory, state)
 
@@ -773,24 +907,26 @@ def withdraw_parked_service(state: Path, *, directory: Path | None = None) -> No
         ledger["parked_services"] = [item for item in parked if item != selected]
 
 
-def reconcile(directory: Path, deadline: float | None = None) -> None:
+def reconcile(
+    directory: Path, deadline: float | None = None, *, resume_parked: bool = True
+) -> None:
     with allocation_metadata(directory) as state:
         snapshot = dict(state["owners"])
-    for item in snapshot.values():
+    for nonce, item in snapshot.items():
         if (
             isinstance(item, dict)
             and item.get("borrowed_services")
             and not caller_alive(item)
         ):
             try:
-                drain_borrowed_services(directory, item)
+                drain_borrowed_services(directory, item, allocation=directory / nonce)
             except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
                 # The living service/receiver still owns capacity, even without caller.
                 continue
     finished = {
         nonce: item
         for nonce, item in snapshot.items()
-        if isinstance(item, dict) and drained(item)
+        if isinstance(item, dict) and drained(item, allocation=directory / nonce)
     }
     with allocation_metadata(directory) as state:
         owners = state["owners"]
@@ -798,7 +934,11 @@ def reconcile(directory: Path, deadline: float | None = None) -> None:
             if owners.get(nonce) == item:
                 del owners[nonce]
         exclusive_live = any(owner["exclusive"] for owner in owners.values())
-        parked = list(state.get("parked_services", [])) if not exclusive_live else []
+        parked = (
+            list(state.get("parked_services", []))
+            if resume_parked and not exclusive_live
+            else []
+        )
         if parked:
             state["parked_services"] = []
     if parked:
@@ -898,12 +1038,14 @@ class Allocation:
             owner = state["owners"].get(self.nonce)
         if not isinstance(owner, dict):
             return True
-        drain_borrowed_services(self.directory, owner, explicit=True)
+        drain_borrowed_services(
+            self.directory, owner, allocation=self.directory / self.nonce, explicit=True
+        )
         # Explicit owner release only relaxes caller liveness; actual units stay charged.
         snapshot = cast("AllocationRecord", dict(owner))
         snapshot["pid"] = -1
         snapshot["start"] = "released"
-        if not drained(snapshot):
+        if not drained(snapshot, allocation=self.directory / self.nonce):
             with allocation_metadata(self.directory) as state:
                 if state["owners"].get(self.nonce) == owner:
                     state["owners"][self.nonce]["released"] = True
@@ -1166,7 +1308,9 @@ def acquire(
     )
     reason = "capacity"
     while time.monotonic() < deadline:
-        reconcile(directory, deadline)
+        # Reclaim ended owners without spending this request's original clock on
+        # unrelated service startup. Selected store demand owns its own resume.
+        reconcile(directory, deadline, resume_parked=False)
         if time.monotonic() >= deadline:
             break
         if (
@@ -1254,7 +1398,7 @@ def acquire(
                                     # as parking. Preserve partial-stop recovery,
                                     # but a stale stopped premise queues nothing.
                                     queue_parked_service(directory, path)
-                        reconcile(directory, deadline)
+                        reconcile(directory, deadline, resume_parked=False)
                         require_admission_time(
                             deadline,
                             "Original admission clock expired during service parking",

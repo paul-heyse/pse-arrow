@@ -364,7 +364,7 @@ def require_store(env: Mapping[str, str]) -> None:
         ):
             raise BoundaryError("Selected canonical service is not admitted")
         return  # Demand readiness inside the registered actual allocation.
-    if config.get("parked") and owner.profile.exclusive:
+    if config.get("parked"):
         surreal_server.unpark_service(state)
         config = surreal_server.config_for(state)
     if config.get("admission") == "open" and not surreal_server.ready(state, config):

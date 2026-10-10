@@ -1029,16 +1029,16 @@ impl Trace {
             }))
     }
     /// Project ordered events without reconstructing numerical decisions from metrics.
-    pub fn rows(
-        &self,
+    pub fn rows<'a>(
+        &'a self,
         run_id: pse_model::generated::identities::RunId,
         step: usize,
-        pool: Arc<dyn pse_columnar::MemoryPool>,
+        service: &'a super::MathService,
         range: std::ops::Range<usize>,
     ) -> Result<
         impl Iterator<
             Item = Result<pse_model::generated::runtime::solve_strategy_events::Row, ProblemError>,
-        > + '_,
+        > + 'a,
         ProblemError,
     > {
         use pse_model::generated::runtime::solve_strategy_events::Row;
@@ -1062,7 +1062,7 @@ impl Trace {
         };
         // The iterator retains the current DTO's copy admission until the consumer has
         // published it and requests another row (or drops this request).
-        let mut working: Option<pse_columnar::MemoryReservation> = None;
+        let mut working: Option<Arc<pse_columnar::AllocationLease>> = None;
         Ok(self.events
             .iter()
             .enumerate()
@@ -1088,8 +1088,8 @@ impl Trace {
                     (path_scalars, 8), (event.cause.as_ref().map_or(0, |cause| cause.retained_bytes()), 4),
                 ];
                 let bytes = parts.iter().try_fold(0usize, |total, (count, width)| count.checked_mul(*width).and_then(|bytes| total.checked_add(bytes))).ok_or_else(|| limit("strategy event copy extent"))?;
-                let copy = pse_columnar::MemoryConsumer::new("result:strategy-event-copy").register(&pool);
-                copy.try_grow(bytes).map_err(|e| ProblemError::memory(e.to_string()))?;
+                let copy = service.reserve("result:strategy-event-copy", bytes)
+                    .map_err(super::MathRuntimeError::into_problem)?;
                 working = Some(copy);
                 Ok(Row {
                     run_id,
