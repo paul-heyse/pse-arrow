@@ -46,11 +46,11 @@ owning declarations, never independently maintained magic constants in each cons
 
 Retain the existing initial limits: a self-contained scientific IPC block is at most
 512 KiB, execution metadata uses the existing 128 KiB allowance, and the selected transport
-profile initially caps gRPC messages at 4 MiB. The prospective native WS wire budget and
+profile caps WebSocket messages at 4 MiB. The implemented native WS wire budget and
 completed-response bounds are owned by [30a](30a-native-websocket-rpc-and-operation-lifetimes.md#bounded-realization-and-completed-reads);
-protobuf accounting is not a proof of native-frame extent. T/D consumers migrate with
-that adapter, retaining IPC/metadata declarations and exact effect units rather than
-introducing another transport policy. Existing encoded-bound receipts remain gRPC evidence.
+protobuf accounting is not a proof of native-frame extent. T/D consumers use that adapter,
+retaining IPC/metadata declarations and exact effect units rather than introducing another
+transport policy. Historical protobuf receipts retain their original scope.
 Apply the metadata allowance to each append's derived
 index/descriptor envelope. Account for complete encoded request overhead and decoded/live
 extent independently. A caller may request a lower admitted extent; exceeding the generated
@@ -260,6 +260,13 @@ no new telemetry framework or fixed RPC quota is required. Exact original transp
 do not impose bit-identical independently solved scientific outcomes.
 
 ## Checkpoint
+
+Current execution handoff, 2026-10-10: implemented source mechanisms and scoped controls
+below retain their limits. The maintainer authorized remaining Plan 28 including full E3/E4/E5;
+[28e's checkpoint](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
+supersedes older readiness/pause instructions. N4/T5/L4 source reconciliation is implemented;
+composed acceptance remains open. Next complete bounded campaign preparation and actual consumer
+qualification, rather than reopening implemented mechanisms. Plan 33 is complete and separate.
 
 A4 attributed the observed conflict to same-owner staging and selected pacing of the
 single bounded staging RPC, retaining native global guards and exact stage/readback identity.

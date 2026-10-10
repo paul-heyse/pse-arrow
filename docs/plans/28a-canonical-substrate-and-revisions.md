@@ -35,19 +35,19 @@ scientific artifacts regenerated against the target.
 
 ## Server profile and acknowledgment contract
 
-The initial implemented profile uses a supervised local SurrealDB server with **RocksDB**,
-authenticated loopback gRPC and a thin Rust SDK using explicit `protocol-grpc`. The 3.3 API/source profile is the reviewed
-starting point; exact declarations and committed lockfiles record the implemented pair under
+The current implemented profile uses a supervised local SurrealDB server with **RocksDB**,
+authenticated loopback native WebSocket RPC and the `pse.substrate.v3` interpretation.
+Exact declarations and committed lockfiles record the implemented pair under
 the [dependency policy](../dev/dependency-policy.md). Holds retain their specific revisit
 rationale. Qualify the actually selected pair and record it in the eventual Outcome; this
 parallel extension does not require a dependency or server upgrade.
 
-The prospective replacement is owned by [30a](30a-native-websocket-rpc-and-operation-lifetimes.md)
+The completed transport correction is owned by [30a](30a-native-websocket-rpc-and-operation-lifetimes.md)
 and [30b](30b-persistent-services-and-receiver-generations.md), following the
 [confirmed Plan 30 rules](30-websocket-and-persistent-agent-environment.md#confirmed-rule-changes).
-Native WS must preserve exact codecs, complete statements, original operation clocks,
+Native WS preserves exact codecs, complete statements, original operation clocks,
 guarded publication and uncertain-acknowledgment settlement. Its bounded buffering and
-completed-page contract replace the gRPC-specific target after working controls; the
+completed-page contract replace the original gRPC-specific target; the
 gRPC observations below retain their original scope. A's canonical semantic owners
 are not duplicated in the transport adapter.
 
@@ -65,12 +65,11 @@ use the same typed operation boundary; local supervision is the required initial
 profile. Network deployment requires its own TLS/authorization configuration and qualification,
 not an assumption that the loopback profile proves it.
 
-Keep explicit initial 4 MiB server/client gRPC message limits and size write batches/result
-blocks below the encoded limit, including metadata. A sequence of rows can stream while an
-individual block still exceeds the limit. SDK `stream_items` forwards true server-produced
-rows on the gRPC route; statement-end failure makes a preceding prefix provisional. D2 owns
-the Arrow/query consequence. See [Rust connection documentation](https://surrealdb.com/docs/reference/rust/methods/connect)
-and the [reviewed source limits](../design_review/evidence/surrealdb-unified-substrate-2026-10-05/integrated-capabilities.md).
+Keep the selected 4 MiB WebSocket message limit and generated native-frame preflight bounds.
+Size requests and completed response pages, including metadata, below their admitted limits;
+decoded/live memory has its separate owner. D2 consumes completed bounded pages rather than
+provisional SDK row streaming. Historical protobuf/streaming observations do not qualify
+native-frame extent; the completed Plan 30 route owns that correction.
 
 The local application supervisor owns a finite managed worker group and partitions its
 configured resource envelope between the server and native worker processes; C3 consumes
@@ -272,11 +271,11 @@ Retain the distinct recovery units. Protected decisions retry their whole transa
 typed conflict. Product/source admission settles the exact immutable operation acknowledgment
 before replay. Staging's connection/internal-error replay is justified by its own immutable
 request and fresh generation fences, not a universal rollback assumption. Preserve statement-level
-error inspection and complete gRPC statement termination.
+error inspection and complete native WebSocket statement termination.
 
 | Package | Prerequisite and delivered behavior | Migration, deletion and targeted acceptance | Status |
 |---|---|---|---|
-| A4 — Parallel protection/publication decision | Confirmed RC01; existing A1–A3 guards and actual failed route. Attribute decisive operation/retry scope, select the smallest safe correction, route changed contract, implement the canonical slice consumed by B6/T7. | Migrate all writers/readers of changed guards together; delete replaced guard/query paths after callers and controls move. Exercise sixteen complete cases with original checks/order; race acquire/read/release/expiry, admission/root retirement and reclaim, absent/set edits, shared versions and exact lost-ack settlement. Reader-only stress or increased retries is insufficient. | Scheduled; attribution and selected mechanism remain unresolved. |
+| A4 — Parallel protection/publication decision | Confirmed RC01; existing A1–A3 guards and actual failed route. Attribute decisive operation/retry scope, select the smallest safe correction, route changed contract, implement the canonical slice consumed by B6/T7. | Migrate all writers/readers of changed guards together; delete replaced guard/query paths after callers and controls move. Exercise sixteen complete cases with original checks/order; race acquire/read/release/expiry, admission/root retirement and reclaim, absent/set edits, shared versions and exact lost-ack settlement. Reader-only stress or increased retries is insufficient. | Implemented; attribution/pacing and scoped controls complete; composed E3 pending. |
 
 ## Preparation description admission
 
@@ -304,9 +303,9 @@ are needed, their owning generator and regeneration are part of that implementat
 
 | Package | Prerequisite and delivered behavior | Consumer migration and deletion | Status |
 |---|---|---|---|
-| A1 — Supervised remote substrate | R0 decision route. Repurpose `pse-operations`, add recipe-owned RocksDB/gRPC profile, typed operations, restart/ack recovery and bounded supervision. | Move runtime store construction/test fixtures to the target. Remove displaced PG connection/pool setup as the affected operations move; retain no fallback constructor. | Implemented; final verification in progress |
-| A2 — Declarations, codecs and immutable selection | A1 and R0 schema/identity decision. Generate schema/codecs, immutable identity reads, named guards and minimal preparation protection/root admission. | Supply working selection/codec/guard/protection to B1/C1/D1. Retire matching PostgreSQL lowerings through the generator as consumers move, then regenerate. | Implemented; final verification in progress |
-| A3 — Authoring, retention and restore | A2 plus B1 admission slice for runnable revisions. Implement head-CAS edits, membership/name changes, guarded retained roots, paged read protection and backup/restore. | Migrate source authoring and lifecycle maintenance. Delete bundle ancestry ownership and displaced Delta/PG retention mechanisms as their consumers move. | Implemented; final verification in progress |
+| A1 — Supervised remote substrate | R0 decision route. Repurpose `pse-operations`, add recipe-owned RocksDB/WebSocket profile, typed operations, restart/ack recovery and bounded supervision. | Move runtime store construction/test fixtures to the target. Remove displaced PG connection/pool setup as the affected operations move; retain no fallback constructor. | Implemented; scoped controls recorded; assembled E3/E4 pending |
+| A2 — Declarations, codecs and immutable selection | A1 and R0 schema/identity decision. Generate schema/codecs, immutable identity reads, named guards and minimal preparation protection/root admission. | Supply working selection/codec/guard/protection to B1/C1/D1. Retire matching PostgreSQL lowerings through the generator as consumers move, then regenerate. | Implemented; scoped controls recorded; assembled E3/E4 pending |
+| A3 — Authoring, retention and restore | A2 plus B1 admission slice for runnable revisions. Implement head-CAS edits, membership/name changes, guarded retained roots, paged read protection and backup/restore. | Migrate source authoring and lifecycle maintenance. Delete bundle ancestry ownership and displaced Delta/PG retention mechanisms as their consumers move. | Implemented; scoped controls recorded; assembled E3/E4 pending |
 
 A2's early slice includes real exact codecs, immutable identity reads, conflict guards and
 preparation protection/root admission;
@@ -337,45 +336,18 @@ target backup and compare its selected exact values and operation identities bef
 
 ## Checkpoint and next step
 
-A5 is implemented: owned descriptions preserve the exact encoding and original provenance,
-and actual rooted acknowledgment is queried before new key, staging or receiving work.
-Released roots require new admission; committed exact acknowledgment can recover after pin
-expiry. Targeted qualification is in progress. Earlier A1–A4 controls keep their original
-scope; the coordinator owns PA03 and 28e owns assembled acceptance.
+Current execution handoff, 2026-10-10: A1–A5 mechanisms are implemented;
+scoped evidence retains its original conditions and does not close Plan 28.
 
-A4's operation attribution located the sixteen-worker failure at `stage_small_edits`.
-The integrated correction paces bounded same-owner staging RPCs per problem; it preserves
-independent-client transaction guards, closed-stage replay, shared-version reclamation and
-stale-generation fencing. Its concurrent staging controls and the two existing sixteen-worker
-scientific controls pass. This supports the selected local correction, without claiming a
-distributed staging mutex or changing source/product protection. B6/T7 caller reconciliation
-and connected read/reclamation acceptance remain before E3. The selected store is preserved;
-the reference campaign remains stopped.
+Canonical revisions, exact schema/codecs, protected staging/root publication and same-owner pacing are implemented. Rooted acknowledgment reuse preserves original provenance; fresh publication retains live protection. A4 focused concurrent staging and sixteen-worker controls passed. B6/T7 and connected read/reclamation composition remain E3 obligations.
 
-A1–A3 functional mechanisms are implemented: supervised authenticated RocksDB/gRPC,
-generated exact codecs/schema identity, closed payload manifests and leased staging,
-head-CAS activation, selected read protection and retained roots, bounded reclamation,
-and gated offline recovery. Protection and idempotent lease transactions retry complete
-fresh guarded operations after native transaction conflicts. Product roots retain their
-immutable origin and cannot be moved through generic retention. Already rooted exact
-products are shared; fresh admission after explicit release uses a separate publication
-identity without resurrecting the old root.
-
-Shared unchanged document payloads carry local allocation leases; the complete parent-owner
-chain is deleted. Managed native slots are independently fenced by their systemd unit and
-kernel cgroup, including launcher loss. Runtime construction requires canonical deployment
-configuration. Worker/study preparation passes immutable modeling revision identities;
-remaining PostgreSQL execution/result lifecycle and Delta publication consumers belong to
-C/D/E as their operations move.
-
-Final generation and the focused native storage/recovery controls are complete. On
-2026-10-06 the maintainer requested closeout and a committed checkpoint, then cessation
-of work. A1–A3 remain implemented with final integrated acceptance pending. No measured
-speed improvement or full Plan 28 series exit is claimed.
-
-Continue with the correction slices above, then 28e's assembled target campaign.
-Earlier local A/B state and receipts remain preserved historical evidence; there is no
-requirement to resume their interrupted campaign or obsolete C/D/E migration boundary.
+The maintainer authorized all remaining Plan 28 scope including the full campaign.
+The [coordinator](28-surrealdb-unified-substrate.md#current-checkpoint) owns finding
+dispositions and [28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
+owns current integration, E3/E4/E5 and retirement. Earlier pause/failure-only instructions
+are superseded. Next: complete bounded campaign preparation and required consumer
+reconciliation, then assembled acceptance; do not restart these implemented mechanisms
+from historical status prose.
 
 ## Outcome (recorded after implementation)
 

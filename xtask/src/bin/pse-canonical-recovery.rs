@@ -26,6 +26,12 @@ struct Cli {
     /// Initialize the fixture before exercising abrupt restart and offline restore.
     #[arg(long)]
     seed: bool,
+    /// Retain the exact unissued creation intent outside the physical backup.
+    #[arg(long)]
+    creation_intent: Option<PathBuf>,
+    /// Check stale refusal and fresh creation after explicit restored-store start.
+    #[arg(long, requires = "creation_intent", conflicts_with = "seed")]
+    check_creation: bool,
 }
 
 fn main() -> Result<()> {
@@ -34,9 +40,56 @@ fn main() -> Result<()> {
         .worker_threads(2)
         .enable_all()
         .build()?;
-    executor.block_on(canonical_recovery::run(&cli.state, cli.seed))?;
-    println!(
-        "native selected source, lineage, product, staged payload and admission gate verified"
-    );
+    if cli.check_creation {
+        if let Some(intent) = &cli.creation_intent {
+            executor.block_on(canonical_recovery::creation_authority(
+                &cli.state, intent, false,
+            ))?;
+        }
+        println!("stale physical creation authority refused and fresh creation activated");
+    } else {
+        executor.block_on(canonical_recovery::run(&cli.state, cli.seed))?;
+        if cli.seed
+            && let Some(intent) = &cli.creation_intent
+        {
+            executor.block_on(canonical_recovery::creation_authority(
+                &cli.state, intent, true,
+            ))?;
+        }
+        println!(
+            "native selected source, lineage, product, staged payload and admission gate verified"
+        );
+    }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recovery_creation_requires_the_exact_saved_intent() -> Result<()> {
+        assert!(Cli::try_parse_from(["recovery", "state", "--check-creation"]).is_err());
+        assert!(
+            Cli::try_parse_from([
+                "recovery",
+                "state",
+                "--check-creation",
+                "--creation-intent",
+                "intent.json",
+                "--seed"
+            ])
+            .is_err()
+        );
+        let cli = Cli::try_parse_from([
+            "recovery",
+            "state",
+            "--check-creation",
+            "--creation-intent",
+            "intent.json",
+        ])?;
+        assert!(cli.check_creation);
+        assert_eq!(cli.creation_intent, Some(PathBuf::from("intent.json")));
+        Ok(())
+    }
 }

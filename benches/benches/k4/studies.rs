@@ -247,6 +247,7 @@ fn ephemeral(
     values: &[f64],
     numerical: &mut observations::Observations,
     parallel: bool,
+    pool: std::sync::Arc<dyn pse_columnar::MemoryPool>,
 ) -> Vec<Value> {
     assert_eq!(report.results.len(), values.len());
     let mut identities = BTreeSet::new();
@@ -257,7 +258,7 @@ fn ephemeral(
             panic!("explicit ephemeral adapter returned a retained canonical handle");
         };
         // Count original joined native reports, not reopened metric projections.
-        numerical.run(result);
+        numerical.run(result, pool.clone());
         let RunReport::Modeling(reports) = result.report().unwrap() else { panic!("root study report") };
         assert_eq!(reports.len(), 1);
         if let pse_runtime::math::solves::Outcome::Constant(completed) = &reports[0].outcome {
@@ -499,7 +500,7 @@ pub(super) fn measure(
                     let elapsed=started.elapsed();
                     check(&report.outcomes, occurrences, independent);
                     let read=Instant::now();
-                    let metrics=ephemeral(&report,&values,&mut numerical,independent);
+                    let metrics=ephemeral(&report,&values,&mut numerical,independent,owner.runtime.pool());
                     (elapsed,Duration::ZERO,json!({"views":0,"observations":0,"rebuilt":0,"shared":0}),serde_json::to_value(report.preparations).unwrap(),read.elapsed().as_secs_f64(),report.outcomes,metrics)
                 };
                 numerical.preparations(before,owner.runtime.math().preparations());

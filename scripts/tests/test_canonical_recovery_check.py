@@ -13,6 +13,232 @@ from unittest.mock import patch
 
 from scripts import surreal_server as server
 from scripts.tests import canonical_recovery_check as recovery
+from scripts.tests import canonical_recovery_science as science
+
+
+class ScientificRecoveryControls(unittest.TestCase):
+    def test_retained_science_detects_content_changes_with_unchanged_keys(self) -> None:
+        import pyarrow as pa  # noqa: PLC0415
+
+        manifest = pa.table(
+            {
+                "key": ["attempt"],
+                "digest": ["original-digest"],
+                "descriptors": [b"exact-descriptors"],
+            }
+        )
+        variables = pa.table({"symbol_id": [b"original-symbol"], "value": [2.0]})
+        checks = pa.table(
+            {"key": ["original-check"], "satisfied": [True], "value": [2.0]}
+        )
+        saved = science.result_snapshot(manifest, variables, checks)
+        self.assertEqual(saved["manifest_digest"], "original-digest")
+        science.check_retained_snapshot(
+            saved, science.result_snapshot(manifest, variables, checks)
+        )
+        mutations = (
+            (
+                pa.table(
+                    {
+                        "key": ["attempt"],
+                        "digest": ["changed-digest"],
+                        "descriptors": [b"exact-descriptors"],
+                    }
+                ),
+                variables,
+                checks,
+            ),
+            (
+                pa.table(
+                    {
+                        "key": ["attempt"],
+                        "digest": ["original-digest"],
+                        "descriptors": [b"changed-descriptors"],
+                    }
+                ),
+                variables,
+                checks,
+            ),
+            (
+                manifest,
+                pa.table({"symbol_id": [b"original-symbol"], "value": [3.0]}),
+                checks,
+            ),
+            (
+                manifest,
+                variables,
+                pa.table(
+                    {"key": ["original-check"], "satisfied": [True], "value": [3.0]}
+                ),
+            ),
+            (
+                manifest,
+                variables,
+                pa.table(
+                    {"key": ["original-check"], "satisfied": [False], "value": [2.0]}
+                ),
+            ),
+        )
+        for changed in mutations:
+            with (
+                self.subTest(snapshot=changed),
+                self.assertRaisesRegex(
+                    RuntimeError, "retained result contents changed"
+                ),
+            ):
+                science.check_retained_snapshot(
+                    saved, science.result_snapshot(*changed)
+                )
+
+    def test_retained_science_compares_float_bits_and_ignores_transport_chunking(
+        self,
+    ) -> None:
+        import pyarrow as pa  # noqa: PLC0415
+
+        manifest = pa.table({"key": ["attempt"], "digest": ["digest"]})
+        checks = pa.table({"satisfied": [True]})
+        positive = pa.table({"value": [0.0, 2.0]})
+        negative = pa.table({"value": [-0.0, 2.0]})
+        saved = science.result_snapshot(manifest, positive, checks)
+        with self.assertRaisesRegex(RuntimeError, "retained result contents changed"):
+            science.check_retained_snapshot(
+                saved, science.result_snapshot(manifest, negative, checks)
+            )
+        paged = pa.concat_tables([positive.slice(0, 1), positive.slice(1, 1)])
+        science.check_retained_snapshot(
+            saved, science.result_snapshot(manifest, paged, checks)
+        )
+
+    def test_cli_forwards_science_profile_and_retained_evidence_directory(self) -> None:
+        with (
+            patch(
+                "sys.argv",
+                [
+                    "recovery",
+                    "binary",
+                    "--scientific",
+                    "--profile-state",
+                    "profile",
+                    "--directory",
+                    "evidence",
+                ],
+            ),
+            patch.object(recovery, "journey") as journey,
+        ):
+            recovery.main()
+        journey.assert_called_once_with(
+            Path("binary"),
+            Path("profile"),
+            scientific=True,
+            output_directory=Path("evidence"),
+        )
+
+    def test_preserved_inventory_contains_actual_authored_and_physical_inputs(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            inputs = Path(directory) / "inputs"
+            inventory = science.prepare_inputs(inputs)
+            self.assertIn("model/models/length.pse", inventory)
+            self.assertIn("physical/materials/physical.yaml", inventory)
+            self.assertIn("physical/package.toml", inventory)
+            self.assertEqual(
+                science.documents(inputs / "model")["models/length.pse"], science.SOURCE
+            )
+            self.assertEqual(server.input_inventory(inputs), inventory)
+            (inputs / "model/models/length.pse").write_text(science.SOURCE + "\n")
+            self.assertNotEqual(server.input_inventory(inputs), inventory)
+
+    def test_science_child_uses_explicit_phase_inputs_and_exact_receipt(self) -> None:
+        command = recovery.science_command(
+            Path("state"), Path("preserved/inputs"), Path("receipt.json"), "rebuild"
+        )
+        self.assertEqual(
+            command[1:4], ["-m", "scripts.tests.canonical_recovery_science", "--state"]
+        )
+        self.assertEqual(
+            command[4:],
+            [
+                "state",
+                "--inputs",
+                "preserved/inputs",
+                "--receipt",
+                "receipt.json",
+                "--phase",
+                "rebuild",
+            ],
+        )
+
+    def test_science_refuses_unspecified_or_lower_profile_before_setup(self) -> None:
+        with patch.object(server, "setup") as setup:
+            with self.assertRaisesRegex(server.SupervisorError, "explicit original"):
+                recovery.journey(Path("unused"), scientific=True)
+            setup.assert_not_called()
+
+    def test_original_native_and_physical_acceptance_refuses_missing_or_false_evidence(
+        self,
+    ) -> None:
+        science.check_solution(True, "ipopt", [2.0], [True], 1e-6)
+        for usable, backend, values, checks in (
+            (False, "ipopt", [2.0], [True]),
+            (True, "other", [2.0], [True]),
+            (True, "ipopt", [2.0], []),
+            (True, "ipopt", [2.0], [False]),
+            (True, "ipopt", [], [True]),
+            (True, "ipopt", [float("nan")], [True]),
+            (True, "ipopt", [float("inf")], [True]),
+            (True, "ipopt", [3.0], [True]),
+        ):
+            with (
+                self.subTest(
+                    usable=usable, backend=backend, values=values, checks=checks
+                ),
+                self.assertRaisesRegex(RuntimeError, "scientific acceptance"),
+            ):
+                science.check_solution(usable, backend, values, checks, 1e-6)
+
+    def test_old_credentials_need_positive_current_authentication_around_refusal(
+        self,
+    ) -> None:
+        with (
+            patch.object(server, "config_for", return_value={}),
+            patch.object(server, "lifecycle_reservation"),
+            patch.object(server, "private_offline_state"),
+            patch.object(server, "read_json", return_value={"username": "fresh"}),
+            patch.object(
+                server,
+                "maintenance_query",
+                side_effect=[{}, server.SupervisorError("authentication refused"), {}],
+            ) as query,
+        ):
+            recovery.refuse_old_credentials(Path("state"), {"username": "stale"})
+            self.assertEqual(query.call_count, 3)
+        with (
+            patch.object(server, "config_for", return_value={}),
+            patch.object(server, "lifecycle_reservation"),
+            patch.object(server, "private_offline_state"),
+            patch.object(server, "read_json", return_value={"username": "fresh"}),
+            patch.object(
+                server,
+                "maintenance_query",
+                side_effect=server.SupervisorError("unavailable"),
+            ),
+            self.assertRaisesRegex(server.SupervisorError, "unavailable"),
+        ):
+            recovery.refuse_old_credentials(Path("state"), {"username": "stale"})
+
+    def test_successful_stale_authentication_fails_acceptance(self) -> None:
+        with (
+            patch.object(server, "config_for", return_value={}),
+            patch.object(server, "lifecycle_reservation"),
+            patch.object(server, "private_offline_state"),
+            patch.object(server, "read_json", return_value={"username": "fresh"}),
+            patch.object(server, "maintenance_query", return_value={}),
+            self.assertRaisesRegex(
+                server.SupervisorError, "Original root credentials admitted"
+            ),
+        ):
+            recovery.refuse_old_credentials(Path("state"), {"username": "stale"})
 
 
 class CanonicalRecoveryProfileTests(unittest.TestCase):

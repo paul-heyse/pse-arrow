@@ -20,6 +20,7 @@ pse.math.local-occurrence.v3
 pse.math.physical-inventory.v6
 pse.math.resolved-admissions.v1
 pse.math.resolved-admissions.v2
+pse.math.structural-body-index.v1
 pse.math.typed-definition.v10
 pse.math.typed-definition.v6
 pse.math.typed-definition.v7

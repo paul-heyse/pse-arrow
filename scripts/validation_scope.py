@@ -296,10 +296,8 @@ def comprehensive(python_profile: str = "dev") -> list[Gate]:
             else ("producer-fixture",),
         ),
         replace(
-            native_gate("managed-native", "test(managed_primary_)"),
-            args=("--profile", "local", "--managed-primary-route"),
+            FUNCTIONAL_SCOPES["managed-primary"],
             dependencies=("native-test",),
-            enumerate_native=False,
         ),
         Gate(
             "native-python",
@@ -541,6 +539,10 @@ def native_gate(name: str = "native-test", selection: str | None = None) -> Gate
 # Conservative owner packages cover controls whose narrower namespace is unproven.
 FUNCTIONAL_SCOPES = {
     "native": native_gate(),
+    "managed-primary": replace(
+        native_gate("managed-native"),
+        args=("--profile", "local", "--managed-primary-route"),
+    ),
     "process": native_gate(
         "functional-process",
         "package(pse-runtime) | (package(pse-tests-conformance) & test(acceptance::))",

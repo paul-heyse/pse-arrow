@@ -2267,7 +2267,7 @@ def observer(state: Path, command: list[str], profile: str | None = None) -> int
             owner, unit, profile, launch_attempted=lambda: attempted
         ):
             owner.register(unit)
-            handoff = native_operation.prepare_handoff(unit)
+            handoff = native_operation.prepare_handoff(unit, foreground=True)
             environment = systemd_environment()
             for key in (
                 "PSE_NATIVE_OPERATION",
@@ -2284,7 +2284,12 @@ def observer(state: Path, command: list[str], profile: str | None = None) -> int
                 environment["PSE_TEST_EXECUTION_PROFILE"] = profile
             selected_command = observer_scope_command(state, allocation, unit, command)
             attempted = True
-            return subprocess.call(selected_command, env=environment)
+            # The operation creator owns cancellation of this handoff. Keep its
+            # native supervisor outside a validation gate's process-group kill,
+            # so it can drain runners that establish their own sessions.
+            return subprocess.call(
+                selected_command, env=environment, start_new_session=handoff is not None
+            )
     finally:
         # Keep launch exclusion through the control-scope restoration attempt.
         # Surviving or unbound scopes retain launch metadata and host charge.
@@ -3026,6 +3031,20 @@ def ready(state: Path, config: dict[str, object]) -> bool:
     return listener_ready(state, config) and protocol_ready(state, config)
 
 
+def process_owns_listening_socket(proc: Path, inodes: set[str]) -> bool:
+    sockets = {f"socket:[{inode}]" for inode in inodes}
+    for descriptor in (proc / "fd").iterdir():
+        try:
+            target = str(descriptor.readlink())
+        except FileNotFoundError:
+            # Other connections may close after enumeration. Only a live
+            # descriptor for the selected listening socket establishes ownership.
+            continue
+        if target in sockets:
+            return True
+    return False
+
+
 def owns_listener(
     state: Path, config: dict[str, object], *, deadline: float | None = None
 ) -> bool:
@@ -3085,10 +3104,7 @@ def owns_listener(
             for row in Path("/proc/net/tcp").read_text().splitlines()[1:]
             if row.split()[1] == address and row.split()[3] == "0A"
         }
-        matched = any(
-            str(fd.readlink()) in {f"socket:[{inode}]" for inode in inodes}
-            for fd in (proc / "fd").iterdir()
-        )
+        matched = process_owns_listening_socket(proc, inodes)
         if deadline is not None:
             remaining(deadline)
     except (
@@ -3382,30 +3398,72 @@ def service_allocation(
     return allocation
 
 
-def park_service(state: Path, *, deadline: float | None = None) -> None:
+def park_service(
+    state: Path,
+    *,
+    deadline: float | None = None,
+    expected_binding: host_admission.BoundUnit | None = None,
+) -> bool:
     """Park only this materialized idle service; preserve all disk and evidence."""
     previous = getattr(_STARTUP, "deadline", None)
     if deadline is not None:
         _STARTUP.deadline = deadline if previous is None else min(previous, deadline)
     try:
         with lifecycle_reservation(state):
-            _park_service(state)
+            return (
+                _park_service(state)
+                if expected_binding is None
+                else _park_service(state, expected_binding=expected_binding)
+            )
     finally:
         _STARTUP.deadline = previous
 
 
-def _park_service(state: Path) -> None:
+def _park_service(
+    state: Path, *, expected_binding: host_admission.BoundUnit | None = None
+) -> bool:
     config = config_for(state)
     if not config.get("resident") or not config.get("unit_materialized"):
         raise SupervisorError(
             "Service lifecycle is not eligible for coordinated parking"
         )
+    deadline = getattr(_STARTUP, "deadline", None)
+    observed = host_admission.control_unit_observation(unit_name(state), deadline)
+    if observed.get("LoadState") == "not-found" or observed.get("ActiveState") in {
+        "inactive",
+        "failed",
+    }:
+        return False
+    group = observed.get("ControlGroup", "")
+    if (
+        observed.get("ActiveState") != "active"
+        or not group.startswith("/")
+        or group == "/"
+        or ".." in Path(group).parts
+        or not re.fullmatch(r"[a-f0-9]{32}", observed.get("InvocationID", ""))
+    ):
+        raise SupervisorError("Service parking requires its actual running lifetime")
+    if expected_binding is not None and (
+        type(expected_binding.get("inode")) is not int
+        or group != expected_binding.get("group")
+        or observed["InvocationID"] != expected_binding.get("invocation")
+        or host_admission.group_identity(group) != expected_binding.get("inode")
+    ):
+        raise SupervisorError("Service parking lifetime changed since host admission")
     all_contexts_drained(state)
+    if host_admission.control_unit_observation(
+        unit_name(state), deadline
+    ) != observed or (
+        expected_binding is not None
+        and host_admission.group_identity(group) != expected_binding.get("inode")
+    ):
+        raise SupervisorError("Service parking lifetime changed while draining")
     with state_lock(state):
         config = config_for(state)
         config["parked"] = True
         write_json(state / "config.json", config)
     stop(state, config)
+    return True
 
 
 def unpark_service(state: Path, *, deadline: float | None = None) -> None:
@@ -3458,54 +3516,74 @@ def _start(
         require_maintenance_owner(state, config)
         if not validation:
             raise SupervisorError("Maintenance listener refuses ordinary startup")
-    if config.get("parked"):
-        # Only deliberate startup reaches this path. _serve keeps its parked
-        # guard, so unattended systemd recovery cannot reopen admission.
-        with state_lock(state):
-            config.update(config_for(state))
-            config["parked"] = False
-            write_json(state / "config.json", config)
-        # An admitted park/unpark is a new startup, not another failure retry.
-        systemctl("reset-failed", unit_name(state), check=False)
-    if active(state):
-        if not listener_ready(state, config):
-            raise SupervisorError("Owned server unit is active but unhealthy")
-        if not maintenance and not protocol_ready(state, config):
-            establish_protocol_readiness(state, config, deadline)
-        if not validation:
-            open_context_admission(state)
-            config.update(config_for(state))
-        return None
-    systemctl("show-environment")
-    allocation = config["resources"]
-    if not isinstance(allocation, dict):
-        raise SupervisorError("Invalid resource configuration")
-    remaining(deadline)
-    allocation_owner = service_allocation(state, config, deadline)
-    environment = systemd_environment()
-    host_admission.enforce_parent(allocation_owner.profile, environment)
-    materialize_service(state, config, allocation_owner)
-    result = systemctl("start", unit_name(state), check=False)
-    if result.returncode:
-        allocation_owner.release()
-        raise SupervisorError("Cannot start owned persistent service unit")
-    while time.monotonic() < deadline:
-        if listener_ready(state, config):
-            if not maintenance:
+    parked = bool(config.get("parked"))
+    resumed = False
+    try:
+        if active(state):
+            if not listener_ready(state, config):
+                raise SupervisorError("Owned server unit is active but unhealthy")
+            if not maintenance and not protocol_ready(state, config):
                 establish_protocol_readiness(state, config, deadline)
+            if parked:
+                with state_lock(state):
+                    config.update(config_for(state))
+                    config["parked"] = False
+                    write_json(state / "config.json", config)
             if not validation:
-                config["admission"] = "open"
-                config["accepting_writes"] = True
-                write_json(state / "config.json", config)
                 open_context_admission(state)
+                config.update(config_for(state))
+            resumed = True
             return None
-        if not active(state):
-            break
-        time.sleep(0.1)
-    systemctl("stop", unit_name(state), check=False)
-    raise SupervisorError(
-        "Server did not become healthy; inspect the private bounded server.log"
-    )
+        systemctl("show-environment")
+        allocation = config["resources"]
+        if not isinstance(allocation, dict):
+            raise SupervisorError("Invalid resource configuration")
+        remaining(deadline)
+        allocation_owner = service_allocation(state, config, deadline)
+        environment = systemd_environment()
+        host_admission.enforce_parent(allocation_owner.profile, environment)
+        materialize_service(state, config, allocation_owner)
+        if parked:
+            # _serve may proceed only after deliberate startup owns its allocation.
+            # Failed admission must retain the premise used by queued reconciliation.
+            with state_lock(state):
+                config.update(config_for(state))
+                config["parked"] = False
+                write_json(state / "config.json", config)
+            # An admitted park/unpark is a new startup, not another failure retry.
+            systemctl("reset-failed", unit_name(state), check=False)
+        result = systemctl("start", unit_name(state), check=False)
+        if result.returncode:
+            allocation_owner.release()
+            raise SupervisorError("Cannot start owned persistent service unit")
+        while time.monotonic() < deadline:
+            if listener_ready(state, config):
+                if not maintenance:
+                    establish_protocol_readiness(state, config, deadline)
+                if not validation:
+                    config["admission"] = "open"
+                    config["accepting_writes"] = True
+                    write_json(state / "config.json", config)
+                    open_context_admission(state)
+                resumed = True
+                return None
+            if not active(state):
+                break
+            time.sleep(0.1)
+        systemctl("stop", unit_name(state), check=False)
+        raise SupervisorError(
+            "Server did not become healthy; inspect the private bounded server.log"
+        )
+    finally:
+        if parked and not resumed:
+            # Keep any partial lifetime charged through its existing owner. Closing
+            # admission and retaining parking intent does not prove a service drain.
+            with state_lock(state):
+                config.update(config_for(state))
+                config["parked"] = True
+                write_json(state / "config.json", config)
+            close_context_admission(state)
+            config.update(config_for(state))
 
 
 def stop(state: Path, config: dict[str, object], *, abrupt: bool = False) -> None:
@@ -6006,6 +6084,17 @@ def dispatch(args: argparse.Namespace) -> int:
                     output = backup(state, config, args.destination)
                     print(json.dumps(output, sort_keys=True))
                     return 0
+                # An operator stop/kill withdraws coordinated resume intent. The
+                # internal parking path still calls stop directly and retains it.
+                # Clear the service premise before the host queue so a concurrent
+                # reconciler's old snapshot cannot resurrect this explicit stop.
+                service = service_directory(state)
+                with state_lock(service):
+                    selected = config_for(service)
+                    selected["parked"] = False
+                    write_json(service / "config.json", selected)
+                host_admission.withdraw_parked_service(service)
+                config.update(config_for(state))
                 stop(state, config, abrupt=args.command == "kill")
             elif args.command == "validate":
                 output = validate(

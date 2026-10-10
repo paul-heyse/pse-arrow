@@ -134,12 +134,12 @@ canonical-recovery-test *args:
     "{{ py }}" -m scripts.tests.canonical_recovery_check target/debug/pse-canonical-recovery "$@"
 
 [group('local')]
-[doc('Native gRPC exact codec and guarded revision controls against a supervised server state')]
+[doc('Native WebSocket exact codec and guarded revision controls against a supervised server state')]
 canonical-test state:
     PSE_SURREAL_STATE={{ quote(state) }} scripts/pse-env --store -- just unit-package pse-operations 'test(canonical_server_unit) | test(canonical_codec_unit)' --features pse-operations/canonical-tests
 
 [group('local')]
-[doc('Forced-validation persisted mathematical reconstruction controls on an isolated gRPC database')]
+[doc('Forced-validation persisted mathematical reconstruction controls on an isolated canonical database')]
 [script]
 canonical-portable-test state:
     fixture_receipt="$PWD/target/producer-qualified-fixture.json"
@@ -525,7 +525,7 @@ engine-boundary-check:
 [group('local')]
 [doc('Measure current isolated cold/warm/body/API builds, cache reuse and optional recovery; executes no tests')]
 [positional-arguments]
-[script]
+[script("bash", "-euo", "pipefail")]
 bench-builds output *args:
     "{{ py }}" -m scripts.build_measurements "$@"
 

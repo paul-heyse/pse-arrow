@@ -365,6 +365,37 @@ impl AdmittedImplicit {
         }
         .into()
     }
+    /// Known capability/dependency analysis population before numerical order is
+    /// resolved. Registered accelerator admission has no source-allocation contract;
+    /// it and opaque body regions retain conservative runtime admission.
+    pub fn requirements_allocation_bound(&self) -> Result<Option<usize>> {
+        if matches!(self.algorithm, ImplicitAlgorithm::Accelerator(_)) {
+            return Ok(None);
+        }
+        let overflow = || CompileError::from(MathError::Limit("implicit analysis extent"));
+        let mut bytes = self
+            .residuals
+            .len()
+            .checked_mul(1024)
+            .ok_or_else(overflow)?;
+        for body in self.bodies() {
+            let support = if self.algorithm == ImplicitAlgorithm::AffineRates
+                && self
+                    .residuals
+                    .iter()
+                    .any(|residual| Arc::ptr_eq(&residual.body, body))
+            {
+                Some(self.unknowns.len())
+            } else {
+                None
+            };
+            let Some(bound) = body.math.arithmetic_analysis_allocation_bound(support)? else {
+                return Ok(None);
+            };
+            bytes = bytes.checked_add(bound).ok_or_else(overflow)?;
+        }
+        Ok(Some(bytes))
+    }
     /// Resolve the selected algorithms' minimum and the shared residual/output capability.
     /// Called under the library allocation owner before dependencies receive their demands.
     pub fn requirements(
@@ -510,6 +541,7 @@ impl AdmittedImplicit {
     pub fn reconstruction_allocation_bound(
         &self,
         configurations: &BTreeMap<SemanticId, pse_math::implicit::Configuration>,
+        requirements: pse_kernels::DerivativeRequirements,
         limits: EvaluationLimits,
     ) -> Result<Option<usize>> {
         let overflow = || CompileError::from(MathError::Limit("implicit construction extent"));
@@ -522,24 +554,55 @@ impl AdmittedImplicit {
             let configuration = configurations
                 .get(&residual.id)
                 .ok_or_else(|| CompileError::Missing("implicit branch configuration".into()))?;
-            let mut bodies = vec![&residual.body];
+            let local = if requirements.requested_output > DerivativeOrder::Value {
+                DerivativeOrder::First
+            } else {
+                DerivativeOrder::Value
+            };
+            let mut bodies = vec![(&residual.body, requirements.residual_compilation)];
             if matches!(configuration, pse_math::implicit::Configuration::Hints(_)) {
-                bodies.extend(residual.hints.iter().chain(residual.terms.iter()));
+                bodies.extend(
+                    residual
+                        .hints
+                        .iter()
+                        .chain(residual.terms.iter())
+                        .map(|body| (body, DerivativeOrder::Value)),
+                );
             }
-            // Factory compiles selection and assessment per residual branch.
+            // Match factory compilation: value anchors and branch-local selectors.
             bodies.extend(
                 self.selection
                     .anchors
                     .iter()
-                    .chain(self.selection.restriction.iter()),
+                    .map(|body| (body, DerivativeOrder::Value)),
             );
+            bodies.extend(self.selection.restriction.iter().map(|body| (body, local)));
             if let Some(assessment) = &residual.assessment {
-                bodies.extend([&assessment.eligibility, &assessment.criterion]);
+                bodies.extend([
+                    (&assessment.eligibility, local),
+                    (&assessment.criterion, local),
+                ]);
             }
-            for body in bodies {
-                let Some(bound) = body.math.arithmetic_compilation_allocation_bound(limits)? else {
+            for (body, order) in bodies {
+                let Some(mut bound) = body
+                    .math
+                    .arithmetic_compilation_allocation_bound(order, limits)?
+                else {
                     return Ok(None);
                 };
+                if self.algorithm == ImplicitAlgorithm::AffineRates
+                    && Arc::ptr_eq(body, &residual.body)
+                {
+                    let Some(proof) = body
+                        .math
+                        .arithmetic_analysis_allocation_bound(Some(self.unknowns.len()))?
+                    else {
+                        return Ok(None);
+                    };
+                    // Affine::new drops its support before numerical compilation.
+                    // Its two retained counts and Arc fit the branch metadata above.
+                    bound = bound.max(proof);
+                }
                 bytes = bytes.checked_add(bound).ok_or_else(overflow)?;
             }
             // The reconstruction and regime factories additionally project exact

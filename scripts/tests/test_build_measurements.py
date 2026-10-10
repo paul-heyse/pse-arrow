@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import json
+import os
+import signal
 import subprocess
 import tempfile
 import tomllib
@@ -14,7 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-from scripts import build_measurements, native_operation, validation
+from scripts import build_measurements, host_admission, native_operation, validation
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -328,7 +330,9 @@ class BuildMeasurementTests(unittest.TestCase):
                         "--second-worktree",
                     ],
                 ),
-                patch.object(build_measurements, "ensure_capability_operation"),
+                patch.object(
+                    build_measurements, "ensure_capability_operation", return_value=None
+                ),
                 patch.object(native_operation, "owner_record", return_value=None),
                 patch.object(validation, "fresh_output", return_value=output),
                 patch.object(validation, "sources", return_value={}),
@@ -389,25 +393,301 @@ class BuildMeasurementTests(unittest.TestCase):
 
     def test_native_operation_precedes_snapshot_and_preserves_arguments(self) -> None:
         with (
+            patch.dict(os.environ, {}, clear=True),
             patch.object(native_operation, "owner_record", return_value=None),
-            patch.object(build_measurements.os, "execvpe") as execute,
+            patch.object(validation, "fresh_output", return_value=Path("/output")),
+            patch.object(native_operation, "run", return_value=0) as execute,
+            patch.object(build_measurements, "complete_operation", return_value=0),
         ):
             build_measurements.ensure_capability_operation(
-                Path("/checkout"), native=True, workflow=False
+                Path("/checkout"), Path("/output"), native=True, workflow=False
             )
         self.assertEqual(
-            execute.call_args.args[1][:3],
+            execute.call_args.args[0][:3],
             ["/checkout/scripts/pse-env", "--native", "--"],
         )
         self.assertEqual(
-            execute.call_args.args[2]["PSE_NATIVE_CAPABILITIES"],
+            execute.call_args.args[1]["PSE_NATIVE_CAPABILITIES"],
             "solver,klu,isolation,uno,petsc",
+        )
+        self.assertEqual(
+            execute.call_args.args[1][native_operation.BUILD_TIMING],
+            "/output/native-operation.json",
         )
         with (
             patch.object(native_operation, "owner_record", return_value=None),
             self.assertRaisesRegex(ValueError, "before snapshot"),
         ):
             build_measurements.capability_environment({}, native=True, workflow=False)
+
+    def test_compiler_launch_is_supervised_without_native_setup(self) -> None:
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(native_operation, "owner_record", return_value=None),
+            patch.object(validation, "fresh_output", return_value=Path("/output")),
+            patch.object(native_operation, "run", return_value=42) as execute,
+            patch.object(build_measurements, "complete_operation") as complete,
+        ):
+            status = build_measurements.ensure_capability_operation(
+                Path("/checkout"), Path("/output"), native=False, workflow=False
+            )
+        self.assertEqual(status, 42)
+        self.assertEqual(
+            execute.call_args.args[0][:2], ["/checkout/scripts/pse-env", "--"]
+        )
+        self.assertNotIn(native_operation.BUILD_TIMING, execute.call_args.args[1])
+        self.assertNotIn("PSE_NATIVE_CAPABILITIES", execute.call_args.args[1])
+        complete.assert_not_called()
+
+    def test_existing_operation_remains_explicitly_target_only(self) -> None:
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(native_operation, "owner_record", return_value=Path("/owner")),
+            patch.object(native_operation, "run") as execute,
+            patch.object(validation, "fresh_output") as fresh,
+        ):
+            self.assertIsNone(
+                build_measurements.ensure_capability_operation(
+                    Path("/checkout"), Path("/output"), native=True, workflow=False
+                )
+            )
+        execute.assert_not_called()
+        fresh.assert_not_called()
+
+    def test_complete_operation_uses_native_boundaries_and_verified_drain(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            owner = {
+                "scope": {"unit": "native", "group": "/group", "invocation": "nonce"}
+            }
+            native = {
+                "setup_started_monotonic": 12,
+                "setup_finished_monotonic": 19,
+                "setup_status": "passed",
+                "child_started_monotonic": 20,
+                "child_finished_monotonic": 50,
+                "child_exit_code": 0,
+                "owner": owner,
+                "host_allocation": {"path": "/allocations/selected"},
+            }
+            (output / "native-operation.json").write_text(json.dumps(native))
+            (output / "summary.json").write_text(
+                json.dumps({"builds": {"cold": {"wall_seconds": 7}}})
+            )
+            with (
+                patch.object(native_operation, "drained", return_value=True) as drain,
+                patch.object(
+                    host_admission, "readonly_snapshot", return_value={"owners": {}}
+                ),
+                patch.object(build_measurements.time, "monotonic", return_value=55),
+            ):
+                self.assertEqual(
+                    build_measurements.complete_operation(output, 10, 0), 0
+                )
+            drain.assert_called_once_with(owner)
+            receipt = json.loads((output / "complete-operation.json").read_text())
+            self.assertEqual(receipt["status"], "passed")
+            self.assertEqual(receipt["wall_seconds"], 45)
+            self.assertTrue(receipt["setup_inclusive"])
+            self.assertEqual(receipt["phases"]["native_setup"]["wall_seconds"], 7)
+            self.assertEqual(receipt["phases"]["measurement_child"]["wall_seconds"], 30)
+            self.assertEqual(receipt["phases"]["final_drain"]["wall_seconds"], 5)
+            summary = json.loads((output / "summary.json").read_text())
+            self.assertEqual(summary["builds"]["cold"]["wall_seconds"], 7)
+            self.assertEqual(summary["complete_operation"], receipt)
+
+    def test_failed_drain_has_no_complete_wall_time_and_preserves_child_failure(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            native = {
+                "setup_started_monotonic": 12,
+                "setup_finished_monotonic": 19,
+                "setup_status": "passed",
+                "child_started_monotonic": 20,
+                "child_finished_monotonic": 50,
+                "child_exit_code": 0,
+                "owner": {"scope": None},
+                "host_allocation": {"path": "/allocations/selected"},
+            }
+            (output / "native-operation.json").write_text(json.dumps(native))
+            with (
+                patch.object(native_operation, "drained", return_value=False),
+                patch.object(
+                    host_admission, "readonly_snapshot", return_value={"owners": {}}
+                ),
+                patch.object(build_measurements.time, "monotonic", return_value=55),
+            ):
+                for status, expected in ((0, 125), (42, 42), (143, 143)):
+                    self.assertEqual(
+                        build_measurements.complete_operation(output, 10, status),
+                        expected,
+                    )
+            receipt = json.loads((output / "complete-operation.json").read_text())
+            self.assertEqual(receipt["status"], "failed")
+            self.assertNotIn("wall_seconds", receipt)
+            self.assertEqual(receipt["phases"]["final_drain"]["status"], "failed")
+            self.assertNotIn("wall_seconds", receipt["phases"]["final_drain"])
+
+    def test_failed_initial_setup_is_retained_without_child_or_success_claim(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            native = {
+                "setup_started_monotonic": 12,
+                "setup_finished_monotonic": 19,
+                "setup_status": "failed",
+                "error_type": "ValueError",
+                "owner": {"scope": None},
+                "host_allocation": {"path": "/allocations/selected"},
+            }
+            (output / "native-operation.json").write_text(json.dumps(native))
+            with (
+                patch.object(native_operation, "drained", return_value=True),
+                patch.object(
+                    host_admission, "readonly_snapshot", return_value={"owners": {}}
+                ),
+                patch.object(build_measurements.time, "monotonic", return_value=21),
+            ):
+                self.assertEqual(
+                    build_measurements.complete_operation(output, 10, 125), 125
+                )
+            receipt = json.loads((output / "complete-operation.json").read_text())
+            self.assertEqual(receipt["status"], "failed")
+            self.assertEqual(receipt["phases"]["native_setup"]["wall_seconds"], 7)
+            self.assertNotIn("measurement_child", receipt["phases"])
+            self.assertEqual(receipt["phases"]["final_drain"]["wall_seconds"], 2)
+
+    def test_drained_main_scope_cannot_complete_with_live_registered_descendants(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            native = {
+                "setup_started_monotonic": 12,
+                "setup_finished_monotonic": 19,
+                "setup_status": "passed",
+                "child_started_monotonic": 20,
+                "child_finished_monotonic": 50,
+                "child_exit_code": 0,
+                "owner": {"scope": {}},
+                "host_allocation": {"path": "/allocations/selected"},
+            }
+            retained = {"units": {"surviving-worker": {"group": "/live"}}}
+            (output / "native-operation.json").write_text(json.dumps(native))
+            with (
+                patch.object(native_operation, "drained", return_value=True),
+                patch.object(
+                    host_admission,
+                    "readonly_snapshot",
+                    return_value={"owners": {"selected": retained}},
+                ),
+                patch.object(
+                    host_admission, "drained", return_value=False
+                ) as host_drain,
+                patch.object(build_measurements.time, "monotonic", return_value=55),
+            ):
+                self.assertEqual(
+                    build_measurements.complete_operation(output, 10, 0), 125
+                )
+            host_drain.assert_called_once_with(retained)
+            receipt = json.loads((output / "complete-operation.json").read_text())
+            self.assertEqual(receipt["status"], "failed")
+            self.assertNotIn("wall_seconds", receipt)
+            self.assertTrue(receipt["drain_observation"]["native_scope_drained"])
+            self.assertFalse(receipt["drain_observation"]["host_allocation_drained"])
+
+    def test_native_owner_times_failed_setup_before_any_child(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            owner = output / "owner.json"
+            owner.write_text(
+                json.dumps(
+                    {
+                        "version": native_operation.VERSION,
+                        "admissions": {},
+                        "generations": [],
+                    }
+                )
+            )
+            timing = output / "timing.json"
+            allocation = type(
+                "Allocation",
+                (),
+                {
+                    "directory": output,
+                    "nonce": "allocation",
+                    "profile": type(
+                        "Profile",
+                        (),
+                        {"name": "light", "memory": 512 << 20, "cores": (0,)},
+                    )(),
+                },
+            )()
+            with (
+                patch.object(host_admission, "inherit", return_value=allocation),
+                patch.object(native_operation, "current", return_value=owner),
+                patch.object(
+                    native_operation,
+                    "_environment",
+                    side_effect=ValueError("setup refused"),
+                ),
+                patch.object(native_operation.time, "monotonic", side_effect=[10, 17]),
+                patch.object(native_operation, "run") as child,
+                self.assertRaisesRegex(ValueError, "setup refused"),
+            ):
+                native_operation.environment(
+                    ["solver"], {native_operation.BUILD_TIMING: str(timing)}
+                )
+            child.assert_not_called()
+            receipt = json.loads(timing.read_text())
+            self.assertEqual(receipt["setup_started_monotonic"], 10)
+            self.assertEqual(receipt["setup_finished_monotonic"], 17)
+            self.assertEqual(receipt["setup_status"], "failed")
+            self.assertEqual(receipt["requested_capabilities"], ["solver"])
+
+    def test_native_owner_child_timing_keeps_signal_status_and_removes_marker(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            owner = output / "owner.json"
+            owner.write_text(
+                json.dumps(
+                    {
+                        "version": native_operation.VERSION,
+                        "admissions": {},
+                        "generations": ["generation"],
+                    }
+                )
+            )
+            timing = output / "timing.json"
+            timing.write_text(json.dumps({"setup_status": "passed"}))
+            child = type(
+                "Child",
+                (),
+                {"returncode": -signal.SIGTERM, "wait": lambda _self: -signal.SIGTERM},
+            )()
+            with (
+                patch.object(native_operation, "current", return_value=owner),
+                patch.object(
+                    native_operation.subprocess, "Popen", return_value=child
+                ) as launch,
+                patch.object(native_operation.time, "monotonic", side_effect=[20, 50]),
+            ):
+                status = native_operation.run(
+                    ["child"],
+                    {native_operation.BUILD_TIMING: str(timing), "PRESERVE": "yes"},
+                )
+            self.assertEqual(status, 143)
+            self.assertEqual(launch.call_args.kwargs["env"], {"PRESERVE": "yes"})
+            receipt = json.loads(timing.read_text())
+            self.assertEqual(receipt["child_started_monotonic"], 20)
+            self.assertEqual(receipt["child_finished_monotonic"], 50)
+            self.assertEqual(receipt["child_exit_code"], 143)
+            self.assertEqual(receipt["owner"]["generations"], ["generation"])
 
     def test_profile_candidate_is_available_to_nested_cargo_commands(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

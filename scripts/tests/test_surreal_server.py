@@ -28,6 +28,197 @@ if TYPE_CHECKING:
 
 
 class SurrealSupervisorTests(unittest.TestCase):
+    def test_listener_ownership_survives_unrelated_descriptor_disappearance(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            proc = Path(directory)
+            (proc / "fd").mkdir()
+            vanished = proc / "fd/1"
+            listener = proc / "fd/2"
+            vanished.symlink_to("socket:[7]")
+            listener.symlink_to("socket:[42]")
+
+            def descriptors() -> Generator[Path, None, None]:
+                vanished.unlink()
+                yield vanished
+                yield listener
+
+            with patch.object(Path, "iterdir", return_value=descriptors()):
+                self.assertTrue(server.process_owns_listening_socket(proc, {"42"}))
+            self.assertFalse(server.process_owns_listening_socket(proc, {"99"}))
+            listener.unlink()
+            self.assertFalse(server.process_owns_listening_socket(proc, {"42"}))
+
+    def test_listener_ownership_does_not_ignore_descriptor_access_refusal(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            proc = Path(directory)
+            (proc / "fd").mkdir()
+            (proc / "fd/1").symlink_to("socket:[42]")
+            with (
+                patch.object(Path, "readlink", side_effect=PermissionError("refused")),
+                self.assertRaises(PermissionError),
+            ):
+                server.process_owns_listening_socket(proc, {"42"})
+
+    def test_parking_stopped_materialized_resident_preserves_explicit_stop(
+        self,
+    ) -> None:
+        self.reference_fixture()
+        config = server.config_for(self.state)
+        config.update(resident=True, unit_materialized=True, parked=False)
+        server.write_json(self.state / "config.json", config)
+        with (
+            patch.object(
+                server.native_operation,
+                "unit_observation",
+                return_value={"LoadState": "loaded", "ActiveState": "inactive"},
+            ),
+            patch.object(server, "all_contexts_drained") as drained,
+            patch.object(server, "stop") as stop,
+        ):
+            self.assertFalse(server.park_service(self.state))
+        self.assertFalse(server.config_for(self.state)["parked"])
+        drained.assert_not_called()
+        stop.assert_not_called()
+
+    def test_parking_refuses_replaced_running_incarnation(self) -> None:
+        self.reference_fixture()
+        config = server.config_for(self.state)
+        config.update(resident=True, unit_materialized=True, parked=False)
+        server.write_json(self.state / "config.json", config)
+        binding: host.BoundUnit = {
+            "group": "/owned",
+            "invocation": "a" * 32,
+            "inode": 123,
+        }
+        with (
+            patch.object(
+                server.native_operation,
+                "unit_observation",
+                return_value={
+                    "LoadState": "loaded",
+                    "ActiveState": "active",
+                    "ControlGroup": "/owned",
+                    "InvocationID": "b" * 32,
+                },
+            ),
+            patch.object(host, "group_identity", return_value=123),
+            patch.object(server, "stop") as stop,
+            self.assertRaisesRegex(server.SupervisorError, "lifetime changed"),
+        ):
+            server.park_service(self.state, expected_binding=binding)
+        self.assertFalse(server.config_for(self.state)["parked"])
+        stop.assert_not_called()
+
+    def test_parking_consumes_exact_running_binding_before_stop(self) -> None:
+        self.reference_fixture()
+        config = server.config_for(self.state)
+        config.update(resident=True, unit_materialized=True, parked=False)
+        server.write_json(self.state / "config.json", config)
+        binding: host.BoundUnit = {
+            "group": "/owned",
+            "invocation": "a" * 32,
+            "inode": 123,
+        }
+
+        def stop(_state: Path, selected: dict[str, object]) -> None:
+            self.assertTrue(selected["parked"])
+            self.assertTrue(server.config_for(self.state)["parked"])
+
+        with (
+            patch.object(
+                server.native_operation,
+                "unit_observation",
+                return_value={
+                    "LoadState": "loaded",
+                    "ActiveState": "active",
+                    "ControlGroup": "/owned",
+                    "InvocationID": "a" * 32,
+                },
+            ),
+            patch.object(host, "group_identity", return_value=123),
+            patch.object(server, "all_contexts_drained"),
+            patch.object(server, "stop", side_effect=stop) as stopped,
+        ):
+            self.assertTrue(server.park_service(self.state, expected_binding=binding))
+        stopped.assert_called_once()
+
+    def test_parking_rechecks_invocation_and_inode_after_context_drain(self) -> None:
+        self.reference_fixture()
+        config = server.config_for(self.state)
+        config.update(resident=True, unit_materialized=True, parked=False)
+        server.write_json(self.state / "config.json", config)
+        binding: host.BoundUnit = {
+            "group": "/owned",
+            "invocation": "a" * 32,
+            "inode": 123,
+        }
+        for changed in ("invocation", "inode"):
+            observed = {
+                "LoadState": "loaded",
+                "ActiveState": "active",
+                "ControlGroup": "/owned",
+                "InvocationID": "a" * 32,
+            }
+            inode = [123]
+
+            def drain(
+                _state: Path,
+                changed: str = changed,
+                observed: dict[str, str] = observed,
+                inode: list[int] = inode,
+            ) -> None:
+                if changed == "invocation":
+                    observed["InvocationID"] = "b" * 32
+                else:
+                    inode[0] = 456
+
+            with (
+                self.subTest(changed=changed),
+                patch.object(
+                    server.native_operation,
+                    "unit_observation",
+                    side_effect=lambda _, observed=observed: dict(observed),
+                ),
+                patch.object(
+                    host, "group_identity", side_effect=lambda _, inode=inode: inode[0]
+                ),
+                patch.object(server, "all_contexts_drained", side_effect=drain),
+                patch.object(server, "stop") as stop,
+                self.assertRaisesRegex(
+                    server.SupervisorError, "changed while draining"
+                ),
+            ):
+                server.park_service(self.state, expected_binding=binding)
+            stop.assert_not_called()
+            self.assertFalse(server.config_for(self.state)["parked"])
+
+    def test_explicit_stop_clears_resume_premise_before_withdrawing_queue(self) -> None:
+        self.reference_fixture()
+        config = server.config_for(self.state)
+        config["parked"] = True
+        server.write_json(self.state / "config.json", config)
+        args = server.parser().parse_args(
+            ["stop", "--state", str(self.state), "--drained"]
+        )
+
+        def withdraw(state: Path) -> None:
+            self.assertEqual(state, self.state)
+            self.assertFalse(server.config_for(state)["parked"])
+
+        with (
+            patch.object(
+                host, "withdraw_parked_service", side_effect=withdraw
+            ) as withdrawn,
+            patch.object(server, "stop") as stopped,
+            patch.object(server, "public_status", return_value={}),
+            patch("builtins.print"),
+        ):
+            self.assertEqual(server.dispatch(args), 0)
+        withdrawn.assert_called_once_with(self.state)
+        stopped.assert_called_once()
+
     def setUp(self) -> None:
         self.scratch = tempfile.TemporaryDirectory()
         self.addCleanup(self.scratch.cleanup)
@@ -506,7 +697,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch(
                 "scripts.native_operation.prepare_handoff",
                 return_value=self.root / "handoff",
-            ),
+            ) as handoff,
             patch.object(
                 server.subprocess,
                 "run",
@@ -514,6 +705,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             ) as launch,
         ):
             receipt = server.ensure_primary(self.state, database="isolated-study")
+        handoff.assert_called_once_with(server.primary_unit(self.state))
         self.assertEqual(receipt["canonical_database"], "isolated-study")
         self.assertEqual(readiness.call_args.args[-1], "isolated-study")
         command = launch.call_args.args[0]
@@ -625,7 +817,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         with (
             self.observer_control_fixture() as (state, _calls, _drained),
             patch.object(server, "ensure_execution_placement"),
-            patch.object(server.native_operation, "prepare_handoff", return_value=None),
+            patch.object(
+                server.native_operation, "prepare_handoff", return_value=None
+            ) as handoff,
             patch.object(server, "systemd_environment", return_value={}),
             patch.object(server, "observer_scope_command", return_value=["probe"]),
             patch.object(server.subprocess, "call", return_value=0) as launch,
@@ -635,8 +829,37 @@ class SurrealSupervisorTests(unittest.TestCase):
             )
             self.assertEqual(state["memory"], 144 * server.GIB)
         launch.assert_called_once()
+        self.assertFalse(launch.call_args.kwargs["start_new_session"])
+        handoff.assert_called_once_with(
+            self.allocation.register.call_args.args[0], foreground=True
+        )
         self.allocation.release.assert_not_called()
         self.assertFalse((self.state / "observer-launch.json").exists())
+
+    def test_parent_owned_observer_isolates_supervisor_from_gate_process_group(
+        self,
+    ) -> None:
+        self.reference_fixture()
+        with (
+            self.observer_control_fixture(),
+            patch.object(server, "ensure_execution_placement"),
+            patch.object(
+                server.native_operation,
+                "prepare_handoff",
+                return_value=self.root / "handoff",
+            ),
+            patch.object(server, "systemd_environment", return_value={}),
+            patch.object(server, "observer_scope_command", return_value=["probe"]),
+            patch.object(server.subprocess, "call", return_value=0) as launch,
+        ):
+            self.assertEqual(
+                server.observer(self.state, ["probe"], "exclusive-observer"), 0
+            )
+        self.assertTrue(launch.call_args.kwargs["start_new_session"])
+        self.assertEqual(
+            launch.call_args.kwargs["env"]["PSE_NATIVE_HANDOFF"],
+            str(self.root / "handoff"),
+        )
 
     def test_observer_control_cap_restored_when_launch_raises(self) -> None:
         with self.observer_control_fixture() as (state, _calls, _drained):
@@ -3210,7 +3433,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                 self.assertNotIn("first-stdout", str(record["stdout"]))
                 self.assertNotIn("first-stderr", str(record["stderr"]))
 
-        # An unrelated producer's file never becomes an overwriteable diagnostic slot.
+        # An unrelated producer's file never becomes an overwritable diagnostic slot.
         server.write_json(
             slot, {"owner": "unknown", "kind": "maintenance-cli-failure-v1"}
         )

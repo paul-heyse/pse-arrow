@@ -142,6 +142,19 @@ unit, cgroup, invocation and inode still match. A surviving or unobservable obse
 its charge and the control limit. Compilation and scientific execution still require their
 respective admitted profiles; restoring a limit does not enlarge an allocation.
 
+Foreground observer handoffs belong to their launching native operation. Cancellation
+fences pending handoffs before stopping each bound observer whose unit, invocation,
+cgroup and inode still match, then joins the direct payload and requires actual drain.
+The operation's creator also settles foreground handoffs before retiring its ownership,
+including when a child reports interruption without signalling that creator. Parent-owned
+observer supervisors use separate sessions so a gate process-group kill cannot preempt
+their drain handlers; nested borrowers do not retire their creator's handoffs.
+A late binding records its scope and refuses payload execution after that fence.
+An unbound launch remains charged until its authentic binding and drain can be observed;
+unknown or replaced bound lifetimes retain their charges and pins and surface a cancellation
+failure. Persistent primary services and independently launched durable workers keep
+their separate lifetime owners; cancelling a foreground assessment does not stop them.
+
 `just activity` (read-only; `--json`) lists the `pse-*` scopes and services with memory, age
 and command, canonical servers and workers, Cargo processes in this checkout and the slice
 limits. It is not a lock: a bare Cargo lock owner is reported as unknown.

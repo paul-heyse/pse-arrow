@@ -42,6 +42,51 @@ from scripts.validation_scope import (
 
 
 class ValidationTests(unittest.TestCase):
+    def test_native_covering_scope_composes_only_with_managed_prerequisite(
+        self,
+    ) -> None:
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(
+                validation.main(
+                    [
+                        "--functional-scope",
+                        "native",
+                        "--functional-scope",
+                        "managed-primary",
+                        "--functional-scope",
+                        "managed-primary",
+                        "--list",
+                    ]
+                ),
+                0,
+            )
+        gates = json.loads(output.getvalue())["checks"]
+        self.assertEqual(
+            [gate["name"] for gate in gates], ["native-test", "managed-native"]
+        )
+        self.assertEqual(
+            gates[1],
+            json.loads(json.dumps(asdict(FUNCTIONAL_SCOPES["managed-primary"]))),
+        )
+        for narrower in ("process", "preparation", "admission", "lifecycle"):
+            error = io.StringIO()
+            with (
+                contextlib.redirect_stderr(error),
+                self.assertRaises(SystemExit) as refused,
+            ):
+                validation.main(
+                    [
+                        "--functional-scope",
+                        "native",
+                        "--functional-scope",
+                        narrower,
+                        "--list",
+                    ]
+                )
+            self.assertEqual(refused.exception.code, 2)
+            self.assertIn("combine it only with managed-primary", error.getvalue())
+
     def test_native_recipe_preserves_exact_nextest_filter(self) -> None:
         source = (Path(__file__).resolve().parents[2] / "justfile").read_text()
         match = re.search(
@@ -1512,8 +1557,9 @@ class ValidationTests(unittest.TestCase):
             all(gate.profile == "local" for gate in FUNCTIONAL_SCOPES.values())
         )
         self.assertIn("--workspace", command)
-        self.assertIn(
-            "pse-relations/force-validate", command[command.index("--features") + 1]
+        self.assertEqual(
+            native_tests.native_root_features(list(gate.args), managed=False),
+            command[command.index("--features") + 1],
         )
 
     def test_native_python_refuses_empty_or_skipped_reports_despite_zero_exit(

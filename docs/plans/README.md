@@ -15,8 +15,9 @@ native status owners and existing substantive authoring guidance.
 confirmed hard-pivot target, accepted rule changes and US01–US05/EF01–EF08/F01–F05/PE01–PE06/PA01–PA04 dispositions.
 Its [completion-audit reconciliation](28-surrealdb-unified-substrate.md#completion-audit-reconciliation-and-capability-decisions)
 links the current corrective route and SurrealDB capability research.
-The [current checkpoint](28-surrealdb-unified-substrate.md#current-checkpoint) also routes the
-2026-10-07 production efficiency review and the preserved interrupted qualification handoff;
+The [current checkpoint](28-surrealdb-unified-substrate.md#current-checkpoint) owns the
+authorized full remaining implementation and E3/E4/E5 campaign. It supersedes the
+interrupted and failure-only handoffs.
 The [repository-wide efficiency extension](28-surrealdb-unified-substrate.md#repository-wide-efficiency-extension)
 now schedules PE01–PE06 and comparable defects across current functionality.
 The [remaining-design enhancement integration](28-surrealdb-unified-substrate.md#remaining-design-enhancement-integration)
@@ -28,7 +29,7 @@ routes the 2026-10-08 review and four confirmed rule decisions through the same 
 The coordinator owns its separately qualified Parallel F01–F05 dispositions; the companions
 own canonical contention, temporary admission/native lifetimes, backend/deployment decisions
 and concurrent ordinary studies. [28e's restart/acceptance route](28e-rebuild-retirement-and-qualification.md#parallel-extension-acceptance-and-campaign-restart)
-keeps the campaign pause and links the required correction evidence. Consult the coordinator's
+routes the authorized full campaign and its readiness/acceptance requirements. Consult the coordinator's
 checkpoint for the next executable package rather than treating this index as a status ledger.
 The [preparation assurance and reuse review](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md)
 investigates the prolonged Python preparation path and related consumers. Its
@@ -40,7 +41,7 @@ preparation/explicit publication. Their selected implementation and required con
 integration are the current authorized scope; the coordinator checkpoint owns progress
 and the boundary before remaining Plan 28 work.
 The [preparation acceptance route](28e-rebuild-retirement-and-qualification.md#preparation-acceptance-and-investigation-handoff)
-keeps future correction evidence separate from the narrowed failure-only continuation.
+routes composed acceptance after the completed preparation correction.
 Its A–E companions develop canonical revisions, selected compilation/reuse, durable execution,
 connected native queries/Arrow, and rebuild/retirement/qualification. Added
 [28f](28f-shared-numerical-preparation.md), [28g](28g-bulk-data-operations.md) and
@@ -58,8 +59,8 @@ supplier topology and fresh registrations, N12 flow-policy lookup, and the selec
 framing extension. [28k's followup outcome](28k-graph-kernels-and-hashing-investigations.md#followup-verification-and-outcome-2026-10-09)
 owns the implementation, bounded measured inquiries and scoped evidence; the coordinator owns finding
 dispositions. [28e](28e-rebuild-retirement-and-qualification.md#graph-and-hashing-extension-acceptance)
-owns affected acceptance. RC02/RC03 production cutovers and the broader paused campaign remain
-outside this selected followup scope.
+owns affected acceptance. RC02/RC03 production cutovers remain unselected. The full remaining Plan 28 campaign
+now follows the coordinator and 28e checkpoints.
 
 [Plan 29: Agent workspace effectiveness](29-agent-workspace-effectiveness.md) is done (2026-10-07): every command runs through `scripts/pse-env` (environment, capped scopes in `pse.slice`), with effect-based canonical test scheduling, composable selection (`just affected`), run logs and preflight, and compact agent instructions with mechanics in [the agent environment guide](../dev/agent-environment.md). Its Outcome records the historical evidence; the prospective AE-25/AE-26 follow-ups now route to Plan 30.
 
@@ -76,7 +77,7 @@ selected assembled qualification are complete (2026-10-09); its
 [Outcome](30-websocket-and-persistent-agent-environment.md#outcome-recorded-after-implementation)
 records repaired composite evidence and exclusions, including the passing original
 thousand-point managed identity. The completed handoff remains for its Plan 28/29 readers;
-the broader Plan 28 E4/E5 campaign remains paused.
+the broader Plan 28 E3/E4/E5 campaign is now authorized at its own owners.
 
 Plans before 28 and their companions are retired to Git history. They are not a
 backlog, and their open items create no work or scope-transfer obligation. Current
@@ -92,7 +93,7 @@ bounded investigation decisions. Its
 owns affected Rust/native/Python acceptance, external-reference comparisons, actual
 maintenance recovery and the explicit qualification limits. Enduring contracts belong to
 the architecture and linked development guides. The highest-numbered plan is retained
-under ADR-0096; it is not active work and does not resume Plan 28's paused campaign.
+under ADR-0096; it is not active work. Plan 28's separately authorized campaign keeps its own owner.
 
 [Plan 31: Agent effectiveness enhancements](31-agent-effectiveness-enhancements.md)
 records the completed tooling work, resolved F01–F05 and

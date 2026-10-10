@@ -14,10 +14,14 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from scripts import host_admission as host
 from scripts import surreal_server
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 class HostAdmissionTests(unittest.TestCase):
@@ -25,6 +29,220 @@ class HostAdmissionTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.directory = Path(temporary.name) / "admission"
+
+    def test_explicit_stop_withdraws_only_selected_queued_resume(self) -> None:
+        owner = host.acquire_light_control(
+            directory=self.directory, deadline=time.monotonic() + 1
+        )
+        selected = self.directory / "selected"
+        other = str(self.directory / "other")
+        with host.allocation_metadata(self.directory) as ledger:
+            ledger["parked_services"] = [str(selected), other]
+            original = dict(ledger["owners"])
+        host.withdraw_parked_service(selected, directory=self.directory)
+        with host.allocation_metadata(self.directory) as ledger:
+            self.assertEqual(ledger["parked_services"], [other])
+            self.assertEqual(ledger["owners"], original)
+            self.assertIn(owner.nonce, ledger["owners"])
+
+    def test_parked_reference_service_survives_two_refusals_then_admitted_resume(
+        self,
+    ) -> None:
+        service = self.directory / "service"
+        self.directory.mkdir(mode=0o700)
+        service.mkdir(mode=0o700, parents=True)
+        config = {
+            "owner": surreal_server.OWNER,
+            "profile_version": 2,
+            "instance_id": "parked-reference",
+            "port": 18240,
+            "endpoint": "ws://127.0.0.1:18240",
+            "namespace": "pse",
+            "database": "canonical",
+            "interpretation": surreal_server.SUBSTRATE_INTERPRETATION,
+            "schema_interpretation": surreal_server.SUBSTRATE_INTERPRETATION,
+            "websocket_max_message_bytes": surreal_server.MESSAGE_BYTES,
+            "max_message_bytes": surreal_server.MESSAGE_BYTES,
+            "resources": surreal_server.reference_resources(),
+            "unit_materialized": True,
+            "resident": True,
+            "parked": True,
+            "admission": "quiesced",
+            "accepting_writes": False,
+        }
+        surreal_server.write_json(service / "config.json", config)
+        host.queue_parked_service(self.directory, service)
+        admitted = False
+        owner: host.Allocation | None = None
+
+        def inherit(_environment: object) -> host.Allocation | None:
+            nonlocal owner
+            if not admitted:
+                return None
+            # Admit the later matching owner after reconcile takes its queue snapshot.
+            # Registering it beforehand would correctly defer reconciliation entirely.
+            owner = host.acquire(host.select("reference"), directory=self.directory)
+            return owner
+
+        def materialize(
+            state: Path, _config: dict[str, object], allocation: host.Allocation
+        ) -> None:
+            self.assertIs(allocation, owner)
+            self.assertTrue(surreal_server.config_for(state)["parked"])
+            self.assertTrue((state / "service-launch.json").is_file())
+
+        with (
+            patch.object(host, "root_path", return_value=self.directory),
+            patch.object(host, "inherit", side_effect=inherit) as inherited,
+            patch.object(host, "enforce_parent"),
+            patch.object(
+                host,
+                "memory_info",
+                return_value={"MemAvailable": 1 << 40, "MemTotal": 1 << 40},
+            ),
+            patch.object(surreal_server, "active", return_value=False),
+            patch.object(
+                surreal_server,
+                "systemctl",
+                return_value=subprocess.CompletedProcess([], 0, "", ""),
+            ) as manager,
+            patch.object(
+                surreal_server, "materialize_service", side_effect=materialize
+            ),
+            patch.object(surreal_server, "listener_ready", return_value=True),
+            patch.object(surreal_server, "establish_protocol_readiness") as ready,
+        ):
+            self.assertEqual(
+                surreal_server.object_mapping(config["resources"])[
+                    "server_memory_bytes"
+                ],
+                16 * host.GIB,
+            )
+            for attempt in range(2):
+                with self.subTest(attempt=attempt):
+                    host.reconcile(self.directory)
+                    current = surreal_server.config_for(service)
+                    self.assertTrue(current["parked"])
+                    self.assertFalse(current["accepting_writes"])
+                    self.assertEqual(current["admission"], "quiesced")
+                    with host.allocation_metadata(self.directory) as ledger:
+                        self.assertEqual(ledger["parked_services"], [str(service)])
+                        self.assertEqual(ledger["owners"], {})
+            self.assertEqual(inherited.call_count, 2)
+            self.assertNotIn("start", [call.args[0] for call in manager.call_args_list])
+            admitted = True
+            host.reconcile(self.directory)
+        ready.assert_called_once()
+        self.assertEqual(inherited.call_count, 3)
+        self.assertIsNotNone(owner)
+        current = surreal_server.config_for(service)
+        self.assertFalse(current["parked"])
+        self.assertTrue(current["accepting_writes"])
+        self.assertEqual(current["admission"], "open")
+        assert owner is not None
+        self.assertTrue(owner.profile.exclusive)
+        with host.allocation_metadata(self.directory) as ledger:
+            self.assertEqual(ledger["parked_services"], [])
+            record = ledger["owners"][owner.nonce]
+            self.assertIn(surreal_server.unit_name(service), record["units"])
+            self.assertEqual(record["borrowed_services"], [str(service)])
+
+    def test_explicit_stop_between_snapshot_and_parking_cannot_queue_restart(
+        self,
+    ) -> None:
+        service = self.directory / "service"
+        self.directory.mkdir(mode=0o700)
+        service.mkdir(parents=True, mode=0o700)
+        unit = surreal_server.unit_name(service)
+        config: dict[str, object] = {
+            "resident": True,
+            "unit_materialized": True,
+            "parked": False,
+        }
+        observed = {
+            "LoadState": "loaded",
+            "ActiveState": "active",
+            "ControlGroup": "/owned-service",
+            "InvocationID": "a" * 32,
+        }
+        owner = host.acquire(host.select("store-functional"), directory=self.directory)
+        with host.allocation_metadata(self.directory) as ledger:
+            ledger["owners"][owner.nonce].update(
+                service=str(service),
+                parkable=True,
+                units={
+                    unit: {
+                        "group": "/owned-service",
+                        "invocation": "a" * 32,
+                        "inode": 123,
+                    }
+                },
+            )
+        interleaved = False
+        parking_deadlines: list[float | None] = []
+
+        def observation(_unit: str, deadline: float | None) -> dict[str, str]:
+            parking_deadlines.append(deadline)
+            return dict(observed)
+
+        def stop(_state: Path, _config: dict[str, object], *, abrupt: bool) -> None:
+            self.assertFalse(abrupt)
+            observed.update(ActiveState="inactive", ControlGroup="")
+            self.assertTrue(owner.release())
+
+        @contextlib.contextmanager
+        def lifecycle(_state: Path) -> Generator[None, None, None]:
+            nonlocal interleaved
+            if not interleaved:
+                interleaved = True
+                args = surreal_server.parser().parse_args(
+                    ["stop", "--state", str(service), "--drained"]
+                )
+                self.assertEqual(surreal_server.dispatch(args), 0)
+            yield
+
+        with (
+            patch.object(host, "root_path", return_value=self.directory),
+            patch.object(
+                host,
+                "memory_info",
+                return_value={"MemAvailable": 1 << 40, "MemTotal": 1 << 40},
+            ),
+            patch.object(host, "retire_empty_allocation"),
+            patch.object(host, "group_identity", return_value=123),
+            patch.object(host.operation, "populated", return_value=False),
+            patch.object(
+                host.operation, "unit_observation", side_effect=lambda _: dict(observed)
+            ),
+            patch.object(host, "control_unit_observation", side_effect=observation),
+            patch.object(
+                surreal_server, "lifecycle_reservation", side_effect=lifecycle
+            ),
+            patch.object(surreal_server, "service_directory", return_value=service),
+            patch.object(
+                surreal_server, "config_for", side_effect=lambda _: dict(config)
+            ),
+            patch.object(
+                surreal_server,
+                "write_json",
+                side_effect=lambda _path, value: config.update(value),
+            ),
+            patch.object(surreal_server, "public_status", return_value={}),
+            patch.object(surreal_server, "stop", side_effect=stop) as stopped,
+            patch.object(surreal_server, "start") as restarted,
+            patch("builtins.print"),
+        ):
+            selected = host.acquire(host.select("reference"), directory=self.directory)
+            self.assertTrue(interleaved)
+            self.assertEqual(parking_deadlines, [selected.deadline])
+            self.assertTrue(selected.release())
+            host.reconcile(self.directory)
+        self.assertFalse(config["parked"])
+        self.assertEqual(observed["ActiveState"], "inactive")
+        stopped.assert_called_once()
+        restarted.assert_not_called()
+        with host.allocation_metadata(self.directory) as ledger:
+            self.assertNotIn(str(service), ledger.get("parked_services", []))
 
     def test_readonly_snapshot_preserves_metadata_bytes_inodes_and_modes(self) -> None:
         owner = host.acquire_light_control(
@@ -797,6 +1015,42 @@ class HostAdmissionTests(unittest.TestCase):
         park.assert_not_called()
         with host.allocation_metadata(self.directory) as ledger:
             self.assertNotIn(service, ledger.get("parked_services", []))
+
+    def test_borrowed_partial_park_preserves_actual_resume_intent(self) -> None:
+        service = self.directory / "service"
+        config: dict[str, object] = {"resident": True, "parked": False}
+
+        def park(_state: Path) -> None:
+            config["parked"] = True
+            raise surreal_server.SupervisorError("partial owned stop")
+
+        with (
+            patch.object(host, "drained", return_value=True),
+            patch.object(
+                surreal_server,
+                "lifecycle_reservation",
+                side_effect=lambda _: contextlib.nullcontext(),
+            ),
+            patch.object(
+                surreal_server, "config_for", side_effect=lambda _: dict(config)
+            ),
+            patch.object(
+                host.operation,
+                "unit_observation",
+                return_value={"ActiveState": "active"},
+            ),
+            patch.object(surreal_server, "park_service", side_effect=park),
+            self.assertRaisesRegex(
+                surreal_server.SupervisorError, "partial owned stop"
+            ),
+        ):
+            host.drain_borrowed_services(
+                self.directory,
+                {"borrowed_services": [str(service)], "units": {}},
+                explicit=True,
+            )
+        with host.allocation_metadata(self.directory) as ledger:
+            self.assertIn(str(service), ledger.get("parked_services", []))
 
 
 if __name__ == "__main__":

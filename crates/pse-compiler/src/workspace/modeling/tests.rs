@@ -2076,6 +2076,84 @@ fn implicit_c1_provider_compiles_only_justified_first_order() {
 }
 
 #[test]
+fn implicit_constructor_bound_uses_residual_minimum_and_requested_output() {
+    use pse_math::implicit::{Configuration, Options, Unknown};
+    let (mut workspace, _, _, root) = setup(
+        "package p {def Root {param p:Scalar=2;implicit a {var y:Scalar;eq ey:y==p+1;}realize ra on a using nested;}}",
+    );
+    let admitted = admit(&mut workspace, root);
+    let inner = admitted.implicit.values().next().unwrap();
+    assert!(inner.requirements_allocation_bound().unwrap().unwrap() < 1 << 20);
+    let configurations = BTreeMap::from([(
+        inner.residuals[0].id,
+        Configuration::Fixed(
+            inner
+                .unknowns
+                .iter()
+                .map(|&id| Unknown {
+                    id,
+                    lower: -10.,
+                    upper: 10.,
+                })
+                .collect(),
+            Options {
+                start: vec![1.; 1],
+                variable_nominals: vec![1.; 1],
+                variable_tolerance: vec![1e-9; 1],
+                residual_tolerance: vec![1e-9; 1],
+                iterations: 20,
+                time_limit: std::time::Duration::from_secs(1),
+                derivative_tolerance: 1e-9,
+            },
+        ),
+    )]);
+    let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let limits = EvaluationLimits {
+        scratch_bytes: 4usize << 30,
+        ..Default::default()
+    };
+    let bound = |requested| {
+        let requirements = inner
+            .requirements(
+                requested,
+                DerivativeOrder::First,
+                None,
+                &accelerators,
+                &cancel,
+                limits,
+            )
+            .unwrap();
+        assert_eq!(
+            requirements.residual_compilation,
+            requested.max(DerivativeOrder::First)
+        );
+        inner
+            .reconstruction_allocation_bound(&configurations, requirements, limits)
+            .unwrap()
+            .unwrap()
+    };
+    let first = bound(DerivativeOrder::First);
+    assert_eq!(bound(DerivativeOrder::Value), first);
+    assert!(first < bound(DerivativeOrder::Second));
+    let solver = pse_math::implicit::Affine::new(&inner.residuals[0].body.math, 1).unwrap();
+    let factory = inner
+        .reconstruction_factory(
+            configurations,
+            ImplicitCapabilities {
+                solver: Arc::new(solver),
+                verifier: None,
+                accelerators: &accelerators,
+            },
+            DerivativeOrder::Value,
+            cancel,
+            limits,
+        )
+        .unwrap();
+    assert!(factory.retained_bytes().unwrap() < first);
+}
+
+#[test]
 fn implicit_nested_value_propagates_native_first_order_to_child() {
     use pse_kernels::ProviderFactory;
     use pse_math::implicit::{Configuration, InnerSolver, Options, Problem, Unknown};
@@ -2157,6 +2235,15 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
             ),
         )])
     };
+    assert!(parent.requirements_allocation_bound().unwrap().is_none());
+    // Provider populations keep their conservative fallback even with a known
+    // first-order residual demand.
+    assert!(
+        parent
+            .reconstruction_allocation_bound(&configs(parent), requirements, limits)
+            .unwrap()
+            .is_none()
+    );
     let parent_factory = parent
         .factory(
             configs(parent),

@@ -421,10 +421,10 @@ path; the real Recipe persistence inquiry does not select an RC03 cutover.
 
 | Package | Prerequisite and delivered behavior | Consumer migration and deletion | Status |
 |---|---|---|---|
-| B1 — Selected kernel boundary | R0 and implemented A2 selection/codec slice. Resolve selected physical/modeling inputs and share admission/inference/specialization kernels. Preserve required context and global obligations. | Migrate authored `.pse`, Rust and Python modeling entry points and workflow composition. Remove their complete-bundle hydration requirement and `BundleOwner::_parent` retention when the last caller moves. | Implemented; final verification in progress |
-| B2 — Durable descriptions and dependencies | B1 plus A2 immutable storage/guards/protection. Persist portable products and complete dependencies; implement ordinary-solve reconstruction, discovery, eligibility and invalidation. | C2 consumes working reconstruction; move Salsa to optional acceleration and delete overlapping cache/validation mechanisms with no remaining consumer. | Implemented; final verification in progress |
-| B3 — Provenance and numerical preparation | B2 and R0 identity decision. Separate outer attestation from product keys; reconstruct and share compatible immutable numerical products without retaining whole revisions. | Migrate artifact requests and value-only, dynamics, fitting and study preparation. Delete global build keys from scientific reuse and unconditional repeated preparation. | Implemented; final verification in progress |
-| B4 — Formal coordinate preparation | B1 and exact library signature evidence. Decide compact mapping versus required complete signature, implement justified improvement and record any remaining limitation. | Migrate every consumer of the changed evaluator layout together. Remove displaced dense maps/tests; preserve actual guard/provider work. | Implemented; final verification in progress |
+| B1 — Selected kernel boundary | R0 and implemented A2 selection/codec slice. Resolve selected physical/modeling inputs and share admission/inference/specialization kernels. Preserve required context and global obligations. | Migrate authored `.pse`, Rust and Python modeling entry points and workflow composition. Remove their complete-bundle hydration requirement and `BundleOwner::_parent` retention when the last caller moves. | Implemented; scoped controls recorded; assembled E3/E4 pending |
+| B2 — Durable descriptions and dependencies | B1 plus A2 immutable storage/guards/protection. Persist portable products and complete dependencies; implement ordinary-solve reconstruction, discovery, eligibility and invalidation. | C2 consumes working reconstruction; move Salsa to optional acceleration and delete overlapping cache/validation mechanisms with no remaining consumer. | Implemented; scoped controls recorded; assembled E3/E4 pending |
+| B3 — Provenance and numerical preparation | B2 and R0 identity decision. Separate outer attestation from product keys; reconstruct and share compatible immutable numerical products without retaining whole revisions. | Migrate artifact requests and value-only, dynamics, fitting and study preparation. Delete global build keys from scientific reuse and unconditional repeated preparation. | Implemented; scoped controls recorded; assembled E3/E4 pending |
+| B4 — Formal coordinate preparation | B1 and exact library signature evidence. Decide compact mapping versus required complete signature, implement justified improvement and record any remaining limitation. | Migrate every consumer of the changed evaluator layout together. Remove displaced dense maps/tests; preserve actual guard/provider work. | Implemented; scoped controls recorded; assembled E3/E4 pending |
 
 These packages cross document boundaries. B1 can begin after A2's selected version and codec
 slice works; it does not need A3's complete revision authoring UI. B2 can initially publish a
@@ -462,103 +462,18 @@ quantitative comparison; B4 may conclude that some dense library input is necess
 
 ## Checkpoint and next step
 
-B7 is implemented against the settled I0/J0 contracts. Current selected reads acquire
-persisted bodies explicitly before pure frontier completion; exact complete bases share
-immutable mathematics with fresh Solved/source wrappers. Publication remains a current
-operation and the displaced canonical compiler callback is removed. New targeted controls
-and rebuilt journeys are being qualified; B5/B6 evidence retains its original scope.
-The coordinator owns the preparation finding ledger.
+Current execution handoff, 2026-10-10: B1–B8 mechanisms are implemented;
+scoped evidence retains its original conditions and does not close Plan 28.
 
-B6 is integrated with A4 staging pacing and N8 source-demand admission. Existing protection,
-publication and scientific identity contracts remain authoritative. Flat rebind and selected
-construction controls pass; unknown control/provider factories retain conservative entry.
-Actual managed receiving and assembled E3 qualification remain pending. Earlier B1–B5 passes
-and persisted replay evidence below retain their original scope.
+Selected sufficient preparation, qualified portable reconstruction, exact immutable basis reuse, indexed description settlement and retained supplier topology are implemented. Complete authored checking remains the selected contract; changed demands, providers, layouts and current attribution retain their owners. Strict current-artifact qualification remains optional.
 
-B5's local/strict admission and versioned product interpretation are integrated after L5's
-recorded decision route. Both use the existing protected scientific reconstruction checker;
-unqualified historical publications are not promoted. Actual runtime reconnect controls
-distinguish local reconstruction from fresh admission. Worker/Python composition and the
-imported-extension concurrent-loader control are being verified before E3. Local artifact
-rehashing remains conservative and has no measured speed claim. Earlier capture notes below
-describe the strict route at their original scope; strict recapture remains optional development
-qualification rather than a blanket prerequisite.
-
-B1–B4 functional mechanisms are implemented. Checked batches and immutable typed rows
-retain the actual native validation owner. Same-owner readmission preserves existing
-evidence; changed owners and values receive native checks. Engine receiving boundaries
-retain the receiving owner, and failed round replacement leaves the prior epoch unchanged.
-Canonical resolution supplies the sufficient
-lexical/import/member/inverse-supplier closure with presence and absence premises. Routine
-modeling handles retain canonical revision, physical/provider context and attempt-local
-factories; they do not retain a complete declaration workspace. Inventories and source
-Arrow exports are explicit. The global physical entity universe has its own native
-projection; selected modeling and physical meaning are not conflated.
-
-Portable products retain selected syntax and complete owning-kernel construction receipts.
-Strict reconstruction uses the ordinary numerical builder without fresh inference or proof
-fallback. Opaque authority authenticates exact whole records to the qualified compiler-issued
-payload and request. Scientific writer and deployment/replay qualification roles cross
-explicit audited trust assertions. Decode scratch is reserved before parsing. Compact
-formal mappings include guards/providers/nested scopes; all consumers gather the worker's
-actual input formals, while derivative axes keep their requested order.
-
-Portable recipes have a finite 64 MiB logical limit, with independently bounded envelope
-metadata. Encoding counts the actual extent before allocation. Canonical product bodies
-and dependencies travel through immutable blocks beneath the 4 MiB protocol limit.
-Store-issued candidate extents support reservation before hydration; strict reconstruction
-also reserves its owning-kernel decode allowance. These format limits confer no entitlement
-to process memory: a smaller admitted pool refuses before allocation.
-
-Relevant producer tooling now captures actual Cargo production units and emitted dep-info.
-A genuine finite Rust tool capture qualifies and drives a persisted native reconstruction
-control. The inspected real `pse-runtime` dev deployment remains **ineligible**: 153 concrete
-refusals cover unreviewed build-script/procedural-macro I/O, ambiguous artifact associations,
-Cargo configuration, active environment and native closure. This is an explicit qualification
-boundary, not permission to manufacture a production receipt. Supplied source-bound reviews
-and complete actual native/configuration inputs are required before that deployment can reuse
-scientific products across builds. Normal admission and canonical persistence remain available.
-
-The maintainer requested closeout and a committed checkpoint on 2026-10-06, then cessation
-of work. Functional scope and focused controls are complete; final assembled A/B acceptance
-is pending. No compile-time or solve-time gain is inferred from structural controls.
-
-The later 2026-10-06 authorization supersedes the closeout rerun order: complete all
-28a–28e functional work with targeted tests before E3 assembled qualification. Transfer
-the applicable assertions of the former 84-case Python and 106-control Rust selections
-to the migrated target. Preserve the original 1,000-point study and scientific demands.
-Actual supported runtime, Python-extension and worker producer qualification proceeds
-as B3 work; unknown or stale executable inputs continue to refuse persisted reuse.
-
-The complete outer source inventory now includes the worker's `xtask` composition
-root alongside library and vendored sources. Its actual filesystem control catches
-dirty worker edits while excluding build outputs. Selected producer dependencies
-continue to own scientific reuse eligibility; the outer inventory does not replace
-the guarded native/configuration closure or actual linked-artifact association.
-
-The supported capture uses the dedicated `producer` profile, inheriting `dev`, with
-compiler wrappers disabled. Existing `dev` artifacts may have been produced by a
-cache daemon whose startup configuration is unknown; a current environment cannot
-retroactively qualify those effects. Fresh selected artifacts in the separate profile
-provide actual compiler-unit association under the reviewed conditions without cleaning
-or moving the checkout's Cargo target directory. The exact libclang file survives nested
-setup. The Python capture binds the actual Maturin configuration file and linked feature
-context, preserving the selected abi3 contract; PyO3 interpreter discovery is inactive
-in this supported configuration.
-The capture's feature set must match each actual linked consumer. Reached effectful
-executors are refreshed by Cargo within the selected profile before a new arbitrary-I/O
-review can qualify them. Selected native namespaces retain candidate additions, topology
-and file contents; immutable snapshots associate actual build outputs and child context.
-The supported native context fixes CMake build metadata with `SOURCE_DATE_EPOCH=0` and
-`TZ=UTC` and uses the pinned toolchain's explicit Rustfmt. Target-specific `-MD` flags
-retain consumed native dependencies under reviewed tool and search-namespace guards;
-`CC_ENABLE_DEBUG_OUTPUT=0` excludes recovered compiler-probe logging while ordinary
-compiler errors remain visible. The capture tool is built separately and launched
-directly through one native setup, preserving the ordinary caller context instead of
-Cargo-run's tool-local loader paths. This deployment choice does not itself grant eligibility:
-selected executable helpers and native inputs still require source-bound reviews before
-ordinary persisted replay. Focused capture controls do not substitute for that production
-qualification.
+The maintainer authorized all remaining Plan 28 scope including the full campaign.
+The [coordinator](28-surrealdb-unified-substrate.md#current-checkpoint) owns finding
+dispositions and [28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
+owns current integration, E3/E4/E5 and retirement. Earlier pause/failure-only instructions
+are superseded. Next: complete bounded campaign preparation and required consumer
+reconciliation, then assembled acceptance; do not restart these implemented mechanisms
+from historical status prose.
 
 ## Outcome (recorded after implementation)
 

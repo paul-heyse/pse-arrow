@@ -74,7 +74,7 @@ pub(super) fn measure(
                 let elapsed = begin.elapsed();
                 let RunReport::Modeling(reports) = result.report().unwrap() else { panic!("wrong accuracy report"); };
                 let mut numerical = observations::Observations::default();
-                for (step, report) in reports.iter().enumerate() { numerical.modeling(report, step); }
+                for (step, report) in reports.iter().enumerate() { numerical.modeling(report, step, owner.runtime.pool()); }
                 let report = reports.last().unwrap();
                 let coordinate = report.prepared.model.case.compiled().plan.columns()[0];
                 let value = report.values.scalars[&coordinate];

@@ -138,7 +138,7 @@ continuation, study, dynamic and optimizer journeys. Assertions consume the actu
 physical allowances, coordinate scales and action/backward-error policy. Objective stopping
 criteria do not promise forward-coordinate accuracy; independent objective and original-row
 oracles retain the relevant decision meaning. Tiny finite differences through a
-tolerance-limited nested solve are being replaced by checks of the defining implicit
+tolerance-limited nested solve were replaced by checks of the defining implicit
 derivative equations at the actual qualified inner point and material response. Outer
 derivative assembly at an authored start does not qualify an outer steady solution. Exact manufactured
 algebra, transport, rank conditions and deliberately small-scale refinement controls remain
@@ -167,8 +167,8 @@ the shared design resolution retain their identity/transport checks without clai
 meaningful derivative accuracy; the Power meter and independent material-response controls
 carry that comparison scope.
 
-The diagnostic assembled native and installed Python runs have finished; source repairs
-and their targeted validation remain in progress. The Python study admission lost transport
+The earlier diagnostic assembled native and installed Python attempts were nonqualifying;
+later source corrections and scoped validation are recorded in Outcome. The Python study admission lost transport
 when the supervised canonical server hit its 2 GiB memory limit. Admission repeatedly
 hydrated the same case and overlay demands, requesting equivalent body publication before
 numerical assignments differed. Exact retained products already settle before redundant
@@ -319,19 +319,30 @@ prerequisites govern execution; add a bounded recipe only when no existing one o
 journey. No full release/wheel or CI campaign is implied.
 
 Run on one stable reconciled source state with regenerated inputs and exact deployed artifacts.
-Select the admitted isolated RocksDB/gRPC `plan28-reference` profile: one primary process
+Run the comprehensive development assessment from the admitted isolated RocksDB/WebSocket
+`plan28-reference` profile and its 140 GiB primary host allocation. The ordinary native gate
+derives its existing exclusive-observer partition from that parent; it does not execute the
+ordinary suite in the 4 GiB managed observer. Managed gates use the reference receiver.
+For the 34 ordinary E4 selectors, also capture the standalone native functional prerequisite
+on the wide receiver under its matching 144 GiB parent, retaining the authenticated producer
+fixture selector from the comprehensive assessment. Do not transfer evidence between these
+different receiving contexts. The reference profile retains one primary process
 with the original 128 GiB shared pool, 16 GiB per-worker capacity, sixteen CPU lanes and
 thirty-two population tickets. Its worker ceiling is 140 GiB, the server ceiling 16 GiB
 and the separate observer ceiling 4 GiB, under one finite 160 GiB parent. These are
 ceilings rather than physical reservations; record available memory and actual readback.
-Ordinary Rust/Python tests use sixteen outer workers; managed-primary journeys use the
+Ordinary Rust tests use the configured sixteen outer slots and scientific groups; ordinary
+Python uses the current four-worker grouped runner. Managed-primary journeys use the
 separate observer partition, with native work exclusively in the primary. Record actual
 configured/used conditions. No uncontrolled concurrent heavy campaign should compete with it.
 Exercise A/C/D's composed read/retirement/root handoff, committed lost-ack claim recovery,
-worker interruption/drain, ordinary retained failure/partial/cancellation and actual gRPC
+worker interruption/drain, ordinary retained failure/partial/cancellation and actual WebSocket
 completion/export refusal. Abrupt acknowledged-write kill/reopen and quiesced offline
 backup/restore must validate exact IDs, interpretation and replay in that same supported
-profile. Logical export/import alone cannot establish these guarantees.
+profile. Restored scientific content identities survive, but the restored physical creation
+authority is fresh and stale creation credentials must refuse. Include scientific reconstruction
+and solve/reopen, beyond the maintenance driver's schema/hash controls. Logical export/import
+alone cannot establish these guarantees or physical power-loss survival.
 
 Require zero failures and complete selected/executed accounting for the selected functional
 scope. Record the actual code/artifacts exercised. Use the runner's declared input families; unrelated
@@ -343,13 +354,26 @@ in the Outcome rather than accumulating per-command checkpoint logs.
 
 ### E4 measurements after positive E3
 
-Retain the 22 transferred process/preparation selectors and extend measurement coverage where
+Retain all 33 explicitly selected process/preparation/admission selectors and extend measurement coverage where
 the confirmed new consumer scope is not exercised by them. Run the applicable selectors through
 `just case-measure <new-output> --functional-from <qualified-assessment>` with explicit
 `--case` selections and their current
 `.config/process-cases.json` / `.config/preparation-cases.json` owners. Each selector needs
 positive corresponding functional evidence, the declared workload/profile and fresh-process
 samples; unsupported scope needs an explicit owner/disposition, not a silently omitted case.
+Run two profile-homogeneous batches: the thirty-four ordinary selectors retain their declared
+64 GiB runtime ceiling and wide receiver declaration. Ordinary qualification uses
+the existing exclusive-observer route, so qualification and measurements share the
+same 144 GiB enclosing parent allocation on that wide store; this is not a claim
+that a 4 GiB wide observer ran the ordinary test suite. `k4-study-in-process-16`,
+`k4-study-in-process-serial-16` and `k4-study-managed-durable-16` retain the exact reference
+allocation. Timing's 40 GiB pool is not a substitute for either declaration. Label actual
+wide-runtime/exclusive-parent and reference observations and competing load,
+without a timing-profile equivalence claim.
+Each batch consumes a functional report matching its actual store, allocation and native
+environment. Expose the existing managed-native route as a named functional prerequisite
+where needed; preserve exact terminal selection and identity checks. `--transfer` is not
+a workaround for mismatching measurement inputs. Reuse E3 evidence only where it matches.
 Include selected compilation/frontier and hydration growth, cold/warm and A/B/A reuse,
 value/structural edits, complete study dispatch/recovery and long exact result/analysis
 selection. Preserve source/deployment identity, checkout, toolchain and cache conditions.
@@ -405,19 +429,36 @@ The durable study case exercises the private worker physical-source and selected
 route; public publication uses protected source reopening followed by one public document
 admission. Standalone fitting/shooting remain one-shot consumers rather than a manufactured
 repeat session. Empty/skewed selection and interrupted recovery have correctness controls;
-these cases do not measure their timing. Authored unchanged-byte edit sharing has functional
-controls but no isolated timing claim. Native installation and deployment admission use
+these cases do not measure their timing. Native installation and deployment admission use
 complete-operation observations from the existing build and assessment routes, whose Cargo
-sample durations alone do not include setup.
+sample durations alone do not include setup. The build owner now observes initial
+launch/admission, native setup and final authenticated drain separately from target timing.
+
+Four bounded additions bring the selected campaign to **37 cases**.
+`results-publish-state-growth-1` (128 states, 15 samples) and
+`results-publish-sample-growth-1` (80 states, 31 samples) isolate each extent against
+the existing 80-by-15 fixture. Complete preparation includes policy resolution;
+publication and protected reads include production IPC preflight and trajectory
+projection. Reports name actual resolved policy-target counts and the fixed registry
+schema width; they do not attribute an isolated lookup/preflight speedup.
+`source-edit-copy-small-1` and `source-edit-copy-large-1` copy and parse the exact
+authored bytes and perform a complete unchanged canonical declaration edit at 80
+and 128 units. Exact byte/declaration checks and unchanged revision/sequence checks
+are untimed. These typed-declaration ingress cases do not claim document reimport or
+scientific solver acceleration. All four additions use the ordinary wide batch.
 
 Reconcile added coverage explicitly rather than silently rerun the whole registry or omit a
 new mechanism. N4/T5/L4 supply affected workload conditions and existing case mapping. Add
-recipe-owned cases only for gaps: policy/preflight/trajectory projection growth; unchanged
-selected admission and repeated fit/shooting owners; physical-document stage/reopen and authored
-edit copying; narrow/wide result append/read and analysis activation. Actual native setup and
-artifact-edit locality use the existing build measurement routes, extended at their owner if
-phase timing currently excludes setup/admission. Keep benchmark declarations in their existing
-registry/script owners; no parallel measurement service or per-helper benchmark quota.
+bounded cases for policy/preflight/trajectory projection growth and unchanged-byte authored
+edit/copy work. Existing 80-by-15 and 128-by-31 publication fixtures cover coordinate/sample
+extent and complete physical stage/reopen, append/read and analysis activation; the 1 MiB
+comment-padding variant covers physical source growth. None establishes differing payload
+schema width. Record genuinely distinct supported width variants at their writer owner, or
+retain the fixed-width limitation explicitly. Standalone fit/shooting have no supported
+repeated session and remain one-shot; do not manufacture a repeat loop. Actual native setup
+and artifact-edit locality use existing build measurement routes, extended to observe initial
+setup/admission and final drain separately from target/Cargo intervals. Keep benchmark
+declarations in their existing registry/script owners; no parallel measurement service.
 
 Separate build/native installation and schema/fixture setup, selected preparation, numerical
 execution, durable append/read and teardown. The interrupted whole-test observations cannot
@@ -542,13 +583,11 @@ must supply tested consumer integration before asserting assembled correction. A
 agreed interface is not readiness. Report named commands, mode/scope, zero baseline and actual
 results; scheduling this acceptance is not newly executed evidence or closure of PA/U findings.
 
-The maintainer subsequently authorized implementing I/J and their necessary consumer
-integration before unrelated Plan 28 work. Rebuilt affected artifacts and new mechanism
-controls qualify that correction. The original Python continuation remains failure-only:
-repair and rerun its failed identities, complete its interrupted identities, preserve raw
-results and then hand off. This does not restart the full selection or authorize another
-E4/E5 campaign. Corrected-composition evidence remains distinct from the original frozen
-artifact results and the repaired composite accepted for this continuation.
+I/J and their consumer correction are implemented with scoped evidence in Outcome. The
+original failed-identity Python continuation subsequently completed in Plan 30. The maintainer
+authorized all remaining Plan 28 and full E3/E4/E5 execution on 2026-10-10; the current checkpoint
+owns its sequence. Corrected-composition and historical repaired-composite evidence retain
+their original conditions and do not replace the final assembled campaign.
 
 Quantitative benefit stays Proposed until later authorized paired complete-operation
 measurement under recorded source/artifact/profile/store and receiving conditions. Separate
@@ -562,7 +601,7 @@ Historical-result assessment remains ±10%; solver stopping and physical checks 
 The [coordinator's selected extension](28-surrealdb-unified-substrate.md#graph-and-hashing-review-integration)
 adds J3/B8/N12/N13, selected RC04 V2 and bounded GH investigations. This document remains the sole assembled
 evidence owner; correction progress and investigation decisions stay at their companions.
-The narrowed original qualification continuation, historical Outcomes and paused E4/E5
+The completed original qualification continuation, historical Outcomes and remaining E4/E5
 obligations retain their current authority. Planning the following acceptance does not run
 or authorize a new campaign.
 
@@ -634,7 +673,7 @@ review's F01–F11, investigations and affected qualification belong wholly to P
 The feature matrix was cancelled at the maintainer's request; interrupted coverage is not a pass.
 These selected journeys do not establish full library/scientific qualification,
 an end-to-end speedup, managed-primary deployment identity or complete Plan 28 E3 acceptance.
-The broader E3/E4/E5 campaign remains paused. RC02 durable fast hashes and RC03 production
+The full E3/E4/E5 campaign is now authorized; the current checkpoint owns execution. RC02 durable fast hashes and RC03 production
 persisted incremental runtime remain unselected.
 
 ## WebSocket environment qualification handoff
@@ -653,12 +692,10 @@ generations and declared timing profile. Preserve the exact reference declaratio
 physical checks and engineering solver stopping budgets; historical comparisons remain
 ±10%. A transport change does not establish the observed HTTP/2 failure's cause or cure.
 
-The current maintainer boundary still permits repairing/rerunning failed Python identities
-and completing interrupted identities, with preserved raw evidence. The separately
-authorized Plan 30 implementation owns new-scope local and assembled controls. Its
+The completed Plan 30 implementation owns its local and assembled controls. Its
 [Outcome](30-websocket-and-persistent-agent-environment.md#outcome-recorded-after-implementation)
-records the repaired composite evidence and exclusions. This does not restart the former
-full selection or E4/E5; benefit measurements retain their existing authorization and conditions.
+records the repaired composite evidence and exclusions. The full remaining Plan 28 campaign
+is now separately authorized; its current checkpoint owns execution and benefit measurements.
 
 **Tested, failed-identity handoff, 2026-10-09:** Plan 30 completed the original
 `test_flash_sweep_prepares_structure_once[managed-durable-science]` identity under
@@ -728,439 +765,232 @@ generic search/MCP work needs a concrete new requirement; it is not hidden accep
 
 ## Checkpoint and next step
 
-The [coordinator's current checkpoint](28-surrealdb-unified-substrate.md#current-checkpoint)
-now limits this continuation to resolving failing tests, completing the selected
-execution, preserving worktree materials during cleanup, updating documentation and
-stopping. E4/E5 and whole-plan adoption remain open outside this continuation. Ordinary
-solver stopping budgets remain unchanged; final historical-result comparisons follow
-the maintainer's ±10% relative criterion. Resource, worker-profile and historical flash
-fixture repairs are integrated and their native follow-up selections pass; the pending
-Python selections determine the remaining repair work. Worktree cleanup is complete
-at the coordinator after the maintainer's explicit disk-space follow-up. The Outcome
-owns the actual test results. The
-earlier checkpoint below retains its original scope and does not expand this instruction.
+The maintainer resumed the full remaining Plan 28 execution on 2026-10-10. Earlier pause,
+failed-identity-only and sequential correction instructions are superseded by this checkpoint.
+The starting tree is clean `91dc7fdf142442d56d89a9fd97f173a3b5633bb7`; historical attempts and
+scoped corrected results retain their original Outcomes and cannot qualify the final tree.
 
-The parallel review's five findings remain in progress at the
-[coordinator](28-surrealdb-unified-substrate.md#parallel-execution-review-dispositions), and
-Parallel RC01–RC04 are explicitly confirmed on 2026-10-08. The new packages are planned on
-committed `84a1caf17656f00f38b22e703c7cbc2b63a44d2d` and are now integrated in the working tree. The development
-assessment restarted and was interrupted after exposing actual retention/staging and horizon
-construction failures; it is incomplete and nonqualifying. A4/N8–N10/C6/C7/L7 foundations and focused controls are integrated;
-consumer reconciliation includes synchronous ingress tickets, original-clock direct drain,
-completion-qualified continuation seeds and separate ordinary/observer test partitions.
-Managed Rust builds precede observer placement and reuse library-owned metadata; managed
-Python and thermodynamic callers enter their bounded observer before native execution.
-Known source-demand producers are integrated, including fitting/trajectory reports and conditional
-block bindings. Conservative foreign expansion variants are reconciled at N4. Final targeted
-controls and live receiver/native-overlap controls precede the assembled E3 campaign. Earlier notes
-retain their evidence scope and do not independently authorize campaign resumption.
+1. Reconcile live plan/index/command instructions before implementation. Implemented packet
+   mechanisms remain implemented; N4/T5/L4 and E3–E5 acceptance remain open. Plan 33's completed
+   corrections and decisions keep their separate owner.
+2. Complete bounded functional preparation: scientific rebuild/reopen/solve after maintenance;
+   exact-context measurement prerequisite selection/composition; native setup/admission/drain
+   timing in the existing build owner; policy/preflight/trajectory growth and unchanged-byte
+   authored edit/copy controls. Reconcile actual callers and delete displaced mechanisms.
+   Use targeted compilation and functional tests, not integrated suites per packet.
+3. At functional scope end, run comprehensive development `just assessment`, current
+   `just seed-conformance`, pinned `just parity`, actual canonical recovery at the original
+   reference allocation, `just hygiene`, governance/docs/native lints and full powerset.
+   The assessment already selects ordinary and managed Rust/Python separately. Preserve the
+   original thousand-point and sixteen-case workloads, actual concurrency/drain, production
+   physical accuracy, zero retries and explicit force-validation. Repair failures at their
+   owners and rerun invalidated covering invocations on the stable final inputs.
+4. After positive corresponding functional evidence, measure all 37 explicit E4 selectors.
+   The 34 ordinary selectors retain their 64 GiB runtime ceiling and wide receiver
+   declaration under the same existing 144 GiB parent used for ordinary qualification;
+   the three sixteen-point study selectors retain exact
+   reference capacities. Each batch consumes a matching functional report, including actual
+   store/allocation/native environment. No transfer flag or reduced fixture may bypass a
+   mismatch. These are wide-runtime/exclusive-parent and reference observations,
+   not timing-profile equivalence claims. The reference host route retains its
+   140 GiB primary plus 16 GiB server and 4 GiB observer envelope.
+   Build/locality measurements include separately observed native setup/admission/drain.
+5. Conduct the independent bounded E5 review on demonstrated final scope, repair material
+   findings, reconcile all dispositions and required ADR/design routes, move enduring meaning,
+   and retire eligible plans/reviews. Do not mark optional strict producer capture required,
+   manufacture repeat fit/shoot sessions, or infer physical power-loss durability.
 
-The current receiving controls exposed concrete preparation defects: direct
-supervisor startup from a crate directory lacked its Python package root; a CPU-disabled
-cgroup leaf legitimately lacked `cpu.max` despite its finite exact ancestor quota; and
-the canonical request clock included serialized local-context hashing before RPC dispatch;
-and identical cold physical-source requests independently competed for full-width query
-admission.
-The owners now resolve the package root, verify the actual controller hierarchy and
-perform synchronous eligibility checks before starting the canonical request interval.
-Identical physical-source misses now join one bounded immutable preparation flight, with
-separate caller protection/cancellation and explicit-clear fencing. Native attempts remain
-independent, and generic query saturation still refuses at its existing finite boundary.
-Repeated exact-path image observations are deduplicated while independent final byte
-verification and guarded reconstruction remain. Protected presence-only lookup now avoids
-local image observation for an absent product; a present product still requires current
-admission before descriptor decoding. Fresh retention and publication share one originating
-namespace decision for the same immutable body. Overlapping namespace checks on one local
-replay owner form a bounded cohort, sealed before the final full byte verification; later
-callers require a new observation, and reconstruction keeps its independent guarded check.
-The managed receiving control now demonstrates sixteen actual native owner threads in one
-primary, distinct retained executions for equal bindings and the original root allowances.
-Managed cancellation drains the sixteen entered owners and refuses the undispatched tail;
-the managed serving control preserves partial history and escaped Arrow readers across
-publication and retirement. Durable continuation exceeded its original public-wait
-bound while preparing source prediction views. Its correction uses bounded value rebinding
-only for the same admitted operation and physical binding closure, preserving the resolved
-numerical policy, exact source coordinates, semantic point and seed preparation identity;
-other sources retain complete reconstruction. Concurrent source staging now retries typed
-definite transaction conflicts within one original request clock, preserving its immutable
-replay and fencing contracts. Managed continuation and direct parallel conformance/study
-readiness now complete with their original scientific and lifecycle assertions. The installed
-Python receiving fixture retains its synchronous caller and exact receiver through finite
-failure/drain boundaries and explicit observer handoff; both live receiving controls now
-complete with the original occurrence, root, cancellation and untouched-tail assertions.
-The managed measurement smoke control exposed an observer workspace-budget mismatch;
-after correcting that declared budget, cold physical-inventory materialization exposed a
-typed deployment CPU-admission failure. Concurrent independent relation scans each requested
-the full deployment query width. Their scoped factory now records one query partition per
-scan while retaining the same deployment CPU, memory, cache and implementation owners;
-other sessions retain their declared width. The focused shared-owner controls and original
-cold managed smoke workload now complete. Exact-profile kill/reopen, unchanged-state cap-reduction refusal
-and gated offline restore have completed.
-Private qualification clocks now separate
-held native entry from startup and retain bounded public-wait failure/drain ownership.
-These corrections preserve production deadlines, exact-current replay eligibility and
-scientific tolerances.
-The managed Rust/Python receiving, cold managed measurement readiness and exact-profile
-recovery journeys have completed. Regeneration has completed through its owners, with no
-workspace-hack changes. The new assessment exposed nested SurrealQL `RETURN` branches that
-skipped trailing guard-generation writes while still committing. Those branches now produce
-values so the original fence writes execute; composed retention/staging controls pass.
-Selected artifact admission also counted fixed parameters as derivative axes and charged
-unrequested orders. Its selected-coordinate/order correction preserves the conservative
-library envelope. Independent review found allocating preflight metadata before common-pool
-admission; the revised preflight uses scalar conservative counts and constructs that metadata
-only inside the admitted compiler. On 2026-10-08 the maintainer explicitly authorized increasing
-resource allocations when needed. Ordinary horizon fixtures now use a 2 GiB shared pool and
-1 GiB worker/workspace allowances, instead of the former 8 MiB worker boundary; scientific
-accuracy, native deadlines and deliberate capacity-refusal controls retain their meanings.
-The subsequent assessment found the same undersized worker allowance in ordinary workflow
-fixtures. Their shared helpers now use at least 1 GiB for worker/workspace construction and
-four times that extent for the common pool, preserving each foreign-library allowance. A
-2 GiB common pool refused overlapping 1 GiB compiler reservations plus native overhead;
-the ordinary 4 GiB allocation accommodates that demand without changing the bounds. Explicit
-capacity controls retain their own policies; the SCIP low-capacity control now expects the
-earlier artifact-admission refusal, with its scientific compiler policy unchanged. The held
-preparation-queue fixture releases and joins its blocking job before outcome assertions.
-The public occurrence journey checks actual batch width under immediate-ready scheduling;
-a separate four-ready cohort exercises the same runtime adapter and original objective oracle.
-The failed assembled attempt was interrupted for these corrections and supplies no complete
-functional qualification. Its successor exposed two fixture lifetime defects: an unpolled
-source-edit future could retain the staging mutex, and unrelated source preparation consumed
-the path fixture's existing task deadline. The edit now runs in a joined, abort-on-drop task;
-both path sources prepare before the unchanged deadline, and source-mismatch controls require
-typed contract refusals with an unexpired scope. Affected staging/retention and path groups
-pass. The next assembled run exposed a separate parallel-helper override that retained a
-2 GiB common pool after inheriting the enlarged 1 GiB workspace. Its ordinary pool now
-scales the baseline by lane width: 4 GiB for one lane and 64 GiB for sixteen, preserving
-CPU/job limits and deliberate refusal controls. All seven parallel conformance controls
-pass with this allocation. Affected ordinary-resource and scheduling checks also pass; next is
-the stable assembled development assessment,
-separate reference conformance and parity, followed by E4 measurements and E5 acceptance.
-
-The maintainer's current execution requirement is sixteen parallel workers, including
-actual concurrent reference fixtures. The former one-worker reference process has been
-stopped at the maintainer's direction. Restart follows implementation and targeted
-verification of bounded parallel fixture scheduling, deterministic report assembly,
-cancellation drain and shared admission. The reference configuration selects sixteen
-runtime CPU permits and thirty-two native admission slots, accommodating idle staged
-session owners alongside active preparation/validation. Each fixture optimizer uses one
-core. Ordinary solver, canonical and Python tests use sixteen workers; shared-server lifetime/timing controls
-remain exclusive and memory-heavy engineering jobs retain their aggregate bound.
-Typed definitive schema transaction rejection permits bounded complete-decision retry;
-unknown acknowledgment, cancellation and readback failure never authorize DDL replay.
-Protected source reads and lease changes retain complete guarded decisions; definite
-conflicts now receive bounded jittered pacing at that owner. Source activation and
-product admission preserve exact immutable acknowledgment settlement before the same
-conflict pacing. The actual sixteen-reader protection/read/release stress control passes;
-enclosing native fixture controls remain pending. An invalid zero tolerance in a newly
-invented cap-control fixture was corrected to the existing positive-tolerance contract;
-the reference campaign's science and tolerances are unchanged.
-This is additional functional scope, not a qualification pass or reduced scientific
-acceptance. Existing static observations require applicability review for these changes.
-
-The authorized remaining enhancements are integrated on `fbbf718` plus the current working
-tree. C5 stored creation, N5 layout retention, N6 sample factors, N7 demand/cache upgrades,
-L6 receipt materialization and L5/B5 default worker/Python composition have focused
-controls. T6 completed current-schema populated access-path investigations and adopted
-bounded result cursor corrections. Independent implementation review found two authority
-repairs: originating producer identity for retained body fills, and complete immutable
-occurrence validation on cancelled direct-store retries; both are integrated and their
-focused controls pass. The original Python stream-lifetime test consumed a one-shot stream
-twice and now retains its Arrow table once. The unchanged public Diffsol accuracy
-assertion exposed a library constructor defect; native affine/scheduled controls
-reproduce it before the adapter repair and pass afterwards without tighter tolerances.
-Focused cache and all eleven cancellation controls pass; both installed Python scientific
-journeys pass, with their standalone composite receipt refused because a nested collector
-overrode its parent inventory. The test now keeps that nested inventory separate; E3
-will verify complete campaign accounting. The first Gradient benchmark correctly refused
-the heat fixture's quadratures; the new case instead uses the sampled two-parameter curve,
-with the same global production policy as its exact-Hessian counterpart. All three new
-process case smoke controls pass. The first composed development attempt was interrupted
-by a real cancellation fixture reusing its enclosing scope. Its corrected independent
-fixture construction passes the full module inside a native scope. The independent
-assembled review also exposed repeated dynamic allowance joins; admission now freezes
-and shares those projections, with affected numerical controls preceding campaign
-resumption. Complete selected accounting and recovery/conformance/feature scope before E4. E4 adds
-`dynamic-rebind-4-1`, `fit-gradient-cold-1` and `fit-curved-second-cold-1` to the 25 explicit
-selectors to cover the new actual numerical consumers. Earlier reports below keep their
-original scope; they do not qualify the current extension.
-
-
-The enhancement review is now scheduled on `dacc9c3`; it does not change product code or qualify
-the target. The stable local assessment retained 37 passed entries (including reviewed transfers),
-three failures and one incomplete Python entry against zero. It has no terminal Python traceback
-or final reconciliation after interruption. Current next work is L6/affected diagnostics followed
-by complete C5/B5/N5–N7/T6/L5 functional scope, then composed E3, applicable E4 and E5. Earlier
-handoffs below retain their original evidence and do not mandate strict recapture/rebuilding.
-
-### Parallel-execution review handoff, 2026-10-08
-
-The review examined the current `fbbf718`-based working tree through independent source
-assessment and capability research, including the neo4j-surrealdb and numerical skills,
-Context7, pinned release source, upstream GitHub evidence and official documentation.
-No product tests, builds, measurements or campaigns were run for the review. Its
-[Verification](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#10-verification-and-uncertainty)
-names the existing failed two-test native selection, its force-validation/local profile and
-2 GiB fixture pool, separately from the 128 GiB reference profile. Typed transaction conflicts
-are established; exact failing SQL attribution, native ceilings and claimed performance
-benefits are not.
-
-E retains the campaign pause and evidence boundary. Campaign restart follows correction
-and targeted verification of the selected sixteen-case route: original scientific checks,
-deterministic complete reports, cancellation/drain, protected publication/reclamation and
-finite resource admission. Ordinary study qualification includes independent non-batching
-frontier cases with preserved continuation dependencies and occurrence semantics; conformance
-fixtures or a specialized native batch alone do not settle that route. Select/account for
-the durable managed-worker deployment. Backend-specific exclusion/process strategies must
-match the selected route; internal teams require matching lifetime accounting when selected. The
-review does not require sixteen maximum-sized jobs to fit simultaneously, reduce worker
-width as a substitute for the functional target, or weaken scientific tolerances.
-
-The coordinator records findings and decides the correction; this handoff adds no second
-ledger. Parallel RC01–RC04 were subsequently confirmed on 2026-10-08 and are routed in the
-coordinator; the expanded packages and restart prerequisites above supersede the unconfirmed
-review handoff. E3, applicable E4 measurements and E5 acceptance remain incomplete. The existing implementation and scientific corpus are preserved.
-
-### Efficiency review handoff, 2026-10-07
-
-The maintainer redirected execution to the [production execution efficiency review](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md)
-because of the long native run, then selected stopping and preserving the owned runner.
-The selected SurrealDB server, resource profile and implementation remain preserved.
-Commit `5260a3e9a` subsequently recorded that implementation and this handoff during review
-publication; the reviewed production, configuration and test bytes remained unchanged.
-E3 is interrupted and incomplete; E4 measurements and E5 assembled acceptance remain pending.
-The review is a separate design assessment, not the E5 completion review.
-
-**Tested, partial preserved campaign; baseline zero:**
-`build/assessment/plan28-qualified-resumed-20261007/checks.json` records 39 positive gates,
-one interrupted native gate and one not-run full Python gate. Thirty-seven positive gates
-were explicitly transferred from the reviewed prior evidence; current runtime/worker producer
-deployment and imported-Python association were executed against their actual captured artifacts.
-The native command `just native-test --profile local --config-file <run>/native-test-nextest.toml`
-selected 2,821 tests in native force-validation mode: 2,425 passed, one was aborted by the
-requested SIGTERM, and 395 did not run. That abort is not a discovered scientific failure.
-The report records unchanged source during execution. Its 1,793.689-second native-gate duration
-includes the logged 4 minute 11 second build; individual test times include fixture and teardown.
-The review's [preserved execution evidence](../design_review/evidence/production-execution-efficiency-2026-10-07/execution-baseline.md)
-states the attribution limits. These are incomplete campaign observations, not a full pass or
-new production performance qualification.
-
-The subsequent [repository-wide plan extension](28-surrealdb-unified-substrate.md#repository-wide-efficiency-extension)
-now schedules review findings, related variants and confirmed RC01 through 28f/28g/28h.
-Production remedies, accuracy changes and qualification resumption were not performed by
-the review or plan authoring. After the expanded functional handoff, resume affected correctness/deployment journeys and
-E4/E5 under this existing owner. Keep valid earlier evidence at its original scope; a capture-only
-repair does not itself justify repeating the completed series. The earlier continuation notes
-below describe the work leading to this handoff.
-
-The maintainer committed and pushed the correction baseline as `219338742` before this
-continuation. Execution implements the bounded refinements agreed in the plan-execution
-discussion: explicit awaited fixture finalization, stopped/drained resource-only supervisor
-reconfiguration, and ordered producer capture and imported Python association after
-installation. Ordinary scientific controls retain production accuracy; original PR,
-recycle and conformance journeys precede the stable deployment handoff.
-The derived/multistart/PETSc and durable-runtime selection is now positive. The PR
-diagnostic dropped the admitted compiler policy in its independent primitive checks;
-the correction restores that policy and keeps diagnostic admission through native
-teardown and returned-buffer lifetime. The current original recycle now retains a feasible stationary native candidate without
-commit because original connection closures still refuse it. The refused checks are raw Power/W differences of transported `flow*h`; their
-folded 1 W allowances are not guaranteed by primitive-field native feasibility.
-Source diagnosis found that lowering erased the distinction between a marked shared rule
-and an explicit tolerance, and original closure assessment bypassed contextual resolution.
-The correction preserves both endpoint obligations, resolves their full physical quantities
-through the production policy, and retains the tighter endpoint budget. Meaningful frozen
-engineering context is authored separately from solved trial values; explicit literals remain
-explicit. Native success remains insufficient for original physical acceptance. Bounded runner review exposed option values being
-mistaken for Python test selectors and deployment prerequisites being retained without
-current artifact paths/input coverage. The wrappers now separate positional selectors;
-deployment capture and imported association require fresh execution, while retained
-fixture consumers use their verified origin. Pytest owns positional/default selection
-through its `testpaths` setting; both wrappers remove their bespoke option parsers.
-Reviewed declaration/list files enter
-the deployment input identity. Conformance qualification also explicitly checks requested
-native route identity and original-feasible stationary PC-SAFT outcomes rather than a
-scalar alone. Its pressure-consistent intermediate solve preserves the original final
-free composition; qualified negative local tangent-plane distance retains scientific
-model-check refusal, rather than a false zero/stability premise.
-The maintainer clarified that historical scientific output comparisons must tolerate
-analytically insignificant variation. Empirical comparisons now consume shared authored
-physical resolutions or their authored expectation checks; variable-bound feasibility
-allowances do not establish forward output accuracy. Discretized optimizers retain
-original physical checks and production optimality evidence, without asserting unrequested
-exact optimizer coordinates. The correction aligns 236 historical expectations across 14
-authored seed models with that basis, preserving their values and equations. Partial fixture
-loaders now include the policy package. Ordinary Python candidate comparisons and parity
-parameter estimates consume their execution policy; exact identity, storage, fixed-input
-and mathematical-mechanism checks keep their distinct obligations. Source diagnosis also
-found that the shared physical constants had no package-level engineering-rule markers:
-output expectations used the physical floors, while production admission could still fall
-back to 0.001 canonical units, including Pa. The 16 existing constants now declare those
-markers, with no value changes or second policy. The actual physical admission control
-then exposed a second defect: selected package acquisition omits anonymous engineering-rule
-annotations, so the markers failed to reach the solver. The bounded package frontier
-now acquires these semantic dependencies and their referenced constants,
-without hydrating unrelated package members. Physical admission controls require the actual
-temperature, density, pressure and power rules on the original solver targets.
-The acquired markers were also being dropped by the checked-package projection; both
-frontiers now retain the same typed package marker and its constant/provenance closure.
-Actual source admission now reaches the shared rules. The legal self-difference guard
-now admits additive `ComponentFlow` by its complete resolved quantity identity while
-refusing origin-sensitive temperature and pressure points. The canonical control distinguishes
-unchanged authoritative rows from parsed package edits: reparsing changes source provenance
-and correctly invalidates exact reuse, even when the selected extent stays bounded. Marker
-add/remove and unrelated typed-row extension preserve existing rows to isolate dependency-local
-reuse and absence evidence. Their actual runtime validation is positive.
-Canonical modeling context v2 explicitly refuses reopening revisions staged under the
-older marker metadata; restaging the authored source supplies the current interpretation.
-The store schema and retained result codec are unchanged. This clean-rebuild cutover has
-one reader and does not reinterpret old selected-source dependencies as current ones.
-The PR Second diagnostic now checks the canonical linear systems production assembles,
-exact mirrored output and separately expanded defining equations with all contraction
-terms in the backward-error denominator. It retains the production budget rather than
-treating a differently re-summed, nearly cancelled RHS as an actual solved linear system.
-The current production-basis PR execution is positive. Contextual closure preparation,
-including actual reference transport obligations, is now positive; the affected native
-recycle and conformance executions follow that handoff. The isolated selected-profile recovery journey is
-positive, including drained resource reconfiguration and observed kernel memory caps.
-The ongoing conformance selection passed all nine flash realizations, then exposed
-another invalid continuous-optimum comparison in the finite Radau QP. Its correction
-checks the actual submitted objective, original physical equations and retained
-optimality evidence; the independent continuous integration checks remain. Flash
-comparisons now read the resolved shared rule's physical floor with full quantity,
-unit and rule identity checks, avoiding repeated scalar preparation. The penalty
-route executes the same preparation whose structural requirement was inspected.
-Bounded original-check values and closure inventory are retained in each refused
-strategy cause before a later recovery candidate can replace it. The completed affected conformance selection passed both finite dynamic optimization
-controls. Physical NLP stopped during preparation because its Power rule had no admitted
-closure target; PC-SAFT reached native success in six iterations but original KKT refused
-missing reactions on two eliminated fixed-temperature coordinates. These source-grounded
-corrections precede another affected scientific execution and do not establish assembled
-qualification.
-The retained PC-SAFT restoration failure drives two further frontend corrections: nominal
-row characterization must preserve equality-bound coordinates (280 K must not become a
-fallback 1 K), and requested affine preprocessing needs independent row evidence even
-when an explicitly selected nonlinear adapter does not request whole-problem coefficient
-classification. Original feasibility, scientific checks and KKT remain required; the current PC-SAFT execution now provides native convergence evidence, while original
-KKT qualification remains under correction. The pinned affine wrapper omits reactions for
-eliminated fixed columns. Recovery now completes only those declared equality-bound
-reactions in original physical units, using the existing Lagrangian derivative owner and
-counted callbacks; it changes neither primal values nor surviving-coordinate multipliers.
-Earlier successful capture/import controls retain their original artifact scope and do not
-qualify the new binaries. E3 remains the sole assembled campaign, followed by all 22 E4
-selectors and E5 acceptance. No old-storage or distinct CI campaign is added.
-
-E1/E2 are active under the full-scope 2026-10-06 authorization. The native registry,
-scientific physical fixture, public contract documents, Python contracts and exact native
-schema have been regenerated through their owners. Pure contract generation avoids solver
-discovery and extension execution. Unchanged output bytes retain their timestamps.
-
-PostgreSQL operations, generated SQL/COPY/query output, Delta catalog/publication/settlement,
-legacy artifact descriptors and physical layout adapters are removed. Their callers now use
-canonical revisions/results and native engine ownership. The workspace hack and dependency
-resolution have been regenerated. DataFusion remains for native relational preparation,
-row predicates and optimizer/provider contracts; Arrow/Parquet remain typed scientific data
-boundaries. Public SQL convenience and unconsumed Delta dependencies are retired. The orphaned
-publication-only protobuf diagnostic codec and its DataFusion protobuf dependency are
-removed; native row, ownership and receiving-session controls keep their useful assertions.
-The workspace hack now attaches only to actual data-boundary and store consumers;
-normal semantic, numerical and native-ABI roots no longer import the data stack through
-feature stabilization. Supported nightly feature unification and the remaining consumers'
-fallback preserve the shared type universe. Modeling, math and compiler library checks
-compile this narrower graph; correctness tests continue to select the actual relation
-owner explicitly for force-validation.
-
-Worker, Python, engine-fixture and measurement consumers have moved to the target. Their
-focused native boundaries, worker journeys and process benchmarks compile; native row,
-ownership, pushdown, schema and declaration controls pass. Linked Python scientific controls
-now pass for the process/recycle, dynamic/transient fitting, limited-incumbent and memory-stop
-cases after separating canonical source IPC admission from the smaller result-block limit.
-Generated-contract consumers use canonical manifest and scalar-index rows. Bounded exact study
-source admission and IPC receipt reuse now pass their actual ingress, readiness, invalidation,
-retirement and early/late cache-clear controls. Active selections remain protected through
-run and analysis root admission. Escaped decoded Arrow arrays survive result reclamation and
-release their allocation only on final drop. Qualified Python deployment receipt admission
-remains before the functional handoff. Explicit Python test targets no longer also collect the entire test directory,
-and recipes preserve each argument, including compound marker expressions.
-Measurement fixture owners
-now register isolated databases and explicitly drain result-release tasks before teardown,
-preventing sample-to-sample storage accumulation. Scientific input values and independent
-numerical assertions are preserved. No old fixture publication service is started by pytest.
-
-Earlier actual runtime library and enclosing worker qualification produced eligible receipts without
-refusal reasons under the reviewed producer profile. Current Python capture, import association
-and public deployment admission remain pending. Captures distinguish compiler unit dep-info
-from Cargo aggregate rerun hints, select a real library or binary target, and keep reviewed
-outer build provenance separate from the scientific key. Source review and native/tool
-closure remain required for the retained worker/Python profiles; successful fixture controls
-do not grant production eligibility.
-
-The implementation checkpoint is preserved in commit `06302af77`. The checkout's build
-outputs were subsequently replaced outside this execution team. Earlier captures retain
-their observed scope; they do not establish freshness or installed-artifact association for
-the replacement outputs. Current deployment qualification must rebuild and associate actual
-selected outputs under the retained reviewed premises. A separately launched native
-assessment is using the checkout's Cargo lock; its results and prerequisites must be
-reconciled before adopting any enclosing qualification claim. That independent assessment
-finished with a Revise verdict and interrupted failing native/Python diagnostics against
-the original commit; neither run qualifies this newer tree.
-
-The actual editable Python link exposed a deployment association gap: Maturin uses its
-Cargo rustc manifest/lib route, supplies the extension-module context and patches editable
-library search paths. A conventional library build's output alias is insufficient to qualify
-that installed artifact. The capture tool now selects the observed cdylib route; targeted
-actual-Cargo controls pass. Python-only packaging inputs and immutable compiled/installed
-association are being reconciled before the public deployment control. Executor refresh
-also now uses bounded package-name families, matching Cargo's real cleanup semantics, while
-retaining exact selected IDs and fresh-build observations in evidence. Final source cleanup
-will require current root captures rather than relabeling these earlier immutable receipts.
-
-Scope-end generation, formatting and hygiene ran after the initial functional handoff.
-Hygiene exposed five failing recipes; instructions, spelling and Python checks were repaired,
-and both Clippy variants subsequently passed. The independent completion audit exposed
-additional functional corrections, so the assembled target campaign is held while those
-corrections receive targeted controls. E4 measurements and final E5 acceptance/closure remain
-pending. The previous A/B integrated testing is not being resumed.
-
-The completion audit's F01–F05 dispositions live in the coordinator: F01 lifecycle-root ownership and F03
-initialization completion have positive native correction controls; F02 grouped selected
-preparation has positive guarded payload/frontier controls, including completed bounded namespace metadata
-and identical concurrent publication settlement controls; F04
-runner prerequisites and scientific fixture/request premises are being corrected with targeted
-controls. Its numerical observations do not establish a derivative defect. F05 remains open
-for current installed Python association, assembled qualification, measurements and closure.
-The dated review retains its original commit and failed/interrupted evidence.
-
-The assembled campaign's isolated server profile now uses a 16 GiB server and two
-8 GiB managed worker slots within a 32 GiB allocation, following the maintainer's workstation
-capacity correction. The previous 2 GiB server OOM observations retain their original scope;
-they do not establish behavior under this larger allocation. The supervisor derives a 4 GiB
-RocksDB cache and 12 GiB tracked-memory threshold from the new server allocation. This preserves the authored SCIP
-interruption workload's existing worker admission rather than reducing its scientific
-requirements to fit the smaller mechanism-test profile. Schema initialization completed through `just canonical-init`; assembled execution follows
-the final functional handoff. Old application states are preserved.
-
-Ordinary workflow fixtures now retain an explicitly owned temporary database until their
-last store borrower is released; ordinary connections never acquire automatic database
-ownership. Reliable reader finalization continues to use the existing awaited
-`remove_isolated_fixture()` after returned read owners are dropped. Automatic cleanup is a
-fallback: cancellation or cleanup failure in a detached reader task can retain the fixture
-without failing the main test body. This does not establish guaranteed cleanup after abrupt
-reader shutdown or explain the historical server OOM observations.
-
-The ordinary horizon controls now assess original row and variable feasibility plus the
-production stationarity and complementarity conditions. Their independent convex tracking
-comparison follows the bound composed from those admitted conditions; the raw Objective
-allowance is not treated as a certified optimum-gap promise. Shooting publication uses
-the compiler's typed member-output identities. These corrections preserve production
-tolerances. The affected contextual preparation, native recycle, PC-SAFT and physical NLP
-controls are now positive, as are the current worker journeys and local parity. Remaining
-execution is fresh actual producer captures and installed Python association, then the stable assembled
-E3 campaign and current seed conformance. E4's 22 selectors and build measurements follow
-positive E3; final independent E5 acceptance, finding reconciliation and decision/design
-adoption remain afterward. The current scope-end checks are a repaired composite, recorded
-in the Outcome, and do not replace those remaining obligations.
+Root owns campaign selection, shared runner/registry changes and final acceptance. Checkpoints
+record state, decisions and next steps; commands and comprehensive evidence belong in Outcome.
+Preparation mechanisms and targeted controls are implemented, and all four added fixtures
+pass their targeted smoke journeys. The growth smoke exposed
+an unconditional second-order inner-construction estimate; its correction now separates
+source-bounded capability analysis from actual-order factory construction. Independent
+review also corrected full-workspace admission for small bodies. The declared fixtures
+now retain actual requested derivative orders. The same smoke exposed a benchmark caller that
+ignored paged analysis retirement; teardown now drains analysis membership, inputs and
+roots before requiring run retirement, outside the timed operation and under the original
+request deadline. The private fixture owner removes any header whose immutable creation
+window remains open; this does not claim durable analysis settlement. Explicit stop now
+withdraws only that service's queued resume;
+coordinated parking consumes the current service lifetime under lifecycle ownership,
+including partial-stop recovery. Historical dirty worktrees remain preserved.
+The two inner-provider jobs now preserve a deadline explicitly carried by their driver
+through the existing scoped admission/join owner. Current staged callers already own an
+enclosing deadline and drain; this corrects local clock propagation without claiming a
+demonstrated scientific failure in those callers. Exact comprehensive measurement
+prerequisites authenticate the producer fixture and compose only its owned selector;
+standalone prerequisites retain exact context matching.
+Functional preparation and independent bounded correction reviews are complete. Scope-end
+formatting, affected static repairs, manual checks, full feature powerset and artifact refresh
+are complete before the stable assembled capture. The operator restored
+host inotify capacity, and the unchanged real lifecycle controls and complete affected tooling
+selection now pass. Actual systemd lifetime termination remains required for native drain;
+an empty cgroup alone does not discharge that obligation. Both campaign profiles were
+refreshed before those captures; the foreground-cancellation correction below requires
+another refresh of their frozen Python closures before the next comprehensive development
+assessment, current conformance, external parity and scientific recovery. E3 acceptance remains pending;
+E4 is not measured; E5 is not accepted. Keep these inputs stable through E4.
+The first assembled attempt exposed four stale tooling fixtures before the scientific
+gates. They now exercise the current validation-composer entry, independent native
+fixture allocation, admitted observer observation and supported standalone restore,
+with explicit refusal of shared-context restore. The complete setup suite passes under
+a real native owner. Restart the comprehensive capture on that corrected tree;
+the interrupted attempt supplies no assembled acceptance.
+The subsequent launch exposed a failed-resume state transition: ordinary-lane admission
+correctly refused the reference service, but its parked flag had already been cleared,
+allowing reconciliation to discard the pending resume. Admission and materialization now
+precede that transition; failed startup restores closed parked state while retaining the
+actual allocation and restored-state validation requirement. A successful retry must
+establish listener and protocol readiness. Affected lifecycle/admission controls and
+independent source review cover the correction. Refresh both frozen supervisor/worker
+closures before the next comprehensive capture; interrupted captures remain nonqualifying.
+The next capture reached the ordinary Rust inventory and exposed one omitted approved
+frame spelling for the implemented structural-body index. The fixture now declares that
+existing versioned frame; production hashing and scientific behavior are unchanged.
+Restart on the corrected fixture after its targeted integration control passes.
+Ordinary Rust execution then exposed a cancellation fixture that applied its deliberately
+short transaction budget to authentication before the tested operation. The two related
+controls now establish selected connections under the normal setup clock and impose the
+original short clock only on delayed submission, retaining cancellation, expiry and
+no-success/rollback assertions. Their focused native acceptance and independent review
+precede the next stable assembled capture.
+That capture exposed a fixture teardown cycle in the separate short ordinary-client
+control. A retained replacement WebSocket driver belonged to the current-thread test
+runtime, while fallback fixture destruction blocked that runtime joining its disconnect.
+Replacement transports now use the existing retained fixture executor; retaining an Arc
+alone does not transfer runtime ownership. Normal operation and caught-failure teardown
+pass their focused controls, including exact resource drain. The exposed body failure came
+from immediately reusing the deliberately short ordinary session after an uncertain delayed
+probe. The atomic-clock fixture now starts schema setup on a fresh retained ordinary client
+with the same short budget, while preserving the separate activation clock and one creation
+attempt. It does not claim immediate reuse of the canceled session. Independent source review
+found no material defect. No production deadline or actual-drain requirement is relaxed;
+restart the stable comprehensive capture, and retain interrupted captures as nonqualifying.
+The next ordinary execution control retained its historical result-read owner through
+explicit fixture removal. It now releases that owner after the final assertion; cleanup
+retains its refusal to remove a database with live result buffers and waits for queued
+protection release. The exact settlement and parallel-retention controls pass after this
+fixture correction. Stopping that assessment also exposed an observer runner that survived
+the gate process-group interruption and continued after its enclosing admission closed.
+Those downstream admission failures are interruption artifacts, not independent scientific
+findings. All processes from that attempt have now stopped. Foreground observer handoffs
+now belong explicitly to their launching native operation: cancellation fences pending
+launches, authenticates bound lifetimes, settles valid siblings despite another child's
+uncertainty and still attempts direct payload termination after manager failure. Record
+exclusion defers handled signals until lock release. Independent worker/primary lifetimes
+retain their separate owners. The focused real controls demonstrate nested drain, late-bind
+payload refusal and independent worker survival; independent source review finds no material
+defect. The full production observer route remains an E3 obligation. Affected controls,
+scope-end type/lint repairs, independent re-review and formatting are complete. Both frozen
+Python closures have been refreshed through stopped reconfiguration/readmission; the existing
+databases, credentials and Rust worker bytes are preserved. The canonical fixture group now
+passes together. Restart the stable comprehensive capture on these inputs.
+That expanded capture passed setup and prerequisite gates but encountered a transient
+service lifecycle reservation during parallel fixture registration; the service retained
+its PID/invocation and open admission. Its first reservation owner was not retained, so
+the trigger is not established. Listener ownership now tolerates an enumerated descriptor
+disappearing while another live descriptor proves the selected LISTEN inode; other access
+errors and all process/unit/cgroup checks still refuse. The parallel canonical selection
+passes under the configured sixteen slots.
+Interruption of that capture also exposed a distinct creator-completion gap: validation
+returned interruption without signalling the native creator, and its final group kill could
+preempt the observer supervisor's drain handler. Creator retirement now settles its own
+foreground handoffs, and parent-owned observer supervisors occupy separate sessions.
+Nested borrowers and independent worker/primary owners remain unchanged. The actual
+production-observer interruption regression and complete affected/static checks pass.
+Final formatting and both stopped-profile frozen-tooling refreshes are complete;
+restart the comprehensive capture on these inputs. Independently killed observer
+supervisors still require demonstrated drain and may conservatively refuse completion.
 
 ## Outcome (recorded after implementation)
+
+### Assembled continuation corrections — 2026-10-10
+
+**Implemented:** the reference profile's failed resume preserves parked, closed admission
+until listener and protocol readiness succeed. Canonical test fixtures release their result
+owners before explicit removal and retain replacement WebSocket drivers on the fixture
+executor. Deliberately short transaction probes authenticate under the normal setup clock;
+their operation deadline and negative assertions remain unchanged. The approved frame catalog
+includes the existing structural-body index spelling. These corrections do not reduce the
+scientific workloads, tolerances or drain obligations.
+
+**Implemented:** foreground observer handoffs participate in their launching native operation's
+cancellation. Pending launches consume a cancellation fence before payload; bound scopes require
+matching unit, invocation, cgroup and inode before actuation. Unknown children stay pinned while
+other authentic children settle. Metadata exclusion defers handled signals until lock release,
+and manager errors still permit direct payload termination. Durable workers and persistent
+primary services retain their independent lifetime owners.
+
+**Tested (baseline zero, affected tooling):**
+`scripts/pse-env --resource-class light -- .venv/bin/python -m unittest scripts.tests.test_native_operation scripts.tests.test_surreal_server scripts.tests.test_execution_contracts -v`
+passed 202 tests in 58.562 seconds. Three revealing real controls passed in 10.845 seconds:
+assessment interruption drained nested foreground scopes and a runner in a new session;
+canceled late binding refused payload and drained; an independent worker survived its launcher
+before eventual reclamation. Four final callsite and malformed-child controls passed in
+0.251 seconds. The nested regression composes production handoff/scope construction;
+full production `observer()` route acceptance remains with E3. Independent source review found
+no remaining material finding. Unit survival is not scientific database durability.
+Scope-end `just typecheck` initially reported 13 diagnostics (two suppressed) and
+`just lint-py` reported 32 findings. After narrow type/validation/helper repairs, both
+recipes passed with no new suppressions. Seven affected functional controls, including
+real nested interruption and pending binding, passed in 4.658 seconds on the repaired code;
+independent re-review found no material semantic change.
+
+**Tested (baseline zero, native/local/force-validation):** the corrected exact result-settlement
+and sixteen-retention-roundtrip controls passed 2/2, with 143 skipped, in 10.879 seconds through
+`NEXTEST_TEST_THREADS=1 just unit-native-package pse-operations pse-operations/canonical-tests 'test(canonical_execution_exact_batches_private_closure_and_settlement) | test(canonical_execution_sixteen_retention_roundtrips_overlap_source_staging_and_private_pins)' --profile local`
+under the reference allocation. Cleanup still refuses live result-buffer ownership.
+The assembled canonical selection
+`NEXTEST_TEST_THREADS=1 just unit-native-package pse-operations pse-operations/canonical-tests 'test(canonical_)' --profile local`
+then passed 113/113, with 32 skipped, in 598.210 seconds on that reference allocation and
+the refreshed frozen tooling. Its launcher exited successfully after the run.
+
+**E3 remains incomplete:** the latest interrupted comprehensive capture passed all 39
+prerequisite/static gates, including 701 setup tests, then selected 3,114 ordinary Rust tests.
+The result-owner fixture failed before interruption. Nextest subsequently continued beyond its
+enclosing admission, exposing the cancellation defect corrected above. Its final interrupted
+summary was 3,103 executed, 2,608 passed, 495 failed, 11 not run and eight skipped;
+the post-interruption admission failures are artifacts of that invalidated lifetime,
+not independent scientific findings. Neither that capture nor the focused repairs establish
+assembled acceptance. Refresh frozen tooling and rerun on stable inputs before E4/E5 closure.
+
+**E3 follow-up remains incomplete:** the next capture passed 709 setup tests and all
+prerequisite/static gates, then selected the same 3,114 ordinary Rust tests. A transient
+lifecycle reservation refused fixture registration while the selected service retained
+its process/invocation. The capture was interrupted; its final native summary was 2,968
+executed, 2,483 passed, 485 failed, 146 not run and eight skipped in 224.625 seconds.
+The grouped admission failures and post-interruption failures do not establish independent
+scientific defects or assembled acceptance. Existing evidence does not identify the first
+reservation owner.
+
+**Implemented; Tested (baseline zero):** listener observation now ignores disappearance
+of an individual enumerated descriptor while still requiring a live descriptor for a
+selected LISTEN inode. Two controls passed in 0.004 seconds, including refusal to ignore
+access errors. This fixes a concrete observation race without establishing that it triggered
+the capture. Creator completion now settles foreground ownership even after an unsignalled
+child interruption, while parent-owned observers use separate sessions to protect their
+supervisors from gate-group kills. Six focused controls passed in 2.429 seconds, including
+`test_real_validation_term_finishes_creator_and_production_observer`, nested borrower
+preservation, failure restoration and independent worker survival. The actual observer
+regression narrows unrelated scientific placement and uses `profile=None`; scientific
+placement and exclusive observer cap borrowing remain E3 obligations. Already-dead
+supervisor recovery remains a conservative refusal/pin boundary. Independent source review
+found no material defect within this supported interruption scope.
+The affected native-operation, supervisor and build-measurement modules passed 203 tests
+in 38.351 seconds; execution-contract controls passed 30 in 1.685 seconds. `just typecheck`
+reported zero diagnostics (two existing suppressed), and `just lint-py` passed. The same
+canonical selection with `NEXTEST_TEST_THREADS=16` passed 113/113, with one slow notice and
+32 skipped, in 672.805 seconds. Three minutes of concurrent lifecycle observation found
+no reservation; that observation is limited to its interval and does not establish the
+original trigger. This remains targeted evidence before a fresh E3.
+The default `scripts/pse-env -- just turn-end` launch returned 125 because available host
+memory remained below the startup pressure guard. The appropriate existing light route,
+`scripts/pse-env --resource-class light -- just turn-end`, passed ADR indexing and formatting.
+Both stopped campaign profiles were refreshed through official quiesce/stop/reconfigure/readmit
+without starting scientific execution; their databases, credentials and Rust worker bytes
+remain preserved. The next assessment uses the original reference allocation after ordinary
+heavy-workload admission; the light tooling result does not qualify that allocation.
 
 ### Preparation correction — 28i/28j (2026-10-08)
 

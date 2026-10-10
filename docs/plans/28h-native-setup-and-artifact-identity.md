@@ -340,10 +340,16 @@ claim when no comparable historical baseline exists.
 
 ## Checkpoint
 
+Current execution handoff, 2026-10-10: implemented source mechanisms and scoped controls
+below retain their limits. The maintainer authorized remaining Plan 28 including full E3/E4/E5;
+[28e's checkpoint](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
+supersedes older readiness/pause instructions. N4/T5/L4 source reconciliation is implemented;
+composed acceptance remains open. Next complete bounded campaign preparation and actual consumer
+qualification, rather than reopening implemented mechanisms. Plan 33 is complete and separate.
+
 I0/I1/I2 own receiving-runtime validity and interruption. Actual worker and imported-Python
 roots now mint local admission through completion-owned scoped jobs with the original finite
-clock. The rebuilt native artifacts await offline managed receiver readmission and composed
-qualification. H retains installation/setup and actual artifact association; native generation
+clock. Actual managed receiver controls have scoped evidence; final composed E3 remains open. H retains installation/setup and actual artifact association; native generation
 pins alone do not qualify whole-runtime protection.
 
 Reference roles start with inherited scheduler affinity before creating children or native

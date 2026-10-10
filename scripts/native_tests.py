@@ -740,6 +740,65 @@ def _rust_capture(
     return [*reuse, *execution], worker
 
 
+def observer_execution(environment: Mapping[str, str]) -> dict:
+    """Observe the admitted child separately from its parent's preparation context."""
+    profile = environment.get("PSE_TEST_EXECUTION_PROFILE", "")
+    if profile not in {"reference", "exclusive-observer"}:
+        raise ValueError("native execution requires its declared observer profile")
+    state = Path(environment["PSE_SURREAL_STATE"]).resolve()
+    config = surreal_server.config_for(state)
+    resources = surreal_server.execution_resources(profile)
+    if profile == "reference" and config["resources"] != resources:
+        raise ValueError("managed native execution requires the reference allocation")
+    execution = resources["execution"]
+    if not isinstance(execution, dict):
+        raise ValueError(  # noqa: TRY004 -- invalid evidence is a boundary refusal
+            "native observer requires an explicit execution allocation"
+        )
+    cgroup = next(
+        (
+            line.removeprefix("0::")
+            for line in Path("/proc/self/cgroup").read_text().splitlines()
+            if line.startswith("0::")
+        ),
+        "",
+    )
+    group = Path("/sys/fs/cgroup") / cgroup.lstrip("/")
+    memory, cpu = surreal_server.effective_limits(group)
+    placement = surreal_server.placement_observation(state)
+    physical_cpus = (
+        placement.get("physical_cpus") if isinstance(placement, dict) else None
+    )
+    if not isinstance(physical_cpus, list) or any(
+        not isinstance(physical_cpu, int) or isinstance(physical_cpu, bool)
+        for physical_cpu in physical_cpus
+    ):
+        raise ValueError("native observer differs from its admitted allocation")
+    cpus = [
+        physical_cpu for physical_cpu in physical_cpus if isinstance(physical_cpu, int)
+    ]
+    if (
+        not group.is_relative_to(
+            surreal_server.group_for_slice(surreal_server.execution_slice(state))
+        )
+        or memory != execution["observer_memory_bytes"]
+        or cpu is None
+        or cpu < execution["cpu_threads"]
+        or not surreal_server.role_affinity_ready(os.getpid(), execution, cpus)
+    ):
+        raise ValueError("native observer differs from its admitted allocation")
+    return {
+        "captured": time.time(),
+        "environment": validation.relevant_environment(environment),
+        "profile": profile,
+        "resources": resources,
+        "state_resources": config["resources"],
+        "control_group": cgroup,
+        "memory_max": memory,
+        "cpu_threads": cpu,
+    }
+
+
 def managed_rust_run(extra: list[str], provenance: Path) -> int:
     """Reuse verified parent artifacts; no Cargo build or metadata query occurs here."""
     worker_arguments = [
@@ -771,7 +830,7 @@ def managed_rust_run(extra: list[str], provenance: Path) -> int:
         position = extra.index(option) + 1
         if position >= len(extra) or extra[position] not in files:
             raise ValueError("managed Rust metadata is outside parent provenance")
-    environment = dict(os.environ)
+    environment = rust_test_environment(os.environ)
     worker = Path(worker_arguments[0]).resolve()
     if (
         str(worker) not in files
@@ -780,6 +839,8 @@ def managed_rust_run(extra: list[str], provenance: Path) -> int:
     ):
         raise ValueError("managed Rust worker is outside parent provenance")
     environment["PSE_WORKER_BINARY"] = str(worker)
+    native["execution"] = observer_execution(environment)
+    validation.write_json(provenance, native)
     from scripts.test_run import run_rust  # noqa: PLC0415 -- owner cycle
 
     completion = [] if "--no-fail-fast" in extra else ["--no-fail-fast"]

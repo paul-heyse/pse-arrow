@@ -10,11 +10,11 @@ import fcntl
 import io
 import json
 import os
-import shutil
 import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -24,7 +24,14 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 from unittest.mock import patch
 
-from scripts import build_environment, producer_deployment, pse_env, surreal_server
+from scripts import (
+    build_environment,
+    build_measurements,
+    producer_deployment,
+    pse_env,
+    surreal_server,
+    validation,
+)
 from scripts import native_cache as cache
 from scripts import native_operation as operation
 from scripts import native_pipeline_cache as pipeline
@@ -713,6 +720,309 @@ class NativeOperationTests(unittest.TestCase):
             manager.assert_not_called()
             group.assert_called_once_with(child.pid, 2)
 
+    def test_foreground_pending_handoff_consumes_parent_cancellation_fence(
+        self,
+    ) -> None:
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(operation, "scope_owner", return_value=None),
+        ):
+            base = Path(directory)
+            unit = "pse-native-" + "a" * 32 + ".scope"
+            with operation.Operation(base) as parent:
+                handoff = operation.prepare_handoff(unit, foreground=True)
+                assert handoff is not None
+                record = json.loads(parent.path.read_text())
+                record["cancelled"] = True
+                operation.write_json(parent.path, record)
+                self.assertNotIn("cancelled", json.loads(handoff.read_text()))
+                child = {"unit": unit, "group": "/foreground", "invocation": "b" * 32}
+                with (
+                    patch.object(operation, "scope_owner", return_value=child),
+                    patch.object(pse_env.host, "group_identity", return_value=17),
+                    self.assertRaisesRegex(ValueError, "cancelled"),
+                ):
+                    operation.bind_handoff(handoff)
+                bound = json.loads(handoff.read_text())
+                self.assertEqual(bound["scope"], child)
+                self.assertEqual(bound["scope_inode"], 17)
+                self.assertTrue(bound["cancelled"])
+                with self.assertRaisesRegex(ValueError, "parent is cancelled"):
+                    operation.prepare_handoff(unit, foreground=True)
+                # Persistent primary/worker handoffs remain independently owned.
+                primary = operation.prepare_handoff(
+                    "pse-surreal-worker-" + "d" * 16 + "-0.service"
+                )
+                assert primary is not None
+                self.assertNotIn("foreground", json.loads(primary.read_text()))
+
+    def test_cancellation_manager_failure_still_signals_direct_payload(self) -> None:
+        child = type("Child", (), {"pid": 12345})()
+        owner = {
+            "unit": "pse-native-" + "a" * 32 + ".scope",
+            "group": "/scope",
+            "invocation": "b" * 32,
+        }
+        with (
+            patch.object(
+                operation,
+                "cancel_foreground_handoffs",
+                side_effect=ValueError("unknown child"),
+            ),
+            patch.object(operation, "scope_owner", return_value=owner),
+            patch.object(
+                operation.subprocess,
+                "run",
+                side_effect=subprocess.TimeoutExpired("systemctl", 10),
+            ),
+            patch.object(operation.os, "killpg") as group,
+            contextlib.redirect_stderr(io.StringIO()) as errors,
+        ):
+            with self.assertRaisesRegex(ValueError, "cancellation incomplete"):
+                operation.cancel_children(child, signal.SIGTERM)
+            group.assert_called_once_with(child.pid, signal.SIGTERM)
+            self.assertIn("unknown child", errors.getvalue())
+            self.assertIn("scope cancellation failed", errors.getvalue())
+
+    def test_creator_completion_restores_markers_when_foreground_drain_fails(
+        self,
+    ) -> None:
+        previous = {
+            key: os.environ.get(key)
+            for key in (operation.MARKER, "PSE_NATIVE_CACHE", "PSE_NATIVE_SETUP_PYTHON")
+        }
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(operation, "scope_owner", return_value=None),
+            patch.object(
+                operation,
+                "cancel_foreground_handoffs",
+                side_effect=ValueError("unknown foreground lifetime"),
+            ) as settle,
+        ):
+            with (
+                self.assertRaisesRegex(ValueError, "unknown foreground lifetime"),
+                operation.Operation(Path(directory)) as parent,
+            ):
+                self.assertEqual(os.environ[operation.MARKER], str(parent.path))
+            settle.assert_called_once()
+        self.assertEqual({key: os.environ.get(key) for key in previous}, previous)
+
+    def test_nested_run_completion_preserves_the_live_creator(self) -> None:
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(operation, "scope_owner", return_value=None),
+        ):
+            with operation.Operation(Path(directory)) as parent:
+                handoff = operation.prepare_handoff(
+                    "pse-native-" + "a" * 32 + ".scope", foreground=True
+                )
+                assert handoff is not None
+                with patch.object(operation, "cancel_foreground_handoffs") as settle:
+                    self.assertEqual(
+                        operation.run([sys.executable, "-c", "pass"], dict(os.environ)),
+                        0,
+                    )
+                    settle.assert_not_called()
+                self.assertNotIn("cancelled", json.loads(parent.path.read_text()))
+                self.assertNotIn("cancelled", json.loads(handoff.read_text()))
+            self.assertTrue(json.loads(handoff.read_text())["cancelled"])
+
+    def test_foreground_cancellation_malformed_associations_refuse_conservatively(
+        self,
+    ) -> None:
+        for children in (17, [None]):
+            with (
+                self.subTest(children=children),
+                tempfile.TemporaryDirectory() as directory,
+                patch.object(operation, "scope_owner", return_value=None),
+                operation.Operation(Path(directory)) as parent,
+            ):
+                record = dict(json.loads(parent.path.read_text()))
+                record["foreground_children"] = children
+                operation.write_json(parent.path, record)
+                with patch.object(operation.subprocess, "run") as manager:
+                    with self.assertRaises(ValueError):
+                        operation.cancel_foreground_handoffs()
+                    manager.assert_not_called()
+                self.assertTrue(json.loads(parent.path.read_text())["cancelled"])
+                # Unknown associations also refuse creator finalization.
+                record["foreground_children"] = []
+                operation.write_json(parent.path, record)
+
+    def test_foreground_cancellation_fences_every_child_and_refuses_replacements(
+        self,
+    ) -> None:
+        for replacement in (
+            "invocation",
+            "group",
+            "inode",
+            "missing",
+            "missing-scope",
+            "invalid-scope",
+        ):
+            with (
+                self.subTest(replacement=replacement),
+                tempfile.TemporaryDirectory() as directory,
+                patch.object(operation, "scope_owner", return_value=None),
+            ):
+                base = Path(directory)
+                stopped = []
+                with (
+                    self.assertRaisesRegex(ValueError, "cancellation incomplete")
+                    if replacement in {"missing", "missing-scope", "invalid-scope"}
+                    else contextlib.nullcontext(),
+                    operation.Operation(base),
+                ):
+                    paths = []
+                    owners = []
+                    for letter in ("a", "b"):
+                        unit = "pse-native-" + letter * 32 + ".scope"
+                        path = operation.prepare_handoff(unit, foreground=True)
+                        assert path is not None
+                        child = {
+                            "unit": unit,
+                            "group": "/" + letter,
+                            "invocation": letter * 32,
+                        }
+                        with (
+                            patch.object(operation, "scope_owner", return_value=child),
+                            patch.object(
+                                pse_env.host, "group_identity", return_value=17
+                            ),
+                        ):
+                            operation.bind_handoff(path)
+                        paths.append(path)
+                        owners.append(child)
+                    durable = operation.prepare_handoff(
+                        "pse-surreal-worker-" + "d" * 16 + "-0.service"
+                    )
+                    assert durable is not None
+                    if replacement == "missing":
+                        paths[0].unlink()
+                    elif replacement in {"missing-scope", "invalid-scope"}:
+                        record = dict(json.loads(paths[0].read_text()))
+                        if replacement == "missing-scope":
+                            del record["scope"]
+                        else:
+                            record["scope"] = 17
+                        operation.write_json(paths[0], record)
+
+                    def observe(
+                        unit: str,
+                        owners: list[dict[str, str]] = owners,
+                        replacement: str = replacement,
+                    ) -> dict[str, str]:
+                        selected = next(
+                            owner for owner in owners if owner["unit"] == unit
+                        )
+                        result = {
+                            "LoadState": "loaded",
+                            "ActiveState": "active",
+                            "ControlGroup": selected["group"],
+                            "InvocationID": selected["invocation"],
+                        }
+                        if unit == owners[0]["unit"] and replacement in {
+                            "invocation",
+                            "group",
+                        }:
+                            result[
+                                "InvocationID"
+                                if replacement == "invocation"
+                                else "ControlGroup"
+                            ] = "replaced"
+                        return result
+
+                    def stop(
+                        command: list[str],
+                        paths: list[Path] = paths,
+                        stopped: list[str] = stopped,
+                        **_kwargs: object,
+                    ) -> None:
+                        self.assertTrue(
+                            all(
+                                json.loads(path.read_text())["cancelled"]
+                                for path in paths
+                                if path.exists()
+                            )
+                        )
+                        stopped.append(command[-1])
+
+                    with (
+                        patch.object(
+                            operation,
+                            "drained",
+                            side_effect=lambda record, stopped=stopped: (
+                                record["scope"]["unit"] in stopped
+                            ),
+                        ),
+                        patch.object(
+                            operation, "unit_observation", side_effect=observe
+                        ),
+                        patch.object(
+                            pse_env.host,
+                            "group_identity",
+                            side_effect=lambda group, replacement=replacement: (
+                                18 if replacement == "inode" and group == "/a" else 17
+                            ),
+                        ),
+                        patch.object(operation.subprocess, "run", side_effect=stop),
+                        self.assertRaisesRegex(ValueError, "cancellation incomplete"),
+                    ):
+                        operation.cancel_foreground_handoffs()
+                    self.assertEqual(stopped, [owners[1]["unit"]])
+                    self.assertNotIn("cancelled", json.loads(durable.read_text()))
+
+    def test_foreground_handoff_collector_retains_binding_until_parent_retires(
+        self,
+    ) -> None:
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(operation, "scope_owner", return_value=None),
+        ):
+            base = Path(directory)
+            with operation.Operation(base) as parent:
+                path = operation.prepare_handoff(
+                    "pse-native-" + "a" * 32 + ".scope", foreground=True
+                )
+                assert path is not None
+                record = json.loads(path.read_text())
+                record["scope"] = {
+                    "unit": record["handoff"],
+                    "group": "/child",
+                    "invocation": "b" * 32,
+                }
+                record["generations"] = ["settled-child-only"]
+                operation.write_json(path, record)
+                with patch.object(
+                    operation,
+                    "drained",
+                    side_effect=lambda record: record["scope"] is not None,
+                ):
+                    self.assertEqual(operation.pinned_generations(base), set())
+                    self.assertTrue(path.exists())
+                    parent.path.unlink()
+                    self.assertEqual(operation.pinned_generations(base), set())
+                    self.assertFalse(path.exists())
+
+    def test_record_exclusion_defers_cancellation_until_flock_is_released(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "operation.json"
+            received = []
+
+            def cancel(_signum: int, _frame: object) -> None:
+                with operation.record_lock(path):
+                    received.append("cancelled")
+
+            previous = signal.signal(signal.SIGTERM, cancel)
+            try:
+                with operation.record_lock(path):
+                    os.kill(os.getpid(), signal.SIGTERM)
+                    self.assertEqual(received, [])
+                self.assertEqual(received, ["cancelled"])
+            finally:
+                signal.signal(signal.SIGTERM, previous)
+
     def test_thread_budget_defaults_to_one_and_honours_the_caller(self) -> None:
         defaulted = operation.environment([], {})
         self.assertEqual(
@@ -765,54 +1075,86 @@ class NativeOperationTests(unittest.TestCase):
             128 + signal.SIGTERM,
         )
 
+    def test_build_timing_observes_authentic_setup_child_and_scope_drain(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            environment = self.fixture_environment(output / "cache")
+            environment[operation.BUILD_TIMING] = str(output / "native-operation.json")
+            program = "from scripts import native_operation as n; import os; assert n.current() is not None; assert n.BUILD_TIMING not in os.environ"
+            command = self.fixture_command(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.native_operation",
+                    "--capabilities",
+                    "",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    program,
+                ],
+                environment,
+            )
+            started = time.monotonic()
+            result = subprocess.run(
+                command, cwd=cache.ROOT, env=environment, check=False
+            )
+            native = json.loads((output / "native-operation.json").read_text())
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(native["requested_capabilities"], [])
+            self.assert_fixture_scope(native["owner"]["scope"], live=False)
+            # Mirror pse-env's outer launcher: release the exact fixture's empty
+            # allocation before asking the native owner to prove terminal drain.
+            self.assertFalse(operation.populated(native["owner"]["scope"]["group"]))
+            allocation = pse_env.host.inherit(environment)
+            self.assertIsNotNone(allocation)
+            assert allocation is not None
+            self.assertTrue(allocation.release())
+            self.await_drain(native["owner"])
+            self.assertEqual(
+                build_measurements.complete_operation(output, started, 0), 0
+            )
+            receipt = json.loads((output / "complete-operation.json").read_text())
+            self.assertEqual(receipt["status"], "passed")
+            self.assertEqual(receipt["phases"]["final_drain"]["status"], "passed")
+            self.assertGreaterEqual(receipt["wall_seconds"], 0)
+            self.assertEqual(native["setup_status"], "passed")
+            self.assertEqual(native["child_exit_code"], 0)
+
     def test_actual_zero_capability_entry_owns_child_before_command(self) -> None:
         program = "from scripts import native_operation as n; import json; p=n.owner_record(); print(json.dumps({'active':p is not None,'scope':n._record(p)['scope'],'args':__import__('sys').argv[1:]}))"
-        result = subprocess.run(
-            [
-                str(cache.ROOT / "scripts/pse-env"),
-                "--native=",
-                "--",
-                sys.executable,
-                "-c",
-                program,
-                "space ; literal",
-                "$literal",
-            ],
-            cwd=cache.ROOT,
-            env={
-                **os.environ,
-                "PSE_NATIVE_CAPABILITIES": "",
-                "PSE_MEMORY_MAX": "512M",
-                "PSE_RESOURCE_CLASS": "light",
-                **pse_env.manager_environment(),
-            },
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        with tempfile.TemporaryDirectory() as directory:
+            environment = self.fixture_environment(Path(directory))
+            command = self.fixture_command(
+                [
+                    str(cache.ROOT / "scripts/pse-env"),
+                    "--native=",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    program,
+                    "space ; literal",
+                    "$literal",
+                ],
+                environment,
+            )
+            result = subprocess.run(
+                command,
+                cwd=cache.ROOT,
+                env=environment,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
         observed = json.loads(result.stdout)
         self.assertTrue(observed["active"])
         self.assertEqual(observed["args"], ["space ; literal", "$literal"])
-        if (
-            shutil.which("systemd-run")
-            and subprocess.run(
-                ["systemctl", "--user", "show-environment"],
-                check=False,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=10,
-                env={**os.environ, **pse_env.manager_environment()},
-            ).returncode
-            == 0
-        ):
-            self.assertIsNotNone(
-                observed["scope"],
-                "available user manager must produce an authentic descendant scope",
-            )
-        if observed["scope"] is not None:
-            self.assertTrue(observed["scope"]["unit"].startswith("pse-native-"))
-            self.assertEqual(len(observed["scope"]["invocation"]), 32)
+        self.assertIsNotNone(observed["scope"])
+        self.assert_fixture_scope(observed["scope"], live=False)
+        self.assertTrue(observed["scope"]["unit"].startswith("pse-native-"))
+        self.assertEqual(len(observed["scope"]["invocation"]), 32)
+        self.await_drain({"scope": observed["scope"]})
 
     def test_handcrafted_marker_and_incomplete_capability_cannot_grant_admission(
         self,
@@ -1118,6 +1460,374 @@ time.sleep(30)
                     process.kill()
                 process.wait(timeout=10)
                 log.close()
+
+    def test_real_assessment_cancellation_drains_nested_observers_preserves_storage_unit(
+        self,
+    ) -> None:
+        # Real manager lifetimes exercise cancellation; the independent storage
+        # role is a disposable process, not a scientific database durability claim.
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            state = base / "disposable-state"
+            state.mkdir()
+            self.fixture_units.add(surreal_server.worker_unit(state, 0))
+            runner = """import os,signal,sys,time
+from pathlib import Path
+from scripts import native_operation as n
+base=Path(sys.argv[1]); signal.signal(signal.SIGTERM,signal.SIG_IGN)
+n.write_json(base/'runner-ready.json',{'record':n._record(n.current()),'pid':os.getpid(),'session':os.getsid(0)})
+time.sleep(30)
+"""
+            storage = """import os,sys,time
+from pathlib import Path
+from scripts import native_operation as n
+base=Path(sys.argv[1]); n.write_json(base/'storage-ready.json',{'record':n._record(n.current()),'pid':os.getpid()})
+deadline=time.monotonic()+30
+while not (base/'stop').exists() and time.monotonic()<deadline: time.sleep(.02)
+"""
+            # The fixture owns zero native capabilities. Command construction,
+            # native handoff/binding, manager membership and stop are production.
+            foreground = """
+def foreground(program, arguments):
+ unit='pse-native-'+uuid.uuid4().hex+'.scope'; owner=h.inherit(os.environ); owner.register(unit)
+ handoff=n.prepare_handoff(unit,foreground=True)
+ allocation={'execution':{'cpu_threads':1,'observer_memory_bytes':128*1024**2}}
+ command=s.observer_scope_command(state,allocation,unit,[sys.executable,'-c',program,*arguments])
+ command[command.index('--capabilities')+1]=''
+ env=s.systemd_environment(); env.pop(n.MARKER,None); env['PSE_NATIVE_HANDOFF']=str(handoff)
+ return subprocess.Popen(command,env=env),handoff
+"""
+            middle = (
+                """import os,sys,subprocess,uuid
+from pathlib import Path
+from scripts import native_operation as n,surreal_server as s,host_admission as h
+base=Path(sys.argv[1]); state=base/'disposable-state'
+"""
+                + foreground
+                + """
+child,handoff=foreground(sys.argv[2],[str(base)])
+n.write_json(base/'middle-ready.json',{'record':n._record(n.current()),'handoff':str(handoff),'pid':os.getpid()})
+child.wait()
+"""
+            )
+            launcher = (
+                """import os,sys,subprocess,uuid
+from pathlib import Path
+from scripts import native_operation as n,surreal_server as s,host_admission as h
+base=Path(sys.argv[1]); state=base/'disposable-state'
+"""
+                + foreground
+                + """
+owner=h.inherit(os.environ); unit=s.worker_unit(state,0); owner.register(unit); durable=n.prepare_handoff(unit)
+allocation={'native_worker_memory_bytes':64*1024**2}
+command=s.worker_scope_command(state,0,allocation,[sys.executable,'-c',sys.argv[4],str(base)],capabilities=())
+persistent=subprocess.Popen(command,env=s.worker_environment(state,0,allocation,durable))
+child,handoff=foreground(sys.argv[2],[str(base),sys.argv[3]])
+n.write_json(base/'launcher-ready.json',{'record':n._record(n.current()),'handoff':str(handoff),'durable':str(durable)})
+child.wait()
+"""
+            )
+            environment = self.fixture_environment(base)
+            command = self.fixture_command(
+                [
+                    str(cache.ROOT / "scripts/pse-env"),
+                    "--native",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    launcher,
+                    str(base),
+                    middle,
+                    runner,
+                    storage,
+                ],
+                environment,
+            )
+            errors = []
+
+            def interrupt_when_running() -> None:
+                try:
+                    self.await_file(base / "runner-ready.json")
+                    self.await_file(base / "storage-ready.json")
+                except AssertionError as error:
+                    errors.append(str(error))
+                finally:
+                    os.kill(os.getpid(), signal.SIGINT)
+
+            interrupter = threading.Thread(target=interrupt_when_running)
+            interrupter.start()
+            observed = []
+            try:
+                result = validation.execute(
+                    cache.ROOT, base, "interrupted-observer", command, environment
+                )
+                interrupter.join()
+                self.assertEqual(
+                    errors, [], (base / "interrupted-observer.log").read_text()[-4000:]
+                )
+                self.assertEqual(result["status"], "interrupted")
+                parent = json.loads((base / "launcher-ready.json").read_text())
+                middle_owner = json.loads((base / "middle-ready.json").read_text())
+                actual_runner = json.loads((base / "runner-ready.json").read_text())
+                persistent = json.loads((base / "storage-ready.json").read_text())
+                observed = [parent, middle_owner, actual_runner, persistent]
+                for item in observed:
+                    owner = item["record"]["scope"]
+                    self.fixture_units.add(owner["unit"])
+                    self.assert_fixture_scope(owner, live=False)
+                self.assertEqual(actual_runner["session"], actual_runner["pid"])
+                self.assertNotEqual(
+                    actual_runner["pid"], actual_runner["record"]["pid"]
+                )
+                for item in observed[:3]:
+                    self.await_drain(item["record"])
+                for handoff in (parent["handoff"], middle_owner["handoff"]):
+                    self.await_drain(json.loads(Path(handoff).read_text()))
+                process = Path(f"/proc/{actual_runner['pid']}/stat")
+                self.assertTrue(
+                    not process.exists()
+                    or process.read_text().rsplit(")", 1)[1].split()[0] == "Z"
+                )
+                self.assertTrue(
+                    operation.populated(persistent["record"]["scope"]["group"])
+                )
+                self.assert_fixture_scope(persistent["record"]["scope"])
+                self.assertFalse(
+                    operation.drained(json.loads(Path(parent["durable"]).read_text()))
+                )
+                (base / "stop").touch()
+                self.await_drain(persistent["record"])
+                self.assert_parent_scope_unchanged()
+            finally:
+                interrupter.join()
+                (base / "stop").touch()
+                for name in (
+                    "runner-ready.json",
+                    "middle-ready.json",
+                    "storage-ready.json",
+                    "launcher-ready.json",
+                ):
+                    path = base / name
+                    if path.exists():
+                        item = json.loads(path.read_text())
+                        owner = item["record"]["scope"]
+                        self.fixture_units.add(owner["unit"])
+                        self.kill_scope(owner["unit"])
+
+    def test_real_validation_term_finishes_creator_and_production_observer(
+        self,
+    ) -> None:
+        # The production observer owns its handoff/environment/launch. Scientific
+        # placement and exclusive-observer cap borrowing are separate controls.
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            state = base / "state"
+            state.mkdir(mode=0o700)
+            surreal_server.write_json(
+                state / "config.json",
+                {
+                    "owner": surreal_server.OWNER,
+                    "profile_version": 2,
+                    "websocket_max_message_bytes": surreal_server.MESSAGE_BYTES,
+                    "max_message_bytes": surreal_server.MESSAGE_BYTES,
+                    "resources": surreal_server.reference_resources(),
+                    "port": 18241,
+                    "endpoint": "ws://127.0.0.1:18241",
+                    "interpretation": "fixture",
+                    "schema_interpretation": "fixture",
+                    "accepting_writes": True,
+                    "admission": "open",
+                },
+            )
+            self.fixture_units.add(surreal_server.worker_unit(state, 0))
+            runner = """import os,signal,sys,time
+from pathlib import Path
+from scripts import native_operation as n
+base=Path(sys.argv[1]); signal.signal(signal.SIGTERM,signal.SIG_IGN)
+n.write_json(base/'production-runner.json',{'record':n._record(n.current()),'pid':os.getpid(),'session':os.getsid(0)})
+time.sleep(30)
+"""
+            storage = """import os,sys,time
+from pathlib import Path
+from scripts import native_operation as n
+base=Path(sys.argv[1]); n.write_json(base/'production-storage.json',{'record':n._record(n.current()),'pid':os.getpid()})
+deadline=time.monotonic()+30
+while not (base/'stop').exists() and time.monotonic()<deadline: time.sleep(.02)
+"""
+            gate = """import sys
+from pathlib import Path
+from unittest.mock import patch
+from scripts import surreal_server as s
+base=Path(sys.argv[1]); state=base/'state'; original=s.observer_scope_command
+def fixture_command(state,allocation,unit,command):
+ selected={'execution':{'cpu_threads':1,'observer_memory_bytes':128*1024**2}}
+ result=original(state,selected,unit,command)
+ result[result.index('--capabilities')+1]=''
+ return result
+with patch.object(s,'ensure_execution_placement'),patch.object(s,'observer_scope_command',side_effect=fixture_command):
+ sys.exit(s.observer(state,[sys.executable,'-c',sys.argv[2],str(base)]))
+"""
+            validator = """import os,sys,signal,subprocess
+from pathlib import Path
+from scripts import native_operation as n,surreal_server as s,host_admission as h,validation as v
+base=Path(sys.argv[1]); state=base/'state'; owner=h.inherit(os.environ)
+unit=s.worker_unit(state,0); owner.register(unit); durable=n.prepare_handoff(unit)
+allocation={'native_worker_memory_bytes':64*1024**2}
+command=s.worker_scope_command(state,0,allocation,[sys.executable,'-c',sys.argv[4],str(base)],capabilities=())
+persistent=subprocess.Popen(command,env=s.worker_environment(state,0,allocation,durable))
+signal.signal(signal.SIGTERM,v.interrupt)
+n.write_json(base/'production-validator.json',{'record':n._record(n.current()),'pid':os.getpid(),'durable':str(durable)})
+result=v.execute(Path.cwd(),base,'production-gate',[sys.executable,'-c',sys.argv[2],str(base),sys.argv[3]],dict(os.environ))
+n.write_json(base/'production-validation-complete.json',result)
+sys.exit(128+v.RECEIVED_SIGNAL if result['status']=='interrupted' else result['exit_code'])
+"""
+            environment = self.fixture_environment(base)
+            command = self.fixture_command(
+                [
+                    str(cache.ROOT / "scripts/pse-env"),
+                    "--native",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    validator,
+                    str(base),
+                    gate,
+                    runner,
+                    storage,
+                ],
+                environment,
+            )
+            log = (base / "fixture.log").open("w")
+            process = subprocess.Popen(
+                command,
+                cwd=cache.ROOT,
+                env=environment,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+            )
+            observed = []
+            try:
+                actual_runner = self.await_file(
+                    base / "production-runner.json", process
+                )
+                persistent = self.await_file(base / "production-storage.json", process)
+                validation_owner = self.await_file(
+                    base / "production-validator.json", process
+                )
+                observed = [actual_runner, persistent, validation_owner]
+                for item in observed:
+                    owner = item["record"]["scope"]
+                    self.fixture_units.add(owner["unit"])
+                    self.assert_fixture_scope(owner)
+                self.assertNotEqual(
+                    validation_owner["pid"], validation_owner["record"]["pid"]
+                )
+                self.assertEqual(actual_runner["session"], actual_runner["pid"])
+                # TERM reaches the actual validation process, not its native creator.
+                os.kill(validation_owner["pid"], signal.SIGTERM)
+                process.wait(timeout=20)
+                self.assertEqual(
+                    process.returncode, 143, (base / "fixture.log").read_text()[-4000:]
+                )
+                completed = json.loads(
+                    (base / "production-validation-complete.json").read_text()
+                )
+                self.assertEqual(completed["status"], "interrupted")
+                for item in (actual_runner, validation_owner):
+                    self.await_drain(item["record"])
+                # The ready snapshot precedes observer registration; read the
+                # actual creator record by its authenticated PID association.
+                creators = [
+                    json.loads(path.read_text())
+                    for path in (base / ".operations").glob("*.json")
+                    if json.loads(path.read_text()).get("pid")
+                    == validation_owner["record"]["pid"]
+                ]
+                self.assertEqual(len(creators), 1)
+                children = creators[0]["foreground_children"]
+                self.assertEqual(len(children), 1)
+                child = json.loads(Path(children[0]).read_text())
+                self.assertTrue(child["cancelled"])
+                self.await_drain(child)
+                self.assert_fixture_scope(persistent["record"]["scope"])
+                self.assertFalse(
+                    operation.drained(
+                        json.loads(Path(validation_owner["durable"]).read_text())
+                    )
+                )
+                (base / "stop").touch()
+                self.await_drain(persistent["record"])
+                self.assert_parent_scope_unchanged()
+            finally:
+                (base / "stop").touch()
+                for name in (
+                    "production-runner.json",
+                    "production-storage.json",
+                    "production-validator.json",
+                ):
+                    path = base / name
+                    if path.exists():
+                        owner = json.loads(path.read_text())["record"]["scope"]
+                        self.fixture_units.add(owner["unit"])
+                        self.kill_scope(owner["unit"])
+                if process.poll() is None:
+                    process.kill()
+                process.wait(timeout=10)
+                log.close()
+
+    def test_real_cancelled_pending_observer_binds_drain_without_running_payload(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            program = """import os,sys,subprocess,uuid
+from pathlib import Path
+from scripts import native_operation as n,surreal_server as s,host_admission as h
+base=Path(sys.argv[1]); state=base/'state'; state.mkdir()
+unit='pse-native-'+uuid.uuid4().hex+'.scope'; owner=h.inherit(os.environ); owner.register(unit)
+handoff=n.prepare_handoff(unit,foreground=True); n.cancel_foreground_handoffs()
+assert not n.drained(n._record(handoff))
+allocation={'execution':{'cpu_threads':1,'observer_memory_bytes':128*1024**2}}
+payload="from pathlib import Path; import sys; Path(sys.argv[1]).touch()"
+command=s.observer_scope_command(state,allocation,unit,[sys.executable,'-c',payload,str(base/'payload-ran')])
+command[command.index('--capabilities')+1]=''
+env=s.systemd_environment(); env.pop(n.MARKER,None); env['PSE_NATIVE_HANDOFF']=str(handoff)
+status=subprocess.call(command,env=env)
+n.write_json(base/'pending-complete.json',{'status':status,'handoff':n._record(handoff),'parent':n._record(n.current())})
+"""
+            environment = self.fixture_environment(base)
+            command = self.fixture_command(
+                [
+                    str(cache.ROOT / "scripts/pse-env"),
+                    "--native",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    program,
+                    str(base),
+                ],
+                environment,
+            )
+            result = subprocess.run(
+                command,
+                cwd=cache.ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+                timeout=20,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            completed = json.loads((base / "pending-complete.json").read_text())
+            child = completed["handoff"]
+            self.fixture_units.add(child["scope"]["unit"])
+            self.assertNotEqual(completed["status"], 0)
+            self.assertFalse((base / "payload-ran").exists())
+            self.assertTrue(child["cancelled"])
+            self.assertIsInstance(child["scope_inode"], int)
+            self.assert_fixture_scope(child["scope"], live=False)
+            self.await_drain(child)
+            self.await_drain(completed["parent"])
 
 
 if __name__ == "__main__":

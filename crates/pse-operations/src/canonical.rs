@@ -1256,15 +1256,25 @@ impl CanonicalStore {
         self
     }
     #[cfg(all(test, feature = "canonical-tests"))]
-    fn retain_fixture_transport(&self) -> Result<(), CanonicalError> {
+    fn replace_fixture_transport(
+        &mut self,
+        options: &CanonicalOptions,
+        budget: std::time::Duration,
+    ) -> Result<(), CanonicalError> {
+        let lifetime = self.fixture_lifetime.as_ref().ok_or_else(|| {
+            CanonicalError::Configuration("fixture transport requires registered owner".into())
+        })?;
+        let address = url::Url::parse(&options.endpoint)
+            .map_err(|error| CanonicalError::Configuration(error.to_string()))?
+            .socket_addrs(|| None)
+            .map_err(|error| CanonicalError::Configuration(error.to_string()))?[0];
+        let replacement = lifetime.execute(connect_client(address, options, budget, true))?;
         let mut detached = self.clone();
         detached.fixture_lifetime = None;
-        self.fixture_lifetime
-            .as_ref()
-            .ok_or_else(|| {
-                CanonicalError::Configuration("fixture transport requires registered owner".into())
-            })?
-            .retain_peer(detached)
+        detached.db = replacement.clone();
+        lifetime.retain_peer(detached)?;
+        self.db = replacement;
+        Ok(())
     }
     #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn borrow_fixture(mut self, owner: &Self) -> Result<Self, CanonicalError> {
@@ -2364,27 +2374,43 @@ mod canonical_server_unit {
     #[tokio::test]
     async fn initialization_uses_atomic_transition_client_for_complete_schema() {
         let (mut store, options) = initialization_fixture().await;
-        let address = url::Url::parse(&options.endpoint)
-            .unwrap()
-            .socket_addrs(|| None)
-            .unwrap()[0];
-        store.db = connect_client(
-            address,
-            &options,
-            std::time::Duration::from_millis(250),
-            true,
-        )
-        .await
-        .unwrap();
-        store.retain_fixture_transport().unwrap();
+        store
+            .replace_fixture_transport(&options, std::time::Duration::from_millis(250))
+            .unwrap();
         let cancelled = request(store.db.query("SLEEP 750ms; RETURN true;")).await;
         assert!(
             cancelled.and_then(complete_response).is_err(),
             "the ordinary client retains its shorter query deadline"
         );
+        // The dispatched probe has an uncertain outcome while its session drains.
+        // Schema setup starts on a fresh ordinary client with the same short budget.
+        store
+            .replace_fixture_transport(&options, std::time::Duration::from_millis(250))
+            .unwrap();
         store.create().await.unwrap();
         store.open().await.unwrap();
         store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    #[expect(
+        clippy::panic,
+        reason = "intentional unwind verifies replacement client teardown on a current-thread test runtime"
+    )]
+    async fn initialization_replacement_transport_drains_on_current_thread_unwind() {
+        let (mut store, options) = initialization_fixture().await;
+        store
+            .replace_fixture_transport(&options, std::time::Duration::from_millis(250))
+            .unwrap();
+        let resource = store.fixture_lifetime.as_ref().unwrap().resource.clone();
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+            let _owned_replacement = store;
+            panic!("intentional failure after retaining the replacement transport");
+        }));
+        assert!(outcome.is_err());
+        let status =
+            crate::testing::resource_bridge("status", &serde_json::json!({"resource": resource}))
+                .unwrap();
+        assert_eq!(status["drained"], serde_json::json!(true));
     }
     #[tokio::test]
     async fn initialization_requires_complete_response_and_verified_marker() {
@@ -2443,28 +2469,38 @@ mod canonical_server_unit {
             .unwrap()
             .socket_addrs(|| None)
             .unwrap()[0];
-        let short = connect_client(
-            address,
-            &options,
-            std::time::Duration::from_millis(50),
-            true,
-        )
-        .await
-        .unwrap();
+        let selected = connect_client(address, &options, REQUEST_TIMEOUT, true)
+            .await
+            .unwrap();
         let delayed = initialization_statement().replacen("BEGIN;", "BEGIN; SLEEP 1s;", 1);
+        let attempts = std::sync::atomic::AtomicUsize::new(0);
         let response = store
             .initialize_with(|| {
-                request(
-                    short
-                        .query(delayed.clone())
-                        .bind(("interpretation", wire::INTERPRETATION))
-                        .bind(("schema_digest", wire::SCHEMA_DIGEST)),
+                // Authentication and initialization inventory are fixture setup;
+                // only the delayed transaction consumes the original short clock.
+                within_clock(
+                    original_deadline(std::time::Duration::from_millis(50)),
+                    async {
+                        attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                        request(
+                            selected
+                                .query(delayed.clone())
+                                .bind(("interpretation", wire::INTERPRETATION))
+                                .bind(("schema_digest", wire::SCHEMA_DIGEST)),
+                        )
+                        .await
+                    },
                 )
             })
             .await;
+        assert_eq!(
+            attempts.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "cancellation must attempt the delayed transaction without replaying DDL"
+        );
         assert!(response.is_err());
         tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
-        short.disconnect().await.unwrap();
+        selected.disconnect().await.unwrap();
         assert!(store.open().await.is_err());
         store.remove_isolated_fixture().await.unwrap();
     }
@@ -2480,15 +2516,15 @@ mod canonical_server_unit {
             .unwrap()
             .socket_addrs(|| None)
             .unwrap()[0];
-        let short = connect_client(
-            address,
-            &options,
-            std::time::Duration::from_millis(50),
-            true,
-        )
-        .await
-        .unwrap();
-        let result = bounded_query(short.query("BEGIN; SLEEP 1s; CREATE canonical_guards:late SET key = 'late', generation = 1dec; fn::pse_execution_v1::deadline($pse_rpc_expires_at); COMMIT;")).await;
+        let selected = connect_client(address, &options, REQUEST_TIMEOUT, true)
+            .await
+            .unwrap();
+        let result = within_clock(
+            original_deadline(std::time::Duration::from_millis(50)),
+            async {
+                bounded_query(selected.query("BEGIN; SLEEP 1s; CREATE canonical_guards:late SET key = 'late', generation = 1dec; fn::pse_execution_v1::deadline($pse_rpc_expires_at); COMMIT;")).await
+            },
+        ).await;
         assert!(
             result.is_err(),
             "cancellation cannot become a completed empty transaction"
@@ -2496,7 +2532,7 @@ mod canonical_server_unit {
         // Cancellation classifies an unknown transport outcome. The transaction
         // expiry fence establishes rollback after server work actually settles.
         tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
-        short.disconnect().await.unwrap();
+        selected.disconnect().await.unwrap();
         let absent: Option<Object> = request(store.db.select(("canonical_guards", "late")))
             .await
             .unwrap();

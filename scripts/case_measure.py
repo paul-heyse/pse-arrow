@@ -17,11 +17,12 @@ import subprocess
 import time
 from pathlib import Path
 
-from scripts import host_admission, validation, validation_receipts
-from scripts.native_tests import FEATURES, MANAGED_FEATURES, native_provenance
+from scripts import host_admission, native_tests, validation, validation_receipts
+from scripts.native_tests import MANAGED_FEATURES, native_provenance
 from scripts.validation_scope import (
     FUNCTIONAL_SCOPES,
     RUST_INPUTS,
+    Gate,
     comprehensive,
     input_identity,
     native_gate,
@@ -263,6 +264,147 @@ def samples(path: Path) -> dict:
     }
 
 
+def functional_features(gate: Gate) -> set[str]:
+    """Use the native owner's current roots and Arrow correctness composition."""
+    managed = "--managed-primary-route" in gate.args
+    selection = [arg for arg in gate.args if arg != "--managed-primary-route"]
+    if managed:
+        selection = native_tests.managed_rust_selection(selection)
+    command = native_tests.correctness_command(
+        native_tests.rust_command("list", selection, managed=managed), os.environ
+    )
+    _, metadata = native_tests.managed_rust_arguments(
+        command[3:], include_managed_features=False
+    )
+    return (
+        set(metadata[metadata.index("--features") + 1].split(","))
+        if "--features" in metadata
+        else set()
+    )
+
+
+def verify_functional_execution(
+    native: dict, *, managed: bool, environment: dict[str, str]
+) -> None:
+    """Bind the observer's explicit transformation and actual finite allocation."""
+    from scripts import surreal_server  # noqa: PLC0415 -- native observer owner
+
+    execution = native.get("execution", {})
+    expected_profile = "reference" if managed else "exclusive-observer"
+    resources = surreal_server.execution_resources(expected_profile)
+    allocation = resources["execution"]
+    if not isinstance(allocation, dict):
+        raise ValueError(  # noqa: TRY004 -- invalid evidence is a boundary refusal
+            "functional observer lacks an explicit execution allocation"
+        )
+    state = Path(environment["PSE_SURREAL_STATE"]).resolve()
+    config = surreal_server.config_for(state)
+    child_environment = native_tests.rust_test_environment(environment)
+    child_environment.pop("PSE_MEMORY_MAX", None)
+    child_environment["PSE_SURREAL_STATE"] = str(state)
+    if (
+        execution.get("environment") != child_environment
+        or execution.get("profile") != expected_profile
+        or execution.get("resources") != resources
+        or execution.get("state_resources") != config["resources"]
+        or (managed and config["resources"] != resources)
+        or execution.get("memory_max") != allocation["observer_memory_bytes"]
+        or execution.get("cpu_threads", 0) < allocation["cpu_threads"]
+        or execution.get("captured", 0) < native["captured"]
+        or not execution.get("control_group")
+    ):
+        raise ValueError("functional observer context or allocation changed")
+
+
+def composed_functional_environment(
+    gate: Gate,
+    evidence: dict,
+    declarations: dict,
+    observations: dict,
+    report: Path,
+    snapshot: dict,
+) -> dict[str, str]:
+    """Authenticate the assessment owner's single producer-fixture injection.
+
+    The assessment records its parent before producing this owned artifact. Its
+    native gates inherit the artifact selector; every other parent input remains
+    exact. Standalone gates have no such transformation.
+    """
+    parent = evidence["environment"]
+    assembled = [
+        candidate
+        for profile in ("dev", "producer")
+        for candidate in comprehensive(profile)
+        if candidate.name == gate.name
+    ]
+    if gate not in assembled:
+        return parent
+    fixture = next(
+        candidate
+        for candidate in comprehensive()
+        if candidate.name == "producer-fixture"
+    )
+    declaration = json.loads(json.dumps(validation.asdict(fixture)))
+    check = observations.get(fixture.name, {})
+    if (
+        declarations.get(fixture.name) != declaration
+        or check.get("invocation") != declaration
+        or check.get("mode") != fixture.mode
+        or check.get("profile") != fixture.profile
+        or check.get("status") != "passed"
+        or check.get("exit_code") != 0
+        or check.get("report_errors")
+        or check.get("changed_source")
+        or check.get("changed_environment")
+        or check.get("applicability_transfers")
+        or check.get("evidence_kind") not in {"executed", "unchanged-input-reuse"}
+        or any(result["status"] != "passed" for result in check.get("results", []))
+        or check.get("inputs") != input_identity(fixture.input_scope, snapshot, parent)
+    ):
+        raise ValueError("incomplete assessment producer-fixture prerequisite")
+    terminal = {**check, "results": list(check.get("results", [])), "report_errors": []}
+    validation.compose_selection(terminal)
+    if terminal["report_errors"]:
+        raise ValueError("contradictory assessment producer-fixture terminal evidence")
+    origin = Path(check.get("origin", report.parent)).resolve()
+    if "origin" in check and (
+        not check.get("origin_digest")
+        or validation_receipts.digest(origin / "checks.json") != check["origin_digest"]
+    ):
+        raise ValueError("changed assessment producer-fixture origin")
+    artifacts = check.get("artifacts", {})
+    if "producer-fixture.json" not in artifacts:
+        raise ValueError("missing assessment producer-fixture artifact")
+    for artifact, expected in artifacts.items():
+        target = (origin / artifact).resolve()
+        target.relative_to(origin)
+        if validation_receipts.digest(target) != expected:
+            raise ValueError("changed assessment producer-fixture artifact")
+    path = origin / "producer-fixture.json"
+    validation_receipts.require_fresh(path, check["started"], "producer-fixture")
+    digest = artifacts[path.name]
+    native = observations[gate.name].get("native", {})
+    if native.get("files", {}).get(str(path)) != digest:
+        raise ValueError("native identity does not bind assessment producer-fixture")
+    if "EFFECTIVE_NATIVE_CONFIGURATION" not in parent:
+        raise ValueError("missing assessment parent native configuration")
+    configuration = json.loads(parent["EFFECTIVE_NATIVE_CONFIGURATION"])
+    if not isinstance(configuration, dict):
+        raise ValueError(  # noqa: TRY004 -- invalid evidence is a boundary refusal
+            "invalid assessment parent native configuration"
+        )
+    configuration["PSE_PRODUCER_FIXTURE_RECEIPT"] = {
+        "resolved": str(path),
+        "sha256": digest,
+        "admission": None,
+    }
+    return {
+        **parent,
+        "PSE_PRODUCER_FIXTURE_RECEIPT": str(path),
+        "EFFECTIVE_NATIVE_CONFIGURATION": json.dumps(configuration, sort_keys=True),
+    }
+
+
 def require_functional(
     root: Path,
     path: Path,
@@ -278,6 +420,8 @@ def require_functional(
         evidence.get("version") != 5
         or evidence.get("baseline_failures") != 0
         or not evidence.get("input_coverage")
+        or evidence.get("complete") is not True
+        or evidence.get("provenance_errors")
     ):
         raise ValueError(
             "measurement requires a current zero-baseline functional report"
@@ -293,16 +437,16 @@ def require_functional(
         raise ValueError("measurement workload lacks functional prerequisite scopes")
     declarations = {item["name"]: item for item in evidence["scope"]}
     observations = {check["gate"]: check for check in evidence["checks"]}
+    if len(declarations) != len(evidence["scope"]) or len(observations) != len(
+        evidence["checks"]
+    ):
+        raise ValueError("ambiguous functional prerequisite identities")
     consumed = {}
     for name in sorted(required):
         managed = name == "managed-primary"
-        if name not in FUNCTIONAL_SCOPES and not managed:
+        if name not in FUNCTIONAL_SCOPES:
             raise ValueError("unknown functional prerequisite scope")
-        exact = (
-            next(gate for gate in comprehensive("dev") if gate.name == "managed-native")
-            if managed
-            else FUNCTIONAL_SCOPES[name]
-        )
+        exact = FUNCTIONAL_SCOPES[name]
         # The assembled invocation adds its setup dependency without changing
         # nextest's selection. Accept its exact declared form as well as the
         # standalone gate; arbitrary dependency/selection edits still refuse.
@@ -342,6 +486,9 @@ def require_functional(
             or not check.get("results")
             or any(result["status"] != "passed" for result in check["results"])
             or check.get("changed_source")
+            or check.get("changed_environment")
+            or check.get("evidence_kind") not in {"executed", "unchanged-input-reuse"}
+            or check.get("applicability_transfers")
             or check.get("invocation") != declarations[gate.name]
             or check.get("mode") != gate.mode
             or check.get("profile") != gate.profile
@@ -359,6 +506,18 @@ def require_functional(
         # Read current relevant environment through the same identity operation.
         native = check.get("native", {})
         current_environment = validation.relevant_environment()
+        expected_environment = composed_functional_environment(
+            gate, evidence, declarations, observations, report, snapshot
+        )
+        if (
+            input_identity(gate.input_scope, snapshot, expected_environment)[
+                "environment"
+            ]
+            != input_identity(gate.input_scope, snapshot, current_environment)[
+                "environment"
+            ]
+        ):
+            raise ValueError("functional invocation environment changed")
         actual_environment = native.get("environment")
         if (
             actual_environment is None
@@ -371,9 +530,13 @@ def require_functional(
         ):
             raise ValueError("functional relevant environment changed")
         validation_receipts.verify_native(native)
+        validation_receipts.verify_native_capture(native, check)
+        verify_functional_execution(
+            native, managed=managed, environment=current_environment
+        )
         if native.get("profile", {}).get("cargo_profile") != profile:
             raise ValueError("functional Cargo profile differs from measurement")
-        expected_features = set((MANAGED_FEATURES if managed else FEATURES).split(","))
+        expected_features = functional_features(gate)
         if set(native.get("profile", {}).get("features", [])) != expected_features:
             raise ValueError("functional native feature graph differs")
         origin = Path(check.get("origin", report.parent))

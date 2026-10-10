@@ -66,10 +66,11 @@ declarations, generated outputs, manifests and integration.
 ## Combined target and foundation decisions
 
 Repurpose `pse-operations` as the concrete substrate boundary with the remote client there.
-Retire `pse-operations-queries` and `pse-catalog` after their consumers move. The initial implemented
-profile selected authenticated loopback RocksDB, synchronous transaction acknowledgment and
-gRPC. [28a](28a-canonical-substrate-and-revisions.md#server-profile-and-acknowledgment-contract)
-retains its original profile evidence; Plan 30 owns the proposed replacement below. This isolates engine builds/resources from
+Retire `pse-operations-queries` and `pse-catalog` after their consumers move. The current implemented
+profile selects authenticated loopback RocksDB, synchronous transaction acknowledgment and
+native WebSocket RPC. [28a](28a-canonical-substrate-and-revisions.md#server-profile-and-acknowledgment-contract)
+owns the canonical contract; completed Plan 30 owns the transport and service-lifetime correction.
+Earlier gRPC observations retain their historical scope. This isolates engine builds/resources from
 semantic crates and serves multiple workers without a second storage abstraction.
 
 Existing semantic declarations, scientific kernels, solver routing, native attempt ownership
@@ -378,7 +379,8 @@ including ordinary ephemeral and durable studies, under a finite coordinated dep
 The authoring baseline is committed `84a1caf17656f00f38b22e703c7cbc2b63a44d2d`; the
 review examined its `fbbf718`-based predecessor working tree. Its existing two-test native
 selection failed on the composed canonical route. No new product run is supplied by this
-planning extension, and the reference campaign remains stopped.
+planning extension. Its stopped-campaign handoff is historical; the current checkpoint owns
+the now-authorized full campaign and its live prerequisites.
 
 Keep four different kinds of concurrency explicit: Cargo/build jobs; Nextest/Python test
 workers; application case workers; and library/internal native teams. Sixteen configured
@@ -563,11 +565,11 @@ the supported mixed-backend execution strategy remain consequential questions.
 
 | Finding | Review scenarios | Disposition | Work owner | Required evidence or question |
 |---|---|---|---|---|
-| [Parallel F01](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f01) | S01/S03/S06 | In progress; focused managed Rust controls pass, Python/assembled E3 acceptance pending | A4; B6; T7; E3 | Reliable sixteen complete cases and original report/result meaning; protected reclamation and uncertain-acknowledgment safety. Select the correction with adequate operation attribution; RC01 is accepted conditionally; A4 selects the actual route. |
-| [Parallel F02](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f02) | S02/S03 | In progress; focused managed Rust controls pass, Python/assembled E3 acceptance pending | N8; B6; E3 | Small nested-provider/rebind work completes under the finite pool without maximum-capacity reservation amplification; retain oversized refusal, clocks, cancellation and bounded progress under retained pressure. RC02 is accepted; N8 owns the changed behavior. |
-| [Parallel F03](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f03) | S04 | In progress; focused managed Rust controls pass, Python/assembled E3 acceptance pending | N10; L7; C7; E3 | Explicit supported independent-instance, internal-team and process strategies, with exclusion/waiting, cancellation, teardown and aggregate CPU/memory scope. RC03 is accepted; no deadlock or universal backend concurrency is claimed. |
-| [Parallel F04](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f04) | S05 | In progress; focused managed Rust controls pass, Python/assembled E3 acceptance pending | N9; C6/C7; E3 | Additional POUNCE team stacks reserved before creation, retained while the team exists and released after scope teardown/join; finite refusal before creation. This is existing-contract accounting, not an RSS claim or a new allocator contract. |
-| [Parallel F05](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f05) | S07/S03 | In progress; focused managed Rust controls pass, Python/assembled E3 acceptance pending | C6/C7; N8–N10; L7; E3 | One ordinary study executes sixteen independent non-batching cases concurrently with exact occurrences, starts, result placement and original scientific checks; retain dependent sequence order, failed-point isolation, bounded admission and cancel/drain. Select/account for durable worker deployment; RC04 is accepted; C6/C7 own the realization. |
+| [Parallel F01](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f01) | S01/S03/S06 | Implemented; scoped managed Rust/Python controls pass; assembled E3/E4 pending | A4; B6; T7; E3 | Reliable sixteen complete cases and original report/result meaning; protected reclamation and uncertain-acknowledgment safety. Select the correction with adequate operation attribution; RC01 is accepted conditionally; A4 selects the actual route. |
+| [Parallel F02](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f02) | S02/S03 | Implemented; scoped managed Rust/Python controls pass; assembled E3/E4 pending | N8; B6; E3 | Small nested-provider/rebind work completes under the finite pool without maximum-capacity reservation amplification; retain oversized refusal, clocks, cancellation and bounded progress under retained pressure. RC02 is accepted; N8 owns the changed behavior. |
+| [Parallel F03](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f03) | S04 | Implemented; scoped managed Rust/Python controls pass; assembled E3/E4 pending | N10; L7; C7; E3 | Explicit supported independent-instance, internal-team and process strategies, with exclusion/waiting, cancellation, teardown and aggregate CPU/memory scope. RC03 is accepted; no deadlock or universal backend concurrency is claimed. |
+| [Parallel F04](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f04) | S05 | Implemented; scoped managed Rust/Python controls pass; assembled E3/E4 pending | N9; C6/C7; E3 | Additional POUNCE team stacks reserved before creation, retained while the team exists and released after scope teardown/join; finite refusal before creation. This is existing-contract accounting, not an RSS claim or a new allocator contract. |
+| [Parallel F05](../design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md#f05) | S07/S03 | Implemented; scoped managed Rust/Python controls pass; assembled E3/E4 pending | C6/C7; N8–N10; L7; E3 | One ordinary study executes sixteen independent non-batching cases concurrently with exact occurrences, starts, result placement and original scientific checks; retain dependent sequence order, failed-point isolation, bounded admission and cancel/drain. Select/account for durable worker deployment; RC04 is accepted; C6/C7 own the realization. |
 
 The selected A4 staging correction, N8 demand admission, N9 team accounting, N10 exclusion
 coordination and C6/C7 dispatchers are integrated. Their targeted controls establish only
@@ -599,10 +601,10 @@ adoption schedules decisions and packages, not production implementation or acce
 
 | Finding | Disposition | Prospective owner | Required resolution |
 |---|---|---|---|
-| [PA01](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md#pa01): runtime observation at body boundaries | Implemented; scoped qualification pending | 28i I0/I1; 28b B7; 28h root integration | Establish actual consumed premises and the supported validity lifetime; preserve trust-transition checks and refuse unknown replay contexts. |
-| [PA02](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md#pa02): repeated compiler/preparation composition | Implemented; scoped qualification pending | 28j J0/J2; B7/C8/N11 | Reuse complete immutable preparation with fresh case meaning and effects; structural, demand, provider and physical changes remain consequential. |
-| [PA03](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md#pa03): memoized mathematics carries publication effects | Implemented; scoped qualification pending | 28j J0/J1/J2; 28a A5; 28b B7 | Separate pure computation from protected dependency/root publication; preserve exact rooted acknowledgment reuse and expiry/recovery while removing repeated encoding. |
-| [PA04](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md#pa04): observation/cohort interruption gap | Implemented; drain qualification pending | 28i I2; runtime jobs / 28c C8 drain | Make owned capture and waits interruptible while retaining charges through drain and preserving other live consumers; state foreign lock-wait limits honestly. |
+| [PA01](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md#pa01): runtime observation at body boundaries | Implemented; scoped controls recorded; assembled E3 pending | 28i I0/I1; 28b B7; 28h root integration | Establish actual consumed premises and the supported validity lifetime; preserve trust-transition checks and refuse unknown replay contexts. |
+| [PA02](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md#pa02): repeated compiler/preparation composition | Implemented; scoped controls recorded; assembled E3 pending | 28j J0/J2; B7/C8/N11 | Reuse complete immutable preparation with fresh case meaning and effects; structural, demand, provider and physical changes remain consequential. |
+| [PA03](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md#pa03): memoized mathematics carries publication effects | Implemented; scoped controls recorded; assembled E3 pending | 28j J0/J1/J2; 28a A5; 28b B7 | Separate pure computation from protected dependency/root publication; preserve exact rooted acknowledgment reuse and expiry/recovery while removing repeated encoding. |
+| [PA04](../design_review/reviews/design_review_preparation-assurance-and-reuse_2026-10-08.md#pa04): observation/cohort interruption gap | Implemented; scoped drain controls recorded; assembled E3 pending | 28i I2; runtime jobs / 28c C8 drain | Make owned capture and waits interruptible while retaining charges through drain and preserving other live consumers; state foreign lock-wait limits honestly. |
 | U01: receiving-runtime premise coverage | Settled for controlled worker/imported-Python roots; arbitrary embedding remains unqualified | 28i I0 with actual receiving roots / 28h / B7 | Trace reconstruction and subsequent product-use inputs and actual protection; consider independently valid immutable products before requiring a whole-host freeze. |
 | U02: corrective scientific composition | Unresolved | 28e with affected scientific owners | Qualify the implemented composition at its real scientific boundaries; plan adoption supplies no new product pass or speedup. |
 
@@ -644,7 +646,7 @@ necessary selected contract amendments before their dependent implementation.
 | J0 complete basis, fresh attribution and description/effect contract | A5 canonical integration and J1 pure/effect separation | A settled design is not a working admission/publication API. |
 | A5 working canonical slice plus J1 explicit effects | J2 basis/encoding retention and B7 adoption | A memo hit cannot skip exact current effect settlement; retention is not permission. |
 | J2/B7 working compatible basis and applicable I1/I2 receiving controls | C8 ordinary study/worker consumers and N11 analysis/mode/experiment consumers | Changed structure/demand/provider/physical meaning still requires affected preparation; mutable numerical state stays private. |
-| Consumer migrations and targeted controls | 28e's affected assembled acceptance/U02 route | Quantitative benefit requires measurement; current failure-only continuation does not authorize another full campaign. |
+| Consumer migrations and targeted controls | 28e's affected assembled acceptance/U02 route | Quantitative benefit requires E4; the full remaining E3/E4/E5 campaign is authorized at 28e. |
 
 Shared edit surfaces in compiler/workspace, runtime math/workflow and canonical selection
 need one integration owner during execution, independently of logical package readiness.
@@ -759,278 +761,46 @@ mechanism, and justified distinct contracts and conditional retained-design deci
 
 ## Current checkpoint
 
-**Graph/hash followup execution, 2026-10-09:** [28k](28k-graph-kernels-and-hashing-investigations.md)
-owns implementation and bounded inquiry evidence at baseline
-`46545b2ad3e2999b4335692ac49af6091438c3fc`. J3/B8/N12/N13 and selected RC04 V2 are
-implemented with Fx interning, local structure-key reuse and immutable basis-key prehash.
-Compiler/structural/identity/backend controls and final native factorable/runtime plus four
-Python journeys and the production portable-restart control passed. The feature matrix was
-cancelled at the maintainer's request; its interrupted observations establish no successful
-coverage. Documentation publication completed at the review handoff. Real Recipe
-persistence and authored checker probes retain current production mechanisms and identify
-complete design prerequisites. Scalar diagnostic measurements are recorded with their operation
-boundaries. Graph/hash F01–F03 and V2 sequence framing have affected functional acceptance;
-other scope-end checks passed, including repaired composite hygiene acceptance. The PC-SAFT fixture's four scientific refusals have a
-separate numerical-fact correction owner at Plan 33/EFF06 and supply no prepared-product claim. No RC02/RC03
-cutover or broader campaign restart is selected. N0 retains its recorded catalog conclusion;
-the prospective typed-checker decision now belongs to Plan 33/EI04. The
-following paused continuation retains its authorization boundary and historical evidence.
+Execution resumed by the maintainer on 2026-10-10 for the entirety of remaining Plan 28,
+including the required development/scientific E3 campaign, all selected E4 measurements,
+and E5 independent assembled review and closure. This supersedes the former pause and
+failure-only continuation instructions. The inspected starting tree is clean
+`91dc7fdf142442d56d89a9fd97f173a3b5633bb7`.
 
-The maintainer authorized detailed execution of 28i/28j and then implementation on
-2026-10-08, before remaining unrelated Plan 28 scope. I0/J0 selected trust-transition
-receiving qualification followed by independent immutable mathematics in the protected
-append-only mathematical symbol universe, an exact instance-qualified complete preparation
-basis, and explicit acquisition/publication outside tracked queries. Proposed ADR-0164 and
-blueprint revision 137 record the selected amendment before dependent implementation.
-The supported controlled worker/imported-Python profile excludes opaque symbol callbacks,
-live state reset, interposition and uncontrolled executable-map mutation; arbitrary embedding
-is not qualified. Strict relevant-source and deployment-local guarantees remain distinct.
+A–D, N1–N13, T0–T7, L0–L7, I0–I2 and J0–J3 mechanisms and the selected graph/hash
+followups are implemented with scoped evidence in their companion Outcomes. Their package
+completion does not establish enclosing qualification. N4/T5/L4 require composed consumer
+acceptance; E3/E4/E5 remain open. The original managed thousand-point Python identity passed
+in Plan 30; that closes the named failure-only continuation, not the full campaign or the
+historical HTTP/2 diagnosis. Plan 33 is completed and remains a separate owner: its numerical
+facts, compact Recipe, fitting, export and tooling corrections are current prerequisites,
+not another Plan 28 implementation backlog. RC02 durable fast hashes and RC03 persisted
+incremental runtime remain unselected.
 
-The scoped implementation is present. Canonical descriptions retain their exact immutable
-encoding/provenance and query actual rooted acknowledgment before new admission work. Local
-namespace v2 and runtime envelope v3 preserve historical meanings; recipe/product/blob frames
-are unchanged. Pure compiler frontiers and complete basis reuse use the existing bounded
-cache, generation fence, allocation owners and completion-owned flights. Current selection,
-acquisition dependencies, Solved lineage and source versions remain current operations.
-Compiler callbacks no longer perform store I/O or host observation. All ordinary worker,
-study, solve, diagnostic, mode and experiment paths reach the migrated package preparation;
-flow and conformance inspection use pure workspaces.
+First reconcile stale live execution instructions and packet statuses. Then finish bounded
+campaign preparation: scientific rebuild/restore acceptance, profile-matching measurement
+prerequisites, setup/admission/drain timing at the build-measurement owner, and missing
+policy/preflight/trajectory and unchanged-byte edit measurements. Preserve conservative
+numerical/provider variants and standalone one-shot fitting/shooting contracts.
 
-The stalled assessment was interrupted and preserved at
-`/tmp/pse-plan28-preparation-start-20261008T231501Z`. Its final native-Python log reports
-202 passed, 2 failed and two selected identities without recorded outcomes; managed Python
-reports seven failures. Those receipts describe the original frozen artifacts. Follow-up
-qualification targets those identities and new preparation controls, not another full
-assessment. The managed observer pool was raised from 2 to 3 GiB within its existing 4 GiB
-placement, and its actual modeling workspace from 64 MiB to 1 GiB, after recorded admission
-refusals. Two temporary source-only worktrees
-were used for isolated interfaces and remain pending integration acceptance/cleanup.
-Independent implementation review exposed private reconstruction-drain ordering and shared
-loader clocks; those corrections are implemented and the final source reinspection found
-no remaining material finding. Actual scoped cancellation/drain controls pass. The affected continuation exposed a misplaced SDK preparation clock and protected-read
-contention; original driver clocks, guarded identical-revision premise adoption and bounded
-short transaction pacing now have positive targeted controls. Rebuilt artifact readmission
-has completed. The ephemeral thousand-point sweep passed; the remaining managed sweep
-completed cold preparation but exposed unpaced result-ingestion transaction conflicts.
-The affected execution/study writers and typed failure projection are corrected, with
-positive actual sibling-study retention controls. The rebuilt managed identity settled
-27 points before an HTTP/2 protocol failure; its transport investigation and failure-only
-qualification remain open. No U02 scientific closure or speedup is claimed before its
-positive outcome.
+Root owns shared declarations, generators, runner selection, finding dispositions and final
+integration. Bounded workers own disjoint consumer changes and targeted checks. Confirm E1/E2
+regeneration/deletion and N4/T5/L4 caller closure before E3. Existing worktrees must be inspected
+for unique work before integration or removal; preserve concurrent source and resources.
 
-The maintainer narrowed the current execution on 2026-10-08 to fixing the failing
-tests, obtaining successful execution of the selected tests, preserving materials
-while cleaning existing worktree registrations, updating documentation and then
-stopping. E4 measurements, E5 assessment and whole-plan adoption/retirement are not
-part of this continuation. Their open obligations remain with their existing owners.
-Once the complete Python failure set is available, fix and rerun only those failed
-identities until they pass. The maintainer accepts that repaired composite as fully
-passing for this continuation; no repeat of the full Python selection is requested.
-Final comparisons against historical IDAES/reference results use ±10% relative
-allowance; ordinary engineering solver stopping budgets and physical checks remain
-unchanged. The [qualification guide](../dev/validation-assessment.md) records that
-distinction; [E's Outcome](28e-rebuild-retirement-and-qualification.md#outcome-recorded-after-implementation)
-owns the executed test evidence and its composite scope.
+[28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step) owns the concrete
+campaign sequence and coverage. Run comprehensive assessment once after functional readiness,
+including its ordinary/managed Rust and Python partitions, current conformance, external parity,
+actual recovery, hygiene/manual checks and full powerset. Keep the exact reference160 capacities,
+original production numerical controls, explicit force-validation and zero-failure target.
+E4 runs the explicit 33 selectors plus bounded coverage additions with matching prerequisite
+reports; measurements retain their actual wide/reference conditions. E5 reconciles all finding
+families, enduring owners, required decision routes and retirement after demonstrated acceptance.
+Optional strict producer qualification, distribution/remote CI and a new first-principles
+validation framework are outside this selected campaign. Correct expected-beneficial approaches
+remain unless nonfunctional or substantially harmful; noisy marginal timing is not a rejection.
 
-Before the preparation correction, the assembled development run completed its native
-selection and continued into Python. Its resource-fixture, supervised-worker fixture and
-historical flash comparison failures were repaired through targeted tests against the then
-installed artifacts. The original assessment retains its raw results under its original
-conditions; source changes prevent claiming it as a fresh successful assembled E3
-qualification. The resource and historical flash comparisons now pass their targeted
-checks, and all six worker journeys now have positive composite follow-up results.
-Cold loaded-file identity verification required a separate finite setup watchdog;
-solver, lease, cancellation and recovery assertions remain unchanged. The separate
-managed native selection also passed. The current rebuilt failure-only continuation is
-described above; those historical receipts do not exercise the new preparation source.
-
-The maintainer subsequently authorized deleting inactive worktrees to recover disk
-space. All seven former Plan 28 worktrees were removed after their dirty, untracked
-and ignored source files, binary patches and Git administrative metadata were copied
-and verified. Their branches remain. Preserved changes are at
-`/home/paul/pse-arrow-wt-preserved/20261008T210936Z`; at that cleanup only main remained
-registered. The removed trees had no build caches and occupied approximately 470 MiB;
-the preserved changes occupy 11 MiB. This cleanup does not complete outstanding tests.
-
-The earlier implementation handoff below retains its original scope and resume order;
-it does not expand the narrowed current execution.
-
-Execution started from committed `84a1caf17656f00f38b22e703c7cbc2b63a44d2d`, preserving the
-existing Plan 28 documentation edits. R0's parallel contract is recorded in proposed
-ADR-0166 and architecture revision 136 before its dependent changes. The selected realization
-is one shared runtime with sixteen ordinary case lanes, thirty-two total population slots,
-one-thread ordinary native teams and one managed primary process. Observers provide no
-additional native assistance. The 128 GiB reference pool and 16 GiB worker capacity remain.
-
-A4 now attributes conflicts to their actual protected operation and paces bounded same-owner
-staging RPCs without changing server guards, generations or replay identity. The two existing
-sixteen-worker scientific controls pass after this correction. N8's common-pool release
-observation, bounded population and original-clock admission, N9's actual team-stack ownership,
-and N10's native exclusion waiting are integrated with focused mechanism controls. Nested arithmetic construction now uses source-issued initial demand and extends the same
-reservation for actual optimized numeric payload before allocation. Original operation/scratch
-limits remain authoritative; opaque library storage retains a conservative allowance. C6's completion-driven dispatcher and C7's bounded worker
-group are integrated, with targeted sixteen-entry, cancellation/drain, continuation and low-population refusal
-controls passing. L7's typed profile, managed startup and receiving placement are integrated;
-actual external-primary controls and Python process partitioning remain in progress. Existing source-protection and scientific checks remain.
-
-Next: complete producer construction bounds, public study and managed-receiver controls;
-reconcile B6/T7/N4/T5/L4 and the connected serving consumers; then perform E3/E4/E5. The campaign
-remains stopped. The selected finite deployment caps and ancestor CPU/memory placement must fit before full
-reference qualification; no smaller pool substitutes for it. Available memory is recorded
-without requiring the whole maximum envelope to be free up front, as confirmed by the
-maintainer. Caps are ceilings rather than physical reservations. Earlier enhancement evidence below retains
-its original scope and does not qualify this extension.
-
-### Earlier implementation handoff
-
-The following handoff predates the newly scheduled parallel packages; its completed controls
-and consumer reconciliation retain that original scope.
-
-Native mechanism controls and installed Python default reopening/loader controls pass.
-Independent implementation review exposed originating body-cache producer association
-and cancelled direct-store retry membership gaps; their focused repairs pass. L5's accepted enhancement
-RC01 is recorded in proposed ADR-0164 and architecture revision135 before dependent code.
-Its controlled Linux/glibc reconstruction scope observes actual artifacts/configuration and
-owns no native provider handles after immutable construction. Strict qualification remains
-separate. T6 completed populated current-schema access-path investigation, adopting
-result cursor corrections and recording reasoned retained source/numeric/analysis choices.
-Query-plan candidate counts are not disk-fetch or latency claims. E owns the affected
-Python accuracy diagnostic and the sole assembled campaign. Functional consumer reconciliation
-and the three added benchmark smoke controls are complete. E3's first composed development
-attempt exposed an enclosing-scope cancellation fixture defect; independent fixture controls
-now pass. The assembled review's repeated allowance-projection correction is integrated,
-with affected numerical checks before E3 resumes. Actual fresh managed-worker and imported-Python
-receivers now demonstrate quiet persisted reconstruction without producer receipts; receiving
-hardware probes leave executable bytes intact and have positive fresh-miss controls. Shared
-mathematical initialization precedes local loader observation, including license/NSS startup
-effects. Qualification also corrected first-order implicit scratch sizing without increasing
-budgets and separated optional strict capture controls from the development campaign.
-The overlapping native assessment was interrupted after canonical initialization conflicts.
-The maintainer subsequently requires sixteen parallel workers as functional scope and
-directed stopping the one-worker reference campaign. That owned process is stopped;
-the replacement must prove concurrent fixture execution, deterministic complete reports
-and cancellation settlement before the reference campaign restarts with sixteen runtime
-workers. Thirty-two native admission slots accommodate sixteen idle staged sessions plus
-their preparation/validation operations; active native execution still has sixteen CPU
-permits. Ordinary solver, canonical and Python tests also use sixteen workers;
-memory-heavy workflows retain finite aggregate admission. Definite initialization conflict
-recovery belongs to the atomic installation owner, without retrying uncertain delivery.
-Protected source decisions and publication retain their guards, exact identities and
-acknowledgment recovery while definite conflicts receive bounded, jittered pacing.
-The actual sixteen-reader protection/read/release control passes; the enclosing parallel
-fixture controls and rebuilt reference campaign remain prerequisites for assembled E3.
-Earlier static prerequisites retain their original scope; the subsequent parallel source
-and configuration changes require affected checks at functional scope end. E4 build measurements retain the
-unchanged 50 GiB free-space floor; sufficient storage is now available. Applicable E4 measurements and
-E5 acceptance follow positive functional qualification. Earlier checkpoint notes
-below retain their original evidence and are superseded as current execution directions.
-
-The earlier correction baseline was `5260a3e9a`, recording the continuation from
-`219338742` without changing its reviewed product bytes. At the maintainer's request, the current qualification runner was
-stopped to conduct the [production execution efficiency review](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md).
-[28e's current handoff](28e-rebuild-retirement-and-qualification.md#efficiency-review-handoff-2026-10-07)
-owns the interrupted campaign, retained evidence and resumption boundary. Review publication
-does not implement its proposed corrections or establish E3/E4/E5 acceptance. The current
-review's dispositions belong here. The 2026-10-07 plan-creation extension above and 28f/28g/28h
-now supply detailed corrective scope, repository-wide investigation and migration packages.
-RC01 is explicitly accepted; its decision route remains an implementation prerequisite.
-The next route is N0/T0/L0 and their ready corrective slices, followed by consumer closure
-and E3/E4/E5. Production and the preserved interrupted evidence are unchanged by authoring.
-D3 retains regular indexed edges.
-
-Remaining-scope execution on 2026-10-06 has completed grouped exact namespace,
-supplier, record, document and physical acquisitions, including complete-inventory
-premises and precharged hydration. Deployment qualification now checks the actual
-selected Cargo root against the receiving executable target. Study claim/summary
-uncertainty uses exact existing operation receipts; native start uncertainty uses a
-fresh invocation receipt, preventing another call from recovering an earlier start.
-The server also admits only one start per actual attempt, while an authored retry
-retains prior failure history and starts a distinct attempt. Multipage result protection
-hands off to an admitted analysis before retirement. Focused controls and bounded
-implementation review are positive; scope-end checks and fresh installed deployment
-association precede E3. The selected supervised profile has positive abrupt
-restart and quiesced offline restore evidence. Build review now expresses the
-retired vendor directory's absence explicitly; stale or reappearing inputs refuse
-qualification. The result-chain measurement exercises actual retained trajectory,
-selected-output and paged analysis reads, with global engineering accuracy and
-exact original transport checks. Its functional smoke exposed a quadratic checked
-row-selection memory reservation; the correction preserves repeated/nested-value
-accounting and its targeted controls and the complete smoke now pass. The smoke
-also corrected a scalar-only validation assertion to exercise actual trajectory
-endpoint, feasibility and full authored sample-check obligations.
-Sensitivity qualification controls now use the production default policy, actual
-returned candidate, frozen parameter/output coordinate scales and admitted engineering
-allowances. Base error, derivative response and perturbed endpoint agreement are
-separate empirical checks; a factor backsolve diagnostic adds no tighter solve
-requirement. Native Ipopt/POUNCE perturbation coverage and exact matrix/transport
-mechanics remain. The shared restart fixture also resolves production accuracy rather
-than substituting a verification budget. Parity and the affected native/runtime controls
-now pass. The restart comparison uses its original objective as the decision quantity
-and retains exact transport and iteration-reduction controls; physical feasibility
-budgets imply no coordinate-error guarantee. Current worker/Python producer captures
-are eligible and share the actual source/build attestation. The installed Python
-artifact matches the captured producer binary after Maturin's exact editable RPATH
-transformation; its public solve/reopen control independently observes that same
-attestation and reopens the original revision. The assembled gate remains next.
-The genuine cross-role control uses the independently observed imported Python
-run-header attestation rather than each receipt's own claimed pair. Current
-exclusive source/deployment ownership is retained for the assembled campaign.
-Measurement admission now recognizes both exact standalone and assembled native
-gate declarations, including the latter's producer-fixture prerequisite, while
-arbitrary selections/dependency edits still refuse. E4 measurements and E5 acceptance
-remain open at 28e.
-
-On 2026-10-06 the maintainer authorized implementation of all functional scope across
-28a–28e using the capability-informed execution approach. Functional work and targeted
-tests come first. The interrupted A/B integration selections join E3 after A/B/C/D and
-E1/E2 functional scope is implemented; they are not prerequisites for continuation.
-A/B functional implementation is present; their owning checkpoints and Outcomes retain
-the original evidence and its limits. Ordinary deployment producer qualification remains
-required for actual persisted replay rather than only the finite qualification fixture.
-ADR-0164 is proposed under implementation authorization and has a recorded architecture
-revision route; formal ADR acceptance remains separate from implementation evidence.
-
-Canonical revisions, selected compilation, strict portable reconstruction and compact
-formal preparation are implemented. Managed source/worker and native recovery controls
-have positive focused evidence. Full generation and the final local native-owner controls
-are complete. Source review now closes the selected executable-I/O/configuration/native
-input gaps. Fresh current runtime, worker and Python captures and their deployed-artifact
-association remain under qualification; a finite actual tool fixture establishes only
-scoped qualification and persisted replay behavior.
-
-The earlier **2026-10-06** closeout produced committed HEAD `0b4abf7c6`. A/B acceptance
-remains open: the applicable scientific assertions from the selected Python campaign and
-assembled Rust selection transfer to E3 on the fully migrated target.
-The earlier reference-only Python run passed its process case; its unfinished 1,000-point
-study was interrupted when switching to the final extension and is not a passed control.
-The original workload, numerical assertions and resource settings remain unchanged.
-The unfinished feature matrix was stopped at 236/316 completed selections, with selection
-237 interrupted. It is partial evidence for that older source state, not qualification
-of the full target. No old integrated campaign is resumed during functional implementation.
-
-C/D's canonical run/result/query migration is implemented. Registry-owned run/attempt
-identities, bounded ingestion, frozen descriptors and exact protected readers replace the
-old publication route. Versioned native functions and bulk statements perform structural
-transitions; scientific decisions retain their shared Rust owners. Dense observations use
-self-contained uncompressed Arrow IPC blocks, with indexed metadata and preflighted decoder
-extents. Narrow gRPC streams require successful statement completion; result reads associate
-their selected run/attempt with A's protection lifecycle. Scoped study discovery carries actual
-selected fields; full scientific descriptors are fetched by exact keys. Bounded exact physical
-admission and IPC receipt reuse avoids repeated ingress during ready-occurrence preparation.
-Fresh storage protection remains required on hits and through run/analysis root admission;
-cache clear fences pending loads. Native lifecycle, retention, continuation, analysis and
-escaped decoded-buffer controls have focused positive evidence.
-
-E1/E2's schema/fixture regeneration, displaced crate and mechanism retirement, native build
-locality and unchanged-output preservation are implemented. Native worker journeys, Python
-boundaries and process benchmarks compile. The focused linked scientific and generated-contract
-consumers have scoped positive evidence. Earlier runtime/worker qualification retains its
-reviewed conditions; replaced build outputs require fresh current artifact association.
-Installed Python capture, import association and eligible deployment admission also remain
-before the functional handoff. The E3 attempt and bounded completion audit exposed
-corrections; neither establishes acceptance. E4 measurements and final E5 review/closure
-remain pending at 28e. Current finding dispositions stay
-in this coordinator; focused companion evidence does not establish assembled acceptance.
+No assembled acceptance or measured benefit is claimed by this checkpoint update.
 
 ## Outcome (recorded after implementation)
 

@@ -1211,10 +1211,10 @@ def main(argv: list[str] | None = None) -> int:
     if (
         args.functional_scope
         and "native" in args.functional_scope
-        and len(set(args.functional_scope)) != 1
+        and set(args.functional_scope) - {"native", "managed-primary"}
     ):
         parser.error(
-            "native is the explicit covering functional scope; select it alone"
+            "native covers ordinary scopes; combine it only with managed-primary"
         )
     gates = (
         [FUNCTIONAL_SCOPES[name] for name in dict.fromkeys(args.functional_scope)]

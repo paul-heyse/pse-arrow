@@ -30,6 +30,8 @@ mod restart;
 mod results_analysis;
 #[path = "native_process/shooting.rs"]
 mod shooting;
+#[path = "native_process/source_reuse.rs"]
+mod source_reuse;
 use criterion::{Criterion, criterion_group, criterion_main};
 use fixture::*;
 use pse_backend_native::solve::{Backend, Metric, Termination};
@@ -101,6 +103,10 @@ fn process(c: &mut Criterion) {
     let blocks = spec["blocks"].as_u64().unwrap() as usize;
     let threads = spec["threads"].as_u64().unwrap() as usize;
     let output = PathBuf::from(std::env::var("PSE_PROCESS_COST_OUTPUT").unwrap());
+    if operation == "source-edit-copy" {
+        source_reuse::measure(c, &spec, &output, &compiler_phases);
+        return;
+    }
     if operation == "result_analysis" {
         results_analysis::measure(c, &spec, &output, &compiler_phases);
         return;
@@ -231,7 +237,7 @@ fn process(c: &mut Criterion) {
             mark(&mut phases,"cancellation_to_join",stop);
             let RunReport::Modeling(report)=result.report().unwrap() else {panic!("wrong report")};
             assert!(matches!(&report[0].outcome,pse_runtime::math::solves::Outcome::Native(r) if r.termination.category==Termination::Cancelled),"{report:?}");
-            for (step,report) in report.iter().enumerate() {observations.modeling(report,step);}
+            for (step,report) in report.iter().enumerate() {observations.modeling(report,step,owner.runtime.pool());}
             drop(result);
         } else {
             let result=executor.block_on(handle.wait()).unwrap();
@@ -239,7 +245,7 @@ fn process(c: &mut Criterion) {
             let begin=Instant::now();
             let report=authored_success(&result);
             let RunReport::Modeling(reports)=result.report().unwrap() else {panic!("wrong report")};
-            for (step,report) in reports.iter().enumerate() {observations.modeling(report,step);}
+            for (step,report) in reports.iter().enumerate() {observations.modeling(report,step,owner.runtime.pool());}
             if let pse_runtime::math::solves::Outcome::Native(report)=&report.outcome {
                 for (name,value) in &report.metrics {
                     if (name.ends_with(".seconds") || name.starts_with("timing.")) && let Metric::Real(value)=value {

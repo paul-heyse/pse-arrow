@@ -249,7 +249,21 @@ pub(super) async fn run(owner: &WorkflowRuntime, observations: &mut observations
         &result.table("runtime.solve_strategy_events").unwrap(),
     )
     .unwrap();
-    assert_eq!(rows, trace.rows(result.run_id, 0).unwrap());
+    assert!(
+        rows.iter()
+            .zip(
+                trace
+                    .rows(
+                        result.run_id,
+                        0,
+                        owner.runtime.pool(),
+                        0..trace.event_count()
+                    )
+                    .unwrap()
+            )
+            .all(|(row, projected)| row == &projected.unwrap())
+    );
+    assert_eq!(rows.len(), trace.event_count());
     assert!(rows.iter().any(|row| row.charging_owner.is_some()));
     assert!(rows.iter().all(|row| row.decision_identity.is_some()));
     assert_eq!(

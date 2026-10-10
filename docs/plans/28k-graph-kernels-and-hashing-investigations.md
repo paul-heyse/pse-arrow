@@ -378,7 +378,7 @@ qualified at their consumers. Licenses are not technical rejection reasons.
 
 | Package | Input and readiness | Completion product | Progress |
 |---|---|---|---|
-| GH1 | Current named graph consumers and B8 design. | Retain current flow/study/analysis owners; B8 petgraph supplier retention has a concrete repeated-work premise. | Completed source inquiry; B8/N13 remain proposals. |
+| GH1 | Current named graph consumers and B8 design. | Retain current flow/study/analysis owners; B8 petgraph supplier retention has a concrete repeated-work premise. | Completed; B8/N13 followups implemented with scoped evidence below. |
 | GH2 | Actual interner/basis/body keys and exact library sources/features. | Retain hashing; local Fx/foldhash comparison has a bounded reopen condition, separate from durable identity. | Completed source/interface inquiry; no adoption or measurement. |
 | GH3 | N0 catalog owner plus canonical dependency and checker paths. | Retain complete domains/backdating; identify upstream authored checking and prerequisites for narrowing. | Completed; conclusion integrated at N0. |
 | GH4 | Supported flow construction/consumers and GH2/GH3 boundaries. | U01 gap has owner/settling evidence/blocked consumers; retain qualified portable reconstruction. | Completed bounded inquiry; U01 remains an open premise. |
@@ -471,25 +471,18 @@ scope and date.
 
 ## Checkpoint
 
-Followup implementation and affected functional acceptance are complete under the preceding
-authorization; scope-end static/manual checks remain in progress. Retained portable
-inventories, exact description access, success-only shared supplier topology, sorted policy
-lookup and FlowProjectionV2 are implemented. The coordinator owns resolved correction
-dispositions and the bounded V2 framing conclusion.
-The real Recipe and authored checker probes passed and retain current production mechanisms.
-The scalar hashing inquiry completed. Cached preparation-key prehash, Fx interning and local
-structure-key reuse are implemented under the maintainer's correctness/significant-regression
-criterion. The larger PC-SAFT inquiry exposed outdated benchmark document/import callers and
-two stale physical quantity declarations; those benchmark boundaries are corrected. Its
-recorded refusal supplies no larger-workload hash comparison. The subsequent production smoke
-returned four invariant-fact refusals with a concrete numerical-policy investigation owner at
-28f. Disposable production integration is removed; independent source review found no blockers.
-Final native factorable/runtime, affected Python and actual portable restart controls passed.
-The restart fixture now waits for actual runtime-owner and pool release rather than one
-scheduler yield. Code generation and environment readiness passed; current scope-end checks
-are recorded in the followup Outcome when complete.
-Graph/hash RC04 is selected; RC02 and RC03 remain unselected. The original narrowed
-qualification continuation and assembled E4/E5 remain paused under their existing owner.
+Current execution handoff, 2026-10-10: GH1–GH4 and selected followups mechanisms are implemented;
+scoped evidence retains its original conditions and does not close Plan 28.
+
+Retained supplier topology, fresh registrations, sorted flow-policy lookup, FlowProjectionV2 and local interner/prehash/key reuse are implemented with scoped acceptance in the followup Outcome. Plan 33/EFF06 completed the actual numerical-fact correction and fresh PC-SAFT preparation smoke; EI04 retains complete authored checking. Those are completed decisions, not new investigation backlogs. RC02 durable hash replacement and RC03 persisted runtime remain unselected.
+
+The maintainer authorized all remaining Plan 28 scope including the full campaign.
+The [coordinator](28-surrealdb-unified-substrate.md#current-checkpoint) owns finding
+dispositions and [28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
+owns current integration, E3/E4/E5 and retirement. Earlier pause/failure-only instructions
+are superseded. Next: complete bounded campaign preparation and required consumer
+reconciliation, then assembled acceptance; do not restart these implemented mechanisms
+from historical status prose.
 
 ## Investigation Outcome — 2026-10-09
 
@@ -639,7 +632,7 @@ does not create a PC-SAFT performance claim. RC02 durable fast hashes and RC03 p
 persisted incremental execution remain unselected. The typed-checker investigation proposal
 now routes to [Plan 33/EI04](33-efficiency-principles-remediation.md#ei04); broader graph layouts,
 cross-call flow sharing and persistence route to that plan's EI05 and require their own
-complete consumer contracts. Full Plan 28 E3/E4/E5 remains paused at its existing owner.
+complete consumer contracts. Full remaining Plan 28 E3/E4/E5 execution is now authorized at its existing owner.
 
 **Handoff and retention:** active Plan 28 companions and proposed ADR-0167 still consume
 this scoped implementation and inquiry evidence. Retain this record while those references

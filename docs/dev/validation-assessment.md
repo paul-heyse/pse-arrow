@@ -90,6 +90,22 @@ manual qualification.
 | `just assessment [flags]` | Runs the selected gates (all comprehensive gates by default) and continues after failures. Use `--group ready` for that group and `--output build/assessment/example` for a fresh output directory. The default is a new `build/assessment/<UTC time>-<selection>-<pid>-<random>/`. The validation owner checks only the selected prerequisites and exits 125 before native setup when one is missing; nonnative groups need no native preparation. |
 | `just result RUN_PATH [--failures] [--gate NAME] [--tail N] [--json]` | Reads one version 5 checkpoint and identifies the concrete run, incompleteness, required coverage, baseline and reused origins. Reads at most 64 KiB from each selected log, with 20 lines by default for failures or an explicit gate; `--tail 0` disables tails. Executes no checks or cleanup. Temporarily borrows the selected report and referenced origins before reading. |
 
+For measurement prerequisites, `--functional-scope native` covers the ordinary
+scopes. Combine it with `--functional-scope managed-primary` when the selected
+cases require managed execution; this runs the existing authenticated managed-native
+route as a distinct gate. Use the same explicitly selected worker, native environment,
+store and `PSE_MEMORY_MAX` for qualification and measurement. Receipts bind both
+the invocation context and the actual observer's transformed environment and finite
+placement. They derive force-validation and native features from the current Cargo
+selection. An assembled report whose setup injected a different producer context
+requires a matching standalone assessment before measurement; transfer does not
+repair a context mismatch.
+
+The reference host route is `--resource-class reference` with its 140 GiB primary
+allocation (`PSE_MEMORY_MAX=140G` if explicitly set). Its server and observer bring
+the declared envelope to 160 GiB. Setting an exclusive caller itself to 160 GiB
+requests a different, larger envelope and is not the reference route.
+
 Assessment resources seal producer-declared artifact roles after final output: receipts,
 provenance, consumed evidence, scratch or unknown. Only explicit scratch is disposable;
 summary/receipt names, required source/environment snapshots and referenced logs/XML remain
@@ -122,8 +138,11 @@ The comprehensive scope runs these gates in order:
    `producer-deployment`, then run the installed Python solve/reopen association
    control. `native-test --profile local` retains the single common Rust execution
    graph and waits for that association in the producer campaign.
-6. `native-python` against the installed extension. The selected Python profile
-   does not change the Rust test graph.
+6. The ordinary `native-python` partition against the installed extension, plus separate
+   `managed-native` and `managed-python` partitions through the exact reference observer.
+   Ordinary Python uses four grouped workers; managed Python uses one observer process.
+   Managed Rust explicitly selects the otherwise default-excluded identities. The selected
+   Python build profile does not change the Rust test graph.
 
 A gate whose dependency did not qualify is recorded as `blocked`; the run continues.
 

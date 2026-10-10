@@ -34,12 +34,6 @@ class RecipeArgumentTests(unittest.TestCase):
         )
         bin_dir = root / "bin"
         bin_dir.mkdir()
-        (bin_dir / "cargo").write_text(
-            f"#!{sys.executable}\n"
-            "import json, pathlib, sys\n"
-            "pathlib.Path('arguments.json').write_text(json.dumps(sys.argv[1:]))\n"
-        )
-        (bin_dir / "cargo").chmod(0o700)
         return {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"}
 
     def test_composed_compile_arguments_and_outer_class(self) -> None:
@@ -47,6 +41,16 @@ class RecipeArgumentTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             env = self.fixture(root)
+            # The recipe's external effect is now the validation composer,
+            # rather than a direct Cargo call. Keep this transport fixture local
+            # even when assessment supplies an absolute product environment.
+            (root / ".venv/bin").mkdir(parents=True)
+            (root / ".venv/bin/python").symlink_to(sys.executable)
+            env["UV_PROJECT_ENVIRONMENT"] = str(root / ".venv")
+            (root / "scripts/arrow_validation.py").write_text(
+                "import json, pathlib, sys\n"
+                "pathlib.Path('arguments.json').write_text(json.dumps(sys.argv[1:]))\n"
+            )
             subprocess.run(
                 [
                     "just",

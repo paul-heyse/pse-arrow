@@ -574,6 +574,7 @@ class ExecutionContracts(unittest.TestCase):
         binary.write_bytes(b"native binary")
         native = {
             "schema": "native-profile-v1",
+            "captured": 2,
             "files": {str(binary): validation_receipts.digest(binary)},
             "links": {str(binary): ""},
             "toolchain": "pinned",
@@ -594,6 +595,7 @@ class ExecutionContracts(unittest.TestCase):
             "mode": gate.mode,
             "profile": gate.profile,
             "exit_code": 0,
+            "started": 1,
             "status": "passed",
             "selected": selected,
             "results": [{**selected[0], "status": "passed"}],
@@ -609,6 +611,8 @@ class ExecutionContracts(unittest.TestCase):
         return {
             "version": 5,
             "input_coverage": True,
+            "complete": True,
+            "provenance_errors": [],
             "baseline_failures": 0,
             "scope": [declaration],
             "checks": [check],
@@ -621,9 +625,26 @@ class ExecutionContracts(unittest.TestCase):
         *,
         scopes: list[str] | None = None,
         snapshot: dict[str, str] | None = None,
+        environment: dict[str, str] | None = None,
     ) -> dict:
         validation.write_json(self.output / "checks.json", receipt)
-        with patch.object(validation, "relevant_environment", return_value={}):
+        with (
+            patch.object(
+                validation, "relevant_environment", return_value=environment or {}
+            ),
+            patch.object(
+                case_measure,
+                "functional_features",
+                side_effect=lambda gate: set(
+                    (
+                        native_tests.MANAGED_FEATURES
+                        if "--managed-primary-route" in gate.args
+                        else native_tests.FEATURES
+                    ).split(",")
+                ),
+            ),
+            patch.object(case_measure, "verify_functional_execution"),
+        ):
             return case_measure.require_functional(
                 self.output,
                 self.output,
@@ -631,6 +652,45 @@ class ExecutionContracts(unittest.TestCase):
                 snapshot=snapshot
                 or {"Cargo.lock": "original", "docs/plans/prose.md": "changed"},
             )
+
+    def composite_claim(self, gate: Gate) -> tuple[dict, dict[str, str]]:
+        receipt = self.claim(gate)
+        parent = validation.relevant_environment({})
+        path = self.output / "producer-fixture.json"
+        path.write_text('{"identity": "qualified-finite-fixture"}')
+        environment = validation.relevant_environment(
+            {"PSE_PRODUCER_FIXTURE_RECEIPT": str(path)}
+        )
+        receipt["environment"] = parent
+        native_check = receipt["checks"][0]
+        native_check["inputs"] = validation.input_identity(
+            gate.input_scope, {"Cargo.lock": "original"}, parent
+        )
+        native_check["native"]["environment"] = environment
+        native_check["native"]["files"][str(path)] = validation_receipts.digest(path)
+        if gate.name == "managed-native":
+            native_check["native"]["profile"]["features"] = (
+                native_tests.MANAGED_FEATURES.split(",")
+            )
+        fixture = next(
+            candidate
+            for candidate in comprehensive()
+            if candidate.name == "producer-fixture"
+        )
+        fixture_receipt = self.claim(fixture)
+        fixture_check = fixture_receipt["checks"][0]
+        fixture_check.pop("native")
+        fixture_check.pop("selected")
+        fixture_check["results"] = []  # The producing command owns terminal success.
+        fixture_check["inputs"] = validation.input_identity(
+            fixture.input_scope,
+            {"Cargo.lock": "original", "docs/plans/prose.md": "changed"},
+            parent,
+        )
+        fixture_check["artifacts"] = {path.name: validation_receipts.digest(path)}
+        receipt["scope"].extend(fixture_receipt["scope"])
+        receipt["checks"].append(fixture_check)
+        return receipt, environment
 
     def test_selected_measurement_accepts_exact_or_explicit_covering_native_claim(
         self,
@@ -645,7 +705,12 @@ class ExecutionContracts(unittest.TestCase):
             assembled,
             producer_assembled,
         ):
-            consumed = self.require(self.claim(gate))
+            receipt, environment = (
+                self.composite_claim(gate)
+                if gate.dependencies
+                else (self.claim(gate), {})
+            )
+            consumed = self.require(receipt, environment=environment)
             self.assertEqual(
                 consumed["prerequisites"]["preparation"]["gate"], gate.name
             )
@@ -669,11 +734,10 @@ class ExecutionContracts(unittest.TestCase):
             gate = next(
                 gate for gate in comprehensive(profile) if gate.name == "managed-native"
             )
-            receipt = self.claim(gate)
-            receipt["checks"][0]["native"]["profile"]["features"] = (
-                native_tests.MANAGED_FEATURES.split(",")
+            receipt, environment = self.composite_claim(gate)
+            consumed = self.require(
+                receipt, scopes=["managed-primary"], environment=environment
             )
-            consumed = self.require(receipt, scopes=["managed-primary"])
             self.assertEqual(
                 consumed["prerequisites"]["managed-primary"]["gate"], "managed-native"
             )
@@ -690,7 +754,408 @@ class ExecutionContracts(unittest.TestCase):
                         ValueError, "incomplete functional prerequisite"
                     ),
                 ):
-                    self.require(failed, scopes=["managed-primary"])
+                    self.require(
+                        failed, scopes=["managed-primary"], environment=environment
+                    )
+
+    def test_assessment_fixture_composes_only_its_owned_environment_injection(
+        self,
+    ) -> None:
+        for name, scopes in (
+            ("native-test", ["preparation"]),
+            ("managed-native", ["managed-primary"]),
+        ):
+            gate = next(
+                candidate for candidate in comprehensive() if candidate.name == name
+            )
+            receipt, environment = self.composite_claim(gate)
+            self.require(receipt, scopes=scopes, environment=environment)
+            # Preserve other selectors, including their captured bytes.
+            selector = {
+                "resolved": "/native/provider",
+                "sha256": "exact",
+                "admission": None,
+            }
+            for captured in (receipt["environment"], environment):
+                configuration = json.loads(captured["EFFECTIVE_NATIVE_CONFIGURATION"])
+                configuration["IPOPT_DIR"] = selector
+                captured["EFFECTIVE_NATIVE_CONFIGURATION"] = json.dumps(
+                    configuration, sort_keys=True
+                )
+            for check in receipt["checks"]:
+                scope = check["invocation"]["input_scope"]
+                check["inputs"] = validation.input_identity(
+                    scope,
+                    {"Cargo.lock": "original", "docs/plans/prose.md": "changed"},
+                    receipt["environment"],
+                )
+            self.require(receipt, scopes=scopes, environment=environment)
+
+    def test_assessment_fixture_refuses_tampering_and_unowned_context_changes(
+        self,
+    ) -> None:
+        gate = next(
+            candidate
+            for candidate in comprehensive()
+            if candidate.name == "native-test"
+        )
+        for mutation in (
+            "failed-producer",
+            "skipped-producer",
+            "changed-source",
+            "changed-inputs",
+            "transferred-producer",
+            "wrong-producer-declaration",
+            "missing-artifact",
+            "changed-artifact",
+            "wrong-native-digest",
+            "wrong-fixture-path",
+            "wrong-current-fixture",
+            "wrong-configuration-digest",
+            "other-selector",
+            "other-environment",
+            "missing-parent-configuration",
+            "changed-origin",
+            "stale-artifact",
+            "unexecuted-producer",
+        ):
+            receipt, environment = self.composite_claim(gate)
+            producer = receipt["checks"][1]
+            native = receipt["checks"][0]["native"]
+            if mutation == "failed-producer":
+                producer.update(status="failed", exit_code=1)
+            elif mutation == "skipped-producer":
+                producer["results"] = [
+                    {"class": "producer", "name": "capture", "status": "skipped"}
+                ]
+            elif mutation == "changed-source":
+                producer["changed_source"] = ["scripts/producer.py"]
+            elif mutation == "changed-inputs":
+                producer["inputs"]["files"]["Cargo.lock"] = "different"
+            elif mutation == "transferred-producer":
+                producer["applicability_transfers"] = [{"reason": "different context"}]
+            elif mutation == "wrong-producer-declaration":
+                receipt["scope"][1]["args"] = ["another-fixture.json"]
+            elif mutation == "missing-artifact":
+                producer["artifacts"] = {}
+            elif mutation == "changed-artifact":
+                (self.output / "producer-fixture.json").write_text("changed")
+            elif mutation == "wrong-native-digest":
+                native["files"][str(self.output / "producer-fixture.json")] = "wrong"
+            elif mutation == "wrong-fixture-path":
+                native["environment"] = {
+                    **environment,
+                    "PSE_PRODUCER_FIXTURE_RECEIPT": "/other/producer-fixture.json",
+                }
+            elif mutation == "wrong-current-fixture":
+                environment["PSE_PRODUCER_FIXTURE_RECEIPT"] = (
+                    "/other/producer-fixture.json"
+                )
+            elif mutation in {"wrong-configuration-digest", "other-selector"}:
+                configuration = json.loads(
+                    environment["EFFECTIVE_NATIVE_CONFIGURATION"]
+                )
+                if mutation == "wrong-configuration-digest":
+                    configuration["PSE_PRODUCER_FIXTURE_RECEIPT"]["sha256"] = "wrong"
+                else:
+                    configuration["IPOPT_DIR"] = {"resolved": "/another/provider"}
+                environment["EFFECTIVE_NATIVE_CONFIGURATION"] = json.dumps(
+                    configuration, sort_keys=True
+                )
+            elif mutation == "other-environment":
+                environment["PSE_MEMORY_MAX"] = "4G"
+            elif mutation == "missing-parent-configuration":
+                receipt["environment"].pop("EFFECTIVE_NATIVE_CONFIGURATION")
+                for check in receipt["checks"]:
+                    check["inputs"]["environment"].pop("EFFECTIVE_NATIVE_CONFIGURATION")
+            elif mutation == "changed-origin":
+                producer.update(origin=str(self.output), origin_digest="wrong")
+            elif mutation == "stale-artifact":
+                producer["started"] = (
+                    self.output / "producer-fixture.json"
+                ).stat().st_mtime + 1
+            elif mutation == "unexecuted-producer":
+                producer["selected"] = [{"class": "producer", "name": "missing"}]
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                self.require(receipt, environment=environment)
+
+        receipt, environment = self.composite_claim(gate)
+        standalone = native_gate()
+        receipt["scope"][0] = json.loads(json.dumps(asdict(standalone)))
+        receipt["checks"][0]["invocation"] = receipt["scope"][0]
+        with self.assertRaisesRegex(ValueError, "invocation environment changed"):
+            self.require(receipt, environment=environment)
+
+    def test_assessment_fixture_reuse_authenticates_its_original_report(self) -> None:
+        gate = next(
+            candidate
+            for candidate in comprehensive()
+            if candidate.name == "native-test"
+        )
+        receipt, environment = self.composite_claim(gate)
+        origin = self.output / "original"
+        origin.mkdir()
+        path = origin / "producer-fixture.json"
+        path.write_bytes((self.output / path.name).read_bytes())
+        environment = validation.relevant_environment(
+            {"PSE_PRODUCER_FIXTURE_RECEIPT": str(path)}
+        )
+        receipt["checks"][0]["native"]["environment"] = environment
+        receipt["checks"][0]["native"]["files"][str(path)] = validation_receipts.digest(
+            path
+        )
+        validation.write_json(origin / "checks.json", receipt)
+        producer = receipt["checks"][1]
+        producer.update(
+            evidence_kind="unchanged-input-reuse",
+            origin=str(origin),
+            origin_digest=validation_receipts.digest(origin / "checks.json"),
+        )
+        self.require(receipt, environment=environment)
+        (origin / "checks.json").write_text("changed original")
+        with self.assertRaisesRegex(
+            ValueError, "changed assessment producer-fixture origin"
+        ):
+            self.require(receipt, environment=environment)
+
+    def test_standalone_managed_prerequisite_retains_existing_route(self) -> None:
+        gate = FUNCTIONAL_SCOPES["managed-primary"]
+        assembled = next(
+            gate for gate in comprehensive() if gate.name == "managed-native"
+        )
+        self.assertEqual(replace(assembled, dependencies=()), gate)
+        self.assertEqual(gate.recipe, "native-test")
+        self.assertEqual(gate.profile, "local")
+        self.assertEqual(gate.mode, "native-force-validate")
+        selection = native_tests.managed_rust_selection(list(gate.args[:-1]))
+        self.assertEqual(
+            selection,
+            [
+                "--profile",
+                "local",
+                "--ignore-default-filter",
+                "-E",
+                "test(managed_primary_)",
+            ],
+        )
+        receipt = self.claim(gate)
+        receipt["checks"][0]["native"]["profile"]["features"] = (
+            native_tests.MANAGED_FEATURES.split(",")
+        )
+        self.assertEqual(
+            self.require(receipt, scopes=["managed-primary"])["prerequisites"][
+                "managed-primary"
+            ]["gate"],
+            "managed-native",
+        )
+
+    def test_measurement_requires_matching_parent_and_native_state_and_allocation(
+        self,
+    ) -> None:
+        for managed, state, memory in (
+            (False, "/state/wide", "80G"),
+            (False, "/state/reference", "160G"),
+            (True, "/state/reference", "160G"),
+        ):
+            scopes = ["managed-primary"] if managed else ["preparation"]
+            gate = FUNCTIONAL_SCOPES[scopes[0]]
+            environment = {
+                "PSE_SURREAL_STATE": state,
+                "PSE_MEMORY_MAX": memory,
+                "PSE_WORKER_BINARY": "/qualified/worker",
+                "LD_LIBRARY_PATH": "/qualified/native/lib",
+            }
+            receipt = self.claim(gate)
+            check = receipt["checks"][0]
+            receipt["environment"] = environment
+            check["native"]["environment"] = dict(environment)
+            if managed:
+                check["native"]["profile"]["features"] = (
+                    native_tests.MANAGED_FEATURES.split(",")
+                )
+            check["inputs"] = validation.input_identity(
+                gate.input_scope, {"Cargo.lock": "original"}, environment
+            )
+            with self.subTest(managed=managed, memory=memory):
+                self.require(receipt, scopes=scopes, environment=environment)
+            for owner in ("parent", "native"):
+                for key, value in (
+                    ("PSE_SURREAL_STATE", "/state/another"),
+                    ("PSE_MEMORY_MAX", "4G"),
+                    ("PSE_WORKER_BINARY", "/another/worker"),
+                    ("LD_LIBRARY_PATH", "/another/native/lib"),
+                ):
+                    altered = json.loads(json.dumps(receipt))
+                    if owner == "parent":
+                        altered["environment"][key] = value
+                        altered["checks"][0]["inputs"] = validation.input_identity(
+                            gate.input_scope,
+                            {"Cargo.lock": "original"},
+                            altered["environment"],
+                        )
+                    else:
+                        altered["checks"][0]["native"]["environment"][key] = value
+                    with (
+                        self.subTest(managed=managed, owner=owner, key=key),
+                        self.assertRaisesRegex(ValueError, "environment changed"),
+                    ):
+                        self.require(altered, scopes=scopes, environment=environment)
+
+    def test_measurement_rejects_unfinished_stale_or_transferred_prerequisite(
+        self,
+    ) -> None:
+        for mutation in (
+            "unfinished",
+            "provenance",
+            "skipped",
+            "missing-selected-terminal",
+            "stale-native",
+            "changed-environment",
+            "transfer",
+            "transfer-history",
+            "duplicate-gate",
+            "duplicate-check",
+            "changed-artifact",
+        ):
+            receipt = self.claim()
+            check = receipt["checks"][0]
+            if mutation == "unfinished":
+                receipt["complete"] = False
+            elif mutation == "provenance":
+                receipt["provenance_errors"] = ["capture unavailable"]
+            elif mutation == "skipped":
+                check["results"][0]["status"] = "skipped"
+            elif mutation == "missing-selected-terminal":
+                check["selected"].append({"class": "owner", "name": "unexecuted"})
+            elif mutation == "stale-native":
+                check["native"]["captured"] = 0
+            elif mutation == "changed-environment":
+                check["changed_environment"] = ["PSE_MEMORY_MAX"]
+            elif mutation == "transfer":
+                check["evidence_kind"] = "reviewed-transfer"
+            elif mutation == "transfer-history":
+                check["applicability_transfers"] = [{"reason": "old transfer"}]
+            elif mutation == "duplicate-gate":
+                receipt["scope"].append(receipt["scope"][0])
+            elif mutation == "duplicate-check":
+                receipt["checks"].append(check)
+            elif mutation == "changed-artifact":
+                artifact = self.output / "selection.json"
+                artifact.write_text("original")
+                check["artifacts"][artifact.name] = validation_receipts.digest(artifact)
+                artifact.write_text("changed")
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                self.require(receipt)
+
+    def test_functional_observer_context_retains_parent_cap_and_actual_child_scope(
+        self,
+    ) -> None:
+        for managed in (False, True):
+            environment = {
+                "PSE_SURREAL_STATE": str(self.output),
+                "PSE_MEMORY_MAX": "160G" if managed else "80G",
+                "PSE_WORKER_BINARY": "/qualified/worker",
+                "LD_LIBRARY_PATH": "/qualified/native/lib",
+            }
+            profile = "reference" if managed else "exclusive-observer"
+            resources = surreal_server.execution_resources(profile)
+            allocation = resources["execution"]
+            assert isinstance(allocation, dict)
+            child = native_tests.rust_test_environment(environment)
+            child.pop("PSE_MEMORY_MAX")
+            native = {
+                "captured": 1,
+                "execution": {
+                    "captured": 2,
+                    "environment": child,
+                    "profile": profile,
+                    "resources": resources,
+                    "state_resources": resources,
+                    "control_group": "/admitted/native-observer.scope",
+                    "memory_max": allocation["observer_memory_bytes"],
+                    "cpu_threads": allocation["cpu_threads"],
+                },
+            }
+            with patch.object(
+                surreal_server, "config_for", return_value={"resources": resources}
+            ):
+                case_measure.verify_functional_execution(
+                    native, managed=managed, environment=environment
+                )
+                for mutation in (
+                    "parent-cap-in-child",
+                    "state",
+                    "worker",
+                    "native-path",
+                    "profile",
+                    "resources",
+                    "state-resources",
+                    "memory",
+                    "cpu",
+                    "stale",
+                ):
+                    altered = json.loads(json.dumps(native))
+                    execution = altered["execution"]
+                    if mutation == "parent-cap-in-child":
+                        execution["environment"]["PSE_MEMORY_MAX"] = environment[
+                            "PSE_MEMORY_MAX"
+                        ]
+                    elif mutation == "state":
+                        execution["environment"]["PSE_SURREAL_STATE"] = "/another/state"
+                    elif mutation == "worker":
+                        execution["environment"]["PSE_WORKER_BINARY"] = (
+                            "/another/worker"
+                        )
+                    elif mutation == "native-path":
+                        execution["environment"]["LD_LIBRARY_PATH"] = (
+                            "/another/native/lib"
+                        )
+                    elif mutation == "profile":
+                        execution["profile"] = "timing"
+                    elif mutation == "resources":
+                        execution["resources"] = {}
+                    elif mutation == "state-resources":
+                        execution["state_resources"] = {}
+                    elif mutation == "memory":
+                        execution["memory_max"] = 1 << 30
+                    elif mutation == "cpu":
+                        execution["cpu_threads"] = 1
+                    elif mutation == "stale":
+                        execution["captured"] = 0
+                    with (
+                        self.subTest(managed=managed, mutation=mutation),
+                        self.assertRaises(ValueError),
+                    ):
+                        case_measure.verify_functional_execution(
+                            altered, managed=managed, environment=environment
+                        )
+
+    def test_functional_feature_identity_uses_current_native_composition(self) -> None:
+        for scope in ("preparation", "managed-primary"):
+            gate = FUNCTIONAL_SCOPES[scope]
+            managed = scope == "managed-primary"
+            with patch.object(
+                native_tests,
+                "correctness_command",
+                side_effect=lambda command, _environment: [
+                    *command,
+                    "--features",
+                    "pse-runtime/force-validate",
+                ],
+            ) as compose:
+                features = case_measure.functional_features(gate)
+            self.assertEqual(
+                features,
+                set(native_tests.native_root_features([], managed=managed).split(","))
+                | {"pse-runtime/force-validate"},
+            )
+            command = compose.call_args.args[0]
+            self.assertEqual(command[:3], ["cargo", "nextest", "list"])
+            self.assertIn("--profile", command)
+            self.assertNotIn("--managed-primary-route", command)
+            if managed:
+                self.assertIn("--ignore-default-filter", command)
+                self.assertEqual(command[-2:], ["-E", "test(managed_primary_)"])
 
     def test_managed_fixture_drain_refuses_another_database_before_signalling(
         self,

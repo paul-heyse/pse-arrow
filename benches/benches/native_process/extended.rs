@@ -86,14 +86,11 @@ async fn cone(owner: &WorkflowRuntime, observations: &mut observations::Observat
     };
     // The direct mathematical step has no workflow run identity. This local
     // projection identity is not retained or used as scientific provenance.
-    observations.rows(
-        &result
-            .strategy
-            .rows(
-                pse_model::generated::identities::RunId::from_id(SemanticId::NIL),
-                0,
-            )
-            .unwrap(),
+    observations.strategy(
+        &result.strategy,
+        pse_model::generated::identities::RunId::from_id(SemanticId::NIL),
+        0,
+        owner.runtime.pool(),
     );
     observations.native(report);
     near(report.candidate.as_ref().unwrap().primal[0], 2., 1e-6);
@@ -202,7 +199,7 @@ async fn recycle(owner: &WorkflowRuntime, observations: &mut observations::Obser
         .await
         .unwrap();
     let result = prepared.start().unwrap().finish().await.unwrap();
-    observations.rows(&result.strategy.rows(result.run_id, 0).unwrap());
+    observations.strategy(&result.strategy, result.run_id, 0, owner.runtime.pool());
     observations.native(&result.report);
     near(
         result.report.candidate.as_ref().unwrap().primal[0],
@@ -269,7 +266,7 @@ async fn sparse_fit(
         .await
         .unwrap();
     let result = prepared.start().unwrap().wait().await.unwrap();
-    observations.run(&result);
+    observations.run(&result, owner.runtime.pool());
     let RunReport::Fit(report) = result.report().unwrap() else {
         panic!("missing sparse fit")
     };
@@ -350,7 +347,7 @@ async fn run(
                 let coordinates = [symbol("x"), symbol("y")];
                 let result = prepared.start().unwrap().wait().await.unwrap();
                 authored_success(&result);
-                observations.run(&result);
+                observations.run(&result, owner.runtime.pool());
                 for (id, expected) in coordinates.into_iter().zip(expected) {
                     near(variable(&result, id), expected, expected.abs() * 1e-7);
                 }
@@ -451,7 +448,7 @@ async fn run(
                 .await
                 .unwrap();
             let result = prepared.start().unwrap().wait().await.unwrap();
-            observations.run(&result);
+            observations.run(&result, owner.runtime.pool());
             let RunReport::Fit(report) = result.report().unwrap() else {
                 panic!("missing fit")
             };

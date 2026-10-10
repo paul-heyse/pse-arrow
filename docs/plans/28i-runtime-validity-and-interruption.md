@@ -193,28 +193,18 @@ These are planned consumer integrations, not new evidence or reopened I outcomes
 
 ## Checkpoint
 
-I0 is settled for controlled worker and imported-Python roots. Proposed ADR-0164 and
-blueprint revision 137 record receiving qualification at actual trust transitions followed
-by independent immutable mathematics in the initialized append-only symbol universe.
-Registration explicitly checks empty attributes and callback-free exportability; live state
-reset and uncontrolled mutation remain outside the supported profile. Unknown receiving
-contexts retain fresh unqualified execution and historical reads.
+Current execution handoff, 2026-10-10: I0–I2 mechanisms are implemented;
+scoped evidence retains its original conditions and does not close Plan 28.
 
-I1/I2 source migration is implemented. The displaced namespace cohort and body-level host
-observation protocol are removed. Actual roots use completion-owned scoped startup jobs;
-file capture checks stop/clock between chunks. Private receiving reconstruction drains before
-source protection releases. Shared pure loader admission/execution has the initiating finite
-clock, while each follower retains its own departure clock; native owners remain charged
-through actual thread/TLS join. Foreign configuration/initialization and loader-lock
-acquisition remain checked before/after rather than forcibly interruptible. Scoped drivers
-and independent children carry the original absolute operation clock. Unscoped preparation
-has a separately named finite ten-minute lifetime; an SDK request budget is not a scientific
-preparation budget. Expiry is a typed time resource limit, distinct from an actual RPC timeout.
+Controlled worker/imported-Python receiving validity and completion-owned interruptible observation are implemented. The namespace cohort and repeated body-level observation protocol are removed. Preserve original clocks, charged native lifetime through actual join, and checks before/after foreign initialization or loader-lock waits. Unknown contexts retain fresh unqualified execution and historical reads.
 
-Targeted and composed qualification is in progress, including independent lifecycle review
-corrections. The coordinator alone owns PA01/PA04/U01 dispositions and 28e owns affected
-scientific acceptance. Earlier authoring and frozen-artifact receipts retain their dates and
-scope; remaining unrelated Plan 28 scope is deferred until this continuation closes.
+The maintainer authorized all remaining Plan 28 scope including the full campaign.
+The [coordinator](28-surrealdb-unified-substrate.md#current-checkpoint) owns finding
+dispositions and [28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
+owns current integration, E3/E4/E5 and retirement. Earlier pause/failure-only instructions
+are superseded. Next: complete bounded campaign preparation and required consumer
+reconciliation, then assembled acceptance; do not restart these implemented mechanisms
+from historical status prose.
 
 ## Outcome
 

@@ -27,6 +27,22 @@ impl FixtureLifetime {
     }
 }
 impl FixtureLifetime {
+    pub(crate) fn execute<F, T>(&self, future: F) -> Result<T, crate::canonical::CanonicalError>
+    where
+        F: Future<Output = Result<T, crate::canonical::CanonicalError>> + Send,
+        T: Send,
+    {
+        std::thread::scope(|scope| {
+            scope
+                .spawn(|| self.executor.block_on(future))
+                .join()
+                .map_err(|_| {
+                    crate::canonical::CanonicalError::Configuration(
+                        "fixture peer executor panicked".into(),
+                    )
+                })?
+        })
+    }
     pub(crate) async fn drain_connections(&self) -> Result<(), crate::canonical::CanonicalError> {
         self.store.disconnect().await?;
         let peers = self
@@ -132,9 +148,23 @@ pub(crate) fn resource_bridge(
     let interpreter = std::env::var_os("PSE_TEST_RESOURCE_PYTHON")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| root.join(".venv/bin/python"));
-    let mut child = std::process::Command::new(interpreter)
+    let mut command = std::process::Command::new(interpreter);
+    command
         .current_dir(root)
-        .args(["-m", "scripts.test_resources", action])
+        .args(["-m", "scripts.test_resources", action]);
+    if action == "status" {
+        command.arg(
+            input
+                .get("resource")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| {
+                    crate::canonical::CanonicalError::Configuration(
+                        "fixture status requires exact resource".into(),
+                    )
+                })?,
+        );
+    }
+    let mut child = command
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -382,20 +412,7 @@ pub fn canonical_fixture_peer(
             "fixture peer identity differs from registered owner".into(),
         ));
     }
-    let peer = std::thread::scope(|scope| {
-        scope
-            .spawn(|| {
-                lifetime
-                    .executor
-                    .block_on(crate::canonical::CanonicalStore::connect(options))
-            })
-            .join()
-            .map_err(|_| {
-                crate::canonical::CanonicalError::Configuration(
-                    "fixture peer executor panicked".into(),
-                )
-            })?
-    })?;
+    let peer = lifetime.execute(crate::canonical::CanonicalStore::connect(options))?;
     lifetime.retain_peer(peer.clone())?;
     peer.borrow_fixture(owner)
 }

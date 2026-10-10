@@ -402,6 +402,7 @@ async fn prepare(
     assert_eq!(prepared.contract().states.len(), states);
     assert_eq!(prepared.contract().outputs.len(), states);
     assert_eq!(prepared.contract().parameters.len(), 1);
+    let policy_targets = prepared.numerics().targets.len();
     assert_eq!(
         prepared.numerics().policy.engineering_relative_fraction,
         ENGINEERING_ACCURACY
@@ -730,7 +731,11 @@ async fn prepare(
         "analytical_comparison":"global fraction times max(abs(reference), canonical-unit floor)","original_completion":completion,
         "original_assessments":assessments,"original_model_checks":retained_checks.len(),
         "authored_output_sample_checks":authored_grid.len(),"trajectory_states":states,"trajectory_samples":samples,
-        "trajectory_growth_scope":"joint coordinate and sample growth; no isolated per-factor speed claim",
+        "trajectory_growth_scope":"declared coordinate and sample extents; compare only cases with one matching factor",
+        "resolved_policy_targets":policy_targets,
+        "policy_cost_scope":"included in complete simulation preparation; not an isolated lookup timer",
+        "preflight_cost_scope":"production IPC preflight included in complete result publication and protected reads; no helper-only speed claim",
+        "payload_width_scope":"fixed registry simulation_samples and response_sensitivities schemas; extent growth does not vary schema width",
         "numerical_observations":numerical.json()});
     drop(reader);
     drop(analysis);
@@ -882,45 +887,66 @@ async fn read_all(
 }
 
 async fn retire(runtime: &Runtime, expected: &Expected) {
-    runtime
-        .forget_analysis_results(&expected.graph_key)
-        .await
-        .unwrap();
-    let deadline = Instant::now() + pse_operations::canonical::REQUEST_TIMEOUT;
-    loop {
-        match runtime
-            .canonical_store()
-            .forget_run_results(&expected.run)
-            .await
-        {
-            Ok(()) => break,
-            Err(error)
-                if error
-                    .to_string()
-                    .contains("run results have protected readers")
-                    && Instant::now() < deadline =>
+    tokio::time::timeout(pse_operations::canonical::REQUEST_TIMEOUT, async {
+        let deadline = Instant::now() + pse_operations::canonical::REQUEST_TIMEOUT;
+        // Retirement removes one bounded page per call. Drain graph membership,
+        // result inputs and source roots before asking the run owner to retire.
+        // The immutable creation window can leave only its retiring header pending;
+        // this private fixture's final teardown owns removal of that remaining state.
+        let analysis_pages = expected.header.edge_count.div_ceil(64)
+            + expected.header.node_count.div_ceil(64)
+            + expected.sources.len() as u64
+            + 4;
+        for _ in 0..analysis_pages {
+            assert!(
+                Instant::now() < deadline,
+                "analysis retirement deadline exhausted"
+            );
+            if runtime
+                .forget_analysis_results(&expected.graph_key)
+                .await
+                .unwrap()
             {
-                // Dropped readers release protections asynchronously. Wait
-                // only for that named transient; all other failures surface.
-                tokio::time::sleep(Duration::from_millis(10)).await;
+                break;
             }
-            Err(error) => panic!("explicit result retirement failed: {error}"),
         }
-    }
-    let mut complete = false;
-    for _ in 0..expected.reclamation_pages {
-        if runtime
-            .canonical_store()
-            .reclaim_result_page(&expected.run)
-            .await
-            .unwrap()
-            .complete
-        {
-            complete = true;
-            break;
+        loop {
+            match runtime
+                .canonical_store()
+                .forget_run_results(&expected.run)
+                .await
+            {
+                Ok(()) => break,
+                Err(error)
+                    if error
+                        .to_string()
+                        .contains("run results have protected readers")
+                        && Instant::now() < deadline =>
+                {
+                    // Dropped readers release protections asynchronously. Wait
+                    // only for that named transient; all other failures surface.
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+                Err(error) => panic!("explicit result retirement failed: {error}"),
+            }
         }
-    }
-    assert!(complete, "original descriptor reclamation bound exhausted");
+        let mut complete = false;
+        for _ in 0..expected.reclamation_pages {
+            if runtime
+                .canonical_store()
+                .reclaim_result_page(&expected.run)
+                .await
+                .unwrap()
+                .complete
+            {
+                complete = true;
+                break;
+            }
+        }
+        assert!(complete, "original descriptor reclamation bound exhausted");
+    })
+    .await
+    .expect("original result-retirement deadline exhausted");
 }
 
 pub(super) fn measure(

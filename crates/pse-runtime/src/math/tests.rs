@@ -488,6 +488,203 @@ async fn term_diagnostics_admit_small_demand_under_generous_worker_capacity() {
     assert_eq!(s.pool.reserved(), 0);
 }
 
+#[cfg(feature = "solver-kinsol")]
+#[tokio::test]
+async fn nested_provider_analysis_admits_known_source_below_default_workspace_capacity() {
+    use pse_compiler::workspace::{CompilerContext, CompilerWorkspace, WorkspaceLimits};
+    use pse_math::implicit::{Configuration, Options, Unknown};
+    let (service, _cache) = service_with_policy(256 << 20, MathPolicy::default());
+    assert_eq!(service.policy.workspace_bytes, 4usize << 30);
+    assert_eq!(service.policy.worker_bytes, 8usize << 30);
+    let rows = pse_authoring::language::parse(
+        "package p {def Root {param p:Scalar=2;implicit a {var y:Scalar;eq ey:y==p+1;}realize ra on a using nested;}}",
+        pse_ids::SemanticId::NIL,
+        pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    ).unwrap();
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let context = CompilerContext {
+        quantities: Arc::new(pse_quantity::standard::standard_registry().unwrap()),
+        preconditions: Arc::new(
+            pse_quantity::PhysicalPreconditions::new(
+                pse_quantity::generated::standard_preconditions(),
+            )
+            .unwrap(),
+        ),
+        providers: BTreeMap::new(),
+    };
+    let mut workspace = CompilerWorkspace::new(context, WorkspaceLimits::default()).unwrap();
+    workspace
+        .publish_modeling(rows, pse_modeling::PhysicalScope::default())
+        .unwrap();
+    let prepared = workspace
+        .prepare_modeling_cancellable(
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Default::default(),
+            Default::default(),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+    let source = prepared.implicit_order().unwrap().remove(0);
+    let source_owner = service
+        .reserve("test:nested-source", source.retained_bytes())
+        .unwrap();
+    let key = source.descriptor.spec().key();
+    let configurations = BTreeMap::from([(
+        source.residuals[0].id,
+        Configuration::Fixed(
+            vec![Unknown {
+                id: source.unknowns[0],
+                lower: 1.,
+                upper: 8.,
+            }],
+            Options {
+                start: vec![2.5],
+                variable_nominals: vec![1.],
+                variable_tolerance: vec![1e-9],
+                residual_tolerance: vec![1e-9],
+                iterations: 20,
+                time_limit: std::time::Duration::from_secs(1),
+                derivative_tolerance: 1e-9,
+            },
+        ),
+    )]);
+    let input = modeling::ModelingInner {
+        admitted: source.with_owner(source_owner.clone()),
+        configurations,
+    };
+    let accelerators = Arc::new(pse_math::implicit::accelerators::Accelerators::standard());
+    let demands = BTreeMap::from([(key, pse_kernels::DerivativeOrder::First)]);
+    let profile = pse_compiler::workspace::Profile {
+        evaluation: pse_math::jets::EvaluationLimits {
+            scratch_bytes: 4usize << 30,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let baseline = service.pool.reserved();
+    // The inherited operation clock can already have expired without cancelling
+    // its driver. Refuse it before taking admission or publishing a factory.
+    let expired = crate::CancelSource::new().with_deadline(Some(
+        std::time::Instant::now() - std::time::Duration::from_secs(1),
+    ));
+    let result = service
+        .modeling_inner_providers(
+            vec![input.clone()],
+            accelerators.clone(),
+            BTreeMap::new(),
+            demands.clone(),
+            profile,
+            &expired,
+        )
+        .await;
+    assert!(matches!(
+        result,
+        Err(MathRuntimeError::Solve(
+            pse_backend_native::ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                ..
+            }
+        ))
+    ));
+    assert!(!expired.token().is_cancelled());
+    assert_eq!(service.pool.reserved(), baseline);
+    assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+    assert_eq!(service.cpu.available_permits(), service.cores);
+
+    // Expiry while waiting for CPU capacity uses that same clock and drains its
+    // admission ticket while preserving the source and the enclosing driver.
+    let cpu = service
+        .cpu
+        .clone()
+        .acquire_many_owned(service.cores as u32)
+        .await
+        .unwrap();
+    let waiting = crate::CancelSource::new().with_deadline(Some(
+        std::time::Instant::now() + std::time::Duration::from_millis(25),
+    ));
+    let mut pending = Box::pin(service.modeling_inner_providers(
+        vec![input.clone()],
+        accelerators.clone(),
+        BTreeMap::new(),
+        demands.clone(),
+        profile,
+        &waiting,
+    ));
+    assert!(futures_util::poll!(pending.as_mut()).is_pending());
+    assert_eq!(service.jobs.available_permits(), service.policy.jobs - 1);
+    let result = tokio::time::timeout(std::time::Duration::from_secs(1), pending)
+        .await
+        .unwrap();
+    assert!(matches!(
+        result,
+        Err(MathRuntimeError::Solve(
+            pse_backend_native::ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                ..
+            }
+        ))
+    ));
+    assert!(!waiting.token().is_cancelled());
+    assert_eq!(service.pool.reserved(), baseline);
+    assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+    assert_eq!(service.cpu.available_permits(), 0);
+    drop(cpu);
+    assert_eq!(service.cpu.available_permits(), service.cores);
+
+    // A fresh operation can still construct and retain the same source after
+    // both refusals; its returned registration owns only the factory extent.
+    let registrations = service
+        .modeling_inner_providers(
+            vec![input.clone()],
+            accelerators.clone(),
+            BTreeMap::new(),
+            demands.clone(),
+            profile,
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let factory = registrations[&key]
+        .source::<pse_math::implicit::reconstruction::ReconstructionFactory>()
+        .unwrap();
+    assert_eq!(
+        service.pool.reserved() - baseline,
+        factory.retained_bytes().unwrap()
+    );
+    assert_eq!(
+        registrations[&key].spec().derivatives,
+        pse_kernels::DerivativeOrder::First
+    );
+    drop(registrations);
+    assert_eq!(service.pool.reserved(), baseline);
+    let cancelled = crate::CancelSource::new();
+    cancelled.cancel();
+    assert!(matches!(
+        service
+            .modeling_inner_providers(
+                vec![input],
+                accelerators,
+                BTreeMap::new(),
+                demands,
+                profile,
+                &cancelled
+            )
+            .await,
+        Err(MathRuntimeError::Cancelled)
+    ));
+    assert_eq!(service.pool.reserved(), baseline);
+    assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+    assert_eq!(service.cpu.available_permits(), service.cores);
+    drop(source_owner);
+    assert_eq!(service.pool.reserved(), 0);
+}
+
 #[cfg(all(
     feature = "canonical-tests",
     feature = "solver-kinsol",

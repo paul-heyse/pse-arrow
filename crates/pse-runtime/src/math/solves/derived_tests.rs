@@ -10,7 +10,11 @@ fn native_report(outcome: &Outcome) -> &SolveReport {
 }
 
 use pse_ids::SemanticId;
-#[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
+#[cfg(all(
+    feature = "solver-kinsol",
+    feature = "solver-ipopt",
+    feature = "solver-root-isolation"
+))]
 use pse_math::implicit::RegimeFactory;
 
 #[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]

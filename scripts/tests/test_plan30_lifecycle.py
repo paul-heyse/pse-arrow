@@ -806,8 +806,7 @@ class Plan30LifecycleTests(unittest.TestCase):
         assert (set(deadlines)) == ({190.0})
         assert (getattr(startup_clock, "deadline", None)) is (None)
 
-    def test_backup_restore_owns_generations_and_reroots_contexts(self) -> None:
-        context = self.context()
+    def test_backup_restore_copies_owned_generation_before_maintenance(self) -> None:
         generation = self.generation()
         receiver = {
             "supervisor_executable": str(Path(sys.executable).resolve()),
@@ -818,32 +817,76 @@ class Plan30LifecycleTests(unittest.TestCase):
             ),
             "worker_sha256": server.file_digest(generation / "bin/pse-worker"),
         }
-        for directory in (self.state, context):
-            config = server.config_for(directory)
-            config.update(service_supervisor=receiver, primary_receiver=receiver)
-            server.write_json(directory / "config.json", config)
-        (context / "primary-receiver.json").write_text("obsolete live process receipt")
+        self.config.update(
+            interpretation=server.SUBSTRATE_INTERPRETATION,
+            schema_interpretation=server.SUBSTRATE_INTERPRETATION,
+            service_supervisor=receiver,
+            primary_receiver=receiver,
+        )
+        server.write_json(self.state / "config.json", self.config)
+        (self.state / "primary-receiver.json").write_text(
+            "obsolete live process receipt"
+        )
         backup = self.root / "backup"
         with server.lifecycle_reservation(self.state):
             server.backup(self.state, self.config, backup)
         self.state.rename(self.root / "original-unavailable")
         restored = self.root / "restored"
-        server.restore(backup, restored, "test")
-        selected = server.receiver_context(restored, "case")
-        for directory in (restored, selected):
-            config = server.config_for(directory)
-            closure = Path(
-                server.recorded_primary(config)["supervisor_script"]
-            ).parents[1]
-            server.verify_generation(closure)
-            assert (closure.parent) == (restored / ".generations")
-            assert (config["credentials_file"]) == (str(restored / "credentials.json"))
-            assert (config["admission"]) == ("validation_required")
-            assert not (config["unit_materialized"])
-        assert not ((selected / "primary-receiver.json").exists())
+        # Exercise the real verified copy; native catalog work has its own controls.
+        with (
+            patch.object(
+                server,
+                "private_offline_state",
+                side_effect=server.SupervisorError("native maintenance boundary"),
+            ) as maintenance,
+            pytest.raises(server.SupervisorError, match="native maintenance boundary"),
+        ):
+            server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
+        config = server.config_for(restored)
+        assert maintenance.call_args.args[0] == restored
+        closure = Path(server.recorded_primary(config)["supervisor_script"]).parents[1]
+        server.verify_generation(closure)
+        assert closure.parent == restored / ".generations"
+        assert config["credentials_file"] == str(restored / "credentials.json")
+        assert config["admission"] == "validation_required"
+        assert not config["accepting_writes"]
+        assert not config["unit_materialized"]
+        assert config["instance_id"] != self.config["instance_id"]
+        pending = server.object_mapping(config["derived_rebuild_pending"])
+        assert pending["phase"] == "cleanup"
+        assert not (restored / "primary-receiver.json").exists()
         assert ((restored / "database/fixture").read_bytes()) == (
             b"immutable operation"
         )
+
+    def test_shared_context_backup_refuses_restore_before_destination_creation(
+        self,
+    ) -> None:
+        self.config.update(
+            interpretation=server.SUBSTRATE_INTERPRETATION,
+            schema_interpretation=server.SUBSTRATE_INTERPRETATION,
+        )
+        server.write_json(self.state / "config.json", self.config)
+        self.context()
+        backup = self.root / "backup"
+        server.backup(self.state, self.config, backup)
+        inventory = {
+            str(path.relative_to(backup)): path.read_bytes()
+            for path in backup.rglob("*")
+            if path.is_file()
+        }
+        self.state.rename(self.root / "original-unavailable")
+        restored = self.root / "restored"
+        with pytest.raises(
+            server.SupervisorError, match="receiver/context association"
+        ):
+            server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
+        assert not restored.exists()
+        assert inventory == {
+            str(path.relative_to(backup)): path.read_bytes()
+            for path in backup.rglob("*")
+            if path.is_file()
+        }
 
     def test_restore_rejects_changed_generation_before_creating_state(self) -> None:
         generation = self.generation()
@@ -1207,6 +1250,119 @@ class Plan30LifecycleTests(unittest.TestCase):
         acquire.assert_not_called()
         spawn.assert_not_called()
         assert server.config_for(self.state)["parked"]
+
+    def test_failed_parked_start_retains_closed_intent_and_partial_owner(self) -> None:
+        for failure, validation in (
+            ("launch", False),
+            ("protocol", False),
+            ("launch", True),
+            ("protocol", True),
+        ):
+            with self.subTest(failure=failure, validation=validation):
+                admission = "validation_required" if validation else "quiesced"
+                self.config.update(
+                    parked=True, admission=admission, accepting_writes=False
+                )
+                server.write_json(self.state / "config.json", self.config)
+                owner = MagicMock()
+                owner.release.return_value = False
+                running = {"active": False}
+
+                def systemctl(
+                    *args: str,
+                    _failure: str = failure,
+                    _running: dict[str, bool] = running,
+                    **_kwargs: object,
+                ) -> subprocess.CompletedProcess[str]:
+                    if args[0] == "start":
+                        current = server.config_for(self.state)
+                        assert not current["parked"]
+                        assert not current["accepting_writes"]
+                        _running["active"] = True
+                    return subprocess.CompletedProcess(
+                        [], int(args[0] == "start" and _failure == "launch"), "", ""
+                    )
+
+                def protocol(
+                    _state: Path, _config: dict[str, object], _deadline: float
+                ) -> None:
+                    assert not server.config_for(self.state)["parked"]
+                    raise server.SupervisorError("protocol refused")
+
+                with (
+                    patch.object(
+                        server,
+                        "active",
+                        side_effect=lambda _, current=running: current["active"],
+                    ),
+                    patch.object(server, "systemctl", side_effect=systemctl),
+                    patch.object(server, "service_allocation", return_value=owner),
+                    patch.object(host_admission, "enforce_parent"),
+                    patch.object(server, "materialize_service"),
+                    patch.object(server, "listener_ready", return_value=True),
+                    patch.object(server, "protocol_ready", return_value=False),
+                    patch.object(
+                        server, "establish_protocol_readiness", side_effect=protocol
+                    ),
+                    pytest.raises(
+                        server.SupervisorError, match=r"Cannot start|protocol refused"
+                    ),
+                ):
+                    server.start(
+                        self.state, server.config_for(self.state), validation=validation
+                    )
+                current = server.config_for(self.state)
+                assert running["active"]
+                assert current["parked"]
+                assert not current["accepting_writes"]
+                assert current["admission"] == admission
+                assert owner.release.call_count == int(failure == "launch")
+                with (
+                    patch.object(server, "active", return_value=True),
+                    patch.object(server, "listener_ready", return_value=True),
+                    patch.object(server, "protocol_ready", return_value=False),
+                    patch.object(
+                        server,
+                        "establish_protocol_readiness",
+                        side_effect=server.SupervisorError(
+                            "partial lifetime not ready"
+                        ),
+                    ),
+                    patch.object(server, "service_allocation") as allocate,
+                    patch.object(server, "systemctl") as manager,
+                    pytest.raises(
+                        server.SupervisorError, match="partial lifetime not ready"
+                    ),
+                ):
+                    server.start(
+                        self.state, server.config_for(self.state), validation=validation
+                    )
+                allocate.assert_not_called()
+                manager.assert_not_called()
+                current = server.config_for(self.state)
+                assert current["parked"]
+                assert not current["accepting_writes"]
+                assert current["admission"] == admission
+                # A surviving partial lifetime resumes through readiness, without
+                # obtaining a second owner or issuing another systemd launch.
+                with (
+                    patch.object(server, "active", return_value=True),
+                    patch.object(server, "listener_ready", return_value=True),
+                    patch.object(server, "protocol_ready", return_value=False),
+                    patch.object(server, "establish_protocol_readiness") as ready,
+                    patch.object(server, "service_allocation") as allocate,
+                    patch.object(server, "systemctl") as manager,
+                ):
+                    server.start(
+                        self.state, server.config_for(self.state), validation=validation
+                    )
+                ready.assert_called_once()
+                allocate.assert_not_called()
+                manager.assert_not_called()
+                current = server.config_for(self.state)
+                assert not current["parked"]
+                assert current["accepting_writes"] is not validation
+                assert current["admission"] == (admission if validation else "open")
 
     def test_unpark_keeps_restored_validation_gate(self) -> None:
         self.config.update(

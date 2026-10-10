@@ -186,7 +186,7 @@ pub(super) async fn run(
         .budget;
     assert!(objective_budget.is_finite() && objective_budget > 0.0);
     let result = prepared.start().unwrap().wait().await.unwrap();
-    observations.run(&result);
+    observations.run(&result, owner.runtime.pool());
     let RunReport::Fit(report) = result.report().unwrap() else {
         panic!("missing curved fit")
     };

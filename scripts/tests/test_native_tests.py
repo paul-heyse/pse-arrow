@@ -269,10 +269,14 @@ class ManagedRustSelectionTests(unittest.TestCase):
             patch.object(native_tests.subprocess, "run") as build,
             patch.object(native_tests, "worker_binary") as worker_build,
             patch.object(test_run, "run_rust", return_value=7) as run,
+            patch.object(
+                native_tests, "observer_execution", return_value={}
+            ) as observed,
         ):
             self.assertEqual(native_tests.main(), 7)
         build.assert_not_called()
         worker_build.assert_not_called()
+        self.assertEqual(observed.call_args.args[0]["PSE_WORKER_BINARY"], str(worker))
         command = run.call_args.args[0]
         self.assertEqual(command[:4], ["cargo", "nextest", "run", "--no-fail-fast"])
         self.assertIn("--binaries-metadata", command)
@@ -293,6 +297,102 @@ class ManagedRustSelectionTests(unittest.TestCase):
                 [f"--managed-primary-worker={worker}", *execution], self.provenance
             )
         run.assert_not_called()
+
+    def test_observer_capture_binds_actual_scope_and_transformed_environment(
+        self,
+    ) -> None:
+        for profile in ("reference", "exclusive-observer"):
+            resources = surreal_server.execution_resources(profile)
+            execution = resources["execution"]
+            assert isinstance(execution, dict)
+            environment = {
+                "PSE_TEST_EXECUTION_PROFILE": profile,
+                "PSE_SURREAL_STATE": str(self.root),
+                "PSE_WORKER_BINARY": str(self.worker),
+            }
+            with (
+                patch.object(
+                    surreal_server, "config_for", return_value={"resources": resources}
+                ),
+                patch.object(
+                    surreal_server, "execution_resources", return_value=resources
+                ),
+                patch.object(
+                    surreal_server,
+                    "effective_limits",
+                    return_value=(
+                        execution["observer_memory_bytes"],
+                        execution["cpu_threads"],
+                    ),
+                ) as limits,
+                patch.object(
+                    surreal_server,
+                    "placement_observation",
+                    return_value={"physical_cpus": [0, 1]},
+                ) as placement,
+                patch.object(
+                    surreal_server, "execution_slice", return_value="admitted.slice"
+                ),
+                patch.object(
+                    surreal_server,
+                    "group_for_slice",
+                    return_value=Path("/sys/fs/cgroup/admitted.slice"),
+                ),
+                patch.object(
+                    surreal_server, "role_affinity_ready", return_value=True
+                ) as affinity,
+                patch.object(
+                    Path,
+                    "read_text",
+                    return_value="0::/admitted.slice/observer.scope\n",
+                ),
+                patch.object(
+                    native_tests.validation,
+                    "relevant_environment",
+                    return_value=environment,
+                ),
+            ):
+                observed = native_tests.observer_execution(environment)
+                self.assertEqual(observed["profile"], profile)
+                self.assertEqual(observed["environment"], environment)
+                self.assertNotIn("PSE_MEMORY_MAX", observed["environment"])
+                self.assertEqual(observed["resources"], resources)
+                self.assertEqual(
+                    observed["memory_max"], execution["observer_memory_bytes"]
+                )
+                for memory, cpu in (
+                    (1 << 30, execution["cpu_threads"]),
+                    (execution["observer_memory_bytes"], 1),
+                ):
+                    limits.return_value = memory, cpu
+                    with (
+                        self.subTest(profile=profile, memory=memory, cpu=cpu),
+                        self.assertRaisesRegex(ValueError, "admitted allocation"),
+                    ):
+                        native_tests.observer_execution(environment)
+                limits.return_value = (
+                    execution["observer_memory_bytes"],
+                    execution["cpu_threads"],
+                )
+                affinity.return_value = False
+                with self.assertRaisesRegex(ValueError, "admitted allocation"):
+                    native_tests.observer_execution(environment)
+                affinity.return_value = True
+                for invalid in (
+                    None,
+                    {},
+                    {"physical_cpus": "0,1"},
+                    {"physical_cpus": [0, "1"]},
+                    {"physical_cpus": [False]},
+                ):
+                    placement.return_value = invalid
+                    affinity.reset_mock()
+                    with (
+                        self.subTest(placement=invalid),
+                        self.assertRaisesRegex(ValueError, "admitted allocation"),
+                    ):
+                        native_tests.observer_execution(environment)
+                    affinity.assert_not_called()
 
     def test_managed_child_without_parent_metadata_cannot_fall_back_to_build(
         self,

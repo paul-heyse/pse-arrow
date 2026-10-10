@@ -22,7 +22,13 @@ import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from scripts import arrow_validation, build_environment, native_operation, validation
+from scripts import (
+    arrow_validation,
+    build_environment,
+    host_admission,
+    native_operation,
+    validation,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -114,6 +120,7 @@ NATIVE_PACKAGES = (
     "pse-structural",
     "pse-tests-conformance",
 )
+OPERATION_OUTPUT = "PSE_BUILD_MEASUREMENT_OUTPUT"
 
 
 def selected_packages(
@@ -628,27 +635,147 @@ def prepare_inputs(
         validation.write_json(output / "preparation.json", receipt)
 
 
-def ensure_capability_operation(root: Path, *, native: bool, workflow: bool) -> None:
-    """Start the real operation before setup, snapshot creation and child builds."""
-    if not native and not workflow:
-        return
-    if native_operation.owner_record() is not None:
-        return
-    environment = dict(os.environ)
-    environment["PSE_NATIVE_CAPABILITIES"] = "solver,klu,isolation,uno,petsc"
-    os.execvpe(  # noqa: S606 -- replaces this launcher with the supervised operation
-        str(root / "scripts/pse-env"),
-        [
-            str(root / "scripts/pse-env"),
-            "--native",
-            "--",
-            sys.executable,
-            "-m",
-            "scripts.build_measurements",
-            *sys.argv[1:],
+def complete_operation(output: Path, started: float, exit_code: int) -> int:
+    """Settle the observed native owner after the existing launcher returns.
+
+    A failed/unknown drain is a failed measurement, never a completed interval.
+    Pins remain owned by native_operation regardless of this receipt's status.
+    """
+    receipt: dict[str, object] = {
+        "status": "failed",
+        "exit_code": exit_code,
+        "setup_inclusive": False,
+        "scope": "before pse-env launch through authenticated native scope drain observation",
+        "excludes": [
+            "argument parsing and fresh output directory creation in observing parent",
+            "final complete-operation and summary receipt serialization",
         ],
-        environment,
-    )
+        "phases": {},
+    }
+    phases: dict[str, object] = {}
+    receipt["phases"] = phases
+    try:
+        native = json.loads((output / "native-operation.json").read_text())
+        receipt["native_operation"] = native
+        setup_start = native["setup_started_monotonic"]
+        setup_end = native["setup_finished_monotonic"]
+        if not started <= setup_start <= setup_end:
+            raise ValueError("native setup boundaries are out of order")  # noqa: TRY301 -- observer records malformed timing as a failed operation
+        phases["launch_and_admission"] = {
+            "wall_seconds": setup_start - started,
+            "status": "passed",
+            "scope": "pse-env launch, environment composition, host admission and native owner creation",
+        }
+        phases["native_setup"] = {
+            "wall_seconds": setup_end - setup_start,
+            "status": native["setup_status"],
+            "scope": "initial selected native capability environment call; no cache-hit inference",
+        }
+        child_end = native.get("child_finished_monotonic")
+        if child_end is not None:
+            child_start = native["child_started_monotonic"]
+            if not setup_end <= child_start <= child_end:
+                raise ValueError("native child boundaries are out of order")  # noqa: TRY301 -- observer records malformed timing as a failed operation
+            phases["measurement_child"] = {
+                "wall_seconds": child_end - child_start,
+                "status": "passed" if native["child_exit_code"] == 0 else "failed",
+                "scope": "native supervisor child launch through wait return; includes target interpreter and serialization",
+            }
+            phases["setup_handoff"] = {
+                "wall_seconds": child_start - setup_end,
+                "status": "passed",
+                "scope": "setup receipt serialization and native supervisor child preparation",
+            }
+        drain_start = child_end if child_end is not None else setup_end
+        native_drained = native_operation.drained(native["owner"])
+        allocation = Path(native["host_allocation"]["path"])
+        # Read the current ledger, not a pre-return copy which could miss later
+        # registered handoff scopes. A removed owner was retired by host admission.
+        ledger = host_admission.readonly_snapshot(
+            allocation.parent, deadline=time.monotonic() + 10
+        )
+        allocation_owner = ledger["owners"].get(allocation.name)
+        allocation_drained = allocation_owner is None or host_admission.drained(
+            allocation_owner
+        )
+        receipt["drain_observation"] = {
+            "native_scope_drained": native_drained,
+            "host_allocation_drained": allocation_drained,
+            "host_allocation_retired": allocation_owner is None,
+            "retained_host_allocation": allocation_owner,
+        }
+        drained = native_drained and allocation_drained
+        finished = time.monotonic()
+        if drain_start > finished:
+            raise ValueError("native drain boundaries are out of order")  # noqa: TRY301 -- observer records malformed timing as a failed operation
+        drain_phase: dict[str, object] = {
+            "observed_wall_seconds": finished - drain_start,
+            "status": "passed" if drained else "failed",
+            "scope": "after native child wait (or failed setup) through launcher return and native scope drain observation",
+        }
+        phases["final_drain"] = drain_phase
+        receipt["observed_wall_seconds"] = finished - started
+        if drained:
+            receipt["setup_inclusive"] = True
+            drain_phase["wall_seconds"] = finished - drain_start
+            receipt["wall_seconds"] = finished - started
+            if (
+                exit_code == 0
+                and native["setup_status"] == "passed"
+                and child_end is not None
+                and native["child_exit_code"] == 0
+            ):
+                receipt["status"] = "passed"
+        else:
+            receipt["error"] = (
+                "native scope drain could not be verified; generation pins remain owned"
+            )
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        receipt["error"] = str(error)
+        receipt["observed_wall_seconds"] = time.monotonic() - started
+    validation.write_json(output / "complete-operation.json", receipt)
+    summary = output / "summary.json"
+    if summary.exists():
+        report = json.loads(summary.read_text())
+        report["complete_operation"] = receipt
+        validation.write_json(summary, report)
+    return exit_code or (0 if receipt["status"] == "passed" else 125)
+
+
+def ensure_capability_operation(
+    root: Path, output: Path, *, native: bool, workflow: bool
+) -> int | None:
+    """Observe the real operation before setup, snapshot and child builds."""
+    if os.environ.get(OPERATION_OUTPUT):
+        return None
+    if native_operation.owner_record() is not None:
+        return None
+    output = validation.fresh_output(root, output)
+    environment = dict(os.environ)
+    environment[OPERATION_OUTPUT] = str(output)
+    linked = native or workflow
+    if linked:
+        environment["PSE_NATIVE_CAPABILITIES"] = "solver,klu,isolation,uno,petsc"
+        environment[native_operation.BUILD_TIMING] = str(
+            output / "native-operation.json"
+        )
+    started = time.monotonic()
+    command = [
+        str(root / "scripts/pse-env"),
+        *(["--native"] if linked else []),
+        "--",
+        sys.executable,
+        "-m",
+        "scripts.build_measurements",
+        *sys.argv[1:],
+    ]
+    try:
+        status = native_operation.run(command, environment)
+    except BaseException:
+        if linked:
+            complete_operation(output, started, 125)
+        raise
+    return complete_operation(output, started, status) if linked else status
 
 
 def main() -> None:
@@ -710,13 +837,29 @@ def main() -> None:
     except ValueError as error:
         parser.error(str(error))
     root = Path(__file__).resolve().parents[1]
-    ensure_capability_operation(root, native=args.native, workflow=args.workflow)
+    status = ensure_capability_operation(
+        root, args.output, native=args.native, workflow=args.workflow
+    )
+    if status is not None:
+        raise SystemExit(status)
     settings = tomllib.loads((root / ".config/build.toml").read_text())
     if shutil.disk_usage(root).free < settings["free_space_gib"] * 1024**3:
         raise ValueError(
             "insufficient free space; inventory and reclaim inactive outputs first"
         )
-    output = validation.fresh_output(root, args.output)
+    selected_output = os.environ.pop(OPERATION_OUTPUT, None)
+    if selected_output is None:
+        output = validation.fresh_output(root, args.output)
+    else:
+        output = Path(selected_output)
+        if (
+            output != args.output.resolve()
+            or host_admission.inherit(dict(os.environ)) is None
+            or ((args.native or args.workflow) and native_operation.current() is None)
+        ):
+            raise ValueError(
+                "measurement output handoff requires its authentic workload owner"
+            )
     source, capability_env, preparation = prepare_inputs(
         root,
         output,

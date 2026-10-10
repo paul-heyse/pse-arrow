@@ -499,6 +499,7 @@ mod canonical_execution_server_unit {
                 .await
                 .is_ok()
         );
+        drop(history);
         remove(&store, &database).await;
     }
 

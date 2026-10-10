@@ -363,89 +363,18 @@ profile, beyond pure in-memory policy units.
 
 ## Checkpoint and next step
 
-C8 is implemented through the common B7 preparation entry used by ephemeral frontiers,
-durable ready candidates and actual workers. Each occurrence retains current selection,
-publication and numerical state; shared flights contain only pure work. Private receiving
-drains before source protection releases. Rebuilt thousand-point and managed study controls
-remain in qualification. C5/C6/C7 evidence retains its original scope; the coordinator owns
-PA02/PA04 closure.
+Current execution handoff, 2026-10-10: C1–C8 mechanisms are implemented;
+scoped evidence retains its original conditions and does not close Plan 28.
 
-C6 now has bounded completion-driven preparation/execution, actual eligible batching,
-private independent session owners and unambiguous continuation transfer. C7 now has one
-bounded group on the shared runtime, local preparation ownership before canonical claims,
-exact total-action admission and stop/failure draining. The ordinary durable study caller
-observes the configured managed primary; its former serial assistance path is removed.
-Public controls use the original model's eligible non-batching Ipopt adapter and refuse
-fewer than two population slots before effects. The effect-free durable sixteen-occurrence
-action-bound and ordinary native overlap/cancel/drain controls pass. Actual managed receiving
-placement and primary-only native overlap are not yet accepted. L7 activation precedes that
-qualification. Earlier C1–C5 evidence retains its original scope.
+Durable scientific retention, claims/fencing, stored creation cancellation, completion-driven ordinary studies, bounded managed dispatch and pure preparation sharing are implemented. The former local serial assistance path is removed. The original managed thousand-point Python identity later passed in Plan 30; complete composed concurrency, interruption and recovery acceptance remains E3.
 
-C5 now shares a compatible declared basis on the actual stored-definition route and checks
-every binding/seed policy while preserving distinct occurrences. Caller cancellation reaches
-source validation and creation; issued source/protection/study effects settle before cancellation
-is reported. Exact activation and lost-acknowledgment controls fence the study identity, including
-idempotent retries of an already activated study. Focused runtime and canonical-server controls
-pass. Benchmark and public Python callers are migrated: the original eight-point ephemeral
-and standalone durable journeys retain their distinct meaning, while the new sixteen-point
-selector and managed-primary controls supply separate parallel coverage. Rebuilt Python and
-actual managed journeys precede N4/E3/E4 acceptance. Earlier checkpoint evidence below keeps its original boundaries.
-
-C1/C2/C3 now use canonical native lifecycle functions and protected exact result
-selections. Ordinary runs retain original Arrow blocks, diagnostics and qualified seeds;
-studies retain compact run/attempt handles rather than native reports. Candidate decisions
-use the candidate and its immediate premises, with deferred numerical preparation. The local
-adapter admits the study once and prepares only its bounded ready frontier. Both the local
-and reopened durable continuation controls exercise the shared secant proposal followed by
-the original corrector. Durable seeds retain exact portable qualified point evidence;
-library-owned native factors are reconstructed only for an actual prediction consumer and
-remain process-local. Explicit absent seeds use the shared policy's structured refusal.
-
-Physical ingress, definition admission and ready occurrence preparation now share a bounded
-Runtime-local immutable admission for the exact physical revision and checksum. Ordinary
-physical IPC staging reuses only the original checked source owners, quantities, preconditions
-and package metadata under the same Operations, registry and session owners. Each purpose
-retains at most one product with a finite byte ceiling. Hits acquire fresh native protections;
-active consumers retain those guards through durable root admission. Clear and eviction fence
-in-flight loads without invalidating active values. Focused controls cover actual document/row
-reuse, changed support despite equal physical identity, changed revisions/owners, reclamation
-refusal and clear races before and after native source lookup. The actual study consumer and
-retained secant/original-corrector controls preserve the scientific outcomes; assembled
-capacity and performance claims remain in E3/E4.
-
-Linked scientific consumer checks exposed a preclaim refusal being replaced by a later
-cleanup error. Registration now keeps an acknowledged run header before claiming and
-preserves the original typed refusal when no attempt was established. Cleanup failures
-remain observable in the durable record. Focused refusal and successful-manifest controls
-pass; the underlying linked reference/SCIP registration failure is being diagnosed before
-those scientific consumers can qualify.
-
-Progress observations are projected by borrowing the native event, coalesced under the finite
-flush policy, and split into bounded immutable receipts with exact event counts and integer
-sequences. Native controls cover batching and truthful cancellation on backpressure. Study
-discovery returns an actual bounded `StudySummary`, without a fabricated metadata payload.
-Parent-summary admission atomically concludes the study; live competing writers and expired
-effect-free writers are handled without rerunning numerical points. Focused controls exercise
-pre-cancellation, summary recovery and cancellation after summary closure.
-
-The retained original-root prediction fixture's final surrogate correction exposed a test
-precision mismatch: a relative fraction without a declared engineering scale correctly uses
-the ordinary canonical allowance. The fixture now requests its unchanged numerical assertions'
-precision through an explicit scalar physical allowance; the focused native rerun passed with D's
-result controls. Occurrence discovery now carries actual ordinal/outcome fields in a typed
-`ScopedStudyPoint`; full scientific descriptors are fetched explicitly by their exact keys. The child-process worker journeys have moved to canonical study
-claims, exact retained attempts and physical revisions, preserving authored square/data,
-warm-seed, killed-worker, long-SCIP cancellation and two-worker scenarios. Those journeys
-compile; E3 must execute them in the supervised profile. No assembled-process or
-performance qualification is established by the focused mechanism controls.
-
-C4 implements explicit result retirement, source-root release and restartable bounded cleanup.
-Live readers and retained studies/analyses prevent retirement; tombstones prevent replay from
-resurrecting a retired execution. Focused controls exposed and repaired an uncertainty fallback
-that returned a retired run receipt. C4's focused native controls exercise protected buffers, exact retirement conflicts,
-restartable cleanup, immutable lifecycle receipts and all-source root release. Assembled
-interruption and consumer qualification remain in E3. This document owns C status; the coordinator owns
-finding dispositions. Integrated qualification waits for all companion functional scope.
+The maintainer authorized all remaining Plan 28 scope including the full campaign.
+The [coordinator](28-surrealdb-unified-substrate.md#current-checkpoint) owns finding
+dispositions and [28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
+owns current integration, E3/E4/E5 and retirement. Earlier pause/failure-only instructions
+are superseded. Next: complete bounded campaign preparation and required consumer
+reconciliation, then assembled acceptance; do not restart these implemented mechanisms
+from historical status prose.
 
 ## Outcome (recorded after implementation)
 

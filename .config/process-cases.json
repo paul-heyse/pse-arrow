@@ -618,6 +618,68 @@
       "functional_scopes": [
         "process"
       ]
+    },
+    {
+      "id": "results-publish-state-growth-1",
+      "operation": "result_analysis",
+      "reuse": "publish-chain",
+      "blocks": 128,
+      "threads": 1,
+      "variables": [
+        128
+      ],
+      "result_reads": 3,
+      "physical_padding_bytes": 0,
+      "functional_scopes": [
+        "process",
+        "lifecycle"
+      ],
+      "samples": 15
+    },
+    {
+      "id": "results-publish-sample-growth-1",
+      "operation": "result_analysis",
+      "reuse": "publish-chain",
+      "blocks": 80,
+      "threads": 1,
+      "variables": [
+        80
+      ],
+      "result_reads": 3,
+      "physical_padding_bytes": 0,
+      "functional_scopes": [
+        "process",
+        "lifecycle"
+      ],
+      "samples": 31
+    },
+    {
+      "id": "source-edit-copy-small-1",
+      "operation": "source-edit-copy",
+      "reuse": "unchanged-bytes",
+      "blocks": 80,
+      "threads": 1,
+      "variables": [
+        80
+      ],
+      "functional_scopes": [
+        "process",
+        "lifecycle"
+      ]
+    },
+    {
+      "id": "source-edit-copy-large-1",
+      "operation": "source-edit-copy",
+      "reuse": "unchanged-bytes",
+      "blocks": 128,
+      "threads": 1,
+      "variables": [
+        128
+      ],
+      "functional_scopes": [
+        "process",
+        "lifecycle"
+      ]
     }
   ]
 }

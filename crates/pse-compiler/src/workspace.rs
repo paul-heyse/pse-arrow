@@ -674,7 +674,9 @@ impl PreparedCase {
             .map_or(EvaluationLimits::default(), |a| a.evaluation);
         let mut bodies = 0usize;
         for body in self.plan.bodies().values() {
-            let Some(bytes) = body.arithmetic_compilation_allocation_bound(evaluation)? else {
+            let Some(bytes) =
+                body.arithmetic_compilation_allocation_bound(DerivativeOrder::Second, evaluation)?
+            else {
                 return Ok(None);
             };
             bodies = bodies

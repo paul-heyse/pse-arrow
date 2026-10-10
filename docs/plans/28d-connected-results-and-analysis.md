@@ -56,22 +56,21 @@ an earlier run by itself. Source problem/revision/run identities and method/conf
 versions accompany derived outputs. Pre-simulation and post-simulation graph selections use
 the same substrate without erasing these distinct provenances.
 
-The initial implemented streaming path uses the gRPC SDK route with bounded queues. Rows before statement-end
-success are provisional. An Arrow stream surfaces final failure to its consumer, and any
-durable derived analysis seals only after successful completion. Cancellation closes/drains
-the stream; it cannot assume every server execution phase stops immediately. Export writes
+The implemented native WebSocket path consumes completed bounded pages. An Arrow stream
+surfaces final failure to its consumer, and any durable derived analysis seals only after
+successful completion. Cancellation drains the owned operation; it cannot assume every
+server execution phase stops immediately. Export writes
 use an explicit incomplete/complete lifecycle so an interrupted file is not announced as a
 successful export. Multi-page reads pin their immutable selection through A3; they do not
 mix current heads from different pages.
 
-The [Plan 30 replacement](30a-native-websocket-rpc-and-operation-lifetimes.md#bounded-realization-and-completed-reads)
+The [completed Plan 30 correction](30a-native-websocket-rpc-and-operation-lifetimes.md#bounded-realization-and-completed-reads)
 uses completed bounded WS pages with native values; the checked SDK does not provide
 incremental query streaming on that path. D2 consumes its statement completion,
 payload/decoded-memory limits and original-clock/drain contract while retaining
 scientific interpretation, coordinates, protected exact selection and incomplete export
-refusal. Existing gRPC passes do not qualify this migration. 30a owns replacement
-adapter work and deletion; [30d D3](30d-host-admission-and-timing-qualification.md#packages-and-scope-end-acceptance)
-owns new-scope environment acceptance and 28e retains broader scientific qualification.
+refusal. Historical gRPC passes retain their original scope. Plan 30 owns completed adapter
+and environment acceptance; 28e retains broader scientific qualification.
 
 ## Scientific result organization
 
@@ -141,7 +140,7 @@ within D's existing exact selector and Arrow boundary. Finding status stays at t
 
 | Slice and prerequisite | Delivered boundary and consumers | Meaningful targeted completion |
 |---|---|---|
-| D2 completed selection/export, after A1 completion control | Exact run/attempt/result-set/output/coordinate selection yields scientifically interpreted rows or a failure. Awaited bounded queries may remain; incremental gRPC rows are provisional until successful statement completion. `canonical_results.rs`, runtime connected results and Rust/Python inspection/export share the rule. | A late statement error, cancellation or missing terminal completion must prevent a staged prefix from becoming a completed export/eligible artifact. Also cover empty successful selection and normal multi-page selection. Use the actual chosen SDK adapter, not a hypothetical transport defect. Delete any alternate convenience route that bypasses exact completion. |
+| D2 completed selection/export, after A1 completion control | Exact run/attempt/result-set/output/coordinate selection yields scientifically interpreted rows or a failure. Native WebSocket queries expose completed bounded pages. `canonical_results.rs`, runtime connected results and Rust/Python inspection/export share the rule. | A late statement error, cancellation or missing terminal completion must prevent a staged prefix from becoming a completed export/eligible artifact. Also cover empty successful selection and normal multi-page selection. Use the actual native adapter, not a hypothetical transport defect. Delete any alternate convenience route that bypasses exact completion. |
 | D2/D3 composed protection, after A3/C2 lifecycle correction | A multipage reader retains exact source/result protection; an analysis admits its own retained root before releasing source protection. Copies decoded into Arrow carry their own DataFusion memory reservation after DB protection ends. | Interleave retirement/reclamation with an actual multipage read and with analysis root admission, then reopen the admitted analysis. Require complete exact rows or explicit refusal, no torn selection or released source gap, and escaped decoded-buffer accounting. Separate existing race tests are not this composed control. |
 | D3 native graph representation | Typed regular edges retain method, sequence, kind/provenance and occurrence identity. Direct ID/projection and bounded native traversal support actual dependency/incidence/lineage consumers; algorithms and physical sensitivity retain their existing owners. | Inspect one actual traversal predicate and index path. If INLINE edge fields improve its locality without changing meaning, generate them through the registry and verify equivalent selection/lineage; otherwise retain regular relations with the decision explained. LIGHTWEIGHT endpoint-pair edges cannot replace metadata-bearing edges. Any timing gain belongs to E4. |
 
@@ -179,7 +178,7 @@ D obligations precede E3; the historical D Outcome supplies no new replacement e
 | Package | Prerequisite and delivered behavior | Consumer migration and deletion | Status |
 |---|---|---|---|
 | D1 — Canonical result layout and minimal reader | R0, implemented A2 codec/index slice and C1 envelope. Declare row/block layouts once; read admitted terminal results by exact identities with coverage/interpretation. | Supply C2's actual retention reader and Rust result consumers. Remove matching Delta table-member reads as each consumer moves. | Implemented; targeted native controls passed |
-| D2 — Native query and Arrow boundary | D1, A3 protected reads and C2 actual terminal runs. Implement selectors, native operations, gRPC provisional-row handling and Arrow export. | Migrate Python native bindings, workflow query calls, catalog inspection, examples and tests. Delete SQL convenience APIs and publication-handle dependencies. | Native and focused linked scientific consumers passed; eligible deployment-receipt control pending |
+| D2 — Native query and Arrow boundary | D1, A3 protected reads and C2 actual terminal runs. Implement selectors, completed native WebSocket pages and Arrow export. | Migrate Python native bindings, workflow query calls, catalog inspection, examples and tests. Delete SQL convenience APIs and publication-handle dependencies. | Native and focused linked scientific consumers passed; assembled E3 pending; optional strict deployment capture remains separately selected |
 | D3 — Connected analyses and extension seam | D2 and B2 semantic dependency descriptions. Implement the two analysis journeys with exact source/method lineage and eligible library algorithms. | Move existing applicable graph/result inspection consumers; expose reusable typed operations, not a second semantic API. | Native journeys, bounded visitor and focused linked analysis consumer passed |
 
 D1 is an early working slice, not a claim that D2/D3 are complete. Root coordinates result
@@ -230,83 +229,18 @@ measurements belong to E4 and do not substitute for selection correctness.
 
 ## Checkpoint and next step
 
-D1/D2 now consume the parallel extension's A4/T7 protection changes where selected and own
-concurrent serving controls above. No new D package or replacement query census is required.
-Their changed consumers join T5 and E3; earlier reader/analysis evidence retains its scope.
+Current execution handoff, 2026-10-10: D1–D3 mechanisms are implemented;
+scoped evidence retains its original conditions and does not close Plan 28.
 
-The enhancement review adds [28g T6](28g-bulk-data-operations.md#remaining-native-access-path-decision)
-as the single bounded access-path investigation owner. D1/D2 migrate actual exact-result/analysis
-consumers if T6 adopts a correction, preserving selection identity, physical interpretation, byte
-admission, current protection and successful final completion. Do not create a D-only query census
-or streaming replacement. A reasoned retained-design decision is sufficient when current bounded
-acquisition fits; measured scaling and assembled correctness remain separate E3/E4 obligations.
+Exact native selectors, bounded Arrow/result streams, protected result-to-analysis handoff and analysis lineage are implemented. The adopted T6 cursor correction and T7 protection integration have scoped controls. Exact completion, partiality, retirement/reclamation races and escaped-buffer accounting remain assembled E3 obligations.
 
-D1/D2 have working exact protected native reads and local Arrow export. Dense trajectories
-retain original scientific IPC blocks with output-group indexes; sparse scalar indexes retain
-exact bits, missingness and original row coordinates. Decoder preflight is bounded against
-the actual generated schema before allocation. The real nested diagnostic schemas exposed
-an overly small transport-metadata limit, which was repaired without bypassing scientific
-field validation.
-
-Native result selectors and Arrow streams replace publication handles and SQL convenience;
-registry reflection uses its declared Arrow relations directly. Targeted native controls pass
-for exact historical selection, output-group selection, interrupted export and result-buffer
-protection. The minimal reader's fixture teardown now refuses live returned owners and drains
-automatic release tasks before removing its isolated database.
-The copied Arrow boundary separately retains decoded allocation ownership. Its focused
-control passed with exact original rows, reader-gated retirement, reclamation and database
-teardown while a returned array remains live, and reservation release after its final drop.
-Database protection belongs to the renewable reader; decoded arrays need no subsequent
-storage access or indefinite database pin.
-
-D3's actual pre-simulation incidence/dependency and post-result sensitivity/provenance journeys
-pass their native control. It retains the reported derivative in its original scientific row,
-records exact method/configuration/source/attempt lineage, reopens the same graph, and blocks
-result retirement until analysis withdrawal. Source edits produce a new analysis identity while
-the old graph retains its recorded revision. Reachability remains distinct from quantitative
-sensitivity. A bounded contribution visitor replaces the pre-analysis temporary full
-dependency inventory. Its targeted control preserves the original projections and exercises
-early stopping and cancellation; the actual analysis consumer rerun also passed.
-
-The bounded representation decision retains regular metadata-bearing edges. The current
-native analysis reader selects one exact analysis with a key cursor, using the declared
-`(analysis, key)` index; source/target lookups have their own declared indexes. Returned
-edges consume their kind/evidence and recorded method/source lineage. This operation has
-no demonstrated endpoint-field hydration that an INLINE layout would eliminate. A storage
-change would therefore add a migration without a current consumer benefit. E4 measures
-the existing complete result/analysis operation; this source decision makes no timing claim.
-
-Focused linked Python controls now exercise canonical reopening and both analyses,
-registry/cache reflection, an unusable study predecessor and repeated retained study
-occurrences. The retained study boundary now propagates its original scientific `RunId`
-separately from the opaque canonical lookup keys. Authored solve/warm-start and completion
-projection consumers also passed.
-
-The remaining selected scientific consumers exposed a shared preclaim failure whose original
-diagnostic was masked, and an assertion that expected incidental sample-major ordering from
-dense storage. C repaired the lost diagnostic. Its preserved cause identified a physical
-source schema larger than the result-block limit even for an empty table: canonical revision
-inputs had incorrectly used the scientific-result codec's byte bound. Their explicit source
-purpose now uses A's existing object bound with the same strict borrowed preflight, while
-scientific results retain their smaller bound. Actual required source schemas and nonempty
-authored rows passed the focused source codec controls; oversized source payloads remain
-refused by the result reader. The trajectory consumer now checks exact rows
-in the declared stored `(symbol_id, sample)` order and compares its export with those retained
-rows; independent analytic values remain unchanged. The refreshed linked extension passed
-the process, dynamics/transient fit and three SCIP cases with their original numerical and
-resource-limit assertions. The missing-key diagnostic assertions also exposed the original
-registration cause directly, instead of accepting absent persistence.
-
-The public Python deployment-receipt control is prepared but waits for the actual eligible
-current producer capture and matching imported extension. It checks actual deployment
-admission, an unchanged independently recreated revision, original outputs and reopening
-after clearing the preparation cache. Distinguishing reconstruction from fresh semantic
-admission remains the existing strict native controls' responsibility; the public boundary
-does not expose a replay-origin signal.
-The K4 study measurement adapter now reopens exact per-point native results and uses the shared
-isolated-fixture teardown barrier; the parent benchmark compilation passed and E4 measurements
-remain unrun.
-Assembled testing waits for all companion functional scope.
+The maintainer authorized all remaining Plan 28 scope including the full campaign.
+The [coordinator](28-surrealdb-unified-substrate.md#current-checkpoint) owns finding
+dispositions and [28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
+owns current integration, E3/E4/E5 and retirement. Earlier pause/failure-only instructions
+are superseded. Next: complete bounded campaign preparation and required consumer
+reconciliation, then assembled acceptance; do not restart these implemented mechanisms
+from historical status prose.
 
 ## Outcome (recorded after implementation)
 

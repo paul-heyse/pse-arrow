@@ -545,10 +545,16 @@ overhead separately. No speedup, full conformance or completed implementation is
 
 ## Checkpoint
 
+Current execution handoff, 2026-10-10: implemented source mechanisms and scoped controls
+below retain their limits. The maintainer authorized remaining Plan 28 including full E3/E4/E5;
+[28e's checkpoint](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
+supersedes older readiness/pause instructions. N4/T5/L4 source reconciliation is implemented;
+composed acceptance remains open. Next complete bounded campaign preparation and actual consumer
+qualification, rather than reopening implemented mechanisms. Plan 33 is complete and separate.
+
 N11 is implemented through the common exact B7 basis consumed by ordinary, dynamic-mode
 and fit-experiment preparation. Bounds, fixed/free layout, profiles and mutable numerical
-workers remain under their downstream owners. Targeted and composed qualification is in
-progress; existing N1–N10 evidence does not qualify this added composition. The coordinator
+workers remain under their downstream owners. Scoped qualification is recorded in the Outcomes; enclosing E3 remains open. The coordinator
 owns PA02/PA03/U02 status and 28e owns assembled acceptance.
 
 N8's release-notifying common pool, one bounded population ticket, oversized refusal,

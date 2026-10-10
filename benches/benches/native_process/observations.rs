@@ -5,7 +5,11 @@ use pse_backend_native::solve::{Backend, Metric, SolveReport};
 use pse_model::generated::{enums::NumericalEventKind, runtime::solve_strategy_events::Row};
 use pse_runtime::{math::solves::Outcome, workflow::ModelingResult};
 use serde_json::{Value, json};
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    borrow::Borrow,
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 #[derive(Default)]
 struct Count {
@@ -87,10 +91,15 @@ pub(super) struct Observations {
     preparations: BTreeMap<&'static str, u64>,
 }
 impl Observations {
-    pub(super) fn modeling(&mut self, result: &ModelingResult, step: usize) {
+    pub(super) fn modeling(
+        &mut self,
+        result: &ModelingResult,
+        step: usize,
+        pool: Arc<dyn pse_columnar::MemoryPool>,
+    ) {
         self.results = self.results.checked_add(1).unwrap();
         if let Some(trace) = &result.strategy {
-            self.rows(&trace.rows(result.run_id, step).unwrap());
+            self.strategy(trace, result.run_id, step, pool);
         } else {
             self.unobserved_strategy();
         }
@@ -98,14 +107,34 @@ impl Observations {
             self.native(report);
         }
     }
-    pub(super) fn rows(&mut self, rows: &[Row]) {
-        if rows.is_empty() {
+    pub(super) fn strategy(
+        &mut self,
+        trace: &pse_runtime::math::solves::StrategyTrace,
+        run: pse_model::generated::identities::RunId,
+        step: usize,
+        pool: Arc<dyn pse_columnar::MemoryPool>,
+    ) {
+        self.rows(
+            trace
+                .rows(run, step, pool, 0..trace.event_count())
+                .unwrap()
+                .map(Result::unwrap),
+        );
+    }
+    pub(super) fn rows<I, R>(&mut self, rows: I)
+    where
+        I: IntoIterator<Item = R>,
+        R: Borrow<Row>,
+    {
+        let mut rows = rows.into_iter().peekable();
+        if rows.peek().is_none() {
             self.unobserved_strategy();
             return;
         }
         self.strategies = self.strategies.checked_add(1).unwrap();
         let mut owners = BTreeSet::new();
         for row in rows {
+            let row = row.borrow();
             if row.kind == NumericalEventKind::Started {
                 if let Some(profile) = row.profile_identity {
                     self.profiles
@@ -159,16 +188,20 @@ impl Observations {
         self.ledger.missing();
         self.unknown_profiles = self.unknown_profiles.checked_add(1).unwrap();
     }
-    pub(super) fn run(&mut self, result: &pse_runtime::workflow::RunResult) {
+    pub(super) fn run(
+        &mut self,
+        result: &pse_runtime::workflow::RunResult,
+        pool: Arc<dyn pse_columnar::MemoryPool>,
+    ) {
         match result.report().unwrap() {
             pse_runtime::workflow::RunReport::Modeling(reports) => {
                 for (step, report) in reports.iter().enumerate() {
-                    self.modeling(report, step);
+                    self.modeling(report, step, pool.clone());
                 }
             }
             pse_runtime::workflow::RunReport::Fit(report) => {
                 if let Some(trace) = &report.strategy {
-                    self.rows(&trace.rows(result.run_id, 0).unwrap());
+                    self.strategy(trace, result.run_id, 0, pool);
                 } else {
                     self.unobserved_strategy();
                 }

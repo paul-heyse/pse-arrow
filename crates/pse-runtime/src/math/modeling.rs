@@ -244,28 +244,32 @@ impl MathService {
         if inner.is_empty() {
             return Ok(external);
         }
-        let control = FlightCancellation::default();
-        let mut demand = 0usize;
+        let demand_entry =
+            size_of::<(pse_kernels::ProviderKey, pse_kernels::DerivativeOrder)>() + 128;
+        let mut analysis =
+            provider_demands
+                .len()
+                .checked_mul(demand_entry)
+                .and_then(|bytes| {
+                    bytes.checked_add(inner.len().checked_mul(
+                        size_of::<pse_kernels::DerivativeRequirements>() + demand_entry,
+                    )?)
+                })
+                .ok_or(MathRuntimeError::Limit("inner analysis extent"))?;
         for item in &inner {
-            let Some(construction) = item
-                .admitted
-                .reconstruction_allocation_bound(&item.configurations, profile.evaluation)?
-            else {
-                // Unknown control/provider populations retain the existing conservative
-                // admission. They cannot qualify for source-bounded small-pool entry.
-                demand = self.policy.worker_bytes;
+            let Some(bound) = item.admitted.requirements_allocation_bound()? else {
+                analysis = self.policy.worker_bytes;
                 break;
             };
-            demand = demand
-                .checked_add(construction)
-                .ok_or(MathRuntimeError::Limit("inner construction extent"))?;
+            analysis = analysis
+                .checked_add(bound)
+                .ok_or(MathRuntimeError::Limit("inner analysis extent"))?;
         }
-        if demand > self.policy.worker_bytes {
-            return Err(MathRuntimeError::Limit("inner construction capacity"));
+        if analysis > self.policy.worker_bytes {
+            return Err(MathRuntimeError::Limit("inner analysis capacity"));
         }
-        // Opaque native Rational/optimizer construction retains the separate foreign
-        // allowance. A generous worker capacity does not amplify known source demand.
-        let operation = self.job_retained(1, demand, control.clone(), move |flag| {
+        let control = FlightCancellation::default();
+        let operation = async {
             #[cfg(feature = "solver-kinsol")]
             let solver: Arc<dyn pse_math::implicit::InnerSolver> =
                 Arc::new(pse_backend_native::implicit::Kinsol);
@@ -276,73 +280,140 @@ impl MathService {
                 Some(Arc::new(pse_backend_native::root_isolation::Ibex));
             #[cfg(not(feature = "solver-root-isolation"))]
             let verifier: Option<Arc<dyn pse_math::implicit::SelectionVerifier>> = None;
-            // Inputs are in dependency order. Propagate the actual consumer demands
-            // backwards before compiling any provider, including the inner adapter's
-            // residual minimum and explicitly authored partial derivatives.
-            for item in inner.iter().rev() {
-                let key = item.admitted.descriptor.spec().key();
-                let requested = provider_demands
-                    .get(&key)
-                    .copied()
-                    .unwrap_or(pse_kernels::DerivativeOrder::Value);
-                let requirements = item.admitted.requirements(
-                    requested,
-                    solver.minimum_order(),
-                    verifier.as_deref(),
-                    &accelerators,
-                    &flag,
-                    profile.evaluation,
-                )?;
-                for (dependency, required) in item.admitted.provider_demands(requirements)? {
-                    provider_demands
-                        .entry(dependency)
-                        .and_modify(|order| *order = (*order).max(required))
-                        .or_insert(required);
-                }
-            }
-            let mut factories = Vec::new();
-            let mut retained = 0usize;
-            for item in inner {
-                let source_key = item.admitted.descriptor.spec().key();
-                let requested_output = provider_demands
-                    .get(&source_key)
-                    .copied()
-                    .unwrap_or(pse_kernels::DerivativeOrder::Value);
-                #[cfg(not(feature = "solver-kinsol"))]
-                if item.admitted.algorithm == pse_compiler::workspace::ImplicitAlgorithm::Native {
-                    return Err(MathRuntimeError::Infrastructure(
-                        "nested realization requires the KINSOL capability".into(),
-                    ));
-                }
-                let factory = item.admitted.reconstruction_factory(
-                    item.configurations,
-                    pse_compiler::workspace::ImplicitCapabilities {
-                        solver: solver.clone(),
-                        verifier: verifier.clone(),
-                        accelerators: &accelerators,
+            // Capability and dependency analysis can construct affine/accelerator
+            // support. Admit its working set separately from the source products
+            // before selecting the actual factory compilation population.
+            let worker_bytes = self.policy.worker_bytes;
+            let (
+                (inner, solver, verifier, accelerators, provider_demands, demand),
+                _analysis_owner,
+            ) = self
+                .job_retained_scoped(
+                    1,
+                    analysis,
+                    control.clone(),
+                    driver.deadline(),
+                    move |flag| {
+                        // Inputs are in dependency order. Propagate the actual consumer demands
+                        // backwards before compiling any provider, including the inner adapter's
+                        // residual minimum and explicitly authored partial derivatives.
+                        let mut resolved = Vec::with_capacity(inner.len());
+                        for item in inner.iter().rev() {
+                            let key = item.admitted.descriptor.spec().key();
+                            let requested = provider_demands
+                                .get(&key)
+                                .copied()
+                                .unwrap_or(pse_kernels::DerivativeOrder::Value);
+                            let requirements = item.admitted.requirements(
+                                requested,
+                                solver.minimum_order(),
+                                verifier.as_deref(),
+                                &accelerators,
+                                &flag,
+                                profile.evaluation,
+                            )?;
+                            resolved.push(requirements);
+                            for (dependency, required) in
+                                item.admitted.provider_demands(requirements)?
+                            {
+                                provider_demands
+                                    .entry(dependency)
+                                    .and_modify(|order| *order = (*order).max(required))
+                                    .or_insert(required);
+                            }
+                        }
+                        resolved.reverse();
+                        let mut demand = 0usize;
+                        for (item, requirements) in inner.iter().zip(resolved) {
+                            let Some(construction) =
+                                item.admitted.reconstruction_allocation_bound(
+                                    &item.configurations,
+                                    requirements,
+                                    profile.evaluation,
+                                )?
+                            else {
+                                // Unknown control/provider populations retain conservative admission.
+                                demand = worker_bytes;
+                                break;
+                            };
+                            demand = demand
+                                .checked_add(construction)
+                                .ok_or(MathRuntimeError::Limit("inner construction extent"))?;
+                        }
+                        if demand > worker_bytes {
+                            return Err(MathRuntimeError::Limit("inner construction capacity"));
+                        }
+                        // Keep the propagated demand map admitted across the phase boundary.
+                        let retained = provider_demands
+                            .len()
+                            .checked_mul(
+                                size_of::<(pse_kernels::ProviderKey, pse_kernels::DerivativeOrder)>(
+                                ) + 128,
+                            )
+                            .ok_or(MathRuntimeError::Limit("inner demand extent"))?;
+                        Ok((
+                            (
+                                inner,
+                                solver,
+                                verifier,
+                                accelerators,
+                                provider_demands,
+                                demand,
+                            ),
+                            retained,
+                        ))
                     },
-                    requested_output,
-                    flag.clone(),
-                    profile.evaluation,
-                )?;
-                retained = retained
-                    .checked_add(factory.retained_bytes()?)
-                    .ok_or(MathRuntimeError::Limit("inner program extent"))?;
-                let dependencies = item
-                    .admitted
-                    .bodies()
-                    .flat_map(|b| b.math().providers())
-                    .map(pse_kernels::ProviderSpec::key)
-                    .collect::<Vec<_>>();
-                let descriptor = item
-                    .admitted
-                    .descriptor
-                    .restrict_order(requested_output)
-                    .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
-                factories.push((source_key, descriptor, factory, dependencies));
-            }
-            Ok((factories, retained))
-        });
+                )
+                .await?;
+            // Opaque native Rational/optimizer construction retains the separate
+            // foreign allowance; the known payload follows actual scientific demand.
+            self.job_retained_scoped(1, demand, control.clone(), driver.deadline(), move |flag| {
+                let mut factories = Vec::new();
+                let mut retained = 0usize;
+                for item in inner {
+                    let source_key = item.admitted.descriptor.spec().key();
+                    let requested_output = provider_demands
+                        .get(&source_key)
+                        .copied()
+                        .unwrap_or(pse_kernels::DerivativeOrder::Value);
+                    #[cfg(not(feature = "solver-kinsol"))]
+                    if item.admitted.algorithm == pse_compiler::workspace::ImplicitAlgorithm::Native
+                    {
+                        return Err(MathRuntimeError::Infrastructure(
+                            "nested realization requires the KINSOL capability".into(),
+                        ));
+                    }
+                    let factory = item.admitted.reconstruction_factory(
+                        item.configurations,
+                        pse_compiler::workspace::ImplicitCapabilities {
+                            solver: solver.clone(),
+                            verifier: verifier.clone(),
+                            accelerators: &accelerators,
+                        },
+                        requested_output,
+                        flag.clone(),
+                        profile.evaluation,
+                    )?;
+                    retained = retained
+                        .checked_add(factory.retained_bytes()?)
+                        .ok_or(MathRuntimeError::Limit("inner program extent"))?;
+                    let dependencies = item
+                        .admitted
+                        .bodies()
+                        .flat_map(|b| b.math().providers())
+                        .map(pse_kernels::ProviderSpec::key)
+                        .collect::<Vec<_>>();
+                    let descriptor = item
+                        .admitted
+                        .descriptor
+                        .restrict_order(requested_output)
+                        .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
+                    factories.push((source_key, descriptor, factory, dependencies));
+                }
+                Ok((factories, retained))
+            })
+            .await
+        };
         tokio::pin!(operation);
         let (factories, owner) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         let mut registrations = external;

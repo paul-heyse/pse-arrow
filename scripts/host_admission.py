@@ -747,10 +747,30 @@ def drain_borrowed_services(
                 surreal_server.workers_drained(state, config)
                 surreal_server.stop(state, config)
             else:
-                surreal_server.park_service(state)
-                with allocation_metadata(directory) as ledger:
-                    if value not in ledger.setdefault("parked_services", []):
-                        ledger["parked_services"].append(value)
+                try:
+                    surreal_server.park_service(state)
+                finally:
+                    queue_parked_service(directory, state)
+
+
+def queue_parked_service(directory: Path, state: Path) -> None:
+    """Publish actual parking intent while the caller owns the service lifecycle."""
+    from scripts import surreal_server  # noqa: PLC0415 -- reciprocal ownership
+
+    if surreal_server.config_for(state).get("parked"):
+        selected = str(state)
+        with allocation_metadata(directory) as ledger:
+            if selected not in ledger.setdefault("parked_services", []):
+                ledger["parked_services"].append(selected)
+
+
+def withdraw_parked_service(state: Path, *, directory: Path | None = None) -> None:
+    """Withdraw only this service's queued resume; retain every allocation owner."""
+    directory = root_path() if directory is None else directory
+    selected = str(state.resolve())
+    with allocation_metadata(directory) as ledger:
+        parked = ledger.get("parked_services", [])
+        ledger["parked_services"] = [item for item in parked if item != selected]
 
 
 def reconcile(directory: Path, deadline: float | None = None) -> None:
@@ -1216,14 +1236,24 @@ def acquire(
                                 "Original admission clock expired while parking owned services",
                             )
                             service = owner["service"]
-                            with allocation_metadata(directory) as state:
-                                if service not in state.setdefault(
-                                    "parked_services", []
-                                ):
-                                    state["parked_services"].append(service)
-                            surreal_server.park_service(
-                                Path(service), deadline=deadline
-                            )
+                            path = Path(service)
+                            binding = owner["units"].get(surreal_server.unit_name(path))
+                            if not binding:
+                                raise AdmissionError(  # noqa: TRY301 -- release this selected allocation on a missing parking premise
+                                    "Parkable service lacks its bound lifetime"
+                                )
+                            with surreal_server.lifecycle_reservation(path):
+                                try:
+                                    surreal_server.park_service(
+                                        path,
+                                        deadline=deadline,
+                                        expected_binding=binding,
+                                    )
+                                finally:
+                                    # Publish resume intent under the same lifecycle
+                                    # as parking. Preserve partial-stop recovery,
+                                    # but a stale stopped premise queues nothing.
+                                    queue_parked_service(directory, path)
                         reconcile(directory, deadline)
                         require_admission_time(
                             deadline,

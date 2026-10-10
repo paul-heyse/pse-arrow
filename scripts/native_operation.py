@@ -15,6 +15,7 @@ import signal
 import stat
 import subprocess
 import sys
+import time
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, NotRequired, Self, TypedDict, TypeVar, cast
@@ -29,6 +30,8 @@ if str(ROOT) not in sys.path:
 from scripts import build_environment  # noqa: E402 -- direct-script path routing
 
 MARKER = "PSE_NATIVE_OPERATION"
+# Private handshake with the build-measurement observer, never an admission input.
+BUILD_TIMING = "PSE_BUILD_MEASUREMENT_TIMING"
 VERSION = 2
 CAPABILITIES = ("compiler", "solver", "klu", "isolation", "uno", "petsc")
 # Native setup supplies these unless the caller chose a value; `off` removes one.
@@ -81,6 +84,11 @@ class OperationRecord(TypedDict):
     start: NotRequired[str]
     python: NotRequired[str]
     handoff: NotRequired[str]
+    foreground: NotRequired[bool]
+    parent: NotRequired[str]
+    foreground_children: NotRequired[list[str]]
+    cancelled: NotRequired[bool]
+    scope_inode: NotRequired[int]
 
 
 Observed = TypeVar("Observed")
@@ -264,9 +272,14 @@ def current() -> Path | None:
 
 @contextlib.contextmanager
 def record_lock(path: Path) -> Generator[None, None, None]:
-    with path.with_suffix(".lock").open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        yield
+    # A synchronous cancellation handler must not reacquire our own flock.
+    previous = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM, signal.SIGINT})
+    try:
+        with path.with_suffix(".lock").open("a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            yield
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous)
 
 
 def remembered(key: str) -> Admission | None:
@@ -344,6 +357,13 @@ def pinned_generations(base: Path) -> set[str] | None:
                 ):
                     return None
                 if drained(record):
+                    # The live parent may still need this exact child binding
+                    # during cancellation. Its settled child no longer pins bytes.
+                    if (
+                        record.get("foreground") is True
+                        and foreground_parent(record, path).exists()
+                    ):
+                        continue
                     path.unlink()
                     path.with_suffix(".lock").unlink(missing_ok=True)
                 else:
@@ -356,24 +376,51 @@ def pinned_generations(base: Path) -> set[str] | None:
     return pinned
 
 
-def prepare_handoff(expected_unit: str) -> Path | None:
+def foreground_parent(record: OperationRecord, path: Path) -> Path:
+    name = record.get("parent")
+    if isinstance(name, str):
+        parent = Path(name)
+        if parent.parent == path.parent and re.fullmatch(
+            r"[a-f0-9]{32}\.json", parent.name
+        ):
+            return parent
+    raise ValueError("invalid foreground parent association")
+
+
+def foreground_children(record: OperationRecord) -> list[str]:
+    children = record.get("foreground_children", [])
+    if isinstance(children, list):
+        return children
+    raise ValueError("invalid foreground child associations")
+
+
+def prepare_handoff(expected_unit: str, *, foreground: bool = False) -> Path | None:
     """Pin before launch; a dead launcher leaves a conservative pending guard."""
     parent = owner_record()
     if parent is None:
         return None
     with record_lock(parent):
-        generations = _record(parent)["generations"][:]
-    path = parent.parent / f"handoff-{uuid.uuid4().hex}.json"
-    write_json(
-        path,
-        {
+        registered = _record(parent)
+        if foreground and registered.get("cancelled"):
+            raise ValueError("native foreground parent is cancelled")
+        path = parent.parent / f"handoff-{uuid.uuid4().hex}.json"
+        record: OperationRecord = {
             "version": VERSION,
             "scope": None,
             "handoff": expected_unit,
             "admissions": {},
-            "generations": generations,
-        },
-    )
+            "generations": registered["generations"][:],
+        }
+        children: list[str] = []
+        if foreground:
+            if not re.fullmatch(r"pse-native-[a-f0-9]{32}\.scope", expected_unit):
+                raise ValueError("foreground handoff requires an observer scope")
+            record.update(foreground=True, parent=str(parent))
+            children = foreground_children(registered)
+        write_json(path, record)
+        if foreground:
+            registered["foreground_children"] = [*children, str(path)]
+            write_json(parent, registered)
     return path
 
 
@@ -382,15 +429,120 @@ def bind_handoff(path: Path) -> None:
     owner = scope_owner()
     if owner is None:
         raise ValueError("native child handoff requires an authentic managed scope")
-    with record_lock(path):
-        record = _record(path)
-        if record.get("handoff") != owner["unit"] or record.get("scope") not in (
-            None,
-            owner,
+    initial = _record(path)
+    if type(initial.get("foreground", False)) is not bool:
+        raise ValueError("invalid foreground handoff marker")
+    parent = (
+        foreground_parent(initial, path) if initial.get("foreground") is True else None
+    )
+    # Parent -> child is also cancellation's lock order. Binding cannot admit
+    # payload after the parent's cancellation fence, even before child IPC.
+    with record_lock(parent) if parent is not None else contextlib.nullcontext():
+        registered = _record(parent) if parent is not None and parent.exists() else None
+        with record_lock(path):
+            record = _record(path)
+            if record.get("handoff") != owner["unit"] or record.get("scope") not in (
+                None,
+                owner,
+            ):
+                raise ValueError(
+                    "native child handoff differs from its registered scope"
+                )
+            record["scope"] = owner
+            if parent is not None:
+                from scripts import host_admission  # noqa: PLC0415 -- reciprocal owner
+
+                if record.get("parent") != str(parent) or (
+                    registered is not None
+                    and str(path) not in foreground_children(registered)
+                ):
+                    raise ValueError("native foreground parent association changed")
+                inode = host_admission.group_identity(owner["group"])
+                if inode is None or record.get("scope_inode", inode) != inode:
+                    raise ValueError("native foreground scope generation changed")
+                record["scope_inode"] = inode
+                if registered is None or registered.get("cancelled"):
+                    record["cancelled"] = True
+            write_json(path, record)
+            if record.get("foreground") and record.get("cancelled"):
+                raise ValueError("native foreground handoff is cancelled")
+
+
+def fence_foreground_handoff(name: object, parent: Path) -> OperationRecord:
+    if isinstance(name, str):
+        path = Path(name)
+        if path.parent == parent.parent and re.fullmatch(
+            r"handoff-[a-f0-9]{32}\.json", path.name
         ):
-            raise ValueError("native child handoff differs from its registered scope")
-        record["scope"] = owner
-        write_json(path, record)
+            with record_lock(path):
+                record = _record(path)
+                if record.get("foreground") is not True or record.get("parent") != str(
+                    parent
+                ):
+                    raise ValueError("foreground handoff parent changed")
+                record["cancelled"] = True
+                write_json(path, record)
+            return record
+    raise ValueError("invalid foreground handoff association")
+
+
+def stop_foreground_handoff(record: OperationRecord) -> None:
+    from scripts import host_admission  # noqa: PLC0415 -- reciprocal owner
+
+    owner = record.get("scope", False)
+    if owner is None:
+        # A late child still binds its actual lifetime, then refuses payload.
+        return
+    if not isinstance(owner, dict) or any(
+        not isinstance(owner.get(key), str) for key in ("unit", "group", "invocation")
+    ):
+        raise ValueError("invalid foreground scope identity")
+    if drained(record):
+        return
+    observed = unit_observation(owner["unit"])
+    if (
+        observed.get("LoadState") != "loaded"
+        or observed.get("InvocationID") != owner["invocation"]
+        or observed.get("ControlGroup") != owner["group"]
+        or type(record.get("scope_inode")) is not int
+        or host_admission.group_identity(owner["group"]) != record["scope_inode"]
+    ):
+        raise ValueError("foreground observer scope identity changed")
+    # Stop waits for this authenticated scope. Its native handler first settles
+    # any nested foreground handoffs before its own scope kill.
+    subprocess.run(
+        ["systemctl", "--user", "stop", owner["unit"]],
+        check=True,
+        timeout=10,
+    )
+    if not drained(record):
+        raise ValueError("foreground observer scope did not drain")
+
+
+def cancel_foreground_handoffs() -> None:
+    """Settle only the foreground observers explicitly owned by this operation."""
+    parent = owner_record()
+    if parent is None:
+        return
+    failures: list[str] = []
+    bound: list[OperationRecord] = []
+    with record_lock(parent):
+        registered = _record(parent)
+        registered["cancelled"] = True
+        write_json(parent, registered)
+        children = foreground_children(registered)[:]
+        for name in children:
+            try:
+                bound.append(fence_foreground_handoff(name, parent))
+            except (OSError, ValueError, KeyError) as error:
+                failures.append(str(error))
+    for record in bound:
+        try:
+            stop_foreground_handoff(record)
+        except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+            failures.append(str(error))
+    if failures:
+        raise ValueError("foreground cancellation incomplete: " + "; ".join(failures))
 
 
 class Operation:
@@ -432,19 +584,25 @@ class Operation:
         _exc: BaseException | None,
         _traceback: TracebackType | None,
     ) -> None:
-        if self.previous is None:
-            os.environ.pop(MARKER, None)
-        else:
-            os.environ[MARKER] = self.previous
-        if self.previous_cache is None:
-            os.environ.pop("PSE_NATIVE_CACHE", None)
-        else:
-            os.environ["PSE_NATIVE_CACHE"] = self.previous_cache
-        if self.previous_python is None:
-            os.environ.pop("PSE_NATIVE_SETUP_PYTHON", None)
-        else:
-            os.environ["PSE_NATIVE_SETUP_PYTHON"] = self.previous_python
-        # Do not unlink records on return or cancellation while children may survive.
+        try:
+            # The payload can return after its validation process was interrupted
+            # without signaling this supervisor. Only the creator retires the
+            # operation; nested run() calls continue borrowing its live owner.
+            cancel_foreground_handoffs()
+        finally:
+            if self.previous is None:
+                os.environ.pop(MARKER, None)
+            else:
+                os.environ[MARKER] = self.previous
+            if self.previous_cache is None:
+                os.environ.pop("PSE_NATIVE_CACHE", None)
+            else:
+                os.environ["PSE_NATIVE_CACHE"] = self.previous_cache
+            if self.previous_python is None:
+                os.environ.pop("PSE_NATIVE_SETUP_PYTHON", None)
+            else:
+                os.environ["PSE_NATIVE_SETUP_PYTHON"] = self.previous_python
+            # Do not unlink records on return or cancellation while children may survive.
 
 
 def enforce(env: dict[str, str], name: str, value: str) -> None:
@@ -459,6 +617,52 @@ def enforce(env: dict[str, str], name: str, value: str) -> None:
 
 
 def environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
+    timing = env.get(BUILD_TIMING)
+    if timing is None:
+        return _environment(requested, env)
+    owner = current()
+    if owner is None:
+        raise ValueError(
+            "setup-inclusive build timing requires an authentic native scope"
+        )
+    from scripts import host_admission  # noqa: PLC0415 -- reciprocal ownership
+
+    allocation = host_admission.inherit(env)
+    if allocation is None:
+        raise ValueError("setup-inclusive build timing requires its host allocation")
+    receipt: dict[str, object] = {
+        "version": 1,
+        "requested_capabilities": requested,
+        "setup_started_monotonic": time.monotonic(),
+        "owner_record_path": str(owner),
+        "setup_status": "running",
+        "host_allocation": {
+            "path": str(allocation.directory / allocation.nonce),
+            "class": allocation.profile.name,
+            "memory_bytes": allocation.profile.memory,
+            "cores": allocation.profile.cores,
+        },
+    }
+    with record_lock(owner):
+        receipt["owner"] = _record(owner)
+    write_json(Path(timing), receipt)
+    try:
+        configured = _environment(requested, env)
+    except BaseException as error:
+        receipt["setup_status"] = "failed"
+        receipt["error_type"] = type(error).__name__
+        raise
+    else:
+        receipt["setup_status"] = "passed"
+        return configured
+    finally:
+        receipt["setup_finished_monotonic"] = time.monotonic()
+        with record_lock(owner):
+            receipt["owner"] = _record(owner)
+        write_json(Path(timing), receipt)
+
+
+def _environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
     from scripts import native_cache as cache  # noqa: PLC0415 -- owner cycle
     from scripts import (  # noqa: PLC0415 -- owner cycle
         native_pipeline_cache as pipeline,
@@ -562,43 +766,97 @@ def environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
 
 
 def cancel_children(child: subprocess.Popen, signum: int) -> None:
+    failure = None
+    try:
+        cancel_foreground_handoffs()
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        failure = error
+        print(
+            f"native-operation: {error}; unresolved scopes remain pinned",
+            file=sys.stderr,
+            flush=True,
+        )
     owner = scope_owner()
     if owner is not None:
         # A cancelled native operation drains the whole authentic child scope,
         # including workers which changed sessions after the supervisor spawned.
-        subprocess.run(
-            [
-                "systemctl",
-                "--user",
-                "kill",
-                "--kill-whom=all",
-                "--signal=SIGKILL",
-                owner["unit"],
-            ],
-            check=False,
-            timeout=10,
-        )
+        try:
+            subprocess.run(
+                [
+                    "systemctl",
+                    "--user",
+                    "kill",
+                    "--kill-whom=all",
+                    "--signal=SIGKILL",
+                    owner["unit"],
+                ],
+                check=False,
+                timeout=10,
+            )
+        except (OSError, subprocess.SubprocessError) as error:
+            failure = error
+            print(
+                f"native-operation: scope cancellation failed: {error}",
+                file=sys.stderr,
+                flush=True,
+            )
     with contextlib.suppress(ProcessLookupError):
         os.killpg(child.pid, signum)
+    if failure is not None:
+        raise ValueError("native foreground cancellation incomplete") from failure
 
 
 def run(command: list[str], env: dict[str, str]) -> int:
-    child = subprocess.Popen(command, env=env, start_new_session=True)
+    # Only the measured native owner consumes this marker. Its descendants must
+    # not overwrite the initial setup or supervisor-return boundaries.
+    timing = env.get(BUILD_TIMING)
+    if timing is not None and current() is None:
+        timing = None
+    receipt = json.loads(Path(timing).read_text()) if timing is not None else None
+    child_env = env.copy()
+    if receipt is not None:
+        child_env.pop(BUILD_TIMING, None)
+        receipt["child_started_monotonic"] = time.monotonic()
+    child = subprocess.Popen(command, env=child_env, start_new_session=True)
     old_handlers = {}
+    cancelling = False
+    cancel_failure: Exception | None = None
 
     def cancel(signum: int, _frame: FrameType | None) -> None:
-        cancel_children(child, signum)
+        nonlocal cancelling, cancel_failure
+        if cancelling:
+            return
+        cancelling = True
+        try:
+            cancel_children(child, signum)
+        except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+            cancel_failure = error
 
     for signum in (signal.SIGTERM, signal.SIGINT):
         old_handlers[signum] = signal.signal(signum, cancel)
     try:
         status = child.wait()
+        if cancel_failure is not None:
+            raise ValueError(
+                "native foreground cancellation incomplete"
+            ) from cancel_failure
         # A child killed by signal N reports 128+N, as a shell would, rather than
         # a negative status that `SystemExit` would turn into 256-N.
         return 128 - status if status < 0 else status
     finally:
         for signum, handler in old_handlers.items():
             signal.signal(signum, handler)
+        if receipt is not None and timing is not None:
+            receipt["child_finished_monotonic"] = time.monotonic()
+            status = child.returncode
+            receipt["child_exit_code"] = (
+                128 - status if status is not None and status < 0 else status
+            )
+            owner = current()
+            if owner is not None:
+                with record_lock(owner):
+                    receipt["owner"] = _record(owner)
+            write_json(Path(timing), receipt)
 
 
 def main() -> int:

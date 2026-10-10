@@ -317,34 +317,18 @@ owns the new findings.
 
 ## Checkpoint
 
-J0 is settled: the key contains the exact selected request/dependencies, actual owner
-identities retained by Arcs, root and actual instance, every structural Bindings field and
-Limits field. Source versions include authored field spans. Numeric CaseValues bind later;
-fixed/free, bounds, profiles and numerical worker state retain their downstream owners.
-PreparedModeling is the complete exact immutable payload, with fresh current Solved/source
-wrappers. Pure frontier completion uses the same owned plan and exposes primary/original
-portable bodies; direct implicit products retain their actual allocation ownership without
-invented portable seals. No persistent/global Salsa accelerator was selected.
+Current execution handoff, 2026-10-10: J0–J3 mechanisms are implemented;
+scoped evidence retains its original conditions and does not close Plan 28.
 
-J1/J2 and required A5/B7/C8/N11/H source integrations are implemented. Persisted acquisition
-is explicit and asynchronous under each current consumer's read; shared flights contain only
-pure work. The existing bounded cache retains sealed bodies, exact frontiers, complete bases
-and encoded descriptions with generation fences and escaping allocation owners. Actual-store
-acknowledgment precedes new key/staging/receiving work; acknowledgment errors are not absence.
-New eligible publication requires current receiving admission, while exact historical rooted
-acknowledgment retains its original provenance and may settle after pin expiry. New admission
-still requires live protection. A current checked selection already proves its own exact
-admission premises; warm basis adoption rechecks additional acquisition premises without
-duplicating that full base inventory. For an identical immutable canonical revision, an
-opaque previously qualified receipt is adopted only after a thin guarded live-pin/full-row
-check; changed rows retain complete qualification. Fresh read premise allocations remain
-charged through use and release. Short protected transactions share the existing weak
-per-problem pacing owner with staging, under their original request deadline. Actual
-acquired-absence, changed-inventory and released/expired-pin controls verify these boundaries.
+Complete exact immutable preparation with fresh attribution, explicit current protected publication, retained encoded descriptions and indexed exact settlement are implemented. A5/B7/C8/N11/H integrations have scoped evidence. Full authored checking and exact revision/frontier reuse remain selected; no global persistent Salsa accelerator is selected.
 
-Targeted and rebuilt scientific qualification is in progress. The coordinator owns PA02/PA03
-and U02 dispositions; 28e records the affected composite continuation. No whole-plan closure,
-full-campaign rerun or measured latency claim follows from source migration.
+The maintainer authorized all remaining Plan 28 scope including the full campaign.
+The [coordinator](28-surrealdb-unified-substrate.md#current-checkpoint) owns finding
+dispositions and [28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
+owns current integration, E3/E4/E5 and retirement. Earlier pause/failure-only instructions
+are superseded. Next: complete bounded campaign preparation and required consumer
+reconciliation, then assembled acceptance; do not restart these implemented mechanisms
+from historical status prose.
 
 ## Outcome
 

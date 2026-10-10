@@ -1348,13 +1348,46 @@ impl PreparedBody {
             .iter()
             .all(|stage| matches!(stage, Stage::Block { .. } | Stage::Require { .. }))
     }
-    /// Initial construction reservation for compiling every output at all input axes up
-    /// to second order. This does not request higher scientific capability: it bounds
-    /// the factory's value/first/second products before selecting its actual order.
+    /// Known Rust working population for capability/dependency traversal without
+    /// constructing numerical evaluators. An optional leading coordinate count adds
+    /// the second-order support used to prove an affine residual; it does not request
+    /// second-order output products. Control/provider regions remain opaque here.
+    pub fn arithmetic_analysis_allocation_bound(
+        &self,
+        second_order_support_axes: Option<usize>,
+    ) -> Result<Option<usize>, MathError> {
+        if !self.is_flat_arithmetic() {
+            return Ok(None);
+        }
+        let overflow = || MathError::Limit("arithmetic analysis extent");
+        let add = |a: usize, b: usize| a.checked_add(b).ok_or_else(overflow);
+        let mul = |a: usize, b: usize| a.checked_mul(b).ok_or_else(overflow);
+        let slots = add(add(self.slots, self.inputs)?, self.outputs.len())?;
+        // Compact stage/source copies, formal/slot maps, selected-output sets,
+        // parameters/symbol maps and scalar numeric/reachability maps coexist.
+        let source = mul(self.retained_bytes(), 4)?;
+        let traversal = mul(mul(slots, 8)?, 256)?;
+        let support = if let Some(axes) = second_order_support_axes {
+            if axes > self.inputs {
+                return Err(MathError::Contract(
+                    "analysis support coordinate extent".into(),
+                ));
+            }
+            let width = add(add(1, axes)?, mul(axes, axes)?)?;
+            let population = mul(mul(slots, width)?, 4)?;
+            mul(population.min(self.remaining_occurrences), 256)?
+        } else {
+            0
+        };
+        Ok(Some(add(add(add(source, traversal)?, support)?, 4096)?))
+    }
+    /// Initial construction reservation for compiling every output at all input axes
+    /// through the actual requested order, including its lower-order products.
     /// The runtime owner reserves positive optimized payload excess before allocation.
     /// Control/provider lowering retains its separately admitted opaque allowance.
     pub fn arithmetic_compilation_allocation_bound(
         &self,
+        requested: DerivativeOrder,
         limits: EvaluationLimits,
     ) -> Result<Option<usize>, MathError> {
         if !self.is_flat_arithmetic() {
@@ -1363,7 +1396,11 @@ impl PreparedBody {
         let overflow = || MathError::Limit("arithmetic compilation extent");
         let add = |a: usize, b: usize| a.checked_add(b).ok_or_else(overflow);
         let mul = |a: usize, b: usize| a.checked_mul(b).ok_or_else(overflow);
-        let n = self.inputs;
+        let n = if requested > DerivativeOrder::Value {
+            self.inputs
+        } else {
+            0
+        };
         let mut numeric = 0usize;
         let mut instructions = 0usize;
         let mut descriptors = 0usize;
@@ -1372,6 +1409,9 @@ impl PreparedBody {
             DerivativeOrder::First,
             DerivativeOrder::Second,
         ] {
+            if order > requested {
+                break;
+            }
             let first = if order >= DerivativeOrder::First {
                 n
             } else {
@@ -1437,7 +1477,12 @@ impl PreparedBody {
         // and worker/output buffers. Use it only as a checked upper alternative to
         // the source population, never as the initial construction demand.
         numeric = numeric.min(limits.scratch_bytes);
-        let support_width = add(add(1, n)?, mul(n, n)?)?;
+        let second = if requested >= DerivativeOrder::Second {
+            mul(n, n)?
+        } else {
+            0
+        };
+        let support_width = add(add(1, n)?, second)?;
         let support_population = mul(
             mul(
                 add(add(self.slots, self.inputs)?, self.outputs.len())?,
@@ -4202,16 +4247,19 @@ mod compact_tests {
             provider_calls: 1_000_000,
         };
         let bound = body
-            .arithmetic_compilation_allocation_bound(reference)
+            .arithmetic_compilation_allocation_bound(DerivativeOrder::Second, reference)
             .unwrap()
             .unwrap();
         assert!(bound < 1 << 20);
         assert_eq!(
             bound,
-            body.arithmetic_compilation_allocation_bound(EvaluationLimits {
-                scratch_bytes: 16usize << 30,
-                ..reference
-            })
+            body.arithmetic_compilation_allocation_bound(
+                DerivativeOrder::Second,
+                EvaluationLimits {
+                    scratch_bytes: 16usize << 30,
+                    ..reference
+                }
+            )
             .unwrap()
             .unwrap()
         );
@@ -4230,11 +4278,92 @@ mod compact_tests {
         // it does not turn an ordinary arithmetic body into an opaque provider.
         let guarded = analytic_body(4096);
         let guarded_bound = guarded
-            .arithmetic_compilation_allocation_bound(reference)
+            .arithmetic_compilation_allocation_bound(DerivativeOrder::Second, reference)
             .unwrap()
             .unwrap();
         let guarded_program = compiled(&guarded, &[X, Y], DerivativeOrder::First);
         assert!(guarded_program.retained_bytes() + guarded_program.worker_bytes() < guarded_bound);
+    }
+
+    #[test]
+    fn arithmetic_constructor_demand_preserves_requested_order_for_wide_rates() {
+        crate::initialize().unwrap();
+        let parameter = library::formal(256).unwrap();
+        let expressions = (0..128)
+            .map(|i| library::formal(i).unwrap() - &parameter)
+            .collect();
+        let body = PreparedBody::new(
+            257,
+            385,
+            (257..385).collect(),
+            vec![Stage::Block {
+                expressions,
+                outputs: (257..385).collect(),
+                source: SemanticId::NIL,
+            }],
+            DerivativeOrder::Second,
+        )
+        .unwrap();
+        let limits = EvaluationLimits {
+            scratch_bytes: 4usize << 30,
+            derivative_components: 1_000_000,
+            operations: 100_000_000,
+            provider_calls: 1_000_000,
+        };
+        let bound = |order| {
+            body.arithmetic_compilation_allocation_bound(order, limits)
+                .unwrap()
+                .unwrap()
+        };
+        let value = bound(DerivativeOrder::Value);
+        let first = bound(DerivativeOrder::First);
+        let second = bound(DerivativeOrder::Second);
+        let analysis = body
+            .arithmetic_analysis_allocation_bound(None)
+            .unwrap()
+            .unwrap();
+        let affine = body
+            .arithmetic_analysis_allocation_bound(Some(128))
+            .unwrap()
+            .unwrap();
+        assert!(analysis < 8 << 20, "analysis {analysis}");
+        assert!(analysis < first && analysis < affine && affine < second);
+        assert!(
+            value < first && first < second,
+            "value {value}, first {first}, second {second}"
+        );
+        assert!(first < 8usize << 30, "first {first}");
+        assert!(second > 8usize << 30, "second {second}");
+        // First-order preparation remains first order and evaluates every residual
+        // and requested derivative; the smaller reservation removes no science.
+        let program = body
+            .compile(
+                &(0..128).collect::<Vec<_>>(),
+                &(0..257).collect::<Vec<_>>(),
+                DerivativeOrder::First,
+                Optimization::default(),
+                limits,
+                &Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        assert_eq!(program.compiled_order(), DerivativeOrder::First);
+        assert!(program.retained_bytes() + program.worker_bytes() < first);
+        let mut inputs = vec![3.; 257];
+        inputs[256] = 2.;
+        let result = eval(&mut program.worker(), &inputs, DerivativeOrder::First).unwrap();
+        assert_eq!(result.values, vec![1.; 128]);
+        for row in 0..128 {
+            for coordinate in 0..257 {
+                let expected = if coordinate == row {
+                    1.
+                } else if coordinate == 256 {
+                    -1.
+                } else {
+                    0.
+                };
+                assert_eq!(result.jacobian[row * 257 + coordinate], expected);
+            }
+        }
     }
 
     #[test]
@@ -4291,7 +4420,7 @@ mod compact_tests {
         // All 128 parameters are required value inputs, but x is the only
         // derivative coordinate. The unselected owner must remain distinct.
         assert!(
-            body.arithmetic_compilation_allocation_bound(limits)
+            body.arithmetic_compilation_allocation_bound(DerivativeOrder::Second, limits)
                 .unwrap()
                 .unwrap()
                 > 8 << 20
@@ -4405,7 +4534,7 @@ mod compact_tests {
         assert!(directional_bound < first_bound);
         assert!(first_bound < second_bound);
         let body_bound = body
-            .arithmetic_compilation_allocation_bound(limits)
+            .arithmetic_compilation_allocation_bound(DerivativeOrder::Second, limits)
             .unwrap()
             .unwrap();
         assert!(
@@ -4732,6 +4861,22 @@ mod compact_tests {
             DerivativeOrder::Value,
         )
         .unwrap();
+        for order in [
+            DerivativeOrder::Value,
+            DerivativeOrder::First,
+            DerivativeOrder::Second,
+        ] {
+            assert!(
+                body.arithmetic_compilation_allocation_bound(order, EvaluationLimits::default())
+                    .unwrap()
+                    .is_none()
+            );
+        }
+        assert!(
+            body.arithmetic_analysis_allocation_bound(None)
+                .unwrap()
+                .is_none()
+        );
         let product = body
             .prepare_support(
                 &[0],

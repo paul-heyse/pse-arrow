@@ -332,6 +332,7 @@ class Plan30RoutingTests(unittest.TestCase):
                 {
                     test_run.RUST_OBSERVER: "1",
                     "PSE_TEST_EXECUTION_PROFILE": "exclusive-observer",
+                    "PSE_SURREAL_STATE": str(self.root / "state"),
                     "PSE_NATIVE_PROVENANCE": str(self.provenance),
                     "PSE_WORKER_BINARY": str(self.worker),
                 },
@@ -348,8 +349,19 @@ class Plan30RoutingTests(unittest.TestCase):
                 side_effect=AssertionError("child built or queried metadata"),
             ),
             patch.object(test_run, "run_rust", return_value=7) as run,
+            patch.object(
+                native_tests,
+                "observer_execution",
+                return_value={"profile": "exclusive-observer", "scope": "admitted"},
+            ) as observed,
         ):
             self.assertEqual(test_run.observer_child(execution), 7)
+        self.assertEqual(observed.call_count, 1)
+        self.assertEqual(observed.call_args.args[0], run.call_args.kwargs["env"])
+        self.assertEqual(
+            json.loads(self.provenance.read_text())["execution"],
+            observed.return_value,
+        )
         self.assertIn("--binaries-metadata", run.call_args.args[0])
         self.assertEqual(run.call_args.args[0].count("--no-fail-fast"), 1)
         self.assertEqual(

@@ -8,10 +8,47 @@ import argparse
 import os
 import socket
 import subprocess
+import sys
 import tempfile
+from contextlib import nullcontext
 from pathlib import Path
 
 from scripts import surreal_server as server
+from scripts.tests import canonical_recovery_science as science
+
+
+def science_command(state: Path, inputs: Path, receipt: Path, phase: str) -> list[str]:
+    return [
+        sys.executable,
+        "-m",
+        "scripts.tests.canonical_recovery_science",
+        "--state",
+        str(state),
+        "--inputs",
+        str(inputs),
+        "--receipt",
+        str(receipt),
+        "--phase",
+        phase,
+    ]
+
+
+def refuse_old_credentials(state: Path, credentials: dict[str, object]) -> None:
+    config = server.config_for(state)
+    with server.lifecycle_reservation(state):
+        server.private_offline_state(state, config)
+        current = server.read_json(state / "credentials.json")
+        if current == credentials:
+            raise server.SupervisorError("Restore retained original root credentials")
+        server.maintenance_query(state, config, current, "LET $value=true;")
+        try:
+            server.maintenance_query(state, config, credentials, "LET $value=true;")
+        except server.SupervisorError:
+            server.maintenance_query(state, config, current, "LET $value=true;")
+            return
+    raise server.SupervisorError(
+        "Original root credentials admitted on restored backend"
+    )
 
 
 def profile_arguments(profile_state: Path | None) -> list[str]:
@@ -148,19 +185,42 @@ def verify_server_placement(
         )
 
 
-def journey(binary: Path, profile_state: Path | None = None) -> None:
+def journey(
+    binary: Path,
+    profile_state: Path | None = None,
+    *,
+    scientific: bool = False,
+    output_directory: Path | None = None,
+) -> None:
     profile_args = profile_arguments(profile_state)
     selected = None
     if profile_state is not None:
         selected = server.config_for(profile_state.resolve())
+    if scientific and (
+        selected is None or selected.get("resources") != server.reference_resources()
+    ):
+        raise server.SupervisorError(
+            "Scientific recovery requires an explicit original plan28-reference profile"
+        )
     root = (
         Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state")))
         / "pse-arrow/fixtures"
     )
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
-    with tempfile.TemporaryDirectory(prefix="canonical-recovery-", dir=root) as scratch:
+    if output_directory is not None:
+        output_directory = output_directory.resolve()
+        output_directory.mkdir(parents=True, mode=0o700, exist_ok=False)
+    retained = (
+        nullcontext(str(output_directory))
+        if output_directory is not None
+        else tempfile.TemporaryDirectory(prefix="canonical-recovery-", dir=root)
+    )
+    with retained as scratch:
         directory = Path(scratch)
         state, restored = directory / "live", directory / "restored"
+        inputs, receipt = directory / "authored", directory / "science.json"
+        input_hashes = science.prepare_inputs(inputs) if scientific else None
+        intent = directory / "creation-intent.json"
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
             port = probe.getsockname()[1]
@@ -216,7 +276,15 @@ def journey(binary: Path, profile_state: Path | None = None) -> None:
                         "Started recovery server has no populated owned cgroup"
                     )
                 verify_server_placement(state, allocation, group)
-            subprocess.run([*command, str(state), "--seed"], check=True, timeout=120)
+            subprocess.run(
+                [*command, str(state), "--seed", "--creation-intent", str(intent)],
+                check=True,
+                timeout=120,
+            )
+            if scientific:
+                subprocess.run(
+                    science_command(state, inputs, receipt, "seed"), check=True
+                )
             with server.state_lock(state):
                 server.stop(state, config, abrupt=True)
                 if reference:
@@ -275,6 +343,11 @@ def journey(binary: Path, profile_state: Path | None = None) -> None:
                             "Started recovery server has no populated owned cgroup"
                         )
                     verify_server_placement(state, expected, group)
+                if scientific:
+                    subprocess.run(
+                        science_command(state, inputs, receipt, "reopen"), check=True
+                    )
+                with server.state_lock(state):
                     config["accepting_writes"] = False
                     config["admission"] = "quiesced"
                     server.write_json(state / "config.json", config)
@@ -303,6 +376,9 @@ def journey(binary: Path, profile_state: Path | None = None) -> None:
                 raise server.SupervisorError(
                     "Offline restore changed the selected allocation or receiver"
                 )
+            refuse_old_credentials(
+                restored, server.read_json(state / "credentials.json")
+            )
             try:
                 server.validate(
                     restored,
@@ -323,6 +399,51 @@ def journey(binary: Path, profile_state: Path | None = None) -> None:
                             "Restored recovery server has no populated owned cgroup"
                         )
                     verify_server_placement(restored, restored_allocation, group)
+                subprocess.run(
+                    [
+                        *command,
+                        str(restored),
+                        "--creation-intent",
+                        str(intent),
+                        "--check-creation",
+                    ],
+                    check=True,
+                    timeout=120,
+                )
+                if scientific:
+                    subprocess.run(
+                        science_command(restored, inputs, receipt, "restored"),
+                        check=True,
+                    )
+                    server.stop(restored, restored_config)
+                    preserved = directory / "preserved"
+                    initializer = science_command(
+                        restored, preserved / "inputs", receipt, "rebuild"
+                    )
+                    server.rebuild(restored, inputs, preserved, initializer)
+                    if not (
+                        server.input_inventory(inputs)
+                        == input_hashes
+                        == server.input_inventory(preserved / "inputs")
+                    ):
+                        raise server.SupervisorError(
+                            "Scientific authored/physical inputs changed during rebuild"
+                        )
+                    restored_config = server.config_for(restored)
+                    if restored_config["resources"] != original_allocation:
+                        raise server.SupervisorError(
+                            "Scientific rebuild changed the reference allocation"
+                        )
+                    server.start(restored, restored_config)
+                    subprocess.run(
+                        science_command(
+                            restored,
+                            preserved / "inputs",
+                            receipt.with_suffix(".rebuilt.json"),
+                            "verify-rebuild",
+                        ),
+                        check=True,
+                    )
             finally:
                 server.stop(restored, restored_config)
         finally:
@@ -334,7 +455,12 @@ def journey(binary: Path, profile_state: Path | None = None) -> None:
             if reference
             else "positive offline lower/original server-cap reconfiguration and kernel caps, "
         )
-        + "protected historical source/product, exact bits, large staging and gated offline restore at the original profile passed"
+        + "protected historical source/product, exact bits, large staging, stale credentials/creation-intent refusal and fresh creation after gated offline restore at the original profile passed"
+        + (
+            "; local public-API authored/physical reconstruction, native Ipopt solve/checks and exact retained scientific reopen passed"
+            if scientific
+            else ""
+        )
     )
 
 
@@ -342,12 +468,27 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", type=Path)
     parser.add_argument(
+        "--directory",
+        type=Path,
+        help="Retain explicit inputs, backup, source/result identity receipts and stopped disposable profiles in a fresh directory.",
+    )
+    parser.add_argument(
+        "--scientific",
+        action="store_true",
+        help="Also rebuild/import/reopen explicit authored and physical documents and run native Ipopt with original scientific checks; requires the original reference profile and linked Python.",
+    )
+    parser.add_argument(
         "--profile-state",
         type=Path,
         help="Copy released server, allocation and configured reference receiver. Exact reference tests reduced-profile recovery refusal; numeric profiles exercise positive lower/original-cap reconfiguration.",
     )
     args = parser.parse_args()
-    journey(args.binary, args.profile_state)
+    journey(
+        args.binary,
+        args.profile_state,
+        scientific=args.scientific,
+        output_directory=args.directory,
+    )
 
 
 if __name__ == "__main__":

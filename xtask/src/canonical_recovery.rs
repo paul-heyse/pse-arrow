@@ -12,6 +12,60 @@ use pse_operations::{
 };
 use std::{path::Path, sync::Arc, time::Duration};
 
+/// Retain an unissued, sealed request outside the backup, then replay it through
+/// the public creation API on the restored physical store. Authority is checked
+/// before the creation window, so an expired request cannot mask this refusal.
+pub(crate) async fn creation_authority(state: &Path, intent: &Path, seed: bool) -> Result<()> {
+    use pse_operations::canonical_analyses::seal_analysis_request;
+    let store = CanonicalStore::connect(&CanonicalOptions::from_state(state)?).await?;
+    store.open().await?;
+    let revision = store
+        .revision(FIRST)
+        .await?
+        .context("creation source missing")?;
+    let mut fresh = store
+        .new_analysis(
+            &revision,
+            "recovery-authority.v1",
+            vec![],
+            "empty".into(),
+            0,
+            0,
+        )
+        .await?;
+    seal_analysis_request(&mut fresh, std::slice::from_ref(&revision), &[], &[], &[]);
+    if seed {
+        let native = pse_operations::generated::surreal::encode_canonical_analyses(&fresh)?;
+        std::fs::write(intent, serde_json::to_vec(&native)?)?;
+    } else {
+        let stale = pse_operations::generated::surreal::decode_canonical_analyses(
+            serde_json::from_slice(&std::fs::read(intent)?)?,
+        )?;
+        ensure!(
+            stale.primary_authority != fresh.primary_authority,
+            "restored physical creation authority was not rotated"
+        );
+        let refused = store
+            .persist_analysis(&stale, std::slice::from_ref(&revision), &[], &[], &[])
+            .await;
+        let error = refused
+            .err()
+            .context("stale physical creation intent was accepted")?;
+        ensure!(
+            format!("{error:?}").contains("analysis primary authority unavailable"),
+            "stale creation refused for a different reason: {error}"
+        );
+        let admitted = store
+            .persist_analysis(&fresh, &[revision], &[], &[], &[])
+            .await?;
+        ensure!(
+            admitted.active,
+            "fresh physical creation authority did not activate"
+        );
+    }
+    Ok(())
+}
+
 const PROBLEM: &str = "native-recovery-control";
 const FIRST: &str = "native-recovery-first";
 const SECOND: &str = "native-recovery-second";
@@ -196,4 +250,40 @@ pub(crate) async fn run(state: &Path, seed: bool) -> Result<()> {
         );
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recovery_creation_intent_retains_exact_native_codec_fields() -> Result<()> {
+        let intent = pse_operations::canonical_analyses::Analysis {
+            key: "pse.analysis.v2:original-authority:nonce:123456".into(),
+            revision: FIRST.into(),
+            method: "recovery-authority.v1".into(),
+            configuration: vec![0, 255, 1].into(),
+            input_digest: "empty".into(),
+            primary_problem: PROBLEM.into(),
+            primary_authority: "original-authority".into(),
+            creation_nonce: "exact-original-nonce".into(),
+            creation_request_digest: "sealed-original-request".into(),
+            creation_expires_at: 123456,
+            interpretation: INTERPRETATION.into(),
+            node_count: 0,
+            edge_count: 0,
+            active: false,
+            retiring: false,
+        };
+        let native = pse_operations::generated::surreal::encode_canonical_analyses(&intent)?;
+        let bytes = serde_json::to_vec(&native)?;
+        let decoded = pse_operations::generated::surreal::decode_canonical_analyses(
+            serde_json::from_slice(&bytes)?,
+        )?;
+        ensure!(
+            decoded == intent,
+            "saved creation intent was reconstructed differently"
+        );
+        Ok(())
+    }
 }

@@ -121,6 +121,11 @@ test targets, or the explicit native selection, then repeats unchanged/private/A
 edits three times by default. `--screen` omits edits and cannot establish total edit
 feedback latency. `--workflow` creates an isolated Python environment and measures
 extension → compiled stubs → native units repeatedly; those units execute.
+When the selected native units consume the canonical store, select its serving profile and
+the existing scientific workload allocation in the launch environment. `PSE_REQUIRE_STORE=1`
+keeps that selected service available during admission, equivalent to `pse-env --store`.
+For example, the Plan 28 wide workflow uses `PSE_SURREAL_STATE`, `PSE_WORKER_BINARY`,
+`PSE_RESOURCE_CLASS=exclusive` and `PSE_MEMORY_MAX=144G` outside a workload owner.
 `--execute` repeats compiler/relations library tests with explicit force-validation.
 `--cold-cache` uses an empty compiler cache owned by that campaign. Source downloads
 and native installations remain separately cached. Candidate profile overrides live
@@ -137,6 +142,16 @@ and shutdown. Inspect Cargo's timing HTML for the critical path;
 summed compilation durations are not wall time. The cold run is a screening sample;
 replicate leading candidates before claiming a cold speedup. Other active builds and
 source changes make a run diagnostic. No linker comparison is included.
+
+`bench-builds` starts a pinned Python observer outside the workload allocation. Its
+workload, including source snapshots and compiler-only builds, enters the existing
+`pse-env` supervisor. With `--native` or `--workflow`, `complete-operation.json`
+separately records launch/admission, selected native setup, the measurement child
+and authenticated final scope drain. It includes initial setup and drain in the
+complete-operation wall time; Cargo and target-operation durations keep their
+original narrower boundaries. A missing or unverified drain fails the measurement.
+An invocation already inside a native owner remains explicitly target-only because
+its earlier setup and later drain cannot be observed from that child.
 
 Keep each checkout's `target/` and at most one temporary campaign. Run
 `just build-storage` before large campaigns. Below the configured
