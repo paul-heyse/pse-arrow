@@ -738,7 +738,9 @@ class SurrealMcpTests(unittest.TestCase):
                 "effective_limits",
                 return_value=(server.GIB, len(profile.cores)),
             ),
-            patch.object(server, "role_affinity_ready", return_value=True),
+            patch.object(
+                server, "observed_role_affinity", return_value=True
+            ) as affinity,
             patch.object(
                 server, "group_for_slice", return_value=Path("/sys/fs/cgroup/pse.slice")
             ),
@@ -748,6 +750,14 @@ class SurrealMcpTests(unittest.TestCase):
             self.assertTrue(
                 server.owns_listener(self.state, config, deadline=self.deadline)
             )
+            affinity.assert_called_once_with(
+                process["pid"], {"cpu_threads": len(profile.cores)}, list(profile.cores)
+            )
+            affinity.return_value = False
+            self.assertFalse(
+                server.owns_listener(self.state, config, deadline=self.deadline)
+            )
+            affinity.return_value = True
             for field in ("start", "instance_id", "allocation"):
                 previous = process[field]
                 process[field] = "different"

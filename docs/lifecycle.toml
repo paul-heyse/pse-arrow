@@ -652,11 +652,13 @@ headers = [
   "Package",
   "Prerequisite and delivered capability",
   "Completion boundary",
+  "Progress",
 ]
 kind = "packet"
 id_column = 0
 status_profile = "packet"
 id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
 
 [[exceptions]]
 path = "docs/plans/28j-pure-preparation-and-publication.md"
@@ -687,11 +689,13 @@ headers = [
   "Package",
   "Delivered behavior and prerequisites",
   "Completion boundary",
+  "Progress",
 ]
 kind = "packet"
 id_column = 0
 status_profile = "packet"
 id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
 
 [[exceptions]]
 path = "docs/plans/28k-graph-kernels-and-hashing-investigations.md"
@@ -1023,6 +1027,66 @@ status_column = 3
 
 [[scope_tables]]
 path = "docs/plans/34-unified-state-management-and-persistence.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding",
+  "Scenario",
+  "Disposition",
+  "Decision/work owner",
+  "Evidence or completion condition",
+]
+kind = "finding"
+id_column = 0
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[exceptions]]
+path = "docs/plans/35-surrealdb-lifecycle-and-integration-remediation.md"
+[exceptions.values]
+doc_owner = "docs/plans/35-surrealdb-lifecycle-and-integration-remediation.md"
+
+[[exceptions]]
+path = "docs/design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md"
+[exceptions.values]
+doc_owner = "docs/plans/35-surrealdb-lifecycle-and-integration-remediation.md"
+doc_retention = "while-dependent"
+
+[[scope_tables]]
+path = "docs/plans/35-surrealdb-lifecycle-and-integration-remediation.md"
+name = "implementation-packets-and-dependencies"
+heading = "Implementation packets and dependencies"
+headers = [
+  "Packet",
+  "Required input",
+  "Delivery and targeted acceptance",
+  "Progress",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/35-surrealdb-lifecycle-and-integration-remediation.md"
+name = "bounded-investigation-packets"
+heading = "Bounded investigation packets"
+headers = [
+  "Packet",
+  "Question, evidence and decision boundary",
+  "Integration and acceptance",
+  "Progress",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[-]?[0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/35-surrealdb-lifecycle-and-integration-remediation.md"
 name = "finding-dispositions"
 heading = "Finding dispositions"
 headers = [

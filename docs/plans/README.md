@@ -11,13 +11,20 @@ owns acceptance and handoff. The [documentation guide](../dev/documentation.md#m
 provides metadata and aggregate-scope commands across concurrent plans while preserving their
 native status owners and existing substantive authoring guidance.
 
+[Plan 35: SurrealDB lifecycle and integration remediation](35-surrealdb-lifecycle-and-integration-remediation.md)
+owns the subsequent SurrealDB review's six findings, eight capability inquiries, accepted
+RC01/RC02 and affected qualification. Its [checkpoint](35-surrealdb-lifecycle-and-integration-remediation.md#current-checkpoint)
+distinguishes the authored target from production implementation. Its
+[coordination route](35-surrealdb-lifecycle-and-integration-remediation.md#existing-plan-coordination)
+supplies affected prerequisites to Plan 28 without acquiring that plan's campaign.
+
 [Plan 28: SurrealDB unified simulation substrate](28-surrealdb-unified-substrate.md) owns the
 confirmed hard-pivot target, accepted rule changes and US01–US05/EF01–EF08/F01–F05/PE01–PE06/PA01–PA04 dispositions.
 Its [completion-audit reconciliation](28-surrealdb-unified-substrate.md#completion-audit-reconciliation-and-capability-decisions)
 links the current corrective route and SurrealDB capability research.
 The [current checkpoint](28-surrealdb-unified-substrate.md#current-checkpoint) owns the
-authorized full remaining implementation and E3/E4/E5 campaign. It supersedes the
-interrupted and failure-only handoffs.
+remaining implementation and E3/E4/E5 campaign. Consult it and 28e for the latest review
+pivot and conditional continuation route rather than an earlier restart instruction.
 The [repository-wide efficiency extension](28-surrealdb-unified-substrate.md#repository-wide-efficiency-extension)
 now schedules PE01–PE06 and comparable defects across current functionality.
 The [remaining-design enhancement integration](28-surrealdb-unified-substrate.md#remaining-design-enhancement-integration)
@@ -92,7 +99,7 @@ investigation decisions. Its
 [Outcome](34-unified-state-management-and-persistence.md#outcome-recorded-after-implementation)
 owns affected Rust/native/Python acceptance, actual scientific restart/restore/rebuild,
 scope-end checks and qualification limits. Enduring contracts belong to the architecture and
-substrate guide. The highest-numbered plan is retained under ADR-0096; it is not active work.
+substrate guide. Its retained handoff serves active readers; it is not active work.
 Its [coordination handoff](34-unified-state-management-and-persistence.md#existing-plan-coordination-and-qualification-handoff)
 supplies prerequisites to Plan 28 without closing that plan's separately owned E3/E4/E5 campaign.
 

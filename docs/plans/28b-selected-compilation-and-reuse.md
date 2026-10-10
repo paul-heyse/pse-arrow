@@ -467,13 +467,13 @@ scoped evidence retains its original conditions and does not close Plan 28.
 
 Selected sufficient preparation, qualified portable reconstruction, exact immutable basis reuse, indexed description settlement and retained supplier topology are implemented. Complete authored checking remains the selected contract; changed demands, providers, layouts and current attribution retain their owners. Strict current-artifact qualification remains optional.
 
-The maintainer authorized all remaining Plan 28 scope including the full campaign.
-The [coordinator](28-surrealdb-unified-substrate.md#current-checkpoint) owns finding
+The [coordinator](28-surrealdb-unified-substrate.md#current-checkpoint) owns existing finding
 dispositions and [28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
-owns current integration, E3/E4/E5 and retirement. Earlier pause/failure-only instructions
-are superseded. Next: complete bounded campaign preparation and required consumer
-reconciliation, then assembled acceptance; do not restart these implemented mechanisms
-from historical status prose.
+owns the current campaign checkpoint, affected prerequisites and conditional continuation.
+The subsequent SurrealDB review has its separate corrective owner in
+[Plan 35](35-surrealdb-lifecycle-and-integration-remediation.md#existing-plan-coordination).
+Follow those owners before selecting another campaign action; the older unconditional
+continuation instruction is superseded. Do not reopen implemented mechanisms from historical prose.
 
 ## Outcome (recorded after implementation)
 

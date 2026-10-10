@@ -286,7 +286,8 @@ selected persistent realization or reason to retain current portable reconstruct
 and receiving/recovery obligations, and any contingent rule changes. Without a concrete useful
 product and complete compatibility/dependency argument, do not schedule a persisted runtime.
 
-**U01 result, 2026-10-09 — bounded unresolved encoding premise, with dependent work identified.**
+**Initial U01 inquiry result, 2026-10-09 — bounded unresolved V1 encoding premise, with dependent work identified.**
+This records the investigation before the selected V2 followup; current disposition is linked below.
 The compiler's flow nodes are actual instance IDs, ports are admitted member IDs, and quantities
 and units come from the admitted physical context. Root instances reuse declaration IDs;
 nested instances and members use the modeling-member derivation. Typed wrappers therefore do
@@ -306,7 +307,17 @@ sole-fingerprint graph equivalence or cross-call semantic cache is implemented.*
 evidence is either a compiler-supported equal-stream counterexample with affected consumers,
 or an encoding/identity-universe argument covering node/port grouping and all collections.
 If changed framing is selected, RC04 requires a new version and decision route; N12 proceeds
-independently. The coordinator retains U01 as an open premise, not a fourth demonstrated defect.
+independently. At this inquiry's boundary, the coordinator retained U01 as an open premise,
+not a fourth demonstrated defect.
+
+**Current disposition — resolved for V2 sequence framing, 2026-10-09:** the
+[coordinator's Graph/hash U01 row](28-surrealdb-unified-substrate.md#graph-and-hashing-finding-dispositions)
+owns the resolution. New FlowProjectionV2 admission explicitly tags and counts each collection
+and parent boundary; the [followup Outcome](#followup-verification-and-outcome-2026-10-09)
+records independent golden-preimage, low-level parent-repartition and affected native/runtime
+controls. This does not establish an authored/compiler-supported V1 scientific collision or
+sole-key physical-registry equivalence. Full graph/current-context checks remain required,
+and V1 history retains its original interpretation.
 
 Source: [flow admission/equality](https://github.com/paul-heyse/pse-arrow/blob/46545b2ad3e2999b4335692ac49af6091438c3fc/crates/pse-structural/src/flowsheet.rs),
 [compiler flow construction](https://github.com/paul-heyse/pse-arrow/blob/46545b2ad3e2999b4335692ac49af6091438c3fc/crates/pse-compiler/src/workspace/modeling/flow.rs),
@@ -379,9 +390,14 @@ qualified at their consumers. Licenses are not technical rejection reasons.
 | Package | Input and readiness | Completion product | Progress |
 |---|---|---|---|
 | GH1 | Current named graph consumers and B8 design. | Retain current flow/study/analysis owners; B8 petgraph supplier retention has a concrete repeated-work premise. | Completed; B8/N13 followups implemented with scoped evidence below. |
-| GH2 | Actual interner/basis/body keys and exact library sources/features. | Retain hashing; local Fx/foldhash comparison has a bounded reopen condition, separate from durable identity. | Completed source/interface inquiry; no adoption or measurement. |
+| GH2 | Actual interner/basis/body keys and exact library sources/features. | Retain durable hashing; selected local interner/prehash/key reuse preserves complete equality. | Completed source/interface inquiry and selected local followups; scoped acceptance and bounded measurements are recorded in the followup Outcome. |
 | GH3 | N0 catalog owner plus canonical dependency and checker paths. | Retain complete domains/backdating; identify upstream authored checking and prerequisites for narrowing. | Completed; conclusion integrated at N0. |
-| GH4 | Supported flow construction/consumers and GH2/GH3 boundaries. | U01 gap has owner/settling evidence/blocked consumers; retain qualified portable reconstruction. | Completed bounded inquiry; U01 remains an open premise. |
+| GH4 | Supported flow construction/consumers and GH2/GH3 boundaries. | Selected V2 framing resolves sequence segmentation; retain full graph/context checks and qualified portable reconstruction. | Completed bounded inquiry and selected V2 followup; coordinator owns the resolved V2 U01 disposition; scoped evidence is recorded below. |
+
+Package progress reconciled on 2026-10-10 includes the selected followups. The initial inquiry
+and its original V1 uncertainty remain historical evidence; they do not reopen the V2 decision.
+[28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step) owns the open
+assembled E3/E4/E5 qualification.
 
 GH1/GH2 and GH3's source inquiry may proceed independently. U01 source analysis is an early
 GH4 slice; persistent adoption depends on the complete meaning supplied by GH2/GH3. J3/N12
@@ -476,13 +492,13 @@ scoped evidence retains its original conditions and does not close Plan 28.
 
 Retained supplier topology, fresh registrations, sorted flow-policy lookup, FlowProjectionV2 and local interner/prehash/key reuse are implemented with scoped acceptance in the followup Outcome. Plan 33/EFF06 completed the actual numerical-fact correction and fresh PC-SAFT preparation smoke; EI04 retains complete authored checking. Those are completed decisions, not new investigation backlogs. RC02 durable hash replacement and RC03 persisted runtime remain unselected.
 
-The maintainer authorized all remaining Plan 28 scope including the full campaign.
-The [coordinator](28-surrealdb-unified-substrate.md#current-checkpoint) owns finding
+The [coordinator](28-surrealdb-unified-substrate.md#current-checkpoint) owns existing finding
 dispositions and [28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
-owns current integration, E3/E4/E5 and retirement. Earlier pause/failure-only instructions
-are superseded. Next: complete bounded campaign preparation and required consumer
-reconciliation, then assembled acceptance; do not restart these implemented mechanisms
-from historical status prose.
+owns the current campaign checkpoint, affected prerequisites and conditional continuation.
+The subsequent SurrealDB review has its separate corrective owner in
+[Plan 35](35-surrealdb-lifecycle-and-integration-remediation.md#existing-plan-coordination).
+Follow those owners before selecting another campaign action; the older unconditional
+continuation instruction is superseded. Do not reopen implemented mechanisms from historical prose.
 
 ## Investigation Outcome — 2026-10-09
 

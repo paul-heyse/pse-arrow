@@ -341,11 +341,12 @@ claim when no comparable historical baseline exists.
 ## Checkpoint
 
 Current execution handoff, 2026-10-10: implemented source mechanisms and scoped controls
-below retain their limits. The maintainer authorized remaining Plan 28 including full E3/E4/E5;
-[28e's checkpoint](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
-supersedes older readiness/pause instructions. N4/T5/L4 source reconciliation is implemented;
-composed acceptance remains open. Next complete bounded campaign preparation and actual consumer
-qualification, rather than reopening implemented mechanisms. Plan 33 is complete and separate.
+below retain their limits. [28e's checkpoint](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
+owns the campaign's current action and conditional continuation, including affected
+[Plan 35 prerequisites](35-surrealdb-lifecycle-and-integration-remediation.md#existing-plan-coordination).
+N4/T5/L4 source reconciliation is implemented; composed acceptance remains open. Follow the
+owning checkpoint rather than an earlier unconditional launch instruction or reopening
+implemented mechanisms. Plans 33 and 35 keep their separate scopes.
 
 I0/I1/I2 own receiving-runtime validity and interruption. Actual worker and imported-Python
 roots now mint local admission through completion-owned scoped jobs with the original finite
@@ -395,7 +396,7 @@ recipes share the operation owner. Manual helpers and long-lived server installa
 their distinct full-verification and supervision contracts.
 
 L2's unchanged installation path uses actual Cargo-owned HiGHS archive/header association before
-nested build discovery. Its narrower relevant input closure is being integrated with L3's common
+nested build discovery. Its narrower relevant input closure is integrated with L3's common
 producer capture rather than another dependency inventory. L3 uses external versioned deployment
 receipts: current actual unit-DAG/dep-info qualification finalizes the selected input key, then
 post-build/import association binds actual role bytes. No current consumer needs that key

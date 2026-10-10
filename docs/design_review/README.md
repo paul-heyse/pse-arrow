@@ -15,6 +15,15 @@ findings have one disposition owner in the relevant plan. A review stays here wh
 or a pending decision depends on it and then retires to Git history (ADR-0096); retained ADRs
 cite retired reviews as `git:<commit>:<path>`.
 
+The [SurrealDB capabilities, lifecycle and integrations review](reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md)
+examines the implementation after Plan 34, the interrupted campaign's readiness and drain
+failures, active and persisted state, and capabilities of the pinned database and its
+integrations. It distinguishes confirmed defects, contrary evidence and proposed library
+opportunities. [Plan 35](../plans/35-surrealdb-lifecycle-and-integration-remediation.md)
+owns their corrective target, finding dispositions and bounded capability inquiries;
+RC01/RC02 were explicitly accepted during plan creation. Document adoption does not establish
+implementation or change Plan 28's separately owned campaign qualification.
+
 The [unified state-management and persistence review](reviews/design_review_unified-state-management-and-persistence_2026-10-10.md)
 assesses active memory, caches, identification, canonical SurrealDB operations and host/native
 lifecycles together, including the recent campaign failures. Its Revise verdict identifies

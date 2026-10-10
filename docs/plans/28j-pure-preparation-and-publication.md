@@ -194,7 +194,7 @@ There is no schema, persisted frame or Python API change.
 
 | Package | Prerequisites and migration | Completion boundary | Progress |
 |---|---|---|---|
-| J3 — Indexed description settlement | Working J1/J2/B7; update compiler portable-view construction, runtime basis description attachment and every settlement caller together. | Canonical inventory and exact indexed access replace per-use map construction and nested description searches; current effects and owned storage remain. | Implemented; targeted compiler/native-runtime controls passed; affected journey status is owned by 28e. |
+| J3 — Indexed description settlement | Working J1/J2/B7; update compiler portable-view construction, runtime basis description attachment and every settlement caller together. | Canonical inventory and exact indexed access replace per-use map construction and nested description searches; current effects and owned storage remain. | Completed bounded implementation; Implemented indexed settlement; targeted compiler/native-runtime controls passed; affected journey status is owned by 28e. |
 
 Extend focused compiler/runtime controls for primary/original inventory overlap, reordered
 bodies, partial/empty descriptions, many distinct warm bodies and changed read/dependencies.
@@ -251,11 +251,17 @@ permission, durable identity or an alternative equality contract.
 
 ## Packages, integration and retirement
 
-| Package | Delivered behavior and prerequisites | Completion boundary |
-|---|---|---|
-| J0 — Basis/effect decision | Investigations above; existing witnesses, selected admission and canonical recovery contracts. | Complete identity, attribution and description contract; effects cannot be skipped by memo reuse; required rule amendments are identified. |
-| J1 — Pure computation and explicit effects | J0 and required decision/design route; existing selected acquisition/reconstruction primitives plus any early B7 interface slice, and A5's working admission/settlement slice. Completed B7 migration is not a prerequisite. | Tracked preparation performs no host/store/publication work; hit and miss paths expose required descriptions and execute current effects; old effectful retention callbacks and their displaced callers are removed. |
-| J2 — Complete preparation retention | Working J1 and J0's substitutable basis. 28i eligibility is required only where receiving reuse consumes it. | Existing bounded owners retain immutable basis and encoded material, bind fresh attribution/values, preserve clear/eviction/escaped aliases and transient refusal; no second generic cache or mutable cross-attempt state. |
+| Package | Delivered behavior and prerequisites | Completion boundary | Progress |
+|---|---|---|---|
+| J0 — Basis/effect decision | Investigations above; existing witnesses, selected admission and canonical recovery contracts. | Complete identity, attribution and description contract; effects cannot be skipped by memo reuse; required rule amendments are identified. | Completed; Implemented complete exact basis identity, fresh attribution and explicit current-effect contract recorded in the Outcome. |
+| J1 — Pure computation and explicit effects | J0 and required decision/design route; existing selected acquisition/reconstruction primitives plus any early B7 interface slice, and A5's working admission/settlement slice. Completed B7 migration is not a prerequisite. | Tracked preparation performs no host/store/publication work; hit and miss paths expose required descriptions and execute current effects; old effectful retention callbacks and their displaced callers are removed. | Completed bounded implementation; Implemented pure preparation with current acquisition/publication on hits and misses; displaced callbacks removed; scoped controls linked in the Outcome. |
+| J2 — Complete preparation retention | Working J1 and J0's substitutable basis. 28i eligibility is required only where receiving reuse consumes it. | Existing bounded owners retain immutable basis and encoded material, bind fresh attribution/values, preserve clear/eviction/escaped aliases and transient refusal; no second generic cache or mutable cross-attempt state. | Completed bounded implementation; Implemented owned complete-basis/encoded-material retention with fresh binding and generation fences; scoped controls linked in the Outcome. |
+
+J0–J3 progress reconciled on 2026-10-10 from implemented source and retained scoped evidence
+in the [Outcome](#outcome) and [J3 checkpoint](#implementation-checkpoint--2026-10-09).
+These package completions do not close the enclosing plan;
+[28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step) owns the open
+assembled E3/E4/E5 qualification.
 
 28b/B7 adopts J1/J2 at selected preparation and persisted reconstruction; 28a/A5 supplies
 canonical description admission. 28c/C8 moves ephemeral frontiers, durable ready candidates
@@ -322,13 +328,13 @@ scoped evidence retains its original conditions and does not close Plan 28.
 
 Complete exact immutable preparation with fresh attribution, explicit current protected publication, retained encoded descriptions and indexed exact settlement are implemented. A5/B7/C8/N11/H integrations have scoped evidence. Full authored checking and exact revision/frontier reuse remain selected; no global persistent Salsa accelerator is selected.
 
-The maintainer authorized all remaining Plan 28 scope including the full campaign.
-The [coordinator](28-surrealdb-unified-substrate.md#current-checkpoint) owns finding
+The [coordinator](28-surrealdb-unified-substrate.md#current-checkpoint) owns existing finding
 dispositions and [28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
-owns current integration, E3/E4/E5 and retirement. Earlier pause/failure-only instructions
-are superseded. Next: complete bounded campaign preparation and required consumer
-reconciliation, then assembled acceptance; do not restart these implemented mechanisms
-from historical status prose.
+owns the current campaign checkpoint, affected prerequisites and conditional continuation.
+The subsequent SurrealDB review has its separate corrective owner in
+[Plan 35](35-surrealdb-lifecycle-and-integration-remediation.md#existing-plan-coordination).
+Follow those owners before selecting another campaign action; the older unconditional
+continuation instruction is superseded. Do not reopen implemented mechanisms from historical prose.
 
 ## Outcome
 

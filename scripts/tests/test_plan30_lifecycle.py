@@ -73,7 +73,9 @@ class Plan30LifecycleTests(unittest.TestCase):
         manager = patch.object(
             server,
             "systemctl",
-            return_value=subprocess.CompletedProcess([], 0, "inactive\n", ""),
+            return_value=subprocess.CompletedProcess(
+                [], 0, "ActiveState=inactive\nControlGroup=\n", ""
+            ),
         )
         manager.start()
         self.addCleanup(manager.stop)
@@ -476,7 +478,9 @@ class Plan30LifecycleTests(unittest.TestCase):
             patch.object(
                 server, "group_for_slice", return_value=cgroups / "pse.slice"
             ) as ancestry,
-            patch.object(server, "role_affinity_ready", return_value=True) as affinity,
+            patch.object(
+                server, "observed_role_affinity", return_value=True
+            ) as affinity,
             patch.object(
                 server,
                 "execution_slice",
@@ -486,6 +490,9 @@ class Plan30LifecycleTests(unittest.TestCase):
             assert server.owns_listener(self.state, self.config)
             ancestry.assert_called_with("pse.slice")
             assert affinity.call_args.args[2] == list(profile.cores)
+            affinity.return_value = False
+            assert not server.owns_listener(self.state, self.config)
+            affinity.return_value = True
             (storage / "cpu.max").write_text("max 100000")
             assert not server.owns_listener(self.state, self.config)
             (storage / "cpu.max").write_text("800000 100000")
@@ -614,6 +621,15 @@ class Plan30LifecycleTests(unittest.TestCase):
             patch.object(server, "service_allocation", return_value=owner) as admit,
             patch.object(host_admission, "enforce_parent"),
             patch.object(server, "materialize_service") as materialize,
+            patch.object(
+                server,
+                "service_readiness",
+                side_effect=[
+                    server.Readiness.ACTIONABLE_ABSENT,
+                    server.Readiness.ACTIONABLE_ABSENT,
+                    server.Readiness.STARTING,
+                ],
+            ),
             patch.object(server, "listener_ready", return_value=True),
             patch.object(server, "establish_protocol_readiness"),
         ):
@@ -906,12 +922,32 @@ class Plan30LifecycleTests(unittest.TestCase):
     def test_lifecycle_blocks_receiver_reservation_without_clock_leak(self) -> None:
         context = self.context()
         previous = getattr(startup_clock, "deadline", None)
-        with (
-            server.lifecycle_reservation(self.state),
-            pytest.raises(server.SupervisorError, match="lifecycle"),
-        ):
-            server.ensure_primary(self.state, database="case")
+        deadline = time.monotonic() + 0.05
+        with patch.object(startup_clock, "deadline", deadline, create=True):
+            with (
+                server.lifecycle_reservation(self.state),
+                patch.object(
+                    server, "wait_reservation", wraps=server.wait_reservation
+                ) as join,
+                patch.object(server, "_ensure_primary") as admit,
+            ):
+                owner = server.read_json(self.state / "lifecycle-owner.json")
+                with pytest.raises(
+                    server.SupervisorError, match="original admission clock"
+                ):
+                    server.ensure_primary(self.state, database="case")
+                join.assert_called_once_with(
+                    self.state,
+                    self.state / "lifecycle-owner.json",
+                    owner["nonce"],
+                    deadline,
+                )
+                assert deadline <= time.monotonic() < deadline + 1
+                admit.assert_not_called()
+                assert server.read_json(self.state / "lifecycle-owner.json") == owner
+                assert startup_clock.deadline == deadline
         assert not ((context / "primary-admission.json").exists())
+        assert not (self.state / "lifecycle-owner.json").exists()
         assert (getattr(startup_clock, "deadline", None)) == (previous)
 
     def test_explicit_readmit_adds_selection_secret_and_preserves_credentials(
@@ -1227,6 +1263,15 @@ class Plan30LifecycleTests(unittest.TestCase):
             patch.object(server, "service_allocation", return_value=owner),
             patch.object(host_admission, "enforce_parent"),
             patch.object(server, "materialize_service"),
+            patch.object(
+                server,
+                "service_readiness",
+                side_effect=[
+                    server.Readiness.ACTIONABLE_ABSENT,
+                    server.Readiness.ACTIONABLE_ABSENT,
+                    server.Readiness.STARTING,
+                ],
+            ),
             patch.object(server, "listener_ready", return_value=True),
             patch.object(
                 server, "establish_protocol_readiness", side_effect=readiness
@@ -1299,6 +1344,15 @@ class Plan30LifecycleTests(unittest.TestCase):
                     patch.object(server, "service_allocation", return_value=owner),
                     patch.object(host_admission, "enforce_parent"),
                     patch.object(server, "materialize_service"),
+                    patch.object(
+                        server,
+                        "service_readiness",
+                        side_effect=[
+                            server.Readiness.ACTIONABLE_ABSENT,
+                            server.Readiness.ACTIONABLE_ABSENT,
+                            server.Readiness.STARTING,
+                        ],
+                    ),
                     patch.object(server, "listener_ready", return_value=True),
                     patch.object(server, "protocol_ready", return_value=False),
                     patch.object(
@@ -1318,6 +1372,11 @@ class Plan30LifecycleTests(unittest.TestCase):
                 assert current["admission"] == admission
                 assert owner.release.call_count == int(failure == "launch")
                 with (
+                    patch.object(
+                        server,
+                        "service_readiness",
+                        return_value=server.Readiness.STARTING,
+                    ),
                     patch.object(server, "active", return_value=True),
                     patch.object(server, "listener_ready", return_value=True),
                     patch.object(server, "protocol_ready", return_value=False),
@@ -1346,6 +1405,11 @@ class Plan30LifecycleTests(unittest.TestCase):
                 # A surviving partial lifetime resumes through readiness, without
                 # obtaining a second owner or issuing another systemd launch.
                 with (
+                    patch.object(
+                        server,
+                        "service_readiness",
+                        return_value=server.Readiness.STARTING,
+                    ),
                     patch.object(server, "active", return_value=True),
                     patch.object(server, "listener_ready", return_value=True),
                     patch.object(server, "protocol_ready", return_value=False),
@@ -1391,7 +1455,13 @@ class Plan30LifecycleTests(unittest.TestCase):
             *_args: object, **_kwargs: object
         ) -> subprocess.CompletedProcess[str]:
             assert not (held)
-            return subprocess.CompletedProcess([], 0, "inactive\n", "")
+            return subprocess.CompletedProcess(
+                [], 0, "ActiveState=inactive\nControlGroup=\n", ""
+            )
+
+        def readiness(*_args: object, **_kwargs: object) -> server.Readiness:
+            assert not held
+            return server.Readiness.READY
 
         child = MagicMock()
         child.poll.return_value = None
@@ -1406,7 +1476,7 @@ class Plan30LifecycleTests(unittest.TestCase):
             patch.object(server, "systemctl", side_effect=outside),
             patch.object(server, "settled_worker", return_value=idle),
             patch.object(server, "ensure_execution_placement", side_effect=outside),
-            patch.object(server, "ready", return_value=True),
+            patch.object(server, "service_readiness", side_effect=readiness),
             patch.object(server, "worker_scope_command", return_value=["true"]),
             patch.object(server, "worker_environment", return_value={}),
             patch.object(server, "worker_observation", return_value=active),

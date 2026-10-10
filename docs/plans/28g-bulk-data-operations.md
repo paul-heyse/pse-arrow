@@ -262,11 +262,12 @@ do not impose bit-identical independently solved scientific outcomes.
 ## Checkpoint
 
 Current execution handoff, 2026-10-10: implemented source mechanisms and scoped controls
-below retain their limits. The maintainer authorized remaining Plan 28 including full E3/E4/E5;
-[28e's checkpoint](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
-supersedes older readiness/pause instructions. N4/T5/L4 source reconciliation is implemented;
-composed acceptance remains open. Next complete bounded campaign preparation and actual consumer
-qualification, rather than reopening implemented mechanisms. Plan 33 is complete and separate.
+below retain their limits. [28e's checkpoint](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
+owns the campaign's current action and conditional continuation, including affected
+[Plan 35 prerequisites](35-surrealdb-lifecycle-and-integration-remediation.md#existing-plan-coordination).
+N4/T5/L4 source reconciliation is implemented; composed acceptance remains open. Follow the
+owning checkpoint rather than an earlier unconditional launch instruction or reopening
+implemented mechanisms. Plans 33 and 35 keep their separate scopes.
 
 A4 attributed the observed conflict to same-owner staging and selected pacing of the
 single bounded staging RPC, retaining native global guards and exact stage/readback identity.

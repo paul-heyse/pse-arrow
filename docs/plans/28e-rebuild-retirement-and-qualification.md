@@ -354,7 +354,7 @@ in the Outcome rather than accumulating per-command checkpoint logs.
 
 ### E4 measurements after positive E3
 
-Retain all 33 explicitly selected process/preparation/admission selectors and extend measurement coverage where
+Execute all 37 explicitly selected process/preparation/admission selectors, including the four growth/edit controls below; extend measurement coverage where
 the confirmed new consumer scope is not exercised by them. Run the applicable selectors through
 `just case-measure <new-output> --functional-from <qualified-assessment>` with explicit
 `--case` selections and their current
@@ -711,7 +711,7 @@ historical HTTP/2 failure's root cause. Solver stopping budgets are unchanged.
 | Package | Prerequisite and delivered behavior | Completion boundary | Status |
 |---|---|---|---|
 | E1 — Controlled target regeneration | R0; A2 schema/selection and B1 admission slice. Replace storage-specific fixture setup, regenerate scientific source corpus and run configurations; add recipe-owned target DB setup. | Target inputs are admitted with exact interpretation; old test setup does not silently start PG/Delta. No migration importer or compatibility fixture service remains. | Implemented; focused declaration/schema and linked scientific/generated consumers passed. |
-| E2 — Retirement and build locality | Joins each migrated A/B/C/D consumer as it becomes ready; tooling corrections can begin after R0 independently. Remove displaced crates/codegen/dependencies/recipes and implement scoped native setup/unchanged generation. | All target consumers work; remaining dependency consumers are explicit and justified; replaced mechanisms/tests/fixtures are gone. This does not postpone package-local deletions. | Implemented; focused native and linked consumers passed; earlier runtime/worker producer qualification is scoped; current replacement artifact association and installed Python admission remain. |
+| E2 — Retirement and build locality | Joins each migrated A/B/C/D consumer as it becomes ready; tooling corrections can begin after R0 independently. Remove displaced crates/codegen/dependencies/recipes and implement scoped native setup/unchanged generation. | All target consumers work; remaining dependency consumers are explicit and justified; replaced mechanisms/tests/fixtures are gone. This does not postpone package-local deletions. | Implemented; focused native and linked consumers passed. Current development Rust/Python acceptance is selected by E3; optional strict producer association is outside this campaign. |
 | E3 — Assembled correctness and recovery | All functional A/B/C/D and adopted N/T/L scope, including [parallel readiness](#parallel-extension-acceptance-and-campaign-restart), N4/T5/L4 reconciliation, B4's bounded decision and E1/E2 integration complete. Run one selected static/integration/scientific campaign against regenerated target. | Zero failures in named required scope; explain unsupported scientific/provider limits, repaired composite runs and actual crash/durability conditions. | Attempted; interrupted/nonqualifying; expanded functional handoff precedes fresh E3. |
 | E4 — Preparation, build and operation measurement | E3 for scientifically comparable runtime measurements; targeted build instrumentation can be prepared earlier. Execute selected scientific and pivot efficiency measurements under recorded conditions. | Report measured scope and limitations without invented speedup thresholds or comparison to incomparable receipts. | Scheduled |
 | E5 — Assembled review and closure | E3/E4. Conduct the binding's bounded assembled design assessment, reconcile finding owners and migrate enduring meaning through the decision/design route. | Demonstrated architectural/scientific scope has owners; qualification is published honestly; plans/reviews retire only when their references have moved. | Completion audit delivered Revise; final assembled acceptance/closure pending. |
@@ -765,9 +765,29 @@ generic search/MCP work needs a concrete new requirement; it is not hidden accep
 
 ## Checkpoint and next step
 
-The maintainer resumed the full remaining Plan 28 execution on 2026-10-10. Earlier pause,
-failed-identity-only and sequential correction instructions are superseded by this checkpoint.
-The starting tree is clean `91dc7fdf142442d56d89a9fd97f173a3b5633bb7`; historical attempts and
+The latest maintainer instruction interrupted the campaign and pivoted to the
+[SurrealDB review](../design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md).
+[Plan 35](35-surrealdb-lifecycle-and-integration-remediation.md#existing-plan-coordination)
+owns its corrective scope separately. The campaign remains stopped. The sequence below is
+a conditional continuation route, not an instruction to relaunch during plan authoring.
+After later authorization, consume the applicable Plan 35 lifecycle/clock, storage composition,
+diagnostic, read-coordination and terminal-study slices wherever a covering invocation uses
+those contracts. Shared matching evidence may serve both owners; an unrelated inquiry does
+not become a blanket campaign gate.
+
+The latest attempted `plan28-e3-unified-state-qualified-20261010` setup capture recorded
+754 tests, eight failures and three errors against baseline zero; the enclosing campaign
+was interrupted with exit 130. The review distinguishes ten source-supported stale-fixture
+explanations from one unresolved nested-observer drain failure. The two existing fixture
+edits remain unvalidated. The review's isolated cancellation pass and lock-clock
+counterexample retain their narrower scope and do not qualify E3. Future failure evidence
+must retain the decisive owned-lifecycle observation rather than infer a leak from Boolean
+drain refusal. This checkpoint owns the campaign's current status; the review retains the
+original observations.
+
+The earlier full remaining Plan 28 execution authorization on 2026-10-10 superseded
+failed-identity-only and sequential correction instructions. Its starting tree was
+`991fcea1984ea9cca0f281f050c87fad067a1431`; historical attempts and
 scoped corrected results retain their original Outcomes and cannot qualify the final tree.
 
 [Plan 34](34-unified-state-management-and-persistence.md) independently owns the new
@@ -793,14 +813,40 @@ has not established E3 completion. Its cancellation, conformance, caller-drop an
 failures inform Plan 34's corrections; the source review retains its original observation date
 and incomplete-capture scope. Reconcile final assessment receipts before selecting a relaunch.
 
+All nine exact identities have subsequent passing Plan 34 receipts in the shared invocation
+owner: `445f26fed65c49a686dc4db449704d52` covers derivative scope, fatal-fixture drain,
+slot reuse and the original conditional-reference fixture; `11df74a1da444a0aa236f3289742b367`
+covers cancellation and sixteen-worker results; `ffe2835a31e14e08a24b7809d45942d1` covers
+generic documents and expired claims; `67e6859036c04325837bab4c71e65b0b` covers cross-process
+SCIP cancellation. Their XML hashes match retained terminal artifacts. The conditional
+fixture passed in 108.787 seconds with its unchanged 4 GiB inner pool and scientific
+assertions; the enclosing twenty-case invocation was a repaired composite, not a clean pass.
+That narrower feature/context evidence does not replace the fresh full-native E3 campaign.
+
+**Tested, original conditional-reference control, 2026-10-10:**
+`PSE_SURREAL_STATE=<reference-state> PSE_WORKER_BINARY=target/debug/pse-worker
+PSE_MEMORY_MAX=140G scripts/pse-env --resource-class reference
+--native=solver,klu,isolation,uno,petsc -- just native-test --profile local -p pse-runtime
+-E 'test(conditional_unit_reference_request_declares_original_inventories_and_root_refusal)'`
+passed one selected test, zero failed, 781 skipped in 52.560 seconds (Nextest
+`342dfb0a-f3e0-4f67-8372-ff0e95ef145e`; baseline zero). The selected reference service was
+explicitly resumed before invocation. The fixture retains its original 4 GiB pool,
+inventories and refusal oracle; this pass does not establish the historical failure's sole
+cause or enclosing E3 acceptance. Full command output is retained at
+`build/plan28-conditional-original-20261010.log`.
+
 1. Reconcile live plan/index/command instructions before implementation. Implemented packet
    mechanisms remain implemented; N4/T5/L4 and E3–E5 acceptance remain open. Plan 33's completed
    corrections and decisions keep their separate owner.
-2. Complete bounded functional preparation: scientific rebuild/reopen/solve after maintenance;
-   exact-context measurement prerequisite selection/composition; native setup/admission/drain
-   timing in the existing build owner; policy/preflight/trajectory growth and unchanged-byte
-   authored edit/copy controls. Reconcile actual callers and delete displaced mechanisms.
-   Use targeted compilation and functional tests, not integrated suites per packet.
+2. Consume completed functional preparation and Plan 34's exact matching evidence:
+   scientific rebuild/reopen/solve after maintenance, authenticated measurement prerequisite
+   composition, build-owner setup/admission/drain instrumentation, and all four added growth
+   and edit/copy fixtures. These mechanisms are implemented, not a fresh implementation backlog.
+   The nine original failed identities are mapped above; exercise any invalidated controls
+   without treating a narrower receipt as full-native qualification. Refresh the stale wide
+   receiver only through stopped/drained reconfiguration/readmission, preserving state and
+   credentials. Reconcile N4/T5/L4 consumers and delete any proved displaced mechanism.
+   Repairs use targeted compilation and functional tests before integrated qualification.
 3. At functional scope end, run comprehensive development `just assessment`, current
    `just seed-conformance`, pinned `just parity`, actual canonical recovery at the original
    reference allocation, `just hygiene`, governance/docs/native lints and full powerset.

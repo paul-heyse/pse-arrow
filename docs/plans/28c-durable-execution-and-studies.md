@@ -368,13 +368,13 @@ scoped evidence retains its original conditions and does not close Plan 28.
 
 Durable scientific retention, claims/fencing, stored creation cancellation, completion-driven ordinary studies, bounded managed dispatch and pure preparation sharing are implemented. The former local serial assistance path is removed. The original managed thousand-point Python identity later passed in Plan 30; complete composed concurrency, interruption and recovery acceptance remains E3.
 
-The maintainer authorized all remaining Plan 28 scope including the full campaign.
-The [coordinator](28-surrealdb-unified-substrate.md#current-checkpoint) owns finding
+The [coordinator](28-surrealdb-unified-substrate.md#current-checkpoint) owns existing finding
 dispositions and [28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
-owns current integration, E3/E4/E5 and retirement. Earlier pause/failure-only instructions
-are superseded. Next: complete bounded campaign preparation and required consumer
-reconciliation, then assembled acceptance; do not restart these implemented mechanisms
-from historical status prose.
+owns the current campaign checkpoint, affected prerequisites and conditional continuation.
+The subsequent SurrealDB review has its separate corrective owner in
+[Plan 35](35-surrealdb-lifecycle-and-integration-remediation.md#existing-plan-coordination).
+Follow those owners before selecting another campaign action; the older unconditional
+continuation instruction is superseded. Do not reopen implemented mechanisms from historical prose.
 
 ## Outcome (recorded after implementation)
 

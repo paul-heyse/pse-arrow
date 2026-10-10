@@ -10,6 +10,7 @@ exclude = ["SUMMARY.md", "generated/rustdoc/**"]
 current_work = [
   "plans/28*.md",
   "plans/32-workspace-content-lifecycle.md",
+  "plans/35-surrealdb-lifecycle-and-integration-remediation.md",
 ]
 assets = [
   "capability-maps/evidence/identity-vectors-adr0050.json",

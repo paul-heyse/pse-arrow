@@ -356,6 +356,17 @@ silently resolve a finding; update its disposition only with the required correc
 
 ## Existing-plan coordination and qualification handoff
 
+The subsequent [SurrealDB capabilities, lifecycle and integrations review](../design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md)
+has its own corrective owner in [Plan 35](35-surrealdb-lifecycle-and-integration-remediation.md).
+The maintainer accepted that review's RC01/RC02 on 2026-10-10: narrow local read pacing
+while retaining distributed safety, and move native deployment interpretation to composition.
+Plan 35's [rule-change route](35-surrealdb-lifecycle-and-integration-remediation.md#confirmed-rule-changes)
+governs those prospective changes. SI05's retained-pacing decision and mixed-operation
+acceptance below describe the historical implementation; they are not a veto on the new
+target or evidence that it is already implemented. This plan remains completed, with its
+original findings, acceptance and Outcome intact. New review F01–F06 and Q01–Q08 are not
+reopened SM/SI packets. The stopped campaign follows the current 28/28e checkpoints.
+
 Plan 28's functional mechanisms and N4/T5/L4/E3/E4/E5 acceptance stay with their existing
 owners. Plan 34 corrects prerequisites only where those invocations consume the affected
 contracts. In particular, actual recovery consumes SM07 and its SM09 oracle slice; durable

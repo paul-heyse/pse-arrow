@@ -245,7 +245,7 @@ its existing budgets, at which point the bounded two-service comparison applies.
 This is not qualification of full scientific overlap, topology performance or host-crash
 durability.
 
-The selected D3 native/Python failures and assembled handoff are complete through failed-only retries. The unchanged reference allocation and shared-service contention trigger remain; broader Plan 28 campaigns remain paused.
+The selected D3 native/Python failures and assembled handoff are complete through failed-only retries. The unchanged reference allocation and shared-service contention trigger remain. Current Plan 28 campaign action and affected Plan 35 prerequisites belong to [28e's checkpoint](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step); this completed handoff supplies no independent restart or pause instruction.
 
 ## Outcome (recorded after implementation)
 

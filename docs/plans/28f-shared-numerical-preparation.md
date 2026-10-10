@@ -510,7 +510,7 @@ framing.
 | N1 — Ordered projections | PE01 and N0's relevant correspondence decisions. Implement common checked projection mechanics and owner-specific prepared maps. | Migrate policy/quality/goals, preflight, trajectory and all confirmed related consumers together with their maps. Delete displaced repeated joins/helpers and tests specific to removed mechanisms. Check kind/ID collisions, duplicate/missing/refused entries, reordered inventories, fixed composite coordinates and sample alignment. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
 | N2 — Checked preparation reuse | B1/B2 and existing protection/retention; settle complete reusable selected-input identity. | Move durable ready occurrences and every confirmed ordinary/analysis consumer off repeated unchanged hydration/generic admission. Test fresh/reused equivalence, A/B/A, value/structural edits, absence/shadowing/provider changes, protection expiry, eviction and cancelled flights. Remove replaced hydration/admission caches only after callers move. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
 | N3 — Compatible numerical owners | Applicable N0 session/factor/Taylor decisions and working N1/N2 slices where consumed. | Extend actual existing library owners; migrate fitting/profile/shooting/implicit/dynamic consumers selected by N0. Delete superseded factor/workspace construction paths. Check current-point results, changed compatibility, singular/nonfinite recovery, owning-thread drain and released allocations. | Implemented; focused controls passed; enclosing E3/E4 acceptance remains. |
-| N4 — Numerical consumer closure | N1/N2, adopted N3, working C5/N5/N6/N7, and the parallel B6/C6/C7/N8–N10 consumer migration. Reconcile coordinator coverage and every confirmed applicable caller. | Every confirmed variant uses the shared target or has a reasoned distinct contract. Exercise a new analysis composition and changed provider/layout to show where customization belongs; hand functional scope to E3/E4. | N1–N10 source reconciliation integrated, including explicit conservative variants below; final targeted/live controls and assembled E3/E4 pending. |
+| N4 — Numerical consumer closure | N1/N2, adopted N3, working C5/N5/N6/N7, and the parallel B6/C6/C7/N8–N10 consumer migration. Reconcile coordinator coverage and every confirmed applicable caller. | Every confirmed variant uses the shared target or has a reasoned distinct contract. Exercise a new analysis composition and changed provider/layout to show where customization belongs; hand functional scope to E3/E4. | N0–N14 source reconciliation integrated, including explicit conservative variants below and Plan 34's scoped preparation/allocation acceptance; composed E3/E4 acceptance pending. |
 
 N1 and N2 are independent after their own inputs are settled. Library investigations need
 not delay the established projection correction. A native owner can migrate incrementally,
@@ -546,11 +546,12 @@ overhead separately. No speedup, full conformance or completed implementation is
 ## Checkpoint
 
 Current execution handoff, 2026-10-10: implemented source mechanisms and scoped controls
-below retain their limits. The maintainer authorized remaining Plan 28 including full E3/E4/E5;
-[28e's checkpoint](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
-supersedes older readiness/pause instructions. N4/T5/L4 source reconciliation is implemented;
-composed acceptance remains open. Next complete bounded campaign preparation and actual consumer
-qualification, rather than reopening implemented mechanisms. Plan 33 is complete and separate.
+below retain their limits. [28e's checkpoint](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
+owns the campaign's current action and conditional continuation, including affected
+[Plan 35 prerequisites](35-surrealdb-lifecycle-and-integration-remediation.md#existing-plan-coordination).
+N4/T5/L4 source reconciliation is implemented; composed acceptance remains open. Follow the
+owning checkpoint rather than an earlier unconditional launch instruction or reopening
+implemented mechanisms. Plans 33 and 35 keep their separate scopes.
 
 N11 is implemented through the common exact B7 basis consumed by ordinary, dynamic-mode
 and fit-experiment preparation. Bounds, fixed/free layout, profiles and mutable numerical

@@ -761,13 +761,23 @@ mechanism, and justified distinct contracts and conditional retained-design deci
 
 ## Current checkpoint
 
-Execution resumed by the maintainer on 2026-10-10 for the entirety of remaining Plan 28,
-including the required development/scientific E3 campaign, all selected E4 measurements,
-and E5 independent assembled review and closure. This supersedes the former pause and
-failure-only continuation instructions. The inspected starting tree is clean
-`91dc7fdf142442d56d89a9fd97f173a3b5633bb7`.
+The maintainer subsequently interrupted the campaign and pivoted to the
+[SurrealDB lifecycle and integration review](../design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md).
+[Plan 35](35-surrealdb-lifecycle-and-integration-remediation.md#existing-plan-coordination)
+now owns that review's corrective target, accepted RC01/RC02 and capability inquiries as a
+distinct scope. The campaign remains stopped; authoring Plan 35 does not authorize its
+restart. Before a later authorized continuation, consume the affected implemented and
+verified prerequisites through [28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step).
+Neither all unrelated Plan 35 inquiries nor its whole-plan completion is an automatic
+prerequisite to every Plan 28 operation. E3/E4/E5 and N4/T5/L4 acceptance remain here.
 
-A–D, N1–N13, T0–T7, L0–L7, I0–I2 and J0–J3 mechanisms and the selected graph/hash
+The earlier execution authorization on 2026-10-10 covered the entirety of remaining Plan 28,
+including the required development/scientific E3 campaign, all selected E4 measurements,
+and E5 independent assembled review and closure. Its historical scope superseded the former
+failure-only instructions; the later review pivot governs the next action. Its starting tree was
+`991fcea1984ea9cca0f281f050c87fad067a1431` (Plan 34 implemented).
+
+A–D, N0–N14, T0–T7, L0–L7, I0–I2 and J0–J3 mechanisms and the selected graph/hash
 followups are implemented with scoped evidence in their companion Outcomes. Their package
 completion does not establish enclosing qualification. N4/T5/L4 require composed consumer
 acceptance; E3/E4/E5 remain open. The original managed thousand-point Python identity passed
@@ -787,11 +797,14 @@ now supply integrated corrections and actual native/Python/recovery evidence. Re
 exact source/profile/tool closure before relaunching invalidated covering invocations;
 these scoped passes do not establish E3/E4/E5 or transfer their ownership.
 
-First reconcile stale live execution instructions and packet statuses. Then finish bounded
-campaign preparation: scientific rebuild/restore acceptance, profile-matching measurement
-prerequisites, setup/admission/drain timing at the build-measurement owner, and missing
-policy/preflight/trajectory and unchanged-byte edit measurements. Preserve conservative
-numerical/provider variants and standalone one-shot fitting/shooting contracts.
+First reconcile stale live execution instructions and packet statuses. Scientific
+rebuild/restore acceptance, profile-matching prerequisite composition, build-owner
+setup/admission/drain instrumentation, and policy/preflight/trajectory and unchanged-byte
+edit fixtures are implemented with scoped evidence. Consume matching Plan 34 evidence,
+reconcile the nine exact passing failed-identity receipts at 28e, check any invalidated
+controls, and refresh the stale wide receiver through stopped/drained readmission.
+Actual campaign measurements remain outstanding. Preserve conservative numerical/provider
+variants and standalone one-shot fitting/shooting contracts.
 
 Root owns shared declarations, generators, runner selection, finding dispositions and final
 integration. Bounded workers own disjoint consumer changes and targeted checks. Confirm E1/E2
@@ -803,7 +816,7 @@ campaign sequence and coverage. Run comprehensive assessment once after function
 including its ordinary/managed Rust and Python partitions, current conformance, external parity,
 actual recovery, hygiene/manual checks and full powerset. Keep the exact reference160 capacities,
 original production numerical controls, explicit force-validation and zero-failure target.
-E4 runs the explicit 33 selectors plus bounded coverage additions with matching prerequisite
+E4 runs all 37 explicit selectors with matching prerequisite
 reports; measurements retain their actual wide/reference conditions. E5 reconciles all finding
 families, enduring owners, required decision routes and retirement after demonstrated acceptance.
 Optional strict producer qualification, distribution/remote CI and a new first-principles
@@ -824,7 +837,8 @@ mechanisms, including the authorized minimum adjacent consumers. Their
 own focused **Tested** evidence and the remaining acceptance. This is an implementation
 checkpoint, not completed Plan 28 qualification. The subsequent full-series authorization
 has implemented C/D and E1/E2's functional replacements, with focused evidence in their
-companion Outcomes. Current Python deployment association and E3–E5 acceptance remain.
+companion Outcomes. Development qualification does not require optional strict Python
+deployment association; E3–E5 acceptance remains.
 
 ### A mistake made and corrected
 

@@ -154,11 +154,16 @@ the new lifetime; tests specific to a deleted mechanism are retired with that me
 
 ## Packages, dependencies and verification
 
-| Package | Prerequisite and delivered capability | Completion boundary |
-|---|---|---|
-| I0 — Receiving premise decision | Current source and existing platform evidence; bounded investigation above. | Supported roots, actual lifetime/mutation behavior and explicit unsupported cases; consequential U01 gaps constrain only dependent reuse. |
-| I1 — Protected validity integration | I0's established profile plus required decision/design route; 28j receiving/effect contract. | Actual receiving roots and sequential consumers use the protected owner; changed/unknown contexts refuse safely; displaced applicable assurance callers and mechanism are removed. |
-| I2 — Observation interruption | Existing stop/job/resource contracts and I0's selected ownership. Integrate with I1 and 28c/28h consumers. | Capture/wait/reconstruction stops, follower isolation, leader settlement and real drain/accounting controls; no obsolete wait protocol remains. |
+| Package | Prerequisite and delivered capability | Completion boundary | Progress |
+|---|---|---|---|
+| I0 — Receiving premise decision | Current source and existing platform evidence; bounded investigation above. | Supported roots, actual lifetime/mutation behavior and explicit unsupported cases; consequential U01 gaps constrain only dependent reuse. | Completed for controlled worker/imported-Python roots; Implemented premise decision and explicit unqualified cases recorded in the Outcome. |
+| I1 — Protected validity integration | I0's established profile plus required decision/design route; 28j receiving/effect contract. | Actual receiving roots and sequential consumers use the protected owner; changed/unknown contexts refuse safely; displaced applicable assurance callers and mechanism are removed. | Completed bounded implementation; Implemented trust-transition admission and independent immutable-product use; scoped controls linked in the Outcome. |
+| I2 — Observation interruption | Existing stop/job/resource contracts and I0's selected ownership. Integrate with I1 and 28c/28h consumers. | Capture/wait/reconstruction stops, follower isolation, leader settlement and real drain/accounting controls; no obsolete wait protocol remains. | Completed bounded implementation; Implemented original-clock interruption and completion-owned drain; scoped controls and foreign-wait limits recorded in the Outcome. |
+
+Progress reconciled on 2026-10-10 from the implemented source and retained scoped evidence
+in the [Outcome](#outcome). These package completions do not close the enclosing plan;
+[28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step) owns the open
+assembled E3/E4/E5 qualification.
 
 **Proposed verification:** compile touched packages and use targeted recipe-owned tests with
 explicit force-validation. Existing `pse-buildinfo` `local_runtime_*` controls and runtime
@@ -198,13 +203,13 @@ scoped evidence retains its original conditions and does not close Plan 28.
 
 Controlled worker/imported-Python receiving validity and completion-owned interruptible observation are implemented. The namespace cohort and repeated body-level observation protocol are removed. Preserve original clocks, charged native lifetime through actual join, and checks before/after foreign initialization or loader-lock waits. Unknown contexts retain fresh unqualified execution and historical reads.
 
-The maintainer authorized all remaining Plan 28 scope including the full campaign.
-The [coordinator](28-surrealdb-unified-substrate.md#current-checkpoint) owns finding
+The [coordinator](28-surrealdb-unified-substrate.md#current-checkpoint) owns existing finding
 dispositions and [28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
-owns current integration, E3/E4/E5 and retirement. Earlier pause/failure-only instructions
-are superseded. Next: complete bounded campaign preparation and required consumer
-reconciliation, then assembled acceptance; do not restart these implemented mechanisms
-from historical status prose.
+owns the current campaign checkpoint, affected prerequisites and conditional continuation.
+The subsequent SurrealDB review has its separate corrective owner in
+[Plan 35](35-surrealdb-lifecycle-and-integration-remediation.md#existing-plan-coordination).
+Follow those owners before selecting another campaign action; the older unconditional
+continuation instruction is superseded. Do not reopen implemented mechanisms from historical prose.
 
 ## Outcome
 
