@@ -45,10 +45,10 @@ jobs:
         id: docs-tools
         run: echo "tools=$(python3 -m scripts.docs tool-specs)" >> "$GITHUB_OUTPUT"
       - name: Install documentation tools
-        uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+        uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
         with:
           tool: ${{ steps.docs-tools.outputs.tools }}
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - name: Provision locked docs-only Python dependencies
         run: |
           eval "$(python3 -m scripts.pse_env --docs --print)"
