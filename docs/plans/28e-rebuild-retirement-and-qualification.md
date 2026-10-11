@@ -712,7 +712,7 @@ historical HTTP/2 failure's root cause. Solver stopping budgets are unchanged.
 |---|---|---|---|
 | E1 — Controlled target regeneration | R0; A2 schema/selection and B1 admission slice. Replace storage-specific fixture setup, regenerate scientific source corpus and run configurations; add recipe-owned target DB setup. | Target inputs are admitted with exact interpretation; old test setup does not silently start PG/Delta. No migration importer or compatibility fixture service remains. | Implemented; focused declaration/schema and linked scientific/generated consumers passed. |
 | E2 — Retirement and build locality | Joins each migrated A/B/C/D consumer as it becomes ready; tooling corrections can begin after R0 independently. Remove displaced crates/codegen/dependencies/recipes and implement scoped native setup/unchanged generation. | All target consumers work; remaining dependency consumers are explicit and justified; replaced mechanisms/tests/fixtures are gone. This does not postpone package-local deletions. | Implemented; focused native and linked consumers passed. Current development Rust/Python acceptance is selected by E3; optional strict producer association is outside this campaign. |
-| E3 — Assembled correctness and recovery | All functional A/B/C/D and adopted N/T/L scope, including [parallel readiness](#parallel-extension-acceptance-and-campaign-restart), N4/T5/L4 reconciliation, B4's bounded decision and E1/E2 integration complete. Run one selected static/integration/scientific campaign against regenerated target. | Zero failures in named required scope; explain unsupported scientific/provider limits, repaired composite runs and actual crash/durability conditions. | Attempted; interrupted/nonqualifying; expanded functional handoff precedes fresh E3. |
+| E3 — Assembled correctness and recovery | All functional A/B/C/D and adopted N/T/L scope, including [parallel readiness](#parallel-extension-acceptance-and-campaign-restart), N4/T5/L4 reconciliation, B4's bounded decision and E1/E2 integration complete. Run one selected static/integration/scientific campaign against regenerated target. | Zero failures in named required scope; explain unsupported scientific/provider limits, repaired composite runs and actual crash/durability conditions. | Incomplete; testing stopped at maintainer request on 2026-10-11. Ordinary Rust/Python and managed Python bodies passed; native cleanup failed before its focused repair, managed Rust was blocked, and seed conformance subsequently failed. See the current checkpoint and Outcome. |
 | E4 — Preparation, build and operation measurement | E3 for scientifically comparable runtime measurements; targeted build instrumentation can be prepared earlier. Execute selected scientific and pivot efficiency measurements under recorded conditions. | Report measured scope and limitations without invented speedup thresholds or comparison to incomparable receipts. | Scheduled |
 | E5 — Assembled review and closure | E3/E4. Conduct the binding's bounded assembled design assessment, reconcile finding owners and migrate enduring meaning through the decision/design route. | Demonstrated architectural/scientific scope has owners; qualification is published honestly; plans/reviews retire only when their references have moved. | Completion audit delivered Revise; final assembled acceptance/closure pending. |
 
@@ -767,15 +767,42 @@ generic search/MCP work needs a concrete new requirement; it is not hidden accep
 
 Execution resumed on 2026-10-11 under the maintainer's instruction to implement the
 detailed remaining-scope approach, starting from `e403c66c81f73fbc45f61542df8b7504a87c38eb`.
-The current Nextest edits and separate untracked workspace-test review are preserved.
+Concurrent Nextest and workspace-test-review work is preserved.
+The maintainer subsequently requested cancellation and this documentation handoff.
+Testing is stopped; no further campaign is running. Conformance returned before the
+cancellation signal could be delivered: seed has nine failed and eleven inconclusive
+fixtures, while all six domain fixtures passed. Its failed exit prevented the queued
+feature-powerset, scientific-recovery and repaired comprehensive assessment from starting.
+The enclosing command exited 1. The reference service is quiesced and inactive, with no
+listener, and all service contexts are physically drained. The current
+[validation Outcome](#validation-and-stopped-campaign-2026-10-11) records completed scope
+and the remaining obligations; E3/E4/E5 and N4/T5/L4 acceptance remain open.
+
 The selected reference profile remains stopped and quiesced; its immutable supervisor
 and receiver generations verify, and its worker matches the rebuilt checkout worker.
-All 39 prior positive assessment gates include the now-changed Nextest configuration
-in their recorded inputs, so exact unchanged-input reuse is unavailable on this tree.
-A fresh comprehensive assessment is selected. Its first launch was refused by the
-existing exclusive heavy-work owner before any campaign gate started. Continue independent
-read-only consumer/worktree and measurement-prerequisite reconciliation while waiting
-for ordinary admission; do not override capacity or stop another owner's work.
+A fresh comprehensive assessment was selected. Its initial launch was refused before
+any campaign gate started by the separate nonparkable 48 GiB diagnostic service
+`surreal-review-nextest-20261011` on port 18253. The maintainer authorized stopping it
+after verifying repository ownership and disposing of unneeded state without archival.
+The service is now quiesced, physically drained and stopped; its temporary diagnostic
+state, unit definition and 123 unreferenced fixture records have been removed. No
+qualification result depends on that state. The fresh assessment obtained passing ordinary
+native and both Python test bodies, including both original thousand-point sweeps. A
+test-owned alternate server had already stopped before terminal fixture cleanup, which
+failed the native gate and blocked managed-native execution. Closed-service cleanup now
+returns an explicit deferral without bypassing admission; focused closed/reopened and
+concurrent-close controls pass. The unneeded drained alternate state and unit have also
+been removed without archival. Parity subsequently passed all nine comparisons. The
+closed-service deferral has focused acceptance and independent source review, but its
+repaired composed assessment has not run. On a later continuation, first investigate the
+seed failures and inconclusive fixtures without weakening their original controls, then
+complete feature powerset, scientific recovery and the affected composed qualification.
+The refreshed five-worktree audit found no transplantable unique
+implementation or omitted required caller; all dirty worktree content remains intact.
+The fresh E4 ordinary-wide profile is `surreal-plan28-e4-wide-20261011` on port 18254,
+with the current frozen worker, a 64 GiB pool and nonresident placement. It is stopped
+and quiesced; schema initialization, its matching 144 GiB functional prerequisite and
+measurements have not run. The older wide profile is preserved with its original worker.
 E3/E4/E5 and composed N4/T5/L4 acceptance remain open. The historical continuation
 below retains its original evidence and conditions.
 
@@ -1062,6 +1089,81 @@ subsequent attempted capture. Independently killed observer
 supervisors still require demonstrated drain and may conservatively refuse completion.
 
 ## Outcome (recorded after implementation)
+
+### Validation and stopped campaign 2026-10-11
+
+**Tested, incomplete; baseline zero:**
+`just assessment --output build/plan28-e3-execution-20261011 --python-profile dev --live`
+ran under the selected reference profile's 140 GiB primary allocation, with the original
+128 GiB pool, 16 GiB per-worker capacity, sixteen CPU lanes and thirty-two math jobs.
+The server and managed observer retain their separate 16 GiB and 4 GiB ceilings under
+the 160 GiB parent. Ordinary native execution uses the existing exclusive-observer
+partition, not the 4 GiB managed observer. Commands used
+`scripts/pse-env --native=solver,klu,isolation,uno,petsc --`, the pinned toolchain,
+development artifacts and explicit Arrow force-validation. Nextest used the local
+profile with zero retries. The report records unchanged source during that assessment
+and no provenance errors, but `complete: false`: 41 gates passed, one failed and one
+was blocked. This capture predates the cleanup repair below.
+
+| Executed scope | Actual result against zero failures |
+|---|---|
+| The assessment's 39 preliminary gates | Passed, including 825 setup controls, both Clippy modes, generation checks, type/lint checks, documentation, compilation, producer fixture, feature-absence controls and doctests. These observations retain their original inputs; they do not qualify the later cleanup edit. |
+| Ordinary native Rust | All 3,170 selected tests across 86 binaries passed, including the thousand-occurrence basis controls and 26 governance controls. The enclosing native gate failed during terminal fixture cleanup with `Service context admission is closed`; managed-native was consequently blocked. Eight identities were excluded: four ignored controls and four managed controls routed separately. |
+| Ordinary native Python | All 212 selected tests passed, including `test_flash_sweep_prepares_structure_once[ephemeral-preparation]@canonical-owner` with its original thousand points. |
+| Managed Python | All seven selected tests passed, including the sixteen-owner overlap/cancellation journeys and `test_flash_sweep_prepares_structure_once[managed-durable-science]` with its original thousand points. This does not establish the blocked managed Rust gate. |
+| `scripts/pse-env --resource-class light -- .venv/bin/python -m unittest scripts.tests.test_test_resources -v` | All 50 controls passed after the cleanup repair, including closed/reopened admission and concurrent closure. Independent bounded source review found no material defect; this is not final E5 acceptance. |
+| `scripts/pse-env --resource-class light -- just engine-boundary-check` | Passed with zero findings in the resolved N06 ownership/deletion scope. |
+| `just parity --junitxml=build/plan28-e3-parity-20261011/parity.xml` under the same reference/native environment | Nine passed, zero failures/errors/skips, using Python 3.13 and IDAES 2.13.0. `just py-sync-native dev` then refreshed the checkout's Python 3.14 extension successfully; the generated API stubs remained unchanged. |
+| `just modeling-conformance --manifest packages/reference/conformance.toml --report-dir build/plan28-e3-seed-conformance-execution-20261011` | Failed, exit 1. Seed: 33,509 checks, 118 fixtures, 98 passed, nine failed and eleven inconclusive; `passed: false`, `complete: false`. Domain: 78 checks and all six fixtures passed; complete. The full manifest ran with its original settings and numerical controls. |
+
+The seed Arrow inventory accounts for all 118 fixtures; none has an unattempted status.
+The following is a repair handoff from existing report rows, not an established diagnosis.
+Source paths below are relative to `packages/reference/`.
+
+| Fixture status and source | Named fixtures and observed report condition |
+|---|---|
+| Failed derivatives; `seed-data/models/bt-ideal.pse` | `nested_liquid`, `nested_two_phase`, `nested_vapor`: respectively 8, 10 and 8 suspicious derivative entries under the declared `1e-4` relative tolerance. |
+| Failed derivatives; `campaign/models/pfr-studies.pse`, `seed-data/models/unit-fixtures.pse` | `pfr_mesh_stability_backward`: 120 suspicious entries out of 8,602; `pfr_radau`: 24 out of 1,877, plus start-to-solve coordinate transport overflow/underflow. |
+| Failed closure/start-to-solve; `campaign/models/cstr-dynamics.pse`, `seed-data/models/vessel-fixtures.pse` | `cstr_steady_dynamic_same_definition`: 15 closure failures; `valve_forward`: four. Both report trajectory `TrialRejected`. |
+| Failed closure/qualification; `campaign/models/recycle-flash.pse` | `recycle_flash_failure_restores_specification`: 13 closure and six expectation failures; `recycle_flash_conditional_handoff`: 14 closure failures. Both report qualification `TrialRejected`. |
+| Inconclusive preparation deadline; `campaign/models/pfr-studies.pse` | `pfr_initializers_oracle`, `pfr_mesh_stability_radau`. |
+| Inconclusive preparation deadline; `campaign/models/bt-pr-formulations.pse` | `bt_pr_flash_complementarity`, `bt_pr_flash_nested`. |
+| Inconclusive preparation deadline; `campaign/models/exchanger-costing.pse`, `campaign/models/recycle-flash.pse`, `campaign/models/cstr-dynamics.pse` | `hx_costing_solved_area`, `recycle_flash_converges_from_defaults`, `cstr_simultaneous`. |
+| Inconclusive preparation deadline; `seed-data/models/unit-fixtures.pse` | `heat_exchanger_bt_cocurrent`, `pfr_backward`. Together these nine deadline cases report `Time limit: scientific preparation deadline`; no allowance or deadline was changed. |
+| Inconclusive resource limit; `seed-data/models/bt-ideal.pse` | `initialized_ftpx`: initialization `math.limit (ResourceLimit)`. |
+| Inconclusive derivative evaluation; `campaign/models/flash-campaign.pse` | `measurement_nested`: no completed derivative sample, one rejected evaluation, with provider resource limit `nonlinear selection proof resources`. |
+
+The maintainer requested cancellation while conformance was active. It returned before
+the verified supervisor could be signaled; no signal was delivered to a replacement PID.
+The failed conformance command stopped the sequential shell. Feature powerset,
+`canonical-recovery-test --scientific` and the repaired comprehensive assessment were
+**not run** in this continuation; their planned output directories do not exist. The
+enclosing operation has exited, its children are gone, and the reference service is
+quiesced/inactive with no listener and authentic all-context drain. No tests are left running.
+
+**Implemented; Tested at focused scope:** terminal reconciliation now defers database
+removal explicitly when a test-owned service has already closed admission. It leaves the
+resource record unchanged and preserves admission exclusion, generation/namespace checks,
+reference protection and physical-drain requirements for any later removal. A concurrent
+closure during admission still refuses. The mistaken wrapper failure drove this repair;
+the original failed assessment remains failed, and no successful repaired composite is claimed.
+
+The maintainer authorized removal of unneeded repository-owned diagnostic state without
+archival. The blocking review service and its 123 unreferenced fixtures, plus the drained
+alternate test service, were removed after ownership/drain checks. One dangling enablement
+link for that alternate unit was also removed; the fixed read-only activity observer then
+succeeded with no observation errors. No copies or result archives were created for this disposal.
+
+Remaining scope is dependency-ordered: investigate and repair the nine failed and eleven
+inconclusive seed fixtures; exercise affected controls and complete E3's repaired managed/native
+qualification, full feature powerset and selected scientific recovery. Reuse prior evidence
+only where its declared inputs still match. Then obtain the prepared wide profile's matching
+144 GiB standalone native prerequisite and measure all 37 selected E4 cases in their two
+declared profiles, plus complete build/setup/edit-locality measurements. Those E4 campaigns
+have not run. Finally obtain independent E5 acceptance, reconcile finding dispositions,
+complete the required ADR/design route and enduring qualification owners, and retire only
+eligible documents. No ADR acceptance, final E5 verdict, E4 benefit or Plan 28 completion
+is established by this handoff. Plans 33–35 keep their separate completed scope.
 
 ### Post-Plan-35 diagnostic and corrections — 2026-10-11
 

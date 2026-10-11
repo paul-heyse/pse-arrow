@@ -1,0 +1,7 @@
+# 2026-10-11, host 32 logical CPUs (sha_ni present), Python 3 hashlib (OpenSSL), hot page cache,
+# command: scripts/pse-env --resource-class light -- python3 -I docs/design_review/evidence/efficiency-alignment-codebase-2026-10-11/sha256-pass-time.py target/debug/pse-worker python/pse/_native.abi3.so
+# sizes: target/debug/pse-worker 726,959,592 B; python/pse/_native.abi3.so 785,556,497 B
+pse-worker pass 1 0.387 s
+pse-worker pass 2 0.295 s
+_native.abi3.so pass 1 0.324 s
+_native.abi3.so pass 2 0.317 s

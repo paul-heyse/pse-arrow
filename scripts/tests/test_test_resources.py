@@ -483,6 +483,61 @@ class TestResourceTests(unittest.TestCase):
             self.assertEqual(resources.reclaim(resource), "removed")
             removal.assert_called_once()
 
+    def test_closed_service_defers_cleanup_until_same_generation_reopens(self) -> None:
+        resource = self.register()
+        resources.record_drain(resource)
+        resources.finalize(
+            self.invocation,
+            {"test_module.py::test_assert_after_exit": "pass"},
+            complete=True,
+            terminal_owner="runner",
+        )
+        before = resources.resource_status(resource)
+        with patch.object(resources, "remove_owned") as removal:
+            for admission, accepting in (("quiesced", False), ("open", False)):
+                with self.subTest(admission=admission, accepting=accepting):
+                    self.config.update(admission=admission, accepting_writes=accepting)
+                    self.assertEqual(
+                        resources.reclaim(resource),
+                        "service context admission is closed",
+                    )
+                    self.assertEqual(resources.resource_status(resource), before)
+                    removal.assert_not_called()
+            self.config.update(admission="open", accepting_writes=True)
+            self.assertEqual(resources.reclaim(resource), "removed")
+            removal.assert_called_once()
+
+    def test_service_closing_during_cleanup_admission_still_refuses_removal(
+        self,
+    ) -> None:
+        resource = self.register()
+        resources.record_drain(resource)
+        resources.finalize(
+            self.invocation,
+            {"test_module.py::test_assert_after_exit": "pass"},
+            complete=True,
+            terminal_owner="runner",
+        )
+        before = resources.resource_status(resource)
+        admission = surreal_server.context_admission
+
+        @contextlib.contextmanager
+        def close_before_admission(state: Path) -> Generator[None, None, None]:
+            self.config.update(admission="quiesced", accepting_writes=False)
+            with admission(state):
+                yield
+
+        with (
+            patch.object(surreal_server, "context_admission", close_before_admission),
+            patch.object(resources, "remove_owned") as removal,
+            self.assertRaisesRegex(
+                surreal_server.SupervisorError, "admission is closed"
+            ),
+        ):
+            resources.reclaim(resource)
+        removal.assert_not_called()
+        self.assertEqual(resources.resource_status(resource), before)
+
     def test_reference_acquisition_precedes_read_and_reference_retains_origin(
         self,
     ) -> None:

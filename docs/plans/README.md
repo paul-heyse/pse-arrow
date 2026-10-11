@@ -16,8 +16,8 @@ confirmed hard-pivot target, accepted rule changes and US01–US05/EF01–EF08/F
 Its [completion-audit reconciliation](28-surrealdb-unified-substrate.md#completion-audit-reconciliation-and-capability-decisions)
 links the current corrective route and SurrealDB capability research.
 The [current checkpoint](28-surrealdb-unified-substrate.md#current-checkpoint) owns the
-remaining implementation and E3/E4/E5 campaign. Consult it and 28e for the authorized
-testing continuation after Plan 35 completes rather than an earlier restart instruction.
+remaining implementation and E3/E4/E5 campaign. Consult it and 28e for the stopped-campaign
+validation handoff and any later continuation after Plan 35's completed prerequisites.
 The [repository-wide efficiency extension](28-surrealdb-unified-substrate.md#repository-wide-efficiency-extension)
 now schedules PE01–PE06 and comparable defects across current functionality.
 The [remaining-design enhancement integration](28-surrealdb-unified-substrate.md#remaining-design-enhancement-integration)

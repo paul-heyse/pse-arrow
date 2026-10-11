@@ -1222,6 +1222,12 @@ def reclaim(resource: str) -> str:
     state = Path(snapshot["state"])
     evidence = snapshot["kind"] == "evidence"
     config = None if evidence else surreal_server.config_for(state)
+    if config is not None and (
+        config.get("admission") != "open" or not config.get("accepting_writes")
+    ):
+        # A test-owned service may stop before terminal outcome reconciliation.
+        # Keep removal deferred until the same service admits cleanup again.
+        return "service context admission is closed"
     admission = (
         contextlib.nullcontext()
         if evidence

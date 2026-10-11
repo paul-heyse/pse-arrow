@@ -763,7 +763,22 @@ mechanism, and justified distinct contracts and conditional retained-design deci
 
 ## Current checkpoint
 
-The maintainer subsequently interrupted the campaign and pivoted to the
+On 2026-10-11 the maintainer requested cancellation of the active test run and an updated
+validation handoff. Testing is stopped. The reference operation has exited; its service is
+quiesced/inactive, has no listener, and all service contexts are physically drained.
+[28e's validation Outcome](28e-rebuild-retirement-and-qualification.md#validation-and-stopped-campaign-2026-10-11)
+owns the actual commands, counts, conditions and remaining failures. Ordinary Rust and
+ordinary/managed Python bodies passed, including both original thousand-point Python
+journeys. Terminal fixture cleanup nevertheless failed the native gate and blocked managed
+Rust. Its conservative deferral repair passed focused controls and bounded source review;
+the repaired comprehensive assessment has not run. External parity and domain conformance
+passed; seed conformance failed with incomplete acceptance. The failure ended the sequential
+command before full feature powerset, scientific recovery or the repaired assessment started.
+E4's 37 selected cases, matching wide prerequisite and build/locality measurements remain
+unexecuted, and final E5 review, finding reconciliation, ADR adoption and eligible retirement
+remain open. No further campaign is launched by this handoff.
+
+Earlier, the maintainer interrupted the campaign and pivoted to the
 [SurrealDB lifecycle and integration review](https://github.com/paul-heyse/pse-arrow/blob/313b53ac9dceb770c3254b6a20b3bd7f57e69af7/docs/design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md).
 [Plan 35](35-surrealdb-lifecycle-and-integration-remediation.md#outcome-recorded-after-implementation)
 completed that distinct corrective scope, accepted RC01/RC02 and capability decisions, with
@@ -772,12 +787,12 @@ The maintainer authorized all remaining testing, targeting zero failures, after 
 The post-Plan-35 captures remain diagnostic/incomplete. Corrections passed targeted native
 checks; the subsequent comprehensive attempt exhausted storage during native compilation.
 The maintainer freed storage and committed the integrated corrections at `7c269f4a537cf52770df75a1b4e5a18ff47b9e01`.
-The worker rebuild and frozen deployment refresh subsequently completed. On 2026-10-11
-the maintainer requested shutdown for a host restart. The fresh assessment passed 39 gates
-before cancellation during native test compilation; its enclosing exit was 130. The native
-operation is drained and the selected reference service is quiesced/stopped, with no surviving
-listener/process or reservation. No subagent is running. Database state, frozen inputs and
-the rebuilt checkout target are retained.
+The worker rebuild and frozen deployment refresh subsequently completed. An earlier
+2026-10-11 host-restart interruption passed 39 gates before cancellation during native test
+compilation; its enclosing exit was 130. That historical capture does not replace the later
+validation and stopped-campaign state above. Unneeded repository-owned diagnostic/alternate
+service state was disposed of under explicit maintainer authorization without archival;
+the selected reference/wide inputs and dirty concurrent work remain intact.
 [28e's checkpoint](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
 owns restart preparation, the unfinished E3 suites and scientific/recovery acceptance,
 E4's full 37-selector and build/locality measurements, and independent E5 review.
@@ -816,17 +831,20 @@ evidence. The current selected reference profile is `surreal-plan28-corrections-
 nonresident `plan28-reference`, `pse.substrate.v3`), with the current worker/native extension
 and private frozen receiver closure. Admit its original 140 GiB primary plus 16 GiB server
 and 4 GiB observer envelope, then readmit/start inside that owner. Preserve the original
-production numerical controls. Prepare a fresh ordinary-wide profile only for E4's matching
+production numerical controls. Use the prepared ordinary-wide profile only for E4's matching
 ordinary functional prerequisite and measurements; current reference evidence cannot be
 transferred to a different wide context. No actual E3/E4 completion is claimed yet.
 
 Root owns shared declarations, generators, runner selection, finding dispositions and final
-integration. Bounded workers own disjoint consumer changes and targeted checks. Confirm E1/E2
-regeneration/deletion and N4/T5/L4 caller closure before E3. Existing worktrees must be inspected
-for unique work before integration or removal; preserve concurrent source and resources.
+integration. Bounded workers own disjoint consumer changes and targeted checks. E1/E2
+regeneration/deletion and N4/T5/L4 caller reconciliation have scoped implementation evidence;
+their composed acceptance remains E3–E5. Existing worktrees were audited for unique work;
+their dirty concurrent content is preserved.
 
 [28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step) owns the concrete
-campaign sequence and coverage. Run comprehensive assessment once after functional readiness,
+campaign sequence and coverage. On a later testing continuation, investigate the current
+seed failures and inconclusive fixtures first, then complete the affected qualification.
+Run comprehensive assessment after functional readiness,
 including its ordinary/managed Rust and Python partitions, current conformance, external parity,
 actual recovery, hygiene/manual checks and full powerset. Keep the exact reference160 capacities,
 original production numerical controls, explicit force-validation and zero-failure target.

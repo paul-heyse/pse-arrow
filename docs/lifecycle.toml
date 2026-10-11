@@ -1096,6 +1096,92 @@ status_profile = "finding"
 status_column = 2
 owner_column = 3
 
+
+# Plan 36 standalone series: only these new documents are bound here.
+
+[[scope_tables]]
+path = "docs/plans/36-efficiency-alignment.md"
+name = "implementation-packets"
+heading = "Implementation packets"
+headers = ["Packet", "Required input", "Delivery and acceptance", "Status"]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^(P-[A-Z][0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/36a-authoring-preparation-and-validity.md"
+name = "implementation-packets"
+heading = "Implementation packets"
+headers = ["Packet", "Required input", "Delivery and acceptance", "Status"]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^(P-[A-Z][0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/36b-studies-coordination-and-results.md"
+name = "implementation-packets"
+heading = "Implementation packets"
+headers = ["Packet", "Required input", "Delivery and acceptance", "Status"]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^(P-[A-Z][0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/36c-mathematical-and-native-execution.md"
+name = "implementation-packets"
+heading = "Implementation packets"
+headers = ["Packet", "Required input", "Delivery and acceptance", "Status"]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^(P-[A-Z][0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/36d-relational-and-python-boundaries.md"
+name = "implementation-packets"
+heading = "Implementation packets"
+headers = ["Packet", "Required input", "Delivery and acceptance", "Status"]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^(P-[A-Z][0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/36e-build-test-and-development.md"
+name = "implementation-packets"
+heading = "Implementation packets"
+headers = ["Packet", "Required input", "Delivery and acceptance", "Status"]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^(P-[A-Z][0-9]+)\b'
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/36-efficiency-alignment.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding reference",
+  "Scenario reference",
+  "Disposition",
+  "Decision / work owner",
+  "Evidence or revisit trigger",
+]
+kind = "finding"
+id_column = 0
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
 # Closed immutable legacy scalar encodings: exact source spans, never fallback parsing.
 
 [[legacy_yaml]]
